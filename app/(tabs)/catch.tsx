@@ -89,6 +89,58 @@ export default function CatchScreen() {
         return;
       }
 
+      const { data: suitConventionRows, error: suitConventionError } = await client
+        .from('fursuit_conventions')
+        .select('convention_id')
+        .eq('fursuit_id', fursuit.id);
+
+      if (suitConventionError) {
+        throw suitConventionError;
+      }
+
+      const { data: playerConventionRows, error: playerConventionError } = await client
+        .from('profile_conventions')
+        .select('convention_id')
+        .eq('profile_id', userId);
+
+      if (playerConventionError) {
+        throw playerConventionError;
+      }
+
+      const suitConventionIds = new Set(
+        (suitConventionRows ?? []).map((row: { convention_id: string }) => row.convention_id)
+      );
+      const playerConventionIds = new Set(
+        (playerConventionRows ?? []).map((row: { convention_id: string }) => row.convention_id)
+      );
+
+      if (playerConventionIds.size === 0) {
+        setCaughtFursuit(null);
+        setCatchRecord(null);
+        setSubmitError('Opt into at least one convention in Settings before logging catches.');
+        return;
+      }
+
+      if (suitConventionIds.size === 0) {
+        setCaughtFursuit(null);
+        setCatchRecord(null);
+        setSubmitError(
+          'This suit has not opted into any conventions yet. Ask the owner to update their settings before logging the catch.'
+        );
+        return;
+      }
+
+      const sharedConventions = [...playerConventionIds].filter((id) => suitConventionIds.has(id));
+
+      if (sharedConventions.length === 0) {
+        setCaughtFursuit(null);
+        setCatchRecord(null);
+        setSubmitError(
+          'You and this suit need to opt into the same convention before logging the catch.'
+        );
+        return;
+      }
+
       const { data: existingCatch, error: existingCatchError } = await client
         .from('catches')
         .select('id')

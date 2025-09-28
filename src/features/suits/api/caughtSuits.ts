@@ -20,7 +20,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       `
       id,
       caught_at,
-      fursuit:fursuits (id, name, species, avatar_url, unique_code)
+      fursuit:fursuits (id, name, species, avatar_url, unique_code, created_at)
     `
     )
     .eq('catcher_id', userId)
@@ -30,7 +30,25 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
     throw new Error(`We couldn't load your catches: ${error.message}`);
   }
 
-  return data ?? [];
+  return (data ?? []).map((record: any) => {
+    const fursuit = record.fursuit
+      ? ({
+          id: record.fursuit.id,
+          name: record.fursuit.name,
+          species: record.fursuit.species ?? null,
+          avatar_url: record.fursuit.avatar_url ?? null,
+          unique_code: record.fursuit.unique_code ?? null,
+          created_at: record.fursuit.created_at ?? null,
+          conventions: [],
+        } satisfies FursuitSummary)
+      : null;
+
+    return {
+      id: record.id,
+      caught_at: record.caught_at ?? null,
+      fursuit,
+    } satisfies CaughtRecord;
+  });
 }
 
 export const createCaughtSuitsQueryOptions = (userId: string) => ({

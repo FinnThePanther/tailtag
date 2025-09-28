@@ -66,6 +66,75 @@ export interface FursuitsUpdate {
   updated_at?: string | null;
 }
 
+export interface ConventionsRow {
+  id: string;
+  slug: string;
+  name: string;
+  location: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ConventionsInsert {
+  id?: string;
+  slug: string;
+  name: string;
+  location?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ConventionsUpdate {
+  id?: string;
+  slug?: string;
+  name?: string;
+  location?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ProfileConventionsRow {
+  profile_id: string;
+  convention_id: string;
+  created_at: string | null;
+}
+
+export interface ProfileConventionsInsert {
+  profile_id: string;
+  convention_id: string;
+  created_at?: string | null;
+}
+
+export interface ProfileConventionsUpdate {
+  profile_id?: string;
+  convention_id?: string;
+  created_at?: string | null;
+}
+
+export interface FursuitConventionsRow {
+  fursuit_id: string;
+  convention_id: string;
+  created_at: string | null;
+}
+
+export interface FursuitConventionsInsert {
+  fursuit_id: string;
+  convention_id: string;
+  created_at?: string | null;
+}
+
+export interface FursuitConventionsUpdate {
+  fursuit_id?: string;
+  convention_id?: string;
+  created_at?: string | null;
+}
+
 export interface CatchesRow {
   id: string;
   catcher_id: string;
@@ -134,6 +203,50 @@ export interface Database {
             foreignKeyName: 'catches_fursuit_id_fkey';
             columns: ['fursuit_id'];
             referencedRelation: 'fursuits';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      conventions: {
+        Row: ConventionsRow;
+        Insert: ConventionsInsert;
+        Update: ConventionsUpdate;
+        Relationships: [];
+      };
+      profile_conventions: {
+        Row: ProfileConventionsRow;
+        Insert: ProfileConventionsInsert;
+        Update: ProfileConventionsUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'profile_conventions_profile_id_fkey';
+            columns: ['profile_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'profile_conventions_convention_id_fkey';
+            columns: ['convention_id'];
+            referencedRelation: 'conventions';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      fursuit_conventions: {
+        Row: FursuitConventionsRow;
+        Insert: FursuitConventionsInsert;
+        Update: FursuitConventionsUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'fursuit_conventions_fursuit_id_fkey';
+            columns: ['fursuit_id'];
+            referencedRelation: 'fursuits';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'fursuit_conventions_convention_id_fkey';
+            columns: ['convention_id'];
+            referencedRelation: 'conventions';
             referencedColumns: ['id'];
           }
         ];

@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from 'expo-router';
@@ -9,10 +19,29 @@ import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { AVATAR_BUCKET, MAX_IMAGE_SIZE } from '../../src/constants/storage';
+import {
+  addFursuitConvention,
+  CONVENTIONS_QUERY_KEY,
+  CONVENTIONS_STALE_TIME,
+  fetchConventions,
+  fetchProfileConventionIds,
+  optInToConvention,
+  optOutOfConvention,
+  PROFILE_CONVENTIONS_QUERY_KEY,
+  removeFursuitConvention,
+} from '../../src/features/conventions';
 import { useAuth } from '../../src/features/auth';
+import type { ConventionSummary } from '../../src/features/conventions';
+import {
+  fetchMySuits,
+  MY_SUITS_QUERY_KEY,
+  MY_SUITS_STALE_TIME,
+} from '../../src/features/suits';
+import type { FursuitSummary } from '../../src/features/suits';
 import { supabase } from '../../src/lib/supabase';
 import { colors, spacing, radius } from '../../src/theme';
 import { loadUriAsUint8Array } from '../../src/utils/files';
+import { toDisplayDate } from '../../src/utils/dates';
 import { deriveStoragePathFromPublicUrl } from '../../src/utils/storage';
 import {
   fetchProfile,
@@ -27,6 +56,17 @@ type UploadCandidate = {
   fileName: string;
   fileSize: number;
 } | null;
+
+const formatConventionDateRange = (start: string | null, end: string | null) => {
+  const startLabel = toDisplayDate(start);
+  const endLabel = toDisplayDate(end);
+
+  if (startLabel && endLabel) {
+    return startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
+  }
+
+  return startLabel ?? endLabel ?? null;
+};
 
 export default function SettingsScreen() {
   const { session } = useAuth();
@@ -48,6 +88,55 @@ export default function SettingsScreen() {
     queryFn: () => fetchProfile(userId!),
   });
 
+  const conventionsQueryKey = useMemo(() => [CONVENTIONS_QUERY_KEY] as const, []);
+  const profileConventionQueryKey = useMemo(
+    () => [PROFILE_CONVENTIONS_QUERY_KEY, userId] as const,
+    [userId]
+  );
+  const suitsQueryKey = useMemo(() => [MY_SUITS_QUERY_KEY, userId] as const, [userId]);
+
+  const {
+    data: conventions = [],
+    error: conventionsError,
+    isLoading: isConventionsLoading,
+    refetch: refetchConventions,
+  } = useQuery<ConventionSummary[], Error>({
+    queryKey: conventionsQueryKey,
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchConventions(),
+  });
+
+  const {
+    data: profileConventionIds = [],
+    error: profileConventionsError,
+    isLoading: isProfileConventionsLoading,
+    refetch: refetchProfileConventions,
+  } = useQuery<string[], Error>({
+    queryKey: profileConventionQueryKey,
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchProfileConventionIds(userId!),
+  });
+
+  const {
+    data: mySuits = [],
+    error: suitsError,
+    isLoading: isSuitsLoading,
+    refetch: refetchSuits,
+  } = useQuery<FursuitSummary[], Error>({
+    queryKey: suitsQueryKey,
+    enabled: Boolean(userId),
+    staleTime: MY_SUITS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchMySuits(userId!),
+  });
+
   const [usernameInput, setUsernameInput] = useState('');
   const [bioInput, setBioInput] = useState('');
 
@@ -60,6 +149,13 @@ export default function SettingsScreen() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [conventionError, setConventionError] = useState<string | null>(null);
+  const [pendingMemberships, setPendingMemberships] = useState<Set<string>>(() => new Set());
+
+  const selectedConventionIdSet = useMemo(
+    () => new Set(profileConventionIds),
+    [profileConventionIds]
+  );
 
   const resetDraftFromProfile = useCallback(
     (summary: ProfileSummary | null, options: { resetMessages?: boolean } = {}) => {
@@ -87,16 +183,61 @@ export default function SettingsScreen() {
       }
 
       resetDraftFromProfile(profile, { resetMessages: true });
-      const state = queryClient.getQueryState<ProfileSummary | null>(profileQueryKey);
+      const profileState = queryClient.getQueryState<ProfileSummary | null>(profileQueryKey);
 
       if (
-        !state ||
-        state.isInvalidated ||
-        (state.status === 'success' && Date.now() - state.dataUpdatedAt > PROFILE_STALE_TIME)
+        !profileState ||
+        profileState.isInvalidated ||
+        (profileState.status === 'success' && Date.now() - profileState.dataUpdatedAt > PROFILE_STALE_TIME)
       ) {
         void refetchProfile({ throwOnError: false });
       }
-    }, [profile, profileQueryKey, queryClient, refetchProfile, resetDraftFromProfile, userId])
+
+      const conventionsState = queryClient.getQueryState<ConventionSummary[]>(conventionsQueryKey);
+
+      if (
+        !conventionsState ||
+        conventionsState.isInvalidated ||
+        (conventionsState.status === 'success' &&
+          Date.now() - conventionsState.dataUpdatedAt > CONVENTIONS_STALE_TIME)
+      ) {
+        void refetchConventions({ throwOnError: false });
+      }
+
+      const profileConventionsState = queryClient.getQueryState<string[]>(profileConventionQueryKey);
+
+      if (
+        !profileConventionsState ||
+        profileConventionsState.isInvalidated ||
+        (profileConventionsState.status === 'success' &&
+          Date.now() - profileConventionsState.dataUpdatedAt > CONVENTIONS_STALE_TIME)
+      ) {
+        void refetchProfileConventions({ throwOnError: false });
+      }
+
+      const suitsState = queryClient.getQueryState<FursuitSummary[]>(suitsQueryKey);
+
+      if (
+        !suitsState ||
+        suitsState.isInvalidated ||
+        (suitsState.status === 'success' && Date.now() - suitsState.dataUpdatedAt > MY_SUITS_STALE_TIME)
+      ) {
+        void refetchSuits({ throwOnError: false });
+      }
+    }, [
+      profile,
+      profileQueryKey,
+      queryClient,
+      refetchProfile,
+      resetDraftFromProfile,
+      userId,
+      conventionsQueryKey,
+      refetchConventions,
+      profileConventionQueryKey,
+      refetchProfileConventions,
+      suitsQueryKey,
+      refetchSuits,
+    ])
   );
 
   useEffect(() => {
@@ -107,6 +248,13 @@ export default function SettingsScreen() {
 
     resetDraftFromProfile(profile, { resetMessages: false });
   }, [profile, resetDraftFromProfile, userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setConventionError(null);
+      setPendingMemberships(() => new Set());
+    }
+  }, [userId]);
 
   const handlePickAvatar = useCallback(async () => {
     try {
@@ -179,6 +327,10 @@ export default function SettingsScreen() {
     setAvatarError(null);
     setSaveMessage(null);
   }, []);
+
+  const conventionsLoadError = conventionsError?.message ?? profileConventionsError?.message ?? null;
+  const suitsLoadError = suitsError?.message ?? null;
+  const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
 
   const isDirty = (() => {
     const usernameChanged = (profile?.username ?? '') !== usernameInput.trim();
@@ -305,6 +457,125 @@ export default function SettingsScreen() {
     profileQueryKey,
     queryClient,
   ]);
+
+  const handleToggleProfileConvention = useCallback(
+    async (conventionId: string, isSelected: boolean) => {
+      if (!userId) {
+        return;
+      }
+
+      const key = `profile:${userId}:${conventionId}`;
+
+      if (pendingMemberships.has(key)) {
+        return;
+      }
+
+      setConventionError(null);
+      setPendingMemberships((current) => {
+        const next = new Set(current);
+        next.add(key);
+        return next;
+      });
+
+      try {
+        if (isSelected) {
+          await optOutOfConvention(userId, conventionId);
+          queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) =>
+            (current ?? []).filter((value) => value !== conventionId)
+          );
+        } else {
+          await optInToConvention(userId, conventionId);
+          queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) => {
+            const next = new Set(current ?? []);
+            next.add(conventionId);
+            return Array.from(next);
+          });
+        }
+      } catch (caught) {
+        const fallbackMessage =
+          caught instanceof Error
+            ? caught.message
+            : 'We could not update your conventions right now. Please try again.';
+        setConventionError(fallbackMessage);
+      } finally {
+        setPendingMemberships((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+      }
+    },
+    [pendingMemberships, profileConventionQueryKey, queryClient, userId]
+  );
+
+  const handleToggleSuitConvention = useCallback(
+    async (fursuitId: string, conventionId: string, isSelected: boolean) => {
+      if (!userId) {
+        return;
+      }
+
+      const key = `fursuit:${fursuitId}:${conventionId}`;
+
+      if (pendingMemberships.has(key)) {
+        return;
+      }
+
+      setConventionError(null);
+      setPendingMemberships((current) => {
+        const next = new Set(current);
+        next.add(key);
+        return next;
+      });
+
+      try {
+        if (isSelected) {
+          await removeFursuitConvention(fursuitId, conventionId);
+        } else {
+          await addFursuitConvention(fursuitId, conventionId);
+        }
+
+        queryClient.setQueryData<FursuitSummary[]>(suitsQueryKey, (current) => {
+          const listing = current ?? [];
+
+          return listing.map((suit) => {
+            if (suit.id !== fursuitId) {
+              return suit;
+            }
+
+            const nextIds = new Set(suit.conventions.map((entry) => entry.id));
+
+            if (isSelected) {
+              nextIds.delete(conventionId);
+            } else {
+              nextIds.add(conventionId);
+            }
+
+            const ordered = conventions.length
+              ? conventions.filter((entry) => nextIds.has(entry.id))
+              : suit.conventions.filter((entry) => nextIds.has(entry.id));
+
+            return {
+              ...suit,
+              conventions: ordered,
+            };
+          });
+        });
+      } catch (caught) {
+        const fallbackMessage =
+          caught instanceof Error
+            ? caught.message
+            : 'We could not update fursuit conventions right now. Please try again.';
+        setConventionError(fallbackMessage);
+      } finally {
+        setPendingMemberships((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+      }
+    },
+    [conventions, pendingMemberships, queryClient, suitsQueryKey, userId]
+  );
 
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) {
@@ -442,6 +713,127 @@ export default function SettingsScreen() {
         </TailTagCard>
 
         <TailTagCard>
+          <View style={styles.conventionSection}>
+            <Text style={styles.sectionTitle}>Convention attendance</Text>
+            <Text style={styles.sectionDescription}>
+              Opt into conventions you&apos;ll be at so catches only count when everyone is on-site.
+            </Text>
+
+            {isConventionsBusy ? (
+              <Text style={styles.message}>Loading conventions…</Text>
+            ) : conventionsLoadError ? (
+              <View style={styles.helperColumn}>
+                <Text style={styles.error}>{conventionsLoadError}</Text>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void refetchConventions({ throwOnError: false });
+                    void refetchProfileConventions({ throwOnError: false });
+                  }}
+                >
+                  Try again
+                </TailTagButton>
+              </View>
+            ) : conventions.length === 0 ? (
+              <Text style={styles.message}>No conventions are available yet. Check back soon.</Text>
+            ) : (
+              <View style={styles.conventionList}>
+                {conventions.map((convention) => {
+                  const isSelected = selectedConventionIdSet.has(convention.id);
+                  const membershipKey = `profile:${userId}:${convention.id}`;
+                  const isPending = pendingMemberships.has(membershipKey);
+
+                  return (
+                    <ConventionToggle
+                      key={`profile-${convention.id}`}
+                      convention={convention}
+                      selected={isSelected}
+                      pending={isPending}
+                      onToggle={() => handleToggleProfileConvention(convention.id, isSelected)}
+                    />
+                  );
+                })}
+              </View>
+            )}
+
+            {conventionError ? <Text style={styles.error}>{conventionError}</Text> : null}
+
+            <View style={styles.sectionDivider} />
+
+            <Text style={styles.sectionSubtitle}>Assign suits to conventions</Text>
+            <Text style={styles.sectionHint}>
+              Mark each suit so other players know where they can trade tags with you.
+            </Text>
+
+            {isSuitsLoading ? (
+              <Text style={styles.message}>Loading your suits…</Text>
+            ) : suitsLoadError ? (
+              <View style={styles.helperColumn}>
+                <Text style={styles.error}>{suitsLoadError}</Text>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void refetchSuits({ throwOnError: false });
+                  }}
+                >
+                  Try again
+                </TailTagButton>
+              </View>
+            ) : mySuits.length === 0 ? (
+              <Text style={styles.message}>
+                Add a fursuit from the Suits tab to start assigning conventions.
+              </Text>
+            ) : conventions.length === 0 ? (
+              <Text style={styles.message}>Opt into a convention above to assign your suits.</Text>
+            ) : (
+              <View style={styles.suitList}>
+                {mySuits.map((suit) => (
+                  <View key={suit.id} style={styles.suitBlock}>
+                    <View style={styles.suitHeader}>
+                      <Text style={styles.suitName}>{suit.name}</Text>
+                      {suit.unique_code ? (
+                        <Text style={styles.suitCode}>{suit.unique_code.toUpperCase()}</Text>
+                      ) : null}
+                    </View>
+                    {suit.species ? (
+                      <Text style={styles.suitMetaText}>{suit.species}</Text>
+                    ) : null}
+                    <View style={styles.suitConventions}>
+                      {conventions.map((convention) => {
+                        const isSelected = suit.conventions.some((entry) => entry.id === convention.id);
+                        const membershipKey = `fursuit:${suit.id}:${convention.id}`;
+                        const isPending = pendingMemberships.has(membershipKey);
+                        const playerHasConvention = selectedConventionIdSet.has(convention.id);
+                        const disabled = !playerHasConvention && !isSelected;
+                        const badgeText = isSelected
+                          ? 'Assigned'
+                          : playerHasConvention
+                            ? 'Assign'
+                            : 'Opt in above first';
+
+                        return (
+                          <ConventionToggle
+                            key={`fursuit-${suit.id}-${convention.id}`}
+                            convention={convention}
+                            selected={isSelected}
+                            pending={isPending}
+                            disabled={disabled}
+                            badgeText={badgeText}
+                            onToggle={() => handleToggleSuitConvention(suit.id, convention.id, isSelected)}
+                          />
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        </TailTagCard>
+
+        <TailTagCard>
           <Text style={styles.sectionTitle}>Account</Text>
           {signOutError ? <Text style={styles.error}>{signOutError}</Text> : null}
           <TailTagButton onPress={handleSignOut} loading={isSigningOut}>
@@ -450,6 +842,66 @@ export default function SettingsScreen() {
         </TailTagCard>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+type ConventionToggleProps = {
+  convention: ConventionSummary;
+  selected: boolean;
+  pending: boolean;
+  disabled?: boolean;
+  badgeText?: string;
+  onToggle: () => void;
+};
+
+function ConventionToggle({
+  convention,
+  selected,
+  pending,
+  disabled = false,
+  badgeText,
+  onToggle,
+}: ConventionToggleProps) {
+  const dateRange = formatConventionDateRange(convention.start_date ?? null, convention.end_date ?? null);
+  const shouldDisable = disabled || pending;
+  const showDisabledBadge = !selected && !pending && disabled;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: shouldDisable, selected }}
+      onPress={onToggle}
+      disabled={shouldDisable}
+      style={({ pressed }) => [
+        styles.conventionRow,
+        selected && styles.conventionRowSelected,
+        (shouldDisable) && styles.conventionRowDisabled,
+        pressed && !shouldDisable ? styles.conventionRowPressed : null,
+      ]}
+    >
+      <View style={styles.conventionInfo}>
+        <Text style={styles.conventionName}>{convention.name}</Text>
+        {convention.location ? (
+          <Text style={styles.conventionMetaText}>{convention.location}</Text>
+        ) : null}
+        {dateRange ? <Text style={styles.conventionMetaText}>{dateRange}</Text> : null}
+      </View>
+      <View
+        style={[
+          styles.conventionBadge,
+          selected && styles.conventionBadgeActive,
+          showDisabledBadge ? styles.conventionBadgeDisabled : null,
+        ]}
+      >
+        {pending ? (
+          <ActivityIndicator size="small" color={colors.foreground} />
+        ) : (
+          <Text style={styles.conventionBadgeText}>
+            {badgeText ?? (selected ? 'Opted in' : 'Tap to join')}
+          </Text>
+        )}
+      </View>
+    </Pressable>
   );
 }
 
@@ -492,11 +944,33 @@ const styles = StyleSheet.create({
   profileSection: {
     gap: spacing.md,
   },
+  conventionSection: {
+    gap: spacing.md,
+  },
   sectionTitle: {
     color: colors.foreground,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: spacing.xs,
+  },
+  sectionDescription: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  sectionDivider: {
+    borderBottomColor: 'rgba(148,163,184,0.18)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginVertical: spacing.md,
+  },
+  sectionSubtitle: {
+    color: colors.foreground,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  sectionHint: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 12,
   },
   avatarRow: {
     alignItems: 'flex-start',
@@ -542,6 +1016,106 @@ const styles = StyleSheet.create({
   bioInput: {
     minHeight: 120,
     textAlignVertical: 'top',
+  },
+  helperColumn: {
+    gap: spacing.sm,
+  },
+  conventionList: {
+    gap: spacing.sm,
+  },
+  conventionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.2)',
+    borderRadius: radius.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: 'rgba(15,23,42,0.7)',
+    gap: spacing.sm,
+  },
+  conventionRowSelected: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(8,47,73,0.55)',
+  },
+  conventionRowDisabled: {
+    opacity: 0.55,
+  },
+  conventionRowPressed: {
+    opacity: 0.9,
+  },
+  conventionInfo: {
+    flex: 1,
+    marginRight: spacing.sm,
+    gap: 2,
+  },
+  conventionName: {
+    color: colors.foreground,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  conventionMetaText: {
+    color: 'rgba(148,163,184,0.85)',
+    fontSize: 12,
+  },
+  conventionBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.35)',
+    backgroundColor: 'rgba(15,23,42,0.6)',
+    minWidth: 112,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conventionBadgeActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(56,189,248,0.2)',
+  },
+  conventionBadgeDisabled: {
+    borderColor: 'rgba(148,163,184,0.2)',
+    backgroundColor: 'rgba(30,41,59,0.6)',
+  },
+  conventionBadgeText: {
+    color: colors.foreground,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  suitList: {
+    gap: spacing.md,
+  },
+  suitBlock: {
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.25)',
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    backgroundColor: 'rgba(15,23,42,0.65)',
+    gap: spacing.sm,
+  },
+  suitHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  suitName: {
+    color: colors.foreground,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  suitCode: {
+    color: '#38bdf8',
+    fontFamily: 'Courier',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  suitMetaText: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 12,
+  },
+  suitConventions: {
+    gap: spacing.sm,
   },
   error: {
     color: '#fca5a5',
