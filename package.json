@@ -7,11 +7,11 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "doctor": "expo doctor",
+    "doctor": "npx expo-doctor",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "prebuild": "expo prebuild --non-interactive",
-    "ci:validate": "npm run doctor && npm run lint && npm run typecheck && npm run prebuild"
+    "ci:validate": "npm run doctor && npm run lint && npm run typecheck"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

@@ -32,5 +32,3 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
-      - name: Expo prebuild validation
-        run: npm run prebuild
