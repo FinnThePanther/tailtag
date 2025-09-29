@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -11,7 +11,7 @@ import {
 
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
@@ -24,6 +24,14 @@ import { generateUniqueCodeCandidate } from '../../../src/utils/code';
 import { loadUriAsUint8Array } from '../../../src/utils/files';
 import { colors, spacing, radius } from '../../../src/theme';
 import { MY_SUITS_QUERY_KEY } from '../../../src/features/suits';
+import {
+  addFursuitConvention,
+  CONVENTIONS_STALE_TIME,
+  createConventionsQueryOptions,
+  fetchProfileConventionIds,
+  PROFILE_CONVENTIONS_QUERY_KEY,
+} from '../../../src/features/conventions';
+import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
 
 import type { FursuitBiosInsert, FursuitsInsert, Json } from '../../../src/types/database';
 import {
@@ -60,9 +68,85 @@ export default function AddFursuitScreen() {
   const [selectedPhoto, setSelectedPhoto] = useState<UploadCandidate>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
+  const conventionsQueryOptions = useMemo(() => createConventionsQueryOptions(), []);
+  const {
+    data: conventions = [],
+    error: conventionsError,
+    isLoading: isConventionsLoading,
+    refetch: refetchConventions,
+  } = useQuery({
+    ...conventionsQueryOptions,
+    enabled: Boolean(userId),
+  });
+
+  const {
+    data: profileConventionIds = [],
+    error: profileConventionsError,
+    isLoading: isProfileConventionsLoading,
+    refetch: refetchProfileConventions,
+  } = useQuery<string[], Error>({
+    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchProfileConventionIds(userId!),
+  });
+
+  const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
+  const [hasHydratedConventions, setHasHydratedConventions] = useState(false);
+
   const socialLinksCanAddMore = useMemo(
     () => socialLinks.length < SOCIAL_LINK_LIMIT,
     [socialLinks.length]
+  );
+
+  const profileConventionIdSet = useMemo(
+    () => new Set(profileConventionIds),
+    [profileConventionIds]
+  );
+
+  useEffect(() => {
+    if (!userId) {
+      setSelectedConventionIds(new Set());
+      setHasHydratedConventions(false);
+      return;
+    }
+
+    if (!hasHydratedConventions) {
+      setSelectedConventionIds(new Set(profileConventionIds));
+      setHasHydratedConventions(true);
+      return;
+    }
+
+    setSelectedConventionIds((current) => {
+      const filtered = new Set([...current].filter((id) => profileConventionIdSet.has(id)));
+      return filtered.size === current.size ? current : filtered;
+    });
+  }, [hasHydratedConventions, profileConventionIdSet, profileConventionIds, userId]);
+
+  const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
+  const conventionsLoadError = conventionsError?.message ?? profileConventionsError?.message ?? null;
+
+  const handleConventionToggle = useCallback(
+    (conventionId: string) => {
+      if (!profileConventionIdSet.has(conventionId)) {
+        return;
+      }
+
+      setSelectedConventionIds((current) => {
+        const next = new Set(current);
+
+        if (next.has(conventionId)) {
+          next.delete(conventionId);
+        } else {
+          next.add(conventionId);
+        }
+
+        return next;
+      });
+    },
+    [profileConventionIdSet]
   );
 
   const ensureUniqueCode = useCallback(async () => {
@@ -222,6 +306,10 @@ export default function AddFursuitScreen() {
       return;
     }
 
+    const allowedConventionIds = Array.from(selectedConventionIds).filter((id) =>
+      profileConventionIdSet.has(id)
+    );
+
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -290,6 +378,12 @@ export default function AddFursuitScreen() {
         throw new Error('We could not save your fursuit. Please try again.');
       }
 
+      if (allowedConventionIds.length > 0) {
+        await Promise.all(
+          allowedConventionIds.map((conventionId) => addFursuitConvention(createdFursuitId!, conventionId))
+        );
+      }
+
       const bioPayload: FursuitBiosInsert = {
         fursuit_id: createdFursuitId,
         version: 1,
@@ -321,6 +415,8 @@ export default function AddFursuitScreen() {
       setLikesInput('');
       setAskMeAboutInput('');
       setSocialLinks([createEmptySocialLink()]);
+      setSelectedConventionIds(new Set(profileConventionIds));
+      setHasHydratedConventions(true);
       setSelectedPhoto(null);
       setPhotoError(null);
       setSubmitError(null);
@@ -579,6 +675,62 @@ export default function AddFursuitScreen() {
             )}
           </View>
 
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Conventions</Text>
+            <Text style={styles.helperLabel}>
+              Choose the conventions where this suit will be catchable.
+            </Text>
+            {isConventionsBusy ? (
+              <Text style={styles.message}>Loading conventions…</Text>
+            ) : conventionsLoadError ? (
+              <View style={styles.helperColumn}>
+                <Text style={styles.errorText}>{conventionsLoadError}</Text>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void refetchConventions({ throwOnError: false });
+                    void refetchProfileConventions({ throwOnError: false });
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Try again
+                </TailTagButton>
+              </View>
+            ) : conventions.length === 0 ? (
+              <Text style={styles.message}>No conventions are available yet. Check back soon.</Text>
+            ) : profileConventionIdSet.size === 0 ? (
+              <Text style={styles.message}>
+                Opt into a convention from Settings before assigning this suit.
+              </Text>
+            ) : (
+              <View style={styles.conventionList}>
+                {conventions.map((convention) => {
+                  const isAllowed = profileConventionIdSet.has(convention.id);
+                  const isSelected = selectedConventionIds.has(convention.id);
+
+                  return (
+                    <ConventionToggle
+                      key={convention.id}
+                      convention={convention}
+                      selected={isSelected}
+                      pending={false}
+                      disabled={!isAllowed}
+                      badgeText={
+                        isAllowed
+                          ? isSelected
+                            ? 'Assigned'
+                            : 'Tap to assign'
+                          : 'Opt in via Settings'
+                      }
+                      onToggle={() => handleConventionToggle(convention.id)}
+                    />
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
           {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
 
           <TailTagButton onPress={handleSubmit} loading={isSubmitting} disabled={isSubmitting}>
@@ -663,6 +815,16 @@ const styles = StyleSheet.create({
   },
   textArea: {
     minHeight: 96,
+  },
+  helperColumn: {
+    gap: spacing.sm,
+  },
+  conventionList: {
+    gap: spacing.sm,
+  },
+  message: {
+    color: 'rgba(203,213,225,0.9)',
+    fontSize: 14,
   },
   errorText: {
     color: '#fca5a5',

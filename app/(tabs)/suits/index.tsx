@@ -6,7 +6,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   FursuitCard,
-  FursuitBioDetails,
   fetchMySuits,
   MY_SUITS_QUERY_KEY,
   MY_SUITS_STALE_TIME,

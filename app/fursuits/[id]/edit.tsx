@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,6 +19,15 @@ import {
   createEmptySocialLink,
   mapEditableSocialLinks,
 } from '../../../src/features/suits/forms/socialLinks';
+import {
+  addFursuitConvention,
+  CONVENTIONS_STALE_TIME,
+  createConventionsQueryOptions,
+  fetchProfileConventionIds,
+  PROFILE_CONVENTIONS_QUERY_KEY,
+  removeFursuitConvention,
+} from '../../../src/features/conventions';
+import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
 import { useAuth } from '../../../src/features/auth';
 import { supabase } from '../../../src/lib/supabase';
 import { colors, spacing } from '../../../src/theme';
@@ -53,6 +62,42 @@ export default function EditFursuitScreen() {
     queryFn: () => fetchFursuitDetail(fursuitId ?? ''),
     staleTime: 0,
   });
+
+  const conventionsQueryOptions = useMemo(() => createConventionsQueryOptions(), []);
+  const {
+    data: conventions = [],
+    error: conventionsError,
+    isLoading: isConventionsLoading,
+    refetch: refetchConventions,
+  } = useQuery({
+    ...conventionsQueryOptions,
+    enabled: Boolean(userId),
+  });
+
+  const {
+    data: profileConventionIds = [],
+    error: profileConventionsError,
+    isLoading: isProfileConventionsLoading,
+    refetch: refetchProfileConventions,
+  } = useQuery<string[], Error>({
+    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchProfileConventionIds(userId!),
+  });
+
+  const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
+  const [initialConventionIds, setInitialConventionIds] = useState<Set<string>>(new Set());
+
+  const profileConventionIdSet = useMemo(
+    () => new Set(profileConventionIds),
+    [profileConventionIds]
+  );
+
+  const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
+  const conventionsLoadError = conventionsError?.message ?? profileConventionsError?.message ?? null;
 
   const [hasHydratedForm, setHasHydratedForm] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -95,6 +140,10 @@ export default function EditFursuitScreen() {
     } else {
       setSocialLinks([createEmptySocialLink()]);
     }
+
+    const initialConventionSet = new Set((detail.conventions ?? []).map((entry) => entry.id));
+    setSelectedConventionIds(new Set(initialConventionSet));
+    setInitialConventionIds(initialConventionSet);
 
     setHasHydratedForm(true);
   }, [detail, hasHydratedForm]);
@@ -205,6 +254,11 @@ export default function EditFursuitScreen() {
       }
     }
 
+    const toAdd = Array.from(selectedConventionIds).filter(
+      (id) => !initialConventionIds.has(id) && profileConventionIdSet.has(id)
+    );
+    const toRemove = Array.from(initialConventionIds).filter((id) => !selectedConventionIds.has(id));
+
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -212,6 +266,8 @@ export default function EditFursuitScreen() {
     const previousName = detail.name;
     const previousSpecies = detail.species;
     let updatedCoreRecord = false;
+    const addedConventionIds: string[] = [];
+    const removedConventionIds: string[] = [];
 
     try {
       const { error: updateError } = await client
@@ -249,9 +305,21 @@ export default function EditFursuitScreen() {
         throw bioError;
       }
 
+      for (const conventionId of toAdd) {
+        await addFursuitConvention(fursuitId, conventionId);
+        addedConventionIds.push(conventionId);
+      }
+
+      for (const conventionId of toRemove) {
+        await removeFursuitConvention(fursuitId, conventionId);
+        removedConventionIds.push(conventionId);
+      }
+
       queryClient.invalidateQueries({ queryKey: fursuitDetailQueryKey(fursuitId) });
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
       queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
+
+      setInitialConventionIds(new Set(selectedConventionIds));
 
       router.back();
     } catch (caught) {
@@ -260,6 +328,26 @@ export default function EditFursuitScreen() {
           ? caught.message
           : "We couldn't update that fursuit right now. Please try again.";
       setSubmitError(fallbackMessage);
+
+      if (addedConventionIds.length > 0) {
+        await Promise.all(
+          addedConventionIds.map((conventionId) =>
+            removeFursuitConvention(fursuitId, conventionId).catch((revertError) => {
+              console.warn('Failed to revert convention assignment after error', revertError);
+            })
+          )
+        );
+      }
+
+      if (removedConventionIds.length > 0) {
+        await Promise.all(
+          removedConventionIds.map((conventionId) =>
+            addFursuitConvention(fursuitId, conventionId).catch((revertError) => {
+              console.warn('Failed to restore convention assignment after error', revertError);
+            })
+          )
+        );
+      }
 
       if (updatedCoreRecord) {
         const { error: revertError } = await client
@@ -278,6 +366,27 @@ export default function EditFursuitScreen() {
   };
 
   const disableForm = isLoading || !detail || !isOwner || isSubmitting;
+
+  const handleConventionToggle = useCallback(
+    (conventionId: string) => {
+      if (disableForm || !profileConventionIdSet.has(conventionId)) {
+        return;
+      }
+
+      setSelectedConventionIds((current) => {
+        const next = new Set(current);
+
+        if (next.has(conventionId)) {
+          next.delete(conventionId);
+        } else {
+          next.add(conventionId);
+        }
+
+        return next;
+      });
+    },
+    [disableForm, profileConventionIdSet]
+  );
 
   return (
     <KeyboardAvoidingView
@@ -461,6 +570,62 @@ export default function EditFursuitScreen() {
                 )}
               </View>
 
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Conventions</Text>
+                <Text style={styles.helperLabel}>
+                  Update where catchers can trade tags with this suit.
+                </Text>
+                {isConventionsBusy ? (
+                  <Text style={styles.message}>Loading conventions…</Text>
+                ) : conventionsLoadError ? (
+                  <View style={styles.helperColumn}>
+                    <Text style={styles.errorText}>{conventionsLoadError}</Text>
+                    <TailTagButton
+                      variant="outline"
+                      size="sm"
+                      onPress={() => {
+                        void refetchConventions({ throwOnError: false });
+                        void refetchProfileConventions({ throwOnError: false });
+                      }}
+                      disabled={disableForm}
+                    >
+                      Try again
+                    </TailTagButton>
+                  </View>
+                ) : conventions.length === 0 ? (
+                  <Text style={styles.message}>No conventions are available yet. Check back soon.</Text>
+                ) : profileConventionIdSet.size === 0 ? (
+                  <Text style={styles.message}>
+                    Opt into a convention from Settings before assigning this suit.
+                  </Text>
+                ) : (
+                  <View style={styles.conventionList}>
+                    {conventions.map((convention) => {
+                      const isAllowed = profileConventionIdSet.has(convention.id);
+                      const isSelected = selectedConventionIds.has(convention.id);
+
+                      return (
+                        <ConventionToggle
+                          key={convention.id}
+                          convention={convention}
+                          selected={isSelected}
+                          pending={false}
+                          disabled={disableForm || (!isAllowed && !isSelected)}
+                          badgeText={
+                            isAllowed
+                              ? isSelected
+                                ? 'Assigned'
+                                : 'Tap to assign'
+                              : 'Opt in via Settings'
+                          }
+                          onToggle={() => handleConventionToggle(convention.id)}
+                        />
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+
               {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
 
               <View style={styles.buttonRow}>
@@ -530,6 +695,12 @@ const styles = StyleSheet.create({
   helperLabel: {
     color: 'rgba(148,163,184,0.9)',
     fontSize: 12,
+  },
+  helperColumn: {
+    gap: spacing.sm,
+  },
+  conventionList: {
+    gap: spacing.sm,
   },
   socialList: {
     gap: spacing.sm,
