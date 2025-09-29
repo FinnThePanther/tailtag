@@ -537,7 +537,7 @@ export default function SettingsScreen() {
 
         <TailTagCard>
           <View style={styles.statsSection}>
-            <Text style={styles.sectionTitle}>Your stats</Text>
+            <Text style={styles.sectionTitle}>Your all-time stats</Text>
             {isStatsLoading ? (
               <Text style={styles.message}>Loading stats…</Text>
             ) : statsError ? (
