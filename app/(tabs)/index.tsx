@@ -1,11 +1,27 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
-import { colors, spacing } from '../../src/theme';
+import { useAuth } from '../../src/features/auth';
+import {
+  CONVENTIONS_QUERY_KEY,
+  CONVENTIONS_STALE_TIME,
+  type ConventionSummary,
+  fetchConventions,
+  fetchProfileConventionIds,
+  PROFILE_CONVENTIONS_QUERY_KEY,
+} from '../../src/features/conventions';
+import {
+  CONVENTION_LEADERBOARD_QUERY_KEY,
+  fetchConventionLeaderboard,
+  type LeaderboardEntry,
+} from '../../src/features/leaderboard';
+import { colors, spacing, radius } from '../../src/theme';
 
 const features = [
   {
@@ -24,8 +40,108 @@ const features = [
   },
 ];
 
+const MAX_LEADERBOARD_ENTRIES = 10;
+
+const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);
+
 export default function HomeScreen() {
   const router = useRouter();
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+
+  const {
+    data: conventions = [],
+    error: conventionsError,
+    isLoading: isConventionsLoading,
+    refetch: refetchConventions,
+  } = useQuery<ConventionSummary[], Error>({
+    queryKey: [CONVENTIONS_QUERY_KEY],
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchConventions(),
+  });
+
+  const {
+    data: profileConventionIds = [],
+    error: profileConventionsError,
+    isLoading: isProfileConventionsLoading,
+    refetch: refetchProfileConventions,
+  } = useQuery<string[], Error>({
+    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchProfileConventionIds(userId!),
+  });
+
+  const conventionMap = useMemo(() => {
+    return new Map(conventions.map((convention) => [convention.id, convention]));
+  }, [conventions]);
+
+  const availableConventions = useMemo(() => {
+    return profileConventionIds
+      .map((id) => conventionMap.get(id))
+      .filter((convention): convention is ConventionSummary => Boolean(convention));
+  }, [conventionMap, profileConventionIds]);
+
+  const [selectedConventionId, setSelectedConventionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (availableConventions.length === 0) {
+      setSelectedConventionId(null);
+      return;
+    }
+
+    setSelectedConventionId((current) => {
+      if (current && availableConventions.some((convention) => convention.id === current)) {
+        return current;
+      }
+
+      return availableConventions[0]?.id ?? null;
+    });
+  }, [availableConventions]);
+
+  const {
+    data: leaderboardEntries = [],
+    error: leaderboardError,
+    isLoading: isLeaderboardLoading,
+    isFetching: isLeaderboardFetching,
+    refetch: refetchLeaderboard,
+  } = useQuery<LeaderboardEntry[], Error>({
+    queryKey: selectedConventionId
+      ? [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId]
+      : [CONVENTION_LEADERBOARD_QUERY_KEY, 'idle'],
+    queryFn: selectedConventionId
+      ? () => fetchConventionLeaderboard(selectedConventionId)
+      : async () => [],
+    enabled: Boolean(userId && selectedConventionId),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
+  const membershipErrorMessage = profileConventionsError?.message ?? conventionsError?.message ?? null;
+  const isMembershipLoading = isProfileConventionsLoading || isConventionsLoading;
+  const hasConventionAccess = availableConventions.length > 0;
+  const isLeaderboardBusy = isLeaderboardLoading || isLeaderboardFetching;
+
+  const rankByProfileId = useMemo(() => {
+    return new Map(leaderboardEntries.map((entry, index) => [entry.profileId, index + 1]));
+  }, [leaderboardEntries]);
+
+  const topEntries = leaderboardEntries.slice(0, MAX_LEADERBOARD_ENTRIES);
+  const selfEntry = userId
+    ? leaderboardEntries.find((entry) => entry.profileId === userId) ?? null
+    : null;
+
+  const isSelfOutsideTop = Boolean(
+    selfEntry && !topEntries.some((entry) => entry.profileId === selfEntry.profileId)
+  );
+
+  const displayEntries = isSelfOutsideTop && selfEntry ? [...topEntries, selfEntry] : topEntries;
 
   return (
     <View style={styles.wrapper}>
@@ -65,6 +181,117 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
+
+        <TailTagCard style={styles.leaderboardCard}>
+          <Text style={styles.sectionEyebrow}>Leaderboard</Text>
+          <Text style={styles.sectionTitle}>Catch standings</Text>
+
+          {isMembershipLoading ? (
+            <Text style={styles.message}>Loading convention info…</Text>
+          ) : membershipErrorMessage ? (
+            <View style={styles.helper}>
+              <Text style={styles.error}>{membershipErrorMessage}</Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => {
+                  void refetchProfileConventions({ throwOnError: false });
+                  void refetchConventions({ throwOnError: false });
+                }}
+              >
+                Try again
+              </TailTagButton>
+            </View>
+          ) : hasConventionAccess ? (
+            <View style={styles.leaderboardContent}>
+              <Text style={styles.sectionBody}>Pick a convention to see the top hunters.</Text>
+              <View style={styles.selectorRow}>
+                {availableConventions.map((convention) => (
+                  <TailTagButton
+                    key={convention.id}
+                    size="sm"
+                    variant={selectedConventionId === convention.id ? 'primary' : 'outline'}
+                    onPress={() => setSelectedConventionId(convention.id)}
+                    style={styles.selectorButton}
+                  >
+                    {convention.name}
+                  </TailTagButton>
+                ))}
+              </View>
+
+              {selectedConventionId ? (
+                isLeaderboardBusy ? (
+                  <Text style={styles.message}>Loading leaderboard…</Text>
+                ) : leaderboardError ? (
+                  <View style={styles.helper}>
+                    <Text style={styles.error}>{leaderboardError.message}</Text>
+                    <TailTagButton
+                      variant="outline"
+                      size="sm"
+                      onPress={() => {
+                        void refetchLeaderboard({ throwOnError: false });
+                      }}
+                    >
+                      Try again
+                    </TailTagButton>
+                  </View>
+                ) : displayEntries.length > 0 ? (
+                  <View style={styles.leaderboardSection}>
+                    <View style={styles.leaderboardList}>
+                      {displayEntries.map((entry) => {
+                        const rank = rankByProfileId.get(entry.profileId) ?? 0;
+                        const isSelf = entry.profileId === userId;
+
+                        return (
+                          <View
+                            key={`${entry.profileId}-${rank}`}
+                            style={[
+                              styles.leaderboardRow,
+                              isSelf && styles.leaderboardRowHighlight,
+                            ]}
+                          >
+                            <Text style={styles.leaderboardRank}>#{rank}</Text>
+                            <View style={styles.leaderboardDetails}>
+                              <Text style={styles.leaderboardName} numberOfLines={1}>
+                                {entry.username ?? 'Unnamed player'}
+                              </Text>
+                              <Text style={styles.leaderboardCatchLabel} numberOfLines={1}>
+                                {formatCatchCount(entry.catchCount)}
+                                {isSelf ? ' · You' : ''}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                    {isSelfOutsideTop && selfEntry ? (
+                      <Text style={styles.leaderboardFootnote}>
+                        You're currently #{rankByProfileId.get(selfEntry.profileId)}. Keep hunting to climb the board.
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : (
+                  <Text style={styles.message}>
+                    No catches yet. Be the first to tag a suit at this convention.
+                  </Text>
+                )
+              ) : null}
+            </View>
+          ) : (
+            <View style={styles.helper}>
+              <Text style={styles.message}>
+                Opt into a convention to see its leaderboard standings.
+              </Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => router.push('/settings')}
+              >
+                Manage conventions
+              </TailTagButton>
+            </View>
+          )}
+        </TailTagCard>
 
         <TailTagCard style={styles.loopCard}>
           <Text style={styles.sectionEyebrow}>Gameplay Loop</Text>
@@ -198,21 +425,116 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
     marginBottom: spacing.md,
   },
-  sectionEyebrow: {
-    fontSize: 11,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    color: '#bae6fd',
-    marginBottom: spacing.xs,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    color: colors.foreground,
-    fontWeight: '600',
-    marginBottom: spacing.md,
+  leaderboardCard: {
+    width: maxContentWidth,
+    marginBottom: spacing.xl,
   },
   loopCard: {
     width: maxContentWidth,
+    marginBottom: spacing.xl,
+  },
+  sectionEyebrow: {
+    fontSize: 12,
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+    color: colors.primary,
+    marginBottom: spacing.xs,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: colors.foreground,
+    marginBottom: spacing.sm,
+  },
+  sectionBody: {
+    color: 'rgba(203,213,225,0.9)',
+    fontSize: 14,
+    marginBottom: spacing.md,
+  },
+  message: {
+    color: 'rgba(203,213,225,0.9)',
+    fontSize: 14,
+  },
+  helper: {
+    gap: spacing.sm,
+  },
+  error: {
+    color: '#fca5a5',
+    fontSize: 14,
+  },
+  leaderboardContent: {
+    gap: spacing.md,
+  },
+  leaderboardSection: {
+    gap: spacing.sm,
+  },
+  selectorRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  selectorButton: {
+    minHeight: 36,
+    paddingHorizontal: spacing.md,
+  },
+  leaderboardList: {
+    gap: spacing.xs,
+  },
+  leaderboardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(15,23,42,0.6)',
+  },
+  leaderboardRowHighlight: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(56,189,248,0.12)',
+  },
+  leaderboardRank: {
+    width: 36,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  leaderboardDetails: {
+    flex: 1,
+    gap: 4,
+  },
+  leaderboardName: {
+    color: colors.foreground,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  leaderboardCatchLabel: {
+    color: 'rgba(203,213,225,0.8)',
+    fontSize: 13,
+  },
+  leaderboardFootnote: {
+    color: 'rgba(203,213,225,0.7)',
+    fontSize: 12,
+  },
+  featureGrid: {
+    width: maxContentWidth,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.lg,
+  },
+  featureCard: {
+    flexBasis: '100%',
+    flexGrow: 1,
+  },
+  featureTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.foreground,
+    marginBottom: spacing.sm,
+  },
+  featureDescription: {
+    fontSize: 15,
+    color: 'rgba(203,213,225,0.9)',
   },
   stepRow: {
     flexDirection: 'row',
@@ -225,47 +547,27 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.4)',
-    backgroundColor: 'rgba(56,189,248,0.18)',
+    backgroundColor: 'rgba(56,189,248,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: spacing.md,
   },
   stepBadgeText: {
-    color: '#bae6fd',
-    fontWeight: '700',
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   stepDetails: {
     flex: 1,
-    marginLeft: spacing.md,
   },
   stepTitle: {
     color: colors.foreground,
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
-  },
-  stepDescription: {
-    color: 'rgba(203,213,225,0.85)',
-    fontSize: 14,
-  },
-  featureGrid: {
-    width: maxContentWidth,
-    marginTop: spacing.xl,
-  },
-  featureCard: {
-    width: '100%',
-    marginBottom: spacing.md,
-  },
-  featureTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.foreground,
     marginBottom: spacing.xs,
   },
-  featureDescription: {
-    color: 'rgba(203,213,225,0.85)',
+  stepDescription: {
+    color: 'rgba(203,213,225,0.9)',
     fontSize: 14,
   },
 });
-
