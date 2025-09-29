@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
 
-import { colors, radius, spacing } from '../../theme';
+import { radius, spacing } from '../../theme';
 
 type TailTagCardProps = {
   children: ReactNode;

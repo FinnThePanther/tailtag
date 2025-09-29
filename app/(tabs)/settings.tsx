@@ -32,7 +32,6 @@ import { ConventionToggle } from '../../src/components/conventions/ConventionTog
 import { supabase } from '../../src/lib/supabase';
 import { colors, spacing, radius } from '../../src/theme';
 import { loadUriAsUint8Array } from '../../src/utils/files';
-import { toDisplayDate } from '../../src/utils/dates';
 import { deriveStoragePathFromPublicUrl } from '../../src/utils/storage';
 import {
   fetchProfile,
@@ -449,6 +448,7 @@ export default function SettingsScreen() {
     bioInput,
     selectedAvatar,
     shouldRemoveAvatar,
+    profile?.avatar_url,
     profileQueryKey,
     queryClient,
   ]);
