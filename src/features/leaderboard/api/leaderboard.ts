@@ -7,6 +7,16 @@ export type LeaderboardEntry = {
   catchCount: number;
 };
 
+export type SuitLeaderboardEntry = {
+  fursuitId: string;
+  name: string;
+  species: string | null;
+  avatarUrl: string | null;
+  ownerProfileId: string | null;
+  ownerUsername: string | null;
+  catchCount: number;
+};
+
 export const CONVENTION_LEADERBOARD_QUERY_KEY = 'convention-leaderboard';
 
 export const conventionLeaderboardQueryKey = (conventionId: string) =>
@@ -141,6 +151,136 @@ export async function fetchConventionLeaderboard(conventionId: string): Promise<
 export const createConventionLeaderboardQueryOptions = (conventionId: string) => ({
   queryKey: conventionLeaderboardQueryKey(conventionId),
   queryFn: () => fetchConventionLeaderboard(conventionId),
+  staleTime: 60_000,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
+
+export const CONVENTION_SUIT_LEADERBOARD_QUERY_KEY = 'convention-suit-leaderboard';
+
+export const conventionSuitLeaderboardQueryKey = (conventionId: string) =>
+  [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, conventionId] as const;
+
+export async function fetchConventionSuitLeaderboard(conventionId: string): Promise<SuitLeaderboardEntry[]> {
+  const client = supabase as any;
+
+  const { data: suitRows, error: suitError } = await client
+    .from('fursuit_conventions')
+    .select(
+      `
+      fursuit:fursuits (
+        id,
+        name,
+        species,
+        avatar_url,
+        owner_id,
+        owner:profiles (id, username)
+      )
+    `
+    )
+    .eq('convention_id', conventionId);
+
+  if (suitError) {
+    throw new Error(`We couldn't load convention fursuits: ${suitError.message}`);
+  }
+
+  const suitEntries = (suitRows ?? []) as {
+    fursuit: {
+      id: string | null;
+      name: string | null;
+      species: string | null;
+      avatar_url: string | null;
+      owner_id: string | null;
+      owner: { id: string | null; username: string | null } | null;
+    } | null;
+  }[];
+
+  const suitMap = new Map<
+    string,
+    {
+      name: string;
+      species: string | null;
+      avatarUrl: string | null;
+      ownerProfileId: string | null;
+      ownerUsername: string | null;
+    }
+  >();
+
+  for (const entry of suitEntries) {
+    const suit = entry?.fursuit;
+    if (!suit || !suit.id || !suit.name) {
+      continue;
+    }
+
+    suitMap.set(suit.id, {
+      name: suit.name,
+      species: suit.species ?? null,
+      avatarUrl: suit.avatar_url ?? null,
+      ownerProfileId: suit.owner_id ?? null,
+      ownerUsername: suit.owner?.username ?? null,
+    });
+  }
+
+  const suitIds = Array.from(suitMap.keys());
+
+  if (suitIds.length === 0) {
+    return [];
+  }
+
+  const { data: catchRows, error: catchError } = await client
+    .from('catches')
+    .select('fursuit_id')
+    .in('fursuit_id', suitIds);
+
+  if (catchError) {
+    throw new Error(`We couldn't load suit catches: ${catchError.message}`);
+  }
+
+  const catchEntries = (catchRows ?? []) as { fursuit_id: string | null }[];
+  const catchCounts = new Map<string, number>();
+
+  for (const row of catchEntries) {
+    const suitId = row.fursuit_id;
+    if (!suitId) {
+      continue;
+    }
+    catchCounts.set(suitId, (catchCounts.get(suitId) ?? 0) + 1);
+  }
+
+  const entries = suitIds
+    .map((suitId) => {
+      const suit = suitMap.get(suitId);
+      return {
+        fursuitId: suitId,
+        name: suit?.name ?? 'Unknown suit',
+        species: suit?.species ?? null,
+        avatarUrl: suit?.avatarUrl ?? null,
+        ownerProfileId: suit?.ownerProfileId ?? null,
+        ownerUsername: suit?.ownerUsername ?? null,
+        catchCount: catchCounts.get(suitId) ?? 0,
+      } satisfies SuitLeaderboardEntry;
+    })
+    .filter((entry) => entry.catchCount > 0);
+
+  return entries.sort((a, b) => {
+    if (b.catchCount !== a.catchCount) {
+      return b.catchCount - a.catchCount;
+    }
+
+    const nameA = a.name.toLowerCase();
+    const nameB = b.name.toLowerCase();
+
+    if (nameA && nameB && nameA !== nameB) {
+      return nameA < nameB ? -1 : 1;
+    }
+
+    return a.fursuitId < b.fursuitId ? -1 : 1;
+  });
+}
+
+export const createConventionSuitLeaderboardQueryOptions = (conventionId: string) => ({
+  queryKey: conventionSuitLeaderboardQueryKey(conventionId),
+  queryFn: () => fetchConventionSuitLeaderboard(conventionId),
   staleTime: 60_000,
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,

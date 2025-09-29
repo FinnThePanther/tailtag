@@ -18,8 +18,11 @@ import {
 } from '../../src/features/conventions';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
+  CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
   fetchConventionLeaderboard,
+  fetchConventionSuitLeaderboard,
   type LeaderboardEntry,
+  type SuitLeaderboardEntry,
 } from '../../src/features/leaderboard';
 import { colors, spacing, radius } from '../../src/theme';
 
@@ -123,6 +126,25 @@ export default function HomeScreen() {
     refetchOnReconnect: false,
   });
 
+  const {
+    data: suitLeaderboardEntries = [],
+    error: suitLeaderboardError,
+    isLoading: isSuitLeaderboardLoading,
+    isFetching: isSuitLeaderboardFetching,
+    refetch: refetchSuitLeaderboard,
+  } = useQuery<SuitLeaderboardEntry[], Error>({
+    queryKey: selectedConventionId
+      ? [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId]
+      : [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, 'idle'],
+    queryFn: selectedConventionId
+      ? () => fetchConventionSuitLeaderboard(selectedConventionId)
+      : async () => [],
+    enabled: Boolean(userId && selectedConventionId),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
   const membershipErrorMessage = profileConventionsError?.message ?? conventionsError?.message ?? null;
   const isMembershipLoading = isProfileConventionsLoading || isConventionsLoading;
   const hasConventionAccess = availableConventions.length > 0;
@@ -142,6 +164,25 @@ export default function HomeScreen() {
   );
 
   const displayEntries = isSelfOutsideTop && selfEntry ? [...topEntries, selfEntry] : topEntries;
+
+  const topSuitEntries = suitLeaderboardEntries.slice(0, MAX_LEADERBOARD_ENTRIES);
+  const isSuitLeaderboardBusy = isSuitLeaderboardLoading || isSuitLeaderboardFetching;
+  const suitErrorMessage = suitLeaderboardError?.message ?? null;
+  const hasSuitEntries = topSuitEntries.length > 0;
+
+  const describeSuitEntry = (entry: SuitLeaderboardEntry) => {
+    const pieces = [formatCatchCount(entry.catchCount)];
+
+    if (entry.species) {
+      pieces.push(entry.species);
+    }
+
+    if (entry.ownerUsername) {
+      pieces.push(`Owner: ${entry.ownerUsername}`);
+    }
+
+    return pieces.join(' · ');
+  };
 
   return (
     <View style={styles.wrapper}>
@@ -220,61 +261,105 @@ export default function HomeScreen() {
               </View>
 
               {selectedConventionId ? (
-                isLeaderboardBusy ? (
-                  <Text style={styles.message}>Loading leaderboard…</Text>
-                ) : leaderboardError ? (
-                  <View style={styles.helper}>
-                    <Text style={styles.error}>{leaderboardError.message}</Text>
-                    <TailTagButton
-                      variant="outline"
-                      size="sm"
-                      onPress={() => {
-                        void refetchLeaderboard({ throwOnError: false });
-                      }}
-                    >
-                      Try again
-                    </TailTagButton>
-                  </View>
-                ) : displayEntries.length > 0 ? (
-                  <View style={styles.leaderboardSection}>
-                    <View style={styles.leaderboardList}>
-                      {displayEntries.map((entry) => {
-                        const rank = rankByProfileId.get(entry.profileId) ?? 0;
-                        const isSelf = entry.profileId === userId;
+                <View style={styles.leaderboardStack}>
+                  <View>
+                    {isLeaderboardBusy ? (
+                      <Text style={styles.message}>Loading leaderboard…</Text>
+                    ) : leaderboardError ? (
+                      <View style={styles.helper}>
+                        <Text style={styles.error}>{leaderboardError.message}</Text>
+                        <TailTagButton
+                          variant="outline"
+                          size="sm"
+                          onPress={() => {
+                            void refetchLeaderboard({ throwOnError: false });
+                          }}
+                        >
+                          Try again
+                        </TailTagButton>
+                      </View>
+                    ) : displayEntries.length > 0 ? (
+                      <View style={styles.leaderboardSection}>
+                        <View style={styles.leaderboardList}>
+                          {displayEntries.map((entry) => {
+                            const rank = rankByProfileId.get(entry.profileId) ?? 0;
+                            const isSelf = entry.profileId === userId;
 
-                        return (
-                          <View
-                            key={`${entry.profileId}-${rank}`}
-                            style={[
-                              styles.leaderboardRow,
-                              isSelf && styles.leaderboardRowHighlight,
-                            ]}
-                          >
-                            <Text style={styles.leaderboardRank}>#{rank}</Text>
+                            return (
+                              <View
+                                key={`${entry.profileId}-${rank}`}
+                                style={[
+                                  styles.leaderboardRow,
+                                  isSelf && styles.leaderboardRowHighlight,
+                                ]}
+                              >
+                                <Text style={styles.leaderboardRank}>#{rank}</Text>
+                                <View style={styles.leaderboardDetails}>
+                                  <Text style={styles.leaderboardName} numberOfLines={1}>
+                                    {entry.username ?? 'Unnamed player'}
+                                  </Text>
+                                  <Text style={styles.leaderboardCatchLabel} numberOfLines={1}>
+                                    {formatCatchCount(entry.catchCount)}
+                                    {isSelf ? ' · You' : ''}
+                                  </Text>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                        {isSelfOutsideTop && selfEntry ? (
+                          <Text style={styles.leaderboardFootnote}>
+                            You're currently #{rankByProfileId.get(selfEntry.profileId)}. Keep hunting to climb the board.
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : (
+                      <Text style={styles.message}>
+                        No catches yet. Be the first to tag a suit at this convention.
+                      </Text>
+                    )}
+                  </View>
+
+                  <View style={styles.leaderboardDivider} />
+
+                  <View style={styles.suitLeaderboardSection}>
+                    <Text style={styles.sectionSubheading}>Top suits</Text>
+                    {isSuitLeaderboardBusy ? (
+                      <Text style={styles.message}>Loading suit stats…</Text>
+                    ) : suitErrorMessage ? (
+                      <View style={styles.helper}>
+                        <Text style={styles.error}>{suitErrorMessage}</Text>
+                        <TailTagButton
+                          variant="outline"
+                          size="sm"
+                          onPress={() => {
+                            void refetchSuitLeaderboard({ throwOnError: false });
+                          }}
+                        >
+                          Try again
+                        </TailTagButton>
+                      </View>
+                    ) : hasSuitEntries ? (
+                      <View style={styles.leaderboardList}>
+                        {topSuitEntries.map((entry, index) => (
+                          <View key={entry.fursuitId} style={styles.leaderboardRow}>
+                            <Text style={styles.leaderboardRank}>#{index + 1}</Text>
                             <View style={styles.leaderboardDetails}>
                               <Text style={styles.leaderboardName} numberOfLines={1}>
-                                {entry.username ?? 'Unnamed player'}
+                                {entry.name}
                               </Text>
                               <Text style={styles.leaderboardCatchLabel} numberOfLines={1}>
-                                {formatCatchCount(entry.catchCount)}
-                                {isSelf ? ' · You' : ''}
+                                {describeSuitEntry(entry)}
                               </Text>
                             </View>
                           </View>
-                        );
-                      })}
-                    </View>
-                    {isSelfOutsideTop && selfEntry ? (
-                      <Text style={styles.leaderboardFootnote}>
-                        You're currently #{rankByProfileId.get(selfEntry.profileId)}. Keep hunting to climb the board.
-                      </Text>
-                    ) : null}
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.message}>No suit catches recorded yet.</Text>
+                    )}
                   </View>
-                ) : (
-                  <Text style={styles.message}>
-                    No catches yet. Be the first to tag a suit at this convention.
-                  </Text>
-                )
+                </View>
               ) : null}
             </View>
           ) : (
@@ -446,6 +531,12 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     marginBottom: spacing.sm,
   },
+  sectionSubheading: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.foreground,
+    marginBottom: spacing.xs,
+  },
   sectionBody: {
     color: 'rgba(203,213,225,0.9)',
     fontSize: 14,
@@ -465,6 +556,14 @@ const styles = StyleSheet.create({
   leaderboardContent: {
     gap: spacing.md,
   },
+  leaderboardStack: {
+    gap: spacing.lg,
+  },
+  leaderboardDivider: {
+    height: 1,
+    backgroundColor: 'rgba(148,163,184,0.2)',
+    width: '100%',
+  },
   leaderboardSection: {
     gap: spacing.sm,
   },
@@ -476,6 +575,9 @@ const styles = StyleSheet.create({
   selectorButton: {
     minHeight: 36,
     paddingHorizontal: spacing.md,
+  },
+  suitLeaderboardSection: {
+    gap: spacing.sm,
   },
   leaderboardList: {
     gap: spacing.xs,
