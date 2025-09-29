@@ -35,7 +35,7 @@ import type { FursuitsRow } from '../../src/types/database';
 
 type FursuitDetails = Pick<
   FursuitsRow,
-  'id' | 'name' | 'species' | 'avatar_url' | 'unique_code' | 'owner_id'
+  'id' | 'name' | 'species' | 'species_id' | 'avatar_url' | 'unique_code' | 'owner_id'
 > & { created_at: string | null; bio: FursuitBio | null };
 
 type CatchRecord = {
@@ -80,10 +80,16 @@ export default function CatchScreen() {
           id,
           name,
           species,
+          species_id,
           avatar_url,
           unique_code,
           owner_id,
           created_at,
+          species_entry:fursuit_species (
+            id,
+            name,
+            normalized_name
+          ),
           fursuit_bios (
             version,
             fursuit_name,
@@ -119,7 +125,8 @@ export default function CatchScreen() {
       const normalizedFursuit: FursuitDetails = {
         id: fursuit.id,
         name: fursuit.name,
-        species: fursuit.species ?? null,
+        species: (fursuit as any)?.species_entry?.name ?? fursuit.species ?? null,
+        species_id: (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
         avatar_url: fursuit.avatar_url ?? null,
         unique_code: fursuit.unique_code ?? null,
         owner_id: fursuit.owner_id,

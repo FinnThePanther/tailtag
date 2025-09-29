@@ -16,9 +16,15 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       owner_id,
       name,
       species,
+      species_id,
       avatar_url,
       unique_code,
       created_at,
+      species_entry:fursuit_species (
+        id,
+        name,
+        normalized_name
+      ),
       owner_profile:profiles (
         id,
         username,
@@ -74,12 +80,16 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     }));
 
   const bio = mapLatestFursuitBio(data.fursuit_bios ?? null);
+  const speciesEntry = data.species_entry ?? null;
+  const speciesName = speciesEntry?.name ?? data.species ?? null;
+  const speciesId = speciesEntry?.id ?? data.species_id ?? null;
 
   return {
     id: data.id,
     owner_id: data.owner_id,
     name: data.name,
-    species: data.species ?? null,
+    species: speciesName,
+    speciesId: speciesId,
     avatar_url: data.avatar_url ?? null,
     unique_code: data.unique_code ?? null,
     created_at: data.created_at ?? null,

@@ -20,6 +20,7 @@ export type FursuitSummary = {
   id: string;
   name: string;
   species: string | null;
+  speciesId: string | null;
   avatar_url: string | null;
   unique_code: string | null;
   created_at: string | null;

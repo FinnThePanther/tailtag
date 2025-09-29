@@ -38,6 +38,7 @@ export interface FursuitsRow {
   owner_id: string;
   name: string;
   species: string | null;
+  species_id: string | null;
   avatar_url: string | null;
   unique_code: string | null;
   created_at: string | null;
@@ -49,6 +50,7 @@ export interface FursuitsInsert {
   owner_id: string;
   name: string;
   species?: string | null;
+  species_id?: string | null;
   avatar_url?: string | null;
   unique_code: string | null;
   created_at?: string | null;
@@ -60,8 +62,33 @@ export interface FursuitsUpdate {
   owner_id?: string;
   name?: string;
   species?: string | null;
+  species_id?: string | null;
   avatar_url?: string | null;
   unique_code?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface FursuitSpeciesRow {
+  id: string;
+  name: string;
+  normalized_name: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface FursuitSpeciesInsert {
+  id?: string;
+  name: string;
+  normalized_name?: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface FursuitSpeciesUpdate {
+  id?: string;
+  name?: string;
+  normalized_name?: string;
   created_at?: string | null;
   updated_at?: string | null;
 }
@@ -241,6 +268,12 @@ export interface Database {
             columns: ['owner_id'];
             referencedRelation: 'profiles';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'fursuits_species_id_fkey';
+            columns: ['species_id'];
+            referencedRelation: 'fursuit_species';
+            referencedColumns: ['id'];
           }
         ];
       };
@@ -319,6 +352,12 @@ export interface Database {
             referencedColumns: ['id'];
           }
         ];
+      };
+      fursuit_species: {
+        Row: FursuitSpeciesRow;
+        Insert: FursuitSpeciesInsert;
+        Update: FursuitSpeciesUpdate;
+        Relationships: [];
       };
     };
     Views: {
