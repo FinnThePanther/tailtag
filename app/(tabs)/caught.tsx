@@ -1,11 +1,12 @@
 import { useCallback, useMemo } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   FursuitCard,
+  FursuitBioDetails,
   CAUGHT_SUITS_QUERY_KEY,
   CAUGHT_SUITS_STALE_TIME,
   fetchCaughtSuits,
@@ -20,6 +21,7 @@ import { toDisplayDateTime } from '../../src/utils/dates';
 export default function CaughtSuitsScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
+  const router = useRouter();
   const caughtSuitsKey = useMemo(() => [CAUGHT_SUITS_QUERY_KEY, userId] as const, [userId]);
 
   const queryClient = useQueryClient();
@@ -113,7 +115,13 @@ export default function CaughtSuitsScreen() {
                     uniqueCode={details.unique_code}
                     timelineLabel={label}
                     codeLabel={undefined}
+                    onPress={() => router.push({ pathname: '/fursuits/[id]', params: { id: details.id } })}
                   />
+                  {details.bio ? (
+                    <View style={styles.bioSpacing}>
+                      <FursuitBioDetails bio={details.bio} />
+                    </View>
+                  ) : null}
                 </View>
               );
             })}
@@ -173,5 +181,8 @@ const styles = StyleSheet.create({
   },
   listItemSpacing: {
     marginBottom: spacing.md,
+  },
+  bioSpacing: {
+    marginTop: spacing.sm,
   },
 });

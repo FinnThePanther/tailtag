@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
-import type { FursuitSummary } from './mySuits';
+import type { FursuitSummary } from '../types';
+import { mapLatestFursuitBio } from './utils';
 
 export type CaughtRecord = {
   id: string;
@@ -20,7 +21,28 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       `
       id,
       caught_at,
-      fursuit:fursuits (id, name, species, avatar_url, unique_code, created_at)
+      fursuit:fursuits (
+        id,
+        name,
+        species,
+        avatar_url,
+        unique_code,
+        created_at,
+        fursuit_bios (
+          version,
+          fursuit_name,
+          fursuit_species,
+          owner_name,
+          pronouns,
+          tagline,
+          fun_fact,
+          likes_and_interests,
+          ask_me_about,
+          social_links,
+          created_at,
+          updated_at
+        )
+      )
     `
     )
     .eq('catcher_id', userId)
@@ -40,6 +62,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
           unique_code: record.fursuit.unique_code ?? null,
           created_at: record.fursuit.created_at ?? null,
           conventions: [],
+          bio: mapLatestFursuitBio(record.fursuit.fursuit_bios ?? null),
         } satisfies FursuitSummary)
       : null;
 

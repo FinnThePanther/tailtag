@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   FursuitCard,
+  FursuitBioDetails,
   fetchMySuits,
   MY_SUITS_QUERY_KEY,
   MY_SUITS_STALE_TIME,
@@ -184,6 +185,7 @@ export default function MySuitsScreen() {
                     avatarUrl={suit.avatar_url}
                     uniqueCode={suit.unique_code}
                     timelineLabel={timelineLabel}
+                    onPress={() => router.push({ pathname: '/fursuits/[id]', params: { id: suit.id } })}
                     actionSlot={
                       <TailTagButton
                         variant="destructive"

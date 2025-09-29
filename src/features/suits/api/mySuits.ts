@@ -1,15 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import type { ConventionSummary } from '../../conventions';
-
-export type FursuitSummary = {
-  id: string;
-  name: string;
-  species: string | null;
-  avatar_url: string | null;
-  unique_code: string | null;
-  created_at: string | null;
-  conventions: ConventionSummary[];
-};
+import type { FursuitSummary } from '../types';
+import { mapLatestFursuitBio } from './utils';
 
 export const MY_SUITS_QUERY_KEY = 'my-suits';
 export const MY_SUITS_STALE_TIME = 2 * 60_000;
@@ -37,6 +29,20 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
           start_date,
           end_date
         )
+      ),
+      fursuit_bios (
+        version,
+        fursuit_name,
+        fursuit_species,
+        owner_name,
+        pronouns,
+        tagline,
+        fun_fact,
+        likes_and_interests,
+        ask_me_about,
+        social_links,
+        created_at,
+        updated_at
       )
     `
     )
@@ -60,6 +66,8 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
         end_date: convention.end_date ?? null,
       }));
 
+    const bio = mapLatestFursuitBio(item.fursuit_bios ?? null);
+
     return {
       id: item.id,
       name: item.name,
@@ -68,6 +76,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       unique_code: item.unique_code ?? null,
       created_at: item.created_at ?? null,
       conventions,
+      bio,
     } satisfies FursuitSummary;
   });
 }

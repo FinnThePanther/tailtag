@@ -135,6 +135,62 @@ export interface FursuitConventionsUpdate {
   created_at?: string | null;
 }
 
+export type FursuitSocialLink = {
+  label: string;
+  url: string;
+};
+
+export interface FursuitBiosRow {
+  id: string;
+  fursuit_id: string;
+  version: number;
+  fursuit_name: string;
+  fursuit_species: string;
+  owner_name: string;
+  pronouns: string;
+  tagline: string;
+  fun_fact: string;
+  likes_and_interests: string;
+  ask_me_about: string;
+  social_links: Json;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface FursuitBiosInsert {
+  id?: string;
+  fursuit_id: string;
+  version: number;
+  fursuit_name: string;
+  fursuit_species: string;
+  owner_name: string;
+  pronouns: string;
+  tagline: string;
+  fun_fact: string;
+  likes_and_interests: string;
+  ask_me_about: string;
+  social_links?: Json;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface FursuitBiosUpdate {
+  id?: string;
+  fursuit_id?: string;
+  version?: number;
+  fursuit_name?: string;
+  fursuit_species?: string;
+  owner_name?: string;
+  pronouns?: string;
+  tagline?: string;
+  fun_fact?: string;
+  likes_and_interests?: string;
+  ask_me_about?: string;
+  social_links?: Json;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export interface CatchesRow {
   id: string;
   catcher_id: string;
@@ -247,6 +303,19 @@ export interface Database {
             foreignKeyName: 'fursuit_conventions_convention_id_fkey';
             columns: ['convention_id'];
             referencedRelation: 'conventions';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      fursuit_bios: {
+        Row: FursuitBiosRow;
+        Insert: FursuitBiosInsert;
+        Update: FursuitBiosUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'fursuit_bios_fursuit_id_fkey';
+            columns: ['fursuit_id'];
+            referencedRelation: 'fursuits';
             referencedColumns: ['id'];
           }
         ];

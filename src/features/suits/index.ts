@@ -1,4 +1,5 @@
 export { FursuitCard } from './components/FursuitCard';
+export { FursuitBioDetails } from './components/FursuitBioDetails';
 export {
   fetchMySuits,
   MY_SUITS_QUERY_KEY,
@@ -6,7 +7,7 @@ export {
   mySuitsQueryKey,
   createMySuitsQueryOptions,
 } from './api/mySuits';
-export type { FursuitSummary } from './api/mySuits';
+export type { FursuitSummary, FursuitBio } from './types';
 export {
   fetchCaughtSuits,
   CAUGHT_SUITS_QUERY_KEY,
@@ -15,3 +16,9 @@ export {
   createCaughtSuitsQueryOptions,
 } from './api/caughtSuits';
 export type { CaughtRecord } from './api/caughtSuits';
+export { mapFursuitBio, mapLatestFursuitBio } from './api/utils';
+export {
+  fetchFursuitDetail,
+  FURSUIT_DETAIL_QUERY_KEY,
+  fursuitDetailQueryKey,
+} from './api/fursuitDetails';

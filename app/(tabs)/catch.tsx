@@ -11,7 +11,13 @@ import {
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { FursuitCard, CAUGHT_SUITS_QUERY_KEY } from '../../src/features/suits';
+import {
+  FursuitCard,
+  FursuitBioDetails,
+  CAUGHT_SUITS_QUERY_KEY,
+  mapLatestFursuitBio,
+} from '../../src/features/suits';
+import type { FursuitBio } from '../../src/features/suits';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
   CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
@@ -30,7 +36,7 @@ import type { FursuitsRow } from '../../src/types/database';
 type FursuitDetails = Pick<
   FursuitsRow,
   'id' | 'name' | 'species' | 'avatar_url' | 'unique_code' | 'owner_id'
-> & { created_at: string | null };
+> & { created_at: string | null; bio: FursuitBio | null };
 
 type CatchRecord = {
   id: string;
@@ -69,8 +75,34 @@ export default function CatchScreen() {
 
       const { data: fursuit, error: fursuitError } = await client
         .from('fursuits')
-        .select('id, name, species, avatar_url, unique_code, owner_id, created_at')
+        .select(
+          `
+          id,
+          name,
+          species,
+          avatar_url,
+          unique_code,
+          owner_id,
+          created_at,
+          fursuit_bios (
+            version,
+            fursuit_name,
+            fursuit_species,
+            owner_name,
+            pronouns,
+            tagline,
+            fun_fact,
+            likes_and_interests,
+            ask_me_about,
+            social_links,
+            created_at,
+            updated_at
+          )
+        `
+        )
         .eq('unique_code', normalizedCode)
+        .order('version', { ascending: false, foreignTable: 'fursuit_bios' })
+        .limit(1, { foreignTable: 'fursuit_bios' })
         .maybeSingle();
 
       if (fursuitError) {
@@ -84,7 +116,18 @@ export default function CatchScreen() {
         return;
       }
 
-      if (fursuit.owner_id === userId) {
+      const normalizedFursuit: FursuitDetails = {
+        id: fursuit.id,
+        name: fursuit.name,
+        species: fursuit.species ?? null,
+        avatar_url: fursuit.avatar_url ?? null,
+        unique_code: fursuit.unique_code ?? null,
+        owner_id: fursuit.owner_id,
+        created_at: fursuit.created_at ?? null,
+        bio: mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
+      };
+
+      if (normalizedFursuit.owner_id === userId) {
         setCaughtFursuit(null);
         setCatchRecord(null);
         setSubmitError(
@@ -96,7 +139,7 @@ export default function CatchScreen() {
       const { data: suitConventionRows, error: suitConventionError } = await client
         .from('fursuit_conventions')
         .select('convention_id')
-        .eq('fursuit_id', fursuit.id);
+        .eq('fursuit_id', normalizedFursuit.id);
 
       if (suitConventionError) {
         throw suitConventionError;
@@ -148,7 +191,7 @@ export default function CatchScreen() {
       const { data: existingCatch, error: existingCatchError } = await client
         .from('catches')
         .select('id')
-        .eq('fursuit_id', fursuit.id)
+        .eq('fursuit_id', normalizedFursuit.id)
         .eq('catcher_id', userId)
         .maybeSingle();
 
@@ -167,7 +210,7 @@ export default function CatchScreen() {
 
       const { data: insertedCatch, error: catchError } = await client
         .from('catches')
-        .insert({ fursuit_id: fursuit.id })
+        .insert({ fursuit_id: normalizedFursuit.id })
         .select('id, caught_at')
         .single();
 
@@ -184,7 +227,7 @@ export default function CatchScreen() {
         throw catchError;
       }
 
-      setCaughtFursuit(fursuit);
+      setCaughtFursuit(normalizedFursuit);
       setCatchRecord(insertedCatch ?? null);
       sharedConventions.forEach((conventionId) => {
         queryClient.invalidateQueries({
@@ -268,7 +311,8 @@ export default function CatchScreen() {
           <TailTagCard style={styles.cardSpacing}>
             <Text style={styles.sectionTitle}>Nice catch!</Text>
             <Text style={styles.sectionBody}>
-              You just tagged {caughtFursuit.name}. Trade codes to keep your streak growing.
+              You just tagged {caughtFursuit.name}. Scroll through their bio below and trade
+              codes to keep your streak growing.
             </Text>
             <FursuitCard
               name={caughtFursuit.name}
@@ -276,7 +320,13 @@ export default function CatchScreen() {
               avatarUrl={caughtFursuit.avatar_url}
               uniqueCode={caughtFursuit.unique_code}
               timelineLabel={caughtAtLabel ?? undefined}
+              onPress={() => router.push({ pathname: '/fursuits/[id]', params: { id: caughtFursuit.id } })}
             />
+            {caughtFursuit.bio ? (
+              <View style={styles.bioSpacing}>
+                <FursuitBioDetails bio={caughtFursuit.bio} />
+              </View>
+            ) : null}
             <View style={styles.buttonRow}>
               <TailTagButton
                 variant="outline"
@@ -358,6 +408,9 @@ const styles = StyleSheet.create({
     color: 'rgba(203,213,225,0.9)',
     fontSize: 14,
     marginBottom: spacing.md,
+  },
+  bioSpacing: {
+    marginTop: spacing.md,
   },
   buttonRow: {
     flexDirection: 'row',

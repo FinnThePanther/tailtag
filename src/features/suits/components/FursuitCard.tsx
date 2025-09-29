@@ -15,6 +15,7 @@ type FursuitCardProps = {
   timelineLabel?: string | null;
   codeLabel?: string;
   actionSlot?: ReactNode;
+  onPress?: () => void;
 };
 
 const normalizeSpecies = (value: string | null | undefined) => {
@@ -43,6 +44,7 @@ export function FursuitCard({
   timelineLabel,
   codeLabel = 'Catch code',
   actionSlot,
+  onPress,
 }: FursuitCardProps) {
   const displaySpecies = normalizeSpecies(species);
   const displayCode = normalizeUniqueCode(uniqueCode);
@@ -54,7 +56,16 @@ export function FursuitCard({
   };
 
   return (
-    <View style={styles.container}>
+    <Pressable
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityHint={onPress ? 'Opens detailed bio for this fursuit' : undefined}
+      disabled={!onPress}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.container,
+        onPress ? { opacity: pressed ? 0.92 : 1 } : null,
+      ]}
+    >
       <View style={styles.leadRow}>
         <View style={styles.avatarWrapper}>
           {avatarUrl ? (
@@ -93,7 +104,7 @@ export function FursuitCard({
         ) : null}
         {actionSlot ? <View>{actionSlot}</View> : null}
       </View>
-    </View>
+    </Pressable>
   );
 }
 

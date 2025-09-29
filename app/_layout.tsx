@@ -64,6 +64,10 @@ function RootLayoutNav() {
 
       {/* Main app (tabs) */}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+      {/* Standalone fursuit flows */}
+      <Stack.Screen name="fursuits/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="fursuits/[id]/edit" options={{ headerShown: false }} />
     </Stack>
   );
 }
