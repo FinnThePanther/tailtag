@@ -17,9 +17,15 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       id,
       name,
       species,
+      species_id,
       avatar_url,
       unique_code,
       created_at,
+      species_entry:fursuit_species (
+        id,
+        name,
+        normalized_name
+      ),
       fursuit_conventions:fursuit_conventions (
         convention:conventions (
           id,
@@ -67,11 +73,15 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       }));
 
     const bio = mapLatestFursuitBio(item.fursuit_bios ?? null);
+    const speciesEntry = item.species_entry ?? null;
+    const speciesName = speciesEntry?.name ?? item.species ?? null;
+    const speciesId = speciesEntry?.id ?? item.species_id ?? null;
 
     return {
       id: item.id,
       name: item.name,
-      species: item.species ?? null,
+      species: speciesName,
+      speciesId: speciesId,
       avatar_url: item.avatar_url ?? null,
       unique_code: item.unique_code ?? null,
       created_at: item.created_at ?? null,

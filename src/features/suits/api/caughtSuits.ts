@@ -25,9 +25,15 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
         id,
         name,
         species,
+        species_id,
         avatar_url,
         unique_code,
         created_at,
+        species_entry:fursuit_species (
+          id,
+          name,
+          normalized_name
+        ),
         fursuit_bios (
           version,
           fursuit_name,
@@ -57,7 +63,10 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       ? ({
           id: record.fursuit.id,
           name: record.fursuit.name,
-          species: record.fursuit.species ?? null,
+          species:
+            (record.fursuit.species_entry?.name ?? record.fursuit.species) ?? null,
+          speciesId:
+            (record.fursuit.species_entry?.id ?? record.fursuit.species_id) ?? null,
           avatar_url: record.fursuit.avatar_url ?? null,
           unique_code: record.fursuit.unique_code ?? null,
           created_at: record.fursuit.created_at ?? null,

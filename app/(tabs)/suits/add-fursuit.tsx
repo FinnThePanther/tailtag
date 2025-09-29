@@ -25,6 +25,14 @@ import { loadUriAsUint8Array } from '../../../src/utils/files';
 import { colors, spacing, radius } from '../../../src/theme';
 import { MY_SUITS_QUERY_KEY } from '../../../src/features/suits';
 import {
+  ensureSpeciesEntry,
+  fetchFursuitSpecies,
+  FURSUIT_SPECIES_QUERY_KEY,
+  normalizeSpeciesName,
+  sortSpeciesOptions,
+  type FursuitSpeciesOption,
+} from '../../../src/features/species';
+import {
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
   createConventionsQueryOptions,
@@ -53,8 +61,22 @@ export default function AddFursuitScreen() {
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
 
+  const {
+    data: speciesOptions = [],
+    error: speciesError,
+    isLoading: isSpeciesLoading,
+    refetch: refetchSpecies,
+  } = useQuery<FursuitSpeciesOption[], Error>({
+    queryKey: [FURSUIT_SPECIES_QUERY_KEY],
+    queryFn: fetchFursuitSpecies,
+    staleTime: 12 * 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
   const [nameInput, setNameInput] = useState('');
   const [speciesInput, setSpeciesInput] = useState('');
+  const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption | null>(null);
   const [ownerNameInput, setOwnerNameInput] = useState('');
   const [pronounsInput, setPronounsInput] = useState('');
   const [taglineInput, setTaglineInput] = useState('');
@@ -67,6 +89,50 @@ export default function AddFursuitScreen() {
 
   const [selectedPhoto, setSelectedPhoto] = useState<UploadCandidate>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+
+  const speciesLoadError = speciesError?.message ?? null;
+  const isSpeciesBusy = isSpeciesLoading;
+
+  const normalizedSpeciesInput = useMemo(
+    () => normalizeSpeciesName(speciesInput),
+    [speciesInput]
+  );
+
+  const speciesSuggestions = useMemo(() => {
+    if (speciesOptions.length === 0) {
+      return [] as FursuitSpeciesOption[];
+    }
+
+    if (!normalizedSpeciesInput) {
+      return speciesOptions.slice(0, 12);
+    }
+
+    return speciesOptions
+      .filter((option) => option.normalizedName.includes(normalizedSpeciesInput))
+      .slice(0, 12);
+  }, [normalizedSpeciesInput, speciesOptions]);
+
+  const handleSpeciesInputChange = useCallback(
+    (value: string) => {
+      setSpeciesInput(value);
+
+      const normalized = normalizeSpeciesName(value);
+
+      if (!normalized) {
+        setSelectedSpecies(null);
+        return;
+      }
+
+      const match = speciesOptions.find((option) => option.normalizedName === normalized) ?? null;
+      setSelectedSpecies(match);
+    },
+    [speciesOptions]
+  );
+
+  const handleSpeciesSelect = useCallback((option: FursuitSpeciesOption) => {
+    setSpeciesInput(option.name);
+    setSelectedSpecies(option);
+  }, []);
 
   const conventionsQueryOptions = useMemo(() => createConventionsQueryOptions(), []);
   const {
@@ -240,6 +306,7 @@ export default function AddFursuitScreen() {
     const trimmedFunFact = funFactInput.trim();
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
+    const normalizedSpeciesValue = normalizeSpeciesName(trimmedSpecies);
     const normalizedSocialLinks = socialLinks
       .map((entry) => ({
         label: entry.label.trim(),
@@ -317,6 +384,29 @@ export default function AddFursuitScreen() {
     let createdFursuitId: string | null = null;
 
     try {
+      const speciesRecord =
+        selectedSpecies && selectedSpecies.normalizedName === normalizedSpeciesValue
+          ? selectedSpecies
+          : await ensureSpeciesEntry(trimmedSpecies);
+
+      setSelectedSpecies(speciesRecord);
+      setSpeciesInput(speciesRecord.name);
+      queryClient.setQueryData<FursuitSpeciesOption[]>(
+        [FURSUIT_SPECIES_QUERY_KEY],
+        (current = []) => {
+          const existingIndex = current.findIndex((option) => option.id === speciesRecord.id);
+
+          if (existingIndex >= 0) {
+            const next = [...current];
+            next[existingIndex] = speciesRecord;
+            return sortSpeciesOptions(next);
+          }
+
+          return sortSpeciesOptions([...current, speciesRecord]);
+        }
+      );
+      void queryClient.invalidateQueries({ queryKey: [FURSUIT_SPECIES_QUERY_KEY] });
+
       let avatarUrl: string | null = null;
 
       if (selectedPhoto) {
@@ -350,7 +440,8 @@ export default function AddFursuitScreen() {
         const payload: FursuitsInsert = {
           owner_id: userId,
           name: trimmedName,
-          species: trimmedSpecies,
+          species: speciesRecord.name,
+          species_id: speciesRecord.id,
           avatar_url: avatarUrl,
           unique_code: uniqueCode,
         };
@@ -388,7 +479,7 @@ export default function AddFursuitScreen() {
         fursuit_id: createdFursuitId,
         version: 1,
         fursuit_name: trimmedName,
-        fursuit_species: trimmedSpecies,
+        fursuit_species: speciesRecord.name,
         owner_name: trimmedOwnerName,
         pronouns: trimmedPronouns,
         tagline: trimmedTagline,
@@ -408,6 +499,7 @@ export default function AddFursuitScreen() {
 
       setNameInput('');
       setSpeciesInput('');
+      setSelectedSpecies(null);
       setOwnerNameInput('');
       setPronounsInput('');
       setTaglineInput('');
@@ -422,7 +514,7 @@ export default function AddFursuitScreen() {
       setSubmitError(null);
 
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
-      router.back();
+      router.replace('/suits');
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error
@@ -540,11 +632,55 @@ export default function AddFursuitScreen() {
             <Text style={styles.label}>Species</Text>
             <TailTagInput
               value={speciesInput}
-              onChangeText={setSpeciesInput}
+              onChangeText={handleSpeciesInputChange}
               placeholder="Sergal, Dutch Angel Dragon, etc."
               editable={!isSubmitting}
               returnKeyType="next"
+              autoCapitalize="words"
             />
+            <Text style={styles.helperLabel}>
+              Tap a suggestion or keep typing to add a new species to the shared list.
+            </Text>
+            {isSpeciesBusy ? (
+              <Text style={styles.helperLabel}>Loading species…</Text>
+            ) : speciesLoadError ? (
+              <View style={styles.helperColumn}>
+                <Text style={styles.errorText}>{speciesLoadError}</Text>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void refetchSpecies({ throwOnError: false });
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Try again
+                </TailTagButton>
+              </View>
+            ) : speciesSuggestions.length > 0 ? (
+              <View style={styles.speciesSuggestionSection}>
+                <Text style={styles.helperLabel}>
+                  {normalizedSpeciesInput ? 'Matching species' : 'Popular species'}
+                </Text>
+                <View style={styles.speciesSuggestionList}>
+                  {speciesSuggestions.map((option) => {
+                    const isSelected = selectedSpecies?.id === option.id;
+                    return (
+                      <TailTagButton
+                        key={option.id}
+                        variant={isSelected ? 'primary' : 'ghost'}
+                        size="sm"
+                        onPress={() => handleSpeciesSelect(option)}
+                        disabled={isSubmitting}
+                        style={styles.speciesChip}
+                      >
+                        {option.name}
+                      </TailTagButton>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.fieldGroup}>
@@ -818,6 +954,17 @@ const styles = StyleSheet.create({
   },
   helperColumn: {
     gap: spacing.sm,
+  },
+  speciesSuggestionSection: {
+    gap: spacing.xs,
+  },
+  speciesSuggestionList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  speciesChip: {
+    minHeight: 36,
   },
   conventionList: {
     gap: spacing.sm,
