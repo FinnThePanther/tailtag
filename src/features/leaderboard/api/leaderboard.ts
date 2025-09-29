@@ -11,6 +11,7 @@ export type SuitLeaderboardEntry = {
   fursuitId: string;
   name: string;
   species: string | null;
+  speciesId: string | null;
   avatarUrl: string | null;
   ownerProfileId: string | null;
   ownerUsername: string | null;
@@ -172,8 +173,14 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
         id,
         name,
         species,
+        species_id,
         avatar_url,
         owner_id,
+        species_entry:fursuit_species (
+          id,
+          name,
+          normalized_name
+        ),
         owner:profiles (id, username)
       )
     `
@@ -189,8 +196,10 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
       id: string | null;
       name: string | null;
       species: string | null;
+      species_id: string | null;
       avatar_url: string | null;
       owner_id: string | null;
+      species_entry?: { id: string | null; name: string | null; normalized_name: string | null } | null;
       owner: { id: string | null; username: string | null } | null;
     } | null;
   }[];
@@ -200,6 +209,7 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
     {
       name: string;
       species: string | null;
+      speciesId: string | null;
       avatarUrl: string | null;
       ownerProfileId: string | null;
       ownerUsername: string | null;
@@ -214,7 +224,8 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
 
     suitMap.set(suit.id, {
       name: suit.name,
-      species: suit.species ?? null,
+      species: suit.species_entry?.name ?? suit.species ?? null,
+      speciesId: suit.species_entry?.id ?? suit.species_id ?? null,
       avatarUrl: suit.avatar_url ?? null,
       ownerProfileId: suit.owner_id ?? null,
       ownerUsername: suit.owner?.username ?? null,
@@ -254,6 +265,7 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
         fursuitId: suitId,
         name: suit?.name ?? 'Unknown suit',
         species: suit?.species ?? null,
+        speciesId: suit?.speciesId ?? null,
         avatarUrl: suit?.avatarUrl ?? null,
         ownerProfileId: suit?.ownerProfileId ?? null,
         ownerUsername: suit?.ownerUsername ?? null,
