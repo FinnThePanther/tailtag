@@ -12,6 +12,10 @@ import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { FursuitCard, CAUGHT_SUITS_QUERY_KEY } from '../../src/features/suits';
+import {
+  CONVENTION_LEADERBOARD_QUERY_KEY,
+  CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
+} from '../../src/features/leaderboard';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
@@ -182,6 +186,14 @@ export default function CatchScreen() {
 
       setCaughtFursuit(fursuit);
       setCatchRecord(insertedCatch ?? null);
+      sharedConventions.forEach((conventionId) => {
+        queryClient.invalidateQueries({
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, conventionId],
+        });
+      });
       queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
       setCodeInput('');
     } catch (caught) {
