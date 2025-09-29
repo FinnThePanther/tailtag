@@ -40,6 +40,13 @@ import {
   PROFILE_STALE_TIME,
 } from '../../src/features/profile';
 import type { ProfileSummary } from '../../src/features/profile';
+import {
+  CAUGHT_SUITS_QUERY_KEY,
+  CAUGHT_SUITS_STALE_TIME,
+  caughtSuitsQueryKey,
+  fetchCaughtSuits,
+} from '../../src/features/suits/api/caughtSuits';
+import type { CaughtRecord } from '../../src/features/suits/api/caughtSuits';
 
 type UploadCandidate = {
   uri: string;
@@ -99,6 +106,24 @@ export default function SettingsScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryFn: () => fetchProfileConventionIds(userId!),
+  });
+
+  const caughtSuitsQueryKeyValue = useMemo(
+    () => (userId ? caughtSuitsQueryKey(userId) : [CAUGHT_SUITS_QUERY_KEY] as const),
+    [userId]
+  );
+  const {
+    data: caughtSuits = [],
+    error: caughtSuitsError,
+    isLoading: isCaughtSuitsLoading,
+    refetch: refetchCaughtSuits,
+  } = useQuery<CaughtRecord[], Error>({
+    queryKey: caughtSuitsQueryKeyValue,
+    enabled: Boolean(userId),
+    staleTime: CAUGHT_SUITS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchCaughtSuits(userId!),
   });
 
   const [usernameInput, setUsernameInput] = useState('');
@@ -179,6 +204,17 @@ export default function SettingsScreen() {
         void refetchProfileConventions({ throwOnError: false });
       }
 
+      const caughtSuitsState = queryClient.getQueryState<CaughtRecord[]>(caughtSuitsQueryKeyValue);
+
+      if (
+        !caughtSuitsState ||
+        caughtSuitsState.isInvalidated ||
+        (caughtSuitsState.status === 'success' &&
+          Date.now() - caughtSuitsState.dataUpdatedAt > CAUGHT_SUITS_STALE_TIME)
+      ) {
+        void refetchCaughtSuits({ throwOnError: false });
+      }
+
     }, [
       profile,
       profileQueryKey,
@@ -190,6 +226,8 @@ export default function SettingsScreen() {
       refetchConventions,
       profileConventionQueryKey,
       refetchProfileConventions,
+      caughtSuitsQueryKeyValue,
+      refetchCaughtSuits,
     ])
   );
 
@@ -283,6 +321,11 @@ export default function SettingsScreen() {
 
   const conventionsLoadError = conventionsError?.message ?? profileConventionsError?.message ?? null;
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
+
+  const statsError = caughtSuitsError?.message ?? profileConventionsError?.message ?? null;
+  const isStatsLoading = isCaughtSuitsLoading || isProfileConventionsLoading;
+  const caughtSuitCount = caughtSuits.length;
+  const attendedConventionCount = profileConventionIds.length;
 
   const isDirty = (() => {
     const usernameChanged = (profile?.username ?? '') !== usernameInput.trim();
@@ -493,6 +536,40 @@ export default function SettingsScreen() {
         </View>
 
         <TailTagCard>
+          <View style={styles.statsSection}>
+            <Text style={styles.sectionTitle}>Your all-time stats</Text>
+            {isStatsLoading ? (
+              <Text style={styles.message}>Loading stats…</Text>
+            ) : statsError ? (
+              <View style={styles.helperColumn}>
+                <Text style={styles.error}>{statsError}</Text>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void refetchCaughtSuits({ throwOnError: false });
+                    void refetchProfileConventions({ throwOnError: false });
+                  }}
+                >
+                  Try again
+                </TailTagButton>
+              </View>
+            ) : (
+              <View style={styles.statsGrid}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statValue}>{caughtSuitCount.toLocaleString()}</Text>
+                  <Text style={styles.statLabel}>Fursuits caught</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statValue}>{attendedConventionCount.toLocaleString()}</Text>
+                  <Text style={styles.statLabel}>Conventions attended</Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </TailTagCard>
+
+        <TailTagCard>
           {isProfileLoading ? (
             <Text style={styles.message}>Loading profile…</Text>
           ) : profileError ? (
@@ -695,6 +772,9 @@ const styles = StyleSheet.create({
   profileSection: {
     gap: spacing.md,
   },
+  statsSection: {
+    gap: spacing.md,
+  },
   conventionSection: {
     gap: spacing.md,
   },
@@ -770,6 +850,31 @@ const styles = StyleSheet.create({
   },
   helperColumn: {
     gap: spacing.sm,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    flexWrap: 'wrap',
+  },
+  statCard: {
+    flexGrow: 1,
+    flexBasis: 140,
+    backgroundColor: 'rgba(30,41,59,0.6)',
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148,163,184,0.2)',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
+  },
+  statValue: {
+    color: colors.foreground,
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  statLabel: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 13,
   },
   conventionList: {
     gap: spacing.sm,
