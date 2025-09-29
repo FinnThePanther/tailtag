@@ -28,38 +28,49 @@ type FursuitBioDetailsProps = {
   bio: FursuitBio;
 };
 
-export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
-  const ownerPieces = [bio.ownerName, bio.pronouns]
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
-  const ownerLine = ownerPieces.join(' | ');
-  const speciesPieces = [bio.fursuitName, bio.fursuitSpecies]
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
-  const speciesLine = speciesPieces.join(' - ');
+const buildSuitLines = (name: string, species: string) => {
+  const suitName = withFallback(name, 'Name coming soon.');
+  const suitSpecies = withFallback(species, 'Species coming soon.');
 
+  return { suitName, suitSpecies };
+};
+
+const buildOwnerLines = (owner: string, pronouns: string) => {
+  const ownerName = withFallback(owner, 'Owner name coming soon.');
+  const pronounLine = withFallback(pronouns, 'Pronouns coming soon.');
+
+  return { ownerName, pronounLine };
+};
+
+export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
+  const tagline = withFallback(bio.tagline, 'Tagline coming soon.');
+  const { suitName, suitSpecies } = buildSuitLines(bio.fursuitName, bio.fursuitSpecies);
+  const { ownerName, pronounLine } = buildOwnerLines(bio.ownerName, bio.pronouns);
   const funFact = withFallback(bio.funFact, 'Fun fact coming soon.');
   const likesAndInterests = withFallback(bio.likesAndInterests, 'Likes coming soon.');
   const askMeAbout = withFallback(bio.askMeAbout, 'Ask me anything!');
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerBlock}>
-        {bio.tagline.trim().length > 0 ? (
-          <Text style={styles.tagline} numberOfLines={3}>
-            {bio.tagline}
-          </Text>
-        ) : null}
-        {ownerLine ? (
-          <Text style={styles.ownerLine} numberOfLines={2}>
-            {ownerLine}
-          </Text>
-        ) : null}
-        {speciesLine ? (
-          <Text style={styles.species} numberOfLines={2}>
-            {speciesLine}
-          </Text>
-        ) : null}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Tagline</Text>
+        <Text style={styles.sectionBody}>{tagline}</Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Suit</Text>
+        <View style={styles.sectionDetail}>
+          <Text style={styles.sectionBody}>{suitName}</Text>
+          <Text style={styles.sectionMeta}>{suitSpecies}</Text>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Owner & pronouns</Text>
+        <View style={styles.sectionDetail}>
+          <Text style={styles.sectionBody}>{ownerName}</Text>
+          <Text style={styles.sectionMeta}>{pronounLine}</Text>
+        </View>
       </View>
 
       <View style={styles.section}>
@@ -109,22 +120,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.md,
   },
-  headerBlock: {
-    gap: spacing.xs,
-  },
-  tagline: {
-    color: colors.foreground,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  ownerLine: {
-    color: 'rgba(203,213,225,0.9)',
-    fontSize: 14,
-  },
-  species: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 13,
-  },
   section: {
     gap: spacing.xs,
   },
@@ -139,6 +134,13 @@ const styles = StyleSheet.create({
     color: 'rgba(203,213,225,0.95)',
     fontSize: 14,
     lineHeight: 20,
+  },
+  sectionDetail: {
+    gap: 2,
+  },
+  sectionMeta: {
+    color: 'rgba(148,163,184,0.85)',
+    fontSize: 13,
   },
   socialList: {
     gap: spacing.sm,
