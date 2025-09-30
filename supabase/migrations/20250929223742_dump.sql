@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
--- \restrict UGXJ8QXoDO5OzgmTCBosv0oobF2pWyhbFkWXyy1Xfln0E1fvJOUFC9jKy6M1Z7w
+-- \restrict x7kQgaD72kL4rKmCGb5ug3z99XS0nUow8kfQ5TnOvRRHLeXMNdhdCUVvC1I57te
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -41,13 +41,16 @@ COMMENT ON SCHEMA "public" IS 'standard public schema';
 
 CREATE OR REPLACE FUNCTION "public"."create_profile_for_new_user"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$BEGIN
-  INSERT INTO public.profiles (id)
-  VALUES (NEW.id)
-  ON CONFLICT (id) DO NOTHING;
+    SET "search_path" TO 'public'
+    AS $$
+begin
+  insert into public.profiles (id)
+  values (new.id)
+  on conflict (id) do nothing;
 
-  RETURN NEW;
-END;$$;
+  return new;
+end;
+$$;
 
 
 ALTER FUNCTION "public"."create_profile_for_new_user"() OWNER TO "postgres";
@@ -969,6 +972,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 -- PostgreSQL database dump complete
 --
 
--- \unrestrict UGXJ8QXoDO5OzgmTCBosv0oobF2pWyhbFkWXyy1Xfln0E1fvJOUFC9jKy6M1Z7w
+-- \unrestrict x7kQgaD72kL4rKmCGb5ug3z99XS0nUow8kfQ5TnOvRRHLeXMNdhdCUVvC1I57te
 
 RESET ALL;
