@@ -33,6 +33,21 @@ export interface ProfilesUpdate {
   updated_at?: string | null;
 }
 
+export type AchievementCategory =
+  | 'catching'
+  | 'variety'
+  | 'dedication'
+  | 'fursuiter'
+  | 'fun'
+  | 'meta';
+
+export type AchievementRecipientRole = 'catcher' | 'fursuit_owner' | 'any';
+
+export type AchievementTriggerEvent =
+  | 'catch.created'
+  | 'profile.updated'
+  | 'convention.checkin';
+
 export interface FursuitsRow {
   id: string;
   owner_id: string;
@@ -222,6 +237,7 @@ export interface CatchesRow {
   id: string;
   catcher_id: string;
   fursuit_id: string;
+  convention_id: string | null;
   caught_at: string | null;
   created_at: string | null;
 }
@@ -230,6 +246,7 @@ export interface CatchesInsert {
   id?: string;
   catcher_id: string;
   fursuit_id: string;
+  convention_id?: string | null;
   caught_at?: string | null;
   created_at?: string | null;
 }
@@ -238,8 +255,96 @@ export interface CatchesUpdate {
   id?: string;
   catcher_id?: string;
   fursuit_id?: string;
+  convention_id?: string | null;
   caught_at?: string | null;
   created_at?: string | null;
+}
+
+export interface AchievementsRow {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  category: AchievementCategory;
+  recipient_role: AchievementRecipientRole;
+  trigger_event: AchievementTriggerEvent;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AchievementsInsert {
+  id?: string;
+  key: string;
+  name: string;
+  description: string;
+  category: AchievementCategory;
+  recipient_role: AchievementRecipientRole;
+  trigger_event: AchievementTriggerEvent;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AchievementsUpdate {
+  id?: string;
+  key?: string;
+  name?: string;
+  description?: string;
+  category?: AchievementCategory;
+  recipient_role?: AchievementRecipientRole;
+  trigger_event?: AchievementTriggerEvent;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UserAchievementsRow {
+  id: string;
+  user_id: string;
+  achievement_id: string;
+  unlocked_at: string;
+  context: Json;
+}
+
+export interface UserAchievementsInsert {
+  id?: string;
+  user_id: string;
+  achievement_id: string;
+  unlocked_at?: string;
+  context?: Json;
+}
+
+export interface UserAchievementsUpdate {
+  id?: string;
+  user_id?: string;
+  achievement_id?: string;
+  unlocked_at?: string;
+  context?: Json;
+}
+
+export interface AchievementEventsRow {
+  id: string;
+  event_type: AchievementTriggerEvent;
+  payload: Json;
+  created_at: string;
+  processed_at: string | null;
+}
+
+export interface AchievementEventsInsert {
+  id?: string;
+  event_type: AchievementTriggerEvent;
+  payload: Json;
+  created_at?: string;
+  processed_at?: string | null;
+}
+
+export interface AchievementEventsUpdate {
+  id?: string;
+  event_type?: AchievementTriggerEvent;
+  payload?: Json;
+  created_at?: string;
+  processed_at?: string | null;
 }
 
 export interface Database {
@@ -295,6 +400,37 @@ export interface Database {
             referencedColumns: ['id'];
           }
         ];
+      };
+      achievements: {
+        Row: AchievementsRow;
+        Insert: AchievementsInsert;
+        Update: AchievementsUpdate;
+        Relationships: [];
+      };
+      user_achievements: {
+        Row: UserAchievementsRow;
+        Insert: UserAchievementsInsert;
+        Update: UserAchievementsUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'user_achievements_achievement_id_fkey';
+            columns: ['achievement_id'];
+            referencedRelation: 'achievements';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'user_achievements_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      achievement_events: {
+        Row: AchievementEventsRow;
+        Insert: AchievementEventsInsert;
+        Update: AchievementEventsUpdate;
+        Relationships: [];
       };
       conventions: {
         Row: ConventionsRow;
@@ -367,7 +503,9 @@ export interface Database {
       [_ in never]: never;
     };
     Enums: {
-      [_ in never]: never;
+      achievement_category: AchievementCategory;
+      achievement_recipient_role: AchievementRecipientRole;
+      achievement_trigger_event: AchievementTriggerEvent;
     };
     CompositeTypes: {
       [_ in never]: never;

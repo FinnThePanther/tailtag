@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -24,6 +24,12 @@ import {
   type LeaderboardEntry,
   type SuitLeaderboardEntry,
 } from '../../src/features/leaderboard';
+import {
+  fetchAchievementStatus,
+  achievementsStatusQueryKey,
+  useAchievementsRealtime,
+  type AchievementWithStatus,
+} from '../../src/features/achievements';
 import { colors, spacing, radius } from '../../src/theme';
 
 const features = [
@@ -79,6 +85,59 @@ export default function HomeScreen() {
     refetchOnReconnect: false,
     queryFn: () => fetchProfileConventionIds(userId!),
   });
+
+  const achievementsQueryKey = useMemo(
+    () => (userId ? achievementsStatusQueryKey(userId) : ['achievements-status', 'guest'] as const),
+    [userId]
+  );
+
+  const {
+    data: achievementStatuses = [],
+    error: achievementsError,
+    isLoading: isAchievementsLoading,
+    isFetching: isAchievementsFetching,
+    refetch: refetchAchievements,
+  } = useQuery<AchievementWithStatus[], Error>({
+    queryKey: achievementsQueryKey,
+    enabled: Boolean(userId),
+    queryFn: () => fetchAchievementStatus(userId ?? ''),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
+  const unlockedAchievements = useMemo(
+    () => achievementStatuses.filter((achievement) => achievement.unlocked),
+    [achievementStatuses]
+  );
+
+  const achievementsTotal = achievementStatuses.length;
+  const achievementsUnlockedCount = unlockedAchievements.length;
+  const achievementsProgressPercent =
+    achievementsTotal > 0
+      ? Math.round((achievementsUnlockedCount / achievementsTotal) * 100)
+      : 0;
+
+  const latestUnlockedAchievement = useMemo(() => {
+    if (unlockedAchievements.length === 0) {
+      return null;
+    }
+
+    return [...unlockedAchievements].sort((a, b) => {
+      const aTime = a.unlockedAt ? new Date(a.unlockedAt).getTime() : 0;
+      const bTime = b.unlockedAt ? new Date(b.unlockedAt).getTime() : 0;
+      return bTime - aTime;
+    })[0];
+  }, [unlockedAchievements]);
+
+  const achievementsErrorMessage = achievementsError?.message ?? null;
+  const isAchievementsBusy = isAchievementsLoading || isAchievementsFetching;
+
+  const handleAchievementUnlocked = useCallback((achievement: AchievementWithStatus) => {
+    Alert.alert('Achievement unlocked!', achievement.name);
+  }, []);
+
+  useAchievementsRealtime(userId, { onUnlocked: handleAchievementUnlocked });
 
   const conventionMap = useMemo(() => {
     return new Map(conventions.map((convention) => [convention.id, convention]));
@@ -222,6 +281,67 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
+
+        <TailTagCard style={styles.achievementsCard}>
+          <Text style={styles.sectionEyebrow}>Achievements</Text>
+          <Text style={styles.sectionTitle}>Keep the streak going</Text>
+
+          {isAchievementsBusy ? (
+            <Text style={styles.message}>Checking your progress…</Text>
+          ) : achievementsErrorMessage ? (
+            <View style={styles.helper}>
+              <Text style={styles.error}>{achievementsErrorMessage}</Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => {
+                  void refetchAchievements({ throwOnError: false });
+                }}
+              >
+                Try again
+              </TailTagButton>
+            </View>
+          ) : achievementsTotal === 0 ? (
+            <Text style={styles.message}>
+              Achievements will appear as soon as the first convention goes live.
+            </Text>
+          ) : (
+            <View style={styles.achievementSummary}>
+              <View style={styles.achievementSummaryHeader}>
+                <Text style={styles.achievementProgressLabel}>
+                  {achievementsUnlockedCount} / {achievementsTotal} unlocked
+                </Text>
+                <Text style={styles.sectionBody}>{achievementsProgressPercent}% complete</Text>
+              </View>
+              <View style={styles.achievementProgressBar}>
+                <View
+                  style={[
+                    styles.achievementProgressFill,
+                    {
+                      width: `${Math.min(
+                        Math.max(achievementsProgressPercent, 0),
+                        100
+                      )}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.achievementFootnote}>
+                {latestUnlockedAchievement
+                  ? `Last unlock: ${latestUnlockedAchievement.name}`
+                  : 'Catch a suit to unlock your first badge.'}
+              </Text>
+            </View>
+          )}
+
+          <TailTagButton
+            variant="outline"
+            onPress={() => router.push('/achievements')}
+            style={styles.achievementCta}
+          >
+            View achievements
+          </TailTagButton>
+        </TailTagCard>
 
         <TailTagCard style={styles.leaderboardCard}>
           <Text style={styles.sectionEyebrow}>Leaderboard</Text>
@@ -477,6 +597,42 @@ const styles = StyleSheet.create({
   heroBlock: {
     width: maxContentWidth,
     marginBottom: spacing.xl,
+  },
+  achievementsCard: {
+    width: maxContentWidth,
+    marginBottom: spacing.xl,
+    gap: spacing.md,
+  },
+  achievementSummary: {
+    gap: spacing.sm,
+  },
+  achievementSummaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
+  achievementProgressLabel: {
+    color: colors.foreground,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  achievementProgressBar: {
+    height: 8,
+    width: '100%',
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(148,163,184,0.25)',
+    overflow: 'hidden',
+  },
+  achievementProgressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+  },
+  achievementFootnote: {
+    color: 'rgba(203,213,225,0.75)',
+    fontSize: 13,
+  },
+  achievementCta: {
+    alignSelf: 'flex-start',
   },
   badge: {
     alignSelf: 'flex-start',
