@@ -87,5 +87,5 @@ export function useAchievementsRealtime(
           supabase.removeChannel(channel);
         });
     };
-  }, [userId, queryClient, options?.onUnlocked]);
+  }, [userId, queryClient, options]);
 }

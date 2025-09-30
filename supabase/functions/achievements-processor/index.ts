@@ -1,4 +1,5 @@
 /// <reference lib="deno.unstable" />
+// eslint-disable-next-line import/no-unresolved -- Deno functions import via remote URL
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
 
 const corsHeaders = {
@@ -108,27 +109,65 @@ async function loadAchievementMap(): Promise<Map<string, Achievement>> {
 }
 
 async function claimNextEvents(limit: number): Promise<AchievementEvent[]> {
-  const { data, error } = await supabaseAdmin
-    .from("achievement_events")
-    .select("id, event_type, payload, created_at, processed_at")
-    .is("processed_at", null)
-    .order("created_at", { ascending: true })
-    .limit(limit);
+  const claimedEvents: AchievementEvent[] = [];
+  const maxAttempts = Math.max(limit * 5, 10);
+  let attempts = 0;
 
-  if (error) {
-    console.error("Error fetching achievement events", error);
-    throw new Error(`Unable to fetch achievement events: ${error.message}`);
+  while (claimedEvents.length < limit && attempts < maxAttempts) {
+    attempts += 1;
+
+    const { data: nextEventCandidates, error: fetchError } = await supabaseAdmin
+      .from("achievement_events")
+      .select("id")
+      .is("processed_at", null)
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    if (fetchError) {
+      console.error("Error fetching next achievement event to claim", fetchError);
+      throw new Error(`Unable to fetch achievement events: ${fetchError.message}`);
+    }
+
+    const candidate = nextEventCandidates?.[0];
+    if (!candidate) {
+      break;
+    }
+
+    const claimedAt = new Date().toISOString();
+    const { data: claimedRow, error: claimError } = await supabaseAdmin
+      .from("achievement_events")
+      .update({ processed_at: claimedAt })
+      .eq("id", candidate.id)
+      .is("processed_at", null)
+      .select("id, event_type, payload, created_at, processed_at")
+      .maybeSingle();
+
+    if (claimError) {
+      console.error(`Failed to claim achievement event ${candidate.id}`, claimError);
+      throw new Error(`Unable to claim achievement event ${candidate.id}: ${claimError.message}`);
+    }
+
+    if (!claimedRow) {
+      continue;
+    }
+
+    claimedEvents.push(claimedRow as AchievementEvent);
   }
 
-  return (data ?? []) as AchievementEvent[];
+  if (attempts >= maxAttempts && claimedEvents.length < limit) {
+    console.warn(
+      `Stopped claiming events after ${attempts} attempts (claimed ${claimedEvents.length} of ${limit})`,
+    );
+  }
+
+  return claimedEvents;
 }
 
 async function markEventProcessed(eventId: string): Promise<void> {
   const { error } = await supabaseAdmin
     .from("achievement_events")
     .update({ processed_at: new Date().toISOString() })
-    .eq("id", eventId)
-    .is("processed_at", null);
+    .eq("id", eventId);
 
   if (error) {
     console.error(`Failed to mark event ${eventId} as processed`, error);
@@ -496,7 +535,7 @@ async function evaluateCatcherAchievements(
 
   const totalCatches = await countCatchesByUser(userId);
 
-  const thresholds: Array<{ key: string; count: number }> = [
+  const thresholds: { key: string; count: number }[] = [
     { key: "FIRST_CATCH", count: 1 },
     { key: "GETTING_THE_HANG_OF_IT", count: 10 },
     { key: "SUPER_CATCHER", count: 25 },
