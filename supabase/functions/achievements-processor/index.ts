@@ -716,33 +716,33 @@ async function processEvent(
   return result;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+type BatchOptions = {
+  limitPerBatch?: number;
+  maxBatches?: number;
+};
 
-  const url = new URL(req.url);
-  const limitParam = url.searchParams.get("limit");
-  const limit = limitParam ? Math.max(1, Math.min(50, Number.parseInt(limitParam, 10) || 0)) : 10;
+async function processPendingEvents({
+  limitPerBatch = 25,
+  maxBatches = 10,
+}: BatchOptions = {}): Promise<{ processed: number; results: ProcessResult[] }> {
+  const achievementMap = await loadAchievementMap();
+  const allResults: ProcessResult[] = [];
+  let totalProcessed = 0;
 
-  try {
-    const achievementMap = await loadAchievementMap();
-    const events = await claimNextEvents(limit);
+  for (let batch = 0; batch < maxBatches; batch += 1) {
+    const events = await claimNextEvents(limitPerBatch);
 
     if (events.length === 0) {
-      return new Response(JSON.stringify({ processed: 0, results: [] }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      break;
     }
 
-    const results: ProcessResult[] = [];
     for (const event of events) {
       try {
         const processed = await processEvent(achievementMap, event);
-        results.push(processed);
+        totalProcessed += 1;
+        allResults.push(processed);
       } catch (eventError) {
         console.error(`Failed processing event ${event.id}`, eventError);
-        // leave event unprocessed for retry by resetting processed_at
         const { error } = await supabaseAdmin
           .from("achievement_events")
           .update({ processed_at: null })
@@ -753,8 +753,35 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (events.length < limitPerBatch) {
+      break;
+    }
+  }
+
+  return { processed: totalProcessed, results: allResults };
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  const url = new URL(req.url);
+  const limitParam = url.searchParams.get("limit");
+  const maxBatchesParam = url.searchParams.get("max_batches");
+  const limit = limitParam ? Math.max(1, Math.min(100, Number.parseInt(limitParam, 10) || 0)) : 25;
+  const maxBatches = maxBatchesParam
+    ? Math.max(1, Math.min(40, Number.parseInt(maxBatchesParam, 10) || 0))
+    : 10;
+
+  try {
+    const { processed, results } = await processPendingEvents({
+      limitPerBatch: limit,
+      maxBatches,
+    });
+
     return new Response(
-      JSON.stringify({ processed: results.length, results }),
+      JSON.stringify({ processed, results }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
@@ -768,3 +795,5 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+export { processPendingEvents };
