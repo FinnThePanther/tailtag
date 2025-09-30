@@ -68,6 +68,9 @@ function RootLayoutNav() {
       {/* Standalone fursuit flows */}
       <Stack.Screen name="fursuits/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="fursuits/[id]/edit" options={{ headerShown: false }} />
+
+      {/* Achievements */}
+      <Stack.Screen name="achievements/index" options={{ headerShown: false }} />
     </Stack>
   );
 }

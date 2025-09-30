@@ -42,4 +42,4 @@ yarn-error.*
 /android
 
 # Local PRDs for feature development
-/prds
+# /prds
