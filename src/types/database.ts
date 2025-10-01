@@ -240,6 +240,7 @@ export interface CatchesRow {
   convention_id: string | null;
   caught_at: string | null;
   created_at: string | null;
+  conversation_note: string | null;
 }
 
 export interface CatchesInsert {
@@ -249,6 +250,7 @@ export interface CatchesInsert {
   convention_id?: string | null;
   caught_at?: string | null;
   created_at?: string | null;
+  conversation_note?: string | null;
 }
 
 export interface CatchesUpdate {
@@ -258,6 +260,7 @@ export interface CatchesUpdate {
   convention_id?: string | null;
   caught_at?: string | null;
   created_at?: string | null;
+  conversation_note?: string | null;
 }
 
 export interface AchievementsRow {

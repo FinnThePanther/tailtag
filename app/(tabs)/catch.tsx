@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -32,6 +32,7 @@ import { normalizeUniqueCodeInput } from '../../src/utils/code';
 import { toDisplayDateTime } from '../../src/utils/dates';
 
 import type { FursuitsRow } from '../../src/types/database';
+import type { CaughtRecord as CaughtSuitsRecord } from '../../src/features/suits';
 
 type FursuitDetails = Pick<
   FursuitsRow,
@@ -41,6 +42,12 @@ type FursuitDetails = Pick<
 type CatchRecord = {
   id: string;
   caught_at: string | null;
+  conversation_note: string | null;
+};
+
+const getAskPromptText = (askMeAbout: string | null | undefined) => {
+  const trimmed = (askMeAbout ?? '').trim();
+  return trimmed.length > 0 ? trimmed : 'Ask them anything that catches your eye!';
 };
 
 export default function CatchScreen() {
@@ -48,12 +55,29 @@ export default function CatchScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
+  const caughtSuitsKey = useMemo(() => [CAUGHT_SUITS_QUERY_KEY, userId] as const, [userId]);
 
   const [codeInput, setCodeInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [caughtFursuit, setCaughtFursuit] = useState<FursuitDetails | null>(null);
   const [catchRecord, setCatchRecord] = useState<CatchRecord | null>(null);
+  const [noteInput, setNoteInput] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [noteSaved, setNoteSaved] = useState(false);
+
+  useEffect(() => {
+    if (catchRecord) {
+      setNoteInput(catchRecord.conversation_note ?? '');
+      setNoteError(null);
+      setNoteSaved(Boolean(catchRecord.conversation_note));
+    } else {
+      setNoteInput('');
+      setNoteError(null);
+      setNoteSaved(false);
+    }
+  }, [catchRecord]);
 
   const handleSubmit = async () => {
     if (!userId || isSubmitting) {
@@ -218,7 +242,7 @@ export default function CatchScreen() {
       const { data: insertedCatch, error: catchError } = await client
         .from('catches')
         .insert({ fursuit_id: normalizedFursuit.id })
-        .select('id, caught_at')
+        .select('id, caught_at, conversation_note')
         .single();
 
       if (catchError) {
@@ -244,7 +268,7 @@ export default function CatchScreen() {
           queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, conventionId],
         });
       });
-      queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
+      queryClient.invalidateQueries({ queryKey: caughtSuitsKey });
       setCodeInput('');
     } catch (caught) {
       const fallbackMessage =
@@ -268,6 +292,67 @@ export default function CatchScreen() {
     setCatchRecord(null);
     setSubmitError(null);
     setCodeInput('');
+    setNoteInput('');
+    setNoteError(null);
+    setNoteSaved(false);
+  };
+
+  const handleSaveNote = async () => {
+    if (!catchRecord?.id || !userId || isSavingNote) {
+      return;
+    }
+
+    const client = supabase as any;
+    const trimmedNote = noteInput.trim();
+    const payload = trimmedNote.length > 0 ? trimmedNote : null;
+
+    setIsSavingNote(true);
+    setNoteError(null);
+
+    try {
+      const { data, error } = await client
+        .from('catches')
+        .update({ conversation_note: payload })
+        .eq('id', catchRecord.id)
+        .select('id, conversation_note, caught_at')
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      setCatchRecord((current) =>
+        current
+          ? {
+              ...current,
+              conversation_note: data?.conversation_note ?? null,
+            }
+          : current
+      );
+      setNoteInput(data?.conversation_note ?? '');
+      setNoteSaved(Boolean(data?.conversation_note));
+
+      queryClient.setQueryData<CaughtSuitsRecord[] | undefined>(caughtSuitsKey, (existing) => {
+        if (!existing) {
+          return existing;
+        }
+
+        return existing.map((item) =>
+          item.id === catchRecord.id
+            ? { ...item, conversation_note: data?.conversation_note ?? null }
+            : item
+        );
+      });
+    } catch (caught) {
+      const fallbackMessage =
+        caught instanceof Error
+          ? caught.message
+          : "We couldn't save your note right now. Please try again.";
+      setNoteError(fallbackMessage);
+      setNoteSaved(false);
+    } finally {
+      setIsSavingNote(false);
+    }
   };
 
   return (
@@ -334,6 +419,47 @@ export default function CatchScreen() {
                 <FursuitBioDetails bio={caughtFursuit.bio} />
               </View>
             ) : null}
+            {caughtFursuit.bio ? (
+              <View style={styles.askCallout}>
+                <Text style={styles.askCalloutTitle}>Ask this suiter</Text>
+                <Text style={styles.askCalloutBody}>
+                  {getAskPromptText(caughtFursuit.bio.askMeAbout)}
+                </Text>
+              </View>
+            ) : null}
+            <View style={styles.noteSection}>
+              <Text style={styles.noteLabel}>Conversation notes</Text>
+              <Text style={styles.noteHelp}>
+                Jot down what you talked about so you remember this moment later.
+              </Text>
+              <TailTagInput
+                multiline
+                textAlignVertical="top"
+                style={styles.noteInput}
+                value={noteInput}
+                onChangeText={(value) => {
+                  setNoteInput(value);
+                  setNoteSaved(false);
+                  setNoteError(null);
+                }}
+                editable={!isSavingNote}
+                placeholder="Shared pronouns, mutual friends, fun facts…"
+                returnKeyType="default"
+              />
+              {noteError ? <Text style={styles.errorText}>{noteError}</Text> : null}
+              {noteSaved && !noteError ? (
+                <Text style={styles.noteStatus}>Note saved</Text>
+              ) : null}
+              <TailTagButton
+                onPress={handleSaveNote}
+                loading={isSavingNote}
+                disabled={!userId || isSavingNote}
+                size="sm"
+                style={styles.noteButton}
+              >
+                Save note
+              </TailTagButton>
+            </View>
             <View style={styles.buttonRow}>
               <TailTagButton
                 variant="outline"
@@ -418,6 +544,50 @@ const styles = StyleSheet.create({
   },
   bioSpacing: {
     marginTop: spacing.md,
+  },
+  askCallout: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: 20,
+    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.4)',
+    gap: spacing.xs,
+  },
+  askCalloutTitle: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  askCalloutBody: {
+    color: 'rgba(203,213,225,0.95)',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  noteSection: {
+    marginTop: spacing.lg,
+    gap: spacing.xs,
+  },
+  noteLabel: {
+    color: colors.foreground,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noteHelp: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 13,
+  },
+  noteInput: {
+    minHeight: 120,
+  },
+  noteStatus: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 12,
+  },
+  noteButton: {
+    alignSelf: 'flex-start',
   },
   buttonRow: {
     flexDirection: 'row',

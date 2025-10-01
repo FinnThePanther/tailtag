@@ -5,6 +5,7 @@ import { mapLatestFursuitBio } from './utils';
 export type CaughtRecord = {
   id: string;
   caught_at: string | null;
+  conversation_note: string | null;
   fursuit: FursuitSummary | null;
 };
 
@@ -21,6 +22,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       `
       id,
       caught_at,
+      conversation_note,
       fursuit:fursuits (
         id,
         name,
@@ -78,6 +80,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
     return {
       id: record.id,
       caught_at: record.caught_at ?? null,
+      conversation_note: record.conversation_note ?? null,
       fursuit,
     } satisfies CaughtRecord;
   });
