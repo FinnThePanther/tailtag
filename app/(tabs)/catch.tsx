@@ -54,6 +54,7 @@ export default function CatchScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [caughtFursuit, setCaughtFursuit] = useState<FursuitDetails | null>(null);
   const [catchRecord, setCatchRecord] = useState<CatchRecord | null>(null);
+  const [conversationPrompt, setConversationPrompt] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!userId || isSubmitting) {
@@ -69,6 +70,7 @@ export default function CatchScreen() {
 
     setIsSubmitting(true);
     setSubmitError(null);
+    setConversationPrompt(null);
 
     try {
       const client = supabase as any;
@@ -118,6 +120,7 @@ export default function CatchScreen() {
       if (!fursuit) {
         setCaughtFursuit(null);
         setCatchRecord(null);
+        setConversationPrompt(null);
         setSubmitError("We couldn't find a fursuit with that code. Double-check the letters and try again.");
         return;
       }
@@ -137,6 +140,7 @@ export default function CatchScreen() {
       if (normalizedFursuit.owner_id === userId) {
         setCaughtFursuit(null);
         setCatchRecord(null);
+        setConversationPrompt(null);
         setSubmitError(
           "That tag belongs to one of your own suits. Trade codes with friends to grow your collection."
         );
@@ -171,6 +175,7 @@ export default function CatchScreen() {
       if (playerConventionIds.size === 0) {
         setCaughtFursuit(null);
         setCatchRecord(null);
+        setConversationPrompt(null);
         setSubmitError('Opt into at least one convention in Settings before logging catches.');
         return;
       }
@@ -178,6 +183,7 @@ export default function CatchScreen() {
       if (suitConventionIds.size === 0) {
         setCaughtFursuit(null);
         setCatchRecord(null);
+        setConversationPrompt(null);
         setSubmitError(
           'This suit has not opted into any conventions yet. Ask the owner to update their settings before logging the catch.'
         );
@@ -189,6 +195,7 @@ export default function CatchScreen() {
       if (sharedConventions.length === 0) {
         setCaughtFursuit(null);
         setCatchRecord(null);
+        setConversationPrompt(null);
         setSubmitError(
           'You and this suit need to opt into the same convention before logging the catch.'
         );
@@ -209,6 +216,7 @@ export default function CatchScreen() {
       if (existingCatch) {
         setCaughtFursuit(null);
         setCatchRecord(null);
+        setConversationPrompt(null);
         setSubmitError(
           'You already caught this suit. Swap codes with another fursuiter to keep hunting.'
         );
@@ -228,14 +236,27 @@ export default function CatchScreen() {
           );
           setCaughtFursuit(null);
           setCatchRecord(null);
+          setConversationPrompt(null);
           return;
         }
 
         throw catchError;
       }
 
+      const promptCandidate = normalizedFursuit.bio
+        ? [
+            normalizedFursuit.bio.askMeAbout,
+            normalizedFursuit.bio.tagline,
+            normalizedFursuit.bio.funFact,
+            normalizedFursuit.bio.likesAndInterests,
+          ]
+            .map((value) => value?.trim())
+            .find((value) => value)
+        : null;
+
       setCaughtFursuit(normalizedFursuit);
       setCatchRecord(insertedCatch ?? null);
+      setConversationPrompt(promptCandidate ?? null);
       sharedConventions.forEach((conventionId) => {
         queryClient.invalidateQueries({
           queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
@@ -254,6 +275,7 @@ export default function CatchScreen() {
       setSubmitError(fallbackMessage);
       setCaughtFursuit(null);
       setCatchRecord(null);
+      setConversationPrompt(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -268,6 +290,7 @@ export default function CatchScreen() {
     setCatchRecord(null);
     setSubmitError(null);
     setCodeInput('');
+    setConversationPrompt(null);
   };
 
   return (
@@ -321,6 +344,12 @@ export default function CatchScreen() {
               You just tagged {caughtFursuit.name}. Scroll through their bio below and trade
               codes to keep your streak growing.
             </Text>
+            {conversationPrompt ? (
+              <TailTagCard style={styles.promptCard}>
+                <Text style={styles.promptLabel}>Ask them about…</Text>
+                <Text style={styles.promptBody}>{conversationPrompt}</Text>
+              </TailTagCard>
+            ) : null}
             <FursuitCard
               name={caughtFursuit.name}
               species={caughtFursuit.species}
@@ -431,5 +460,23 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 4,
     fontSize: 20,
+  },
+  promptCard: {
+    marginBottom: spacing.md,
+    backgroundColor: colors.primaryMuted,
+    borderColor: colors.primaryDark,
+  },
+  promptLabel: {
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    color: colors.primary,
+    marginBottom: spacing.xs,
+    fontWeight: '600',
+  },
+  promptBody: {
+    fontSize: 16,
+    color: colors.foreground,
+    lineHeight: 22,
   },
 });
