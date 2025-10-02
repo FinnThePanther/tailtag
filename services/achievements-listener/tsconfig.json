@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "moduleDetection": "force",
     "allowImportingTsExtensions": true,
     "allowSyntheticDefaultImports": true,
@@ -13,8 +13,9 @@
     "types": ["node"],
     "noEmit": true,
     "baseUrl": ".",
+    "rootDirs": [".", "../../"],
     "paths": {
-      "@tailtag/achievements-processor": ["../../supabase/shared/achievements/processor.ts"]
+      "#achievements-processor": ["../../supabase/shared/achievements/processor.ts"]
     }
   },
   "include": [

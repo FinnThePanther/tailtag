@@ -6,7 +6,7 @@ import {
   type AchievementEvent,
   type ProcessResult,
   type AwardResult,
-} from "@tailtag/achievements-processor";
+} from "#achievements-processor";
 
 loadEnv();
 
