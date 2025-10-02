@@ -1,4 +1,5 @@
 import { config as loadEnv } from "dotenv";
+import http from "node:http";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import pRetry from "p-retry";
 import * as achievementsProcessorModule from "#achievements-processor";
@@ -25,6 +26,49 @@ const logger = {
   error: (...args: unknown[]) => console.error(LOG_PREFIX, ...args),
   debug: (...args: unknown[]) => console.debug(LOG_PREFIX, ...args),
 };
+
+function startHealthServer() {
+  const port = Number.parseInt(process.env.PORT ?? "8080", 10);
+
+  const server = http.createServer((req, res) => {
+    if (!req.url || !req.method) {
+      res.writeHead(400);
+      res.end();
+      return;
+    }
+
+    if (req.method === "GET" && (req.url === "/" || req.url === "/health")) {
+      const body = JSON.stringify({ status: "ok" });
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body).toString(),
+      });
+      res.end(body);
+      return;
+    }
+
+    if (req.method === "HEAD" && (req.url === "/" || req.url === "/health")) {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+
+    res.writeHead(404);
+    res.end();
+  });
+
+  server.listen(port, () => {
+    logger.info(`Health server listening on port ${port}`);
+  });
+
+  server.on("error", (error) => {
+    logger.error("Health server error", error);
+  });
+
+  return server;
+}
+
+const healthServer = startHealthServer();
 
 function getEnv(name: string): string {
   const value = process.env[name];
@@ -149,13 +193,34 @@ async function main() {
     },
   );
 
-  await channel.subscribe((realtimeStatus) => {
-    logger.info(`Realtime status changed: ${realtimeStatus}`);
-  });
+  const subscribeTimeoutMs = Number.parseInt(
+    process.env.REALTIME_SUBSCRIBE_TIMEOUT_MS ?? "15000",
+    10,
+  );
 
-  if (channel.state !== "joined") {
-    throw new Error(`Failed to subscribe to realtime channel (state: ${channel.state})`);
-  }
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(`Realtime subscribe timed out after ${subscribeTimeoutMs}ms`));
+    }, subscribeTimeoutMs);
+
+    channel.subscribe((realtimeStatus, err) => {
+      logger.info(`Realtime status changed: ${realtimeStatus}`);
+
+      if (realtimeStatus === "SUBSCRIBED") {
+        clearTimeout(timeoutId);
+        resolve();
+      } else if (realtimeStatus === "CHANNEL_ERROR") {
+        clearTimeout(timeoutId);
+        reject(err ?? new Error("Realtime channel error"));
+      } else if (realtimeStatus === "CLOSED") {
+        clearTimeout(timeoutId);
+        reject(new Error("Realtime channel closed during subscribe"));
+      } else if (realtimeStatus === "TIMED_OUT") {
+        clearTimeout(timeoutId);
+        reject(new Error("Realtime channel subscribe timed out"));
+      }
+    });
+  });
 
   logger.info("Realtime subscription established – awaiting events");
 
@@ -163,6 +228,9 @@ async function main() {
     logger.info(`Received ${signal}, shutting down listener`);
     await channel.unsubscribe();
     await client.removeChannel(channel);
+    await new Promise<void>((resolve) => {
+      healthServer.close(() => resolve());
+    });
     process.exit(0);
   };
 
