@@ -1,12 +1,19 @@
 import { config as loadEnv } from "dotenv";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import pRetry from "p-retry";
-import {
-  createAchievementProcessor,
-  type AchievementEvent,
-  type ProcessResult,
-  type AwardResult,
+import * as achievementsProcessorModule from "#achievements-processor";
+import type {
+  AchievementEvent,
+  ProcessResult,
+  AwardResult,
 } from "#achievements-processor";
+
+const processorExports = (achievementsProcessorModule as unknown as {
+  default?: Record<string, unknown>;
+})?.default ?? achievementsProcessorModule;
+
+const { createAchievementProcessor } =
+  processorExports as typeof import("#achievements-processor");
 
 loadEnv();
 
