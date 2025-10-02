@@ -1,7 +1,7 @@
 /// <reference lib="deno.unstable" />
 // eslint-disable-next-line import/no-unresolved -- Deno functions import via remote URL
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
-import { createAchievementProcessor } from "../shared/achievements/processor.ts";
+import { createAchievementProcessor } from "../../shared/achievements/processor.ts";
 
 type BatchOptions = {
   limitPerBatch?: number;
