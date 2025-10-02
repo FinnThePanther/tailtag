@@ -60,6 +60,7 @@ export type AwardResult = {
   key: string;
   userId: string;
   awarded: boolean;
+  context: Json;
 };
 
 export type ProcessResult = {
@@ -78,10 +79,18 @@ type SupabaseClientLike = any;
 
 type LoggerLike = Pick<typeof console, "info" | "warn" | "error" | "debug">;
 
+type AwardHookPayload = {
+  userId: string;
+  achievement: Achievement;
+  context: Json;
+  event: AchievementEvent | null;
+};
+
 type ProcessorDeps = {
   supabase: SupabaseClientLike;
   logger?: LoggerLike;
   now?: () => Date;
+  onAwardGranted?: (payload: AwardHookPayload) => Promise<void> | void;
 };
 
 export type AchievementProcessor = ReturnType<typeof createAchievementProcessor>;
@@ -90,6 +99,7 @@ export function createAchievementProcessor({
   supabase,
   logger = console,
   now = () => new Date(),
+  onAwardGranted,
 }: ProcessorDeps) {
   const log = logger;
 
@@ -108,21 +118,21 @@ export function createAchievementProcessor({
     for (const row of data ?? []) {
       map.set((row as Achievement).key, row as Achievement);
     }
-  return map;
-}
-
-function selectAchievement(
-  achievementMap: Map<string, Achievement>,
-  ...keys: string[]
-): Achievement | undefined {
-  for (const key of keys) {
-    const achievement = achievementMap.get(key);
-    if (achievement) {
-      return achievement;
-    }
+    return map;
   }
-  return undefined;
-}
+
+  function selectAchievement(
+    achievementMap: Map<string, Achievement>,
+    ...keys: string[]
+  ): Achievement | undefined {
+    for (const key of keys) {
+      const achievement = achievementMap.get(key);
+      if (achievement) {
+        return achievement;
+      }
+    }
+    return undefined;
+  }
 
   async function claimNextEvents(limit: number): Promise<AchievementEvent[]> {
     const claimedEvents: AchievementEvent[] = [];
@@ -475,7 +485,12 @@ function selectAchievement(
     return (data?.length ?? 0) >= 2;
   }
 
-  async function awardAchievement(userId: string, achievement: Achievement, context: Json): Promise<boolean> {
+  async function awardAchievement(
+    userId: string,
+    achievement: Achievement,
+    context: Json,
+    event: AchievementEvent | null,
+  ): Promise<boolean> {
     if (!userId) return false;
 
     const payload = {
@@ -484,25 +499,41 @@ function selectAchievement(
       context,
     };
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("user_achievements")
       .upsert(payload, {
         onConflict: "user_id,achievement_id",
         ignoreDuplicates: true,
-      });
+      })
+      .select("user_id")
+      .maybeSingle();
 
     if (error) {
       log.error(`Failed awarding ${achievement.key} to user ${userId}`, error);
       throw new Error(`Unable to award ${achievement.key} to user ${userId}: ${error.message}`);
     }
 
-    return true;
+    const inserted = Boolean(data);
+
+    if (inserted) {
+      try {
+        await onAwardGranted?.({ userId, achievement, context, event });
+      } catch (hookError) {
+        log.error(
+          `Award hook failed for ${achievement.key} -> ${userId}`,
+          hookError,
+        );
+      }
+    }
+
+    return inserted;
   }
 
   async function evaluateCatcherAchievements(
     achievementMap: Map<string, Achievement>,
     catchRow: CatchRow,
     context: Json,
+    event: AchievementEvent | null,
   ): Promise<AwardResult[]> {
     const userId = catchRow.catcher_id;
     if (!userId) return [];
@@ -521,8 +552,8 @@ function selectAchievement(
       if (totalCatches >= count) {
         const achievement = selectAchievement(achievementMap, ...keys);
         if (achievement && achievement.recipient_role === "catcher") {
-          const awarded = await awardAchievement(userId, achievement, context);
-          awards.push({ key: achievement.key, userId, awarded });
+          const awarded = await awardAchievement(userId, achievement, context, event);
+          awards.push({ key: achievement.key, userId, awarded, context });
         }
       }
     }
@@ -535,8 +566,8 @@ function selectAchievement(
         "SPECIES_EXPLORER",
       );
       if (achievement && achievement.recipient_role === "catcher") {
-        const awarded = await awardAchievement(userId, achievement, context);
-        awards.push({ key: achievement.key, userId, awarded });
+        const awarded = await awardAchievement(userId, achievement, context, event);
+        awards.push({ key: achievement.key, userId, awarded, context });
       }
     }
 
@@ -552,8 +583,8 @@ function selectAchievement(
         "HYBRID_VIBES",
       );
       if (achievement && achievement.recipient_role === "catcher") {
-        const awarded = await awardAchievement(userId, achievement, context);
-        awards.push({ key: achievement.key, userId, awarded });
+        const awarded = await awardAchievement(userId, achievement, context, event);
+        awards.push({ key: achievement.key, userId, awarded, context });
       }
     }
 
@@ -567,8 +598,8 @@ function selectAchievement(
           "DAY_ONE_DEVOTEE",
         );
         if (achievement && achievement.recipient_role === "catcher") {
-          const awarded = await awardAchievement(userId, achievement, context);
-          awards.push({ key: achievement.key, userId, awarded });
+          const awarded = await awardAchievement(userId, achievement, context, event);
+          awards.push({ key: achievement.key, userId, awarded, context });
         }
       }
 
@@ -578,8 +609,8 @@ function selectAchievement(
           "NIGHT_OWL",
         );
         if (achievement && achievement.recipient_role === "catcher") {
-          const awarded = await awardAchievement(userId, achievement, context);
-          awards.push({ key: achievement.key, userId, awarded });
+          const awarded = await awardAchievement(userId, achievement, context, event);
+          awards.push({ key: achievement.key, userId, awarded, context });
         }
       }
 
@@ -591,8 +622,8 @@ function selectAchievement(
           "CONVENTION_TOURIST",
         );
         if (achievement && achievement.recipient_role === "catcher") {
-          const awarded = await awardAchievement(userId, achievement, context);
-          awards.push({ key: achievement.key, userId, awarded });
+          const awarded = await awardAchievement(userId, achievement, context, event);
+          awards.push({ key: achievement.key, userId, awarded, context });
         }
       }
 
@@ -606,8 +637,8 @@ function selectAchievement(
           "RARE_FIND",
         );
         if (achievement && achievement.recipient_role === "catcher") {
-          const awarded = await awardAchievement(userId, achievement, context);
-          awards.push({ key: achievement.key, userId, awarded });
+          const awarded = await awardAchievement(userId, achievement, context, event);
+          awards.push({ key: achievement.key, userId, awarded, context });
         }
       }
     }
@@ -619,8 +650,8 @@ function selectAchievement(
         "DOUBLE_TROUBLE",
       );
       if (achievement && achievement.recipient_role === "catcher") {
-        const awarded = await awardAchievement(userId, achievement, context);
-        awards.push({ key: achievement.key, userId, awarded });
+        const awarded = await awardAchievement(userId, achievement, context, event);
+        awards.push({ key: achievement.key, userId, awarded, context });
       }
     }
 
@@ -632,6 +663,7 @@ function selectAchievement(
     catchRow: CatchRow,
     ownerId: string,
     context: Json,
+    event: AchievementEvent | null,
   ): Promise<AwardResult[]> {
     const awards: AwardResult[] = [];
 
@@ -643,8 +675,8 @@ function selectAchievement(
         "FURSUIT_FIRST_CATCH",
       );
       if (achievement && achievement.recipient_role === "fursuit_owner") {
-        const awarded = await awardAchievement(ownerId, achievement, context);
-        awards.push({ key: achievement.key, userId: ownerId, awarded });
+        const awarded = await awardAchievement(ownerId, achievement, context, event);
+        awards.push({ key: achievement.key, userId: ownerId, awarded, context });
       }
     }
 
@@ -660,8 +692,8 @@ function selectAchievement(
         "MIX_AND_MATCH",
       );
       if (achievement && achievement.recipient_role === "fursuit_owner") {
-        const awarded = await awardAchievement(ownerId, achievement, context);
-        awards.push({ key: achievement.key, userId: ownerId, awarded });
+        const awarded = await awardAchievement(ownerId, achievement, context, event);
+        awards.push({ key: achievement.key, userId: ownerId, awarded, context });
       }
     }
 
@@ -678,8 +710,8 @@ function selectAchievement(
           "CONVENTION_STAR",
         );
         if (achievement && achievement.recipient_role === "fursuit_owner") {
-          const awarded = await awardAchievement(ownerId, achievement, context);
-          awards.push({ key: achievement.key, userId: ownerId, awarded });
+          const awarded = await awardAchievement(ownerId, achievement, context, event);
+          awards.push({ key: achievement.key, userId: ownerId, awarded, context });
         }
       }
 
@@ -693,12 +725,13 @@ function selectAchievement(
           "RARE_FIND",
         );
         if (achievement && achievement.recipient_role === "fursuit_owner") {
-          const awarded = await awardAchievement(ownerId, achievement, {
+          const rareContext: Json = {
             ...context,
             convention_id: conventionId,
             unique_catchers: uniqueCatchers,
-          });
-          awards.push({ key: achievement.key, userId: ownerId, awarded });
+          };
+          const awarded = await awardAchievement(ownerId, achievement, rareContext, event);
+          awards.push({ key: achievement.key, userId: ownerId, awarded, context: rareContext });
         }
       }
     }
@@ -738,6 +771,7 @@ function selectAchievement(
         achievementMap,
         catchRow,
         catcherContext,
+        event,
       );
       awards.push(...catcherAwards);
     }
@@ -750,6 +784,7 @@ function selectAchievement(
         catchRow,
         ownerId,
         ownerContext,
+        event,
       );
       awards.push(...ownerAwards);
     }
@@ -791,8 +826,9 @@ function selectAchievement(
     const achievement = achievementMap.get("PROFILE_COMPLETE");
     if (!achievement || achievement.recipient_role !== "any") return [];
 
-    const awarded = await awardAchievement(userId, achievement, { user_id: userId });
-    return [{ key: "PROFILE_COMPLETE", userId, awarded }];
+    const context: Json = { user_id: userId };
+    const awarded = await awardAchievement(userId, achievement, context, event);
+    return [{ key: achievement.key, userId, awarded, context }];
   }
 
   async function processConventionCheckinEvent(
@@ -814,8 +850,8 @@ function selectAchievement(
     };
     if (payload.convention_id) context.convention_id = payload.convention_id;
 
-    const awarded = await awardAchievement(userId, achievement, context);
-    return [{ key: "EXPLORER", userId, awarded }];
+    const awarded = await awardAchievement(userId, achievement, context, event);
+    return [{ key: achievement.key, userId, awarded, context }];
   }
 
   async function processEventInternal(

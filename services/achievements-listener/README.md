@@ -26,7 +26,7 @@ npm install
 npm run dev
 ```
 
-The `dev` command watches `src/index.ts` and reloads on changes. The first thing the worker does is run a catch-up sweep via the shared achievements processor, then it subscribes to realtime inserts on `achievement_events`.
+The `dev` command watches `src/index.ts` and reloads on changes. The worker runs a catch-up sweep via the shared achievements processor, subscribes to realtime inserts on `achievement_events`, and writes newly granted awards into `public.achievement_notifications` for the clients to poll.
 
 ## Production Run
 
@@ -36,4 +36,10 @@ Use the provided `start` script:
 npm run start
 ```
 
-This executes the listener with [`tsx`](https://github.com/esbuild-kit/tsx), so no pre-compilation step is required. For containerised deployments, ensure signals (`SIGINT`, `SIGTERM`) are forwarded so the listener can unsubscribe cleanly.
+This executes the listener with [`tsx`](https://github.com/esbuild-kit/tsx), so no pre-compilation step is required. For containerised deployments, ensure signals (`SIGINT`, `SIGTERM`) are forwarded so the listener can unsubscribe cleanly and close the HTTP health server.
+
+### Achievement notifications
+
+- The listener inserts a row into `public.achievement_notifications` every time a new award is granted (also covered by the cron edge function).
+- Clients can poll `achievement_notifications` for `acknowledged_at is null` rows, display them, then mark them acknowledged with a `PATCH`/`UPDATE`.
+- Optional environment variable `REALTIME_SUBSCRIBE_TIMEOUT_MS` controls how long the worker waits for the realtime channel to join before giving up (defaults to 15 000 ms).

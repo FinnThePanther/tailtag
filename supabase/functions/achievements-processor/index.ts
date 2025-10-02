@@ -2,6 +2,11 @@
 // eslint-disable-next-line import/no-unresolved -- Deno functions import via remote URL
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
 import { createAchievementProcessor } from "../../shared/achievements/processor.ts";
+import type {
+  Achievement,
+  Json,
+  AchievementEvent,
+} from "../../shared/achievements/processor.ts";
 
 type BatchOptions = {
   limitPerBatch?: number;
@@ -27,8 +32,45 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   },
 });
 
+async function handleAwardGranted({
+  userId,
+  achievement,
+  context,
+  event,
+}: {
+  userId: string;
+  achievement: Achievement;
+  context: Json;
+  event: AchievementEvent | null;
+}) {
+  if (!userId) return;
+
+  const notification = {
+    user_id: userId,
+    achievement_key: achievement.key,
+    context,
+    event_id: event?.id ?? null,
+    event_type: event?.event_type ?? null,
+  } as const;
+
+  const { error } = await supabaseAdmin
+    .from("achievement_notifications")
+    .insert(notification);
+
+  if (error) {
+    if (error.code === "23505") {
+      console.debug(
+        `[achievements-processor] Notification exists for ${achievement.key} (${event?.id ?? "no-event"})`,
+      );
+      return;
+    }
+    console.error("Failed inserting achievement notification", error);
+  }
+}
+
 const processor = createAchievementProcessor({
   supabase: supabaseAdmin,
+  onAwardGranted: handleAwardGranted,
 });
 
 async function processPendingEvents(options?: BatchOptions) {

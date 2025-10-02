@@ -7,6 +7,8 @@ import type {
   AchievementEvent,
   ProcessResult,
   AwardResult,
+  Achievement,
+  Json,
 } from "#achievements-processor";
 
 const processorExports = (achievementsProcessorModule as unknown as {
@@ -15,6 +17,42 @@ const processorExports = (achievementsProcessorModule as unknown as {
 
 const { createAchievementProcessor } =
   processorExports as typeof import("#achievements-processor");
+
+type AwardHookPayload = {
+  userId: string;
+  achievement: Achievement;
+  context: Json;
+  event: AchievementEvent | null;
+};
+
+async function insertNotification({
+  userId,
+  achievement,
+  context,
+  event,
+}: AwardHookPayload) {
+  if (!userId) return;
+
+  const notification = {
+    user_id: userId,
+    achievement_key: achievement.key,
+    context,
+    event_id: event?.id ?? null,
+    event_type: event?.event_type ?? null,
+  } as const;
+
+  const { error } = await client.from("achievement_notifications").insert(notification);
+
+  if (error) {
+    if (error.code === "23505") {
+      logger.debug(
+        `Notification already exists for ${achievement.key} (${event?.id ?? "no-event"})`,
+      );
+      return;
+    }
+    logger.error("Failed inserting achievement notification", error);
+  }
+}
 
 loadEnv();
 
@@ -99,6 +137,7 @@ const client: SupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
 const processor = createAchievementProcessor({
   supabase: client,
   logger,
+  onAwardGranted: insertNotification,
 });
 
 let queue = Promise.resolve();
