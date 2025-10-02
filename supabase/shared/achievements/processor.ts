@@ -108,8 +108,21 @@ export function createAchievementProcessor({
     for (const row of data ?? []) {
       map.set((row as Achievement).key, row as Achievement);
     }
-    return map;
+  return map;
+}
+
+function selectAchievement(
+  achievementMap: Map<string, Achievement>,
+  ...keys: string[]
+): Achievement | undefined {
+  for (const key of keys) {
+    const achievement = achievementMap.get(key);
+    if (achievement) {
+      return achievement;
+    }
   }
+  return undefined;
+}
 
   async function claimNextEvents(limit: number): Promise<AchievementEvent[]> {
     const claimedEvents: AchievementEvent[] = [];
@@ -498,28 +511,32 @@ export function createAchievementProcessor({
 
     const totalCatches = await countCatchesByUser(userId);
 
-    const thresholds: Array<{ key: string; count: number }> = [
-      { key: "FIRST_CATCH", count: 1 },
-      { key: "GETTING_THE_HANG_OF_IT", count: 10 },
-      { key: "SUPER_CATCHER", count: 25 },
+    const thresholds: Array<{ keys: string[]; count: number }> = [
+      { keys: ["FIRST_CATCH"], count: 1 },
+      { keys: ["GETTING_THE_HANG_OF_IT", "TEN_CATCHES"], count: 10 },
+      { keys: ["SUPER_CATCHER", "TWENTY_FIVE_CATCHES"], count: 25 },
     ];
 
-    for (const { key, count } of thresholds) {
+    for (const { keys, count } of thresholds) {
       if (totalCatches >= count) {
-        const achievement = achievementMap.get(key);
+        const achievement = selectAchievement(achievementMap, ...keys);
         if (achievement && achievement.recipient_role === "catcher") {
           const awarded = await awardAchievement(userId, achievement, context);
-          awards.push({ key, userId, awarded });
+          awards.push({ key: achievement.key, userId, awarded });
         }
       }
     }
 
     const speciesCount = await countDistinctSpeciesCaught(userId);
     if (speciesCount >= 5) {
-      const achievement = achievementMap.get("SUIT_SAMPLER");
+      const achievement = selectAchievement(
+        achievementMap,
+        "SUIT_SAMPLER",
+        "SPECIES_EXPLORER",
+      );
       if (achievement && achievement.recipient_role === "catcher") {
         const awarded = await awardAchievement(userId, achievement, context);
-        awards.push({ key: "SUIT_SAMPLER", userId, awarded });
+        awards.push({ key: achievement.key, userId, awarded });
       }
     }
 
@@ -529,10 +546,14 @@ export function createAchievementProcessor({
       catchRow.fursuit?.species_id ?? null,
     );
     if (hybrid) {
-      const achievement = achievementMap.get("MIX_AND_MATCH");
+      const achievement = selectAchievement(
+        achievementMap,
+        "MIX_AND_MATCH",
+        "HYBRID_VIBES",
+      );
       if (achievement && achievement.recipient_role === "catcher") {
         const awarded = await awardAchievement(userId, achievement, context);
-        awards.push({ key: "MIX_AND_MATCH", userId, awarded });
+        awards.push({ key: achievement.key, userId, awarded });
       }
     }
 
@@ -541,27 +562,37 @@ export function createAchievementProcessor({
       const local = toLocalParts(catchRow.caught_at, catchRow.convention.timezone);
 
       if (catchRow.convention.start_date && local.date === catchRow.convention.start_date) {
-        const achievement = achievementMap.get("DAY_ONE_DEVOTEE");
+        const achievement = selectAchievement(
+          achievementMap,
+          "DAY_ONE_DEVOTEE",
+        );
         if (achievement && achievement.recipient_role === "catcher") {
           const awarded = await awardAchievement(userId, achievement, context);
-          awards.push({ key: "DAY_ONE_DEVOTEE", userId, awarded });
+          awards.push({ key: achievement.key, userId, awarded });
         }
       }
 
       if (local.hour >= 22) {
-        const achievement = achievementMap.get("NIGHT_OWL");
+        const achievement = selectAchievement(
+          achievementMap,
+          "NIGHT_OWL",
+        );
         if (achievement && achievement.recipient_role === "catcher") {
           const awarded = await awardAchievement(userId, achievement, context);
-          awards.push({ key: "NIGHT_OWL", userId, awarded });
+          awards.push({ key: achievement.key, userId, awarded });
         }
       }
 
       const conventionCount = await countDistinctConventionsForUser(userId);
       if (conventionCount >= 3) {
-        const achievement = achievementMap.get("WORLD_TOUR");
+        const achievement = selectAchievement(
+          achievementMap,
+          "WORLD_TOUR",
+          "CONVENTION_TOURIST",
+        );
         if (achievement && achievement.recipient_role === "catcher") {
           const awarded = await awardAchievement(userId, achievement, context);
-          awards.push({ key: "WORLD_TOUR", userId, awarded });
+          awards.push({ key: achievement.key, userId, awarded });
         }
       }
 
@@ -570,20 +601,26 @@ export function createAchievementProcessor({
         conventionId,
       );
       if (uniqueCatchers < 10) {
-        const achievement = achievementMap.get("RARE_FIND");
+        const achievement = selectAchievement(
+          achievementMap,
+          "RARE_FIND",
+        );
         if (achievement && achievement.recipient_role === "catcher") {
           const awarded = await awardAchievement(userId, achievement, context);
-          awards.push({ key: "RARE_FIND", userId, awarded });
+          awards.push({ key: achievement.key, userId, awarded });
         }
       }
     }
 
     const doubleTrouble = await hasSecondCatchWithinMinute(userId, catchRow.caught_at);
     if (doubleTrouble) {
-      const achievement = achievementMap.get("DOUBLE_TROUBLE");
+      const achievement = selectAchievement(
+        achievementMap,
+        "DOUBLE_TROUBLE",
+      );
       if (achievement && achievement.recipient_role === "catcher") {
         const awarded = await awardAchievement(userId, achievement, context);
-        awards.push({ key: "DOUBLE_TROUBLE", userId, awarded });
+        awards.push({ key: achievement.key, userId, awarded });
       }
     }
 
@@ -600,10 +637,31 @@ export function createAchievementProcessor({
 
     const totalForFursuit = await countCatchesForFursuit(catchRow.fursuit_id);
     if (totalForFursuit >= 1) {
-      const achievement = achievementMap.get("DEBUT_PERFORMANCE");
+      const achievement = selectAchievement(
+        achievementMap,
+        "DEBUT_PERFORMANCE",
+        "FURSUIT_FIRST_CATCH",
+      );
       if (achievement && achievement.recipient_role === "fursuit_owner") {
         const awarded = await awardAchievement(ownerId, achievement, context);
-        awards.push({ key: "DEBUT_PERFORMANCE", userId: ownerId, awarded });
+        awards.push({ key: achievement.key, userId: ownerId, awarded });
+      }
+    }
+
+    const isHybrid = await hasHybridOrMultiSpecies(
+      catchRow.fursuit_id,
+      catchRow.fursuit?.species ?? null,
+      catchRow.fursuit?.species_id ?? null,
+    );
+    if (isHybrid) {
+      const achievement = selectAchievement(
+        achievementMap,
+        "HYBRID_VIBES",
+        "MIX_AND_MATCH",
+      );
+      if (achievement && achievement.recipient_role === "fursuit_owner") {
+        const awarded = await awardAchievement(ownerId, achievement, context);
+        awards.push({ key: achievement.key, userId: ownerId, awarded });
       }
     }
 
@@ -614,10 +672,33 @@ export function createAchievementProcessor({
         conventionId,
       );
       if (countAtConvention >= 25) {
-        const achievement = achievementMap.get("FAN_FAVORITE");
+        const achievement = selectAchievement(
+          achievementMap,
+          "FAN_FAVORITE",
+          "CONVENTION_STAR",
+        );
         if (achievement && achievement.recipient_role === "fursuit_owner") {
           const awarded = await awardAchievement(ownerId, achievement, context);
-          awards.push({ key: "FAN_FAVORITE", userId: ownerId, awarded });
+          awards.push({ key: achievement.key, userId: ownerId, awarded });
+        }
+      }
+
+      const uniqueCatchers = await countUniqueCatchersForFursuitAtConvention(
+        catchRow.fursuit_id,
+        conventionId,
+      );
+      if (uniqueCatchers <= 3) {
+        const achievement = selectAchievement(
+          achievementMap,
+          "RARE_FIND",
+        );
+        if (achievement && achievement.recipient_role === "fursuit_owner") {
+          const awarded = await awardAchievement(ownerId, achievement, {
+            ...context,
+            convention_id: conventionId,
+            unique_catchers: uniqueCatchers,
+          });
+          awards.push({ key: achievement.key, userId: ownerId, awarded });
         }
       }
     }
