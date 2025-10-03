@@ -512,3 +512,13 @@ export interface Database {
     };
   };
 }
+export type AchievementNotificationsRow = {
+  id: string;
+  user_id: string;
+  achievement_key: string;
+  event_id: string | null;
+  event_type: string | null;
+  context: any;
+  created_at: string;
+  acknowledged_at: string | null;
+};

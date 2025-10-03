@@ -11,5 +11,7 @@ export {
 } from './api/achievements';
 
 export { useAchievementsRealtime } from './hooks';
+export { useAchievementNotifications } from './hooks/useAchievementNotifications';
+export { useAchievementNotificationsToast } from './hooks/useAchievementNotificationsToast';
 
 export type { AchievementCategory, AchievementRecipientRole } from '../../types/database';

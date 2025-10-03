@@ -28,6 +28,7 @@ import {
   fetchAchievementStatus,
   achievementsStatusQueryKey,
   useAchievementsRealtime,
+  useAchievementNotificationsToast,
   type AchievementWithStatus,
 } from '../../src/features/achievements';
 import { colors, spacing, radius } from '../../src/theme';
@@ -138,6 +139,7 @@ export default function HomeScreen() {
   }, []);
 
   useAchievementsRealtime(userId, { onUnlocked: handleAchievementUnlocked });
+  useAchievementNotificationsToast(userId);
 
   const conventionMap = useMemo(() => {
     return new Map(conventions.map((convention) => [convention.id, convention]));
