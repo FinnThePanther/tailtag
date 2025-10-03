@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { AuthProvider, useAuth, usePrimeUserData } from "../src/features/auth";
 import { colors } from "../src/theme";
+import { ToastProvider } from "../src/hooks/useToast";
 
 function LoadingScreen() {
   return (
@@ -84,12 +85,14 @@ export default function Layout() {
         <StatusBar style="light" />
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <SafeAreaView
-              style={{ flex: 1, backgroundColor: colors.background }}
-              edges={["top", "left", "right", "bottom"]}
-            >
-              <RootLayoutNav />
-            </SafeAreaView>
+            <ToastProvider>
+              <SafeAreaView
+                style={{ flex: 1, backgroundColor: colors.background }}
+                edges={["top", "left", "right", "bottom"]}
+              >
+                <RootLayoutNav />
+              </SafeAreaView>
+            </ToastProvider>
           </AuthProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
