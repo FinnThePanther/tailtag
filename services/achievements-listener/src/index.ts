@@ -108,19 +108,25 @@ function startHealthServer() {
 
 const healthServer = startHealthServer();
 
-function getEnv(name: string): string {
-  const value = process.env[name];
+const rawEnv = {
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  SERVICE_ROLE_KEY: process.env.SERVICE_ROLE_KEY,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+} as const;
+
+function requireEnv<Key extends keyof typeof rawEnv>(name: Key): string {
+  const value = rawEnv[name];
   if (!value) {
     throw new Error(`Missing required environment variable ${name}`);
   }
   return value;
 }
 
-const supabaseUrl = getEnv("SUPABASE_URL");
+const supabaseUrl = requireEnv("SUPABASE_URL");
 const serviceRoleKey =
-  process.env.SERVICE_ROLE_KEY
-  ?? process.env.SUPABASE_SERVICE_ROLE_KEY
-  ?? getEnv("SERVICE_ROLE_KEY");
+  rawEnv.SERVICE_ROLE_KEY
+  ?? rawEnv.SUPABASE_SERVICE_ROLE_KEY
+  ?? requireEnv("SERVICE_ROLE_KEY");
 
 const client: SupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
   auth: {

@@ -542,7 +542,7 @@ export function createAchievementProcessor({
 
     const totalCatches = await countCatchesByUser(userId);
 
-    const thresholds: Array<{ keys: string[]; count: number }> = [
+    const thresholds: { keys: string[]; count: number }[] = [
       { keys: ["FIRST_CATCH"], count: 1 },
       { keys: ["GETTING_THE_HANG_OF_IT", "TEN_CATCHES"], count: 10 },
       { keys: ["SUPER_CATCHER", "TWENTY_FIVE_CATCHES"], count: 25 },
