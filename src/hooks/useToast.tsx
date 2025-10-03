@@ -39,9 +39,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       <View pointerEvents="none" style={styles.container}>
         {toasts.map((toast) => (
-          <ToastItem key={toast.id} message={toast.message} onFinish={() => {
-            setToasts((current) => current.filter((item) => item.id !== toast.id));
-          }} />
+          <ToastItem
+            key={toast.id}
+            message={toast.message}
+            onFinish={() => {
+              setToasts((current) => current.filter((item) => item.id !== toast.id));
+            }}
+          />
         ))}
       </View>
     </ToastContext.Provider>
@@ -55,19 +59,23 @@ type ToastItemProps = {
 
 function ToastItem({ message, onFinish }: ToastItemProps) {
   const opacity = useMemo(() => new Animated.Value(0), []);
+  const translateY = useMemo(() => new Animated.Value(40), []);
 
   useMemo(() => {
     Animated.sequence([
-      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]),
       Animated.delay(TOAST_DURATION - 400),
       Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
     ]).start(({ finished }) => {
       if (finished) onFinish();
     });
-  }, [opacity, onFinish]);
+  }, [opacity, translateY, onFinish]);
 
   return (
-    <Animated.View style={[styles.toast, { opacity }]}> 
+    <Animated.View style={[styles.toast, { opacity, transform: [{ translateY }] }]}> 
       <Text style={styles.text}>{message}</Text>
     </Animated.View>
   );
@@ -76,7 +84,7 @@ function ToastItem({ message, onFinish }: ToastItemProps) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 48,
+    bottom: 48,
     left: 0,
     right: 0,
     alignItems: 'center',
