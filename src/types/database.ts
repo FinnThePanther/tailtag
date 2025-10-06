@@ -46,7 +46,10 @@ export type AchievementRecipientRole = 'catcher' | 'fursuit_owner' | 'any';
 export type AchievementTriggerEvent =
   | 'catch.created'
   | 'profile.updated'
-  | 'convention.checkin';
+  | 'convention.checkin'
+  | 'leaderboard.refreshed';
+
+export type DailyTaskKind = 'catch' | 'view_bio' | 'share' | 'leaderboard' | 'meta';
 
 export interface FursuitsRow {
   id: string;
@@ -347,6 +350,129 @@ export interface AchievementEventsUpdate {
   processed_at?: string | null;
 }
 
+export interface DailyTasksRow {
+  id: string;
+  name: string;
+  description: string;
+  kind: DailyTaskKind;
+  requirement: number;
+  metadata: Json;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DailyTasksInsert {
+  id?: string;
+  name: string;
+  description: string;
+  kind: DailyTaskKind;
+  requirement?: number;
+  metadata?: Json;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DailyTasksUpdate {
+  id?: string;
+  name?: string;
+  description?: string;
+  kind?: DailyTaskKind;
+  requirement?: number;
+  metadata?: Json;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DailyAssignmentsRow {
+  id: string;
+  day: string;
+  task_id: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DailyAssignmentsInsert {
+  id?: string;
+  day: string;
+  task_id: string;
+  position: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DailyAssignmentsUpdate {
+  id?: string;
+  day?: string;
+  task_id?: string;
+  position?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UserDailyProgressRow {
+  user_id: string;
+  day: string;
+  task_id: string;
+  current_count: number;
+  is_completed: boolean;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserDailyProgressInsert {
+  user_id: string;
+  day: string;
+  task_id: string;
+  current_count?: number;
+  is_completed?: boolean;
+  completed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UserDailyProgressUpdate {
+  user_id?: string;
+  day?: string;
+  task_id?: string;
+  current_count?: number;
+  is_completed?: boolean;
+  completed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UserDailyStreaksRow {
+  user_id: string;
+  current_streak: number;
+  best_streak: number;
+  last_completed_day: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserDailyStreaksInsert {
+  user_id: string;
+  current_streak?: number;
+  best_streak?: number;
+  last_completed_day?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UserDailyStreaksUpdate {
+  user_id?: string;
+  current_streak?: number;
+  best_streak?: number;
+  last_completed_day?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -406,6 +532,57 @@ export interface Database {
         Insert: AchievementsInsert;
         Update: AchievementsUpdate;
         Relationships: [];
+      };
+      daily_tasks: {
+        Row: DailyTasksRow;
+        Insert: DailyTasksInsert;
+        Update: DailyTasksUpdate;
+        Relationships: [];
+      };
+      daily_assignments: {
+        Row: DailyAssignmentsRow;
+        Insert: DailyAssignmentsInsert;
+        Update: DailyAssignmentsUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'daily_assignments_task_id_fkey';
+            columns: ['task_id'];
+            referencedRelation: 'daily_tasks';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      user_daily_progress: {
+        Row: UserDailyProgressRow;
+        Insert: UserDailyProgressInsert;
+        Update: UserDailyProgressUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'user_daily_progress_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'user_daily_progress_task_id_fkey';
+            columns: ['task_id'];
+            referencedRelation: 'daily_tasks';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      user_daily_streaks: {
+        Row: UserDailyStreaksRow;
+        Insert: UserDailyStreaksInsert;
+        Update: UserDailyStreaksUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'user_daily_streaks_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ];
       };
       user_achievements: {
         Row: UserAchievementsRow;
@@ -500,7 +677,10 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      record_leaderboard_refresh: {
+        Args: Record<string, never>;
+        Returns: void;
+      };
     };
     Enums: {
       achievement_category: AchievementCategory;

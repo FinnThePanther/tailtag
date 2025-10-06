@@ -72,6 +72,9 @@ function RootLayoutNav() {
 
       {/* Achievements */}
       <Stack.Screen name="achievements/index" options={{ headerShown: false }} />
+
+      {/* Daily tasks */}
+      <Stack.Screen name="daily-tasks/index" options={{ headerShown: false }} />
     </Stack>
   );
 }

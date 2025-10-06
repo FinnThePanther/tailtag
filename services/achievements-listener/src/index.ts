@@ -146,6 +146,509 @@ const processor = createAchievementProcessor({
   onAwardGranted: insertNotification,
 });
 
+type DailyTaskKind = "catch" | "view_bio" | "leaderboard" | "meta" | "share";
+
+type DailyTaskMetadata = Record<string, unknown>;
+
+type DailyTaskDefinition = {
+  id: string;
+  kind: DailyTaskKind;
+  name: string;
+  description: string;
+  requirement: number;
+  metadata: DailyTaskMetadata;
+};
+
+type RawDailyTaskRow = {
+  id: string;
+  kind: string;
+  name: string;
+  description: string;
+  requirement: number;
+  metadata?: unknown;
+  is_active?: boolean | null;
+};
+
+type DailyAssignment = {
+  day: string;
+  position: number;
+  task: DailyTaskDefinition;
+};
+
+type DailyAssignmentCacheEntry = {
+  assignments: DailyAssignment[];
+  fetchedAt: number;
+  ttlMs: number;
+};
+
+type DailyProgressRow = {
+  task_id: string;
+  current_count: number;
+  is_completed: boolean;
+  completed_at: string | null;
+};
+
+const DAILY_ASSIGNMENT_CACHE_TTL_SUCCESS_MS = 5 * 60 * 1000; // 5 minutes
+const DAILY_ASSIGNMENT_CACHE_TTL_EMPTY_MS = 60 * 1000; // 1 minute
+const DAILY_LOG_PREFIX = "[daily]";
+
+const dailyAssignmentCache = new Map<string, DailyAssignmentCacheEntry>();
+
+function toUtcDay(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function isoToUtcDay(iso: string): string {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) {
+    return toUtcDay(new Date());
+  }
+  return toUtcDay(parsed);
+}
+
+function parseDay(day: string): Date {
+  return new Date(`${day}T00:00:00.000Z`);
+}
+
+function previousDay(day: string): string {
+  const date = parseDay(day);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return toUtcDay(date);
+}
+
+function dayRange(day: string): { start: string; end: string } {
+  const startDate = parseDay(day);
+  const endDate = parseDay(day);
+  endDate.setUTCDate(endDate.getUTCDate() + 1);
+  return {
+    start: startDate.toISOString(),
+    end: endDate.toISOString(),
+  };
+}
+
+function coerceIso(iso: string | null | undefined, fallback: string): string {
+  if (!iso) return fallback;
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) {
+    return fallback;
+  }
+  return parsed.toISOString();
+}
+
+function determineEventTimestamp(event: AchievementEvent): string {
+  const createdFallback = coerceIso(event.created_at, new Date().toISOString());
+  if (event.event_type === "catch.created") {
+    const payload = event.payload as { caught_at?: string | null } | null;
+    if (payload?.caught_at) {
+      return coerceIso(payload.caught_at, createdFallback);
+    }
+  } else if (event.event_type === "leaderboard.refreshed") {
+    const payload = event.payload as { refreshed_at?: string | null } | null;
+    if (payload?.refreshed_at) {
+      return coerceIso(payload.refreshed_at, createdFallback);
+    }
+  }
+  return createdFallback;
+}
+
+async function loadDailyAssignments(day: string): Promise<DailyAssignment[]> {
+  const cacheHit = dailyAssignmentCache.get(day);
+  const now = Date.now();
+  if (cacheHit && now - cacheHit.fetchedAt < cacheHit.ttlMs) {
+    return cacheHit.assignments;
+  }
+
+  const { data, error } = await client
+    .from("daily_assignments")
+    .select(
+      "day, position, task:daily_tasks(id, kind, name, description, requirement, metadata, is_active)"
+    )
+    .eq("day", day)
+    .order("position", { ascending: true });
+
+  if (error) {
+    throw new Error(`Unable to load daily assignments for ${day}: ${error.message}`);
+  }
+
+  const assignments: DailyAssignment[] = [];
+  for (const row of data ?? []) {
+    const taskRelation = row.task as unknown;
+    const resolvedTask = Array.isArray(taskRelation) ? taskRelation[0] : taskRelation;
+
+    if (!resolvedTask || typeof resolvedTask !== "object") {
+      continue;
+    }
+
+    const task = resolvedTask as RawDailyTaskRow;
+    if (task.is_active === false) continue;
+
+    const taskKind = task.kind as DailyTaskKind;
+    if (
+      taskKind !== "catch"
+      && taskKind !== "view_bio"
+      && taskKind !== "leaderboard"
+      && taskKind !== "meta"
+      && taskKind !== "share"
+    ) {
+      logger.warn(`${DAILY_LOG_PREFIX} Unknown task kind '${task.kind}'`);
+      continue;
+    }
+
+    assignments.push({
+      day: row.day as string,
+      position: row.position as number,
+      task: {
+        id: task.id,
+        kind: taskKind,
+        name: task.name,
+        description: task.description,
+        requirement: task.requirement,
+        metadata: (task.metadata ?? {}) as DailyTaskMetadata,
+      },
+    });
+  }
+
+  const ttlMs = assignments.length > 0
+    ? DAILY_ASSIGNMENT_CACHE_TTL_SUCCESS_MS
+    : DAILY_ASSIGNMENT_CACHE_TTL_EMPTY_MS;
+
+  dailyAssignmentCache.set(day, {
+    assignments,
+    fetchedAt: now,
+    ttlMs,
+  });
+
+  return assignments;
+}
+
+async function getDailyAssignments(day: string): Promise<DailyAssignment[]> {
+  try {
+    return await loadDailyAssignments(day);
+  } catch (error) {
+    logger.error(`Failed fetching daily assignments for ${day}`, error);
+    return [];
+  }
+}
+
+async function fetchProgressMap(
+  userId: string,
+  day: string,
+  taskIds: string[],
+): Promise<Map<string, DailyProgressRow>> {
+  if (taskIds.length === 0) return new Map();
+
+  const { data, error } = await client
+    .from("user_daily_progress")
+    .select("task_id, current_count, is_completed, completed_at")
+    .eq("user_id", userId)
+    .eq("day", day)
+    .in("task_id", taskIds);
+
+  if (error) {
+    throw new Error(`Unable to load daily progress for ${userId} on ${day}: ${error.message}`);
+  }
+
+  const map = new Map<string, DailyProgressRow>();
+  for (const row of data ?? []) {
+    const entry = row as DailyProgressRow;
+    map.set(entry.task_id, {
+      task_id: entry.task_id,
+      current_count: entry.current_count ?? 0,
+      is_completed: entry.is_completed ?? false,
+      completed_at: entry.completed_at ?? null,
+    });
+  }
+  return map;
+}
+
+async function upsertProgress(
+  userId: string,
+  day: string,
+  assignment: DailyAssignment,
+  progressMap: Map<string, DailyProgressRow>,
+  absoluteCount: number,
+  eventTimestampIso: string,
+): Promise<boolean> {
+  const existing = progressMap.get(assignment.task.id);
+  const currentCount = existing?.current_count ?? 0;
+  const targetCount = Math.max(currentCount, absoluteCount);
+  const clampedCount = Math.min(targetCount, assignment.task.requirement);
+  const completed = clampedCount >= assignment.task.requirement;
+  const shouldUpdate =
+    !existing
+    || existing.current_count !== clampedCount
+    || existing.is_completed !== completed
+    || (completed && !existing.completed_at);
+
+  if (!shouldUpdate) {
+    return false;
+  }
+
+  const completedAt = completed
+    ? existing?.completed_at ?? eventTimestampIso
+    : null;
+
+  const { error } = await client
+    .from("user_daily_progress")
+    .upsert({
+      user_id: userId,
+      day,
+      task_id: assignment.task.id,
+      current_count: clampedCount,
+      is_completed: completed,
+      completed_at: completedAt,
+    });
+
+  if (error) {
+    throw new Error(
+      `Unable to upsert daily progress for user ${userId}, task ${assignment.task.id}: ${error.message}`,
+    );
+  }
+
+  progressMap.set(assignment.task.id, {
+    task_id: assignment.task.id,
+    current_count: clampedCount,
+    is_completed: completed,
+    completed_at: completedAt,
+  });
+
+  return true;
+}
+
+async function ensureAllTasksCompleted(
+  userId: string,
+  day: string,
+  assignments: DailyAssignment[],
+  eventTimestampIso: string,
+): Promise<void> {
+  if (assignments.length === 0) return;
+
+  const { data, error } = await client
+    .from("user_daily_progress")
+    .select("task_id, is_completed, completed_at")
+    .eq("user_id", userId)
+    .eq("day", day);
+
+  if (error) {
+    throw new Error(`Unable to verify daily completion for ${userId} on ${day}: ${error.message}`);
+  }
+
+  const completionMap = new Map<string, { is_completed: boolean; completed_at: string | null }>();
+  for (const row of data ?? []) {
+    completionMap.set(row.task_id as string, {
+      is_completed: Boolean(row.is_completed),
+      completed_at: (row.completed_at as string | null) ?? null,
+    });
+  }
+
+  const allComplete = assignments.every((assignment) =>
+    completionMap.get(assignment.task.id)?.is_completed === true
+  );
+
+  if (!allComplete) {
+    return;
+  }
+
+  const { data: streakRow, error: streakError } = await client
+    .from("user_daily_streaks")
+    .select("current_streak, best_streak, last_completed_day")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (streakError) {
+    throw new Error(`Unable to load streak for ${userId}: ${streakError.message}`);
+  }
+
+  if (streakRow?.last_completed_day === day) {
+    return;
+  }
+
+  const prevDay = previousDay(day);
+  const currentStreakPrior = streakRow?.current_streak ?? 0;
+  const bestStreakPrior = streakRow?.best_streak ?? 0;
+  const lastCompletedDay = streakRow?.last_completed_day ?? null;
+
+  const newCurrentStreak = lastCompletedDay === prevDay ? currentStreakPrior + 1 : 1;
+  const newBestStreak = Math.max(bestStreakPrior, newCurrentStreak);
+
+  const { error: upsertError } = await client
+    .from("user_daily_streaks")
+    .upsert({
+      user_id: userId,
+      current_streak: newCurrentStreak,
+      best_streak: newBestStreak,
+      last_completed_day: day,
+    });
+
+  if (upsertError) {
+    throw new Error(`Unable to update streak for ${userId}: ${upsertError.message}`);
+  }
+
+  logger.info(
+    `${DAILY_LOG_PREFIX} User ${userId} completed all tasks for ${day} (streak ${newCurrentStreak})`,
+  );
+}
+
+async function fetchCatchesForDay(
+  userId: string,
+  day: string,
+): Promise<{ total: number; distinct: number }> {
+  const { start, end } = dayRange(day);
+  const { data, error } = await client
+    .from("catches")
+    .select("fursuit_id")
+    .eq("catcher_id", userId)
+    .gte("caught_at", start)
+    .lt("caught_at", end);
+
+  if (error) {
+    throw new Error(
+      `Unable to load catches for user ${userId} on ${day}: ${error.message}`,
+    );
+  }
+
+  const rows = data ?? [];
+  const unique = new Set<string>();
+  for (const row of rows) {
+    const fursuitId = (row as { fursuit_id?: string | null }).fursuit_id;
+    if (fursuitId) {
+      unique.add(fursuitId);
+    }
+  }
+
+  return {
+    total: rows.length,
+    distinct: unique.size,
+  };
+}
+
+async function processCatchDailyTasks(
+  event: AchievementEvent,
+  day: string,
+  assignments: DailyAssignment[],
+  eventTimestampIso: string,
+): Promise<void> {
+  const payload = event.payload as {
+    catcher_id?: string | null;
+  } | null;
+
+  const userId = payload?.catcher_id ?? null;
+  if (!userId) {
+    logger.warn(`${DAILY_LOG_PREFIX} Catch event ${event.id} missing catcher_id`);
+    return;
+  }
+
+  const relevantAssignments = assignments.filter((assignment) => assignment.task.kind === "catch");
+  if (relevantAssignments.length === 0) {
+    return;
+  }
+
+  const stats = await fetchCatchesForDay(userId, day);
+  const taskIds = relevantAssignments.map((assignment) => assignment.task.id);
+  const progressMap = await fetchProgressMap(userId, day, taskIds);
+
+  let changed = false;
+
+  for (const assignment of relevantAssignments) {
+    const metadata = assignment.task.metadata ?? {};
+    const requiresDistinct = metadata.distinct === true;
+    const absoluteCount = requiresDistinct ? stats.distinct : stats.total;
+    if (absoluteCount === 0) {
+      continue;
+    }
+
+    const updated = await upsertProgress(
+      userId,
+      day,
+      assignment,
+      progressMap,
+      absoluteCount,
+      eventTimestampIso,
+    );
+
+    if (updated) {
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await ensureAllTasksCompleted(userId, day, assignments, eventTimestampIso);
+  }
+}
+
+async function processLeaderboardDailyTasks(
+  event: AchievementEvent,
+  day: string,
+  assignments: DailyAssignment[],
+  eventTimestampIso: string,
+): Promise<void> {
+  const payload = event.payload as {
+    user_id?: string | null;
+  } | null;
+
+  const userId = payload?.user_id ?? null;
+  if (!userId) {
+    logger.warn(`${DAILY_LOG_PREFIX} Leaderboard refresh event ${event.id} missing user_id`);
+    return;
+  }
+
+  const relevantAssignments = assignments.filter((assignment) => assignment.task.kind === "leaderboard");
+  if (relevantAssignments.length === 0) {
+    return;
+  }
+
+  const taskIds = relevantAssignments.map((assignment) => assignment.task.id);
+  const progressMap = await fetchProgressMap(userId, day, taskIds);
+
+  let changed = false;
+
+  for (const assignment of relevantAssignments) {
+    const existing = progressMap.get(assignment.task.id);
+    const nextCount = Math.min((existing?.current_count ?? 0) + 1, assignment.task.requirement);
+
+    const updated = await upsertProgress(
+      userId,
+      day,
+      assignment,
+      progressMap,
+      nextCount,
+      eventTimestampIso,
+    );
+
+    if (updated) {
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await ensureAllTasksCompleted(userId, day, assignments, eventTimestampIso);
+  }
+}
+
+async function processDailyTasks(event: AchievementEvent): Promise<void> {
+  const eventTimestampIso = determineEventTimestamp(event);
+  const day = isoToUtcDay(eventTimestampIso);
+  const assignments = await getDailyAssignments(day);
+
+  if (assignments.length === 0) {
+    logger.debug(`${DAILY_LOG_PREFIX} No assignments for ${day}, skipping event ${event.id}`);
+    return;
+  }
+
+  const eventType = event.event_type as string;
+
+  switch (eventType) {
+    case "catch.created":
+      await processCatchDailyTasks(event, day, assignments, eventTimestampIso);
+      break;
+    case "leaderboard.refreshed":
+      await processLeaderboardDailyTasks(event, day, assignments, eventTimestampIso);
+      break;
+    default:
+      logger.debug(`${DAILY_LOG_PREFIX} No handler for event type ${eventType}`);
+  }
+}
+
 let queue = Promise.resolve();
 
 function enqueue(event: AchievementEvent) {
@@ -162,10 +665,11 @@ async function handleEvent(event: AchievementEvent) {
     return;
   }
 
+  let processResult: ProcessResult | undefined;
+
   await pRetry(
     async () => {
-      const result = await processor.processEvent(event);
-      logResult(result);
+      processResult = await processor.processEvent(event);
     },
     {
       retries: 3,
@@ -177,6 +681,26 @@ async function handleEvent(event: AchievementEvent) {
     },
   ).catch((error) => {
     logger.error(`Failed processing event ${event.id} after retries`, error);
+  });
+
+  if (processResult) {
+    logResult(processResult);
+  }
+
+  await pRetry(
+    async () => {
+      await processDailyTasks(event);
+    },
+    {
+      retries: 3,
+      onFailedAttempt: (error) => {
+        logger.warn(
+          `Daily tasks attempt ${error.attemptNumber} failed for event ${event.id}: ${(error as Error).message}`,
+        );
+      },
+    },
+  ).catch((error) => {
+    logger.error(`Failed updating daily tasks for event ${event.id} after retries`, error);
   });
 }
 
