@@ -7,6 +7,7 @@ export type ConventionSummary = {
   location: string | null;
   start_date: string | null;
   end_date: string | null;
+  timezone: string;
 };
 
 export const CONVENTIONS_QUERY_KEY = 'conventions';
@@ -17,7 +18,7 @@ export async function fetchConventions(): Promise<ConventionSummary[]> {
   const client = supabase as any;
   const { data, error } = await client
     .from('conventions')
-    .select('id, slug, name, location, start_date, end_date')
+    .select('id, slug, name, location, start_date, end_date, timezone')
     .order('start_date', { ascending: true, nullsFirst: false })
     .order('name', { ascending: true });
 
@@ -25,14 +26,15 @@ export async function fetchConventions(): Promise<ConventionSummary[]> {
     throw new Error(`We couldn't load conventions: ${error.message}`);
   }
 
-  return (data ?? []).map((convention: any) => ({
-    id: convention.id,
-    slug: convention.slug,
-    name: convention.name,
-    location: convention.location ?? null,
-    start_date: convention.start_date ?? null,
-    end_date: convention.end_date ?? null,
-  }));
+    return (data ?? []).map((convention: any) => ({
+      id: convention.id,
+      slug: convention.slug,
+      name: convention.name,
+      location: convention.location ?? null,
+      start_date: convention.start_date ?? null,
+      end_date: convention.end_date ?? null,
+      timezone: convention.timezone ?? 'UTC',
+    }));
 }
 
 export const createConventionsQueryOptions = () => ({

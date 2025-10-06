@@ -7,7 +7,9 @@ import { useQuery } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
+import { TailTagProgressBar } from '../../src/components/ui/TailTagProgressBar';
 import { useAuth } from '../../src/features/auth';
+import { supabase } from '../../src/lib/supabase';
 import {
   CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
@@ -31,6 +33,8 @@ import {
   useAchievementNotificationsToast,
   type AchievementWithStatus,
 } from '../../src/features/achievements';
+import { useDailyTasks } from '../../src/features/daily-tasks';
+import type { Database } from '../../src/types/database';
 import { colors, spacing, radius } from '../../src/theme';
 
 const features = [
@@ -169,6 +173,26 @@ export default function HomeScreen() {
   }, [availableConventions]);
 
   const {
+    data: dailyTasksData,
+    error: dailyTasksError,
+    isLoading: isDailyTasksLoading,
+    isFetching: isDailyTasksFetching,
+    refetch: refetchDailyTasks,
+    countdown: dailyCountdown,
+  } = useDailyTasks(userId, selectedConventionId);
+
+  const dailyTotalTasks = dailyTasksData?.totalCount ?? 0;
+  const dailyCompletedTasks = dailyTasksData?.completedCount ?? 0;
+  const dailyProgressValue =
+    dailyTotalTasks > 0 ? Math.min(dailyCompletedTasks / dailyTotalTasks, 1) : 0;
+  const dailyRemainingTasks = Math.max(dailyTotalTasks - dailyCompletedTasks, 0);
+  const dailyTasksErrorMessage = dailyTasksError?.message ?? null;
+  const isDailyTasksBusy = isDailyTasksLoading || (isDailyTasksFetching && !isDailyTasksLoading);
+  const hasDailyAssignments = dailyTotalTasks > 0;
+  const dailyAllComplete = hasDailyAssignments && dailyRemainingTasks === 0;
+  const dailyCurrentStreak = dailyTasksData?.streak.current ?? 0;
+
+  const {
     data: leaderboardEntries = [],
     error: leaderboardError,
     isLoading: isLeaderboardLoading,
@@ -245,6 +269,26 @@ export default function HomeScreen() {
     return pieces.join(' · ');
   };
 
+  const handleReloadStandings = useCallback(async () => {
+    void refetchLeaderboard({ throwOnError: false });
+    void refetchSuitLeaderboard({ throwOnError: false });
+
+    if (!userId || !selectedConventionId) {
+      return;
+    }
+
+    const payload: Database['public']['Functions']['record_leaderboard_refresh']['Args'] = {
+      convention_id: selectedConventionId,
+    };
+
+    const { error } = await supabase.rpc('record_leaderboard_refresh', payload as never);
+
+    if (error) {
+      console.error('Failed to record leaderboard refresh', error);
+      Alert.alert('Refresh failed', 'We could not record your refresh. Please try again.');
+    }
+  }, [refetchLeaderboard, refetchSuitLeaderboard, userId, selectedConventionId]);
+
   return (
     <View style={styles.wrapper}>
       <LinearGradient
@@ -283,6 +327,59 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
+
+        <TailTagCard style={styles.dailyCard}>
+          <Text style={styles.sectionEyebrow}>Daily tasks</Text>
+          <Text style={styles.sectionTitle}>Keep your streak going</Text>
+
+          {!selectedConventionId ? (
+            <Text style={styles.message}>Pick a convention to unlock daily tasks.</Text>
+          ) : isDailyTasksBusy ? (
+            <Text style={styles.message}>Checking today's lineup...</Text>
+          ) : dailyTasksErrorMessage ? (
+            <View style={styles.helper}>
+              <Text style={styles.error}>{dailyTasksErrorMessage}</Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => {
+                  void refetchDailyTasks({ throwOnError: false });
+                }}
+              >
+                Try again
+              </TailTagButton>
+            </View>
+          ) : !hasDailyAssignments ? (
+            <Text style={styles.message}>Tasks unlock once today's rotation goes live.</Text>
+          ) : (
+            <View style={styles.dailySummaryBlock}>
+              <View style={styles.dailySummaryHeader}>
+                <Text style={styles.dailySummaryText}>
+                  {dailyCompletedTasks} / {dailyTotalTasks} complete
+                </Text>
+                <Text style={styles.dailyCountdown}>Resets in {dailyCountdown}</Text>
+              </View>
+              <TailTagProgressBar value={dailyProgressValue} style={styles.dailyProgressBar} />
+              <View style={styles.dailySummaryFooter}>
+                <Text style={styles.dailySummaryText}>
+                  {dailyAllComplete
+                    ? 'All tasks complete - bonus secured.'
+                    : `${dailyRemainingTasks} task${dailyRemainingTasks === 1 ? '' : 's'} remaining`}
+                </Text>
+                <Text style={styles.dailyStreakLabel}>Streak: {dailyCurrentStreak}</Text>
+              </View>
+            </View>
+          )}
+
+          <TailTagButton
+            variant="outline"
+            onPress={() => router.push('/daily-tasks')}
+            style={styles.dailyCta}
+            disabled={!selectedConventionId}
+          >
+            View daily tasks
+          </TailTagButton>
+        </TailTagCard>
 
         <TailTagCard style={styles.achievementsCard}>
           <Text style={styles.sectionEyebrow}>Achievements</Text>
@@ -384,6 +481,16 @@ export default function HomeScreen() {
 
               {selectedConventionId ? (
                 <View style={styles.leaderboardStack}>
+                  <View style={styles.leaderboardToolbar}>
+                    <TailTagButton
+                      variant="outline"
+                      size="sm"
+                      onPress={handleReloadStandings}
+                      style={styles.reloadButton}
+                    >
+                      Reload standings
+                    </TailTagButton>
+                  </View>
                   <View>
                     {isLeaderboardBusy ? (
                       <Text style={styles.message}>Loading leaderboard…</Text>
@@ -600,6 +707,45 @@ const styles = StyleSheet.create({
     width: maxContentWidth,
     marginBottom: spacing.xl,
   },
+  dailyCard: {
+    width: maxContentWidth,
+    marginBottom: spacing.xl,
+    gap: spacing.md,
+  },
+  dailySummaryBlock: {
+    gap: spacing.sm,
+  },
+  dailySummaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dailySummaryFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dailySummaryText: {
+    color: 'rgba(203,213,225,0.9)',
+    fontSize: 14,
+  },
+  dailyProgressBar: {
+    backgroundColor: 'rgba(148,163,184,0.25)',
+    width: '100%',
+  },
+  dailyCountdown: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  dailyStreakLabel: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  dailyCta: {
+    alignSelf: 'flex-start',
+  },
   achievementsCard: {
     width: maxContentWidth,
     marginBottom: spacing.xl,
@@ -733,6 +879,13 @@ const styles = StyleSheet.create({
   selectorButton: {
     minHeight: 36,
     paddingHorizontal: spacing.md,
+  },
+  leaderboardToolbar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  reloadButton: {
+    alignSelf: 'flex-end',
   },
   suitLeaderboardSection: {
     gap: spacing.sm,

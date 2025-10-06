@@ -11,7 +11,11 @@ export type Achievement = {
 
 export type AchievementEvent = {
   id: string;
-  event_type: "catch.created" | "profile.updated" | "convention.checkin";
+  event_type:
+    | "catch.created"
+    | "profile.updated"
+    | "convention.checkin"
+    | "leaderboard.refreshed";
   payload: Json;
   created_at: string;
   processed_at: string | null;
@@ -875,6 +879,10 @@ export function createAchievementProcessor({
       }
       case "convention.checkin": {
         result.awards = await processConventionCheckinEvent(achievementMap, event);
+        break;
+      }
+      case "leaderboard.refreshed": {
+        result.skipped = true;
         break;
       }
       default:
