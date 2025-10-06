@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -137,6 +138,8 @@ export default function SettingsScreen() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [conventionError, setConventionError] = useState<string | null>(null);
   const [pendingMemberships, setPendingMemberships] = useState<Set<string>>(() => new Set());
 
@@ -243,6 +246,8 @@ export default function SettingsScreen() {
     if (!userId) {
       setConventionError(null);
       setPendingMemberships(() => new Set());
+      setDeleteAccountError(null);
+      setIsDeletingAccount(false);
     }
   }, [userId]);
 
@@ -519,6 +524,66 @@ export default function SettingsScreen() {
     }
   }, [isSigningOut]);
 
+  const performAccountDeletion = useCallback(async () => {
+    if (!userId || isDeletingAccount) {
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    setDeleteAccountError(null);
+    setSignOutError(null);
+
+    try {
+      const { error } = await supabase.functions.invoke('delete-account', {
+        body: {},
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      queryClient.clear();
+
+      const { error: signOutAfterDeletionError } = await supabase.auth.signOut();
+
+      if (signOutAfterDeletionError) {
+        console.warn('Failed to sign out after deleting account', signOutAfterDeletionError);
+      }
+    } catch (caught) {
+      const fallbackMessage =
+        caught instanceof Error
+          ? caught.message
+          : 'We could not delete your account right now. Please try again.';
+      setDeleteAccountError(fallbackMessage);
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  }, [isDeletingAccount, queryClient, userId]);
+
+  const handleDeleteAccount = useCallback(() => {
+    if (!userId || isDeletingAccount) {
+      return;
+    }
+
+    Alert.alert(
+      'Delete account?',
+      "Deleting your account will permanently remove your profile, fursuits, catches, achievements, and daily task progress. This can't be undone.",
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: () => {
+            void performAccountDeletion();
+          },
+        },
+      ]
+    );
+  }, [isDeletingAccount, performAccountDeletion, userId]);
+
   return (
     <KeyboardAvoidingView
       style={styles.wrapper}
@@ -722,11 +787,29 @@ export default function SettingsScreen() {
         </TailTagCard>
 
         <TailTagCard>
-          <Text style={styles.sectionTitle}>Account</Text>
-          {signOutError ? <Text style={styles.error}>{signOutError}</Text> : null}
-          <TailTagButton onPress={handleSignOut} loading={isSigningOut}>
-            Log out
-          </TailTagButton>
+          <View style={styles.accountSection}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            <Text style={styles.sectionDescription}>
+              Manage your TailTag session or remove your account entirely.
+            </Text>
+            {signOutError ? <Text style={styles.error}>{signOutError}</Text> : null}
+            <TailTagButton onPress={handleSignOut} loading={isSigningOut}>
+              Log out
+            </TailTagButton>
+            {deleteAccountError ? <Text style={styles.error}>{deleteAccountError}</Text> : null}
+            <TailTagButton
+              variant="destructive"
+              onPress={handleDeleteAccount}
+              loading={isDeletingAccount}
+              disabled={!userId}
+            >
+              Delete account
+            </TailTagButton>
+            <Text style={styles.sectionHint}>
+              Deleting your account removes all catches, fursuits, photos, achievements, and daily progress.
+            </Text>
+            <Text style={styles.warning}>This action cannot be undone.</Text>
+          </View>
         </TailTagCard>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -776,6 +859,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   conventionSection: {
+    gap: spacing.md,
+  },
+  accountSection: {
     gap: spacing.md,
   },
   sectionTitle: {
