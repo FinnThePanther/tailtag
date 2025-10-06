@@ -1,2 +1,2 @@
-export * from './api/dailyTasks';
-export * from './hooks';
+export { useDailyTasks } from './hooks';
+export type { DailyTasksSummary, DailyTaskProgress } from './api/dailyTasks';

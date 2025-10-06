@@ -87,20 +87,6 @@ function getDateFormatter(timezone: string) {
   return dateFormatterCache.get(timezone)!;
 }
 
-function getDateTimeFormatter(timezone: string) {
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-    timeZoneName: 'shortOffset',
-  });
-}
-
 function pad(value: number): string {
   return value.toString().padStart(2, '0');
 }
@@ -123,41 +109,6 @@ function getLocalDay(now: Date, timezone: string): {
     month,
     dayNumber,
   };
-}
-
-function getOffsetMilliseconds(timestamp: number, timezone: string): number {
-  const date = new Date(timestamp);
-  const formatter = getDateTimeFormatter(timezone);
-  const parts = formatter.formatToParts(date);
-  const timeZoneName = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'GMT';
-  const match = timeZoneName.match(/GMT([+-])(\d{2})(?::(\d{2}))?/);
-  if (!match) return 0;
-  const sign = match[1] === '+' ? 1 : -1;
-  const hours = Number(match[2]);
-  const minutes = Number(match[3] ?? '0');
-  return sign * ((hours * 60 + minutes) * 60 * 1000);
-}
-
-function zonedTimeToUtc(
-  timezone: string,
-  year: number,
-  month: number,
-  day: number,
-  hour = 0,
-  minute = 0,
-  second = 0,
-): Date {
-  const utcTimestamp = Date.UTC(year, month - 1, day, hour, minute, second);
-  let offset = getOffsetMilliseconds(utcTimestamp, timezone);
-  let adjusted = utcTimestamp - offset;
-
-  const newOffset = getOffsetMilliseconds(adjusted, timezone);
-  if (newOffset !== offset) {
-    offset = newOffset;
-    adjusted = utcTimestamp - offset;
-  }
-
-  return new Date(adjusted);
 }
 
 function sanitizeCount(countParam: string | null): number | undefined {

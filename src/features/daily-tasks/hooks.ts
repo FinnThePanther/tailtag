@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 import { supabase } from '../../lib/supabase';
-import type { DailyTasksSummary, DailyTaskProgress } from './api/dailyTasks';
+import type { DailyTasksSummary } from './api/dailyTasks';
 import { fetchDailyTasks } from './api/dailyTasks';
 
 const DAILY_TASKS_QUERY_KEY = 'daily-tasks';
@@ -157,5 +157,3 @@ export function useDailyTasks(userId: string | null, conventionId: string | null
     millisecondsUntilReset,
   };
 }
-
-export type { DailyTasksSummary, DailyTaskProgress };

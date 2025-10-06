@@ -134,7 +134,6 @@ export default function DailyTasksScreen() {
     error,
     refetch,
     countdown,
-    millisecondsUntilReset,
   } = useDailyTasks(userId, selectedConventionId);
 
   const tasks = data?.tasks ?? [];
