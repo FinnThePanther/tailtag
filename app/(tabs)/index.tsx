@@ -172,6 +172,13 @@ export default function HomeScreen() {
     });
   }, [availableConventions]);
 
+  const selectedConvention = useMemo(() => {
+    if (!selectedConventionId) {
+      return null;
+    }
+    return availableConventions.find((convention) => convention.id === selectedConventionId) ?? null;
+  }, [availableConventions, selectedConventionId]);
+
   const {
     data: dailyTasksData,
     error: dailyTasksError,
@@ -191,6 +198,24 @@ export default function HomeScreen() {
   const hasDailyAssignments = dailyTotalTasks > 0;
   const dailyAllComplete = hasDailyAssignments && dailyRemainingTasks === 0;
   const dailyCurrentStreak = dailyTasksData?.streak.current ?? 0;
+  const dailyTimezone = dailyTasksData?.timezone ?? selectedConvention?.timezone ?? 'UTC';
+  const dailyResetAtLabel = useMemo(() => {
+    if (!dailyTasksData?.resetAt) {
+      return null;
+    }
+
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: dailyTimezone,
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short',
+      }).format(new Date(dailyTasksData.resetAt));
+    } catch (error) {
+      console.warn('failed formatting daily reset time', error);
+      return null;
+    }
+  }, [dailyTasksData?.resetAt, dailyTimezone]);
 
   const {
     data: leaderboardEntries = [],
@@ -368,6 +393,11 @@ export default function HomeScreen() {
                 </Text>
                 <Text style={styles.dailyStreakLabel}>Streak: {dailyCurrentStreak}</Text>
               </View>
+              {dailyResetAtLabel ? (
+                <Text style={styles.dailyResetLabel}>
+                  Next reset at {dailyResetAtLabel}
+                </Text>
+              ) : null}
             </View>
           )}
 
@@ -742,6 +772,10 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 13,
     fontWeight: '600',
+  },
+  dailyResetLabel: {
+    color: 'rgba(203,213,225,0.8)',
+    fontSize: 12,
   },
   dailyCta: {
     alignSelf: 'flex-start',
