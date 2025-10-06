@@ -390,6 +390,7 @@ export interface DailyAssignmentsRow {
   id: string;
   day: string;
   task_id: string;
+  convention_id: string;
   position: number;
   created_at: string;
   updated_at: string;
@@ -399,6 +400,7 @@ export interface DailyAssignmentsInsert {
   id?: string;
   day: string;
   task_id: string;
+  convention_id: string;
   position: number;
   created_at?: string;
   updated_at?: string;
@@ -408,6 +410,7 @@ export interface DailyAssignmentsUpdate {
   id?: string;
   day?: string;
   task_id?: string;
+  convention_id?: string;
   position?: number;
   created_at?: string;
   updated_at?: string;
@@ -417,6 +420,7 @@ export interface UserDailyProgressRow {
   user_id: string;
   day: string;
   task_id: string;
+  convention_id: string;
   current_count: number;
   is_completed: boolean;
   completed_at: string | null;
@@ -428,6 +432,7 @@ export interface UserDailyProgressInsert {
   user_id: string;
   day: string;
   task_id: string;
+  convention_id: string;
   current_count?: number;
   is_completed?: boolean;
   completed_at?: string | null;
@@ -439,6 +444,7 @@ export interface UserDailyProgressUpdate {
   user_id?: string;
   day?: string;
   task_id?: string;
+  convention_id?: string;
   current_count?: number;
   is_completed?: boolean;
   completed_at?: string | null;
@@ -448,6 +454,7 @@ export interface UserDailyProgressUpdate {
 
 export interface UserDailyStreaksRow {
   user_id: string;
+  convention_id: string;
   current_streak: number;
   best_streak: number;
   last_completed_day: string | null;
@@ -457,6 +464,7 @@ export interface UserDailyStreaksRow {
 
 export interface UserDailyStreaksInsert {
   user_id: string;
+  convention_id: string;
   current_streak?: number;
   best_streak?: number;
   last_completed_day?: string | null;
@@ -466,6 +474,7 @@ export interface UserDailyStreaksInsert {
 
 export interface UserDailyStreaksUpdate {
   user_id?: string;
+  convention_id?: string;
   current_streak?: number;
   best_streak?: number;
   last_completed_day?: string | null;
@@ -549,6 +558,12 @@ export interface Database {
             columns: ['task_id'];
             referencedRelation: 'daily_tasks';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'daily_assignments_convention_id_fkey';
+            columns: ['convention_id'];
+            referencedRelation: 'conventions';
+            referencedColumns: ['id'];
           }
         ];
       };
@@ -568,6 +583,12 @@ export interface Database {
             columns: ['task_id'];
             referencedRelation: 'daily_tasks';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'user_daily_progress_convention_id_fkey';
+            columns: ['convention_id'];
+            referencedRelation: 'conventions';
+            referencedColumns: ['id'];
           }
         ];
       };
@@ -580,6 +601,12 @@ export interface Database {
             foreignKeyName: 'user_daily_streaks_user_id_fkey';
             columns: ['user_id'];
             referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'user_daily_streaks_convention_id_fkey';
+            columns: ['convention_id'];
+            referencedRelation: 'conventions';
             referencedColumns: ['id'];
           }
         ];
@@ -678,7 +705,9 @@ export interface Database {
     };
     Functions: {
       record_leaderboard_refresh: {
-        Args: Record<string, never>;
+        Args: {
+          convention_id: string;
+        };
         Returns: void;
       };
     };

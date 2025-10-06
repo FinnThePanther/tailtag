@@ -1,5 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -7,28 +8,38 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagProgressBar } from '../../src/components/ui/TailTagProgressBar';
 import { useAuth } from '../../src/features/auth';
-import { useDailyTasks, type DailyTaskProgress } from '../../src/features/daily-tasks';
+import {
+  CONVENTIONS_QUERY_KEY,
+  CONVENTIONS_STALE_TIME,
+  PROFILE_CONVENTIONS_QUERY_KEY,
+  type ConventionSummary,
+  fetchConventions,
+  fetchProfileConventionIds,
+} from '../../src/features/conventions';
+import { useDailyTasks } from '../../src/features/daily-tasks';
 import { colors, radius, spacing } from '../../src/theme';
 
-function formatDayLabel(day: string): string {
-  const parsed = new Date(`${day}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) {
+function formatDayLabel(day: string, timezone: string): string {
+  try {
+    const date = new Date(`${day}T00:00:00`);
+    return new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      timeZone: timezone,
+    }).format(date);
+  } catch {
     return day;
   }
-
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-  }).format(parsed);
 }
 
-function formatCompletionTime(iso: string | null): string {
+function formatCompletionTime(iso: string | null, timezone: string): string {
   if (!iso) {
     return '';
   }
@@ -41,12 +52,13 @@ function formatCompletionTime(iso: string | null): string {
   return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: timezone,
   }).format(parsed);
 }
 
-function getTaskStatusCopy(task: DailyTaskProgress): string {
-  const remaining = Math.max(task.requirement - task.currentCount, 0);
-  if (task.isCompleted) {
+function getTaskStatusCopy(taskRequirement: number, currentCount: number, isCompleted: boolean): string {
+  const remaining = Math.max(taskRequirement - currentCount, 0);
+  if (isCompleted) {
     return 'Completed';
   }
 
@@ -63,24 +75,76 @@ export default function DailyTasksScreen() {
   const userId = session?.user.id ?? null;
 
   const {
+    data: conventions = [],
+    isLoading: isConventionsLoading,
+    error: conventionsError,
+  } = useQuery<ConventionSummary[], Error>({
+    queryKey: [CONVENTIONS_QUERY_KEY],
+    queryFn: () => fetchConventions(),
+    staleTime: CONVENTIONS_STALE_TIME,
+    enabled: Boolean(userId),
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const {
+    data: profileConventionIds = [],
+    isLoading: isProfileConventionsLoading,
+    error: profileConventionsError,
+  } = useQuery<string[], Error>({
+    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    queryFn: () => fetchProfileConventionIds(userId!),
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const availableConventions = useMemo(() => {
+    if (!profileConventionIds || profileConventionIds.length === 0) {
+      return [] as ConventionSummary[];
+    }
+    return conventions.filter((convention) => profileConventionIds.includes(convention.id));
+  }, [conventions, profileConventionIds]);
+
+  const [selectedConventionId, setSelectedConventionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (availableConventions.length === 0) {
+      setSelectedConventionId(null);
+      return;
+    }
+
+    setSelectedConventionId((current) => {
+      if (current && availableConventions.some((convention) => convention.id === current)) {
+        return current;
+      }
+      return availableConventions[0]?.id ?? null;
+    });
+  }, [availableConventions]);
+
+  const selectedConvention = useMemo(() => {
+    return availableConventions.find((item) => item.id === selectedConventionId) ?? null;
+  }, [availableConventions, selectedConventionId]);
+
+  const {
     data,
     isLoading,
     isFetching,
     error,
     refetch,
     countdown,
-    day,
-  } = useDailyTasks(userId);
+    millisecondsUntilReset,
+  } = useDailyTasks(userId, selectedConventionId);
 
   const tasks = data?.tasks ?? [];
   const totalCount = data?.totalCount ?? 0;
   const completedCount = data?.completedCount ?? 0;
-  const streak = data?.streak ?? { current: 0, best: 0, lastCompletedDay: null };
   const allComplete = totalCount > 0 && completedCount === totalCount;
-  const progressValue = totalCount > 0 ? completedCount / totalCount : 0;
-
-  const formattedDay = useMemo(() => formatDayLabel(day), [day]);
+  const progressValue = totalCount > 0 ? Math.min(completedCount / totalCount, 1) : 0;
   const remainingCount = Math.max(totalCount - completedCount, 0);
+  const timezone = data?.timezone ?? selectedConvention?.timezone ?? 'UTC';
+
   const isRefreshing = isFetching && !isLoading;
 
   const handleBack = useCallback(() => {
@@ -90,6 +154,13 @@ export default function DailyTasksScreen() {
   const handleRetry = useCallback(() => {
     void refetch({ throwOnError: false });
   }, [refetch]);
+
+  const handleConventionRequired = useCallback(() => {
+    Alert.alert('Select a convention', 'Pick a convention to view its daily lineup.');
+  }, []);
+
+  const conventionErrorMessage = conventionsError?.message ?? profileConventionsError?.message ?? null;
+  const isLoadingConventions = isConventionsLoading || isProfileConventionsLoading;
 
   return (
     <ScrollView
@@ -111,10 +182,42 @@ export default function DailyTasksScreen() {
         </TailTagButton>
       </View>
 
+      <TailTagCard style={styles.selectorCard}>
+        <Text style={styles.selectorEyebrow}>Convention</Text>
+        {isLoadingConventions ? (
+          <Text style={styles.message}>Loading conventions...</Text>
+        ) : conventionErrorMessage ? (
+          <View style={styles.helper}>
+            <Text style={styles.error}>{conventionErrorMessage}</Text>
+            <TailTagButton variant="outline" size="sm" onPress={handleRetry}>
+              Try again
+            </TailTagButton>
+          </View>
+        ) : availableConventions.length === 0 ? (
+          <Text style={styles.message}>Opt into a convention to unlock daily tasks.</Text>
+        ) : (
+          <View style={styles.selectorRow}>
+            {availableConventions.map((convention) => (
+              <TailTagButton
+                key={convention.id}
+                size="sm"
+                variant={selectedConventionId === convention.id ? 'primary' : 'outline'}
+                onPress={() => setSelectedConventionId(convention.id)}
+                style={styles.selectorButton}
+              >
+                {convention.name}
+              </TailTagButton>
+            ))}
+          </View>
+        )}
+      </TailTagCard>
+
       <TailTagCard style={styles.summaryCard}>
         <View style={styles.summaryHeader}>
           <Text style={styles.summaryEyebrow}>Daily Tasks</Text>
-          <Text style={styles.summaryTitle}>{formattedDay}</Text>
+          <Text style={styles.summaryTitle}>
+            {data ? formatDayLabel(data.day, timezone) : 'Pick a convention'}
+          </Text>
         </View>
 
         <View style={styles.summaryStatsRow}>
@@ -126,11 +229,11 @@ export default function DailyTasksScreen() {
           </View>
           <View style={styles.summaryStat}>
             <Text style={styles.statLabel}>Current streak</Text>
-            <Text style={styles.statValue}>{streak.current}</Text>
+            <Text style={styles.statValue}>{data?.streak.current ?? 0}</Text>
           </View>
           <View style={styles.summaryStat}>
             <Text style={styles.statLabel}>Best streak</Text>
-            <Text style={styles.statValue}>{streak.best}</Text>
+            <Text style={styles.statValue}>{data?.streak.best ?? 0}</Text>
           </View>
         </View>
 
@@ -138,13 +241,17 @@ export default function DailyTasksScreen() {
           <TailTagProgressBar value={progressValue} />
           <View style={styles.progressFooter}>
             <Text style={styles.progressHelper}>
-              {totalCount === 0
+              {!selectedConventionId
+                ? 'Pick a convention to begin.'
+                : totalCount === 0
                 ? "Today's lineup is being prepared."
                 : allComplete
                 ? 'All tasks complete - great job!'
                 : `${remainingCount} task${remainingCount === 1 ? '' : 's'} remaining`}
             </Text>
-            <Text style={styles.countdownLabel}>Resets in {countdown}</Text>
+            <Text style={styles.countdownLabel}>
+              Resets in {selectedConventionId ? countdown : '--:--:--'}
+            </Text>
           </View>
         </View>
       </TailTagCard>
@@ -152,7 +259,14 @@ export default function DailyTasksScreen() {
       <TailTagCard style={styles.tasksCard}>
         <Text style={styles.tasksTitle}>Today's tasks</Text>
 
-        {isLoading ? (
+        {!selectedConventionId ? (
+          <View style={styles.helper}>
+            <Text style={styles.message}>Select a convention to view tasks.</Text>
+            <TailTagButton variant="outline" size="sm" onPress={handleConventionRequired}>
+              Choose convention
+            </TailTagButton>
+          </View>
+        ) : isLoading ? (
           <Text style={styles.message}>Loading daily tasks...</Text>
         ) : error ? (
           <View style={styles.errorBlock}>
@@ -169,14 +283,16 @@ export default function DailyTasksScreen() {
               const progressFraction = task.requirement > 0 ? Math.min(task.currentCount / task.requirement, 1) : 0;
               const clampedCount = Math.min(task.currentCount, task.requirement);
               const progressLabel = `${clampedCount} / ${task.requirement}`;
-              const completionTime = task.isCompleted ? formatCompletionTime(task.completedAt) : '';
+              const completionTime = task.isCompleted
+                ? formatCompletionTime(task.completedAt, timezone)
+                : '';
 
               return (
                 <View key={task.id} style={styles.taskRow}>
                   <View style={styles.taskHeader}>
                     <Text style={styles.taskTitle}>{task.name}</Text>
                     <Text style={task.isCompleted ? styles.taskBadgeDone : styles.taskBadgePending}>
-                      {getTaskStatusCopy(task)}
+                      {getTaskStatusCopy(task.requirement, task.currentCount, task.isCompleted)}
                     </Text>
                   </View>
                   <Text style={styles.taskDescription}>{task.description}</Text>
@@ -211,6 +327,24 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
+  },
+  selectorCard: {
+    gap: spacing.sm,
+  },
+  selectorEyebrow: {
+    color: colors.slate200,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  selectorRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  selectorButton: {
+    minHeight: 36,
+    paddingHorizontal: spacing.md,
   },
   summaryCard: {
     gap: spacing.lg,
@@ -279,6 +413,13 @@ const styles = StyleSheet.create({
   },
   message: {
     color: colors.slate200,
+    fontSize: 14,
+  },
+  helper: {
+    gap: spacing.sm,
+  },
+  error: {
+    color: colors.destructive,
     fontSize: 14,
   },
   errorBlock: {

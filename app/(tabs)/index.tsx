@@ -34,6 +34,7 @@ import {
   type AchievementWithStatus,
 } from '../../src/features/achievements';
 import { useDailyTasks } from '../../src/features/daily-tasks';
+import type { Database } from '../../src/types/database';
 import { colors, spacing, radius } from '../../src/theme';
 
 const features = [
@@ -110,26 +111,6 @@ export default function HomeScreen() {
     refetchOnReconnect: false,
   });
 
-  const {
-    data: dailyTasksData,
-    error: dailyTasksError,
-    isLoading: isDailyTasksLoading,
-    isFetching: isDailyTasksFetching,
-    refetch: refetchDailyTasks,
-    countdown: dailyCountdown,
-  } = useDailyTasks(userId);
-
-  const dailyTotalTasks = dailyTasksData?.totalCount ?? 0;
-  const dailyCompletedTasks = dailyTasksData?.completedCount ?? 0;
-  const dailyProgressValue =
-    dailyTotalTasks > 0 ? Math.min(dailyCompletedTasks / dailyTotalTasks, 1) : 0;
-  const dailyRemainingTasks = Math.max(dailyTotalTasks - dailyCompletedTasks, 0);
-  const dailyTasksErrorMessage = dailyTasksError?.message ?? null;
-  const isDailyTasksBusy = isDailyTasksLoading || (isDailyTasksFetching && !isDailyTasksLoading);
-  const hasDailyAssignments = dailyTotalTasks > 0;
-  const dailyAllComplete = hasDailyAssignments && dailyRemainingTasks === 0;
-  const dailyCurrentStreak = dailyTasksData?.streak.current ?? 0;
-
   const unlockedAchievements = useMemo(
     () => achievementStatuses.filter((achievement) => achievement.unlocked),
     [achievementStatuses]
@@ -190,6 +171,26 @@ export default function HomeScreen() {
       return availableConventions[0]?.id ?? null;
     });
   }, [availableConventions]);
+
+  const {
+    data: dailyTasksData,
+    error: dailyTasksError,
+    isLoading: isDailyTasksLoading,
+    isFetching: isDailyTasksFetching,
+    refetch: refetchDailyTasks,
+    countdown: dailyCountdown,
+  } = useDailyTasks(userId, selectedConventionId);
+
+  const dailyTotalTasks = dailyTasksData?.totalCount ?? 0;
+  const dailyCompletedTasks = dailyTasksData?.completedCount ?? 0;
+  const dailyProgressValue =
+    dailyTotalTasks > 0 ? Math.min(dailyCompletedTasks / dailyTotalTasks, 1) : 0;
+  const dailyRemainingTasks = Math.max(dailyTotalTasks - dailyCompletedTasks, 0);
+  const dailyTasksErrorMessage = dailyTasksError?.message ?? null;
+  const isDailyTasksBusy = isDailyTasksLoading || (isDailyTasksFetching && !isDailyTasksLoading);
+  const hasDailyAssignments = dailyTotalTasks > 0;
+  const dailyAllComplete = hasDailyAssignments && dailyRemainingTasks === 0;
+  const dailyCurrentStreak = dailyTasksData?.streak.current ?? 0;
 
   const {
     data: leaderboardEntries = [],
@@ -272,16 +273,21 @@ export default function HomeScreen() {
     void refetchLeaderboard({ throwOnError: false });
     void refetchSuitLeaderboard({ throwOnError: false });
 
-    if (!userId) {
+    if (!userId || !selectedConventionId) {
       return;
     }
 
-    const { error } = await supabase.rpc('record_leaderboard_refresh');
+    const payload: Database['public']['Functions']['record_leaderboard_refresh']['Args'] = {
+      convention_id: selectedConventionId,
+    };
+
+    const { error } = await supabase.rpc('record_leaderboard_refresh', payload as never);
+
     if (error) {
       console.error('Failed to record leaderboard refresh', error);
       Alert.alert('Refresh failed', 'We could not record your refresh. Please try again.');
     }
-  }, [refetchLeaderboard, refetchSuitLeaderboard, userId]);
+  }, [refetchLeaderboard, refetchSuitLeaderboard, userId, selectedConventionId]);
 
   return (
     <View style={styles.wrapper}>
@@ -326,7 +332,9 @@ export default function HomeScreen() {
           <Text style={styles.sectionEyebrow}>Daily tasks</Text>
           <Text style={styles.sectionTitle}>Keep your streak going</Text>
 
-          {isDailyTasksBusy ? (
+          {!selectedConventionId ? (
+            <Text style={styles.message}>Pick a convention to unlock daily tasks.</Text>
+          ) : isDailyTasksBusy ? (
             <Text style={styles.message}>Checking today's lineup...</Text>
           ) : dailyTasksErrorMessage ? (
             <View style={styles.helper}>
@@ -367,6 +375,7 @@ export default function HomeScreen() {
             variant="outline"
             onPress={() => router.push('/daily-tasks')}
             style={styles.dailyCta}
+            disabled={!selectedConventionId}
           >
             View daily tasks
           </TailTagButton>

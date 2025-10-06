@@ -44,10 +44,23 @@ type AssignmentWithTask = {
   task: DailyTaskRow;
 };
 
+type ConventionRow = {
+  id: string;
+  timezone: string;
+};
+
 type RotateOptions = {
-  day: string;
+  conventionId?: string;
   requestedCount?: number;
   force: boolean;
+};
+
+type ConventionResult = {
+  convention_id: string;
+  day: string;
+  refreshed: boolean;
+  assignments: AssignmentWithTask[];
+  seed_hash: string | null;
 };
 
 function respondJson(data: unknown, status = 200) {
@@ -55,6 +68,96 @@ function respondJson(data: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+const dateFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function getDateFormatter(timezone: string) {
+  if (!dateFormatterCache.has(timezone)) {
+    dateFormatterCache.set(
+      timezone,
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }),
+    );
+  }
+  return dateFormatterCache.get(timezone)!;
+}
+
+function getDateTimeFormatter(timezone: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZoneName: 'shortOffset',
+  });
+}
+
+function pad(value: number): string {
+  return value.toString().padStart(2, '0');
+}
+
+function getLocalDay(now: Date, timezone: string): {
+  day: string;
+  year: number;
+  month: number;
+  dayNumber: number;
+} {
+  const formatter = getDateFormatter(timezone);
+  const parts = formatter.formatToParts(now);
+  const lookup = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const year = Number(lookup.year);
+  const month = Number(lookup.month);
+  const dayNumber = Number(lookup.day);
+  return {
+    day: `${year}-${pad(month)}-${pad(dayNumber)}`,
+    year,
+    month,
+    dayNumber,
+  };
+}
+
+function getOffsetMilliseconds(timestamp: number, timezone: string): number {
+  const date = new Date(timestamp);
+  const formatter = getDateTimeFormatter(timezone);
+  const parts = formatter.formatToParts(date);
+  const timeZoneName = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'GMT';
+  const match = timeZoneName.match(/GMT([+-])(\d{2})(?::(\d{2}))?/);
+  if (!match) return 0;
+  const sign = match[1] === '+' ? 1 : -1;
+  const hours = Number(match[2]);
+  const minutes = Number(match[3] ?? '0');
+  return sign * ((hours * 60 + minutes) * 60 * 1000);
+}
+
+function zonedTimeToUtc(
+  timezone: string,
+  year: number,
+  month: number,
+  day: number,
+  hour = 0,
+  minute = 0,
+  second = 0,
+): Date {
+  const utcTimestamp = Date.UTC(year, month - 1, day, hour, minute, second);
+  let offset = getOffsetMilliseconds(utcTimestamp, timezone);
+  let adjusted = utcTimestamp - offset;
+
+  const newOffset = getOffsetMilliseconds(adjusted, timezone);
+  if (newOffset !== offset) {
+    offset = newOffset;
+    adjusted = utcTimestamp - offset;
+  }
+
+  return new Date(adjusted);
 }
 
 function sanitizeCount(countParam: string | null): number | undefined {
@@ -65,20 +168,13 @@ function sanitizeCount(countParam: string | null): number | undefined {
   return parsed;
 }
 
-function isIsoDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-function formatUtcDay(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 async function deriveSeed(
+  conventionId: string,
   day: string,
 ): Promise<{ seed: number; hashHex: string }> {
   const hashBuffer = await crypto.subtle.digest(
     "SHA-256",
-    textEncoder.encode(`${SEED_PREFIX}${day}`),
+    textEncoder.encode(`${SEED_PREFIX}${conventionId}:${day}`),
   );
 
   const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -86,7 +182,7 @@ async function deriveSeed(
     "",
   );
   const dataView = new DataView(hashBuffer);
-  const seed = dataView.getUint32(0, false); // take the first 32 bits as our seed
+  const seed = dataView.getUint32(0, false);
 
   return { seed, hashHex };
 }
@@ -108,12 +204,16 @@ function shuffleInPlace<T>(items: T[], rng: () => number): void {
   }
 }
 
-async function fetchAssignments(day: string): Promise<AssignmentWithTask[]> {
+async function fetchAssignments(
+  conventionId: string,
+  day: string,
+): Promise<AssignmentWithTask[]> {
   const { data, error } = await supabaseAdmin
     .from("daily_assignments")
     .select(
       "position, task:daily_tasks (id, name, description, kind, requirement)",
     )
+    .eq("convention_id", conventionId)
     .eq("day", day)
     .order("position", { ascending: true });
 
@@ -134,7 +234,11 @@ async function fetchAssignments(day: string): Promise<AssignmentWithTask[]> {
   return assignments;
 }
 
-async function selectAssignments(day: string, requestedCount?: number) {
+async function selectAssignments(
+  conventionId: string,
+  day: string,
+  requestedCount?: number,
+) {
   const { data: activeTasks, error } = await supabaseAdmin
     .from("daily_tasks")
     .select("id, name, description, kind, requirement")
@@ -152,7 +256,7 @@ async function selectAssignments(day: string, requestedCount?: number) {
     );
   }
 
-  const { seed, hashHex } = await deriveSeed(day);
+  const { seed, hashHex } = await deriveSeed(conventionId, day);
   const rng = mulberry32(seed);
 
   const maxAllowed = Math.min(MAX_TASKS, tasks.length);
@@ -167,16 +271,21 @@ async function selectAssignments(day: string, requestedCount?: number) {
   return { selected, desiredCount, hashHex };
 }
 
-async function storeAssignments(day: string, tasks: DailyTaskRow[]) {
+async function storeAssignments(
+  conventionId: string,
+  day: string,
+  tasks: DailyTaskRow[],
+) {
   const payload = tasks.map((task, index) => ({
     day,
+    convention_id: conventionId,
     task_id: task.id,
     position: index + 1,
   }));
 
   const { error: upsertError } = await supabaseAdmin
     .from("daily_assignments")
-    .upsert(payload, { onConflict: "day,position" });
+    .upsert(payload, { onConflict: "convention_id,day,position" });
 
   if (upsertError) {
     throw new Error(
@@ -187,6 +296,7 @@ async function storeAssignments(day: string, tasks: DailyTaskRow[]) {
   const { error: cleanupError } = await supabaseAdmin
     .from("daily_assignments")
     .delete()
+    .eq("convention_id", conventionId)
     .eq("day", day)
     .gt("position", tasks.length);
 
@@ -197,37 +307,90 @@ async function storeAssignments(day: string, tasks: DailyTaskRow[]) {
   }
 }
 
-async function rotateDailyTasks({ day, requestedCount, force }: RotateOptions) {
-  const existing = await fetchAssignments(day);
+async function fetchConventions(targetId?: string): Promise<ConventionRow[]> {
+  let query = supabaseAdmin
+    .from("conventions")
+    .select("id, timezone")
+    .not("timezone", "is", null);
+
+  if (targetId) {
+    query = query.eq("id", targetId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`Unable to fetch conventions: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => ({
+    id: (row as { id: string }).id,
+    timezone: ((row as { timezone?: string | null }).timezone ?? "UTC"),
+  }));
+}
+
+async function rotateConvention(
+  convention: ConventionRow,
+  requestedCount: number | undefined,
+  force: boolean,
+): Promise<ConventionResult> {
+  const nowUtc = new Date();
+  const localInfo = getLocalDay(nowUtc, convention.timezone);
+  const localDay = localInfo.day;
+
+  const existing = await fetchAssignments(convention.id, localDay);
+
   if (!force && existing.length >= MIN_TASKS) {
     return {
-      assignments: existing,
+      convention_id: convention.id,
+      day: localDay,
       refreshed: false,
-      seedHash: null,
+      assignments: existing,
+      seed_hash: null,
     };
   }
 
   const { selected, desiredCount, hashHex } = await selectAssignments(
-    day,
+    convention.id,
+    localDay,
     requestedCount,
   );
 
   if (selected.length === 0) {
-    throw new Error("No tasks selected for assignment");
+    throw new Error(`No tasks selected for convention ${convention.id}`);
   }
 
-  await storeAssignments(day, selected);
+  await storeAssignments(convention.id, localDay, selected);
 
-  const finalAssignments = await fetchAssignments(day);
+  const finalAssignments = await fetchAssignments(convention.id, localDay);
   if (finalAssignments.length !== desiredCount) {
     throw new Error("Mismatch between stored assignments and desired count");
   }
 
   return {
-    assignments: finalAssignments,
+    convention_id: convention.id,
+    day: localDay,
     refreshed: true,
-    seedHash: hashHex,
+    assignments: finalAssignments,
+    seed_hash: hashHex,
   };
+}
+
+async function rotateDailyTasks({
+  conventionId,
+  requestedCount,
+  force,
+}: RotateOptions): Promise<ConventionResult[]> {
+  const conventions = await fetchConventions(conventionId);
+  if (conventions.length === 0) {
+    throw new Error("No conventions available to rotate");
+  }
+
+  const results: ConventionResult[] = [];
+  for (const convention of conventions) {
+    const result = await rotateConvention(convention, requestedCount, force);
+    results.push(result);
+  }
+  return results;
 }
 
 Deno.serve(async (req) => {
@@ -240,36 +403,23 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url);
-  const dayParam = url.searchParams.get("day");
+  const conventionParam = url.searchParams.get("convention_id");
   const countParam = url.searchParams.get("count");
   const forceParam = url.searchParams.get("force");
 
-  const todayUtc = new Date();
+  const requestedCount = sanitizeCount(countParam);
   const force = forceParam === "true";
 
-  let day = dayParam ? dayParam.trim() : formatUtcDay(todayUtc);
-  if (!isIsoDate(day)) {
-    return respondJson(
-      { error: "Invalid day parameter; expected YYYY-MM-DD" },
-      400,
-    );
-  }
-
-  const requestedCount = sanitizeCount(countParam);
-
   try {
-    const result = await rotateDailyTasks({ day, requestedCount, force });
-    return respondJson({
-      day,
-      refreshed: result.refreshed,
-      assignments: result.assignments,
-      seed_hash: result.seedHash,
+    const results = await rotateDailyTasks({
+      conventionId: conventionParam ?? undefined,
+      requestedCount,
+      force,
     });
+
+    return respondJson({ results });
   } catch (error) {
     console.error("Failed rotating daily tasks", error);
-    return respondJson(
-      { error: (error as Error).message ?? "Unknown error" },
-      500,
-    );
+    return respondJson({ error: (error as Error).message ?? "Unknown error" }, 500);
   }
 });
