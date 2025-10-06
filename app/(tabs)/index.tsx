@@ -172,6 +172,13 @@ export default function HomeScreen() {
     });
   }, [availableConventions]);
 
+  const selectedConvention = useMemo(() => {
+    if (!selectedConventionId) {
+      return null;
+    }
+    return availableConventions.find((convention) => convention.id === selectedConventionId) ?? null;
+  }, [availableConventions, selectedConventionId]);
+
   const {
     data: dailyTasksData,
     error: dailyTasksError,
