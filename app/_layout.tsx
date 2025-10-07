@@ -5,9 +5,10 @@ import { useSegments, Stack, Redirect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 
 import { AuthProvider, useAuth, usePrimeUserData } from "../src/features/auth";
+import { createProfileQueryOptions } from "../src/features/profile";
 import { colors } from "../src/theme";
 import { ToastProvider } from "../src/hooks/useToast";
 import { DailyTaskToastManager } from "../src/features/daily-tasks/components/DailyTaskToastManager";
@@ -36,6 +37,18 @@ function RootLayoutNav() {
   const { status, session } = useAuth();
   const segments = useSegments();
   const inAuthGroup = segments.length > 0 && segments[0] === "(auth)";
+  const inOnboardingFlow = segments.length > 0 && segments[0] === "onboarding";
+  const userId = session?.user.id ?? null;
+
+  const {
+    data: profile,
+    isLoading: isProfileLoading,
+    isFetching: isProfileFetching,
+    error: profileError,
+  } = useQuery({
+    ...createProfileQueryOptions(userId ?? ""),
+    enabled: Boolean(userId),
+  });
 
   usePrimeUserData(session?.user.id ?? null);
 
@@ -53,6 +66,27 @@ function RootLayoutNav() {
     return <Redirect href="/" />;
   }
 
+  const shouldGateOnboarding =
+    Boolean(session) &&
+    !profileError &&
+    (profile?.is_new === true || profile?.onboarding_completed !== true);
+
+  if (session && shouldGateOnboarding && !inOnboardingFlow) {
+    if ((isProfileLoading || isProfileFetching) && !profile && !profileError) {
+      return <LoadingScreen />;
+    }
+
+    return <Redirect href="/onboarding" />;
+  }
+
+  if (session && inOnboardingFlow && !shouldGateOnboarding && !isProfileLoading && !isProfileFetching) {
+    return <Redirect href="/" />;
+  }
+
+  if (session && inOnboardingFlow && (isProfileLoading || isProfileFetching) && !profileError) {
+    return <LoadingScreen />;
+  }
+
   // Normal app stack. Android back will "go back" automatically if there's history.
   return (
     <Stack
@@ -66,6 +100,9 @@ function RootLayoutNav() {
 
       {/* Main app (tabs) */}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+      {/* Onboarding */}
+      <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
 
       {/* Standalone fursuit flows */}
       <Stack.Screen name="fursuits/[id]" options={{ headerShown: false }} />

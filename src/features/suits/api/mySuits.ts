@@ -19,6 +19,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       species,
       species_id,
       avatar_url,
+      description,
       unique_code,
       created_at,
       species_entry:fursuit_species (
@@ -53,6 +54,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
     `
     )
     .eq('owner_id', userId)
+    .eq('is_tutorial', false)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -83,6 +85,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       species: speciesName,
       speciesId: speciesId,
       avatar_url: item.avatar_url ?? null,
+      description: item.description ?? null,
       unique_code: item.unique_code ?? null,
       created_at: item.created_at ?? null,
       conventions,
