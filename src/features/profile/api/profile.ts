@@ -4,6 +4,8 @@ export type ProfileSummary = {
   username: string | null;
   bio: string | null;
   avatar_url: string | null;
+  is_new: boolean;
+  onboarding_completed: boolean;
 };
 
 export const PROFILE_QUERY_KEY = 'profile';
@@ -15,7 +17,7 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
   const client = supabase as any;
   const { data, error } = await client
     .from('profiles')
-    .select('username, bio, avatar_url')
+    .select('username, bio, avatar_url, is_new, onboarding_completed')
     .eq('id', userId)
     .maybeSingle();
 
@@ -31,6 +33,8 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
     username: data.username ?? null,
     bio: data.bio ?? null,
     avatar_url: data.avatar_url ?? null,
+    is_new: data.is_new === true,
+    onboarding_completed: data.onboarding_completed === true,
   };
 }
 

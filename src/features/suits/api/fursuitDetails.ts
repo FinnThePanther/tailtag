@@ -18,6 +18,8 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       species,
       species_id,
       avatar_url,
+      is_tutorial,
+      description,
       unique_code,
       created_at,
       species_entry:fursuit_species (
@@ -57,6 +59,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     `
     )
     .eq('id', fursuitId)
+    .eq('is_tutorial', false)
     .maybeSingle();
 
   if (error) {
@@ -91,6 +94,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     species: speciesName,
     speciesId: speciesId,
     avatar_url: data.avatar_url ?? null,
+    description: data.description ?? null,
     unique_code: data.unique_code ?? null,
     created_at: data.created_at ?? null,
     conventions,
