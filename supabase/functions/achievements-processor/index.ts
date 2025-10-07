@@ -2,11 +2,7 @@
 // eslint-disable-next-line import/no-unresolved -- Deno functions import via remote URL
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
 import { createAchievementProcessor } from "../../shared/achievements/processor.ts";
-import type {
-  Achievement,
-  Json,
-  AchievementEvent,
-} from "../../shared/achievements/processor.ts";
+import { processDailyTasksForEvent } from "../../shared/daily-tasks/process.ts";
 
 type BatchOptions = {
   limitPerBatch?: number;
@@ -32,45 +28,18 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   },
 });
 
-async function handleAwardGranted({
-  userId,
-  achievement,
-  context,
-  event,
-}: {
-  userId: string;
-  achievement: Achievement;
-  context: Json;
-  event: AchievementEvent | null;
-}) {
-  if (!userId) return;
-
-  const notification = {
-    user_id: userId,
-    achievement_key: achievement.key,
-    context,
-    event_id: event?.id ?? null,
-    event_type: event?.event_type ?? null,
-  } as const;
-
-  const { error } = await supabaseAdmin
-    .from("achievement_notifications")
-    .insert(notification);
-
-  if (error) {
-    if (error.code === "23505") {
-      console.debug(
-        `[achievements-processor] Notification exists for ${achievement.key} (${event?.id ?? "no-event"})`,
-      );
-      return;
-    }
-    console.error("Failed inserting achievement notification", error);
-  }
-}
-
 const processor = createAchievementProcessor({
   supabase: supabaseAdmin,
-  onAwardGranted: handleAwardGranted,
+  onEventProcessed: async ({ event }) => {
+    try {
+      await processDailyTasksForEvent({ event, supabase: supabaseAdmin });
+    } catch (dailyError) {
+      console.error(
+        `[achievements-processor] Failed updating daily tasks for event ${event.id}`,
+        dailyError,
+      );
+    }
+  },
 });
 
 async function processPendingEvents(options?: BatchOptions) {
@@ -85,9 +54,25 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const limitParam = url.searchParams.get("limit");
   const maxBatchesParam = url.searchParams.get("max_batches");
-  const limit = limitParam ? Math.max(1, Math.min(100, Number.parseInt(limitParam, 10) || 0)) : 25;
-  const maxBatches = maxBatchesParam
-    ? Math.max(1, Math.min(40, Number.parseInt(maxBatchesParam, 10) || 0))
+  let body: { limit?: unknown; max_batches?: unknown } = {};
+
+  if (req.method === "POST" || req.method === "PATCH" || req.method === "PUT") {
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      console.error("Failed to parse achievements-processor request body", parseError);
+      body = {};
+    }
+  }
+
+  const limitInput = body.limit ?? limitParam;
+  const maxBatchesInput = body.max_batches ?? maxBatchesParam;
+
+  const limit = limitInput
+    ? Math.max(1, Math.min(100, Number.parseInt(String(limitInput), 10) || 0))
+    : 25;
+  const maxBatches = maxBatchesInput
+    ? Math.max(1, Math.min(40, Number.parseInt(String(maxBatchesInput), 10) || 0))
     : 10;
 
   try {

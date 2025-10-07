@@ -134,7 +134,7 @@ export default function DailyTasksScreen() {
     error,
     refetch,
     countdown,
-  } = useDailyTasks(userId, selectedConventionId);
+  } = useDailyTasks(userId, selectedConventionId, { suppressToasts: true });
 
   const tasks = data?.tasks ?? [];
   const totalCount = data?.totalCount ?? 0;

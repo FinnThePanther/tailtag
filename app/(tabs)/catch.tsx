@@ -26,6 +26,8 @@ import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { useAuth } from '../../src/features/auth';
+import { triggerAchievementProcessor } from '../../src/features/achievements';
+import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import { supabase } from '../../src/lib/supabase';
 import { colors, spacing } from '../../src/theme';
 import { normalizeUniqueCodeInput } from '../../src/utils/code';
@@ -257,6 +259,8 @@ export default function CatchScreen() {
       setCaughtFursuit(normalizedFursuit);
       setCatchRecord(insertedCatch ?? null);
       setConversationPrompt(promptCandidate ?? null);
+      await triggerAchievementProcessor({ limit: 10, maxBatches: 1 });
+      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
       sharedConventions.forEach((conventionId) => {
         queryClient.invalidateQueries({
           queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
