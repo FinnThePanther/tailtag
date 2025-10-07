@@ -605,6 +605,12 @@ export type Database = {
         };
         Returns: boolean;
       };
+      finish_onboarding: {
+        Args: {
+          target_user_id?: string | null;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       achievement_category:

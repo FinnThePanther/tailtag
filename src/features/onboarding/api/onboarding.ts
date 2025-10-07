@@ -206,32 +206,23 @@ export async function recordTutorialCatch(userId: string): Promise<void> {
   }
 }
 
-export async function ensureGettingStartedAchievement(userId: string): Promise<boolean> {
-  const { data, error } = await supabase.rpc('grant_getting_started_achievement', {
-    target_user_id: userId,
-  });
-
-  if (error) {
-    throw new Error(`We couldn't grant the Getting Started achievement: ${error.message}`);
-  }
-
-  return Boolean(data);
-}
+type FinishOnboardingResult = {
+  profile_updated: boolean;
+  achievement_unlocked: boolean;
+};
 
 export async function completeOnboarding(userId: string): Promise<void> {
-  const client = supabase as any;
-  const { error } = await client
-    .from('profiles')
-    .update({
-      onboarding_completed: true,
-      is_new: false,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', userId);
+  const { data, error } = await supabase.rpc('finish_onboarding', {
+    target_user_id: userId,
+  });
 
   if (error) {
     throw new Error(`We couldn't finish onboarding: ${error.message}`);
   }
 
-  await ensureGettingStartedAchievement(userId);
+  const result = (data ?? null) as FinishOnboardingResult | null;
+
+  if (!result || result.profile_updated !== true) {
+    throw new Error('We could not confirm your onboarding progress. Please try again.');
+  }
 }
