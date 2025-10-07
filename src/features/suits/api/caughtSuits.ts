@@ -27,6 +27,8 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
         species,
         species_id,
         avatar_url,
+        is_tutorial,
+        description,
         unique_code,
         created_at,
         species_entry:fursuit_species (
@@ -58,29 +60,36 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
     throw new Error(`We couldn't load your catches: ${error.message}`);
   }
 
-  return (data ?? []).map((record: any) => {
-    const fursuit = record.fursuit
-      ? ({
-          id: record.fursuit.id,
-          name: record.fursuit.name,
-          species:
-            (record.fursuit.species_entry?.name ?? record.fursuit.species) ?? null,
-          speciesId:
-            (record.fursuit.species_entry?.id ?? record.fursuit.species_id) ?? null,
-          avatar_url: record.fursuit.avatar_url ?? null,
-          unique_code: record.fursuit.unique_code ?? null,
-          created_at: record.fursuit.created_at ?? null,
-          conventions: [],
-          bio: mapLatestFursuitBio(record.fursuit.fursuit_bios ?? null),
-        } satisfies FursuitSummary)
-      : null;
+  return (data ?? [])
+    .map((record: any) => {
+      const rawFursuit = record.fursuit;
 
-    return {
-      id: record.id,
-      caught_at: record.caught_at ?? null,
-      fursuit,
-    } satisfies CaughtRecord;
-  });
+      if (rawFursuit?.is_tutorial) {
+        return null;
+      }
+
+      const fursuit = rawFursuit
+        ? ({
+            id: rawFursuit.id,
+            name: rawFursuit.name,
+            species: (rawFursuit.species_entry?.name ?? rawFursuit.species) ?? null,
+            speciesId: (rawFursuit.species_entry?.id ?? rawFursuit.species_id) ?? null,
+            avatar_url: rawFursuit.avatar_url ?? null,
+            description: rawFursuit.description ?? null,
+            unique_code: rawFursuit.unique_code ?? null,
+            created_at: rawFursuit.created_at ?? null,
+            conventions: [],
+            bio: mapLatestFursuitBio(rawFursuit.fursuit_bios ?? null),
+          } satisfies FursuitSummary)
+        : null;
+
+      return {
+        id: record.id,
+        caught_at: record.caught_at ?? null,
+        fursuit,
+      } satisfies CaughtRecord;
+    })
+    .filter((entry: CaughtRecord | null): entry is CaughtRecord => Boolean(entry));
 }
 
 export const createCaughtSuitsQueryOptions = (userId: string) => ({

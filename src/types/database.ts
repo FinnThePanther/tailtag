@@ -80,18 +80,21 @@ export type Database = {
           catcher_id: string;
           caught_at: string | null;
           fursuit_id: string;
+          is_tutorial: boolean;
           id: string;
         };
         Insert: {
           catcher_id: string;
           caught_at?: string | null;
           fursuit_id: string;
+          is_tutorial?: boolean;
           id?: string;
         };
         Update: {
           catcher_id?: string;
           caught_at?: string | null;
           fursuit_id?: string;
+          is_tutorial?: boolean;
           id?: string;
         };
         Relationships: [
@@ -348,7 +351,9 @@ export type Database = {
         Row: {
           avatar_url: string | null;
           created_at: string | null;
+          description: string | null;
           id: string;
+          is_tutorial: boolean;
           name: string;
           owner_id: string;
           species: string | null;
@@ -358,7 +363,9 @@ export type Database = {
         Insert: {
           avatar_url?: string | null;
           created_at?: string | null;
+          description?: string | null;
           id?: string;
+          is_tutorial?: boolean;
           name: string;
           owner_id: string;
           species?: string | null;
@@ -368,7 +375,9 @@ export type Database = {
         Update: {
           avatar_url?: string | null;
           created_at?: string | null;
+          description?: string | null;
           id?: string;
+          is_tutorial?: boolean;
           name?: string;
           owner_id?: string;
           species?: string | null;
@@ -431,6 +440,8 @@ export type Database = {
           bio: string | null;
           created_at: string | null;
           id: string;
+          is_new: boolean;
+          onboarding_completed: boolean;
           updated_at: string | null;
           username: string | null;
         };
@@ -439,6 +450,8 @@ export type Database = {
           bio?: string | null;
           created_at?: string | null;
           id: string;
+          is_new?: boolean;
+          onboarding_completed?: boolean;
           updated_at?: string | null;
           username?: string | null;
         };
@@ -447,6 +460,8 @@ export type Database = {
           bio?: string | null;
           created_at?: string | null;
           id?: string;
+          is_new?: boolean;
+          onboarding_completed?: boolean;
           updated_at?: string | null;
           username?: string | null;
         };
@@ -583,6 +598,12 @@ export type Database = {
           convention_id: string;
         };
         Returns: undefined;
+      };
+      grant_getting_started_achievement: {
+        Args: {
+          target_user_id?: string | null;
+        };
+        Returns: boolean;
       };
     };
     Enums: {

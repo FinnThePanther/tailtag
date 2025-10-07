@@ -419,11 +419,13 @@ export default function SettingsScreen() {
         }
       }
 
-      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, {
+      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) => ({
         username: normalizedUsername,
         bio: normalizedBio,
         avatar_url: nextAvatarUrl,
-      });
+        is_new: current?.is_new ?? false,
+        onboarding_completed: current?.onboarding_completed ?? false,
+      }));
       setUsernameInput(trimmedUsername);
       setBioInput(trimmedBio);
       setSelectedAvatar(null);

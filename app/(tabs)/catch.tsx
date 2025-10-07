@@ -37,7 +37,14 @@ import type { FursuitsRow } from '../../src/types/database';
 
 type FursuitDetails = Pick<
   FursuitsRow,
-  'id' | 'name' | 'species' | 'species_id' | 'avatar_url' | 'unique_code' | 'owner_id'
+  | 'id'
+  | 'name'
+  | 'species'
+  | 'species_id'
+  | 'avatar_url'
+  | 'unique_code'
+  | 'owner_id'
+  | 'is_tutorial'
 > & { created_at: string | null; bio: FursuitBio | null };
 
 type CatchRecord = {
@@ -86,6 +93,7 @@ export default function CatchScreen() {
           species,
           species_id,
           avatar_url,
+          is_tutorial,
           unique_code,
           owner_id,
           created_at,
@@ -113,6 +121,7 @@ export default function CatchScreen() {
         .eq('unique_code', normalizedCode)
         .order('version', { ascending: false, foreignTable: 'fursuit_bios' })
         .limit(1, { foreignTable: 'fursuit_bios' })
+        .eq('is_tutorial', false)
         .maybeSingle();
 
       if (fursuitError) {
@@ -137,7 +146,16 @@ export default function CatchScreen() {
         owner_id: fursuit.owner_id,
         created_at: fursuit.created_at ?? null,
         bio: mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
+        is_tutorial: fursuit.is_tutorial === true,
       };
+
+      if (normalizedFursuit.is_tutorial) {
+        setCaughtFursuit(null);
+        setCatchRecord(null);
+        setConversationPrompt(null);
+        setSubmitError('Tutorial suits cannot be caught by scanning codes.');
+        return;
+      }
 
       if (normalizedFursuit.owner_id === userId) {
         setCaughtFursuit(null);
