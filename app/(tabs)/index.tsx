@@ -3,7 +3,7 @@ import { Alert, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-nat
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
@@ -30,10 +30,11 @@ import {
   fetchAchievementStatus,
   achievementsStatusQueryKey,
   useAchievementsRealtime,
-  useAchievementNotificationsToast,
+  useAchievementUnlockToast,
+  triggerAchievementProcessor,
   type AchievementWithStatus,
 } from '../../src/features/achievements';
-import { useDailyTasks } from '../../src/features/daily-tasks';
+import { useDailyTasks, DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks';
 import type { Database } from '../../src/types/database';
 import { colors, spacing, radius } from '../../src/theme';
 
@@ -62,6 +63,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
+  const queryClient = useQueryClient();
 
   const {
     data: conventions = [],
@@ -138,12 +140,17 @@ export default function HomeScreen() {
   const achievementsErrorMessage = achievementsError?.message ?? null;
   const isAchievementsBusy = isAchievementsLoading || isAchievementsFetching;
 
-  const handleAchievementUnlocked = useCallback((achievement: AchievementWithStatus) => {
-    Alert.alert('Achievement unlocked!', achievement.name);
-  }, []);
+  const handleAchievementToast = useAchievementUnlockToast(userId);
+
+  const handleAchievementUnlocked = useCallback(
+    (achievement: AchievementWithStatus) => {
+      handleAchievementToast(achievement);
+      Alert.alert('Achievement unlocked!', achievement.name);
+    },
+    [handleAchievementToast],
+  );
 
   useAchievementsRealtime(userId, { onUnlocked: handleAchievementUnlocked });
-  useAchievementNotificationsToast(userId);
 
   const conventionMap = useMemo(() => {
     return new Map(conventions.map((convention) => [convention.id, convention]));
@@ -186,7 +193,7 @@ export default function HomeScreen() {
     isFetching: isDailyTasksFetching,
     refetch: refetchDailyTasks,
     countdown: dailyCountdown,
-  } = useDailyTasks(userId, selectedConventionId);
+  } = useDailyTasks(userId, selectedConventionId, { suppressToasts: true });
 
   const dailyTotalTasks = dailyTasksData?.totalCount ?? 0;
   const dailyCompletedTasks = dailyTasksData?.completedCount ?? 0;
@@ -311,8 +318,12 @@ export default function HomeScreen() {
     if (error) {
       console.error('Failed to record leaderboard refresh', error);
       Alert.alert('Refresh failed', 'We could not record your refresh. Please try again.');
+      return;
     }
-  }, [refetchLeaderboard, refetchSuitLeaderboard, userId, selectedConventionId]);
+
+    await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
+    void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+  }, [refetchLeaderboard, refetchSuitLeaderboard, userId, selectedConventionId, queryClient]);
 
   return (
     <View style={styles.wrapper}>

@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { triggerAchievementProcessor } from '../../achievements';
 
 export type ConventionSummary = {
   id: string;
@@ -71,6 +72,8 @@ export async function optInToConvention(profileId: string, conventionId: string)
   if (error) {
     throw new Error(`We couldn't save your convention opt-in: ${error.message}`);
   }
+
+  await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
 }
 
 export async function optOutOfConvention(profileId: string, conventionId: string): Promise<void> {
@@ -84,6 +87,8 @@ export async function optOutOfConvention(profileId: string, conventionId: string
   if (error) {
     throw new Error(`We couldn't remove your convention opt-in: ${error.message}`);
   }
+
+  await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
 }
 
 export async function addFursuitConvention(fursuitId: string, conventionId: string): Promise<void> {
@@ -98,6 +103,8 @@ export async function addFursuitConvention(fursuitId: string, conventionId: stri
   if (error) {
     throw new Error(`We couldn't add that convention to the fursuit: ${error.message}`);
   }
+
+  await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
 }
 
 export async function removeFursuitConvention(fursuitId: string, conventionId: string): Promise<void> {
@@ -111,4 +118,6 @@ export async function removeFursuitConvention(fursuitId: string, conventionId: s
   if (error) {
     throw new Error(`We couldn't remove that convention from the fursuit: ${error.message}`);
   }
+
+  await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
 }

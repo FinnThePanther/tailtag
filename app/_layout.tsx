@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth, usePrimeUserData } from "../src/features/auth";
 import { colors } from "../src/theme";
 import { ToastProvider } from "../src/hooks/useToast";
+import { DailyTaskToastManager } from "../src/features/daily-tasks/components/DailyTaskToastManager";
 
 function LoadingScreen() {
   return (
@@ -93,6 +94,7 @@ export default function Layout() {
                 style={{ flex: 1, backgroundColor: colors.background }}
                 edges={["top", "left", "right", "bottom"]}
               >
+                <DailyTaskToastManager />
                 <RootLayoutNav />
               </SafeAreaView>
             </ToastProvider>
