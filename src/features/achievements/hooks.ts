@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
 
@@ -8,6 +8,7 @@ import {
   achievementsStatusQueryKey,
   type AchievementWithStatus,
 } from './api/achievements';
+import { useToast } from '../../hooks/useToast';
 
 export type AchievementRealtimeOptions = {
   onUnlocked?: (achievement: AchievementWithStatus) => void;
@@ -18,6 +19,7 @@ export function useAchievementsRealtime(
   options?: AchievementRealtimeOptions
 ) {
   const queryClient = useQueryClient();
+  const onUnlocked = options?.onUnlocked;
 
   useEffect(() => {
     if (!userId) {
@@ -63,7 +65,7 @@ export function useAchievementsRealtime(
           );
 
           if (matchedAchievement) {
-            options?.onUnlocked?.(matchedAchievement);
+            onUnlocked?.(matchedAchievement);
             return;
           }
 
@@ -87,5 +89,33 @@ export function useAchievementsRealtime(
           supabase.removeChannel(channel);
         });
     };
-  }, [userId, queryClient, options]);
+  }, [userId, queryClient, onUnlocked]);
+}
+
+export function useAchievementUnlockToast(userId: string | null) {
+  const { showToast } = useToast();
+  const seenUnlocksRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!userId) {
+      seenUnlocksRef.current.clear();
+    }
+  }, [userId]);
+
+  return useCallback(
+    (achievement: AchievementWithStatus) => {
+      if (!userId) {
+        return;
+      }
+
+      const key = `${achievement.id}:${achievement.unlockedAt ?? 'pending'}`;
+      if (seenUnlocksRef.current.has(key)) {
+        return;
+      }
+      seenUnlocksRef.current.add(key);
+
+      showToast(`You just unlocked ${achievement.name}!`);
+    },
+    [showToast, userId],
+  );
 }

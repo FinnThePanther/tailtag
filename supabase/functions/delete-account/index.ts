@@ -126,14 +126,6 @@ async function deleteAccountData(userId: string) {
 
   await assertSuccess(
     supabaseAdmin
-      .from("achievement_notifications")
-      .delete()
-      .eq("user_id", userId),
-    "achievement notifications",
-  );
-
-  await assertSuccess(
-    supabaseAdmin
       .from("user_achievements")
       .delete()
       .eq("user_id", userId),

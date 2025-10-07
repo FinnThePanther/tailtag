@@ -4,700 +4,574 @@ export type Json =
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
-export interface ProfilesRow {
-  id: string;
-  username: string | null;
-  bio: string | null;
-  avatar_url: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-}
-
-export interface ProfilesInsert {
-  id: string;
-  username?: string | null;
-  bio?: string | null;
-  avatar_url?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-export interface ProfilesUpdate {
-  id?: string;
-  username?: string | null;
-  bio?: string | null;
-  avatar_url?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-export type AchievementCategory =
-  | 'catching'
-  | 'variety'
-  | 'dedication'
-  | 'fursuiter'
-  | 'fun'
-  | 'meta';
-
-export type AchievementRecipientRole = 'catcher' | 'fursuit_owner' | 'any';
-
-export type AchievementTriggerEvent =
-  | 'catch.created'
-  | 'profile.updated'
-  | 'convention.checkin'
-  | 'leaderboard.refreshed';
-
-export type DailyTaskKind = 'catch' | 'view_bio' | 'share' | 'leaderboard' | 'meta';
-
-export interface FursuitsRow {
-  id: string;
-  owner_id: string;
-  name: string;
-  species: string | null;
-  species_id: string | null;
-  avatar_url: string | null;
-  unique_code: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-}
-
-export interface FursuitsInsert {
-  id?: string;
-  owner_id: string;
-  name: string;
-  species?: string | null;
-  species_id?: string | null;
-  avatar_url?: string | null;
-  unique_code: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-export interface FursuitsUpdate {
-  id?: string;
-  owner_id?: string;
-  name?: string;
-  species?: string | null;
-  species_id?: string | null;
-  avatar_url?: string | null;
-  unique_code?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-export interface FursuitSpeciesRow {
-  id: string;
-  name: string;
-  normalized_name: string;
-  created_at: string | null;
-  updated_at: string | null;
-}
-
-export interface FursuitSpeciesInsert {
-  id?: string;
-  name: string;
-  normalized_name?: string;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-export interface FursuitSpeciesUpdate {
-  id?: string;
-  name?: string;
-  normalized_name?: string;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-export interface ConventionsRow {
-  id: string;
-  slug: string;
-  name: string;
-  location: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-}
-
-export interface ConventionsInsert {
-  id?: string;
-  slug: string;
-  name: string;
-  location?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-export interface ConventionsUpdate {
-  id?: string;
-  slug?: string;
-  name?: string;
-  location?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-export interface ProfileConventionsRow {
-  profile_id: string;
-  convention_id: string;
-  created_at: string | null;
-}
-
-export interface ProfileConventionsInsert {
-  profile_id: string;
-  convention_id: string;
-  created_at?: string | null;
-}
-
-export interface ProfileConventionsUpdate {
-  profile_id?: string;
-  convention_id?: string;
-  created_at?: string | null;
-}
-
-export interface FursuitConventionsRow {
-  fursuit_id: string;
-  convention_id: string;
-  created_at: string | null;
-}
-
-export interface FursuitConventionsInsert {
-  fursuit_id: string;
-  convention_id: string;
-  created_at?: string | null;
-}
-
-export interface FursuitConventionsUpdate {
-  fursuit_id?: string;
-  convention_id?: string;
-  created_at?: string | null;
-}
-
-export type FursuitSocialLink = {
-  label: string;
-  url: string;
-};
-
-export interface FursuitBiosRow {
-  id: string;
-  fursuit_id: string;
-  version: number;
-  fursuit_name: string;
-  fursuit_species: string;
-  owner_name: string;
-  pronouns: string;
-  tagline: string;
-  fun_fact: string;
-  likes_and_interests: string;
-  ask_me_about: string;
-  social_links: Json;
-  created_at: string | null;
-  updated_at: string | null;
-}
-
-export interface FursuitBiosInsert {
-  id?: string;
-  fursuit_id: string;
-  version: number;
-  fursuit_name: string;
-  fursuit_species: string;
-  owner_name: string;
-  pronouns: string;
-  tagline: string;
-  fun_fact: string;
-  likes_and_interests: string;
-  ask_me_about: string;
-  social_links?: Json;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-export interface FursuitBiosUpdate {
-  id?: string;
-  fursuit_id?: string;
-  version?: number;
-  fursuit_name?: string;
-  fursuit_species?: string;
-  owner_name?: string;
-  pronouns?: string;
-  tagline?: string;
-  fun_fact?: string;
-  likes_and_interests?: string;
-  ask_me_about?: string;
-  social_links?: Json;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-export interface CatchesRow {
-  id: string;
-  catcher_id: string;
-  fursuit_id: string;
-  convention_id: string | null;
-  caught_at: string | null;
-  created_at: string | null;
-}
-
-export interface CatchesInsert {
-  id?: string;
-  catcher_id: string;
-  fursuit_id: string;
-  convention_id?: string | null;
-  caught_at?: string | null;
-  created_at?: string | null;
-}
-
-export interface CatchesUpdate {
-  id?: string;
-  catcher_id?: string;
-  fursuit_id?: string;
-  convention_id?: string | null;
-  caught_at?: string | null;
-  created_at?: string | null;
-}
-
-export interface AchievementsRow {
-  id: string;
-  key: string;
-  name: string;
-  description: string;
-  category: AchievementCategory;
-  recipient_role: AchievementRecipientRole;
-  trigger_event: AchievementTriggerEvent;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AchievementsInsert {
-  id?: string;
-  key: string;
-  name: string;
-  description: string;
-  category: AchievementCategory;
-  recipient_role: AchievementRecipientRole;
-  trigger_event: AchievementTriggerEvent;
-  is_active?: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface AchievementsUpdate {
-  id?: string;
-  key?: string;
-  name?: string;
-  description?: string;
-  category?: AchievementCategory;
-  recipient_role?: AchievementRecipientRole;
-  trigger_event?: AchievementTriggerEvent;
-  is_active?: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface UserAchievementsRow {
-  id: string;
-  user_id: string;
-  achievement_id: string;
-  unlocked_at: string;
-  context: Json;
-}
-
-export interface UserAchievementsInsert {
-  id?: string;
-  user_id: string;
-  achievement_id: string;
-  unlocked_at?: string;
-  context?: Json;
-}
-
-export interface UserAchievementsUpdate {
-  id?: string;
-  user_id?: string;
-  achievement_id?: string;
-  unlocked_at?: string;
-  context?: Json;
-}
-
-export interface AchievementEventsRow {
-  id: string;
-  event_type: AchievementTriggerEvent;
-  payload: Json;
-  created_at: string;
-  processed_at: string | null;
-}
-
-export interface AchievementEventsInsert {
-  id?: string;
-  event_type: AchievementTriggerEvent;
-  payload: Json;
-  created_at?: string;
-  processed_at?: string | null;
-}
-
-export interface AchievementEventsUpdate {
-  id?: string;
-  event_type?: AchievementTriggerEvent;
-  payload?: Json;
-  created_at?: string;
-  processed_at?: string | null;
-}
-
-export interface DailyTasksRow {
-  id: string;
-  name: string;
-  description: string;
-  kind: DailyTaskKind;
-  requirement: number;
-  metadata: Json;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DailyTasksInsert {
-  id?: string;
-  name: string;
-  description: string;
-  kind: DailyTaskKind;
-  requirement?: number;
-  metadata?: Json;
-  is_active?: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface DailyTasksUpdate {
-  id?: string;
-  name?: string;
-  description?: string;
-  kind?: DailyTaskKind;
-  requirement?: number;
-  metadata?: Json;
-  is_active?: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface DailyAssignmentsRow {
-  id: string;
-  day: string;
-  task_id: string;
-  convention_id: string;
-  position: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DailyAssignmentsInsert {
-  id?: string;
-  day: string;
-  task_id: string;
-  convention_id: string;
-  position: number;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface DailyAssignmentsUpdate {
-  id?: string;
-  day?: string;
-  task_id?: string;
-  convention_id?: string;
-  position?: number;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface UserDailyProgressRow {
-  user_id: string;
-  day: string;
-  task_id: string;
-  convention_id: string;
-  current_count: number;
-  is_completed: boolean;
-  completed_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface UserDailyProgressInsert {
-  user_id: string;
-  day: string;
-  task_id: string;
-  convention_id: string;
-  current_count?: number;
-  is_completed?: boolean;
-  completed_at?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface UserDailyProgressUpdate {
-  user_id?: string;
-  day?: string;
-  task_id?: string;
-  convention_id?: string;
-  current_count?: number;
-  is_completed?: boolean;
-  completed_at?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface UserDailyStreaksRow {
-  user_id: string;
-  convention_id: string;
-  current_streak: number;
-  best_streak: number;
-  last_completed_day: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface UserDailyStreaksInsert {
-  user_id: string;
-  convention_id: string;
-  current_streak?: number;
-  best_streak?: number;
-  last_completed_day?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface UserDailyStreaksUpdate {
-  user_id?: string;
-  convention_id?: string;
-  current_streak?: number;
-  best_streak?: number;
-  last_completed_day?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface Database {
+export type Database = {
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5";
+  };
   public: {
     Tables: {
-      profiles: {
-        Row: ProfilesRow;
-        Insert: ProfilesInsert;
-        Update: ProfilesUpdate;
-        Relationships: [
-          {
-            foreignKeyName: 'profiles_id_fkey';
-            columns: ['id'];
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
-          }
-        ];
-      };
-      fursuits: {
-        Row: FursuitsRow;
-        Insert: FursuitsInsert;
-        Update: FursuitsUpdate;
-        Relationships: [
-          {
-            foreignKeyName: 'fursuits_owner_id_fkey';
-            columns: ['owner_id'];
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'fursuits_species_id_fkey';
-            columns: ['species_id'];
-            referencedRelation: 'fursuit_species';
-            referencedColumns: ['id'];
-          }
-        ];
-      };
-      catches: {
-        Row: CatchesRow;
-        Insert: CatchesInsert;
-        Update: CatchesUpdate;
-        Relationships: [
-          {
-            foreignKeyName: 'catches_catcher_id_fkey';
-            columns: ['catcher_id'];
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'catches_fursuit_id_fkey';
-            columns: ['fursuit_id'];
-            referencedRelation: 'fursuits';
-            referencedColumns: ['id'];
-          }
-        ];
-      };
-      achievements: {
-        Row: AchievementsRow;
-        Insert: AchievementsInsert;
-        Update: AchievementsUpdate;
+      achievement_events: {
+        Row: {
+          created_at: string;
+          event_type: Database["public"]["Enums"]["achievement_trigger_event"];
+          id: string;
+          payload: Json;
+          processed_at: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          event_type: Database["public"]["Enums"]["achievement_trigger_event"];
+          id?: string;
+          payload: Json;
+          processed_at?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          event_type?: Database["public"]["Enums"]["achievement_trigger_event"];
+          id?: string;
+          payload?: Json;
+          processed_at?: string | null;
+        };
         Relationships: [];
       };
-      daily_tasks: {
-        Row: DailyTasksRow;
-        Insert: DailyTasksInsert;
-        Update: DailyTasksUpdate;
+      achievements: {
+        Row: {
+          category: Database["public"]["Enums"]["achievement_category"];
+          created_at: string;
+          description: string;
+          id: string;
+          is_active: boolean;
+          key: string;
+          name: string;
+          recipient_role: Database["public"]["Enums"]["achievement_recipient_role"];
+          trigger_event: Database["public"]["Enums"]["achievement_trigger_event"];
+          updated_at: string;
+        };
+        Insert: {
+          category: Database["public"]["Enums"]["achievement_category"];
+          created_at?: string;
+          description: string;
+          id?: string;
+          is_active?: boolean;
+          key: string;
+          name: string;
+          recipient_role: Database["public"]["Enums"]["achievement_recipient_role"];
+          trigger_event: Database["public"]["Enums"]["achievement_trigger_event"];
+          updated_at?: string;
+        };
+        Update: {
+          category?: Database["public"]["Enums"]["achievement_category"];
+          created_at?: string;
+          description?: string;
+          id?: string;
+          is_active?: boolean;
+          key?: string;
+          name?: string;
+          recipient_role?: Database["public"]["Enums"]["achievement_recipient_role"];
+          trigger_event?: Database["public"]["Enums"]["achievement_trigger_event"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      catches: {
+        Row: {
+          catcher_id: string;
+          caught_at: string | null;
+          fursuit_id: string;
+          id: string;
+        };
+        Insert: {
+          catcher_id: string;
+          caught_at?: string | null;
+          fursuit_id: string;
+          id?: string;
+        };
+        Update: {
+          catcher_id?: string;
+          caught_at?: string | null;
+          fursuit_id?: string;
+          id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catches_catcher_id_fkey";
+            columns: ["catcher_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catches_fursuit_id_fkey";
+            columns: ["fursuit_id"];
+            isOneToOne: false;
+            referencedRelation: "fursuits";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      conventions: {
+        Row: {
+          created_at: string;
+          end_date: string | null;
+          id: string;
+          location: string | null;
+          name: string;
+          slug: string;
+          start_date: string | null;
+          timezone: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          end_date?: string | null;
+          id?: string;
+          location?: string | null;
+          name: string;
+          slug: string;
+          start_date?: string | null;
+          timezone?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          end_date?: string | null;
+          id?: string;
+          location?: string | null;
+          name?: string;
+          slug?: string;
+          start_date?: string | null;
+          timezone?: string;
+          updated_at?: string;
+        };
         Relationships: [];
       };
       daily_assignments: {
-        Row: DailyAssignmentsRow;
-        Insert: DailyAssignmentsInsert;
-        Update: DailyAssignmentsUpdate;
+        Row: {
+          convention_id: string;
+          created_at: string;
+          day: string;
+          id: string;
+          position: number;
+          task_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          convention_id: string;
+          created_at?: string;
+          day: string;
+          id?: string;
+          position: number;
+          task_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          convention_id?: string;
+          created_at?: string;
+          day?: string;
+          id?: string;
+          position?: number;
+          task_id?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: 'daily_assignments_task_id_fkey';
-            columns: ['task_id'];
-            referencedRelation: 'daily_tasks';
-            referencedColumns: ['id'];
+            foreignKeyName: "daily_assignments_convention_id_fkey";
+            columns: ["convention_id"];
+            isOneToOne: false;
+            referencedRelation: "conventions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: 'daily_assignments_convention_id_fkey';
-            columns: ['convention_id'];
-            referencedRelation: 'conventions';
-            referencedColumns: ['id'];
-          }
+            foreignKeyName: "daily_assignments_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "daily_tasks";
+            referencedColumns: ["id"];
+          },
         ];
       };
-      user_daily_progress: {
-        Row: UserDailyProgressRow;
-        Insert: UserDailyProgressInsert;
-        Update: UserDailyProgressUpdate;
-        Relationships: [
-          {
-            foreignKeyName: 'user_daily_progress_user_id_fkey';
-            columns: ['user_id'];
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'user_daily_progress_task_id_fkey';
-            columns: ['task_id'];
-            referencedRelation: 'daily_tasks';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'user_daily_progress_convention_id_fkey';
-            columns: ['convention_id'];
-            referencedRelation: 'conventions';
-            referencedColumns: ['id'];
-          }
-        ];
-      };
-      user_daily_streaks: {
-        Row: UserDailyStreaksRow;
-        Insert: UserDailyStreaksInsert;
-        Update: UserDailyStreaksUpdate;
-        Relationships: [
-          {
-            foreignKeyName: 'user_daily_streaks_user_id_fkey';
-            columns: ['user_id'];
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'user_daily_streaks_convention_id_fkey';
-            columns: ['convention_id'];
-            referencedRelation: 'conventions';
-            referencedColumns: ['id'];
-          }
-        ];
-      };
-      user_achievements: {
-        Row: UserAchievementsRow;
-        Insert: UserAchievementsInsert;
-        Update: UserAchievementsUpdate;
-        Relationships: [
-          {
-            foreignKeyName: 'user_achievements_achievement_id_fkey';
-            columns: ['achievement_id'];
-            referencedRelation: 'achievements';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'user_achievements_user_id_fkey';
-            columns: ['user_id'];
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
-          }
-        ];
-      };
-      achievement_events: {
-        Row: AchievementEventsRow;
-        Insert: AchievementEventsInsert;
-        Update: AchievementEventsUpdate;
+      daily_tasks: {
+        Row: {
+          created_at: string;
+          description: string;
+          id: string;
+          is_active: boolean;
+          kind: string;
+          metadata: Json;
+          name: string;
+          requirement: number;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          description: string;
+          id?: string;
+          is_active?: boolean;
+          kind: string;
+          metadata?: Json;
+          name: string;
+          requirement: number;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string;
+          id?: string;
+          is_active?: boolean;
+          kind?: string;
+          metadata?: Json;
+          name?: string;
+          requirement?: number;
+          updated_at?: string;
+        };
         Relationships: [];
       };
-      conventions: {
-        Row: ConventionsRow;
-        Insert: ConventionsInsert;
-        Update: ConventionsUpdate;
-        Relationships: [];
-      };
-      profile_conventions: {
-        Row: ProfileConventionsRow;
-        Insert: ProfileConventionsInsert;
-        Update: ProfileConventionsUpdate;
+      fursuit_bios: {
+        Row: {
+          ask_me_about: string;
+          created_at: string;
+          fun_fact: string;
+          fursuit_id: string;
+          fursuit_name: string;
+          fursuit_species: string;
+          id: string;
+          likes_and_interests: string;
+          owner_name: string;
+          pronouns: string;
+          social_links: Json;
+          tagline: string;
+          updated_at: string;
+          version: number;
+        };
+        Insert: {
+          ask_me_about: string;
+          created_at?: string;
+          fun_fact: string;
+          fursuit_id: string;
+          fursuit_name: string;
+          fursuit_species: string;
+          id?: string;
+          likes_and_interests: string;
+          owner_name: string;
+          pronouns: string;
+          social_links?: Json;
+          tagline: string;
+          updated_at?: string;
+          version: number;
+        };
+        Update: {
+          ask_me_about?: string;
+          created_at?: string;
+          fun_fact?: string;
+          fursuit_id?: string;
+          fursuit_name?: string;
+          fursuit_species?: string;
+          id?: string;
+          likes_and_interests?: string;
+          owner_name?: string;
+          pronouns?: string;
+          social_links?: Json;
+          tagline?: string;
+          updated_at?: string;
+          version?: number;
+        };
         Relationships: [
           {
-            foreignKeyName: 'profile_conventions_profile_id_fkey';
-            columns: ['profile_id'];
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
+            foreignKeyName: "fursuit_bios_fursuit_id_fkey";
+            columns: ["fursuit_id"];
+            isOneToOne: false;
+            referencedRelation: "fursuits";
+            referencedColumns: ["id"];
           },
-          {
-            foreignKeyName: 'profile_conventions_convention_id_fkey';
-            columns: ['convention_id'];
-            referencedRelation: 'conventions';
-            referencedColumns: ['id'];
-          }
         ];
       };
       fursuit_conventions: {
-        Row: FursuitConventionsRow;
-        Insert: FursuitConventionsInsert;
-        Update: FursuitConventionsUpdate;
+        Row: {
+          convention_id: string;
+          created_at: string;
+          fursuit_id: string;
+        };
+        Insert: {
+          convention_id: string;
+          created_at?: string;
+          fursuit_id: string;
+        };
+        Update: {
+          convention_id?: string;
+          created_at?: string;
+          fursuit_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: 'fursuit_conventions_fursuit_id_fkey';
-            columns: ['fursuit_id'];
-            referencedRelation: 'fursuits';
-            referencedColumns: ['id'];
+            foreignKeyName: "fursuit_conventions_convention_id_fkey";
+            columns: ["convention_id"];
+            isOneToOne: false;
+            referencedRelation: "conventions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: 'fursuit_conventions_convention_id_fkey';
-            columns: ['convention_id'];
-            referencedRelation: 'conventions';
-            referencedColumns: ['id'];
-          }
-        ];
-      };
-      fursuit_bios: {
-        Row: FursuitBiosRow;
-        Insert: FursuitBiosInsert;
-        Update: FursuitBiosUpdate;
-        Relationships: [
-          {
-            foreignKeyName: 'fursuit_bios_fursuit_id_fkey';
-            columns: ['fursuit_id'];
-            referencedRelation: 'fursuits';
-            referencedColumns: ['id'];
-          }
+            foreignKeyName: "fursuit_conventions_fursuit_id_fkey";
+            columns: ["fursuit_id"];
+            isOneToOne: false;
+            referencedRelation: "fursuits";
+            referencedColumns: ["id"];
+          },
         ];
       };
       fursuit_species: {
-        Row: FursuitSpeciesRow;
-        Insert: FursuitSpeciesInsert;
-        Update: FursuitSpeciesUpdate;
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+          normalized_name: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+          normalized_name?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+          normalized_name?: string | null;
+          updated_at?: string;
+        };
         Relationships: [];
+      };
+      fursuits: {
+        Row: {
+          avatar_url: string | null;
+          created_at: string | null;
+          id: string;
+          name: string;
+          owner_id: string;
+          species: string | null;
+          species_id: string | null;
+          unique_code: string;
+        };
+        Insert: {
+          avatar_url?: string | null;
+          created_at?: string | null;
+          id?: string;
+          name: string;
+          owner_id: string;
+          species?: string | null;
+          species_id?: string | null;
+          unique_code: string;
+        };
+        Update: {
+          avatar_url?: string | null;
+          created_at?: string | null;
+          id?: string;
+          name?: string;
+          owner_id?: string;
+          species?: string | null;
+          species_id?: string | null;
+          unique_code?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fursuits_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "fursuits_species_id_fkey";
+            columns: ["species_id"];
+            isOneToOne: false;
+            referencedRelation: "fursuit_species";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      profile_conventions: {
+        Row: {
+          convention_id: string;
+          created_at: string;
+          profile_id: string;
+        };
+        Insert: {
+          convention_id: string;
+          created_at?: string;
+          profile_id: string;
+        };
+        Update: {
+          convention_id?: string;
+          created_at?: string;
+          profile_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_conventions_convention_id_fkey";
+            columns: ["convention_id"];
+            isOneToOne: false;
+            referencedRelation: "conventions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "profile_conventions_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      profiles: {
+        Row: {
+          avatar_url: string | null;
+          bio: string | null;
+          created_at: string | null;
+          id: string;
+          updated_at: string | null;
+          username: string | null;
+        };
+        Insert: {
+          avatar_url?: string | null;
+          bio?: string | null;
+          created_at?: string | null;
+          id: string;
+          updated_at?: string | null;
+          username?: string | null;
+        };
+        Update: {
+          avatar_url?: string | null;
+          bio?: string | null;
+          created_at?: string | null;
+          id?: string;
+          updated_at?: string | null;
+          username?: string | null;
+        };
+        Relationships: [];
+      };
+      user_achievements: {
+        Row: {
+          achievement_id: string;
+          context: Json;
+          id: string;
+          unlocked_at: string;
+          user_id: string;
+        };
+        Insert: {
+          achievement_id: string;
+          context?: Json;
+          id?: string;
+          unlocked_at?: string;
+          user_id: string;
+        };
+        Update: {
+          achievement_id?: string;
+          context?: Json;
+          id?: string;
+          unlocked_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey";
+            columns: ["achievement_id"];
+            isOneToOne: false;
+            referencedRelation: "achievements";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      user_daily_progress: {
+        Row: {
+          completed_at: string | null;
+          convention_id: string;
+          created_at: string;
+          current_count: number;
+          day: string;
+          is_completed: boolean;
+          task_id: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          convention_id: string;
+          created_at?: string;
+          current_count?: number;
+          day: string;
+          is_completed?: boolean;
+          task_id: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          convention_id?: string;
+          created_at?: string;
+          current_count?: number;
+          day?: string;
+          is_completed?: boolean;
+          task_id?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_daily_progress_convention_id_fkey";
+            columns: ["convention_id"];
+            isOneToOne: false;
+            referencedRelation: "conventions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_daily_progress_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "daily_tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      user_daily_streaks: {
+        Row: {
+          best_streak: number;
+          convention_id: string;
+          created_at: string;
+          current_streak: number;
+          last_completed_day: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          best_streak?: number;
+          convention_id: string;
+          created_at?: string;
+          current_streak?: number;
+          last_completed_day?: string | null;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          best_streak?: number;
+          convention_id?: string;
+          created_at?: string;
+          current_streak?: number;
+          last_completed_day?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_daily_streaks_convention_id_fkey";
+            columns: ["convention_id"];
+            isOneToOne: false;
+            referencedRelation: "conventions";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: {
@@ -708,26 +582,187 @@ export interface Database {
         Args: {
           convention_id: string;
         };
-        Returns: void;
+        Returns: undefined;
       };
     };
     Enums: {
-      achievement_category: AchievementCategory;
-      achievement_recipient_role: AchievementRecipientRole;
-      achievement_trigger_event: AchievementTriggerEvent;
+      achievement_category:
+        | "catching"
+        | "variety"
+        | "dedication"
+        | "fursuiter"
+        | "fun"
+        | "meta";
+      achievement_recipient_role: "catcher" | "fursuit_owner" | "any";
+      achievement_trigger_event:
+        | "catch.created"
+        | "profile.updated"
+        | "convention.checkin"
+        | "leaderboard.refreshed";
     };
     CompositeTypes: {
       [_ in never]: never;
     };
   };
-}
-export type AchievementNotificationsRow = {
-  id: string;
-  user_id: string;
-  achievement_key: string;
-  event_id: string | null;
-  event_type: string | null;
-  context: any;
-  created_at: string;
-  acknowledged_at: string | null;
 };
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R;
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+  ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+      Row: infer R;
+    }
+    ? R
+    : never
+  : never;
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I;
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+      Insert: infer I;
+    }
+    ? I
+    : never
+  : never;
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U;
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+      Update: infer U;
+    }
+    ? U
+    : never
+  : never;
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  : never;
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : never;
+
+export const Constants = {
+  public: {
+    Enums: {
+      achievement_category: [
+        "catching",
+        "variety",
+        "dedication",
+        "fursuiter",
+        "fun",
+        "meta",
+      ],
+      achievement_recipient_role: ["catcher", "fursuit_owner", "any"],
+      achievement_trigger_event: [
+        "catch.created",
+        "profile.updated",
+        "convention.checkin",
+        "leaderboard.refreshed",
+      ],
+    },
+  },
+} as const;
+
+export type AchievementCategory = Database["public"]["Enums"]["achievement_category"];
+export type AchievementRecipientRole = Database["public"]["Enums"]["achievement_recipient_role"];
+export type AchievementTriggerEvent = Database["public"]["Enums"]["achievement_trigger_event"];
+
+export type AchievementEventsRow = Database["public"]["Tables"]["achievement_events"]["Row"];
+export type AchievementsRow = Database["public"]["Tables"]["achievements"]["Row"];
+export type UserAchievementsRow = Database["public"]["Tables"]["user_achievements"]["Row"];
+
+export type DailyAssignmentsRow = Database["public"]["Tables"]["daily_assignments"]["Row"];
+export type DailyTasksRow = Database["public"]["Tables"]["daily_tasks"]["Row"];
+export type UserDailyProgressRow = Database["public"]["Tables"]["user_daily_progress"]["Row"];
+export type UserDailyStreaksRow = Database["public"]["Tables"]["user_daily_streaks"]["Row"];
+
+export type FursuitsRow = Database["public"]["Tables"]["fursuits"]["Row"];
+export type FursuitsInsert = Database["public"]["Tables"]["fursuits"]["Insert"];
+export type FursuitBiosInsert = Database["public"]["Tables"]["fursuit_bios"]["Insert"];
+
+export type FursuitSocialLink = {
+  label: string;
+  url: string;
+};
+
+export type DailyTaskKind = Database["public"]["Tables"]["daily_tasks"]["Row"]["kind"];

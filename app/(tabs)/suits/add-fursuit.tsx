@@ -40,6 +40,8 @@ import {
   PROFILE_CONVENTIONS_QUERY_KEY,
 } from '../../../src/features/conventions';
 import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
+import { triggerAchievementProcessor } from '../../../src/features/achievements';
+import { DAILY_TASKS_QUERY_KEY } from '../../../src/features/daily-tasks/hooks';
 
 import type { FursuitBiosInsert, FursuitsInsert, Json } from '../../../src/types/database';
 import {
@@ -514,6 +516,8 @@ export default function AddFursuitScreen() {
       setSubmitError(null);
 
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
+      await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
+      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
       router.replace('/suits');
     } catch (caught) {
       const fallbackMessage =

@@ -1,27 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
-import { supabase } from '../../lib/supabase';
 import type { DailyTasksSummary } from './api/dailyTasks';
 import { fetchDailyTasks } from './api/dailyTasks';
+import { useToast } from '../../hooks/useToast';
 
-const DAILY_TASKS_QUERY_KEY = 'daily-tasks';
+export const DAILY_TASKS_QUERY_KEY = 'daily-tasks';
 
 export const dailyTasksQueryKey = (userId: string, conventionId: string) =>
   [DAILY_TASKS_QUERY_KEY, userId, conventionId] as const;
 
-type ProgressPayload = {
-  task_id: string;
-  user_id: string;
-  day: string;
-  convention_id: string;
-  current_count: number;
-  is_completed: boolean;
-  completed_at: string | null;
+const MILLISECONDS_IN_SECOND = 1000;
+
+type ToastState = {
+  dayKey: string | null;
+  completed: Set<string>;
+  allCompleteNotified: boolean;
 };
 
-const MILLISECONDS_IN_SECOND = 1000;
+const dailyTaskToastStateMap = new Map<string, ToastState>();
 
 function useTicker(intervalMs = MILLISECONDS_IN_SECOND) {
   const [now, setNow] = useState(() => Date.now());
@@ -39,74 +36,19 @@ function useTicker(intervalMs = MILLISECONDS_IN_SECOND) {
   return now;
 }
 
-function useDailyTasksRealtime(userId: string | null, conventionId: string | null, enabled: boolean) {
-  const queryClient = useQueryClient();
+type DailyTaskOptions = {
+  suppressToasts?: boolean;
+};
 
-  useEffect(() => {
-    if (!userId || !conventionId || !enabled) {
-      return;
-    }
-
-    const channelName = `daily-tasks:user:${userId}:convention:${conventionId}`;
-    const queryKey = dailyTasksQueryKey(userId, conventionId);
-
-    const invalidate = () => {
-      void queryClient.invalidateQueries({ queryKey });
-    };
-
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_daily_progress',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload: RealtimePostgresChangesPayload<ProgressPayload>) => {
-          const row = (payload.new ?? {}) as Partial<ProgressPayload>;
-          if (row.convention_id !== conventionId) {
-            return;
-          }
-          invalidate();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'daily_assignments',
-          filter: `convention_id=eq.${conventionId}`,
-        },
-        () => {
-          invalidate();
-        }
-      );
-
-    channel.subscribe((status, error) => {
-      if (status === 'CHANNEL_ERROR' && error) {
-        console.error('Daily tasks realtime channel error', error);
-      }
-    });
-
-    return () => {
-      channel
-        .unsubscribe()
-        .catch((unsubscribeError) => {
-          console.error('Failed to unsubscribe from daily tasks channel', unsubscribeError);
-        })
-        .finally(() => {
-          supabase.removeChannel(channel);
-        });
-    };
-  }, [userId, conventionId, enabled, queryClient]);
-}
-
-export function useDailyTasks(userId: string | null, conventionId: string | null) {
+export function useDailyTasks(
+  userId: string | null,
+  conventionId: string | null,
+  options: DailyTaskOptions = {},
+) {
   const now = useTicker();
   const enabled = Boolean(userId && conventionId);
+  const { showToast } = useToast();
+  const suppressToasts = options.suppressToasts ?? false;
 
   const query = useQuery<DailyTasksSummary, Error>({
     queryKey: userId && conventionId ? dailyTasksQueryKey(userId, conventionId) : [DAILY_TASKS_QUERY_KEY],
@@ -117,8 +59,6 @@ export function useDailyTasks(userId: string | null, conventionId: string | null
     refetchOnReconnect: false,
     placeholderData: (previousData) => previousData,
   });
-
-  useDailyTasksRealtime(userId, conventionId, enabled);
 
   const resetAt = query.data?.resetAt ?? null;
   const millisecondsUntilReset = useMemo(() => {
@@ -149,6 +89,83 @@ export function useDailyTasks(userId: string | null, conventionId: string | null
       void queryClient.invalidateQueries({ queryKey: dailyTasksQueryKey(userId, conventionId) });
     }
   }, [userId, conventionId, enabled, millisecondsUntilReset, queryClient]);
+
+  useEffect(() => {
+    if (!userId || !enabled) {
+      if (userId) {
+        const prefix = `${userId}:`;
+        for (const key of Array.from(dailyTaskToastStateMap.keys())) {
+          if (key.startsWith(prefix)) {
+            dailyTaskToastStateMap.delete(key);
+          }
+        }
+      }
+      return;
+    }
+
+    const summary = query.data;
+    if (!summary) {
+      return;
+    }
+
+    if (suppressToasts) {
+      const stateKey = `${userId}:${summary.conventionId}`;
+      const dayKey = `${summary.conventionId}:${summary.day}`;
+      const allComplete = summary.tasks.length > 0 && summary.tasks.every((task) => task.isCompleted);
+      let state = dailyTaskToastStateMap.get(stateKey);
+      if (!state) {
+        state = { dayKey, completed: new Set(), allCompleteNotified: allComplete };
+        dailyTaskToastStateMap.set(stateKey, state);
+      } else if (state.dayKey !== dayKey) {
+        state.dayKey = dayKey;
+        state.completed = new Set();
+        state.allCompleteNotified = allComplete;
+      } else {
+        state.allCompleteNotified = allComplete ? true : state.allCompleteNotified;
+      }
+      for (const task of summary.tasks) {
+        if (task.isCompleted) {
+          state.completed.add(task.id);
+        }
+      }
+      return;
+    }
+
+    const stateKey = `${userId}:${summary.conventionId}`;
+    const dayKey = `${summary.conventionId}:${summary.day}`;
+    let state = dailyTaskToastStateMap.get(stateKey);
+    if (!state) {
+      state = { dayKey: null, completed: new Set(), allCompleteNotified: false };
+      dailyTaskToastStateMap.set(stateKey, state);
+    }
+
+    if (state.dayKey !== dayKey) {
+      state.dayKey = dayKey;
+      state.completed = new Set();
+      state.allCompleteNotified = false;
+    }
+
+    for (const task of summary.tasks) {
+      if (!task.isCompleted) {
+        continue;
+      }
+
+      if (!state.completed.has(task.id)) {
+        state.completed.add(task.id);
+        showToast(`Daily task complete: ${task.name}`);
+      }
+    }
+
+    const allComplete = summary.tasks.length > 0 && summary.tasks.every((task) => task.isCompleted);
+    if (allComplete && !state.allCompleteNotified) {
+      state.allCompleteNotified = true;
+      const streak = summary.streak?.current ?? 0;
+      const message = streak > 0
+        ? `All daily tasks complete! Current streak: ${streak}`
+        : 'All daily tasks complete!';
+      showToast(message);
+    }
+  }, [enabled, query.data, showToast, suppressToasts, userId]);
 
   return {
     ...query,

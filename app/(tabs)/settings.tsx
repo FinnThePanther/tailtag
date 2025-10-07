@@ -34,6 +34,8 @@ import { supabase } from '../../src/lib/supabase';
 import { colors, spacing, radius } from '../../src/theme';
 import { loadUriAsUint8Array } from '../../src/utils/files';
 import { deriveStoragePathFromPublicUrl } from '../../src/utils/storage';
+import { triggerAchievementProcessor } from '../../src/features/achievements';
+import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import {
   fetchProfile,
   PROFILE_QUERY_KEY,
@@ -427,6 +429,8 @@ export default function SettingsScreen() {
       setSelectedAvatar(null);
       setShouldRemoveAvatar(false);
       setSaveMessage('Profile updated');
+      await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
+      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error
@@ -478,20 +482,21 @@ export default function SettingsScreen() {
       });
 
       try {
-        if (isSelected) {
-          await optOutOfConvention(userId, conventionId);
-          queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) =>
-            (current ?? []).filter((value) => value !== conventionId)
-          );
-        } else {
-          await optInToConvention(userId, conventionId);
-          queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) => {
-            const next = new Set(current ?? []);
-            next.add(conventionId);
-            return Array.from(next);
-          });
-        }
-      } catch (caught) {
+       if (isSelected) {
+         await optOutOfConvention(userId, conventionId);
+         queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) =>
+           (current ?? []).filter((value) => value !== conventionId)
+         );
+       } else {
+         await optInToConvention(userId, conventionId);
+         queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) => {
+           const next = new Set(current ?? []);
+           next.add(conventionId);
+           return Array.from(next);
+         });
+       }
+        void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+     } catch (caught) {
         const fallbackMessage =
           caught instanceof Error
             ? caught.message

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   Alert,
   RefreshControl,
@@ -18,8 +18,7 @@ import {
   fetchAchievementStatus,
   type AchievementWithStatus,
   useAchievementsRealtime,
-  useAchievementNotifications,
-  useAchievementNotificationsToast,
+  useAchievementUnlockToast,
 } from '../../src/features/achievements';
 import { colors, radius, spacing } from '../../src/theme';
 
@@ -92,16 +91,8 @@ export default function AchievementsScreen() {
     refetchOnReconnect: false,
   });
 
-  useAchievementsRealtime(userId);
-  const { notifications, acknowledge } = useAchievementNotifications(userId);
-  useAchievementNotificationsToast(userId);
-
-  useEffect(() => {
-    if (!userId) return;
-    if (notifications.length === 0) return;
-    void acknowledge(notifications.map((notification) => notification.id));
-  }, [acknowledge, notifications, userId]);
-  useAchievementNotificationsToast(userId);
+  const handleAchievementToast = useAchievementUnlockToast(userId);
+  useAchievementsRealtime(userId, { onUnlocked: handleAchievementToast });
 
   const handleBack = useCallback(() => {
     router.back();

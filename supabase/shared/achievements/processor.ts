@@ -95,6 +95,10 @@ type ProcessorDeps = {
   logger?: LoggerLike;
   now?: () => Date;
   onAwardGranted?: (payload: AwardHookPayload) => Promise<void> | void;
+  onEventProcessed?: (payload: {
+    event: AchievementEvent;
+    result: ProcessResult;
+  }) => Promise<void> | void;
 };
 
 export type AchievementProcessor = ReturnType<typeof createAchievementProcessor>;
@@ -104,6 +108,7 @@ export function createAchievementProcessor({
   logger = console,
   now = () => new Date(),
   onAwardGranted,
+  onEventProcessed,
 }: ProcessorDeps) {
   const log = logger;
 
@@ -897,6 +902,11 @@ export function createAchievementProcessor({
     const achievementMap = await loadAchievementMap();
     const result = await processEventInternal(achievementMap, event);
     await markEventProcessed(event.id);
+    try {
+      await onEventProcessed?.({ event, result });
+    } catch (callbackError) {
+      log.error(`onEventProcessed hook failed for ${event.id}`, callbackError);
+    }
     return result;
   }
 
@@ -926,6 +936,11 @@ export function createAchievementProcessor({
           await markEventProcessed(event.id);
           totalProcessed += 1;
           allResults.push(processed);
+          try {
+            await onEventProcessed?.({ event, result: processed });
+          } catch (callbackError) {
+            log.error(`onEventProcessed hook failed for ${event.id}`, callbackError);
+          }
         } catch (eventError) {
           log.error(`Failed processing event ${event.id}`, eventError);
           const { error } = await supabase

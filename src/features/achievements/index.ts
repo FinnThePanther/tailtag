@@ -10,8 +10,8 @@ export {
   type AchievementWithStatus,
 } from './api/achievements';
 
-export { useAchievementsRealtime } from './hooks';
-export { useAchievementNotifications } from './hooks/useAchievementNotifications';
-export { useAchievementNotificationsToast } from './hooks/useAchievementNotificationsToast';
+export { triggerAchievementProcessor } from './api/triggerProcessor';
+
+export { useAchievementsRealtime, useAchievementUnlockToast } from './hooks';
 
 export type { AchievementCategory, AchievementRecipientRole } from '../../types/database';
