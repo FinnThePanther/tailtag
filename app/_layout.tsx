@@ -1,7 +1,7 @@
 // app/_layout.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { useSegments, Stack, Redirect } from "expo-router";
+import { useSegments, Stack, Redirect, useNavigationContainerRef } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -12,6 +12,7 @@ import { createProfileQueryOptions } from "../src/features/profile";
 import { colors } from "../src/theme";
 import { ToastProvider } from "../src/hooks/useToast";
 import { DailyTaskToastManager } from "../src/features/daily-tasks/components/DailyTaskToastManager";
+import { Sentry, routingInstrumentation } from "../src/lib/sentry";
 
 function LoadingScreen() {
   return (
@@ -117,8 +118,30 @@ function RootLayoutNav() {
   );
 }
 
-export default function Layout() {
+function Layout() {
   const [queryClient] = useState(() => new QueryClient());
+  const navigationRef = useNavigationContainerRef();
+
+  useEffect(() => {
+    if (!navigationRef) {
+      return;
+    }
+
+    if (navigationRef.current) {
+      routingInstrumentation.registerNavigationContainer(navigationRef);
+      return;
+    }
+
+    // Expo Router sets the ref asynchronously; retry until it's available.
+    const interval = setInterval(() => {
+      if (navigationRef.current) {
+        routingInstrumentation.registerNavigationContainer(navigationRef);
+        clearInterval(interval);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [navigationRef]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -141,3 +164,5 @@ export default function Layout() {
     </GestureHandlerRootView>
   );
 }
+
+export default Sentry.wrap(Layout);
