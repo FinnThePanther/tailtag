@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import { mapLatestFursuitBio } from './utils';
 import type { FursuitDetail } from '../types';
+import { captureHandledMessage, captureSupabaseError } from '../../../lib/sentry';
 
 export const FURSUIT_DETAIL_QUERY_KEY = 'fursuit-detail';
 export const fursuitDetailQueryKey = (fursuitId: string) =>
@@ -63,10 +64,19 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     .maybeSingle();
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'suits.fetchFursuitDetail',
+      action: 'select',
+      fursuitId,
+    });
     throw new Error("We couldn't load that fursuit right now. Please try again.");
   }
 
   if (!data) {
+    captureHandledMessage('Fursuit detail not found', {
+      scope: 'suits.fetchFursuitDetail',
+      fursuitId,
+    }, 'warning');
     throw new Error('That fursuit was not found. It may have been removed.');
   }
 

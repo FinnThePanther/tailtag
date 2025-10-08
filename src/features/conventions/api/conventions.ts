@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { triggerAchievementProcessor } from '../../achievements';
+import { captureSupabaseError } from '../../../lib/sentry';
 
 export type ConventionSummary = {
   id: string;
@@ -24,6 +25,10 @@ export async function fetchConventions(): Promise<ConventionSummary[]> {
     .order('name', { ascending: true });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.fetchConventions',
+      action: 'select',
+    });
     throw new Error(`We couldn't load conventions: ${error.message}`);
   }
 
@@ -54,6 +59,11 @@ export async function fetchProfileConventionIds(profileId: string): Promise<stri
     .eq('profile_id', profileId);
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.fetchProfileConventionIds',
+      action: 'select',
+      profileId,
+    });
     throw new Error(`We couldn't load your convention opt-ins: ${error.message}`);
   }
 
@@ -70,6 +80,12 @@ export async function optInToConvention(profileId: string, conventionId: string)
     );
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.optInToConvention',
+      action: 'upsert',
+      profileId,
+      conventionId,
+    });
     throw new Error(`We couldn't save your convention opt-in: ${error.message}`);
   }
 
@@ -85,6 +101,12 @@ export async function optOutOfConvention(profileId: string, conventionId: string
     .eq('convention_id', conventionId);
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.optOutOfConvention',
+      action: 'delete',
+      profileId,
+      conventionId,
+    });
     throw new Error(`We couldn't remove your convention opt-in: ${error.message}`);
   }
 
@@ -101,6 +123,12 @@ export async function addFursuitConvention(fursuitId: string, conventionId: stri
     );
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.addFursuitConvention',
+      action: 'upsert',
+      fursuitId,
+      conventionId,
+    });
     throw new Error(`We couldn't add that convention to the fursuit: ${error.message}`);
   }
 
@@ -116,6 +144,12 @@ export async function removeFursuitConvention(fursuitId: string, conventionId: s
     .eq('convention_id', conventionId);
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.removeFursuitConvention',
+      action: 'delete',
+      fursuitId,
+      conventionId,
+    });
     throw new Error(`We couldn't remove that convention from the fursuit: ${error.message}`);
   }
 

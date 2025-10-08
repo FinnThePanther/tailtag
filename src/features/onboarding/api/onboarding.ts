@@ -3,6 +3,12 @@ import { FURSUIT_BUCKET, MAX_IMAGE_SIZE } from '../../../constants/storage';
 import { UNIQUE_CODE_ATTEMPTS, UNIQUE_INSERT_ATTEMPTS } from '../../../constants/codes';
 import { generateUniqueCodeCandidate } from '../../../utils/code';
 import { loadUriAsUint8Array } from '../../../utils/files';
+import {
+  addMonitoringBreadcrumb,
+  captureHandledException,
+  captureHandledMessage,
+  captureSupabaseError,
+} from '../../../lib/sentry';
 
 import type { FursuitsInsert } from '../../../types/database';
 
@@ -31,6 +37,12 @@ const generateAvailableFursuitCode = async (): Promise<string> => {
       .limit(1);
 
     if (error) {
+      captureSupabaseError(error, {
+        scope: 'onboarding.generateAvailableFursuitCode',
+        action: 'checkCandidate',
+        attempt,
+        candidate,
+      });
       throw new Error(`We couldn't generate a tag code right now: ${error.message}`);
     }
 
@@ -39,6 +51,9 @@ const generateAvailableFursuitCode = async (): Promise<string> => {
     }
   }
 
+  captureHandledMessage("Ran out of attempts while generating unique fursuit code", {
+    scope: 'onboarding.generateAvailableFursuitCode',
+  });
   throw new Error("We couldn't generate a unique tag code. Please try again.");
 };
 
@@ -51,7 +66,19 @@ const uploadFursuitPhoto = async (userId: string, photo: FursuitPhotoCandidate) 
   const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const storagePath = `${userId}/${uniqueSuffix}.${extension}`;
 
-  const fileBytes = await loadUriAsUint8Array(photo.uri);
+  let fileBytes: Uint8Array;
+
+  try {
+    fileBytes = await loadUriAsUint8Array(photo.uri);
+  } catch (error) {
+    captureHandledException(error, {
+      scope: 'onboarding.uploadFursuitPhoto',
+      action: 'readFile',
+      userId,
+      mimeType: photo.mimeType,
+    });
+    throw error;
+  }
 
   const { error: uploadError } = await supabase.storage.from(FURSUIT_BUCKET).upload(storagePath, fileBytes, {
     contentType: photo.mimeType,
@@ -59,6 +86,12 @@ const uploadFursuitPhoto = async (userId: string, photo: FursuitPhotoCandidate) 
   });
 
   if (uploadError) {
+    captureSupabaseError(uploadError, {
+      scope: 'onboarding.uploadFursuitPhoto',
+      action: 'upload',
+      userId,
+      storagePath,
+    });
     throw uploadError;
   }
 
@@ -79,6 +112,11 @@ const ensureTutorialFursuitForUser = async (userId: string) => {
     .maybeSingle();
 
   if (fetchError) {
+    captureSupabaseError(fetchError, {
+      scope: 'onboarding.ensureTutorialFursuit',
+      action: 'lookupExisting',
+      userId,
+    });
     throw new Error(`We couldn't look up the tutorial suit: ${fetchError.message}`);
   }
 
@@ -108,10 +146,20 @@ const ensureTutorialFursuitForUser = async (userId: string) => {
     }
 
     if (insertError?.code !== '23505') {
+      captureSupabaseError(insertError, {
+        scope: 'onboarding.ensureTutorialFursuit',
+        action: 'insertTutorial',
+        attempt,
+        userId,
+      });
       throw new Error(`We couldn't prepare the tutorial suit: ${insertError?.message ?? 'Unknown error'}`);
     }
   }
 
+  captureHandledMessage('Ran out of attempts while preparing tutorial fursuit', {
+    scope: 'onboarding.ensureTutorialFursuit',
+    userId,
+  });
   throw new Error("We couldn't prepare the tutorial suit: ran out of attempts.");
 };
 
@@ -163,14 +211,32 @@ export async function createQuickFursuit(options: {
       const { data: inserted, error } = await client.from('fursuits').insert(payload).select('id').single();
 
       if (!error && inserted?.id) {
+        addMonitoringBreadcrumb({
+          category: 'onboarding',
+          message: 'Created quick fursuit',
+          data: {
+            userId,
+            fursuitId: inserted.id,
+          },
+        });
         return inserted.id;
       }
 
       if (error?.code !== '23505') {
+        captureSupabaseError(error, {
+          scope: 'onboarding.createQuickFursuit',
+          action: 'insertFursuit',
+          userId,
+          attempt,
+        });
         throw error ?? new Error("We couldn't save that fursuit. Please try again.");
       }
     }
 
+    captureHandledMessage('Ran out of attempts creating quick fursuit', {
+      scope: 'onboarding.createQuickFursuit',
+      userId,
+    });
     throw new Error("We couldn't save that fursuit. Please try again.");
   } catch (caught) {
     if (uploadedStoragePath) {
@@ -179,7 +245,12 @@ export async function createQuickFursuit(options: {
         .remove([uploadedStoragePath]);
 
       if (cleanupError) {
-        console.warn('Failed to clean up onboarding fursuit photo after error', cleanupError);
+        captureSupabaseError(cleanupError, {
+          scope: 'onboarding.createQuickFursuit',
+          action: 'cleanupUpload',
+          userId,
+          storagePath: uploadedStoragePath,
+        });
       }
     }
 
@@ -202,6 +273,12 @@ export async function recordTutorialCatch(userId: string): Promise<void> {
     .maybeSingle();
 
   if (error && error.code !== '23505') {
+    captureSupabaseError(error, {
+      scope: 'onboarding.recordTutorialCatch',
+      action: 'insertCatch',
+      userId,
+      tutorialFursuitId,
+    });
     throw new Error(`We couldn't record your practice catch: ${error.message}`);
   }
 }
@@ -217,12 +294,22 @@ export async function completeOnboarding(userId: string): Promise<void> {
   });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'onboarding.completeOnboarding',
+      action: 'finishOnboardingRpc',
+      userId,
+    });
     throw new Error(`We couldn't finish onboarding: ${error.message}`);
   }
 
   const result = (data ?? null) as FinishOnboardingResult | null;
 
   if (!result || result.profile_updated !== true) {
+    captureHandledMessage('finish_onboarding RPC returned unexpected payload', {
+      scope: 'onboarding.completeOnboarding',
+      userId,
+      result,
+    });
     throw new Error('We could not confirm your onboarding progress. Please try again.');
   }
 }
