@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TOAST_DURATION = 5000;
+const TAB_BAR_HEIGHT = 64;
 
 type ToastMessage = {
   id: number;
@@ -24,6 +26,8 @@ export function useToast() {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const insets = useSafeAreaInsets();
+  const containerBottom = useMemo(() => insets.bottom + TAB_BAR_HEIGHT, [insets.bottom]);
 
   const showToast = useCallback((message: string) => {
     setToasts((current) => {
@@ -37,7 +41,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <View pointerEvents="none" style={styles.container}>
+      <View pointerEvents="none" style={[styles.container, { bottom: containerBottom }] }>
         {toasts.map((toast) => (
           <ToastItem
             key={toast.id}
@@ -84,7 +88,7 @@ function ToastItem({ message, onFinish }: ToastItemProps) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 48,
+    bottom: 0,
     left: 0,
     right: 0,
     alignItems: 'center',

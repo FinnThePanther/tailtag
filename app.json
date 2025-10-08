@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "tailtag-mvp",
-    "slug": "tailtag-mvp",
-    "version": "1.0.0",
+    "name": "tailtag",
+    "slug": "tailtag",
+    "version": "0.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
