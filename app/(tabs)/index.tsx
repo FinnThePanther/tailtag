@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -29,8 +29,6 @@ import {
 import {
   fetchAchievementStatus,
   achievementsStatusQueryKey,
-  useAchievementsRealtime,
-  useAchievementUnlockToast,
   triggerAchievementProcessor,
   type AchievementWithStatus,
 } from '../../src/features/achievements';
@@ -139,18 +137,6 @@ export default function HomeScreen() {
 
   const achievementsErrorMessage = achievementsError?.message ?? null;
   const isAchievementsBusy = isAchievementsLoading || isAchievementsFetching;
-
-  const handleAchievementToast = useAchievementUnlockToast(userId);
-
-  const handleAchievementUnlocked = useCallback(
-    (achievement: AchievementWithStatus) => {
-      handleAchievementToast(achievement);
-      Alert.alert('Achievement unlocked!', achievement.name);
-    },
-    [handleAchievementToast],
-  );
-
-  useAchievementsRealtime(userId, { onUnlocked: handleAchievementUnlocked });
 
   const conventionMap = useMemo(() => {
     return new Map(conventions.map((convention) => [convention.id, convention]));

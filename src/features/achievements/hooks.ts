@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import type { UserAchievementsRow } from '../../types/database';
 import {
   achievementsStatusQueryKey,
+  fetchAchievementStatus,
   type AchievementWithStatus,
 } from './api/achievements';
 import { useToast } from '../../hooks/useToast';
@@ -24,14 +25,21 @@ export function useAchievementsRealtime(
 ) {
   const queryClient = useQueryClient();
   const onUnlocked = options?.onUnlocked;
+  const channelInstanceRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!userId) {
+      channelInstanceRef.current = null;
       return;
     }
 
+    if (!channelInstanceRef.current) {
+      channelInstanceRef.current = Math.random().toString(36).slice(2, 10);
+    }
+
+    const channelName = `achievements:user:${userId}:${channelInstanceRef.current}`;
     const channel = supabase
-      .channel(`achievements:user:${userId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -83,6 +91,38 @@ export function useAchievementsRealtime(
           }
 
           void queryClient.invalidateQueries({ queryKey: achievementsStatusQueryKey(userId) });
+
+          void (async () => {
+            try {
+              const latest = await queryClient.fetchQuery({
+                queryKey: achievementsStatusQueryKey(userId),
+                queryFn: () => fetchAchievementStatus(userId),
+              });
+
+              const fetchedAchievement = latest.find(
+                (entry) => entry.id === newRow.achievement_id,
+              );
+
+              if (fetchedAchievement) {
+                addMonitoringBreadcrumb({
+                  category: 'achievements',
+                  message: 'Achievement unlocked (realtime-refetch)',
+                  data: {
+                    userId,
+                    achievementId: fetchedAchievement.id,
+                  },
+                });
+                onUnlocked?.(fetchedAchievement);
+              }
+            } catch (refetchError) {
+              captureHandledException(refetchError, {
+                scope: 'achievements.realtime',
+                action: 'refetch',
+                userId,
+                achievementId: newRow.achievement_id,
+              });
+            }
+          })();
         }
       );
 
@@ -108,6 +148,9 @@ export function useAchievementsRealtime(
         })
         .finally(() => {
           supabase.removeChannel(channel);
+          if (channelInstanceRef.current) {
+            channelInstanceRef.current = null;
+          }
         });
     };
   }, [userId, queryClient, onUnlocked]);
