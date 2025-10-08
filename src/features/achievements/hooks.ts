@@ -9,6 +9,10 @@ import {
   type AchievementWithStatus,
 } from './api/achievements';
 import { useToast } from '../../hooks/useToast';
+import {
+  addMonitoringBreadcrumb,
+  captureHandledException,
+} from '../../lib/sentry';
 
 export type AchievementRealtimeOptions = {
   onUnlocked?: (achievement: AchievementWithStatus) => void;
@@ -64,8 +68,17 @@ export function useAchievementsRealtime(
             }
           );
 
-          if (matchedAchievement) {
-            onUnlocked?.(matchedAchievement);
+          const unlockedAchievement = matchedAchievement as AchievementWithStatus | null;
+          if (unlockedAchievement !== null) {
+            addMonitoringBreadcrumb({
+              category: 'achievements',
+              message: 'Achievement unlocked (realtime)',
+              data: {
+                userId,
+                achievementId: unlockedAchievement.id,
+              },
+            });
+            onUnlocked?.(unlockedAchievement);
             return;
           }
 
@@ -75,7 +88,11 @@ export function useAchievementsRealtime(
 
     channel.subscribe((status, error) => {
       if (status === 'CHANNEL_ERROR' && error) {
-        console.error('Achievements channel error', error);
+        captureHandledException(error, {
+          scope: 'achievements.realtime',
+          action: 'subscribe',
+          userId,
+        });
       }
     });
 
@@ -83,7 +100,11 @@ export function useAchievementsRealtime(
       channel
         .unsubscribe()
         .catch((unsubscribeError) => {
-          console.error('Failed to unsubscribe from achievements channel', unsubscribeError);
+          captureHandledException(unsubscribeError, {
+            scope: 'achievements.realtime',
+            action: 'unsubscribe',
+            userId,
+          });
         })
         .finally(() => {
           supabase.removeChannel(channel);

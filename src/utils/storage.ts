@@ -1,3 +1,5 @@
+import { captureHandledException } from '../lib/sentry';
+
 export const deriveStoragePathFromPublicUrl = (
   publicUrl: string | null | undefined,
   bucketName: string
@@ -18,7 +20,11 @@ export const deriveStoragePathFromPublicUrl = (
     const objectSegments = segments.slice(bucketIndex + 1);
     return objectSegments.join('/');
   } catch (error) {
-    console.warn('Failed to parse storage object path', error);
+    captureHandledException(error, {
+      scope: 'storage.deriveStoragePath',
+      bucketName,
+      publicUrl,
+    });
     return null;
   }
 };

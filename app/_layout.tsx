@@ -5,14 +5,19 @@ import { useSegments, Stack, Redirect, useNavigationContainerRef } from "expo-ro
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryCache, QueryClient, QueryClientProvider, MutationCache, useQuery } from "@tanstack/react-query";
 
 import { AuthProvider, useAuth, usePrimeUserData } from "../src/features/auth";
 import { createProfileQueryOptions } from "../src/features/profile";
 import { colors } from "../src/theme";
 import { ToastProvider } from "../src/hooks/useToast";
 import { DailyTaskToastManager } from "../src/features/daily-tasks/components/DailyTaskToastManager";
-import { Sentry, routingInstrumentation } from "../src/lib/sentry";
+import {
+  Sentry,
+  addMonitoringBreadcrumb,
+  captureHandledException,
+  routingInstrumentation,
+} from "../src/lib/sentry";
 
 function LoadingScreen() {
   return (
@@ -119,7 +124,29 @@ function RootLayoutNav() {
 }
 
 function Layout() {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        queryCache: new QueryCache({
+          onError: (error, query) => {
+            captureHandledException(error, {
+              scope: "react-query.query",
+              queryHash: query?.queryHash,
+              queryKey: query?.queryKey,
+            });
+          },
+        }),
+        mutationCache: new MutationCache({
+          onError: (error, _variables, _context, mutation) => {
+            captureHandledException(error, {
+              scope: "react-query.mutation",
+              mutationId: mutation?.mutationId,
+              mutationKey: mutation?.options?.mutationKey,
+            });
+          },
+        }),
+      })
+  );
   const navigationRef = useNavigationContainerRef();
 
   useEffect(() => {
@@ -129,6 +156,10 @@ function Layout() {
 
     if (navigationRef.current) {
       routingInstrumentation.registerNavigationContainer(navigationRef);
+      addMonitoringBreadcrumb({
+        category: "navigation",
+        message: "Registered navigation container",
+      });
       return;
     }
 
@@ -136,6 +167,10 @@ function Layout() {
     const interval = setInterval(() => {
       if (navigationRef.current) {
         routingInstrumentation.registerNavigationContainer(navigationRef);
+        addMonitoringBreadcrumb({
+          category: "navigation",
+          message: "Registered navigation container (delayed)",
+        });
         clearInterval(interval);
       }
     }, 100);

@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { captureHandledException } from '../../../lib/sentry';
 
 type TriggerOptions = {
   limit?: number;
@@ -14,7 +15,11 @@ export async function triggerAchievementProcessor(options?: TriggerOptions): Pro
       },
     });
   } catch (error) {
-    console.error('Failed to trigger achievements processor', error);
+    captureHandledException(error, {
+      scope: 'achievements.triggerProcessor',
+      action: 'invoke',
+      limit: options?.limit ?? null,
+      maxBatches: options?.maxBatches ?? null,
+    });
   }
 }
-

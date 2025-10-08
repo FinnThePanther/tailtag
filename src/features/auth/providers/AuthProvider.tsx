@@ -3,6 +3,12 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 
 import { supabase } from '../../../lib/supabase';
+import {
+  addMonitoringBreadcrumb,
+  captureHandledException,
+  captureSupabaseError,
+  setUser,
+} from '../../../lib/sentry';
 
 type AuthStatus = 'loading' | 'signed_in' | 'signed_out';
 
@@ -24,6 +30,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
 
     const resolveSession = async () => {
+      addMonitoringBreadcrumb({
+        category: 'auth',
+        message: 'Resolving initial session',
+      });
+
       try {
         const {
           data: { session: activeSession },
@@ -35,19 +46,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (sessionError) {
+          captureSupabaseError(sessionError, {
+            scope: 'auth.resolveSession',
+            action: 'getSession',
+          });
           setError(sessionError.message);
           setSession(null);
           setStatus('signed_out');
+          setUser(null);
           return;
         }
 
         setSession(activeSession ?? null);
         setStatus(activeSession ? 'signed_in' : 'signed_out');
         setError(null);
+        setUser(
+          activeSession?.user
+            ? {
+                id: activeSession.user.id,
+                email: activeSession.user.email ?? null,
+              }
+            : null,
+        );
+
+        addMonitoringBreadcrumb({
+          category: 'auth',
+          message: activeSession ? 'Session restored' : 'No session',
+          data: {
+            userId: activeSession?.user.id ?? null,
+          },
+        });
       } catch (caughtError) {
         if (!isMounted) {
           return;
         }
+
+        captureHandledException(caughtError, {
+          scope: 'auth.resolveSession',
+          action: 'unexpected',
+        });
 
         const fallbackMessage =
           caughtError instanceof Error
@@ -56,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setError(fallbackMessage);
         setSession(null);
         setStatus('signed_out');
+        setUser(null);
       }
     };
 
@@ -63,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!isMounted) {
         return;
       }
@@ -71,6 +109,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(nextSession);
       setStatus(nextSession ? 'signed_in' : 'signed_out');
       setError(null);
+
+      setUser(
+        nextSession?.user
+          ? {
+              id: nextSession.user.id,
+              email: nextSession.user.email ?? null,
+            }
+          : null,
+      );
+
+      addMonitoringBreadcrumb({
+        category: 'auth',
+        message: 'Auth state change',
+        data: {
+          event,
+          userId: nextSession?.user.id ?? null,
+        },
+      });
     });
 
     return () => {
@@ -86,15 +142,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = await supabase.auth.getSession();
 
     if (refreshError) {
+      captureSupabaseError(refreshError, {
+        scope: 'auth.refreshSession',
+        action: 'getSession',
+      });
       setError(refreshError.message);
       setSession(null);
       setStatus('signed_out');
+      setUser(null);
       return;
     }
 
     setSession(refreshedSession ?? null);
     setStatus(refreshedSession ? 'signed_in' : 'signed_out');
     setError(null);
+
+    setUser(
+      refreshedSession?.user
+        ? {
+            id: refreshedSession.user.id,
+            email: refreshedSession.user.email ?? null,
+          }
+        : null,
+    );
   };
 
   const value = useMemo(
