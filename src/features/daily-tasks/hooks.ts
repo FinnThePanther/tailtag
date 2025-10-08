@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { DailyTasksSummary } from './api/dailyTasks';
 import { fetchDailyTasks } from './api/dailyTasks';
@@ -16,6 +17,46 @@ type ToastState = {
   dayKey: string | null;
   completed: Set<string>;
   allCompleteNotified: boolean;
+};
+
+type PersistedToastState = {
+  dayKey: string | null;
+  completed: string[];
+  allCompleteNotified: boolean;
+};
+
+const DAILY_TASK_TOAST_STORAGE_PREFIX = '@daily-task-toasts:';
+
+const storageKeyForState = (stateKey: string) =>
+  `${DAILY_TASK_TOAST_STORAGE_PREFIX}${stateKey}`;
+
+const serializeToastState = (state: ToastState): PersistedToastState => ({
+  dayKey: state.dayKey,
+  completed: Array.from(state.completed),
+  allCompleteNotified: state.allCompleteNotified,
+});
+
+const hydrateToastState = (input: PersistedToastState | null): ToastState | null => {
+  if (!input) {
+    return null;
+  }
+
+  const completedList = Array.isArray(input.completed) ? input.completed : [];
+
+  return {
+    dayKey: input.dayKey ?? null,
+    completed: new Set(completedList),
+    allCompleteNotified: Boolean(input.allCompleteNotified),
+  };
+};
+
+const persistToastState = async (stateKey: string, state: ToastState) => {
+  try {
+    const payload = serializeToastState(state);
+    await AsyncStorage.setItem(storageKeyForState(stateKey), JSON.stringify(payload));
+  } catch (error) {
+    console.warn('failed to persist daily task toast state', error);
+  }
 };
 
 const dailyTaskToastStateMap = new Map<string, ToastState>();
@@ -49,6 +90,55 @@ export function useDailyTasks(
   const enabled = Boolean(userId && conventionId);
   const { showToast } = useToast();
   const suppressToasts = options.suppressToasts ?? false;
+  const stateKey = userId && conventionId ? `${userId}:${conventionId}` : null;
+  const [isToastStateReady, setToastStateReady] = useState<boolean>(
+    () => Boolean(stateKey && dailyTaskToastStateMap.has(stateKey)),
+  );
+
+  useEffect(() => {
+    if (!stateKey) {
+      setToastStateReady(false);
+      return;
+    }
+
+    if (dailyTaskToastStateMap.has(stateKey)) {
+      setToastStateReady(true);
+      return;
+    }
+
+    let isCancelled = false;
+    setToastStateReady(false);
+
+    (async () => {
+      try {
+        const storedRaw = await AsyncStorage.getItem(storageKeyForState(stateKey));
+        if (isCancelled) {
+          return;
+        }
+        if (storedRaw) {
+          try {
+            const parsed = JSON.parse(storedRaw) as PersistedToastState;
+            const hydrated = hydrateToastState(parsed);
+            if (hydrated) {
+              dailyTaskToastStateMap.set(stateKey, hydrated);
+            }
+          } catch (parseError) {
+            console.warn('failed to parse daily task toast state', parseError);
+          }
+        }
+      } catch (error) {
+        console.warn('failed to load daily task toast state', error);
+      } finally {
+        if (!isCancelled) {
+          setToastStateReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [stateKey]);
 
   const query = useQuery<DailyTasksSummary, Error>({
     queryKey: userId && conventionId ? dailyTasksQueryKey(userId, conventionId) : [DAILY_TASKS_QUERY_KEY],
@@ -91,15 +181,7 @@ export function useDailyTasks(
   }, [userId, conventionId, enabled, millisecondsUntilReset, queryClient]);
 
   useEffect(() => {
-    if (!userId || !enabled) {
-      if (userId) {
-        const prefix = `${userId}:`;
-        for (const key of Array.from(dailyTaskToastStateMap.keys())) {
-          if (key.startsWith(prefix)) {
-            dailyTaskToastStateMap.delete(key);
-          }
-        }
-      }
+    if (!isToastStateReady || !enabled || !userId || !stateKey) {
       return;
     }
 
@@ -108,41 +190,24 @@ export function useDailyTasks(
       return;
     }
 
-    if (suppressToasts) {
-      const stateKey = `${userId}:${summary.conventionId}`;
-      const dayKey = `${summary.conventionId}:${summary.day}`;
-      const allComplete = summary.tasks.length > 0 && summary.tasks.every((task) => task.isCompleted);
-      let state = dailyTaskToastStateMap.get(stateKey);
-      if (!state) {
-        state = { dayKey, completed: new Set(), allCompleteNotified: allComplete };
-        dailyTaskToastStateMap.set(stateKey, state);
-      } else if (state.dayKey !== dayKey) {
-        state.dayKey = dayKey;
-        state.completed = new Set();
-        state.allCompleteNotified = allComplete;
-      } else {
-        state.allCompleteNotified = allComplete ? true : state.allCompleteNotified;
-      }
-      for (const task of summary.tasks) {
-        if (task.isCompleted) {
-          state.completed.add(task.id);
-        }
-      }
-      return;
-    }
-
-    const stateKey = `${userId}:${summary.conventionId}`;
     const dayKey = `${summary.conventionId}:${summary.day}`;
-    let state = dailyTaskToastStateMap.get(stateKey);
-    if (!state) {
-      state = { dayKey: null, completed: new Set(), allCompleteNotified: false };
-      dailyTaskToastStateMap.set(stateKey, state);
-    }
+    const completedTaskIds = summary.tasks
+      .filter((task) => task.isCompleted)
+      .map((task) => task.id);
+    const allComplete = summary.tasks.length > 0 && summary.tasks.every((task) => task.isCompleted);
 
-    if (state.dayKey !== dayKey) {
+    let state = dailyTaskToastStateMap.get(stateKey);
+    let stateChanged = false;
+
+    if (!state) {
+      state = { dayKey, completed: new Set(completedTaskIds), allCompleteNotified: allComplete };
+      dailyTaskToastStateMap.set(stateKey, state);
+      stateChanged = true;
+    } else if (state.dayKey !== dayKey) {
       state.dayKey = dayKey;
-      state.completed = new Set();
-      state.allCompleteNotified = false;
+      state.completed = new Set(completedTaskIds);
+      state.allCompleteNotified = allComplete;
+      stateChanged = true;
     }
 
     for (const task of summary.tasks) {
@@ -150,22 +215,38 @@ export function useDailyTasks(
         continue;
       }
 
-      if (!state.completed.has(task.id)) {
-        state.completed.add(task.id);
+      if (state.completed.has(task.id)) {
+        continue;
+      }
+
+      state.completed.add(task.id);
+      stateChanged = true;
+
+      if (!suppressToasts) {
         showToast(`Daily task complete: ${task.name}`);
       }
     }
 
-    const allComplete = summary.tasks.length > 0 && summary.tasks.every((task) => task.isCompleted);
     if (allComplete && !state.allCompleteNotified) {
       state.allCompleteNotified = true;
-      const streak = summary.streak?.current ?? 0;
-      const message = streak > 0
-        ? `All daily tasks complete! Current streak: ${streak}`
-        : 'All daily tasks complete!';
-      showToast(message);
+      stateChanged = true;
+
+      if (!suppressToasts) {
+        const streak = summary.streak?.current ?? 0;
+        const message = streak > 0
+          ? `All daily tasks complete! Current streak: ${streak}`
+          : 'All daily tasks complete!';
+        showToast(message);
+      }
+    } else if (!allComplete && state.allCompleteNotified) {
+      state.allCompleteNotified = false;
+      stateChanged = true;
     }
-  }, [enabled, query.data, showToast, suppressToasts, userId]);
+
+    if (stateChanged) {
+      void persistToastState(stateKey, state);
+    }
+  }, [enabled, isToastStateReady, query.data, showToast, stateKey, suppressToasts, userId]);
 
   return {
     ...query,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -6,45 +6,45 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   FursuitCard,
   FursuitBioDetails,
   CAUGHT_SUITS_QUERY_KEY,
   mapLatestFursuitBio,
-} from '../../src/features/suits';
-import type { FursuitBio } from '../../src/features/suits';
+} from "../../src/features/suits";
+import type { FursuitBio } from "../../src/features/suits";
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
   CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
-} from '../../src/features/leaderboard';
-import { TailTagButton } from '../../src/components/ui/TailTagButton';
-import { TailTagCard } from '../../src/components/ui/TailTagCard';
-import { TailTagInput } from '../../src/components/ui/TailTagInput';
-import { useAuth } from '../../src/features/auth';
-import { triggerAchievementProcessor } from '../../src/features/achievements';
-import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
-import { supabase } from '../../src/lib/supabase';
-import { colors, spacing } from '../../src/theme';
-import { normalizeUniqueCodeInput } from '../../src/utils/code';
-import { toDisplayDateTime } from '../../src/utils/dates';
+} from "../../src/features/leaderboard";
+import { TailTagButton } from "../../src/components/ui/TailTagButton";
+import { TailTagCard } from "../../src/components/ui/TailTagCard";
+import { TailTagInput } from "../../src/components/ui/TailTagInput";
+import { useAuth } from "../../src/features/auth";
+import { triggerAchievementProcessor } from "../../src/features/achievements";
+import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
+import { supabase } from "../../src/lib/supabase";
+import { colors, spacing } from "../../src/theme";
+import { normalizeUniqueCodeInput } from "../../src/utils/code";
+import { toDisplayDateTime } from "../../src/utils/dates";
 
-import type { FursuitsRow } from '../../src/types/database';
+import type { FursuitsRow } from "../../src/types/database";
 
 type FursuitDetails = Pick<
   FursuitsRow,
-  | 'id'
-  | 'name'
-  | 'species'
-  | 'species_id'
-  | 'avatar_url'
-  | 'unique_code'
-  | 'owner_id'
-  | 'is_tutorial'
+  | "id"
+  | "name"
+  | "species"
+  | "species_id"
+  | "avatar_url"
+  | "unique_code"
+  | "owner_id"
+  | "is_tutorial"
 > & { created_at: string | null; bio: FursuitBio | null };
 
 type CatchRecord = {
@@ -58,12 +58,16 @@ export default function CatchScreen() {
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
 
-  const [codeInput, setCodeInput] = useState('');
+  const [codeInput, setCodeInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [caughtFursuit, setCaughtFursuit] = useState<FursuitDetails | null>(null);
+  const [caughtFursuit, setCaughtFursuit] = useState<FursuitDetails | null>(
+    null
+  );
   const [catchRecord, setCatchRecord] = useState<CatchRecord | null>(null);
-  const [conversationPrompt, setConversationPrompt] = useState<string | null>(null);
+  const [conversationPrompt, setConversationPrompt] = useState<string | null>(
+    null
+  );
 
   const handleSubmit = async () => {
     if (!userId || isSubmitting) {
@@ -73,7 +77,9 @@ export default function CatchScreen() {
     const normalizedCode = normalizeUniqueCodeInput(codeInput);
 
     if (!normalizedCode) {
-      setSubmitError('Enter the code from the fursuit badge to record your catch.');
+      setSubmitError(
+        "Enter the code from the fursuit badge to record your catch."
+      );
       return;
     }
 
@@ -85,7 +91,7 @@ export default function CatchScreen() {
       const client = supabase as any;
 
       const { data: fursuit, error: fursuitError } = await client
-        .from('fursuits')
+        .from("fursuits")
         .select(
           `
           id,
@@ -118,10 +124,10 @@ export default function CatchScreen() {
           )
         `
         )
-        .eq('unique_code', normalizedCode)
-        .order('version', { ascending: false, foreignTable: 'fursuit_bios' })
-        .limit(1, { foreignTable: 'fursuit_bios' })
-        .eq('is_tutorial', false)
+        .eq("unique_code", normalizedCode)
+        .order("version", { ascending: false, foreignTable: "fursuit_bios" })
+        .limit(1, { foreignTable: "fursuit_bios" })
+        .eq("is_tutorial", false)
         .maybeSingle();
 
       if (fursuitError) {
@@ -132,15 +138,19 @@ export default function CatchScreen() {
         setCaughtFursuit(null);
         setCatchRecord(null);
         setConversationPrompt(null);
-        setSubmitError("We couldn't find a fursuit with that code. Double-check the letters and try again.");
+        setSubmitError(
+          "We couldn't find a fursuit with that code. Double-check the letters and try again."
+        );
         return;
       }
 
       const normalizedFursuit: FursuitDetails = {
         id: fursuit.id,
         name: fursuit.name,
-        species: (fursuit as any)?.species_entry?.name ?? fursuit.species ?? null,
-        species_id: (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
+        species:
+          (fursuit as any)?.species_entry?.name ?? fursuit.species ?? null,
+        species_id:
+          (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
         avatar_url: fursuit.avatar_url ?? null,
         unique_code: fursuit.unique_code ?? null,
         owner_id: fursuit.owner_id,
@@ -153,7 +163,7 @@ export default function CatchScreen() {
         setCaughtFursuit(null);
         setCatchRecord(null);
         setConversationPrompt(null);
-        setSubmitError('Tutorial suits cannot be caught by scanning codes.');
+        setSubmitError("Tutorial suits cannot be caught by scanning codes.");
         return;
       }
 
@@ -167,36 +177,44 @@ export default function CatchScreen() {
         return;
       }
 
-      const { data: suitConventionRows, error: suitConventionError } = await client
-        .from('fursuit_conventions')
-        .select('convention_id')
-        .eq('fursuit_id', normalizedFursuit.id);
+      const { data: suitConventionRows, error: suitConventionError } =
+        await client
+          .from("fursuit_conventions")
+          .select("convention_id")
+          .eq("fursuit_id", normalizedFursuit.id);
 
       if (suitConventionError) {
         throw suitConventionError;
       }
 
-      const { data: playerConventionRows, error: playerConventionError } = await client
-        .from('profile_conventions')
-        .select('convention_id')
-        .eq('profile_id', userId);
+      const { data: playerConventionRows, error: playerConventionError } =
+        await client
+          .from("profile_conventions")
+          .select("convention_id")
+          .eq("profile_id", userId);
 
       if (playerConventionError) {
         throw playerConventionError;
       }
 
       const suitConventionIds = new Set(
-        (suitConventionRows ?? []).map((row: { convention_id: string }) => row.convention_id)
+        (suitConventionRows ?? []).map(
+          (row: { convention_id: string }) => row.convention_id
+        )
       );
       const playerConventionIds = new Set(
-        (playerConventionRows ?? []).map((row: { convention_id: string }) => row.convention_id)
+        (playerConventionRows ?? []).map(
+          (row: { convention_id: string }) => row.convention_id
+        )
       );
 
       if (playerConventionIds.size === 0) {
         setCaughtFursuit(null);
         setCatchRecord(null);
         setConversationPrompt(null);
-        setSubmitError('Opt into at least one convention in Settings before logging catches.');
+        setSubmitError(
+          "Opt into at least one convention in Settings before logging catches."
+        );
         return;
       }
 
@@ -205,28 +223,30 @@ export default function CatchScreen() {
         setCatchRecord(null);
         setConversationPrompt(null);
         setSubmitError(
-          'This suit has not opted into any conventions yet. Ask the owner to update their settings before logging the catch.'
+          "This suit has not opted into any conventions yet. Ask the owner to update their settings before logging the catch."
         );
         return;
       }
 
-      const sharedConventions = [...playerConventionIds].filter((id) => suitConventionIds.has(id));
+      const sharedConventions = [...playerConventionIds].filter((id) =>
+        suitConventionIds.has(id)
+      );
 
       if (sharedConventions.length === 0) {
         setCaughtFursuit(null);
         setCatchRecord(null);
         setConversationPrompt(null);
         setSubmitError(
-          'You and this suit need to opt into the same convention before logging the catch.'
+          "You and this suit need to opt into the same convention before logging the catch."
         );
         return;
       }
 
       const { data: existingCatch, error: existingCatchError } = await client
-        .from('catches')
-        .select('id')
-        .eq('fursuit_id', normalizedFursuit.id)
-        .eq('catcher_id', userId)
+        .from("catches")
+        .select("id")
+        .eq("fursuit_id", normalizedFursuit.id)
+        .eq("catcher_id", userId)
         .maybeSingle();
 
       if (existingCatchError) {
@@ -238,21 +258,21 @@ export default function CatchScreen() {
         setCatchRecord(null);
         setConversationPrompt(null);
         setSubmitError(
-          'You already caught this suit. Swap codes with another fursuiter to keep hunting.'
+          "You already caught this suit. Swap codes with another fursuiter to keep hunting."
         );
         return;
       }
 
       const { data: insertedCatch, error: catchError } = await client
-        .from('catches')
+        .from("catches")
         .insert({ fursuit_id: normalizedFursuit.id })
-        .select('id, caught_at')
+        .select("id, caught_at")
         .single();
 
       if (catchError) {
-        if (catchError.code === '23505') {
+        if (catchError.code === "23505") {
           setSubmitError(
-            'You already caught this suit. Swap codes with another fursuiter to keep hunting.'
+            "You already caught this suit. Swap codes with another fursuiter to keep hunting."
           );
           setCaughtFursuit(null);
           setCatchRecord(null);
@@ -287,8 +307,10 @@ export default function CatchScreen() {
           queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, conventionId],
         });
       });
-      queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
-      setCodeInput('');
+      queryClient.invalidateQueries({
+        queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
+      });
+      setCodeInput("");
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error
@@ -304,28 +326,32 @@ export default function CatchScreen() {
   };
 
   const caughtAtLabel = catchRecord
-    ? toDisplayDateTime(catchRecord.caught_at) ?? 'Caught just now'
+    ? toDisplayDateTime(catchRecord.caught_at) ?? "Caught just now"
     : null;
 
   const handleCatchAnother = () => {
     setCaughtFursuit(null);
     setCatchRecord(null);
     setSubmitError(null);
-    setCodeInput('');
+    setCodeInput("");
     setConversationPrompt(null);
   };
 
   return (
     <KeyboardAvoidingView
       style={styles.wrapper}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>Tag and trade</Text>
+          <Text style={styles.eyebrow}>Tag Fursuits Here</Text>
           <Text style={styles.title}>Log a new catch</Text>
           <Text style={styles.subtitle}>
-            Enter the eight-letter code from a friend&apos;s tail tag to add them to your collection.
+            Enter the eight-letter code from a friend&apos;s tail tag to add
+            them to your collection.
           </Text>
         </View>
 
@@ -345,10 +371,14 @@ export default function CatchScreen() {
               onSubmitEditing={handleSubmit}
               style={styles.codeInput}
             />
-            <Text style={styles.helpText}>Letters only, up to 8 characters.</Text>
+            <Text style={styles.helpText}>
+              Letters only, up to 8 characters.
+            </Text>
           </View>
 
-          {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+          {submitError ? (
+            <Text style={styles.errorText}>{submitError}</Text>
+          ) : null}
 
           <TailTagButton
             onPress={handleSubmit}
@@ -363,8 +393,8 @@ export default function CatchScreen() {
           <TailTagCard style={styles.cardSpacing}>
             <Text style={styles.sectionTitle}>Nice catch!</Text>
             <Text style={styles.sectionBody}>
-              You just tagged {caughtFursuit.name}. Scroll through their bio below and trade
-              codes to keep your streak growing.
+              You just tagged {caughtFursuit.name}. Scroll through their bio
+              below and trade codes to keep your streak growing.
             </Text>
             {conversationPrompt ? (
               <TailTagCard style={styles.promptCard}>
@@ -378,7 +408,12 @@ export default function CatchScreen() {
               avatarUrl={caughtFursuit.avatar_url}
               uniqueCode={caughtFursuit.unique_code}
               timelineLabel={caughtAtLabel ?? undefined}
-              onPress={() => router.push({ pathname: '/fursuits/[id]', params: { id: caughtFursuit.id } })}
+              onPress={() =>
+                router.push({
+                  pathname: "/fursuits/[id]",
+                  params: { id: caughtFursuit.id },
+                })
+              }
             />
             {caughtFursuit.bio ? (
               <View style={styles.bioSpacing}>
@@ -388,7 +423,7 @@ export default function CatchScreen() {
             <View style={styles.buttonRow}>
               <TailTagButton
                 variant="outline"
-                onPress={() => router.push('/caught')}
+                onPress={() => router.push("/caught")}
                 style={styles.inlineButtonSpacing}
               >
                 View catches
@@ -420,18 +455,18 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 12,
     letterSpacing: 4,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     color: colors.primary,
     marginBottom: spacing.xs,
   },
   title: {
     color: colors.foreground,
     fontSize: 26,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: spacing.xs,
   },
   subtitle: {
-    color: 'rgba(203,213,225,0.9)',
+    color: "rgba(203,213,225,0.9)",
     fontSize: 15,
   },
   cardSpacing: {
@@ -443,27 +478,27 @@ const styles = StyleSheet.create({
   label: {
     color: colors.foreground,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: spacing.xs,
   },
   helpText: {
-    color: 'rgba(148,163,184,0.9)',
+    color: "rgba(148,163,184,0.9)",
     fontSize: 12,
     marginTop: spacing.xs,
   },
   errorText: {
-    color: '#fca5a5',
+    color: "#fca5a5",
     fontSize: 14,
     marginBottom: spacing.sm,
   },
   sectionTitle: {
     color: colors.foreground,
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: spacing.sm,
   },
   sectionBody: {
-    color: 'rgba(203,213,225,0.9)',
+    color: "rgba(203,213,225,0.9)",
     fontSize: 14,
     marginBottom: spacing.md,
   },
@@ -471,15 +506,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   buttonRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginTop: spacing.md,
-    alignItems: 'center',
+    alignItems: "center",
   },
   inlineButtonSpacing: {
     marginRight: spacing.md,
   },
   codeInput: {
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 4,
     fontSize: 20,
   },
@@ -490,11 +525,11 @@ const styles = StyleSheet.create({
   },
   promptLabel: {
     fontSize: 12,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 2,
     color: colors.primary,
     marginBottom: spacing.xs,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   promptBody: {
     fontSize: 16,
