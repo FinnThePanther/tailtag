@@ -2,6 +2,7 @@ import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 
 import type { FursuitBio } from '../types';
 import { colors, radius, spacing } from '../../../theme';
+import { captureHandledException } from '../../../lib/sentry';
 
 const openSocialLink = async (url: string) => {
   try {
@@ -14,7 +15,10 @@ const openSocialLink = async (url: string) => {
 
     await Linking.openURL(url);
   } catch (error) {
-    console.warn('Failed to open social link', error);
+    captureHandledException(error, {
+      scope: 'suits.openSocialLink',
+      url,
+    });
     Alert.alert('Link unavailable', "We couldn't open that social link. Try again later.");
   }
 };

@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { captureSupabaseError } from '../../../lib/sentry';
 
 export type LeaderboardEntry = {
   profileId: string;
@@ -32,6 +33,11 @@ export async function fetchConventionLeaderboard(conventionId: string): Promise<
     .eq('convention_id', conventionId);
 
   if (membershipError) {
+    captureSupabaseError(membershipError, {
+      scope: 'leaderboard.fetchConventionLeaderboard',
+      action: 'loadParticipants',
+      conventionId,
+    });
     throw new Error(`We couldn't load convention participants: ${membershipError.message}`);
   }
 
@@ -54,6 +60,12 @@ export async function fetchConventionLeaderboard(conventionId: string): Promise<
     .in('id', participantIds);
 
   if (profileError) {
+    captureSupabaseError(profileError, {
+      scope: 'leaderboard.fetchConventionLeaderboard',
+      action: 'loadProfiles',
+      conventionId,
+      participantIds,
+    });
     throw new Error(`We couldn't load player profiles: ${profileError.message}`);
   }
 
@@ -78,6 +90,11 @@ export async function fetchConventionLeaderboard(conventionId: string): Promise<
     .eq('convention_id', conventionId);
 
   if (fursuitError) {
+    captureSupabaseError(fursuitError, {
+      scope: 'leaderboard.fetchConventionLeaderboard',
+      action: 'loadFursuitIds',
+      conventionId,
+    });
     throw new Error(`We couldn't load convention fursuits: ${fursuitError.message}`);
   }
 
@@ -101,6 +118,11 @@ export async function fetchConventionLeaderboard(conventionId: string): Promise<
       .in('fursuit_id', conventionFursuitIds);
 
     if (catchesError) {
+      captureSupabaseError(catchesError, {
+        scope: 'leaderboard.fetchConventionLeaderboard',
+        action: 'loadCatches',
+        conventionId,
+      });
       throw new Error(`We couldn't load convention catches: ${catchesError.message}`);
     }
 
@@ -188,6 +210,11 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
     .eq('convention_id', conventionId);
 
   if (suitError) {
+    captureSupabaseError(suitError, {
+      scope: 'leaderboard.fetchConventionSuitLeaderboard',
+      action: 'loadSuitData',
+      conventionId,
+    });
     throw new Error(`We couldn't load convention fursuits: ${suitError.message}`);
   }
 
@@ -244,6 +271,12 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
     .in('fursuit_id', suitIds);
 
   if (catchError) {
+    captureSupabaseError(catchError, {
+      scope: 'leaderboard.fetchConventionSuitLeaderboard',
+      action: 'loadCatches',
+      conventionId,
+      suitIds,
+    });
     throw new Error(`We couldn't load suit catches: ${catchError.message}`);
   }
 

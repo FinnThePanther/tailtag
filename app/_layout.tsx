@@ -1,17 +1,23 @@
 // app/_layout.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { useSegments, Stack, Redirect } from "expo-router";
+import { useSegments, Stack, Redirect, useNavigationContainerRef } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryCache, QueryClient, QueryClientProvider, MutationCache, useQuery } from "@tanstack/react-query";
 
 import { AuthProvider, useAuth, usePrimeUserData } from "../src/features/auth";
 import { createProfileQueryOptions } from "../src/features/profile";
 import { colors } from "../src/theme";
 import { ToastProvider } from "../src/hooks/useToast";
 import { DailyTaskToastManager } from "../src/features/daily-tasks/components/DailyTaskToastManager";
+import {
+  Sentry,
+  addMonitoringBreadcrumb,
+  captureHandledException,
+  routingInstrumentation,
+} from "../src/lib/sentry";
 
 function LoadingScreen() {
   return (
@@ -117,8 +123,60 @@ function RootLayoutNav() {
   );
 }
 
-export default function Layout() {
-  const [queryClient] = useState(() => new QueryClient());
+function Layout() {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        queryCache: new QueryCache({
+          onError: (error, query) => {
+            captureHandledException(error, {
+              scope: "react-query.query",
+              queryHash: query?.queryHash,
+              queryKey: query?.queryKey,
+            });
+          },
+        }),
+        mutationCache: new MutationCache({
+          onError: (error, _variables, _context, mutation) => {
+            captureHandledException(error, {
+              scope: "react-query.mutation",
+              mutationId: mutation?.mutationId,
+              mutationKey: mutation?.options?.mutationKey,
+            });
+          },
+        }),
+      })
+  );
+  const navigationRef = useNavigationContainerRef();
+
+  useEffect(() => {
+    if (!navigationRef) {
+      return;
+    }
+
+    if (navigationRef.current) {
+      routingInstrumentation.registerNavigationContainer(navigationRef);
+      addMonitoringBreadcrumb({
+        category: "navigation",
+        message: "Registered navigation container",
+      });
+      return;
+    }
+
+    // Expo Router sets the ref asynchronously; retry until it's available.
+    const interval = setInterval(() => {
+      if (navigationRef.current) {
+        routingInstrumentation.registerNavigationContainer(navigationRef);
+        addMonitoringBreadcrumb({
+          category: "navigation",
+          message: "Registered navigation container (delayed)",
+        });
+        clearInterval(interval);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [navigationRef]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -141,3 +199,5 @@ export default function Layout() {
     </GestureHandlerRootView>
   );
 }
+
+export default Sentry.wrap(Layout);

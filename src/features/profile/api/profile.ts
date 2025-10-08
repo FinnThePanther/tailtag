@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { captureSupabaseError } from '../../../lib/sentry';
 
 export type ProfileSummary = {
   username: string | null;
@@ -22,6 +23,11 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
     .maybeSingle();
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'profile.fetchProfile',
+      action: 'select',
+      userId,
+    });
     throw new Error(error.message);
   }
 
