@@ -57,6 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        supabase.realtime.setAuth(activeSession?.access_token ?? '');
+
         setSession(activeSession ?? null);
         setStatus(activeSession ? 'signed_in' : 'signed_out');
         setError(null);
@@ -105,6 +107,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!isMounted) {
         return;
       }
+
+      supabase.realtime.setAuth(nextSession?.access_token ?? '');
 
       setSession(nextSession);
       setStatus(nextSession ? 'signed_in' : 'signed_out');

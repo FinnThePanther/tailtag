@@ -14,4 +14,6 @@ export { triggerAchievementProcessor } from './api/triggerProcessor';
 
 export { useAchievementsRealtime, useAchievementUnlockToast } from './hooks';
 
+export { AchievementToastManager } from './components/AchievementToastManager';
+
 export type { AchievementCategory, AchievementRecipientRole } from '../../types/database';

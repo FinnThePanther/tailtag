@@ -17,8 +17,6 @@ import {
   achievementsStatusQueryKey,
   fetchAchievementStatus,
   type AchievementWithStatus,
-  useAchievementsRealtime,
-  useAchievementUnlockToast,
 } from '../../src/features/achievements';
 import { colors, radius, spacing } from '../../src/theme';
 
@@ -90,9 +88,6 @@ export default function AchievementsScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-
-  const handleAchievementToast = useAchievementUnlockToast(userId);
-  useAchievementsRealtime(userId, { onUnlocked: handleAchievementToast });
 
   const handleBack = useCallback(() => {
     router.back();

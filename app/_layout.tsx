@@ -12,6 +12,7 @@ import { createProfileQueryOptions } from "../src/features/profile";
 import { colors } from "../src/theme";
 import { ToastProvider } from "../src/hooks/useToast";
 import { DailyTaskToastManager } from "../src/features/daily-tasks/components/DailyTaskToastManager";
+import { AchievementToastManager } from "../src/features/achievements";
 import {
   Sentry,
   addMonitoringBreadcrumb,
@@ -189,6 +190,7 @@ function Layout() {
                 style={{ flex: 1, backgroundColor: colors.background }}
                 edges={["top", "left", "right", "bottom"]}
               >
+                <AchievementToastManager />
                 <DailyTaskToastManager />
                 <RootLayoutNav />
               </SafeAreaView>
