@@ -36,23 +36,6 @@ import { useDailyTasks, DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-t
 import type { Database } from '../../src/types/database';
 import { colors, spacing, radius } from '../../src/theme';
 
-const features = [
-  {
-    title: 'Mobile-first dashboard',
-    description:
-      'Cards, buttons, and inputs are tuned for thumbs—no pinching or zooming required.',
-  },
-  {
-    title: 'Fast email login',
-    description: 'Secure email sign-in keeps your progress ready on any device.',
-  },
-  {
-    title: 'Ready for the floor',
-    description:
-      'Install TailTag on your phone and keep tagging even when the hotel Wi-Fi is spotty.',
-  },
-];
-
 const MAX_LEADERBOARD_ENTRIES = 10;
 
 const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);
@@ -676,14 +659,6 @@ export default function HomeScreen() {
           </View>
         </TailTagCard>
 
-        <View style={styles.featureGrid}>
-          {features.map((feature) => (
-            <TailTagCard key={feature.title} style={styles.featureCard}>
-              <Text style={styles.featureTitle}>{feature.title}</Text>
-              <Text style={styles.featureDescription}>{feature.description}</Text>
-            </TailTagCard>
-          ))}
-        </View>
       </ScrollView>
     </View>
   );
@@ -959,26 +934,6 @@ const styles = StyleSheet.create({
   leaderboardFootnote: {
     color: 'rgba(203,213,225,0.7)',
     fontSize: 12,
-  },
-  featureGrid: {
-    width: maxContentWidth,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.lg,
-  },
-  featureCard: {
-    flexBasis: '100%',
-    flexGrow: 1,
-  },
-  featureTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.foreground,
-    marginBottom: spacing.sm,
-  },
-  featureDescription: {
-    fontSize: 15,
-    color: 'rgba(203,213,225,0.9)',
   },
   stepRow: {
     flexDirection: 'row',
