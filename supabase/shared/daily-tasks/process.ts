@@ -468,11 +468,23 @@ async function fetchCatchContext(
   supabase: SupabaseClientLike,
   catchId: string,
 ): Promise<{ catcher_id: string | null; convention_id: string | null } | null> {
-  const { data, error } = await supabase
+  let query = supabase
     .from("catches")
     .select("catcher_id, convention_id")
     .eq("id", catchId)
     .maybeSingle();
+
+  let { data, error } = await query;
+
+  const errorCode = (error as { code?: string } | null)?.code ?? null;
+
+  if (error && errorCode === "42703") {
+    ({ data, error } = await supabase
+      .from("catches")
+      .select("catcher_id")
+      .eq("id", catchId)
+      .maybeSingle());
+  }
 
   if (error) {
     throw new Error(`Unable to load catch ${catchId}: ${error.message}`);
@@ -484,7 +496,7 @@ async function fetchCatchContext(
 
   return {
     catcher_id: (data.catcher_id as string | null) ?? null,
-    convention_id: (data.convention_id as string | null) ?? null,
+    convention_id: ((data as { convention_id?: string | null }).convention_id as string | null) ?? null,
   };
 }
 
@@ -500,19 +512,28 @@ async function processCatchDailyTasks(
     return;
   }
 
-  const catchContext = await fetchCatchContext(supabase, catchId);
-  if (!catchContext) {
-    logger.warn(`[daily] Catch ${catchId} not found; skipping`);
-    return;
+  const eventCatcherId = payload?.catcher_id ?? null;
+  const eventConventionId = payload?.convention_id ?? null;
+
+  let userId = eventCatcherId;
+  let conventionId = eventConventionId;
+  let catchContext: { catcher_id: string | null; convention_id: string | null } | null = null;
+
+  if (!userId || !conventionId) {
+    catchContext = await fetchCatchContext(supabase, catchId);
+    if (!catchContext) {
+      logger.warn(`[daily] Catch ${catchId} not found; skipping`);
+      return;
+    }
+    userId = userId ?? catchContext.catcher_id;
+    conventionId = conventionId ?? catchContext.convention_id;
   }
 
-  const userId = catchContext.catcher_id;
   if (!userId) {
     logger.warn(`[daily] Catch ${catchId} missing catcher_id`);
     return;
   }
 
-  const conventionId = catchContext.convention_id;
   if (!conventionId) {
     logger.debug(`[daily] Catch ${catchId} has no convention; skipping`);
     return;
