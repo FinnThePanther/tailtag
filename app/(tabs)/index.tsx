@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import { LinearGradient } from "expo-linear-gradient";
@@ -56,6 +56,20 @@ export default function HomeScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
+  const { width: windowWidth } = useWindowDimensions();
+
+  const maxContentWidth = useMemo(() => {
+    const safeWidth = Number.isFinite(windowWidth) ? windowWidth : 0;
+    const paddedWidth = safeWidth - spacing.lg * 2;
+    const contentWidth =
+      paddedWidth > 0 ? paddedWidth : Math.max(safeWidth, 0);
+    return Math.min(contentWidth, 960);
+  }, [windowWidth]);
+
+  const contentWidthStyle = useMemo(
+    () => ({ width: maxContentWidth }),
+    [maxContentWidth]
+  );
 
   const {
     data: conventions = [],
@@ -363,12 +377,12 @@ export default function HomeScreen() {
         pointerEvents="none"
       />
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.headerRow}>
+        <View style={[styles.headerRow, contentWidthStyle]}>
           <Text style={styles.brand}>TailTag</Text>
           <Text style={styles.caption}>Tagging in session</Text>
         </View>
 
-        <View style={styles.heroBlock}>
+        <View style={[styles.heroBlock, contentWidthStyle]}>
           <Text style={styles.badge}>Alpha Preview</Text>
           <Text style={styles.title}>
             Catch fursuits, grow your collection, and keep the con energy going.
@@ -396,7 +410,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <TailTagCard style={styles.dailyCard}>
+        <TailTagCard style={[styles.dailyCard, contentWidthStyle]}>
           <Text style={styles.sectionEyebrow}>Daily tasks</Text>
           <Text style={styles.sectionTitle}>Today's To-Dos</Text>
 
@@ -467,7 +481,7 @@ export default function HomeScreen() {
           </TailTagButton>
         </TailTagCard>
 
-        <TailTagCard style={styles.achievementsCard}>
+        <TailTagCard style={[styles.achievementsCard, contentWidthStyle]}>
           <Text style={styles.sectionEyebrow}>Achievements</Text>
           <Text style={styles.sectionTitle}>Keep the streak going</Text>
 
@@ -531,7 +545,7 @@ export default function HomeScreen() {
           </TailTagButton>
         </TailTagCard>
 
-        <TailTagCard style={styles.leaderboardCard}>
+        <TailTagCard style={[styles.leaderboardCard, contentWidthStyle]}>
           <Text style={styles.sectionEyebrow}>Leaderboard</Text>
           <Text style={styles.sectionTitle}>Catch standings</Text>
 
@@ -731,7 +745,7 @@ export default function HomeScreen() {
           )}
         </TailTagCard>
 
-        <TailTagCard style={styles.loopCard}>
+        <TailTagCard style={[styles.loopCard, contentWidthStyle]}>
           <Text style={styles.sectionEyebrow}>Gameplay Loop</Text>
           <Text style={styles.sectionTitle}>Four quick steps</Text>
           <View>
@@ -784,9 +798,6 @@ export default function HomeScreen() {
   );
 }
 
-const { width } = Dimensions.get("window");
-const maxContentWidth = Math.min(width - spacing.lg * 2, 960);
-
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
@@ -808,7 +819,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerRow: {
-    width: maxContentWidth,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -826,11 +836,9 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   heroBlock: {
-    width: maxContentWidth,
     marginBottom: spacing.xl,
   },
   dailyCard: {
-    width: maxContentWidth,
     marginBottom: spacing.xl,
     gap: spacing.md,
   },
@@ -873,7 +881,6 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   achievementsCard: {
-    width: maxContentWidth,
     marginBottom: spacing.xl,
     gap: spacing.md,
   },
@@ -941,11 +948,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   leaderboardCard: {
-    width: maxContentWidth,
     marginBottom: spacing.xl,
   },
   loopCard: {
-    width: maxContentWidth,
     marginBottom: spacing.xl,
   },
   sectionEyebrow: {
