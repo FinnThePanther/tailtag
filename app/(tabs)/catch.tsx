@@ -265,7 +265,7 @@ export default function CatchScreen() {
 
       const { data: insertedCatch, error: catchError } = await client
         .from("catches")
-        .insert({ fursuit_id: normalizedFursuit.id })
+        .insert({ fursuit_id: normalizedFursuit.id, catcher_id: userId })
         .select("id, caught_at")
         .single();
 
