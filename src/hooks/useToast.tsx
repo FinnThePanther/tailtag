@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -64,19 +64,40 @@ type ToastItemProps = {
 function ToastItem({ message, onFinish }: ToastItemProps) {
   const opacity = useMemo(() => new Animated.Value(0), []);
   const translateY = useMemo(() => new Animated.Value(40), []);
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const onFinishRef = useRef(onFinish);
 
-  useMemo(() => {
-    Animated.sequence([
+  useEffect(() => {
+    onFinishRef.current = onFinish;
+  }, [onFinish]);
+
+  useEffect(() => {
+    animationRef.current?.stop();
+
+    opacity.setValue(0);
+    translateY.setValue(40);
+
+    const sequence = Animated.sequence([
       Animated.parallel([
         Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
         Animated.timing(translateY, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]),
       Animated.delay(TOAST_DURATION - 400),
       Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-    ]).start(({ finished }) => {
-      if (finished) onFinish();
+    ]);
+
+    animationRef.current = sequence;
+
+    sequence.start(({ finished }) => {
+      if (finished) {
+        onFinishRef.current?.();
+      }
     });
-  }, [opacity, translateY, onFinish]);
+
+    return () => {
+      animationRef.current?.stop();
+    };
+  }, [opacity, translateY]);
 
   return (
     <Animated.View style={[styles.toast, { opacity, transform: [{ translateY }] }]}> 
