@@ -36,7 +36,8 @@
           "project": "tailtag",
           "organization": "finnapps"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "scheme": "tailtag"
   }
