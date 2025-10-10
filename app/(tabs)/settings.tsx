@@ -931,7 +931,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   warning: {
-    color: '#fbbf24',
+    color: '#ef4444',
     fontSize: 12,
   },
   fieldGroup: {

@@ -7,19 +7,27 @@ type TriggerOptions = {
 };
 
 export async function triggerAchievementProcessor(options?: TriggerOptions): Promise<void> {
-  try {
-    await supabase.functions.invoke('achievements-processor', {
+  const metadata = {
+    scope: 'achievements.triggerProcessor',
+    action: 'invoke',
+    limit: options?.limit ?? null,
+    maxBatches: options?.maxBatches ?? null,
+  } as const;
+
+  const result = await supabase.functions
+    .invoke('achievements-processor', {
       body: {
         limit: options?.limit,
         max_batches: options?.maxBatches,
       },
+    })
+    .catch((error) => {
+      captureHandledException(error, metadata);
+      throw error;
     });
-  } catch (error) {
-    captureHandledException(error, {
-      scope: 'achievements.triggerProcessor',
-      action: 'invoke',
-      limit: options?.limit ?? null,
-      maxBatches: options?.maxBatches ?? null,
-    });
+
+  if (result.error) {
+    captureHandledException(result.error, metadata);
+    throw result.error;
   }
 }
