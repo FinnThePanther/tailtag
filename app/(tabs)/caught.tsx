@@ -101,7 +101,14 @@ export default function CaughtSuitsScreen() {
                 return null;
               }
 
-              const label = toDisplayDateTime(record.caught_at) ?? 'Caught just now';
+              const caughtLabel = toDisplayDateTime(record.caught_at) ?? 'Caught just now';
+              const pieces = [caughtLabel];
+
+              if (typeof record.catchNumber === 'number' && record.catchNumber > 0) {
+                pieces.push(`Catcher #${record.catchNumber}`);
+              }
+
+              const timelineLabel = pieces.join(' · ');
 
               return (
                 <View
@@ -113,7 +120,7 @@ export default function CaughtSuitsScreen() {
                     species={details.species}
                     avatarUrl={details.avatar_url}
                     uniqueCode={details.unique_code}
-                    timelineLabel={label}
+                    timelineLabel={timelineLabel}
                     codeLabel={undefined}
                     onPress={() => router.push({ pathname: '/fursuits/[id]', params: { id: details.id } })}
                   />

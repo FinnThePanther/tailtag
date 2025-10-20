@@ -24,6 +24,7 @@ export type FursuitSummary = {
   avatar_url: string | null;
   description: string | null;
   unique_code: string | null;
+  catchCount: number;
   created_at: string | null;
   conventions: ConventionSummary[];
   bio: FursuitBio | null;
