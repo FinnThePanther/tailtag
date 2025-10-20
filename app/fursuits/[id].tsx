@@ -32,6 +32,18 @@ const formatDate = (isoTimestamp: string | null) => {
   }).format(date);
 };
 
+const formatCatchSummary = (count: number) => {
+  if (!Number.isFinite(count) || count <= 0) {
+    return 'No catches yet';
+  }
+
+  if (count === 1) {
+    return 'Caught once';
+  }
+
+  return `Caught ${count} times`;
+};
+
 export default function FursuitDetailScreen() {
   const router = useRouter();
   const { session } = useAuth();
@@ -72,6 +84,7 @@ export default function FursuitDetailScreen() {
   };
 
   const addedDate = detail ? formatDate(detail.created_at) : null;
+  const catchSummary = detail ? formatCatchSummary(detail.catchCount) : null;
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
@@ -114,6 +127,14 @@ export default function FursuitDetailScreen() {
             ) : (
               <Text style={styles.message}>This fursuit does not have a bio yet.</Text>
             )}
+            {typeof detail.catchCount === 'number' ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  {isOwner ? 'Catch stats' : 'Catch history'}
+                </Text>
+                <Text style={styles.sectionItem}>{catchSummary}</Text>
+              </View>
+            ) : null}
             {detail.conventions.length > 0 ? (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Convention appearances</Text>
