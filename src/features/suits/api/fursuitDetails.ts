@@ -22,6 +22,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       is_tutorial,
       description,
       unique_code,
+      catch_count,
       created_at,
       species_entry:fursuit_species (
         id,
@@ -97,6 +98,26 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
   const speciesName = speciesEntry?.name ?? data.species ?? null;
   const speciesId = speciesEntry?.id ?? data.species_id ?? null;
 
+  let resolvedCatchCount =
+    typeof data.catch_count === 'number' ? data.catch_count : 0;
+
+  if (resolvedCatchCount <= 0) {
+    const { count: fallbackCount, error: fallbackError } = await client
+      .from('catches')
+      .select('id', { head: true, count: 'exact' })
+      .eq('fursuit_id', data.id);
+
+    if (fallbackError) {
+      captureSupabaseError(fallbackError, {
+        scope: 'suits.fetchFursuitDetail.fallback',
+        action: 'count',
+        fursuitId,
+      });
+    } else if (typeof fallbackCount === 'number') {
+      resolvedCatchCount = fallbackCount;
+    }
+  }
+
   return {
     id: data.id,
     owner_id: data.owner_id,
@@ -106,6 +127,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     avatar_url: data.avatar_url ?? null,
     description: data.description ?? null,
     unique_code: data.unique_code ?? null,
+    catchCount: resolvedCatchCount,
     created_at: data.created_at ?? null,
     conventions,
     bio,

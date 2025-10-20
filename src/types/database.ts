@@ -79,6 +79,7 @@ export type Database = {
         Row: {
           catcher_id: string;
           caught_at: string | null;
+          catch_number: number | null;
           fursuit_id: string;
           is_tutorial: boolean;
           id: string;
@@ -86,6 +87,7 @@ export type Database = {
         Insert: {
           catcher_id: string;
           caught_at?: string | null;
+          catch_number?: number | null;
           fursuit_id: string;
           is_tutorial?: boolean;
           id?: string;
@@ -93,6 +95,7 @@ export type Database = {
         Update: {
           catcher_id?: string;
           caught_at?: string | null;
+          catch_number?: number | null;
           fursuit_id?: string;
           is_tutorial?: boolean;
           id?: string;
@@ -350,6 +353,7 @@ export type Database = {
       fursuits: {
         Row: {
           avatar_url: string | null;
+          catch_count: number;
           created_at: string | null;
           description: string | null;
           id: string;
@@ -362,6 +366,7 @@ export type Database = {
         };
         Insert: {
           avatar_url?: string | null;
+          catch_count?: number;
           created_at?: string | null;
           description?: string | null;
           id?: string;
@@ -374,6 +379,7 @@ export type Database = {
         };
         Update: {
           avatar_url?: string | null;
+          catch_count?: number;
           created_at?: string | null;
           description?: string | null;
           id?: string;

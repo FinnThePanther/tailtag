@@ -6,6 +6,7 @@ import { captureSupabaseError } from '../../../lib/sentry';
 export type CaughtRecord = {
   id: string;
   caught_at: string | null;
+  catchNumber: number | null;
   fursuit: FursuitSummary | null;
 };
 
@@ -22,12 +23,14 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       `
       id,
       caught_at,
+      catch_number,
       fursuit:fursuits (
         id,
         name,
         species,
         species_id,
         avatar_url,
+        catch_count,
         is_tutorial,
         description,
         unique_code,
@@ -83,6 +86,8 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
             avatar_url: rawFursuit.avatar_url ?? null,
             description: rawFursuit.description ?? null,
             unique_code: rawFursuit.unique_code ?? null,
+            catchCount:
+              typeof rawFursuit.catch_count === 'number' ? rawFursuit.catch_count : 0,
             created_at: rawFursuit.created_at ?? null,
             conventions: [],
             bio: mapLatestFursuitBio(rawFursuit.fursuit_bios ?? null),
@@ -92,6 +97,8 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       return {
         id: record.id,
         caught_at: record.caught_at ?? null,
+        catchNumber:
+          typeof record.catch_number === 'number' ? record.catch_number : null,
         fursuit,
       } satisfies CaughtRecord;
     })

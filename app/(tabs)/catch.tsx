@@ -16,6 +16,7 @@ import {
   FursuitBioDetails,
   CAUGHT_SUITS_QUERY_KEY,
   mapLatestFursuitBio,
+  fursuitDetailQueryKey,
 } from "../../src/features/suits";
 import type { FursuitBio } from "../../src/features/suits";
 import {
@@ -45,11 +46,13 @@ type FursuitDetails = Pick<
   | "unique_code"
   | "owner_id"
   | "is_tutorial"
+  | "catch_count"
 > & { created_at: string | null; bio: FursuitBio | null };
 
 type CatchRecord = {
   id: string;
   caught_at: string | null;
+  catch_number: number | null;
 };
 
 export default function CatchScreen() {
@@ -65,9 +68,17 @@ export default function CatchScreen() {
     null
   );
   const [catchRecord, setCatchRecord] = useState<CatchRecord | null>(null);
+  const [catchNumber, setCatchNumber] = useState<number | null>(null);
   const [conversationPrompt, setConversationPrompt] = useState<string | null>(
     null
   );
+
+  const resetCatchState = () => {
+    setCaughtFursuit(null);
+    setCatchRecord(null);
+    setCatchNumber(null);
+    setConversationPrompt(null);
+  };
 
   const handleSubmit = async () => {
     if (!userId || isSubmitting) {
@@ -85,7 +96,7 @@ export default function CatchScreen() {
 
     setIsSubmitting(true);
     setSubmitError(null);
-    setConversationPrompt(null);
+    resetCatchState();
 
     try {
       const client = supabase as any;
@@ -101,6 +112,7 @@ export default function CatchScreen() {
           avatar_url,
           is_tutorial,
           unique_code,
+          catch_count,
           owner_id,
           created_at,
           species_entry:fursuit_species (
@@ -135,14 +147,17 @@ export default function CatchScreen() {
       }
 
       if (!fursuit) {
-        setCaughtFursuit(null);
-        setCatchRecord(null);
-        setConversationPrompt(null);
+        resetCatchState();
         setSubmitError(
           "We couldn't find a fursuit with that code. Double-check the letters and try again."
         );
         return;
       }
+
+      const initialCatchCount =
+        typeof (fursuit as any)?.catch_count === "number"
+          ? (fursuit as any).catch_count
+          : 0;
 
       const normalizedFursuit: FursuitDetails = {
         id: fursuit.id,
@@ -153,6 +168,7 @@ export default function CatchScreen() {
           (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
         avatar_url: fursuit.avatar_url ?? null,
         unique_code: fursuit.unique_code ?? null,
+        catch_count: initialCatchCount,
         owner_id: fursuit.owner_id,
         created_at: fursuit.created_at ?? null,
         bio: mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
@@ -160,17 +176,13 @@ export default function CatchScreen() {
       };
 
       if (normalizedFursuit.is_tutorial) {
-        setCaughtFursuit(null);
-        setCatchRecord(null);
-        setConversationPrompt(null);
+        resetCatchState();
         setSubmitError("Tutorial suits cannot be caught by scanning codes.");
         return;
       }
 
       if (normalizedFursuit.owner_id === userId) {
-        setCaughtFursuit(null);
-        setCatchRecord(null);
-        setConversationPrompt(null);
+        resetCatchState();
         setSubmitError(
           "That tag belongs to one of your own suits. Trade codes with friends to grow your collection."
         );
@@ -209,9 +221,7 @@ export default function CatchScreen() {
       );
 
       if (playerConventionIds.size === 0) {
-        setCaughtFursuit(null);
-        setCatchRecord(null);
-        setConversationPrompt(null);
+        resetCatchState();
         setSubmitError(
           "Opt into at least one convention in Settings before logging catches."
         );
@@ -219,9 +229,7 @@ export default function CatchScreen() {
       }
 
       if (suitConventionIds.size === 0) {
-        setCaughtFursuit(null);
-        setCatchRecord(null);
-        setConversationPrompt(null);
+        resetCatchState();
         setSubmitError(
           "This suit has not opted into any conventions yet. Ask the owner to update their settings before logging the catch."
         );
@@ -233,9 +241,7 @@ export default function CatchScreen() {
       );
 
       if (sharedConventions.length === 0) {
-        setCaughtFursuit(null);
-        setCatchRecord(null);
-        setConversationPrompt(null);
+        resetCatchState();
         setSubmitError(
           "You and this suit need to opt into the same convention before logging the catch."
         );
@@ -254,9 +260,7 @@ export default function CatchScreen() {
       }
 
       if (existingCatch) {
-        setCaughtFursuit(null);
-        setCatchRecord(null);
-        setConversationPrompt(null);
+        resetCatchState();
         setSubmitError(
           "You already caught this suit. Swap codes with another fursuiter to keep hunting."
         );
@@ -266,7 +270,7 @@ export default function CatchScreen() {
       const { data: insertedCatch, error: catchError } = await client
         .from("catches")
         .insert({ fursuit_id: normalizedFursuit.id, catcher_id: userId })
-        .select("id, caught_at")
+        .select("id, caught_at, catch_number")
         .single();
 
       if (catchError) {
@@ -274,9 +278,7 @@ export default function CatchScreen() {
           setSubmitError(
             "You already caught this suit. Swap codes with another fursuiter to keep hunting."
           );
-          setCaughtFursuit(null);
-          setCatchRecord(null);
-          setConversationPrompt(null);
+          resetCatchState();
           return;
         }
 
@@ -294,11 +296,55 @@ export default function CatchScreen() {
             .find((value) => value)
         : null;
 
-      setCaughtFursuit(normalizedFursuit);
-      setCatchRecord(insertedCatch ?? null);
+      const minimumCatchCount = initialCatchCount + 1;
+      let latestCatchCount = minimumCatchCount;
+
+      try {
+        const { data: latestFursuit, error: latestCatchError } = await client
+          .from("fursuits")
+          .select("catch_count")
+          .eq("id", normalizedFursuit.id)
+          .maybeSingle();
+
+        if (latestCatchError) {
+          throw latestCatchError;
+        }
+
+        if (latestFursuit && typeof latestFursuit.catch_count === "number") {
+          latestCatchCount = Math.max(
+            latestFursuit.catch_count,
+            minimumCatchCount
+          );
+        }
+      } catch (countError) {
+        console.warn("Failed to refresh catch count", countError);
+      }
+
+      const normalizedCatchRecord: CatchRecord | null = insertedCatch
+        ? {
+            id: insertedCatch.id,
+            caught_at: insertedCatch.caught_at ?? null,
+            catch_number:
+              typeof insertedCatch.catch_number === "number"
+                ? insertedCatch.catch_number
+                : null,
+          }
+        : null;
+
+      setCaughtFursuit({
+        ...normalizedFursuit,
+        catch_count: latestCatchCount,
+      });
+      setCatchRecord(normalizedCatchRecord);
+      setCatchNumber(
+        normalizedCatchRecord?.catch_number ?? latestCatchCount
+      );
       setConversationPrompt(promptCandidate ?? null);
       await triggerAchievementProcessor({ limit: 10, maxBatches: 1 });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      queryClient.invalidateQueries({
+        queryKey: fursuitDetailQueryKey(normalizedFursuit.id),
+      });
       sharedConventions.forEach((conventionId) => {
         queryClient.invalidateQueries({
           queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
@@ -317,9 +363,7 @@ export default function CatchScreen() {
           ? caught.message
           : "We couldn't save that catch. Please try again.";
       setSubmitError(fallbackMessage);
-      setCaughtFursuit(null);
-      setCatchRecord(null);
-      setConversationPrompt(null);
+      resetCatchState();
     } finally {
       setIsSubmitting(false);
     }
@@ -330,11 +374,9 @@ export default function CatchScreen() {
     : null;
 
   const handleCatchAnother = () => {
-    setCaughtFursuit(null);
-    setCatchRecord(null);
+    resetCatchState();
     setSubmitError(null);
     setCodeInput("");
-    setConversationPrompt(null);
   };
 
   return (
@@ -392,6 +434,11 @@ export default function CatchScreen() {
         {caughtFursuit ? (
           <TailTagCard style={styles.cardSpacing}>
             <Text style={styles.sectionTitle}>Nice catch!</Text>
+            {catchNumber !== null ? (
+              <Text style={[styles.sectionBody, styles.sectionHighlight]}>
+                You were catcher #{catchNumber} for this suit!
+              </Text>
+            ) : null}
             <Text style={styles.sectionBody}>
               You just tagged {caughtFursuit.name}. Scroll through their bio
               below and trade codes to keep your streak growing.
@@ -501,6 +548,10 @@ const styles = StyleSheet.create({
     color: "rgba(203,213,225,0.9)",
     fontSize: 14,
     marginBottom: spacing.md,
+  },
+  sectionHighlight: {
+    color: colors.primary,
+    fontWeight: "600",
   },
   bioSpacing: {
     marginTop: spacing.md,

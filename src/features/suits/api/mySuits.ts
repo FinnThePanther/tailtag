@@ -22,6 +22,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       avatar_url,
       description,
       unique_code,
+      catch_count,
       created_at,
       species_entry:fursuit_species (
         id,
@@ -93,6 +94,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       avatar_url: item.avatar_url ?? null,
       description: item.description ?? null,
       unique_code: item.unique_code ?? null,
+      catchCount: typeof item.catch_count === 'number' ? item.catch_count : 0,
       created_at: item.created_at ?? null,
       conventions,
       bio,
