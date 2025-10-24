@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import { mapLatestFursuitBio } from './utils';
+import { mapFursuitColors, mapLatestFursuitBio } from './utils';
 import type { FursuitDetail } from '../types';
 import { captureHandledMessage, captureSupabaseError } from '../../../lib/sentry';
 
@@ -28,6 +28,14 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
         id,
         name,
         normalized_name
+      ),
+      color_assignments:fursuit_color_assignments (
+        position,
+        color:fursuit_colors (
+          id,
+          name,
+          normalized_name
+        )
       ),
       owner_profile:profiles (
         id,
@@ -97,6 +105,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
   const speciesEntry = data.species_entry ?? null;
   const speciesName = speciesEntry?.name ?? data.species ?? null;
   const speciesId = speciesEntry?.id ?? data.species_id ?? null;
+  const colors = mapFursuitColors(data.color_assignments ?? null);
 
   let resolvedCatchCount =
     typeof data.catch_count === 'number' ? data.catch_count : 0;
@@ -124,6 +133,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     name: data.name,
     species: speciesName,
     speciesId: speciesId,
+    colors,
     avatar_url: data.avatar_url ?? null,
     description: data.description ?? null,
     unique_code: data.unique_code ?? null,

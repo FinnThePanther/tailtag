@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -36,9 +36,15 @@ import {
   sortSpeciesOptions,
   type FursuitSpeciesOption,
 } from '../../../src/features/species';
+import {
+  fetchFursuitColors,
+  FURSUIT_COLORS_QUERY_KEY,
+  MAX_FURSUIT_COLORS,
+  type FursuitColorOption,
+} from '../../../src/features/colors';
 import { useAuth } from '../../../src/features/auth';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, spacing } from '../../../src/theme';
+import { colors, spacing, radius } from '../../../src/theme';
 import type { Json } from '../../../src/types/database';
 
 const normalizeLinksForSave = (links: EditableSocialLink[]) =>
@@ -67,6 +73,19 @@ export default function EditFursuitScreen() {
   } = useQuery<FursuitSpeciesOption[], Error>({
     queryKey: [FURSUIT_SPECIES_QUERY_KEY],
     queryFn: fetchFursuitSpecies,
+    staleTime: 12 * 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
+  const {
+    data: colorOptions = [],
+    error: colorError,
+    isLoading: isColorLoading,
+    refetch: refetchColors,
+  } = useQuery<FursuitColorOption[], Error>({
+    queryKey: [FURSUIT_COLORS_QUERY_KEY],
+    queryFn: fetchFursuitColors,
     staleTime: 12 * 60 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -133,9 +152,13 @@ export default function EditFursuitScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption | null>(null);
+  const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
+  const [initialColors, setInitialColors] = useState<FursuitColorOption[]>([]);
 
   const speciesLoadError = speciesError?.message ?? null;
   const isSpeciesBusy = isSpeciesLoading;
+  const colorLoadError = colorError?.message ?? null;
+  const isColorBusy = isColorLoading;
 
   const normalizedSpeciesInput = useMemo(
     () => normalizeSpeciesName(speciesInput),
@@ -176,6 +199,22 @@ export default function EditFursuitScreen() {
   const handleSpeciesSelect = useCallback((option: FursuitSpeciesOption) => {
     setSpeciesInput(option.name);
     setSelectedSpecies(option);
+  }, []);
+
+  const handleToggleColor = useCallback((option: FursuitColorOption) => {
+    setSelectedColors((current) => {
+      const exists = current.some((entry) => entry.id === option.id);
+
+      if (exists) {
+        return current.filter((entry) => entry.id !== option.id);
+      }
+
+      if (current.length >= MAX_FURSUIT_COLORS) {
+        return current;
+      }
+
+      return [...current, option];
+    });
   }, []);
 
   useEffect(() => {
@@ -220,6 +259,9 @@ export default function EditFursuitScreen() {
     const initialConventionSet = new Set((detail.conventions ?? []).map((entry) => entry.id));
     setSelectedConventionIds(new Set(initialConventionSet));
     setInitialConventionIds(initialConventionSet);
+    const resolvedColors = detail.colors ?? [];
+    setSelectedColors(resolvedColors);
+    setInitialColors(resolvedColors);
 
     setHasHydratedForm(true);
   }, [detail, hasHydratedForm]);
@@ -278,6 +320,10 @@ export default function EditFursuitScreen() {
     const normalizedSpeciesValue = normalizeSpeciesName(trimmedSpecies);
 
     const normalizedSocialLinks = normalizeLinksForSave(socialLinks);
+    const selectedColorIds = selectedColors.map((color) => color.id);
+    const selectedColorNames = selectedColors.map((color) => color.name);
+    const previousColors = initialColors;
+    const previousColorIds = previousColors.map((color) => color.id);
 
     if (!trimmedName) {
       setSubmitError('Give your fursuit a name before saving.');
@@ -286,6 +332,16 @@ export default function EditFursuitScreen() {
 
     if (!trimmedSpecies) {
       setSubmitError('Add your fursuit species before saving.');
+      return;
+    }
+
+    if (selectedColorIds.length === 0) {
+      setSubmitError('Pick at least one color for your fursuit.');
+      return;
+    }
+
+    if (selectedColorIds.length > MAX_FURSUIT_COLORS) {
+      setSubmitError('You can choose up to three colors. Remove one to add another.');
       return;
     }
 
@@ -344,6 +400,7 @@ export default function EditFursuitScreen() {
     const previousSpecies = detail.species;
     const previousSpeciesId = detail.speciesId ?? null;
     let updatedCoreRecord = false;
+    let replacedColors = false;
     const addedConventionIds: string[] = [];
     const removedConventionIds: string[] = [];
 
@@ -387,6 +444,39 @@ export default function EditFursuitScreen() {
 
       updatedCoreRecord = true;
 
+      const colorsChanged =
+        previousColorIds.length !== selectedColorIds.length ||
+        previousColorIds.some((colorId, index) => colorId !== selectedColorIds[index]);
+
+      if (colorsChanged) {
+        const { error: clearColorsError } = await client
+          .from('fursuit_color_assignments')
+          .delete()
+          .eq('fursuit_id', fursuitId);
+
+        if (clearColorsError) {
+          throw clearColorsError;
+        }
+
+        replacedColors = true;
+
+        if (selectedColorIds.length > 0) {
+          const colorAssignments = selectedColors.map((color, index) => ({
+            fursuit_id: fursuitId,
+            color_id: color.id,
+            position: index + 1,
+          }));
+
+          const { error: insertColorsError } = await client
+            .from('fursuit_color_assignments')
+            .insert(colorAssignments);
+
+          if (insertColorsError) {
+            throw insertColorsError;
+          }
+        }
+      }
+
       const nextVersion = (detail.bio?.version ?? 0) + 1;
 
       const { error: bioError } = await client.from('fursuit_bios').insert({
@@ -400,6 +490,7 @@ export default function EditFursuitScreen() {
         fun_fact: trimmedFunFact,
         likes_and_interests: trimmedLikes,
         ask_me_about: trimmedAskMeAbout,
+        fursuit_colors: selectedColorNames,
         social_links: normalizedSocialLinks as unknown as Json,
       });
 
@@ -422,6 +513,7 @@ export default function EditFursuitScreen() {
       queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
 
       setInitialConventionIds(new Set(selectedConventionIds));
+      setInitialColors(selectedColors);
 
       router.back();
     } catch (caught) {
@@ -449,6 +541,34 @@ export default function EditFursuitScreen() {
             })
           )
         );
+      }
+
+      if (replacedColors) {
+        const { error: revertClearError } = await client
+          .from('fursuit_color_assignments')
+          .delete()
+          .eq('fursuit_id', fursuitId);
+
+        if (revertClearError) {
+          console.warn('Failed to clear color assignments after error', revertClearError);
+        } else if (previousColors.length > 0) {
+          const revertAssignments = previousColors.map((color, index) => ({
+            fursuit_id: fursuitId,
+            color_id: color.id,
+            position: index + 1,
+          }));
+
+          const { error: revertInsertError } = await client
+            .from('fursuit_color_assignments')
+            .insert(revertAssignments);
+
+          if (revertInsertError) {
+            console.warn('Failed to restore color assignments after error', revertInsertError);
+          }
+        }
+
+        setSelectedColors(previousColors);
+        setInitialColors(previousColors);
       }
 
       if (updatedCoreRecord) {
@@ -535,6 +655,81 @@ export default function EditFursuitScreen() {
                   editable={!disableForm}
                   returnKeyType="next"
                 />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Colors</Text>
+                <Text style={styles.helperLabel}>Pick up to three colors.</Text>
+                {isColorBusy ? (
+                  <Text style={styles.helperLabel}>Loading colors…</Text>
+                ) : colorLoadError ? (
+                  <View style={styles.helperColumn}>
+                    <Text style={styles.errorText}>{colorLoadError}</Text>
+                    <TailTagButton
+                      variant="outline"
+                      size="sm"
+                      onPress={() => {
+                        void refetchColors({ throwOnError: false });
+                      }}
+                      disabled={disableForm}
+                    >
+                      Try again
+                    </TailTagButton>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.colorSelectedList}>
+                      {selectedColors.length === 0 ? (
+                        <Text style={styles.helperLabel}>No colors selected yet.</Text>
+                      ) : null}
+                      {selectedColors.map((color) => (
+                        <Pressable
+                          key={`selected-${color.id}`}
+                          style={styles.colorSelectedChip}
+                          onPress={() => handleToggleColor(color)}
+                          disabled={disableForm}
+                        >
+                          <Text style={styles.colorSelectedText}>{color.name}</Text>
+                          <Text style={styles.colorSelectedRemove}>Remove</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <View style={styles.colorOptionList}>
+                      {colorOptions.map((option) => {
+                        const isSelected = selectedColors.some((color) => color.id === option.id);
+                        const isAtLimit = !isSelected && selectedColors.length >= MAX_FURSUIT_COLORS;
+                        return (
+                          <Pressable
+                            key={option.id}
+                            accessibilityRole="button"
+                            onPress={() => handleToggleColor(option)}
+                            style={[
+                              styles.colorChip,
+                              isSelected ? styles.colorChipSelected : null,
+                              isAtLimit ? styles.colorChipDisabled : null,
+                            ]}
+                            disabled={disableForm || (!isSelected && isAtLimit)}
+                          >
+                            <Text
+                              style={[
+                                styles.colorChipLabel,
+                                isSelected ? styles.colorChipLabelSelected : null,
+                                isAtLimit ? styles.colorChipLabelDisabled : null,
+                              ]}
+                            >
+                              {option.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    {selectedColors.length >= MAX_FURSUIT_COLORS ? (
+                      <Text style={styles.helperLabel}>
+                        You picked the maximum number of colors. Tap one to remove it.
+                      </Text>
+                    ) : null}
+                  </>
+                )}
               </View>
 
               <View style={styles.fieldGroup}>
@@ -848,6 +1043,65 @@ const styles = StyleSheet.create({
   },
   helperColumn: {
     gap: spacing.sm,
+  },
+  colorSelectedList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  colorSelectedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(59,130,246,0.3)',
+    backgroundColor: 'rgba(37,99,235,0.18)',
+  },
+  colorSelectedText: {
+    color: colors.foreground,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  colorSelectedRemove: {
+    marginLeft: spacing.xs,
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  colorOptionList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  colorChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.35)',
+    backgroundColor: 'rgba(30,41,59,0.6)',
+  },
+  colorChipSelected: {
+    borderColor: '#38bdf8',
+    backgroundColor: 'rgba(56,189,248,0.2)',
+  },
+  colorChipDisabled: {
+    opacity: 0.4,
+  },
+  colorChipLabel: {
+    color: 'rgba(203,213,225,0.95)',
+    fontSize: 13,
+  },
+  colorChipLabelSelected: {
+    color: '#38bdf8',
+    fontWeight: '600',
+  },
+  colorChipLabelDisabled: {
+    color: 'rgba(148,163,184,0.6)',
   },
   speciesSuggestionSection: {
     gap: spacing.xs,

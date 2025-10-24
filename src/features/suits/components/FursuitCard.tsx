@@ -3,6 +3,7 @@ import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 
 import { colors, radius, spacing } from '../../../theme';
+import type { FursuitColorOption } from '../../colors';
 
 const DEFAULT_SPECIES = 'Species not set yet';
 const DEFAULT_CODE = 'Pending code';
@@ -10,6 +11,7 @@ const DEFAULT_CODE = 'Pending code';
 type FursuitCardProps = {
   name: string;
   species?: string | null;
+  colors?: FursuitColorOption[];
   avatarUrl?: string | null;
   uniqueCode?: string | null;
   timelineLabel?: string | null;
@@ -27,6 +29,22 @@ const normalizeSpecies = (value: string | null | undefined) => {
   return trimmed.length > 0 ? trimmed : DEFAULT_SPECIES;
 };
 
+const buildColorLine = (value: FursuitColorOption[] | undefined) => {
+  if (!value || value.length === 0) {
+    return 'Colors coming soon';
+  }
+
+  const names = value
+    .map((option) => option.name.trim())
+    .filter((name) => name.length > 0);
+
+  if (names.length === 0) {
+    return 'Colors coming soon';
+  }
+
+  return `Colors: ${names.join(', ')}`;
+};
+
 const normalizeUniqueCode = (value: string | null | undefined) => {
   if (!value) {
     return DEFAULT_CODE;
@@ -39,6 +57,7 @@ const normalizeUniqueCode = (value: string | null | undefined) => {
 export function FursuitCard({
   name,
   species,
+  colors: colorOptions,
   avatarUrl,
   uniqueCode,
   timelineLabel,
@@ -47,6 +66,7 @@ export function FursuitCard({
   onPress,
 }: FursuitCardProps) {
   const displaySpecies = normalizeSpecies(species);
+  const displayColors = buildColorLine(colorOptions);
   const displayCode = normalizeUniqueCode(uniqueCode);
 
   const handleCodeLongPress = () => {
@@ -80,6 +100,9 @@ export function FursuitCard({
           </Text>
           <Text style={styles.species} numberOfLines={1}>
             {displaySpecies}
+          </Text>
+          <Text style={styles.colors} numberOfLines={1}>
+            {displayColors}
           </Text>
           {timelineLabel ? (
             <Text style={styles.timeline} numberOfLines={1}>
@@ -157,6 +180,11 @@ const styles = StyleSheet.create({
   species: {
     color: 'rgba(203,213,225,0.9)',
     fontSize: 14,
+    marginBottom: 4,
+  },
+  colors: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 13,
     marginBottom: 4,
   },
   timeline: {

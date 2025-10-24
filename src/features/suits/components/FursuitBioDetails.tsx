@@ -32,11 +32,16 @@ type FursuitBioDetailsProps = {
   bio: FursuitBio;
 };
 
-const buildSuitLines = (name: string, species: string) => {
+const buildSuitLines = (name: string, species: string, colors: string[]) => {
   const suitName = withFallback(name, 'Name coming soon.');
   const suitSpecies = withFallback(species, 'Species coming soon.');
+  const trimmedColors = colors
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  const suitColors =
+    trimmedColors.length > 0 ? `Colors: ${trimmedColors.join(', ')}` : 'Colors coming soon.';
 
-  return { suitName, suitSpecies };
+  return { suitName, suitSpecies, suitColors };
 };
 
 const buildOwnerLines = (owner: string, pronouns: string) => {
@@ -48,7 +53,11 @@ const buildOwnerLines = (owner: string, pronouns: string) => {
 
 export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
   const tagline = withFallback(bio.tagline, 'Tagline coming soon.');
-  const { suitName, suitSpecies } = buildSuitLines(bio.fursuitName, bio.fursuitSpecies);
+  const { suitName, suitSpecies, suitColors } = buildSuitLines(
+    bio.fursuitName,
+    bio.fursuitSpecies,
+    bio.fursuitColors
+  );
   const { ownerName, pronounLine } = buildOwnerLines(bio.ownerName, bio.pronouns);
   const funFact = withFallback(bio.funFact, 'Fun fact coming soon.');
   const likesAndInterests = withFallback(bio.likesAndInterests, 'Likes coming soon.');
@@ -66,6 +75,7 @@ export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
         <View style={styles.sectionDetail}>
           <Text style={styles.sectionBody}>{suitName}</Text>
           <Text style={styles.sectionMeta}>{suitSpecies}</Text>
+          <Text style={styles.sectionMeta}>{suitColors}</Text>
         </View>
       </View>
 

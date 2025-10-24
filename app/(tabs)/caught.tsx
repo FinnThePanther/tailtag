@@ -118,6 +118,7 @@ export default function CaughtSuitsScreen() {
                   <FursuitCard
                     name={details.name}
                     species={details.species}
+                    colors={details.colors}
                     avatarUrl={details.avatar_url}
                     uniqueCode={details.unique_code}
                     timelineLabel={timelineLabel}
