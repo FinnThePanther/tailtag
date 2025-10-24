@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import type { FursuitSummary } from '../types';
-import { mapLatestFursuitBio } from './utils';
+import { mapFursuitColors, mapLatestFursuitBio } from './utils';
 import { captureSupabaseError } from '../../../lib/sentry';
 
 export type CaughtRecord = {
@@ -39,6 +39,14 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
           id,
           name,
           normalized_name
+        ),
+        color_assignments:fursuit_color_assignments (
+          position,
+          color:fursuit_colors (
+            id,
+            name,
+            normalized_name
+          )
         ),
         fursuit_bios (
           version,
@@ -83,6 +91,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
             name: rawFursuit.name,
             species: (rawFursuit.species_entry?.name ?? rawFursuit.species) ?? null,
             speciesId: (rawFursuit.species_entry?.id ?? rawFursuit.species_id) ?? null,
+            colors: mapFursuitColors(rawFursuit.color_assignments ?? null),
             avatar_url: rawFursuit.avatar_url ?? null,
             description: rawFursuit.description ?? null,
             unique_code: rawFursuit.unique_code ?? null,

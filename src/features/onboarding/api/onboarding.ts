@@ -11,11 +11,11 @@ import {
 } from '../../../lib/sentry';
 
 import type { FursuitsInsert } from '../../../types/database';
+import { MAX_FURSUIT_COLORS } from '../../colors';
 
 const TUTORIAL_FURSUIT_NAME = 'TailTag Trainer';
 const TUTORIAL_FURSUIT_SPECIES = 'Fox';
 const TUTORIAL_FURSUIT_DESCRIPTION = 'Practice suit used during onboarding';
-
 export const GETTING_STARTED_ACHIEVEMENT_KEY = 'getting_started';
 
 export type FursuitPhotoCandidate = {
@@ -169,8 +169,9 @@ export async function createQuickFursuit(options: {
   species: string;
   description: string | null;
   photo: FursuitPhotoCandidate | null;
+  colorIds: string[];
 }): Promise<string> {
-  const { userId, name, species, description, photo } = options;
+  const { userId, name, species, description, photo, colorIds } = options;
   const client = supabase as any;
 
   let uploadedStoragePath: string | null = null;
@@ -186,6 +187,13 @@ export async function createQuickFursuit(options: {
     const normalizedName = name.trim();
     const normalizedSpecies = species.trim();
     const normalizedDescription = description?.trim() ?? null;
+    const normalizedColorIds = Array.from(
+      new Set(
+        (Array.isArray(colorIds) ? colorIds : [])
+          .map((value) => (typeof value === 'string' ? value.trim() : ''))
+          .filter((value) => value.length > 0)
+      )
+    );
 
     if (!normalizedName) {
       throw new Error('Give your fursuit a name before saving.');
@@ -193,6 +201,14 @@ export async function createQuickFursuit(options: {
 
     if (!normalizedSpecies) {
       throw new Error('Add a species so other players know who you are.');
+    }
+
+    if (normalizedColorIds.length === 0) {
+      throw new Error('Pick at least one color before saving your fursuit.');
+    }
+
+    if (normalizedColorIds.length > MAX_FURSUIT_COLORS) {
+      throw new Error('You can choose up to three colors.');
     }
 
     for (let attempt = 0; attempt < UNIQUE_INSERT_ATTEMPTS; attempt += 1) {
@@ -211,15 +227,48 @@ export async function createQuickFursuit(options: {
       const { data: inserted, error } = await client.from('fursuits').insert(payload).select('id').single();
 
       if (!error && inserted?.id) {
+        const fursuitId = String(inserted.id);
+
+        if (normalizedColorIds.length > 0) {
+          const colorAssignments = normalizedColorIds.map((colorId, index) => ({
+            fursuit_id: fursuitId,
+            color_id: colorId,
+            position: index + 1,
+          }));
+
+          const { error: colorAssignmentError } = await client
+            .from('fursuit_color_assignments')
+            .insert(colorAssignments);
+
+          if (colorAssignmentError) {
+            const { error: cleanupFursuitError } = await client
+              .from('fursuits')
+              .delete()
+              .eq('id', fursuitId)
+              .eq('owner_id', userId);
+
+            if (cleanupFursuitError) {
+              captureSupabaseError(cleanupFursuitError, {
+                scope: 'onboarding.createQuickFursuit',
+                action: 'cleanupFursuitAfterColorFailure',
+                userId,
+                fursuitId,
+              });
+            }
+
+            throw colorAssignmentError;
+          }
+        }
+
         addMonitoringBreadcrumb({
           category: 'onboarding',
           message: 'Created quick fursuit',
           data: {
             userId,
-            fursuitId: inserted.id,
+            fursuitId,
           },
         });
-        return inserted.id;
+        return fursuitId;
       }
 
       if (error?.code !== '23505') {

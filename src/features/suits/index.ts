@@ -16,7 +16,7 @@ export {
   createCaughtSuitsQueryOptions,
 } from './api/caughtSuits';
 export type { CaughtRecord } from './api/caughtSuits';
-export { mapFursuitBio, mapLatestFursuitBio } from './api/utils';
+export { mapFursuitBio, mapLatestFursuitBio, mapFursuitColors } from './api/utils';
 export {
   fetchFursuitDetail,
   FURSUIT_DETAIL_QUERY_KEY,

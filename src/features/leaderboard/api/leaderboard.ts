@@ -1,5 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import { captureSupabaseError } from '../../../lib/sentry';
+import { mapFursuitColors } from '../../suits';
+import type { FursuitColorOption } from '../../colors';
 
 export type LeaderboardEntry = {
   profileId: string;
@@ -13,6 +15,7 @@ export type SuitLeaderboardEntry = {
   name: string;
   species: string | null;
   speciesId: string | null;
+  colors: FursuitColorOption[];
   avatarUrl: string | null;
   ownerProfileId: string | null;
   ownerUsername: string | null;
@@ -203,6 +206,14 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
           name,
           normalized_name
         ),
+        color_assignments:fursuit_color_assignments (
+          position,
+          color:fursuit_colors (
+            id,
+            name,
+            normalized_name
+          )
+        ),
         owner:profiles (id, username)
       )
     `
@@ -227,6 +238,12 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
       avatar_url: string | null;
       owner_id: string | null;
       species_entry?: { id: string | null; name: string | null; normalized_name: string | null } | null;
+      color_assignments?:
+        | {
+            position?: number | null;
+            color?: { id: string | null; name: string | null; normalized_name: string | null } | null;
+          }[]
+        | null;
       owner: { id: string | null; username: string | null } | null;
     } | null;
   }[];
@@ -240,6 +257,7 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
       avatarUrl: string | null;
       ownerProfileId: string | null;
       ownerUsername: string | null;
+      colors: FursuitColorOption[];
     }
   >();
 
@@ -253,6 +271,7 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
       name: suit.name,
       species: suit.species_entry?.name ?? suit.species ?? null,
       speciesId: suit.species_entry?.id ?? suit.species_id ?? null,
+      colors: mapFursuitColors(suit.color_assignments ?? null),
       avatarUrl: suit.avatar_url ?? null,
       ownerProfileId: suit.owner_id ?? null,
       ownerUsername: suit.owner?.username ?? null,
@@ -299,6 +318,7 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
         name: suit?.name ?? 'Unknown suit',
         species: suit?.species ?? null,
         speciesId: suit?.speciesId ?? null,
+        colors: suit?.colors ?? [],
         avatarUrl: suit?.avatarUrl ?? null,
         ownerProfileId: suit?.ownerProfileId ?? null,
         ownerUsername: suit?.ownerUsername ?? null,

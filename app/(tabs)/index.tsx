@@ -318,7 +318,15 @@ export default function HomeScreen() {
     const pieces = [formatCatchCount(entry.catchCount)];
 
     if (entry.species) {
-      pieces.push(entry.species);
+      pieces.push(`Species: ${entry.species}`);
+    }
+
+    const colorNames = entry.colors
+      .map((option) => option.name.trim())
+      .filter((name) => name.length > 0);
+
+    if (colorNames.length > 0) {
+      pieces.push(`Colors: ${colorNames.join(", ")}`);
     }
 
     if (entry.ownerUsername) {

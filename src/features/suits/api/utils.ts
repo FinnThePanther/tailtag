@@ -1,4 +1,5 @@
 import type { FursuitBio } from '../types';
+import type { FursuitColorOption } from '../../colors';
 import type { FursuitSocialLink } from '../../../types/database';
 
 type RawSocialLink = {
@@ -10,6 +11,7 @@ type RawFursuitBio = {
   version?: unknown;
   fursuit_name?: unknown;
   fursuit_species?: unknown;
+  fursuit_colors?: unknown;
   owner_name?: unknown;
   pronouns?: unknown;
   tagline?: unknown;
@@ -19,6 +21,15 @@ type RawFursuitBio = {
   social_links?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
+};
+
+type RawColorAssignment = {
+  position?: unknown;
+  color?: {
+    id?: unknown;
+    name?: unknown;
+    normalized_name?: unknown;
+  } | null;
 };
 
 const coerceString = (value: unknown): string => {
@@ -31,6 +42,16 @@ const coerceString = (value: unknown): string => {
   }
 
   return String(value);
+};
+
+const parseStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => coerceString(entry).trim())
+    .filter((entry) => entry.length > 0);
 };
 
 const parseSocialLinks = (value: unknown): FursuitSocialLink[] => {
@@ -71,6 +92,7 @@ export const mapFursuitBio = (raw: unknown): FursuitBio | null => {
 
   const fursuitName = coerceString(source.fursuit_name).trim();
   const fursuitSpecies = coerceString(source.fursuit_species).trim();
+  const fursuitColors = parseStringArray(source.fursuit_colors);
   const ownerName = coerceString(source.owner_name).trim();
   const pronouns = coerceString(source.pronouns).trim();
   const tagline = coerceString(source.tagline).trim();
@@ -89,7 +111,8 @@ export const mapFursuitBio = (raw: unknown): FursuitBio | null => {
     !funFact &&
     !likesAndInterests &&
     !askMeAbout &&
-    socialLinks.length === 0
+    socialLinks.length === 0 &&
+    fursuitColors.length === 0
   ) {
     return null;
   }
@@ -98,6 +121,7 @@ export const mapFursuitBio = (raw: unknown): FursuitBio | null => {
     version,
     fursuitName,
     fursuitSpecies,
+    fursuitColors,
     ownerName,
     pronouns,
     tagline,
@@ -121,4 +145,56 @@ export const mapLatestFursuitBio = (raw: unknown): FursuitBio | null => {
   }
 
   return mapFursuitBio(raw);
+};
+
+export const mapFursuitColors = (raw: unknown): FursuitColorOption[] => {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const mapped = raw
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+
+      const source = entry as RawColorAssignment;
+      const color = source.color ?? null;
+      const id = color && typeof color === 'object' && typeof color.id === 'string' ? color.id : null;
+      const name =
+        color && typeof color === 'object' && typeof color.name === 'string'
+          ? color.name
+          : null;
+      const normalizedName =
+        color && typeof color === 'object' && typeof color.normalized_name === 'string'
+          ? color.normalized_name
+          : null;
+      const positionNumber = Number(source.position);
+
+      if (!id || !name) {
+        return null;
+      }
+
+      return {
+        option: {
+          id,
+          name,
+          normalizedName:
+            normalizedName && normalizedName.length > 0
+              ? normalizedName
+              : name.trim().toLowerCase(),
+        } satisfies FursuitColorOption,
+        order: Number.isFinite(positionNumber) ? positionNumber : Number.MAX_SAFE_INTEGER,
+      };
+    })
+    .filter((entry): entry is { option: FursuitColorOption; order: number } => Boolean(entry));
+
+  return mapped
+    .sort((a, b) => {
+      if (a.order !== b.order) {
+        return a.order - b.order;
+      }
+      return a.option.name.localeCompare(b.option.name, undefined, { sensitivity: 'base' });
+    })
+    .map((entry) => entry.option);
 };

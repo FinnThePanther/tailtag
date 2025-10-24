@@ -234,6 +234,69 @@ export type Database = {
         };
         Relationships: [];
       };
+      fursuit_color_assignments: {
+        Row: {
+          color_id: string;
+          created_at: string;
+          fursuit_id: string;
+          id: string;
+          position: number;
+        };
+        Insert: {
+          color_id: string;
+          created_at?: string;
+          fursuit_id: string;
+          id?: string;
+          position: number;
+        };
+        Update: {
+          color_id?: string;
+          created_at?: string;
+          fursuit_id?: string;
+          id?: string;
+          position?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fursuit_color_assignments_color_id_fkey";
+            columns: ["color_id"];
+            isOneToOne: false;
+            referencedRelation: "fursuit_colors";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "fursuit_color_assignments_fursuit_id_fkey";
+            columns: ["fursuit_id"];
+            isOneToOne: false;
+            referencedRelation: "fursuits";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      fursuit_colors: {
+        Row: {
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          name: string;
+          normalized_name: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+          normalized_name?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+          normalized_name?: string;
+        };
+        Relationships: [];
+      };
       fursuit_bios: {
         Row: {
           ask_me_about: string;
@@ -241,6 +304,7 @@ export type Database = {
           fun_fact: string;
           fursuit_id: string;
           fursuit_name: string;
+          fursuit_colors: string[];
           fursuit_species: string;
           id: string;
           likes_and_interests: string;
@@ -257,6 +321,7 @@ export type Database = {
           fun_fact: string;
           fursuit_id: string;
           fursuit_name: string;
+          fursuit_colors?: string[];
           fursuit_species: string;
           id?: string;
           likes_and_interests: string;
@@ -273,6 +338,7 @@ export type Database = {
           fun_fact?: string;
           fursuit_id?: string;
           fursuit_name?: string;
+          fursuit_colors?: string[];
           fursuit_species?: string;
           id?: string;
           likes_and_interests?: string;
@@ -792,6 +858,15 @@ export type UserDailyStreaksRow = Database["public"]["Tables"]["user_daily_strea
 export type FursuitsRow = Database["public"]["Tables"]["fursuits"]["Row"];
 export type FursuitsInsert = Database["public"]["Tables"]["fursuits"]["Insert"];
 export type FursuitBiosInsert = Database["public"]["Tables"]["fursuit_bios"]["Insert"];
+export type FursuitColorAssignmentsRow =
+  Database["public"]["Tables"]["fursuit_color_assignments"]["Row"];
+export type FursuitColorAssignmentsInsert =
+  Database["public"]["Tables"]["fursuit_color_assignments"]["Insert"];
+export type FursuitColorAssignmentsUpdate =
+  Database["public"]["Tables"]["fursuit_color_assignments"]["Update"];
+export type FursuitColorsRow = Database["public"]["Tables"]["fursuit_colors"]["Row"];
+export type FursuitColorsInsert = Database["public"]["Tables"]["fursuit_colors"]["Insert"];
+export type FursuitColorsUpdate = Database["public"]["Tables"]["fursuit_colors"]["Update"];
 
 export type FursuitSocialLink = {
   label: string;

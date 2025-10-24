@@ -118,6 +118,7 @@ export default function FursuitDetailScreen() {
             <FursuitCard
               name={detail.name}
               species={detail.species}
+              colors={detail.colors}
               avatarUrl={detail.avatar_url}
               uniqueCode={detail.unique_code}
               timelineLabel={addedDate ? `Added on ${addedDate}` : null}
