@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
@@ -18,6 +19,12 @@ import { SkipButton } from './SkipButton';
 import { createQuickFursuit, type FursuitPhotoCandidate } from '../../onboarding';
 import { MY_SUITS_QUERY_KEY } from '../../suits';
 import { colors, radius, spacing } from '../../../theme';
+import {
+  fetchFursuitColors,
+  FURSUIT_COLORS_QUERY_KEY,
+  MAX_FURSUIT_COLORS,
+  type FursuitColorOption,
+} from '../../colors';
 
 type FursuitStepProps = {
   userId: string;
@@ -27,6 +34,18 @@ type FursuitStepProps = {
 
 export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
   const queryClient = useQueryClient();
+  const {
+    data: colorOptions = [],
+    error: colorError,
+    isLoading: isColorLoading,
+    refetch: refetchColors,
+  } = useQuery<FursuitColorOption[], Error>({
+    queryKey: [FURSUIT_COLORS_QUERY_KEY],
+    queryFn: fetchFursuitColors,
+    staleTime: 12 * 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
   const [isExpanded, setIsExpanded] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [speciesInput, setSpeciesInput] = useState('');
@@ -35,10 +54,29 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
+  const colorLoadError = colorError?.message ?? null;
+  const isColorBusy = isColorLoading;
 
   const handleOpenForm = () => {
     setIsExpanded(true);
   };
+
+  const handleToggleColor = useCallback((option: FursuitColorOption) => {
+    setSelectedColors((current) => {
+      const exists = current.some((entry) => entry.id === option.id);
+
+      if (exists) {
+        return current.filter((entry) => entry.id !== option.id);
+      }
+
+      if (current.length >= MAX_FURSUIT_COLORS) {
+        return current;
+      }
+
+      return [...current, option];
+    });
+  }, []);
 
   const handlePickPhoto = async () => {
     try {
@@ -92,6 +130,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
     setNameInput('');
     setSpeciesInput('');
     setDescriptionInput('');
+    setSelectedColors([]);
     setSelectedPhoto(null);
     setPhotoError(null);
     setSubmitError(null);
@@ -103,8 +142,9 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
     }
 
     const trimmedName = nameInput.trim();
-    const trimmedSpecies = speciesInput.trim();
-    const trimmedDescription = descriptionInput.trim();
+   const trimmedSpecies = speciesInput.trim();
+   const trimmedDescription = descriptionInput.trim();
+    const colorIds = selectedColors.map((color) => color.id);
 
     if (!trimmedName) {
       setSubmitError('Give your fursuit a name before saving.');
@@ -113,6 +153,16 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
 
     if (!trimmedSpecies) {
       setSubmitError('Add a suit species so others know who to call out.');
+      return;
+    }
+
+    if (colorIds.length === 0) {
+      setSubmitError('Pick at least one suit color before saving.');
+      return;
+    }
+
+    if (colorIds.length > MAX_FURSUIT_COLORS) {
+      setSubmitError('Choose up to three colors. Remove one to add another.');
       return;
     }
 
@@ -126,6 +176,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
         species: trimmedSpecies,
         description: trimmedDescription.length > 0 ? trimmedDescription : null,
         photo: selectedPhoto,
+        colorIds,
       });
 
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
@@ -180,6 +231,80 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
                 placeholder="Fox, Dragon, Husky…"
                 editable={!isSubmitting}
               />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Colors</Text>
+              <Text style={styles.helperLabel}>Pick up to three colors.</Text>
+              {isColorBusy ? (
+                <Text style={styles.helperLabel}>Loading colors…</Text>
+              ) : colorLoadError ? (
+                <View style={styles.helperColumn}>
+                  <Text style={styles.error}>{colorLoadError}</Text>
+                  <TailTagButton
+                    variant="outline"
+                    size="sm"
+                    onPress={() => {
+                      void refetchColors({ throwOnError: false });
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    Try again
+                  </TailTagButton>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.colorSelectedList}>
+                    {selectedColors.length === 0 ? (
+                      <Text style={styles.helperLabel}>Tap a color to add it.</Text>
+                    ) : null}
+                    {selectedColors.map((color) => (
+                      <Pressable
+                        key={`selected-${color.id}`}
+                        style={styles.colorSelectedChip}
+                        onPress={() => handleToggleColor(color)}
+                        disabled={isSubmitting}
+                      >
+                        <Text style={styles.colorSelectedText}>{color.name}</Text>
+                        <Text style={styles.colorSelectedRemove}>Remove</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <View style={styles.colorOptionList}>
+                    {colorOptions.map((option) => {
+                      const isSelected = selectedColors.some((color) => color.id === option.id);
+                      const isAtLimit = !isSelected && selectedColors.length >= MAX_FURSUIT_COLORS;
+                      return (
+                        <Pressable
+                          key={option.id}
+                          onPress={() => handleToggleColor(option)}
+                          style={[
+                            styles.colorChip,
+                            isSelected ? styles.colorChipSelected : null,
+                            isAtLimit ? styles.colorChipDisabled : null,
+                          ]}
+                          disabled={isSubmitting || (!isSelected && isAtLimit)}
+                        >
+                          <Text
+                            style={[
+                              styles.colorChipLabel,
+                              isSelected ? styles.colorChipLabelSelected : null,
+                              isAtLimit ? styles.colorChipLabelDisabled : null,
+                            ]}
+                          >
+                            {option.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {selectedColors.length >= MAX_FURSUIT_COLORS ? (
+                    <Text style={styles.helperLabel}>
+                      You've selected three colors. Tap one to swap it out.
+                    </Text>
+                  ) : null}
+                </>
+              )}
             </View>
 
             <View style={styles.fieldGroup}>
@@ -266,6 +391,72 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     fontSize: 14,
     fontWeight: '600',
+  },
+  helperLabel: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 12,
+  },
+  helperColumn: {
+    gap: spacing.sm,
+  },
+  colorSelectedList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  colorSelectedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(59,130,246,0.3)',
+    backgroundColor: 'rgba(37,99,235,0.18)',
+  },
+  colorSelectedText: {
+    color: colors.foreground,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  colorSelectedRemove: {
+    marginLeft: spacing.xs,
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  colorOptionList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  colorChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.35)',
+    backgroundColor: 'rgba(30,41,59,0.6)',
+  },
+  colorChipSelected: {
+    borderColor: '#38bdf8',
+    backgroundColor: 'rgba(56,189,248,0.2)',
+  },
+  colorChipDisabled: {
+    opacity: 0.4,
+  },
+  colorChipLabel: {
+    color: 'rgba(203,213,225,0.95)',
+    fontSize: 13,
+  },
+  colorChipLabelSelected: {
+    color: '#38bdf8',
+    fontWeight: '600',
+  },
+  colorChipLabelDisabled: {
+    color: 'rgba(148,163,184,0.6)',
   },
   descriptionInput: {
     height: 90,

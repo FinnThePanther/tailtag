@@ -16,6 +16,7 @@ import {
   FursuitBioDetails,
   CAUGHT_SUITS_QUERY_KEY,
   mapLatestFursuitBio,
+  mapFursuitColors,
   fursuitDetailQueryKey,
 } from "../../src/features/suits";
 import type { FursuitBio } from "../../src/features/suits";
@@ -35,6 +36,7 @@ import { normalizeUniqueCodeInput } from "../../src/utils/code";
 import { toDisplayDateTime } from "../../src/utils/dates";
 
 import type { FursuitsRow } from "../../src/types/database";
+import type { FursuitColorOption } from "../../src/features/colors";
 
 type FursuitDetails = Pick<
   FursuitsRow,
@@ -47,7 +49,7 @@ type FursuitDetails = Pick<
   | "owner_id"
   | "is_tutorial"
   | "catch_count"
-> & { created_at: string | null; bio: FursuitBio | null };
+> & { created_at: string | null; bio: FursuitBio | null; colors: FursuitColorOption[] };
 
 type CatchRecord = {
   id: string;
@@ -120,6 +122,14 @@ export default function CatchScreen() {
             name,
             normalized_name
           ),
+          color_assignments:fursuit_color_assignments (
+            position,
+            color:fursuit_colors (
+              id,
+              name,
+              normalized_name
+            )
+          ),
           fursuit_bios (
             version,
             fursuit_name,
@@ -172,6 +182,7 @@ export default function CatchScreen() {
         owner_id: fursuit.owner_id,
         created_at: fursuit.created_at ?? null,
         bio: mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
+        colors: mapFursuitColors((fursuit as any)?.color_assignments ?? null),
         is_tutorial: fursuit.is_tutorial === true,
       };
 
@@ -452,6 +463,7 @@ export default function CatchScreen() {
             <FursuitCard
               name={caughtFursuit.name}
               species={caughtFursuit.species}
+              colors={caughtFursuit.colors}
               avatarUrl={caughtFursuit.avatar_url}
               uniqueCode={caughtFursuit.unique_code}
               timelineLabel={caughtAtLabel ?? undefined}

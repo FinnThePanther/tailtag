@@ -1,10 +1,12 @@
 import type { ConventionSummary } from '../conventions';
+import type { FursuitColorOption } from '../colors';
 import type { FursuitSocialLink } from '../../types/database';
 
 export type FursuitBio = {
   version: number;
   fursuitName: string;
   fursuitSpecies: string;
+  fursuitColors: string[];
   ownerName: string;
   pronouns: string;
   tagline: string;
@@ -21,6 +23,7 @@ export type FursuitSummary = {
   name: string;
   species: string | null;
   speciesId: string | null;
+  colors: FursuitColorOption[];
   avatar_url: string | null;
   description: string | null;
   unique_code: string | null;

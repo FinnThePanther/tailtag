@@ -210,11 +210,12 @@ export default function MySuitsScreen() {
                       : undefined
                   }
                 >
-                  <FursuitCard
-                    name={suit.name}
-                    species={suit.species}
-                    avatarUrl={suit.avatar_url}
-                    uniqueCode={suit.unique_code}
+                <FursuitCard
+                  name={suit.name}
+                  species={suit.species}
+                  colors={suit.colors}
+                  avatarUrl={suit.avatar_url}
+                  uniqueCode={suit.unique_code}
                     timelineLabel={timelineLabel}
                     onPress={() =>
                       router.push({

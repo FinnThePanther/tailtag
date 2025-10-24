@@ -1,7 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import type { ConventionSummary } from '../../conventions';
 import type { FursuitSummary } from '../types';
-import { mapLatestFursuitBio } from './utils';
+import { mapFursuitColors, mapLatestFursuitBio } from './utils';
 import { captureSupabaseError } from '../../../lib/sentry';
 
 export const MY_SUITS_QUERY_KEY = 'my-suits';
@@ -28,6 +28,14 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
         id,
         name,
         normalized_name
+      ),
+      color_assignments:fursuit_color_assignments (
+        position,
+        color:fursuit_colors (
+          id,
+          name,
+          normalized_name
+        )
       ),
       fursuit_conventions:fursuit_conventions (
         convention:conventions (
@@ -85,12 +93,14 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
     const speciesEntry = item.species_entry ?? null;
     const speciesName = speciesEntry?.name ?? item.species ?? null;
     const speciesId = speciesEntry?.id ?? item.species_id ?? null;
+    const colors = mapFursuitColors(item.color_assignments ?? null);
 
     return {
       id: item.id,
       name: item.name,
       species: speciesName,
       speciesId: speciesId,
+      colors,
       avatar_url: item.avatar_url ?? null,
       description: item.description ?? null,
       unique_code: item.unique_code ?? null,
