@@ -247,9 +247,10 @@ export default function CatchScreen() {
         return;
       }
 
-      const sharedConventions: string[] = [...playerConventionIds].filter((id) =>
-        suitConventionIds.has(id)
-      );
+      const sharedConventions: string[] = [...playerConventionIds]
+        .filter((id) => suitConventionIds.has(id))
+        .sort();
+      const primaryConventionId = sharedConventions[0] ?? null;
 
       if (sharedConventions.length === 0) {
         resetCatchState();
@@ -283,6 +284,7 @@ export default function CatchScreen() {
         .insert({
           fursuit_id: normalizedFursuit.id,
           catcher_id: userId,
+          convention_id: primaryConventionId,
           is_tutorial: Boolean(normalizedFursuit.is_tutorial),
         })
         .select("id, caught_at, catch_number")
@@ -357,7 +359,7 @@ export default function CatchScreen() {
       setConversationPrompt(promptCandidate ?? null);
       await emitGameplayEvent({
         type: "catch_performed",
-        conventionId: sharedConventions[0] ?? null,
+        conventionId: primaryConventionId,
         payload: {
           fursuit_id: normalizedFursuit.id,
           catch_id: normalizedCatchRecord?.id ?? null,

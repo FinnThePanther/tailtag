@@ -80,6 +80,7 @@ export type Database = {
           catcher_id: string;
           caught_at: string | null;
           catch_number: number | null;
+          convention_id: string | null;
           fursuit_id: string;
           is_tutorial: boolean;
           id: string;
@@ -88,6 +89,7 @@ export type Database = {
           catcher_id: string;
           caught_at?: string | null;
           catch_number?: number | null;
+          convention_id?: string | null;
           fursuit_id: string;
           is_tutorial?: boolean;
           id?: string;
@@ -96,6 +98,7 @@ export type Database = {
           catcher_id?: string;
           caught_at?: string | null;
           catch_number?: number | null;
+          convention_id?: string | null;
           fursuit_id?: string;
           is_tutorial?: boolean;
           id?: string;
@@ -113,6 +116,13 @@ export type Database = {
             columns: ["fursuit_id"];
             isOneToOne: false;
             referencedRelation: "fursuits";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catches_convention_id_fkey";
+            columns: ["convention_id"];
+            isOneToOne: false;
+            referencedRelation: "conventions";
             referencedColumns: ["id"];
           },
         ];
