@@ -29,16 +29,22 @@ export function AchievementToastManager() {
     [userId],
   );
 
-  const { data: achievementStatus } = useQuery({
+  // Ensure we have achievement data loaded BEFORE realtime notifications start arriving
+  // This prevents missing toast notifications when achievements are unlocked
+  const { data: achievementStatus, isSuccess: hasLoadedAchievements } = useQuery({
     queryKey: statusQueryKey,
     queryFn: () => fetchAchievementStatus(userId ?? ''),
     enabled: Boolean(userId),
     staleTime: 60_000,
+    gcTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    // Ensure this query runs immediately and isn't suspended
+    networkMode: 'always',
   });
 
-  useAchievementsRealtime(userId, { onUnlocked: handleToast });
+  // Also wait for achievements to load before starting the legacy realtime subscription
+  useAchievementsRealtime(hasLoadedAchievements ? userId : null, { onUnlocked: handleToast });
 
   const unlockedSnapshotRef = useRef<Set<string>>(new Set());
   const hasPrimedSnapshotRef = useRef<boolean>(false);
@@ -99,10 +105,14 @@ export function AchievementToastManager() {
         });
     };
 
-    if (!userId) {
+    // Don't subscribe to realtime until we have initial achievement data loaded
+    // This ensures the cache is populated when notifications arrive
+    if (!userId || !hasLoadedAchievements) {
       teardown();
-      activeUserRef.current = null;
-      channelInstanceRef.current = null;
+      if (!userId) {
+        activeUserRef.current = null;
+        channelInstanceRef.current = null;
+      }
       return;
     }
 
@@ -310,7 +320,7 @@ export function AchievementToastManager() {
       activeUserRef.current = null;
       channelInstanceRef.current = null;
     };
-  }, [userId, queryClient, statusQueryKey, handleToast, showToast]);
+  }, [userId, hasLoadedAchievements, queryClient, statusQueryKey, handleToast, showToast]);
 
   return null;
 }
