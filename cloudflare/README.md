@@ -7,10 +7,11 @@ This package contains three Workers plus shared tooling for local development.
 
 - **event-ingress** — authenticated HTTP entry point that verifies HMAC-signed
   events from Supabase and enqueues them on `tailtag-events`.
-- **orchestrator** — queue consumer scaffold that will evaluate achievement and
+- **orchestrator** — queue consumer that evaluates achievement and
   daily task rules using Supabase as the source of truth.
 - **daily-rotation** — cron-triggered worker that delegates daily task rotation
   to the existing Supabase `rotate-dailys` function.
+- **dlq-inspector** — optional DLQ consumer for inspecting failed events.
 
 ## Setup
 
@@ -65,3 +66,34 @@ wrangler queues create tailtag-events-dlq
 
 The orchestrator consumer is configured with an exponential back-off and will
 forward exhausted messages to the `tailtag-events-dlq` dead-letter queue.
+
+## Dead Letter Queue (DLQ)
+
+Failed events are automatically sent to the DLQ after:
+- **3 retry attempts** (configured via `max_retries`)
+- **Exponential backoff**: 5s → 10s → 20s delays (up to 5 min max)
+- **Total retry window**: ~35 seconds before DLQ
+
+### Inspecting Failed Events
+
+Deploy the DLQ inspector to monitor failed events:
+
+```bash
+npm run deploy:dlq-inspector
+```
+
+Failed events will be logged to the Cloudflare dashboard under the `dlq-inspector` worker.
+You can view logs via:
+
+```bash
+wrangler tail dlq-inspector
+```
+
+Or in the Cloudflare dashboard: Workers & Pages → dlq-inspector → Logs
+
+### DLQ Best Practices
+
+- **Monitor regularly**: Check for patterns in failed events
+- **Investigate root causes**: Failed events often indicate data issues or bugs
+- **Manual retry**: After fixing issues, events can be manually replayed via the orchestrator
+- **Keep inspector deployed**: Only deploy when actively investigating failures to avoid unnecessary processing
