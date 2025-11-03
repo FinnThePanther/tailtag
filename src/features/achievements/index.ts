@@ -10,7 +10,7 @@ export {
   type AchievementWithStatus,
 } from './api/achievements';
 
-export { useAchievementsRealtime, useAchievementUnlockToast } from './hooks';
+export { useAchievementUnlockToast } from './hooks';
 
 export { AchievementToastManager } from './components/AchievementToastManager';
 

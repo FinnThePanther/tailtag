@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../../auth';
-import { useAchievementUnlockToast, useAchievementsRealtime } from '..';
+import { useAchievementUnlockToast } from '..';
 import { achievementsStatusQueryKey, fetchAchievementStatus } from '../api/achievements';
 import { supabase } from '../../../lib/supabase';
 import { addMonitoringBreadcrumb, captureHandledException } from '../../../lib/sentry';
@@ -42,9 +42,6 @@ export function AchievementToastManager() {
     // Ensure this query runs immediately and isn't suspended
     networkMode: 'always',
   });
-
-  // Also wait for achievements to load before starting the legacy realtime subscription
-  useAchievementsRealtime(hasLoadedAchievements ? userId : null, { onUnlocked: handleToast });
 
   const unlockedSnapshotRef = useRef<Set<string>>(new Set());
   const hasPrimedSnapshotRef = useRef<boolean>(false);
