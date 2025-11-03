@@ -1,0 +1,18 @@
+{
+  "name": "tailtag-cloudflare-workers",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "tsc --noEmit --pretty",
+    "deploy:event-ingress": "wrangler deploy --config ./event-ingress/wrangler.toml",
+    "deploy:orchestrator": "wrangler deploy --config ./orchestrator/wrangler.toml",
+    "deploy:daily-rotation": "wrangler deploy --config ./daily-rotation/wrangler.toml",
+    "dev:event-ingress": "wrangler dev --config ./event-ingress/wrangler.toml",
+    "dev:orchestrator": "wrangler dev --config ./orchestrator/wrangler.toml",
+    "dev:daily-rotation": "wrangler dev --config ./daily-rotation/wrangler.toml"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240320.0",
+    "typescript": "^5.4.5"
+  }
+}

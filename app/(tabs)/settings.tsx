@@ -34,7 +34,7 @@ import { supabase } from '../../src/lib/supabase';
 import { colors, spacing, radius } from '../../src/theme';
 import { loadUriAsUint8Array } from '../../src/utils/files';
 import { deriveStoragePathFromPublicUrl } from '../../src/utils/storage';
-import { triggerAchievementProcessor } from '../../src/features/achievements';
+import { emitGameplayEvent } from '../../src/features/events';
 import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import {
   fetchProfile,
@@ -58,7 +58,7 @@ type UploadCandidate = {
 } | null;
 
 export default function SettingsScreen() {
-  const { session } = useAuth();
+  const { session, forceSignOut } = useAuth();
   const userId = session?.user.id ?? null;
 
   const queryClient = useQueryClient();
@@ -431,7 +431,13 @@ export default function SettingsScreen() {
       setSelectedAvatar(null);
       setShouldRemoveAvatar(false);
       setSaveMessage('Profile updated');
-      await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
+      await emitGameplayEvent({
+        type: 'profile_updated',
+        payload: {
+          has_avatar: Boolean(nextAvatarUrl),
+          username_present: trimmedUsername.length > 0,
+        },
+      });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
     } catch (caught) {
       const fallbackMessage =
@@ -556,6 +562,8 @@ export default function SettingsScreen() {
       if (signOutAfterDeletionError) {
         console.warn('Failed to sign out after deleting account', signOutAfterDeletionError);
       }
+
+      await forceSignOut();
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error
@@ -565,7 +573,7 @@ export default function SettingsScreen() {
     } finally {
       setIsDeletingAccount(false);
     }
-  }, [isDeletingAccount, queryClient, userId]);
+  }, [forceSignOut, isDeletingAccount, queryClient, userId]);
 
   const handleDeleteAccount = useCallback(() => {
     if (!userId || isDeletingAccount) {

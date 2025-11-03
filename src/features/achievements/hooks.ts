@@ -21,7 +21,7 @@ export type AchievementRealtimeOptions = {
 
 export function useAchievementsRealtime(
   userId: string | null,
-  options?: AchievementRealtimeOptions
+  options?: AchievementRealtimeOptions,
 ) {
   const queryClient = useQueryClient();
   const onUnlocked = options?.onUnlocked;
@@ -73,14 +73,14 @@ export function useAchievementsRealtime(
                 matchedAchievement = updated;
                 return updated;
               });
-            }
+            },
           );
 
-          const unlockedAchievement = matchedAchievement as AchievementWithStatus | null;
-          if (unlockedAchievement !== null) {
+          if (matchedAchievement !== null) {
+            const unlockedAchievement = matchedAchievement as AchievementWithStatus;
             addMonitoringBreadcrumb({
               category: 'achievements',
-              message: 'Achievement unlocked (realtime)',
+              message: 'Achievement unlocked (realtime legacy)',
               data: {
                 userId,
                 achievementId: unlockedAchievement.id,
@@ -106,7 +106,7 @@ export function useAchievementsRealtime(
               if (fetchedAchievement) {
                 addMonitoringBreadcrumb({
                   category: 'achievements',
-                  message: 'Achievement unlocked (realtime-refetch)',
+                  message: 'Achievement unlocked (realtime legacy refetch)',
                   data: {
                     userId,
                     achievementId: fetchedAchievement.id,
@@ -123,7 +123,7 @@ export function useAchievementsRealtime(
               });
             }
           })();
-        }
+        },
       );
 
     channel.subscribe((status, error) => {
@@ -148,9 +148,7 @@ export function useAchievementsRealtime(
         })
         .finally(() => {
           supabase.removeChannel(channel);
-          if (channelInstanceRef.current) {
-            channelInstanceRef.current = null;
-          }
+          channelInstanceRef.current = null;
         });
     };
   }, [userId, queryClient, onUnlocked]);

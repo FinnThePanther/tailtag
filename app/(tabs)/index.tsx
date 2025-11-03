@@ -36,9 +36,9 @@ import {
 import {
   fetchAchievementStatus,
   achievementsStatusQueryKey,
-  triggerAchievementProcessor,
   type AchievementWithStatus,
 } from "../../src/features/achievements";
+import { emitGameplayEvent } from "../../src/features/events";
 import {
   useDailyTasks,
   DAILY_TASKS_QUERY_KEY,
@@ -363,7 +363,13 @@ export default function HomeScreen() {
       return;
     }
 
-    await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
+    await emitGameplayEvent({
+      type: "leaderboard_refreshed",
+      conventionId: selectedConventionId,
+      payload: {
+        convention_id: selectedConventionId,
+      },
+    });
     void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
   }, [
     refetchLeaderboard,

@@ -242,10 +242,23 @@ async function deleteAccountData(userId: string) {
     "profile",
   );
 
+  let authDeletionMode: "hard" | "soft" = "hard";
   const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
   if (authError) {
-    throw new Error(`Unable to delete auth user: ${authError.message}`);
+    if (authError.message?.toLowerCase().includes("database error deleting user")) {
+      console.warn("[delete-account] Falling back to soft delete for auth user", { userId, error: authError.message });
+
+      const { error: softDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId, true);
+
+      if (softDeleteError) {
+        throw new Error(`Unable to delete auth user (soft delete fallback failed): ${softDeleteError.message}`);
+      }
+
+      authDeletionMode = "soft";
+    } else {
+      throw new Error(`Unable to delete auth user: ${authError.message}`);
+    }
   }
 
   return {
@@ -253,6 +266,7 @@ async function deleteAccountData(userId: string) {
     fursuitsDeleted: fursuitIds.length,
     fursuitAvatarsDeleted: fursuitAvatarPaths.length,
     profileAvatarDeleted: Boolean(profileAvatarPath),
+    authDeletionMode,
   } as const;
 }
 

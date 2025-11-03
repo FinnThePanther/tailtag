@@ -28,7 +28,7 @@ import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagInput } from "../../src/components/ui/TailTagInput";
 import { useAuth } from "../../src/features/auth";
-import { triggerAchievementProcessor } from "../../src/features/achievements";
+import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import { supabase } from "../../src/lib/supabase";
 import { colors, spacing } from "../../src/theme";
@@ -220,12 +220,12 @@ export default function CatchScreen() {
         throw playerConventionError;
       }
 
-      const suitConventionIds = new Set(
+      const suitConventionIds = new Set<string>(
         (suitConventionRows ?? []).map(
           (row: { convention_id: string }) => row.convention_id
         )
       );
-      const playerConventionIds = new Set(
+      const playerConventionIds = new Set<string>(
         (playerConventionRows ?? []).map(
           (row: { convention_id: string }) => row.convention_id
         )
@@ -247,7 +247,7 @@ export default function CatchScreen() {
         return;
       }
 
-      const sharedConventions = [...playerConventionIds].filter((id) =>
+      const sharedConventions: string[] = [...playerConventionIds].filter((id) =>
         suitConventionIds.has(id)
       );
 
@@ -280,7 +280,11 @@ export default function CatchScreen() {
 
       const { data: insertedCatch, error: catchError } = await client
         .from("catches")
-        .insert({ fursuit_id: normalizedFursuit.id, catcher_id: userId })
+        .insert({
+          fursuit_id: normalizedFursuit.id,
+          catcher_id: userId,
+          is_tutorial: Boolean(normalizedFursuit.is_tutorial),
+        })
         .select("id, caught_at, catch_number")
         .single();
 
@@ -351,7 +355,18 @@ export default function CatchScreen() {
         normalizedCatchRecord?.catch_number ?? latestCatchCount
       );
       setConversationPrompt(promptCandidate ?? null);
-      await triggerAchievementProcessor({ limit: 10, maxBatches: 1 });
+      await emitGameplayEvent({
+        type: "catch_performed",
+        conventionId: sharedConventions[0] ?? null,
+        payload: {
+          fursuit_id: normalizedFursuit.id,
+          catch_id: normalizedCatchRecord?.id ?? null,
+          catch_number: normalizedCatchRecord?.catch_number ?? null,
+          convention_ids: sharedConventions,
+          is_tutorial: Boolean(normalizedFursuit.is_tutorial),
+        },
+        occurredAt: normalizedCatchRecord?.caught_at ?? new Date().toISOString(),
+      });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
       queryClient.invalidateQueries({
         queryKey: fursuitDetailQueryKey(normalizedFursuit.id),
