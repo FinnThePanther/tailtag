@@ -1024,22 +1024,6 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
       if (award) awards.push(award);
     }
 
-    if (uniqueCatchers.size <= 3 && fursuitOwnerId) {
-      const ownerAward = await grantAchievement(env, {
-        userId: fursuitOwnerId,
-        achievementKey: "RARE_FIND",
-        context: {
-          catch_id: catchId,
-          fursuit_id: fursuitId,
-          owner_id: fursuitOwnerId,
-          convention_id: primaryConventionId,
-          unique_catchers: uniqueCatchers.size,
-        },
-        occurredAt,
-        sourceEventId: event.event_id,
-      });
-      if (ownerAward) awards.push(ownerAward);
-    }
   }
 
   const distinctConventions = await countDistinctConventionsForUser(env, catcherId);
