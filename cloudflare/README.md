@@ -8,7 +8,8 @@ This package contains three Workers plus shared tooling for local development.
 - **event-ingress** — authenticated HTTP entry point that verifies HMAC-signed
   events from Supabase and enqueues them on `tailtag-events`.
 - **orchestrator** — queue consumer that evaluates achievement and
-  daily task rules using Supabase as the source of truth.
+  daily task rules using Supabase as the source of truth. Uses a batch RPC
+  (`grant_achievements_batch`) to minimize database round-trips and latency.
 - **daily-rotation** — cron-triggered worker that delegates daily task rotation
   to the existing Supabase `rotate-dailys` function.
 - **dlq-inspector** — optional DLQ consumer for inspecting failed events.

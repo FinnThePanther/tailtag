@@ -524,213 +524,68 @@ async function countRows(env: Env, path: string): Promise<number> {
   return Number.isNaN(total) ? 0 : total;
 }
 
-async function grantAchievement(
+async function grantAchievementsBatch(
   env: Env,
-  options: {
+  awards: Array<{
     userId: string;
     achievementKey: string;
     context: Record<string, unknown>;
     occurredAt: string;
     sourceEventId: string;
-  },
-): Promise<AchievementAwardSummary | null> {
-  const catalog = await ensureAchievementCache(env);
-  const achievement = catalog.get(options.achievementKey);
-
-  if (!achievement) {
-    console.warn("[orchestrator] Unknown achievement key", {
-      key: options.achievementKey,
-      user_id: options.userId,
-    });
-    return null;
+  }>,
+): Promise<AchievementAwardSummary[]> {
+  if (awards.length === 0) {
+    return [];
   }
+
+  // Format awards for RPC call
+  const rpcPayload = awards.map((award) => ({
+    user_id: award.userId,
+    achievement_key: award.achievementKey,
+    context: award.context,
+    occurred_at: award.occurredAt,
+    source_event_id: award.sourceEventId,
+  }));
 
   try {
-    const existingResponse = await supabaseFetch(
-      env,
-      `/rest/v1/user_achievements?select=id&user_id=eq.${options.userId}&achievement_id=eq.${achievement.id}`,
-      {
-        headers: {
-          Range: "0-0",
-        },
-      },
-    );
-    const existing = await existingResponse.json() as Array<{ id: string }>;
-    if (existing.length > 0) {
-      console.info("[orchestrator] Achievement already unlocked", {
-        key: options.achievementKey,
-        user_id: options.userId,
-      });
-      return null;
-    }
-  } catch (error) {
-    console.error("[orchestrator] Failed checking existing achievement", {
-      key: options.achievementKey,
-      user_id: options.userId,
-      error,
-    });
-    return null;
-  }
-
-  const payload = {
-    user_id: options.userId,
-    achievement_id: achievement.id,
-    unlocked_at: options.occurredAt,
-    context: options.context,
-  };
-
-  try {
-    await supabaseFetch(
-      env,
-      "/rest/v1/user_achievements?on_conflict=user_id,achievement_id",
-      {
-        method: "POST",
-        headers: {
-          Prefer: "return=minimal,resolution=merge-duplicates",
-        },
-        body: JSON.stringify([payload]),
-      },
-    );
-  } catch (error) {
-    console.error("[orchestrator] Failed inserting user_achievements row", {
-      key: options.achievementKey,
-      user_id: options.userId,
-      error,
-    });
-    return null;
-  }
-
-  if (achievement.rule_id) {
-    try {
-      await supabaseFetch(
-        env,
-        "/rest/v1/user_awards?on_conflict=user_id,rule_id,window_key",
-        {
-          method: "POST",
-          headers: {
-            Prefer: "return=minimal,resolution=merge-duplicates",
-          },
-          body: JSON.stringify([
-            {
-              user_id: options.userId,
-              rule_id: achievement.rule_id,
-              window_key: "global",
-              awarded_at: options.occurredAt,
-              awarded_for_event: options.sourceEventId,
-              details: options.context,
-            },
-          ]),
-        },
-      );
-    } catch (error) {
-      console.error("[orchestrator] Failed upserting user_awards row", {
-        key: options.achievementKey,
-        user_id: options.userId,
-        error,
-      });
-    }
-
-    try {
-      await supabaseFetch(env, "/rest/v1/awards_log", {
-        method: "POST",
-        headers: {
-          Prefer: "return=minimal",
-        },
-        body: JSON.stringify([
-          {
-            user_id: options.userId,
-            rule_id: achievement.rule_id,
-            window_key: "global",
-            event_id: options.sourceEventId,
-            action: "grant",
-            created_at: options.occurredAt,
-          },
-        ]),
-      });
-    } catch (error) {
-      console.error("[orchestrator] Failed inserting awards_log entry", {
-        key: options.achievementKey,
-        user_id: options.userId,
-        error,
-      });
-    }
-  }
-
-  console.info("[orchestrator] Granted achievement", {
-    key: options.achievementKey,
-    user_id: options.userId,
-  });
-
-  return {
-    key: achievement.key,
-    userId: options.userId,
-    awarded: true,
-    context: options.context,
-  } satisfies AchievementAwardSummary;
-}
-
-
-async function emitNotificationsForAwards(
-  env: Env,
-  awards: AchievementAwardSummary[],
-  meta: { sourceEventId: string; occurredAt: string },
-) {
-  if (!awards || awards.length === 0) {
-    return;
-  }
-
-  const catalog = await ensureAchievementCache(env);
-  const notifications: Array<Record<string, unknown>> = [];
-
-  for (const award of awards) {
-    if (!award.awarded) {
-      continue;
-    }
-
-    const achievement = catalog.get(award.key);
-    if (!achievement) {
-      console.warn("[orchestrator] Unknown achievement key from processor", {
-        key: award.key,
-      });
-      continue;
-    }
-
-    const payload: Record<string, unknown> = {
-      achievement_id: achievement.id,
-      achievement_key: achievement.key,
-      context: award.context ?? {},
-      awarded_at: meta.occurredAt,
-      source_event_id: meta.sourceEventId,
-    };
-
-    notifications.push({
-      user_id: award.userId,
-      type: "achievement_awarded",
-      payload,
-    });
-  }
-
-  if (notifications.length === 0) {
-    return;
-  }
-
-  try {
-    await supabaseFetch(env, "/rest/v1/notifications", {
+    const response = await supabaseFetch(env, "/rest/v1/rpc/grant_achievements_batch", {
       method: "POST",
-      headers: {
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify(notifications),
+      body: JSON.stringify({ awards: rpcPayload }),
     });
-    console.info("[orchestrator] Inserted notifications", {
-      count: notifications.length,
-      source_event_id: meta.sourceEventId,
+
+    const results = (await response.json()) as Array<{
+      achievement_key: string;
+      user_id: string;
+      awarded: boolean;
+      context?: Record<string, unknown>;
+      reason?: string;
+    }>;
+
+    const granted = results.filter((r) => r.awarded).length;
+    const failed = results.filter((r) => !r.awarded).length;
+
+    console.info("[orchestrator] Batch processed achievements", {
+      total: awards.length,
+      granted,
+      failed,
+      failed_details: results
+        .filter((r) => !r.awarded)
+        .map((r) => ({ key: r.achievement_key, reason: r.reason })),
     });
+
+    // Convert to AchievementAwardSummary format
+    return results.map((result) => ({
+      key: result.achievement_key,
+      userId: result.user_id,
+      awarded: result.awarded,
+      context: result.context ?? null,
+    }));
   } catch (error) {
-    console.error("[orchestrator] Failed inserting notifications", {
-      error,
-      count: notifications.length,
+    console.error("[orchestrator] Failed batch processing achievements", {
+      error: describeError(error),
+      count: awards.length,
     });
+    return [];
   }
 }
 
@@ -795,12 +650,18 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
 
   const fursuitOwnerId = rawOwnerId && rawOwnerId !== catcherId ? rawOwnerId : null;
   const occurredAt = typeof catchRow.caught_at === "string" ? catchRow.caught_at : event.occurred_at;
-  const awards: AchievementAwardSummary[] = [];
+  const awardsToGrant: Array<{
+    userId: string;
+    achievementKey: string;
+    context: Record<string, unknown>;
+    occurredAt: string;
+    sourceEventId: string;
+  }> = [];
 
   const totalCatches = await countCatchesByUser(env, catcherId);
 
   if (totalCatches === 1) {
-    const award = await grantAchievement(env, {
+    awardsToGrant.push({
       userId: catcherId,
       achievementKey: "FIRST_CATCH",
       context: {
@@ -810,14 +671,10 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
       occurredAt,
       sourceEventId: event.event_id,
     });
-
-    if (award) {
-      awards.push(award);
-    }
   }
 
   if (totalCatches >= 10) {
-    const award = await grantAchievement(env, {
+    awardsToGrant.push({
       userId: catcherId,
       achievementKey: "GETTING_THE_HANG_OF_IT",
       context: {
@@ -827,11 +684,10 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
       occurredAt,
       sourceEventId: event.event_id,
     });
-    if (award) awards.push(award);
   }
 
   if (totalCatches >= 25) {
-    const award = await grantAchievement(env, {
+    awardsToGrant.push({
       userId: catcherId,
       achievementKey: "SUPER_CATCHER",
       context: {
@@ -841,12 +697,11 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
       occurredAt,
       sourceEventId: event.event_id,
     });
-    if (award) awards.push(award);
   }
 
   const distinctSpecies = await countDistinctSpeciesCaught(env, catcherId);
   if (distinctSpecies >= 5) {
-    const award = await grantAchievement(env, {
+    awardsToGrant.push({
       userId: catcherId,
       achievementKey: "SUIT_SAMPLER",
       context: {
@@ -857,11 +712,10 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
       occurredAt,
       sourceEventId: event.event_id,
     });
-    if (award) awards.push(award);
   }
 
   if (await hasHybridOrMultiSpecies(env, fursuitId)) {
-    const catcherAward = await grantAchievement(env, {
+    awardsToGrant.push({
       userId: catcherId,
       achievementKey: "MIX_AND_MATCH",
       context: {
@@ -871,10 +725,9 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
       occurredAt,
       sourceEventId: event.event_id,
     });
-    if (catcherAward) awards.push(catcherAward);
 
     if (fursuitOwnerId) {
-      const ownerAward = await grantAchievement(env, {
+      awardsToGrant.push({
         userId: fursuitOwnerId,
         achievementKey: "HYBRID_VIBES",
         context: {
@@ -885,12 +738,11 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
         occurredAt,
         sourceEventId: event.event_id,
       });
-      if (ownerAward) awards.push(ownerAward);
     }
   }
 
   if (await hasSecondCatchWithinMinute(env, catcherId, occurredAt)) {
-    const award = await grantAchievement(env, {
+    awardsToGrant.push({
       userId: catcherId,
       achievementKey: "DOUBLE_TROUBLE",
       context: {
@@ -900,7 +752,6 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
       occurredAt,
       sourceEventId: event.event_id,
     });
-    if (award) awards.push(award);
   }
 
   if (fursuitOwnerId) {
@@ -913,7 +764,7 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     });
 
     if (totalFursuitCatches === 1) {
-      const award = await grantAchievement(env, {
+      awardsToGrant.push({
         userId: fursuitOwnerId,
         achievementKey: "DEBUT_PERFORMANCE",
         context: {
@@ -925,7 +776,6 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
         occurredAt,
         sourceEventId: event.event_id,
       });
-      if (award) awards.push(award);
     }
   }
 
@@ -948,7 +798,7 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
       const localParts = toLocalParts(occurredAt, conventionInfo.timezone);
 
       if (conventionInfo.startDate && localParts.date === conventionInfo.startDate) {
-        const award = await grantAchievement(env, {
+        awardsToGrant.push({
           userId: catcherId,
           achievementKey: "DAY_ONE_DEVOTEE",
           context: {
@@ -959,11 +809,10 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
           occurredAt,
           sourceEventId: event.event_id,
         });
-        if (award) awards.push(award);
       }
 
       if (localParts.hour >= 22) {
-        const award = await grantAchievement(env, {
+        awardsToGrant.push({
           userId: catcherId,
           achievementKey: "NIGHT_OWL",
           context: {
@@ -974,7 +823,6 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
           occurredAt,
           sourceEventId: event.event_id,
         });
-        if (award) awards.push(award);
       }
     }
 
@@ -989,7 +837,7 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     });
 
     if (filteredEvents.length >= 25 && fursuitOwnerId) {
-      const award = await grantAchievement(env, {
+      awardsToGrant.push({
         userId: fursuitOwnerId,
         achievementKey: "FAN_FAVORITE",
         context: {
@@ -1001,7 +849,6 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
         occurredAt,
         sourceEventId: event.event_id,
       });
-      if (award) awards.push(award);
     }
 
     const uniqueCatchers = new Set<string>();
@@ -1010,7 +857,7 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     }
 
     if (uniqueCatchers.size < 10) {
-      const award = await grantAchievement(env, {
+      awardsToGrant.push({
         userId: catcherId,
         achievementKey: "RARE_FIND",
         context: {
@@ -1021,14 +868,13 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
         occurredAt,
         sourceEventId: event.event_id,
       });
-      if (award) awards.push(award);
     }
 
   }
 
   const distinctConventions = await countDistinctConventionsForUser(env, catcherId);
   if (distinctConventions >= 3) {
-    const award = await grantAchievement(env, {
+    awardsToGrant.push({
       userId: catcherId,
       achievementKey: "WORLD_TOUR",
       context: {
@@ -1039,16 +885,13 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
       occurredAt,
       sourceEventId: event.event_id,
     });
-    if (award) awards.push(award);
   }
 
-  if (awards.length > 0) {
-    await emitNotificationsForAwards(env, awards, {
-      sourceEventId: event.event_id,
-      occurredAt,
-    });
+  // Grant all achievements in a single batch
+  if (awardsToGrant.length > 0) {
+    await grantAchievementsBatch(env, awardsToGrant);
   } else {
-    console.info("[orchestrator] No catch achievements awarded", {
+    console.info("[orchestrator] No catch achievements to grant", {
       event_id: event.event_id,
       catch_id: catchId,
     });
@@ -1093,22 +936,17 @@ async function handleProfileUpdated(env: Env, event: EventRecord) {
       return;
     }
 
-    const award = await grantAchievement(env, {
-      userId,
-      achievementKey: "PROFILE_COMPLETE",
-      context: {
-        user_id: userId,
-      },
-      occurredAt: event.occurred_at,
-      sourceEventId: event.event_id,
-    });
-
-    if (award) {
-      await emitNotificationsForAwards(env, [award], {
-        sourceEventId: event.event_id,
+    await grantAchievementsBatch(env, [
+      {
+        userId,
+        achievementKey: "PROFILE_COMPLETE",
+        context: {
+          user_id: userId,
+        },
         occurredAt: event.occurred_at,
-      });
-    }
+        sourceEventId: event.event_id,
+      },
+    ]);
   } catch (error) {
     console.error("[orchestrator] Failed handling profile_updated", {
       userId,
@@ -1126,23 +964,18 @@ async function handleOnboardingCompleted(env: Env, event: EventRecord) {
     return;
   }
 
-  const award = await grantAchievement(env, {
-    userId,
-    achievementKey: "getting_started",
-    context: {
-      user_id: userId,
-      source: event.payload?.source ?? null,
-    },
-    occurredAt: event.occurred_at,
-    sourceEventId: event.event_id,
-  });
-
-  if (award) {
-    await emitNotificationsForAwards(env, [award], {
-      sourceEventId: event.event_id,
+  await grantAchievementsBatch(env, [
+    {
+      userId,
+      achievementKey: "getting_started",
+      context: {
+        user_id: userId,
+        source: event.payload?.source ?? null,
+      },
       occurredAt: event.occurred_at,
-    });
-  }
+      sourceEventId: event.event_id,
+    },
+  ]);
 }
 
 async function handleConventionJoined(env: Env, event: EventRecord) {
@@ -1162,23 +995,18 @@ async function handleConventionJoined(env: Env, event: EventRecord) {
     return;
   }
 
-  const award = await grantAchievement(env, {
-    userId,
-    achievementKey: "EXPLORER",
-    context: {
-      user_id: userId,
-      convention_id: conventionId,
-    },
-    occurredAt: event.occurred_at,
-    sourceEventId: event.event_id,
-  });
-
-  if (award) {
-    await emitNotificationsForAwards(env, [award], {
-      sourceEventId: event.event_id,
+  await grantAchievementsBatch(env, [
+    {
+      userId,
+      achievementKey: "EXPLORER",
+      context: {
+        user_id: userId,
+        convention_id: conventionId,
+      },
       occurredAt: event.occurred_at,
-    });
-  }
+      sourceEventId: event.event_id,
+    },
+  ]);
 }
 
 async function handleLeaderboardRefreshed(_env: Env, event: EventRecord) {

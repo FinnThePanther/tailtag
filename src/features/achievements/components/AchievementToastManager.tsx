@@ -35,10 +35,11 @@ export function AchievementToastManager() {
     queryKey: statusQueryKey,
     queryFn: () => fetchAchievementStatus(userId ?? ''),
     enabled: Boolean(userId),
-    staleTime: 60_000,
+    staleTime: 30_000, // 30 seconds - prevents unnecessary refetches during navigation
     gcTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    refetchOnMount: false, // Prevent refetch during route transitions - rely on Realtime for updates
     // Ensure this query runs immediately and isn't suspended
     networkMode: 'always',
   });
@@ -131,6 +132,8 @@ export function AchievementToastManager() {
       payload: Record<string, unknown> | null,
       createdAt: string | null,
     ) => {
+      const notificationReceivedAt = Date.now();
+
       const achievementIdRaw =
         (payload?.achievement_id ?? payload?.achievementId) ?? null;
       const achievementId =
@@ -142,6 +145,16 @@ export function AchievementToastManager() {
       const contextRaw = payload?.context ?? null;
       const context: Json | null =
         typeof contextRaw === 'object' && contextRaw !== null ? (contextRaw as Json) : null;
+
+      addMonitoringBreadcrumb({
+        category: 'achievements',
+        message: 'Achievement notification received',
+        data: {
+          userId,
+          achievementId,
+          notificationReceivedAt,
+        },
+      });
 
       let matchedAchievement: AchievementWithStatus | undefined;
 
@@ -169,23 +182,29 @@ export function AchievementToastManager() {
         },
       );
 
+      // Always invalidate to ensure cache is fresh for next read
+      void queryClient.invalidateQueries({ queryKey: statusQueryKey });
+
       const unlockedAchievement = matchedAchievement;
 
       if (unlockedAchievement) {
+        const toastDisplayedAt = Date.now();
+        const latencyMs = toastDisplayedAt - notificationReceivedAt;
+
         addMonitoringBreadcrumb({
           category: 'achievements',
-          message: 'Achievement unlocked (notification)',
+          message: 'Achievement unlocked (cache hit)',
           data: {
             userId,
             achievementId: unlockedAchievement.id,
+            latencyMs,
           },
         });
         handleToast(unlockedAchievement);
         return;
       }
 
-      void queryClient.invalidateQueries({ queryKey: statusQueryKey });
-
+      // Achievement not found in cache, force refetch
       void (async () => {
         try {
           const latest = await queryClient.fetchQuery({
@@ -198,12 +217,16 @@ export function AchievementToastManager() {
           );
 
           if (fetchedAchievement) {
+            const toastDisplayedAt = Date.now();
+            const latencyMs = toastDisplayedAt - notificationReceivedAt;
+
             addMonitoringBreadcrumb({
               category: 'achievements',
-              message: 'Achievement unlocked (notification-refetch)',
+              message: 'Achievement unlocked (refetch)',
               data: {
                 userId,
                 achievementId: fetchedAchievement.id,
+                latencyMs,
               },
             });
             handleToast(fetchedAchievement);
@@ -218,19 +241,24 @@ export function AchievementToastManager() {
           });
         }
 
+        // Fallback: show generic toast
         const fallbackName =
           (typeof payload?.achievement_key === 'string' && payload?.achievement_key.trim().length > 0
             ? payload?.achievement_key
             : null) ??
           'achievement';
 
+        const toastDisplayedAt = Date.now();
+        const latencyMs = toastDisplayedAt - notificationReceivedAt;
+
         showToast(`You just unlocked ${fallbackName}!`);
         addMonitoringBreadcrumb({
           category: 'achievements',
-          message: 'Achievement unlocked (notification-fallback)',
+          message: 'Achievement unlocked (fallback)',
           data: {
             userId,
             achievementId,
+            latencyMs,
           },
           level: 'warning',
         });
@@ -303,11 +331,41 @@ export function AchievementToastManager() {
     );
 
     channel.subscribe((status, error) => {
-      if (status === 'CHANNEL_ERROR' && error) {
+      if (status === 'SUBSCRIBED') {
+        addMonitoringBreadcrumb({
+          category: 'realtime',
+          message: 'Notifications channel subscribed',
+          data: {
+            userId,
+            channelName,
+            instanceId,
+          },
+        });
+      } else if (status === 'CHANNEL_ERROR' && error) {
         captureHandledException(error, {
           scope: 'notifications.realtime',
           action: 'subscribe',
           userId,
+          channelName,
+        });
+      } else if (status === 'TIMED_OUT') {
+        addMonitoringBreadcrumb({
+          category: 'realtime',
+          message: 'Notifications channel subscription timed out',
+          data: {
+            userId,
+            channelName,
+          },
+          level: 'warning',
+        });
+      } else if (status === 'CLOSED') {
+        addMonitoringBreadcrumb({
+          category: 'realtime',
+          message: 'Notifications channel closed',
+          data: {
+            userId,
+            channelName,
+          },
         });
       }
     });
