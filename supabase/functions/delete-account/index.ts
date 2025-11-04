@@ -1,5 +1,4 @@
 /// <reference lib="deno.unstable" />
-// eslint-disable-next-line import/no-unresolved -- remote import for Deno edge functions
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
 
 const corsHeaders: Record<string, string> = {
@@ -11,263 +10,21 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error("Missing SUPABASE_URL or SERVICE_ROLE_KEY environment variables");
+  throw new Error("Missing environment variables");
 }
 
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
 });
 
-function jsonResponse(status: number, payload: Record<string, unknown>) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-function getBearerToken(req: Request): string | null {
-  const header = req.headers.get("Authorization") ?? req.headers.get("authorization");
-
-  if (!header) {
-    return null;
-  }
-
-  const parts = header.split(" ");
-
-  if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
-    return null;
-  }
-
-  return parts[1];
-}
-
-function deriveStoragePathFromPublicUrl(publicUrl: string | null | undefined, bucketName: string): string | null {
-  if (!publicUrl) {
-    return null;
-  }
-
+function decodeJwt(token: string): { sub?: string } {
   try {
-    const url = new URL(publicUrl);
-    const segments = url.pathname.split("/").filter(Boolean);
-    const bucketIndex = segments.findIndex((segment) => segment === bucketName);
-
-    if (bucketIndex === -1) {
-      return null;
-    }
-
-    const objectSegments = segments.slice(bucketIndex + 1);
-    return objectSegments.join("/");
-  } catch (error) {
-    console.warn("[delete-account] Unable to parse storage URL", error);
-    return null;
+    const payload = token.split(".")[1];
+    const decoded = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(decoded);
+  } catch {
+    return {};
   }
-}
-
-async function assertSuccess(promise: Promise<{ error: { message?: string } | null }>, context: string) {
-  const { error } = await promise;
-
-  if (error) {
-    throw new Error(`Failed to delete ${context}: ${error.message ?? "unknown error"}`);
-  }
-}
-
-async function deleteAccountData(userId: string) {
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .select("avatar_url")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (profileError && profileError.code !== "PGRST116") {
-    throw new Error(`Unable to load profile: ${profileError.message}`);
-  }
-
-  const profileAvatarPath = deriveStoragePathFromPublicUrl(profile?.avatar_url ?? null, "avatars");
-
-  const { data: fursuits, error: fursuitsError } = await supabaseAdmin
-    .from("fursuits")
-    .select("id, avatar_url")
-    .eq("owner_id", userId);
-
-  if (fursuitsError) {
-    throw new Error(`Unable to load fursuits: ${fursuitsError.message}`);
-  }
-
-  const fursuitIds = (fursuits ?? []).map((record) => record.id);
-  const fursuitAvatarPaths = (fursuits ?? [])
-    .map((record) => deriveStoragePathFromPublicUrl(record.avatar_url ?? null, "fursuit-avatars"))
-    .filter((path): path is string => Boolean(path));
-
-  if (profileAvatarPath) {
-    const { error: storageError } = await supabaseAdmin.storage
-      .from("avatars")
-      .remove([profileAvatarPath]);
-
-    if (storageError) {
-      throw new Error(`Unable to delete profile avatar: ${storageError.message}`);
-    }
-  }
-
-  if (fursuitAvatarPaths.length > 0) {
-    const { error: storageError } = await supabaseAdmin.storage
-      .from("fursuit-avatars")
-      .remove(fursuitAvatarPaths);
-
-    if (storageError) {
-      throw new Error(`Unable to delete fursuit photos: ${storageError.message}`);
-    }
-  }
-
-  await assertSuccess(
-    supabaseAdmin
-      .from("user_achievements")
-      .delete()
-      .eq("user_id", userId),
-    "user achievements",
-  );
-
-  await assertSuccess(
-    supabaseAdmin
-      .from("user_daily_progress")
-      .delete()
-      .eq("user_id", userId),
-    "daily progress",
-  );
-
-  await assertSuccess(
-    supabaseAdmin
-      .from("user_daily_streaks")
-      .delete()
-      .eq("user_id", userId),
-    "daily streaks",
-  );
-
-  await assertSuccess(
-    supabaseAdmin
-      .from("profile_conventions")
-      .delete()
-      .eq("profile_id", userId),
-    "profile conventions",
-  );
-
-  await assertSuccess(
-    supabaseAdmin
-      .from("catches")
-      .delete()
-      .eq("catcher_id", userId),
-    "catches recorded as catcher",
-  );
-
-  if (fursuitIds.length > 0) {
-    await assertSuccess(
-      supabaseAdmin
-        .from("fursuit_conventions")
-        .delete()
-        .in("fursuit_id", fursuitIds),
-      "fursuit conventions",
-    );
-
-    await assertSuccess(
-      supabaseAdmin
-        .from("fursuit_bios")
-        .delete()
-        .in("fursuit_id", fursuitIds),
-      "fursuit bios",
-    );
-
-    await assertSuccess(
-      supabaseAdmin
-        .from("catches")
-        .delete()
-        .in("fursuit_id", fursuitIds),
-      "catches recorded for owned fursuits",
-    );
-  }
-
-  await assertSuccess(
-    supabaseAdmin
-      .from("fursuits")
-      .delete()
-      .eq("owner_id", userId),
-    "fursuits",
-  );
-
-  const {
-    data: remainingFursuits,
-    error: remainingFursuitsError,
-  } = await supabaseAdmin
-    .from("fursuits")
-    .select("id, avatar_url")
-    .eq("owner_id", userId);
-
-  if (remainingFursuitsError) {
-    throw new Error(`Unable to verify fursuit deletion: ${remainingFursuitsError.message}`);
-  }
-
-  if ((remainingFursuits?.length ?? 0) > 0) {
-    const remainingAvatarPaths = remainingFursuits
-      .map((record) => deriveStoragePathFromPublicUrl(record.avatar_url ?? null, "fursuit-avatars"))
-      .filter((path): path is string => Boolean(path));
-
-    if (remainingAvatarPaths.length > 0) {
-      const { error: remainingStorageError } = await supabaseAdmin.storage
-        .from("fursuit-avatars")
-        .remove(remainingAvatarPaths);
-
-      if (remainingStorageError) {
-        throw new Error(`Unable to delete remaining fursuit photos: ${remainingStorageError.message}`);
-      }
-    }
-
-    await assertSuccess(
-      supabaseAdmin
-        .from("fursuits")
-        .delete()
-        .eq("owner_id", userId),
-      "fursuits (final cleanup)",
-    );
-  }
-
-  await assertSuccess(
-    supabaseAdmin
-      .from("profiles")
-      .delete()
-      .eq("id", userId),
-    "profile",
-  );
-
-  let authDeletionMode: "hard" | "soft" = "hard";
-  const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-
-  if (authError) {
-    if (authError.message?.toLowerCase().includes("database error deleting user")) {
-      console.warn("[delete-account] Falling back to soft delete for auth user", { userId, error: authError.message });
-
-      const { error: softDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId, true);
-
-      if (softDeleteError) {
-        throw new Error(`Unable to delete auth user (soft delete fallback failed): ${softDeleteError.message}`);
-      }
-
-      authDeletionMode = "soft";
-    } else {
-      throw new Error(`Unable to delete auth user: ${authError.message}`);
-    }
-  }
-
-  return {
-    userId,
-    fursuitsDeleted: fursuitIds.length,
-    fursuitAvatarsDeleted: fursuitAvatarPaths.length,
-    profileAvatarDeleted: Boolean(profileAvatarPath),
-    authDeletionMode,
-  } as const;
 }
 
 Deno.serve(async (req) => {
@@ -276,32 +33,90 @@ Deno.serve(async (req) => {
   }
 
   if (req.method !== "POST") {
-    return jsonResponse(405, { error: "Method not allowed" });
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
-  const accessToken = getBearerToken(req);
-
-  if (!accessToken) {
-    return jsonResponse(401, { error: "Missing or invalid authorization header" });
+  // Get token and extract user ID
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "No token" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabaseAdmin.auth.getUser(accessToken);
+  const token = authHeader.substring(7);
+  const { sub: userId } = decodeJwt(token);
 
-  if (userError || !user) {
-    return jsonResponse(401, { error: userError?.message ?? "Unauthorized" });
+  if (!userId) {
+    return new Response(JSON.stringify({ error: "Invalid token" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
+
+  console.log(`[delete-account] Deleting user ${userId}`);
 
   try {
-    const summary = await deleteAccountData(user.id);
-    return jsonResponse(200, { success: true, summary });
-  } catch (error) {
-    console.error("[delete-account] Failed deleting account", error);
-    return jsonResponse(500, {
-      success: false,
-      error: error instanceof Error ? error.message : "Unexpected error",
+    // STEP 1: Delete notifications first (has NO ACTION constraint)
+    console.log("[delete-account] Deleting notifications");
+    await supabase.from("notifications").delete().eq("user_id", userId);
+
+    // STEP 2: Delete other user data
+    console.log("[delete-account] Deleting user data");
+    await supabase.from("user_achievements").delete().eq("user_id", userId);
+    await supabase.from("user_daily_progress").delete().eq("user_id", userId);
+    await supabase.from("user_daily_streaks").delete().eq("user_id", userId);
+    await supabase.from("profile_conventions").delete().eq("profile_id", userId);
+    await supabase.from("catches").delete().eq("catcher_id", userId);
+
+    // STEP 3: Delete fursuits and related data
+    console.log("[delete-account] Deleting fursuits");
+    const { data: fursuits } = await supabase
+      .from("fursuits")
+      .select("id")
+      .eq("owner_id", userId);
+
+    if (fursuits && fursuits.length > 0) {
+      const fursuitIds = fursuits.map((f) => f.id);
+      await supabase.from("fursuit_conventions").delete().in("fursuit_id", fursuitIds);
+      await supabase.from("fursuit_bios").delete().in("fursuit_id", fursuitIds);
+      await supabase.from("catches").delete().in("fursuit_id", fursuitIds);
+    }
+
+    await supabase.from("fursuits").delete().eq("owner_id", userId);
+
+    // STEP 4: Delete profile
+    console.log("[delete-account] Deleting profile");
+    await supabase.from("profiles").delete().eq("id", userId);
+
+    // STEP 5: Delete auth user LAST
+    console.log("[delete-account] Deleting auth user");
+    const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+    if (authError) {
+      console.error("[delete-account] Auth deletion failed:", authError);
+      throw new Error(`Auth deletion failed: ${authError.message}`);
+    }
+
+    console.log("[delete-account] Deletion complete");
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  } catch (error) {
+    console.error("[delete-account] Error:", error);
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Deletion failed",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });
