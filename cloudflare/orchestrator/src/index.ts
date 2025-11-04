@@ -59,6 +59,10 @@ const ACHIEVEMENT_CACHE_TTL_MS = 5 * 60 * 1000;
 let achievementCache: Map<string, { id: string; key: string; rule_id: string | null }> | null = null;
 let achievementCacheExpiresAt = 0;
 
+let conventionCache: Map<string, { startDate: string | null; timezone: string | null }> | null = null;
+let conventionCacheExpiresAt = 0;
+const CONVENTION_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
 function describeError(error: unknown) {
   if (error instanceof Error) {
     return {
@@ -135,12 +139,48 @@ async function countCatchesByUser(env: Env, userId: string): Promise<number> {
   try {
     const response = await supabaseFetch(
       env,
-      `/rest/v1/catches?select=is_tutorial&catcher_id=eq.${encodeURIComponent(userId)}&order=caught_at.asc&limit=20000`,
+      `/rest/v1/catches?catcher_id=eq.${encodeURIComponent(userId)}&is_tutorial=eq.false`,
+      {
+        method: "HEAD",
+        headers: {
+          Prefer: "count=exact",
+        },
+      }
     );
-    const rows = (await response.json()) as Array<{ is_tutorial?: boolean | null }>;
-    return rows.filter((row) => row.is_tutorial !== true).length;
+
+    const contentRange = response.headers.get("content-range");
+    if (!contentRange) return 0;
+    const parts = contentRange.split("/");
+    if (parts.length !== 2) return 0;
+    const total = Number.parseInt(parts[1], 10);
+    return Number.isNaN(total) ? 0 : total;
   } catch (error) {
     console.error("[orchestrator] Failed counting catches for user", { userId, error });
+    return 0;
+  }
+}
+
+async function countCatchesByFursuit(env: Env, fursuitId: string): Promise<number> {
+  try {
+    const response = await supabaseFetch(
+      env,
+      `/rest/v1/catches?fursuit_id=eq.${encodeURIComponent(fursuitId)}`,
+      {
+        method: "HEAD",
+        headers: {
+          Prefer: "count=exact",
+        },
+      }
+    );
+
+    const contentRange = response.headers.get("content-range");
+    if (!contentRange) return 0;
+    const parts = contentRange.split("/");
+    if (parts.length !== 2) return 0;
+    const total = Number.parseInt(parts[1], 10);
+    return Number.isNaN(total) ? 0 : total;
+  } catch (error) {
+    console.error("[orchestrator] Failed counting catches for fursuit", { fursuitId, error });
     return 0;
   }
 }
@@ -414,6 +454,20 @@ async function fetchConventionInfo(
   env: Env,
   conventionId: string,
 ): Promise<{ startDate: string | null; timezone: string | null } | null> {
+  const now = Date.now();
+
+  // Check cache
+  if (conventionCache && now < conventionCacheExpiresAt) {
+    const cached = conventionCache.get(conventionId);
+    if (cached) {
+      return cached;
+    }
+  } else if (!conventionCache || now >= conventionCacheExpiresAt) {
+    conventionCache = new Map();
+    conventionCacheExpiresAt = now + CONVENTION_CACHE_TTL_MS;
+  }
+
+  // Fetch from database
   try {
     const response = await supabaseFetch(
       env,
@@ -424,10 +478,14 @@ async function fetchConventionInfo(
     if (!record) {
       return null;
     }
-    return {
+    const result = {
       startDate: record.start_date ?? null,
       timezone: record.timezone ?? "UTC",
     };
+
+    // Cache the result
+    conventionCache.set(conventionId, result);
+    return result;
   } catch (error) {
     console.error("[orchestrator] Failed fetching convention info", {
       conventionId,
@@ -590,6 +648,7 @@ async function grantAchievementsBatch(
 }
 
 async function handleCatchPerformed(env: Env, event: EventRecord) {
+  const startTime = Date.now();
   const payload = event.payload ?? {};
   const catchId = typeof payload.catch_id === "string" ? payload.catch_id : null;
 
@@ -650,7 +709,10 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
 
   const fursuitOwnerId = rawOwnerId && rawOwnerId !== catcherId ? rawOwnerId : null;
   const occurredAt = typeof catchRow.caught_at === "string" ? catchRow.caught_at : event.occurred_at;
-  const awardsToGrant: Array<{
+
+  // ========== PHASE 1: QUICK AWARDS (grant immediately) ==========
+  const phase1Start = Date.now();
+  const quickAwards: Array<{
     userId: string;
     achievementKey: string;
     context: Record<string, unknown>;
@@ -658,10 +720,29 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     sourceEventId: string;
   }> = [];
 
-  const totalCatches = await countCatchesByUser(env, catcherId);
+  // Determine convention ID for parallel queries
+  const payloadConventionId = typeof payload.convention_id === "string"
+    ? payload.convention_id
+    : Array.isArray(payload.convention_ids) && payload.convention_ids.length > 0
+      ? String(payload.convention_ids[0])
+      : null;
+  const primaryConventionId =
+    (typeof catchRow.convention_id === "string" && catchRow.convention_id.length > 0
+      ? catchRow.convention_id
+      : null) ??
+    payloadConventionId ??
+    event.convention_id;
+
+  // Parallelize independent queries for Phase 1
+  const [totalCatches, totalFursuitCatches, conventionInfo] = await Promise.all([
+    countCatchesByUser(env, catcherId),
+    fursuitOwnerId ? countCatchesByFursuit(env, fursuitId) : Promise.resolve(0),
+    primaryConventionId ? fetchConventionInfo(env, primaryConventionId) : Promise.resolve(null),
+  ]);
+  const phase1CountEnd = Date.now();
 
   if (totalCatches === 1) {
-    awardsToGrant.push({
+    quickAwards.push({
       userId: catcherId,
       achievementKey: "FIRST_CATCH",
       context: {
@@ -674,7 +755,7 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
   }
 
   if (totalCatches >= 10) {
-    awardsToGrant.push({
+    quickAwards.push({
       userId: catcherId,
       achievementKey: "GETTING_THE_HANG_OF_IT",
       context: {
@@ -687,7 +768,7 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
   }
 
   if (totalCatches >= 25) {
-    awardsToGrant.push({
+    quickAwards.push({
       userId: catcherId,
       achievementKey: "SUPER_CATCHER",
       context: {
@@ -699,9 +780,94 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     });
   }
 
+  // Quick check: DEBUT_PERFORMANCE for fursuit owner (using parallel query result)
+  if (fursuitOwnerId && totalFursuitCatches === 1) {
+    quickAwards.push({
+      userId: fursuitOwnerId,
+      achievementKey: "DEBUT_PERFORMANCE",
+      context: {
+        catch_id: catchId,
+        fursuit_id: fursuitId,
+        owner_id: fursuitOwnerId,
+        catcher_id: catcherId,
+      },
+      occurredAt,
+      sourceEventId: event.event_id,
+    });
+  }
+
+  // Quick check: Convention-based time achievements (using parallel query result)
+  if (primaryConventionId && conventionInfo) {
+    const localParts = toLocalParts(occurredAt, conventionInfo.timezone);
+
+    if (conventionInfo.startDate && localParts.date === conventionInfo.startDate) {
+      quickAwards.push({
+        userId: catcherId,
+        achievementKey: "DAY_ONE_DEVOTEE",
+        context: {
+          catch_id: catchId,
+          fursuit_id: fursuitId,
+          convention_id: primaryConventionId,
+        },
+        occurredAt,
+        sourceEventId: event.event_id,
+      });
+    }
+
+    if (localParts.hour >= 22) {
+      quickAwards.push({
+        userId: catcherId,
+        achievementKey: "NIGHT_OWL",
+        context: {
+          catch_id: catchId,
+          fursuit_id: fursuitId,
+          convention_id: primaryConventionId,
+        },
+        occurredAt,
+        sourceEventId: event.event_id,
+      });
+    }
+  }
+
+  const phase1End = Date.now();
+
+  // GRANT QUICK AWARDS IMMEDIATELY
+  if (quickAwards.length > 0) {
+    await grantAchievementsBatch(env, quickAwards);
+    console.info("[orchestrator] Phase 1 complete: Granted quick achievements", {
+      event_id: event.event_id,
+      catch_id: catchId,
+      count: quickAwards.length,
+      achievements: quickAwards.map((a) => a.achievementKey),
+      phase1_count_ms: phase1CountEnd - phase1Start,
+      phase1_total_ms: phase1End - phase1Start,
+      total_latency_ms: phase1End - startTime,
+    });
+  } else {
+    console.info("[orchestrator] Phase 1 complete: No quick achievements to grant", {
+      event_id: event.event_id,
+      catch_id: catchId,
+      phase1_total_ms: phase1End - phase1Start,
+    });
+  }
+
+  // ========== PHASE 2: COMPLEX AWARDS (grant after heavy queries) ==========
+  const phase2Start = Date.now();
+  const complexAwards: Array<{
+    userId: string;
+    achievementKey: string;
+    context: Record<string, unknown>;
+    occurredAt: string;
+    sourceEventId: string;
+  }> = [];
+
+  // Heavy query: Distinct species count
+  const distinctSpeciesStart = Date.now();
   const distinctSpecies = await countDistinctSpeciesCaught(env, catcherId);
+  const distinctSpeciesEnd = Date.now();
+
   if (distinctSpecies >= 5) {
-    awardsToGrant.push({
+    complexAwards.push({
       userId: catcherId,
       achievementKey: "SUIT_SAMPLER",
       context: {
@@ -714,8 +880,13 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     });
   }
 
-  if (await hasHybridOrMultiSpecies(env, fursuitId)) {
-    awardsToGrant.push({
+  // Medium query: Check hybrid/multi-species
+  const hybridStart = Date.now();
+  const isHybrid = await hasHybridOrMultiSpecies(env, fursuitId);
+  const hybridEnd = Date.now();
+
+  if (isHybrid) {
+    complexAwards.push({
       userId: catcherId,
       achievementKey: "MIX_AND_MATCH",
       context: {
@@ -727,7 +898,7 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     });
 
     if (fursuitOwnerId) {
-      awardsToGrant.push({
+      complexAwards.push({
         userId: fursuitOwnerId,
         achievementKey: "HYBRID_VIBES",
         context: {
@@ -741,8 +912,13 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     }
   }
 
-  if (await hasSecondCatchWithinMinute(env, catcherId, occurredAt)) {
-    awardsToGrant.push({
+  // Medium query: Check double catch within minute
+  const doubleTroubleStart = Date.now();
+  const hasDoubleCatch = await hasSecondCatchWithinMinute(env, catcherId, occurredAt);
+  const doubleTroubleEnd = Date.now();
+
+  if (hasDoubleCatch) {
+    complexAwards.push({
       userId: catcherId,
       achievementKey: "DOUBLE_TROUBLE",
       context: {
@@ -754,78 +930,9 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     });
   }
 
-  if (fursuitOwnerId) {
-    const totalFursuitCatches = await countRows(
-      env,
-      `/rest/v1/catches?select=id&fursuit_id=eq.${encodeURIComponent(fursuitId)}&order=caught_at.asc&limit=20000`,
-    ).catch((error) => {
-      console.error("[orchestrator] Failed counting catches for fursuit", { fursuitId, error });
-      return 0;
-    });
-
-    if (totalFursuitCatches === 1) {
-      awardsToGrant.push({
-        userId: fursuitOwnerId,
-        achievementKey: "DEBUT_PERFORMANCE",
-        context: {
-          catch_id: catchId,
-          fursuit_id: fursuitId,
-          owner_id: fursuitOwnerId,
-          catcher_id: catcherId,
-        },
-        occurredAt,
-        sourceEventId: event.event_id,
-      });
-    }
-  }
-
-  const payloadConventionId = typeof payload.convention_id === "string"
-    ? payload.convention_id
-    : Array.isArray(payload.convention_ids) && payload.convention_ids.length > 0
-      ? String(payload.convention_ids[0])
-      : null;
-  const primaryConventionId =
-    (typeof catchRow.convention_id === "string" && catchRow.convention_id.length > 0
-      ? catchRow.convention_id
-      : null) ??
-    payloadConventionId ??
-    event.convention_id;
-
+  // Heavy query: Convention-based achievements
   if (primaryConventionId) {
-    const conventionInfo = await fetchConventionInfo(env, primaryConventionId);
-
-    if (conventionInfo) {
-      const localParts = toLocalParts(occurredAt, conventionInfo.timezone);
-
-      if (conventionInfo.startDate && localParts.date === conventionInfo.startDate) {
-        awardsToGrant.push({
-          userId: catcherId,
-          achievementKey: "DAY_ONE_DEVOTEE",
-          context: {
-            catch_id: catchId,
-            fursuit_id: fursuitId,
-            convention_id: primaryConventionId,
-          },
-          occurredAt,
-          sourceEventId: event.event_id,
-        });
-      }
-
-      if (localParts.hour >= 22) {
-        awardsToGrant.push({
-          userId: catcherId,
-          achievementKey: "NIGHT_OWL",
-          context: {
-            catch_id: catchId,
-            fursuit_id: fursuitId,
-            convention_id: primaryConventionId,
-          },
-          occurredAt,
-          sourceEventId: event.event_id,
-        });
-      }
-    }
-
+    const conventionEventsStart = Date.now();
     const eventsAtConvention = await countCatchEventsForFursuitAtConvention(
       env,
       fursuitId,
@@ -835,9 +942,10 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
       const payloadRecord = evt.payload ?? {};
       return payloadRecord?.is_tutorial !== true && payloadRecord?.is_tutorial !== "true";
     });
+    const conventionEventsEnd = Date.now();
 
     if (filteredEvents.length >= 25 && fursuitOwnerId) {
-      awardsToGrant.push({
+      complexAwards.push({
         userId: fursuitOwnerId,
         achievementKey: "FAN_FAVORITE",
         context: {
@@ -857,7 +965,7 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     }
 
     if (uniqueCatchers.size < 10) {
-      awardsToGrant.push({
+      complexAwards.push({
         userId: catcherId,
         achievementKey: "RARE_FIND",
         context: {
@@ -870,11 +978,18 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
       });
     }
 
+    console.info("[orchestrator] Convention events query completed", {
+      convention_events_ms: conventionEventsEnd - conventionEventsStart,
+    });
   }
 
+  // Heavy query: Distinct conventions count
+  const conventionsStart = Date.now();
   const distinctConventions = await countDistinctConventionsForUser(env, catcherId);
+  const conventionsEnd = Date.now();
+
   if (distinctConventions >= 3) {
-    awardsToGrant.push({
+    complexAwards.push({
       userId: catcherId,
       achievementKey: "WORLD_TOUR",
       context: {
@@ -887,15 +1002,46 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     });
   }
 
-  // Grant all achievements in a single batch
-  if (awardsToGrant.length > 0) {
-    await grantAchievementsBatch(env, awardsToGrant);
-  } else {
-    console.info("[orchestrator] No catch achievements to grant", {
+  const phase2End = Date.now();
+
+  // GRANT COMPLEX AWARDS
+  if (complexAwards.length > 0) {
+    await grantAchievementsBatch(env, complexAwards);
+    console.info("[orchestrator] Phase 2 complete: Granted complex achievements", {
       event_id: event.event_id,
       catch_id: catchId,
+      count: complexAwards.length,
+      achievements: complexAwards.map((a) => a.achievementKey),
+      distinct_species_ms: distinctSpeciesEnd - distinctSpeciesStart,
+      hybrid_check_ms: hybridEnd - hybridStart,
+      double_trouble_ms: doubleTroubleEnd - doubleTroubleStart,
+      conventions_ms: conventionsEnd - conventionsStart,
+      phase2_total_ms: phase2End - phase2Start,
+      total_latency_ms: phase2End - startTime,
+    });
+  } else {
+    console.info("[orchestrator] Phase 2 complete: No complex achievements to grant", {
+      event_id: event.event_id,
+      catch_id: catchId,
+      distinct_species_ms: distinctSpeciesEnd - distinctSpeciesStart,
+      hybrid_check_ms: hybridEnd - hybridStart,
+      double_trouble_ms: doubleTroubleEnd - doubleTroubleStart,
+      conventions_ms: conventionsEnd - conventionsStart,
+      phase2_total_ms: phase2End - phase2Start,
     });
   }
+
+  const endTime = Date.now();
+  console.info("[orchestrator] catch_performed processing complete", {
+    event_id: event.event_id,
+    catch_id: catchId,
+    total_awards: quickAwards.length + complexAwards.length,
+    quick_awards: quickAwards.length,
+    complex_awards: complexAwards.length,
+    phase1_ms: phase1End - phase1Start,
+    phase2_ms: phase2End - phase2Start,
+    total_ms: endTime - startTime,
+  });
 }
 
 async function handleProfileUpdated(env: Env, event: EventRecord) {
@@ -1043,6 +1189,7 @@ function computeRetryDelay(attempts: number): number {
 }
 
 async function processEventMessage(message: QueueMessage, env: Env): Promise<void> {
+  const startTime = Date.now();
   const { event } = message;
   console.info(
     `[orchestrator] Processing event ${event.event_id} (${event.type}) for user ${event.user_id}`,
@@ -1076,6 +1223,13 @@ async function processEventMessage(message: QueueMessage, env: Env): Promise<voi
         type: event.type,
       });
   }
+
+  const endTime = Date.now();
+  console.info(`[orchestrator] Event processing complete`, {
+    event_id: event.event_id,
+    type: event.type,
+    total_processing_ms: endTime - startTime,
+  });
 }
 
 async function handleMessage(message: Message<unknown>, env: Env): Promise<void> {

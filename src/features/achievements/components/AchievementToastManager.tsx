@@ -39,7 +39,7 @@ export function AchievementToastManager() {
     gcTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    refetchOnMount: false, // Prevent refetch during route transitions - rely on Realtime for updates
+    refetchOnMount: true, // Allow initial fetch (critical for iOS after onboarding) - staleTime prevents over-fetching
     // Ensure this query runs immediately and isn't suspended
     networkMode: 'always',
   });
@@ -80,6 +80,92 @@ export function AchievementToastManager() {
     }
   }, [achievementStatus, userId, handleToast]);
 
+  // Sweep for missed notifications on initial load
+  const hasSweptForMissedNotifications = useRef(false);
+  useEffect(() => {
+    if (!userId || !achievementStatus || hasSweptForMissedNotifications.current) {
+      return;
+    }
+
+    hasSweptForMissedNotifications.current = true;
+
+    // Query recent notifications from the last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+    void (async () => {
+      try {
+        const { data: recentNotifications, error } = await supabase
+          .from('notifications')
+          .select('id, type, payload, created_at')
+          .eq('user_id', userId)
+          .eq('type', 'achievement_awarded')
+          .gte('created_at', fiveMinutesAgo)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          captureHandledException(error, {
+            scope: 'notifications.missed-sweep',
+            userId,
+          });
+          return;
+        }
+
+        if (!recentNotifications || recentNotifications.length === 0) {
+          addMonitoringBreadcrumb({
+            category: 'achievements',
+            message: 'Missed notification sweep: no recent notifications',
+            data: { userId },
+          });
+          return;
+        }
+
+        addMonitoringBreadcrumb({
+          category: 'achievements',
+          message: 'Missed notification sweep: processing recent notifications',
+          data: {
+            userId,
+            count: recentNotifications.length,
+          },
+        });
+
+        // Process each notification to check if it's truly missed
+        for (const notification of recentNotifications) {
+          const payload = notification.payload as Record<string, unknown> | null;
+          const achievementId =
+            typeof payload?.achievement_id === 'string'
+              ? payload.achievement_id
+              : typeof payload?.achievementId === 'string'
+                ? payload.achievementId
+                : null;
+
+          if (!achievementId) continue;
+
+          // Check if this achievement is in our loaded status
+          const achievement = achievementStatus.find((a) => a.id === achievementId);
+
+          // If achievement is unlocked but wasn't in our snapshot, it was missed
+          if (achievement && achievement.unlocked && !unlockedSnapshotRef.current.has(achievementId)) {
+            addMonitoringBreadcrumb({
+              category: 'achievements',
+              message: 'Missed notification detected and recovered',
+              data: {
+                userId,
+                achievementId,
+                achievementKey: achievement.key,
+              },
+            });
+            handleToast(achievement);
+          }
+        }
+      } catch (sweepError) {
+        captureHandledException(sweepError, {
+          scope: 'notifications.missed-sweep',
+          userId,
+        });
+      }
+    })();
+  }, [userId, achievementStatus, handleToast]);
+
   useEffect(() => {
     const teardown = () => {
       if (!channelRef.current) {
@@ -103,14 +189,12 @@ export function AchievementToastManager() {
         });
     };
 
-    // Don't subscribe to realtime until we have initial achievement data loaded
-    // This ensures the cache is populated when notifications arrive
-    if (!userId || !hasLoadedAchievements) {
+    // Subscribe immediately when authenticated to avoid missing notifications
+    // The component has fallback logic to fetch achievement data if not in cache
+    if (!userId) {
       teardown();
-      if (!userId) {
-        activeUserRef.current = null;
-        channelInstanceRef.current = null;
-      }
+      activeUserRef.current = null;
+      channelInstanceRef.current = null;
       return;
     }
 
@@ -375,7 +459,7 @@ export function AchievementToastManager() {
       activeUserRef.current = null;
       channelInstanceRef.current = null;
     };
-  }, [userId, hasLoadedAchievements, queryClient, statusQueryKey, handleToast, showToast]);
+  }, [userId, queryClient, statusQueryKey, handleToast, showToast]);
 
   return null;
 }

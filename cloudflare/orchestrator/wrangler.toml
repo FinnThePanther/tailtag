@@ -6,5 +6,5 @@ compatibility_date = "2024-03-30"
 queue = "tailtag-events"
 dead_letter_queue = "tailtag-events-dlq"
 max_batch_size = 1
-max_batch_timeout = 1
+max_batch_timeout = 0
 max_retries = 3
