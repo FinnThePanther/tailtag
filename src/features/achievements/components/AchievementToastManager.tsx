@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSegments } from 'expo-router';
 
 import { useAuth } from '../../auth';
 import { useAchievementUnlockToast } from '..';
@@ -23,11 +24,43 @@ export function AchievementToastManager() {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const activeUserRef = useRef<string | null>(null);
   const channelInstanceRef = useRef<string | null>(null);
+  const hasPrimedChannelRef = useRef<boolean>(false);
+  const routeRef = useRef<string>('');
+
+  const segments = useSegments();
+  routeRef.current = segments.join('/') || 'root';
 
   const statusQueryKey = useMemo(
     () => (userId ? achievementsStatusQueryKey(userId) : ['achievements-status', 'guest'] as const),
     [userId],
   );
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    // Ensure the realtime websocket is established as soon as the user is signed in.
+    // On iOS simulators the lazy connect occasionally times out before the first
+    // channel subscription finishes, so we proactively open the socket.
+    try {
+      supabase.realtime.connect();
+      addMonitoringBreadcrumb({
+        category: 'realtime',
+        message: 'Realtime socket connect invoked',
+        data: {
+          userId,
+          route: routeRef.current,
+        },
+      });
+    } catch (connectError) {
+      captureHandledException(connectError, {
+        scope: 'notifications.realtime',
+        action: 'connect',
+        userId,
+      });
+    }
+  }, [userId]);
 
   // Ensure we have achievement data loaded BEFORE realtime notifications start arriving
   // This prevents missing toast notifications when achievements are unlocked
@@ -39,8 +72,7 @@ export function AchievementToastManager() {
     gcTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    refetchOnMount: true, // Allow initial fetch (critical for iOS after onboarding) - staleTime prevents over-fetching
-    // Ensure this query runs immediately and isn't suspended
+    refetchOnMount: true,
     networkMode: 'always',
   });
 
@@ -80,92 +112,6 @@ export function AchievementToastManager() {
     }
   }, [achievementStatus, userId, handleToast]);
 
-  // Sweep for missed notifications on initial load
-  const hasSweptForMissedNotifications = useRef(false);
-  useEffect(() => {
-    if (!userId || !achievementStatus || hasSweptForMissedNotifications.current) {
-      return;
-    }
-
-    hasSweptForMissedNotifications.current = true;
-
-    // Query recent notifications from the last 5 minutes
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-
-    void (async () => {
-      try {
-        const { data: recentNotifications, error } = await supabase
-          .from('notifications')
-          .select('id, type, payload, created_at')
-          .eq('user_id', userId)
-          .eq('type', 'achievement_awarded')
-          .gte('created_at', fiveMinutesAgo)
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          captureHandledException(error, {
-            scope: 'notifications.missed-sweep',
-            userId,
-          });
-          return;
-        }
-
-        if (!recentNotifications || recentNotifications.length === 0) {
-          addMonitoringBreadcrumb({
-            category: 'achievements',
-            message: 'Missed notification sweep: no recent notifications',
-            data: { userId },
-          });
-          return;
-        }
-
-        addMonitoringBreadcrumb({
-          category: 'achievements',
-          message: 'Missed notification sweep: processing recent notifications',
-          data: {
-            userId,
-            count: recentNotifications.length,
-          },
-        });
-
-        // Process each notification to check if it's truly missed
-        for (const notification of recentNotifications) {
-          const payload = notification.payload as Record<string, unknown> | null;
-          const achievementId =
-            typeof payload?.achievement_id === 'string'
-              ? payload.achievement_id
-              : typeof payload?.achievementId === 'string'
-                ? payload.achievementId
-                : null;
-
-          if (!achievementId) continue;
-
-          // Check if this achievement is in our loaded status
-          const achievement = achievementStatus.find((a) => a.id === achievementId);
-
-          // If achievement is unlocked but wasn't in our snapshot, it was missed
-          if (achievement && achievement.unlocked && !unlockedSnapshotRef.current.has(achievementId)) {
-            addMonitoringBreadcrumb({
-              category: 'achievements',
-              message: 'Missed notification detected and recovered',
-              data: {
-                userId,
-                achievementId,
-                achievementKey: achievement.key,
-              },
-            });
-            handleToast(achievement);
-          }
-        }
-      } catch (sweepError) {
-        captureHandledException(sweepError, {
-          scope: 'notifications.missed-sweep',
-          userId,
-        });
-      }
-    })();
-  }, [userId, achievementStatus, handleToast]);
-
   useEffect(() => {
     const teardown = () => {
       if (!channelRef.current) {
@@ -186,17 +132,32 @@ export function AchievementToastManager() {
         })
         .finally(() => {
           supabase.removeChannel(existingChannel);
+          addMonitoringBreadcrumb({
+            category: 'realtime',
+            message: 'Notifications channel torn down',
+            data: {
+              userId: activeUserRef.current,
+              route: routeRef.current,
+            },
+          });
         });
     };
 
-    // Subscribe immediately when authenticated to avoid missing notifications
-    // The component has fallback logic to fetch achievement data if not in cache
     if (!userId) {
       teardown();
       activeUserRef.current = null;
       channelInstanceRef.current = null;
+      hasPrimedChannelRef.current = false;
       return;
     }
+
+    const canSubscribe = hasLoadedAchievements || hasPrimedChannelRef.current;
+
+    if (!canSubscribe) {
+      return;
+    }
+
+    hasPrimedChannelRef.current = true;
 
     if (activeUserRef.current === userId && channelRef.current) {
       return;
@@ -211,6 +172,18 @@ export function AchievementToastManager() {
     const channelName = `notifications:user:${userId}:${instanceId}`;
     const channel = supabase.channel(channelName);
     channelRef.current = channel;
+
+    addMonitoringBreadcrumb({
+      category: 'realtime',
+      message: 'Notifications channel created',
+      data: {
+        userId,
+        channelName,
+        instanceId,
+        route: routeRef.current,
+        state: (channel as { state?: string }).state ?? 'unknown',
+      },
+    });
 
     const handleAchievementAwarded = (
       payload: Record<string, unknown> | null,
@@ -266,9 +239,6 @@ export function AchievementToastManager() {
         },
       );
 
-      // Always invalidate to ensure cache is fresh for next read
-      void queryClient.invalidateQueries({ queryKey: statusQueryKey });
-
       const unlockedAchievement = matchedAchievement;
 
       if (unlockedAchievement) {
@@ -288,7 +258,8 @@ export function AchievementToastManager() {
         return;
       }
 
-      // Achievement not found in cache, force refetch
+      void queryClient.invalidateQueries({ queryKey: statusQueryKey });
+
       void (async () => {
         try {
           const latest = await queryClient.fetchQuery({
@@ -325,7 +296,6 @@ export function AchievementToastManager() {
           });
         }
 
-        // Fallback: show generic toast
         const fallbackName =
           (typeof payload?.achievement_key === 'string' && payload?.achievement_key.trim().length > 0
             ? payload?.achievement_key
@@ -414,7 +384,35 @@ export function AchievementToastManager() {
       },
     );
 
-    channel.subscribe((status, error) => {
+    const resubscribe = () => {
+      setTimeout(() => {
+        if (channelRef.current !== channel) {
+          return;
+        }
+
+        try {
+          channel.subscribe(handleChannelStatus);
+          addMonitoringBreadcrumb({
+            category: 'realtime',
+            message: 'Notifications channel resubscribe attempt',
+            data: {
+              userId,
+              channelName,
+              route: routeRef.current,
+            },
+          });
+        } catch (subscribeError) {
+          captureHandledException(subscribeError, {
+            scope: 'notifications.realtime',
+            action: 'resubscribe',
+            userId,
+            channelName,
+          });
+        }
+      }, 1_000);
+    };
+
+    const handleChannelStatus = (status: string, error?: Error) => {
       if (status === 'SUBSCRIBED') {
         addMonitoringBreadcrumb({
           category: 'realtime',
@@ -423,6 +421,7 @@ export function AchievementToastManager() {
             userId,
             channelName,
             instanceId,
+            route: routeRef.current,
           },
         });
       } else if (status === 'CHANNEL_ERROR' && error) {
@@ -432,6 +431,7 @@ export function AchievementToastManager() {
           userId,
           channelName,
         });
+        resubscribe();
       } else if (status === 'TIMED_OUT') {
         addMonitoringBreadcrumb({
           category: 'realtime',
@@ -439,9 +439,11 @@ export function AchievementToastManager() {
           data: {
             userId,
             channelName,
+            route: routeRef.current,
           },
           level: 'warning',
         });
+        resubscribe();
       } else if (status === 'CLOSED') {
         addMonitoringBreadcrumb({
           category: 'realtime',
@@ -449,17 +451,21 @@ export function AchievementToastManager() {
           data: {
             userId,
             channelName,
+            route: routeRef.current,
           },
         });
+        resubscribe();
       }
-    });
+    };
+
+    channel.subscribe(handleChannelStatus);
 
     return () => {
       teardown();
       activeUserRef.current = null;
       channelInstanceRef.current = null;
     };
-  }, [userId, queryClient, statusQueryKey, handleToast, showToast]);
+  }, [userId, hasLoadedAchievements, queryClient, statusQueryKey, handleToast, showToast]);
 
   return null;
 }

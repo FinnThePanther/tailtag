@@ -35,6 +35,10 @@ type AchievementAwardSummary = {
   userId: string;
   awarded: boolean;
   context?: Record<string, unknown> | null;
+  achievementId?: string | null;
+  awardedAt?: string | null;
+  sourceEventId?: string | null;
+  reason?: string | null;
 };
 
 type CatchRow = {
@@ -582,6 +586,113 @@ async function countRows(env: Env, path: string): Promise<number> {
   return Number.isNaN(total) ? 0 : total;
 }
 
+function buildAwardLookup(
+  awards: Array<{
+    userId: string;
+    achievementKey: string;
+    context: Record<string, unknown>;
+    occurredAt: string;
+    sourceEventId: string;
+  }>,
+) {
+  const lookup = new Map<string, {
+    context: Record<string, unknown>;
+    occurredAt: string;
+    sourceEventId: string;
+  }>();
+
+  for (const award of awards) {
+    const key = `${award.userId}:${award.achievementKey}`;
+    lookup.set(key, {
+      context: award.context,
+      occurredAt: award.occurredAt,
+      sourceEventId: award.sourceEventId,
+    });
+  }
+
+  return lookup;
+}
+
+async function sendAchievementNotifications(
+  env: Env,
+  summaries: AchievementAwardSummary[],
+  awards: Array<{
+    userId: string;
+    achievementKey: string;
+    context: Record<string, unknown>;
+    occurredAt: string;
+    sourceEventId: string;
+  }>,
+): Promise<void> {
+  const awardLookup = buildAwardLookup(awards);
+  const achievementMap = await ensureAchievementCache(env);
+
+  const notifications = [] as Array<{
+    user_id: string;
+    type: string;
+    payload: Record<string, unknown>;
+  }>;
+
+  for (const summary of summaries) {
+    if (!summary.awarded) {
+      continue;
+    }
+
+    const achievementMeta = achievementMap.get(summary.key);
+    const achievementId = summary.achievementId ?? achievementMeta?.id ?? null;
+
+    if (!achievementId) {
+      console.warn("[orchestrator] Skipping notification: missing achievement id", {
+        achievement_key: summary.key,
+        user_id: summary.userId,
+      });
+      continue;
+    }
+
+    const awardKey = `${summary.userId}:${summary.key}`;
+    const originalAward = awardLookup.get(awardKey);
+
+    const awardedAt = summary.awardedAt ?? originalAward?.occurredAt ?? new Date().toISOString();
+    const context = summary.context ?? originalAward?.context ?? null;
+    const sourceEventId = summary.sourceEventId ?? originalAward?.sourceEventId ?? null;
+
+    notifications.push({
+      user_id: summary.userId,
+      type: "achievement_awarded",
+      payload: {
+        achievement_id: achievementId,
+        achievement_key: summary.key,
+        awarded_at: awardedAt,
+        context,
+        source_event_id: sourceEventId,
+      },
+    });
+  }
+
+  if (notifications.length === 0) {
+    return;
+  }
+
+  try {
+    await supabaseFetch(env, "/rest/v1/notifications", {
+      method: "POST",
+      headers: {
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify(notifications),
+    });
+
+    console.info("[orchestrator] Inserted achievement notifications", {
+      count: notifications.length,
+    });
+  } catch (error) {
+    console.error("[orchestrator] Failed inserting achievement notifications", {
+      count: notifications.length,
+      error: describeError(error),
+    });
+  }
+}
+
 async function grantAchievementsBatch(
   env: Env,
   awards: Array<{
@@ -611,33 +722,50 @@ async function grantAchievementsBatch(
       body: JSON.stringify({ awards: rpcPayload }),
     });
 
-    const results = (await response.json()) as Array<{
+    type RpcResult = {
       achievement_key: string;
       user_id: string;
       awarded: boolean;
-      context?: Record<string, unknown>;
-      reason?: string;
-    }>;
+      context?: Record<string, unknown> | null;
+      reason?: string | null;
+      achievement_id?: string | null;
+      awarded_at?: string | null;
+      source_event_id?: string | null;
+    };
 
-    const granted = results.filter((r) => r.awarded).length;
-    const failed = results.filter((r) => !r.awarded).length;
+    const rawResults = (await response.json()) as RpcResult[];
+    const hasNotificationFields = rawResults.some((entry) =>
+      Object.prototype.hasOwnProperty.call(entry, "achievement_id"),
+    );
+
+    const summaries = rawResults.map((result) => ({
+      key: result.achievement_key,
+      userId: result.user_id,
+      awarded: result.awarded,
+      context: result.context ?? null,
+      reason: result.reason ?? null,
+      achievementId: result.achievement_id ?? null,
+      awardedAt: result.awarded_at ?? null,
+      sourceEventId: result.source_event_id ?? null,
+    } satisfies AchievementAwardSummary));
+
+    const granted = summaries.filter((summary) => summary.awarded).length;
+    const failed = summaries.length - granted;
 
     console.info("[orchestrator] Batch processed achievements", {
       total: awards.length,
       granted,
       failed,
-      failed_details: results
-        .filter((r) => !r.awarded)
-        .map((r) => ({ key: r.achievement_key, reason: r.reason })),
+      failed_details: summaries
+        .filter((summary) => !summary.awarded)
+        .map((summary) => ({ key: summary.key, reason: summary.reason ?? null })),
     });
 
-    // Convert to AchievementAwardSummary format
-    return results.map((result) => ({
-      key: result.achievement_key,
-      userId: result.user_id,
-      awarded: result.awarded,
-      context: result.context ?? null,
-    }));
+    if (hasNotificationFields) {
+      await sendAchievementNotifications(env, summaries, awards);
+    }
+
+    return summaries;
   } catch (error) {
     console.error("[orchestrator] Failed batch processing achievements", {
       error: describeError(error),

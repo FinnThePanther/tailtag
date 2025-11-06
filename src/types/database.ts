@@ -483,6 +483,38 @@ export type Database = {
           },
         ];
       };
+      notifications: {
+        Row: {
+          created_at: string;
+          id: string;
+          payload: Json;
+          type: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          payload: Json;
+          type: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          payload?: Json;
+          type?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profile_conventions: {
         Row: {
           convention_id: string;
@@ -877,6 +909,9 @@ export type FursuitColorAssignmentsUpdate =
 export type FursuitColorsRow = Database["public"]["Tables"]["fursuit_colors"]["Row"];
 export type FursuitColorsInsert = Database["public"]["Tables"]["fursuit_colors"]["Insert"];
 export type FursuitColorsUpdate = Database["public"]["Tables"]["fursuit_colors"]["Update"];
+export type NotificationsRow = Database["public"]["Tables"]["notifications"]["Row"];
+export type NotificationsInsert = Database["public"]["Tables"]["notifications"]["Insert"];
+export type NotificationsUpdate = Database["public"]["Tables"]["notifications"]["Update"];
 
 export type FursuitSocialLink = {
   label: string;
