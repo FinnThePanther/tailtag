@@ -48,6 +48,7 @@ export function AchievementStep({
 
       await queryClient.invalidateQueries({ queryKey: profileQueryKey(userId) });
       await queryClient.invalidateQueries({ queryKey: achievementsStatusQueryKey(userId) });
+
       onFinish();
     } catch (caught) {
       const message =

@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase';
-import { triggerAchievementProcessor } from '../../achievements';
 import { captureSupabaseError } from '../../../lib/sentry';
+import { emitGameplayEvent } from '../../events';
 
 export type ConventionSummary = {
   id: string;
@@ -32,15 +32,15 @@ export async function fetchConventions(): Promise<ConventionSummary[]> {
     throw new Error(`We couldn't load conventions: ${error.message}`);
   }
 
-    return (data ?? []).map((convention: any) => ({
-      id: convention.id,
-      slug: convention.slug,
-      name: convention.name,
-      location: convention.location ?? null,
-      start_date: convention.start_date ?? null,
-      end_date: convention.end_date ?? null,
-      timezone: convention.timezone ?? 'UTC',
-    }));
+  return (data ?? []).map((convention: any) => ({
+    id: convention.id,
+    slug: convention.slug,
+    name: convention.name,
+    location: convention.location ?? null,
+    start_date: convention.start_date ?? null,
+    end_date: convention.end_date ?? null,
+    timezone: convention.timezone ?? 'UTC',
+  }));
 }
 
 export const createConventionsQueryOptions = () => ({
@@ -89,7 +89,14 @@ export async function optInToConvention(profileId: string, conventionId: string)
     throw new Error(`We couldn't save your convention opt-in: ${error.message}`);
   }
 
-  await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
+  await emitGameplayEvent({
+    type: 'convention_joined',
+    conventionId,
+    payload: {
+      profile_id: profileId,
+      convention_id: conventionId,
+    },
+  });
 }
 
 export async function optOutOfConvention(profileId: string, conventionId: string): Promise<void> {
@@ -110,7 +117,14 @@ export async function optOutOfConvention(profileId: string, conventionId: string
     throw new Error(`We couldn't remove your convention opt-in: ${error.message}`);
   }
 
-  await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
+  await emitGameplayEvent({
+    type: 'convention_left',
+    conventionId,
+    payload: {
+      profile_id: profileId,
+      convention_id: conventionId,
+    },
+  });
 }
 
 export async function addFursuitConvention(fursuitId: string, conventionId: string): Promise<void> {
@@ -132,7 +146,14 @@ export async function addFursuitConvention(fursuitId: string, conventionId: stri
     throw new Error(`We couldn't add that convention to the fursuit: ${error.message}`);
   }
 
-  await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
+  await emitGameplayEvent({
+    type: 'fursuit_convention_joined',
+    conventionId,
+    payload: {
+      fursuit_id: fursuitId,
+      convention_id: conventionId,
+    },
+  });
 }
 
 export async function removeFursuitConvention(fursuitId: string, conventionId: string): Promise<void> {
@@ -153,5 +174,12 @@ export async function removeFursuitConvention(fursuitId: string, conventionId: s
     throw new Error(`We couldn't remove that convention from the fursuit: ${error.message}`);
   }
 
-  await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
+  await emitGameplayEvent({
+    type: 'fursuit_convention_left',
+    conventionId,
+    payload: {
+      fursuit_id: fursuitId,
+      convention_id: conventionId,
+    },
+  });
 }

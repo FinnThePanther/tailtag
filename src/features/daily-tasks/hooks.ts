@@ -144,9 +144,18 @@ export function useDailyTasks(
     queryKey: userId && conventionId ? dailyTasksQueryKey(userId, conventionId) : [DAILY_TASKS_QUERY_KEY],
     enabled,
     queryFn: () => fetchDailyTasks({ userId: userId!, conventionId: conventionId! }),
-    staleTime: 30_000,
+    staleTime: Infinity,
+    gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    refetchInterval: (query) => {
+      const resetAtValue = (query.state.data as DailyTasksSummary | undefined)?.resetAt ?? null;
+      if (!resetAtValue) return false;
+      const msUntilReset = new Date(resetAtValue).getTime() - Date.now();
+      if (msUntilReset <= 0) return 60_000;
+      return Math.min(Math.max(msUntilReset, 30_000), 60_000);
+    },
+    refetchIntervalInBackground: true,
     placeholderData: (previousData) => previousData,
   });
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -34,7 +34,7 @@ import { supabase } from '../../src/lib/supabase';
 import { colors, spacing, radius } from '../../src/theme';
 import { loadUriAsUint8Array } from '../../src/utils/files';
 import { deriveStoragePathFromPublicUrl } from '../../src/utils/storage';
-import { triggerAchievementProcessor } from '../../src/features/achievements';
+import { emitGameplayEvent } from '../../src/features/events';
 import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import {
   fetchProfile,
@@ -58,7 +58,7 @@ type UploadCandidate = {
 } | null;
 
 export default function SettingsScreen() {
-  const { session } = useAuth();
+  const { session, forceSignOut } = useAuth();
   const userId = session?.user.id ?? null;
 
   const queryClient = useQueryClient();
@@ -142,6 +142,7 @@ export default function SettingsScreen() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const isDeletingAccountRef = useRef(false);
   const [conventionError, setConventionError] = useState<string | null>(null);
   const [pendingMemberships, setPendingMemberships] = useState<Set<string>>(() => new Set());
 
@@ -431,7 +432,13 @@ export default function SettingsScreen() {
       setSelectedAvatar(null);
       setShouldRemoveAvatar(false);
       setSaveMessage('Profile updated');
-      await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
+      await emitGameplayEvent({
+        type: 'profile_updated',
+        payload: {
+          has_avatar: Boolean(nextAvatarUrl),
+          username_present: trimmedUsername.length > 0,
+        },
+      });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
     } catch (caught) {
       const fallbackMessage =
@@ -532,40 +539,58 @@ export default function SettingsScreen() {
   }, [isSigningOut]);
 
   const performAccountDeletion = useCallback(async () => {
-    if (!userId || isDeletingAccount) {
+    if (!userId || isDeletingAccount || isDeletingAccountRef.current) {
       return;
     }
 
+    isDeletingAccountRef.current = true;
     setIsDeletingAccount(true);
     setDeleteAccountError(null);
-    setSignOutError(null);
 
     try {
-      const { error } = await supabase.functions.invoke('delete-account', {
-        body: {},
+      // Get token
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const accessToken = currentSession?.access_token;
+
+      if (!accessToken) {
+        throw new Error('No session found');
+      }
+
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Missing config');
+      }
+
+      // Call Edge Function
+      const response = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': supabaseKey,
+        },
       });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        throw new Error('Deletion failed');
       }
 
+      // Clear local session and cache
+      await forceSignOut();
       queryClient.clear();
 
-      const { error: signOutAfterDeletionError } = await supabase.auth.signOut();
-
-      if (signOutAfterDeletionError) {
-        console.warn('Failed to sign out after deleting account', signOutAfterDeletionError);
-      }
+      // Stay on this screen - user will be redirected by auth guard
+      Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
     } catch (caught) {
-      const fallbackMessage =
-        caught instanceof Error
-          ? caught.message
-          : 'We could not delete your account right now. Please try again.';
-      setDeleteAccountError(fallbackMessage);
+      setDeleteAccountError(
+        caught instanceof Error ? caught.message : 'Deletion failed'
+      );
     } finally {
       setIsDeletingAccount(false);
+      isDeletingAccountRef.current = false;
     }
-  }, [isDeletingAccount, queryClient, userId]);
+  }, [forceSignOut, isDeletingAccount, queryClient, userId]);
 
   const handleDeleteAccount = useCallback(() => {
     if (!userId || isDeletingAccount) {

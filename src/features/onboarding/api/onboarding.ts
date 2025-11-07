@@ -9,6 +9,7 @@ import {
   captureHandledMessage,
   captureSupabaseError,
 } from '../../../lib/sentry';
+import { emitGameplayEvent } from '../../events';
 
 import type { FursuitsInsert } from '../../../types/database';
 import { MAX_FURSUIT_COLORS } from '../../colors';
@@ -332,33 +333,38 @@ export async function recordTutorialCatch(userId: string): Promise<void> {
   }
 }
 
-type FinishOnboardingResult = {
-  profile_updated: boolean;
-  achievement_unlocked: boolean;
-};
-
 export async function completeOnboarding(userId: string): Promise<void> {
-  const { data, error } = await supabase.rpc('finish_onboarding', {
-    target_user_id: userId,
-  });
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      onboarding_completed: true,
+      is_new: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId);
 
   if (error) {
     captureSupabaseError(error, {
       scope: 'onboarding.completeOnboarding',
-      action: 'finishOnboardingRpc',
+      action: 'updateProfile',
       userId,
     });
     throw new Error(`We couldn't finish onboarding: ${error.message}`);
   }
 
-  const result = (data ?? null) as FinishOnboardingResult | null;
+  const emitted = await emitGameplayEvent({
+    type: 'onboarding_completed',
+    payload: {
+      user_id: userId,
+      source: 'finish_onboarding',
+      achievement_key: GETTING_STARTED_ACHIEVEMENT_KEY,
+    },
+  });
 
-  if (!result || result.profile_updated !== true) {
-    captureHandledMessage('finish_onboarding RPC returned unexpected payload', {
+  if (!emitted) {
+    captureHandledMessage('Failed to enqueue onboarding_completed gameplay event', {
       scope: 'onboarding.completeOnboarding',
       userId,
-      result,
     });
-    throw new Error('We could not confirm your onboarding progress. Please try again.');
   }
 }

@@ -28,10 +28,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const insets = useSafeAreaInsets();
   const containerBottom = useMemo(() => insets.bottom + TAB_BAR_HEIGHT, [insets.bottom]);
+  const toastIdCounter = useRef(0);
 
   const showToast = useCallback((message: string) => {
     setToasts((current) => {
-      const next = [...current, { id: Date.now(), message }];
+      toastIdCounter.current += 1;
+      const next = [...current, { id: toastIdCounter.current, message }];
       return next.slice(-3);
     });
   }, []);

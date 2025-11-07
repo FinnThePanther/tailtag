@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { Session } from '@supabase/supabase-js';
 
@@ -17,6 +17,7 @@ type AuthContextValue = {
   status: AuthStatus;
   error: string | null;
   refreshSession: () => Promise<void>;
+  forceSignOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -171,14 +172,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const forceSignOut = useCallback(async () => {
+    addMonitoringBreadcrumb({
+      category: 'auth',
+      message: 'Force sign-out',
+    });
+
+    const authWithInternals = supabase.auth as unknown as {
+      _removeSession?: () => Promise<unknown>;
+    };
+
+    try {
+      if (typeof authWithInternals._removeSession === 'function') {
+        await authWithInternals._removeSession();
+      } else {
+        const { error: localSignOutError } = await supabase.auth.signOut({ scope: 'local' });
+
+        if (localSignOutError) {
+          captureSupabaseError(localSignOutError, {
+            scope: 'auth.forceSignOut',
+            action: 'signOutLocal',
+          });
+        }
+      }
+    } catch (caughtError) {
+      captureHandledException(caughtError, {
+        scope: 'auth.forceSignOut',
+        action: 'unexpected',
+      });
+    } finally {
+      supabase.realtime.setAuth('');
+      setSession(null);
+      setStatus('signed_out');
+      setError(null);
+      setUser(null);
+    }
+  }, []);
+
   const value = useMemo(
     () => ({
       session,
       status,
       error,
       refreshSession,
+      forceSignOut,
     }),
-    [session, status, error]
+    [session, status, error, forceSignOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -132,7 +132,7 @@ function getOffsetMilliseconds(timestamp: number, timezone: string): number {
   const formatter = getDateTimeFormatter(timezone);
   const parts = formatter.formatToParts(date);
   const timeZoneName = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'GMT';
-  const match = timeZoneName.match(/GMT([+-])(\d{2})(?::(\d{2}))?/);
+  const match = timeZoneName.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
   if (!match) return 0;
   const sign = match[1] === '+' ? 1 : -1;
   const hours = Number(match[2]);
