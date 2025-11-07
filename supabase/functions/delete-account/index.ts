@@ -14,19 +14,10 @@ if (!supabaseUrl || !serviceRoleKey) {
   throw new Error("Missing environment variables");
 }
 
-const supabase = createClient(supabaseUrl, serviceRoleKey, {
+// Service role client for admin operations
+const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
-
-function decodeJwt(token: string): { sub?: string } {
-  try {
-    const payload = token.split(".")[1];
-    const decoded = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(decoded);
-  } catch {
-    return {};
-  }
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -40,7 +31,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Get token and extract user ID
+  // Get token and verify it with Supabase Auth
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "No token" }), {
@@ -50,56 +41,61 @@ Deno.serve(async (req) => {
   }
 
   const token = authHeader.substring(7);
-  const { sub: userId } = decodeJwt(token);
 
-  if (!userId) {
-    return new Response(JSON.stringify({ error: "Invalid token" }), {
+  // SECURITY FIX: Verify the token cryptographically using Supabase Auth
+  // This ensures the token is valid and not forged
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+  if (authError || !user) {
+    console.error("[delete-account] Token verification failed:", authError);
+    return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
+  const userId = user.id;
   console.log(`[delete-account] Deleting user ${userId}`);
 
   try {
     // STEP 1: Delete notifications first (has NO ACTION constraint)
     console.log("[delete-account] Deleting notifications");
-    await supabase.from("notifications").delete().eq("user_id", userId);
+    await supabaseAdmin.from("notifications").delete().eq("user_id", userId);
 
     // STEP 2: Delete other user data
     console.log("[delete-account] Deleting user data");
-    await supabase.from("user_achievements").delete().eq("user_id", userId);
-    await supabase.from("user_daily_progress").delete().eq("user_id", userId);
-    await supabase.from("user_daily_streaks").delete().eq("user_id", userId);
-    await supabase.from("profile_conventions").delete().eq("profile_id", userId);
-    await supabase.from("catches").delete().eq("catcher_id", userId);
+    await supabaseAdmin.from("user_achievements").delete().eq("user_id", userId);
+    await supabaseAdmin.from("user_daily_progress").delete().eq("user_id", userId);
+    await supabaseAdmin.from("user_daily_streaks").delete().eq("user_id", userId);
+    await supabaseAdmin.from("profile_conventions").delete().eq("profile_id", userId);
+    await supabaseAdmin.from("catches").delete().eq("catcher_id", userId);
 
     // STEP 3: Delete fursuits and related data
     console.log("[delete-account] Deleting fursuits");
-    const { data: fursuits } = await supabase
+    const { data: fursuits } = await supabaseAdmin
       .from("fursuits")
       .select("id")
       .eq("owner_id", userId);
 
     if (fursuits && fursuits.length > 0) {
       const fursuitIds = fursuits.map((f) => f.id);
-      await supabase.from("fursuit_conventions").delete().in("fursuit_id", fursuitIds);
-      await supabase.from("fursuit_bios").delete().in("fursuit_id", fursuitIds);
-      await supabase.from("catches").delete().in("fursuit_id", fursuitIds);
+      await supabaseAdmin.from("fursuit_conventions").delete().in("fursuit_id", fursuitIds);
+      await supabaseAdmin.from("fursuit_bios").delete().in("fursuit_id", fursuitIds);
+      await supabaseAdmin.from("catches").delete().in("fursuit_id", fursuitIds);
     }
 
-    await supabase.from("fursuits").delete().eq("owner_id", userId);
+    await supabaseAdmin.from("fursuits").delete().eq("owner_id", userId);
 
     // STEP 4: Delete profile
     console.log("[delete-account] Deleting profile");
-    await supabase.from("profiles").delete().eq("id", userId);
+    await supabaseAdmin.from("profiles").delete().eq("id", userId);
 
     // STEP 5: Delete auth user LAST
     console.log("[delete-account] Deleting auth user");
-    const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-    if (authError) {
-      console.error("[delete-account] Auth deletion failed:", authError);
-      throw new Error(`Auth deletion failed: ${authError.message}`);
+    const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (deleteAuthError) {
+      console.error("[delete-account] Auth deletion failed:", deleteAuthError);
+      throw new Error(`Auth deletion failed: ${deleteAuthError.message}`);
     }
 
     console.log("[delete-account] Deletion complete");
