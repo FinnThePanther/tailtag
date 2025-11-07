@@ -15,6 +15,7 @@ import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagProgressBar } from "../../src/components/ui/TailTagProgressBar";
 import { useAuth } from "../../src/features/auth";
+import { supabase } from "../../src/lib/supabase";
 import {
   CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
@@ -26,8 +27,8 @@ import {
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
   CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
-  fetchConventionLeaderboard,
-  fetchConventionSuitLeaderboard,
+  createConventionLeaderboardQueryOptions,
+  createConventionSuitLeaderboardQueryOptions,
   type LeaderboardEntry,
   type SuitLeaderboardEntry,
 } from "../../src/features/leaderboard";
@@ -243,18 +244,15 @@ export default function HomeScreen() {
     isLoading: isLeaderboardLoading,
     isFetching: isLeaderboardFetching,
     refetch: refetchLeaderboard,
-  } = useQuery<LeaderboardEntry[], Error>({
-    queryKey: selectedConventionId
-      ? [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId]
-      : [CONVENTION_LEADERBOARD_QUERY_KEY, "idle"],
-    queryFn: selectedConventionId
-      ? () => fetchConventionLeaderboard(selectedConventionId)
-      : async () => [],
-    enabled: Boolean(userId && selectedConventionId),
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
+  } = useQuery<LeaderboardEntry[], Error>(
+    selectedConventionId
+      ? createConventionLeaderboardQueryOptions(selectedConventionId)
+      : {
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, "idle"],
+          queryFn: async () => [],
+          enabled: false,
+        }
+  );
 
   const {
     data: suitLeaderboardEntries = [],
@@ -262,18 +260,75 @@ export default function HomeScreen() {
     isLoading: isSuitLeaderboardLoading,
     isFetching: isSuitLeaderboardFetching,
     refetch: refetchSuitLeaderboard,
-  } = useQuery<SuitLeaderboardEntry[], Error>({
-    queryKey: selectedConventionId
-      ? [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId]
-      : [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, "idle"],
-    queryFn: selectedConventionId
-      ? () => fetchConventionSuitLeaderboard(selectedConventionId)
-      : async () => [],
-    enabled: Boolean(userId && selectedConventionId),
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
+  } = useQuery<SuitLeaderboardEntry[], Error>(
+    selectedConventionId
+      ? createConventionSuitLeaderboardQueryOptions(selectedConventionId)
+      : {
+          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, "idle"],
+          queryFn: async () => [],
+          enabled: false,
+        }
+  );
+
+  // Subscribe to realtime changes for leaderboard updates
+  useEffect(() => {
+    if (!selectedConventionId) return;
+
+    const instanceId = Math.random().toString(36).substring(2, 11);
+
+    // Subscribe to catches - invalidate leaderboard when new catches happen
+    const catchesChannel = supabase
+      .channel(`leaderboard-catches:${selectedConventionId}:${instanceId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'catches',
+      }, () => {
+        void queryClient.invalidateQueries({
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId]
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId]
+        });
+      })
+      .subscribe();
+
+    // Subscribe to profile_conventions - invalidate when players join/leave
+    const participantsChannel = supabase
+      .channel(`leaderboard-participants:${selectedConventionId}:${instanceId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'profile_conventions',
+        filter: `convention_id=eq.${selectedConventionId}`,
+      }, () => {
+        void queryClient.invalidateQueries({
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId]
+        });
+      })
+      .subscribe();
+
+    // Subscribe to fursuit_conventions - invalidate when fursuits join/leave
+    const fursuitsChannel = supabase
+      .channel(`leaderboard-fursuits:${selectedConventionId}:${instanceId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'fursuit_conventions',
+        filter: `convention_id=eq.${selectedConventionId}`,
+      }, () => {
+        void queryClient.invalidateQueries({
+          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId]
+        });
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(catchesChannel);
+      void supabase.removeChannel(participantsChannel);
+      void supabase.removeChannel(fursuitsChannel);
+    };
+  }, [selectedConventionId, queryClient]);
 
   const membershipErrorMessage =
     profileConventionsError?.message ?? conventionsError?.message ?? null;
@@ -288,9 +343,11 @@ export default function HomeScreen() {
     );
   }, [leaderboardEntries]);
 
-  const topEntries = leaderboardEntries.slice(0, MAX_LEADERBOARD_ENTRIES);
+  // Only show players with at least 1 catch
+  const entriesWithCatches = leaderboardEntries.filter((entry) => entry.catchCount > 0);
+  const topEntries = entriesWithCatches.slice(0, MAX_LEADERBOARD_ENTRIES);
   const selfEntry = userId
-    ? leaderboardEntries.find((entry) => entry.profileId === userId) ?? null
+    ? entriesWithCatches.find((entry) => entry.profileId === userId) ?? null
     : null;
 
   const isSelfOutsideTop = Boolean(
@@ -582,20 +639,20 @@ export default function HomeScreen() {
                     {convention.name}
                   </TailTagButton>
                 ))}
+                {selectedConventionId ? (
+                  <TailTagButton
+                    variant="outline"
+                    size="sm"
+                    onPress={handleReloadStandings}
+                    style={styles.reloadButton}
+                  >
+                    Reload standings
+                  </TailTagButton>
+                ) : null}
               </View>
 
               {selectedConventionId ? (
                 <View style={styles.leaderboardStack}>
-                  <View style={styles.leaderboardToolbar}>
-                    <TailTagButton
-                      variant="outline"
-                      size="sm"
-                      onPress={handleReloadStandings}
-                      style={styles.reloadButton}
-                    >
-                      Reload standings
-                    </TailTagButton>
-                  </View>
                   <View>
                     {isLeaderboardBusy ? (
                       <Text style={styles.message}>Loading leaderboard…</Text>
@@ -1007,12 +1064,8 @@ const styles = StyleSheet.create({
     minHeight: 36,
     paddingHorizontal: spacing.md,
   },
-  leaderboardToolbar: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-  },
   reloadButton: {
-    alignSelf: "flex-end",
+    marginLeft: "auto",
   },
   suitLeaderboardSection: {
     gap: spacing.sm,

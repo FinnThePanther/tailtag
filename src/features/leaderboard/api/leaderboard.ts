@@ -117,6 +117,7 @@ export async function fetchConventionLeaderboard(conventionId: string): Promise<
     const { data: catchRows, error: catchesError } = await client
       .from('catches')
       .select('id, catcher_id, fursuit_id')
+      .eq('convention_id', conventionId)
       .in('catcher_id', participantIds)
       .in('fursuit_id', conventionFursuitIds);
 
@@ -177,8 +178,8 @@ export async function fetchConventionLeaderboard(conventionId: string): Promise<
 export const createConventionLeaderboardQueryOptions = (conventionId: string) => ({
   queryKey: conventionLeaderboardQueryKey(conventionId),
   queryFn: () => fetchConventionLeaderboard(conventionId),
-  staleTime: 60_000,
-  refetchOnWindowFocus: false,
+  staleTime: 30_000, // Reduced from 60s to 30s for fresher data
+  refetchOnWindowFocus: true, // Refetch when user returns to app
   refetchOnReconnect: false,
 });
 
@@ -287,6 +288,7 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
   const { data: catchRows, error: catchError } = await client
     .from('catches')
     .select('fursuit_id')
+    .eq('convention_id', conventionId)
     .in('fursuit_id', suitIds);
 
   if (catchError) {
@@ -310,22 +312,20 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
     catchCounts.set(suitId, (catchCounts.get(suitId) ?? 0) + 1);
   }
 
-  const entries = suitIds
-    .map((suitId) => {
-      const suit = suitMap.get(suitId);
-      return {
-        fursuitId: suitId,
-        name: suit?.name ?? 'Unknown suit',
-        species: suit?.species ?? null,
-        speciesId: suit?.speciesId ?? null,
-        colors: suit?.colors ?? [],
-        avatarUrl: suit?.avatarUrl ?? null,
-        ownerProfileId: suit?.ownerProfileId ?? null,
-        ownerUsername: suit?.ownerUsername ?? null,
-        catchCount: catchCounts.get(suitId) ?? 0,
-      } satisfies SuitLeaderboardEntry;
-    })
-    .filter((entry) => entry.catchCount > 0);
+  const entries = suitIds.map((suitId) => {
+    const suit = suitMap.get(suitId);
+    return {
+      fursuitId: suitId,
+      name: suit?.name ?? 'Unknown suit',
+      species: suit?.species ?? null,
+      speciesId: suit?.speciesId ?? null,
+      colors: suit?.colors ?? [],
+      avatarUrl: suit?.avatarUrl ?? null,
+      ownerProfileId: suit?.ownerProfileId ?? null,
+      ownerUsername: suit?.ownerUsername ?? null,
+      catchCount: catchCounts.get(suitId) ?? 0,
+    } satisfies SuitLeaderboardEntry;
+  });
 
   return entries.sort((a, b) => {
     if (b.catchCount !== a.catchCount) {
@@ -346,7 +346,7 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
 export const createConventionSuitLeaderboardQueryOptions = (conventionId: string) => ({
   queryKey: conventionSuitLeaderboardQueryKey(conventionId),
   queryFn: () => fetchConventionSuitLeaderboard(conventionId),
-  staleTime: 60_000,
-  refetchOnWindowFocus: false,
+  staleTime: 30_000, // Reduced from 60s to 30s for fresher data
+  refetchOnWindowFocus: true, // Refetch when user returns to app
   refetchOnReconnect: false,
 });
