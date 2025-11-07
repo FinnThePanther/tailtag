@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,7 +15,6 @@ import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagProgressBar } from "../../src/components/ui/TailTagProgressBar";
 import { useAuth } from "../../src/features/auth";
-import { supabase } from "../../src/lib/supabase";
 import {
   CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
@@ -36,14 +34,13 @@ import {
 import {
   fetchAchievementStatus,
   achievementsStatusQueryKey,
-  triggerAchievementProcessor,
   type AchievementWithStatus,
 } from "../../src/features/achievements";
+import { emitGameplayEvent } from "../../src/features/events";
 import {
   useDailyTasks,
   DAILY_TASKS_QUERY_KEY,
 } from "../../src/features/daily-tasks";
-import type { Database } from "../../src/types/database";
 import { colors, spacing, radius } from "../../src/theme";
 
 const MAX_LEADERBOARD_ENTRIES = 10;
@@ -200,7 +197,6 @@ export default function HomeScreen() {
     data: dailyTasksData,
     error: dailyTasksError,
     isLoading: isDailyTasksLoading,
-    isFetching: isDailyTasksFetching,
     refetch: refetchDailyTasks,
     countdown: dailyCountdown,
   } = useDailyTasks(userId, selectedConventionId, { suppressToasts: true });
@@ -216,9 +212,9 @@ export default function HomeScreen() {
     0
   );
   const dailyTasksErrorMessage = dailyTasksError?.message ?? null;
-  const isDailyTasksBusy =
-    isDailyTasksLoading || (isDailyTasksFetching && !isDailyTasksLoading);
   const hasDailyAssignments = dailyTotalTasks > 0;
+  const showDailySkeleton = !dailyTasksData && isDailyTasksLoading;
+  const showDailyError = !dailyTasksData && Boolean(dailyTasksErrorMessage);
   const dailyAllComplete = hasDailyAssignments && dailyRemainingTasks === 0;
   const dailyCurrentStreak = dailyTasksData?.streak.current ?? 0;
   const dailyTimezone =
@@ -344,26 +340,18 @@ export default function HomeScreen() {
       return;
     }
 
-    const payload: Database["public"]["Functions"]["record_leaderboard_refresh"]["Args"] =
-      {
+    const emitted = await emitGameplayEvent({
+      type: "leaderboard_refreshed",
+      conventionId: selectedConventionId,
+      payload: {
         convention_id: selectedConventionId,
-      };
-
-    const { error } = await supabase.rpc(
-      "record_leaderboard_refresh",
-      payload as never
-    );
-
-    if (error) {
-      console.error("Failed to record leaderboard refresh", error);
-      Alert.alert(
-        "Refresh failed",
-        "We could not record your refresh. Please try again."
+      },
+    });
+    if (!emitted) {
+      console.warn(
+        "Failed to enqueue leaderboard_refreshed event; daily task progress may be delayed",
       );
-      return;
     }
-
-    await triggerAchievementProcessor({ limit: 5, maxBatches: 1 });
     void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
   }, [
     refetchLeaderboard,
@@ -426,9 +414,9 @@ export default function HomeScreen() {
             <Text style={styles.message}>
               Pick a convention to unlock daily tasks.
             </Text>
-          ) : isDailyTasksBusy ? (
+          ) : showDailySkeleton ? (
             <Text style={styles.message}>Checking today's lineup...</Text>
-          ) : dailyTasksErrorMessage ? (
+          ) : showDailyError ? (
             <View style={styles.helper}>
               <Text style={styles.error}>{dailyTasksErrorMessage}</Text>
               <TailTagButton

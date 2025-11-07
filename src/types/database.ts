@@ -80,6 +80,7 @@ export type Database = {
           catcher_id: string;
           caught_at: string | null;
           catch_number: number | null;
+          convention_id: string | null;
           fursuit_id: string;
           is_tutorial: boolean;
           id: string;
@@ -88,6 +89,7 @@ export type Database = {
           catcher_id: string;
           caught_at?: string | null;
           catch_number?: number | null;
+          convention_id?: string | null;
           fursuit_id: string;
           is_tutorial?: boolean;
           id?: string;
@@ -96,6 +98,7 @@ export type Database = {
           catcher_id?: string;
           caught_at?: string | null;
           catch_number?: number | null;
+          convention_id?: string | null;
           fursuit_id?: string;
           is_tutorial?: boolean;
           id?: string;
@@ -113,6 +116,13 @@ export type Database = {
             columns: ["fursuit_id"];
             isOneToOne: false;
             referencedRelation: "fursuits";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catches_convention_id_fkey";
+            columns: ["convention_id"];
+            isOneToOne: false;
+            referencedRelation: "conventions";
             referencedColumns: ["id"];
           },
         ];
@@ -469,6 +479,38 @@ export type Database = {
             columns: ["species_id"];
             isOneToOne: false;
             referencedRelation: "fursuit_species";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      notifications: {
+        Row: {
+          created_at: string;
+          id: string;
+          payload: Json;
+          type: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          payload: Json;
+          type: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          payload?: Json;
+          type?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -867,6 +909,9 @@ export type FursuitColorAssignmentsUpdate =
 export type FursuitColorsRow = Database["public"]["Tables"]["fursuit_colors"]["Row"];
 export type FursuitColorsInsert = Database["public"]["Tables"]["fursuit_colors"]["Insert"];
 export type FursuitColorsUpdate = Database["public"]["Tables"]["fursuit_colors"]["Update"];
+export type NotificationsRow = Database["public"]["Tables"]["notifications"]["Row"];
+export type NotificationsInsert = Database["public"]["Tables"]["notifications"]["Insert"];
+export type NotificationsUpdate = Database["public"]["Tables"]["notifications"]["Update"];
 
 export type FursuitSocialLink = {
   label: string;

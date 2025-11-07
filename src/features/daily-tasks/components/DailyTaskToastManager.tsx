@@ -14,7 +14,7 @@ type DailyTaskWatcherProps = {
 };
 
 function DailyTaskWatcher({ userId, conventionId }: DailyTaskWatcherProps) {
-  useDailyTasks(userId, conventionId);
+  useDailyTasks(userId, conventionId, { suppressToasts: true });
   return null;
 }
 
@@ -48,4 +48,3 @@ export function DailyTaskToastManager() {
     </Fragment>
   );
 }
-
