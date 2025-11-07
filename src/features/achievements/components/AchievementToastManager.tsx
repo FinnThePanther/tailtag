@@ -8,7 +8,8 @@ import { achievementsStatusQueryKey, fetchAchievementStatus } from '../api/achie
 import { supabase } from '../../../lib/supabase';
 import { addMonitoringBreadcrumb, captureHandledException } from '../../../lib/sentry';
 import { useToast } from '../../../hooks/useToast';
-import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks/hooks';
+import { DAILY_TASKS_QUERY_KEY, dailyTasksQueryKey } from '../../daily-tasks';
+import type { DailyTasksSummary } from '../../daily-tasks';
 import type { AchievementWithStatus } from '../api/achievements';
 import type { Json } from '../../../types/database';
 
@@ -26,6 +27,7 @@ export function AchievementToastManager() {
   const channelInstanceRef = useRef<string | null>(null);
   const hasPrimedChannelRef = useRef<boolean>(false);
   const routeRef = useRef<string>('');
+  const processedNotificationIdsRef = useRef<Set<string>>(new Set());
 
   const segments = useSegments();
   routeRef.current = segments.join('/') || 'root';
@@ -164,6 +166,7 @@ export function AchievementToastManager() {
     }
 
     teardown();
+    processedNotificationIdsRef.current.clear();
 
     const instanceId = Math.random().toString(36).slice(2, 10);
     channelInstanceRef.current = instanceId;
@@ -320,6 +323,26 @@ export function AchievementToastManager() {
       })();
     };
 
+    const updateDailyTasksSummary = (
+      conventionId: string | null,
+      updater: (summary: DailyTasksSummary) => DailyTasksSummary | null,
+    ) => {
+      if (!userId || !conventionId) {
+        return;
+      }
+
+      queryClient.setQueryData<DailyTasksSummary | undefined>(
+        dailyTasksQueryKey(userId, conventionId),
+        (current) => {
+          if (!current) {
+            return current;
+          }
+          const next = updater(current);
+          return next ?? current;
+        },
+      );
+    };
+
     const handleDailyReset = (payload: Record<string, unknown> | null) => {
       const conventionNameRaw = payload?.convention_name ?? payload?.conventionName ?? null;
       const conventionName =
@@ -340,7 +363,146 @@ export function AchievementToastManager() {
           conventionName,
         },
       });
-      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      const conventionId = typeof payload?.convention_id === 'string' ? payload.convention_id : null;
+      if (userId && conventionId) {
+        queryClient.removeQueries({ queryKey: dailyTasksQueryKey(userId, conventionId) });
+      } else {
+        void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      }
+    };
+
+    const handleDailyTaskCompleted = (payload: Record<string, unknown> | null) => {
+      const taskNameRaw = payload?.task_name ?? payload?.taskName ?? null;
+      const taskName =
+        typeof taskNameRaw === 'string' && taskNameRaw.trim().length > 0
+          ? taskNameRaw.trim()
+          : null;
+      const taskIdRaw = payload?.task_id ?? payload?.taskId ?? null;
+      const taskId = typeof taskIdRaw === 'string' ? taskIdRaw : null;
+      const conventionId = typeof payload?.convention_id === 'string' ? payload.convention_id : null;
+      const completionTimestamp = typeof payload?.completed_at === 'string'
+        ? payload?.completed_at as string
+        : new Date().toISOString();
+      const day = typeof payload?.day === 'string' ? payload.day : null;
+      const incrementRaw = payload?.increment ?? null;
+      const incrementCount = typeof incrementRaw === 'number' && Number.isFinite(incrementRaw)
+        ? incrementRaw
+        : 1;
+
+      const message = taskName ? `Daily task complete: ${taskName}` : 'Daily task complete!';
+      showToast(message);
+      addMonitoringBreadcrumb({
+        category: 'daily-tasks',
+        message: 'Daily task completion notification received',
+        data: {
+          userId,
+          taskName,
+          taskId: payload?.task_id ?? payload?.taskId ?? null,
+        },
+      });
+      updateDailyTasksSummary(conventionId, (summary) => {
+        if (!taskId || (day && summary.day !== day)) {
+          return summary;
+        }
+
+        let changed = false;
+        const tasks = summary.tasks.map((task) => {
+          if (task.id !== taskId) {
+            return task;
+          }
+
+          const baseCount = Math.max(task.currentCount ?? 0, 0);
+          const candidateCount = Math.min(
+            baseCount + incrementCount,
+            task.requirement,
+          );
+          const becameComplete = candidateCount >= task.requirement;
+
+          if (!becameComplete && candidateCount === baseCount) {
+            return task;
+          }
+
+          changed = true;
+          return {
+            ...task,
+            currentCount: candidateCount,
+            isCompleted: becameComplete,
+            completedAt: becameComplete
+              ? task.completedAt ?? completionTimestamp ?? new Date().toISOString()
+              : task.completedAt,
+          };
+        });
+
+        if (!changed) {
+          return summary;
+        }
+
+        const completedCount = tasks.filter((task) => task.isCompleted).length;
+        const remainingCount = Math.max(summary.totalCount - completedCount, 0);
+        return {
+          ...summary,
+          tasks,
+          completedCount,
+          remainingCount,
+        };
+      });
+    };
+
+    const handleDailyAllComplete = (payload: Record<string, unknown> | null) => {
+      const currentStreakRaw = payload?.current_streak ?? payload?.currentStreak ?? null;
+      const currentStreak =
+        typeof currentStreakRaw === 'number' && Number.isFinite(currentStreakRaw)
+          ? currentStreakRaw
+          : null;
+
+      const message =
+        currentStreak && currentStreak > 1
+          ? `All daily tasks complete! Streak: ${currentStreak}`
+          : 'All daily tasks complete!';
+
+      showToast(message);
+      addMonitoringBreadcrumb({
+        category: 'daily-tasks',
+        message: 'All daily tasks complete notification received',
+        data: {
+          userId,
+          currentStreak,
+        },
+      });
+      const conventionId = typeof payload?.convention_id === 'string' ? payload.convention_id : null;
+      const day = typeof payload?.day === 'string' ? payload.day : null;
+      updateDailyTasksSummary(conventionId, (summary) => {
+        if (day && summary.day !== day) {
+          return summary;
+        }
+
+        const tasks = summary.tasks.map((task) => {
+          if (task.isCompleted) {
+            return task;
+          }
+
+          return {
+            ...task,
+            currentCount: task.requirement,
+            isCompleted: true,
+            completedAt: task.completedAt ?? new Date().toISOString(),
+          };
+        });
+
+        const completedCount = tasks.length;
+        const remainingCount = 0;
+        return {
+          ...summary,
+          tasks,
+          completedCount,
+          remainingCount,
+          streak: {
+            current: currentStreak ?? summary.streak.current,
+            best: Math.max(currentStreak ?? summary.streak.current, summary.streak.best),
+            lastCompletedDay: summary.day,
+          },
+        };
+      });
     };
 
     channel.on(
@@ -355,6 +517,23 @@ export function AchievementToastManager() {
         const newRow = payload.new as Record<string, unknown> | null;
         if (!newRow || typeof newRow !== 'object') {
           return;
+        }
+
+        const idRaw = (newRow as { id?: unknown }).id ?? null;
+        const notificationId = typeof idRaw === 'string' ? idRaw : null;
+
+        if (notificationId) {
+          const processedIds = processedNotificationIdsRef.current;
+          if (processedIds.has(notificationId)) {
+            return;
+          }
+          processedIds.add(notificationId);
+          if (processedIds.size > 200) {
+            const iterator = processedIds.values().next();
+            if (!iterator.done && iterator.value) {
+              processedIds.delete(iterator.value);
+            }
+          }
         }
 
         const typeRaw = (newRow as { type?: unknown }).type ?? null;
@@ -377,6 +556,12 @@ export function AchievementToastManager() {
             break;
           case 'daily_reset':
             handleDailyReset(notificationPayload);
+            break;
+          case 'daily_task_completed':
+            handleDailyTaskCompleted(notificationPayload);
+            break;
+          case 'daily_all_complete':
+            handleDailyAllComplete(notificationPayload);
             break;
           default:
             break;

@@ -1,3 +1,7 @@
+import { handleDailyResetEvent, processDailyTasksForEvent } from "./dailyTasks";
+import { supabaseFetch } from "./supabaseClient";
+import type { CatchRow, ConventionInfo, Env, EventRecord, QueueMessage } from "./types";
+
 /**
  * Cloudflare Worker: orchestrator
  *
@@ -11,25 +15,6 @@
  *   `notifications` so the client receives realtime toasts.
  */
 
-interface Env {
-  SUPABASE_URL: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
-}
-
-type EventRecord = {
-  event_id: string;
-  user_id: string;
-  type: string;
-  convention_id: string | null;
-  payload: Record<string, unknown>;
-  occurred_at: string;
-};
-
-type QueueMessage = {
-  event: EventRecord;
-  received_at: string;
-};
-
 type AchievementAwardSummary = {
   key: string;
   userId: string;
@@ -39,16 +24,6 @@ type AchievementAwardSummary = {
   awardedAt?: string | null;
   sourceEventId?: string | null;
   reason?: string | null;
-};
-
-type CatchRow = {
-  id: string;
-  catcher_id: string;
-  fursuit_id: string;
-  convention_id: string | null;
-  caught_at: string | null;
-  is_tutorial?: boolean | null;
-  fursuit?: { owner_id?: string | null } | null;
 };
 
 type CatchEventRecord = {
@@ -63,7 +38,7 @@ const ACHIEVEMENT_CACHE_TTL_MS = 5 * 60 * 1000;
 let achievementCache: Map<string, { id: string; key: string; rule_id: string | null }> | null = null;
 let achievementCacheExpiresAt = 0;
 
-let conventionCache: Map<string, { startDate: string | null; timezone: string | null }> | null = null;
+let conventionCache: Map<string, ConventionInfo> | null = null;
 let conventionCacheExpiresAt = 0;
 const CONVENTION_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -89,37 +64,6 @@ function describeError(error: unknown) {
   }
 
   return { message: String(error) };
-}
-
-function buildSupabaseHeaders(env: Env, initHeaders?: HeadersInit): Headers {
-  const headers = new Headers(initHeaders ?? {});
-  headers.set("apikey", env.SUPABASE_SERVICE_ROLE_KEY);
-  headers.set("Authorization", `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
-  if (!headers.has("Accept")) {
-    headers.set("Accept", "application/json");
-  }
-  return headers;
-}
-
-async function supabaseFetch(env: Env, path: string, init: RequestInit = {}): Promise<Response> {
-  const url = `${env.SUPABASE_URL}${path}`;
-  const headers = buildSupabaseHeaders(env, init.headers);
-  const method = init.method ? init.method.toUpperCase() : "GET";
-
-  if (method !== "GET" && method !== "HEAD" && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(url, { ...init, headers });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => response.statusText);
-    throw new Error(
-      `Supabase request failed (${response.status} ${response.statusText}) for ${path}: ${errorText}`,
-    );
-  }
-
-  return response;
 }
 
 async function fetchCatchWithRelations(env: Env, catchId: string): Promise<CatchRow | null> {
@@ -819,6 +763,38 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     payload.is_tutorial === true || payload.is_tutorial === "true";
   const wasTutorialCatch = catchRow.is_tutorial === true || payloadTutorialFlag;
 
+  const candidateConventionIds: string[] = [];
+  if (typeof catchRow.convention_id === "string" && catchRow.convention_id.length > 0) {
+    candidateConventionIds.push(catchRow.convention_id);
+  }
+  if (Array.isArray(payload.convention_ids)) {
+    for (const value of payload.convention_ids) {
+      if (typeof value === "string" && value.length > 0) {
+        candidateConventionIds.push(value);
+      } else if (typeof value === "number" && Number.isFinite(value)) {
+        candidateConventionIds.push(String(value));
+      }
+    }
+  }
+  if (typeof payload.convention_id === "string" && payload.convention_id.length > 0) {
+    candidateConventionIds.push(payload.convention_id);
+  }
+  if (typeof event.convention_id === "string" && event.convention_id.length > 0) {
+    candidateConventionIds.push(event.convention_id);
+  }
+
+  const uniqueConventionIds = candidateConventionIds
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .filter((value, index, self) => self.indexOf(value) === index);
+
+  const primaryConventionId = uniqueConventionIds[0] ?? null;
+  const conventionInfoPromise = primaryConventionId
+    ? fetchConventionInfo(env, primaryConventionId)
+    : Promise.resolve(null);
+
+  const fursuitOwnerId = rawOwnerId && rawOwnerId !== catcherId ? rawOwnerId : null;
+  const occurredAt = typeof catchRow.caught_at === "string" ? catchRow.caught_at : event.occurred_at;
+
   console.info("[orchestrator] catch context", {
     event_id: event.event_id,
     catch_id: catchId,
@@ -827,6 +803,44 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     catcherId,
   });
 
+  const totalCatchesPromise = countCatchesByUser(env, catcherId);
+  const totalFursuitCatchesPromise = fursuitOwnerId
+    ? countCatchesByFursuit(env, fursuitId)
+    : Promise.resolve(0);
+
+  const conventionInfoMap = new Map<string, ConventionInfo | null>();
+  if (primaryConventionId) {
+    conventionInfoMap.set(primaryConventionId, await conventionInfoPromise);
+  }
+  const otherConventionIds = uniqueConventionIds.filter((id) => id !== primaryConventionId);
+  if (otherConventionIds.length > 0) {
+    const otherInfos = await Promise.all(
+      otherConventionIds.map((id) => fetchConventionInfo(env, id)),
+    );
+    otherConventionIds.forEach((id, index) => {
+      conventionInfoMap.set(id, otherInfos[index] ?? null);
+    });
+  }
+
+  const syncDailyTasks = async () => {
+    if (uniqueConventionIds.length === 0) {
+      return;
+    }
+    for (const conventionId of uniqueConventionIds) {
+      const info = conventionInfoMap.get(conventionId) ?? null;
+      await processDailyTasksForEvent({
+        env,
+        event,
+        userId: catcherId,
+        conventionId,
+        conventionInfo: info,
+        occurredAt,
+      });
+    }
+  };
+
+  await syncDailyTasks();
+
   if (wasTutorialCatch) {
     console.info("[orchestrator] Skipping tutorial catch achievements", {
       event_id: event.event_id,
@@ -834,9 +848,6 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     });
     return;
   }
-
-  const fursuitOwnerId = rawOwnerId && rawOwnerId !== catcherId ? rawOwnerId : null;
-  const occurredAt = typeof catchRow.caught_at === "string" ? catchRow.caught_at : event.occurred_at;
 
   // ========== PHASE 1: QUICK AWARDS (grant immediately) ==========
   const phase1Start = Date.now();
@@ -848,25 +859,14 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
     sourceEventId: string;
   }> = [];
 
-  // Determine convention ID for parallel queries
-  const payloadConventionId = typeof payload.convention_id === "string"
-    ? payload.convention_id
-    : Array.isArray(payload.convention_ids) && payload.convention_ids.length > 0
-      ? String(payload.convention_ids[0])
-      : null;
-  const primaryConventionId =
-    (typeof catchRow.convention_id === "string" && catchRow.convention_id.length > 0
-      ? catchRow.convention_id
-      : null) ??
-    payloadConventionId ??
-    event.convention_id;
-
   // Parallelize independent queries for Phase 1
-  const [totalCatches, totalFursuitCatches, conventionInfo] = await Promise.all([
-    countCatchesByUser(env, catcherId),
-    fursuitOwnerId ? countCatchesByFursuit(env, fursuitId) : Promise.resolve(0),
-    primaryConventionId ? fetchConventionInfo(env, primaryConventionId) : Promise.resolve(null),
+  const [totalCatches, totalFursuitCatches] = await Promise.all([
+    totalCatchesPromise,
+    totalFursuitCatchesPromise,
   ]);
+  const conventionInfo = primaryConventionId
+    ? conventionInfoMap.get(primaryConventionId) ?? null
+    : null;
   const phase1CountEnd = Date.now();
 
   if (totalCatches === 1) {
@@ -1283,10 +1283,65 @@ async function handleConventionJoined(env: Env, event: EventRecord) {
   ]);
 }
 
-async function handleLeaderboardRefreshed(_env: Env, event: EventRecord) {
-  console.info("[orchestrator] leaderboard_refreshed event received (no achievements)", {
-    event_id: event.event_id,
+async function handleDailyProgressEvent(env: Env, event: EventRecord, reason: string) {
+  const userId = event.user_id;
+  if (!userId) {
+    console.warn(`[orchestrator] ${reason} missing user_id`, {
+      event_id: event.event_id,
+    });
+    return;
+  }
+
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
+  let conventionId = event.convention_id;
+  if (!conventionId || conventionId.length === 0) {
+    const payloadConventionId = typeof payload.convention_id === "string" ? payload.convention_id : null;
+    let arrayConventionId: string | null = null;
+    if (Array.isArray(payload.convention_ids)) {
+      for (const value of payload.convention_ids) {
+        if (typeof value === "string" && value.length > 0) {
+          arrayConventionId = value;
+          break;
+        }
+      }
+    }
+    conventionId = payloadConventionId ?? arrayConventionId ?? null;
+  }
+
+  if (!conventionId) {
+    console.warn(`[orchestrator] ${reason} missing convention context`, {
+      event_id: event.event_id,
+      user_id: userId,
+    });
+    return;
+  }
+
+  const conventionInfo = await fetchConventionInfo(env, conventionId);
+  await processDailyTasksForEvent({
+    env,
+    event,
+    userId,
+    conventionId,
+    conventionInfo,
   });
+
+  console.info(`[orchestrator] ${reason} daily tasks processed`, {
+    event_id: event.event_id,
+    user_id: userId,
+    convention_id: conventionId,
+  });
+}
+
+async function handleLeaderboardRefreshed(env: Env, event: EventRecord) {
+  await handleDailyProgressEvent(env, event, "leaderboard_refreshed");
+}
+
+async function warmSupabaseConnection(env: Env): Promise<void> {
+  try {
+    await supabaseFetch(env, "/rest/v1/conventions?select=id&limit=1");
+  } catch (error) {
+    console.warn("[orchestrator] Scheduled warmup failed", { error: describeError(error) });
+  }
 }
 
 function isEventRecord(value: unknown): value is EventRecord {
@@ -1342,8 +1397,15 @@ async function processEventMessage(message: QueueMessage, env: Env): Promise<voi
     case "leaderboard_refreshed":
       await handleLeaderboardRefreshed(env, event);
       break;
+    case "catch_shared":
+    case "fursuit_bio_viewed":
+      await handleDailyProgressEvent(env, event, event.type);
+      break;
     case "convention_joined":
       await handleConventionJoined(env, event);
+      break;
+    case "daily_reset":
+      await handleDailyResetEvent(env, event);
       break;
     default:
       console.info("[orchestrator] No legacy handler for event type", {
@@ -1393,5 +1455,8 @@ export default {
     for (const message of batch.messages) {
       ctx.waitUntil(handleMessage(message, env));
     }
+  },
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(warmSupabaseConnection(env));
   },
 };

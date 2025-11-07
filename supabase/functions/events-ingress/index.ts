@@ -230,10 +230,12 @@ async function forwardEvent(event: InsertableEventRow): Promise<ForwardResult> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Connection": "keep-alive",
         "X-Tailtag-Event-Id": event.event_id,
         "X-Tailtag-Event-Signature": signature,
       },
       body: payload,
+      keepalive: true,
     });
 
     if (!response.ok) {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -74,13 +74,48 @@ export default function CatchScreen() {
   const [conversationPrompt, setConversationPrompt] = useState<string | null>(
     null
   );
+  const [lastCatchConventionId, setLastCatchConventionId] = useState<string | null>(null);
+  const [lastCatchConventionIds, setLastCatchConventionIds] = useState<string[]>([]);
 
   const resetCatchState = () => {
     setCaughtFursuit(null);
     setCatchRecord(null);
     setCatchNumber(null);
     setConversationPrompt(null);
+    setLastCatchConventionId(null);
+    setLastCatchConventionIds([]);
   };
+
+  const lastCaughtFursuitId = caughtFursuit?.id ?? null;
+  const lastCatchRecordId = catchRecord?.id ?? null;
+
+  const handleCatchCodeCopied = useCallback(() => {
+    if (!userId) {
+      return;
+    }
+    if (!lastCatchConventionId) {
+      console.warn(
+        "Skipping catch_shared event because no convention was recorded for the latest catch"
+      );
+      return;
+    }
+    void emitGameplayEvent({
+      type: "catch_shared",
+      conventionId: lastCatchConventionId,
+      payload: {
+        convention_id: lastCatchConventionId,
+        convention_ids: lastCatchConventionIds,
+        fursuit_id: lastCaughtFursuitId,
+        catch_id: lastCatchRecordId,
+      },
+    });
+  }, [
+    userId,
+    lastCatchConventionId,
+    lastCatchConventionIds,
+    lastCaughtFursuitId,
+    lastCatchRecordId,
+  ]);
 
   const handleSubmit = async () => {
     if (!userId || isSubmitting) {
@@ -353,6 +388,8 @@ export default function CatchScreen() {
         catch_count: latestCatchCount,
       });
       setCatchRecord(normalizedCatchRecord);
+      setLastCatchConventionId(primaryConventionId);
+      setLastCatchConventionIds(sharedConventions);
       setCatchNumber(
         normalizedCatchRecord?.catch_number ?? latestCatchCount
       );
@@ -490,6 +527,7 @@ export default function CatchScreen() {
                   params: { id: caughtFursuit.id },
                 })
               }
+              onCodeCopied={handleCatchCodeCopied}
             />
             {caughtFursuit.bio ? (
               <View style={styles.bioSpacing}>

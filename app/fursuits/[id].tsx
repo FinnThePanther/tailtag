@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -12,6 +12,12 @@ import {
   fursuitDetailQueryKey,
 } from '../../src/features/suits';
 import { useAuth } from '../../src/features/auth';
+import {
+  PROFILE_CONVENTIONS_QUERY_KEY,
+  CONVENTIONS_STALE_TIME,
+  fetchProfileConventionIds,
+} from '../../src/features/conventions';
+import { emitGameplayEvent } from '../../src/features/events';
 import { colors, spacing } from '../../src/theme';
 
 const formatDate = (isoTimestamp: string | null) => {
@@ -71,6 +77,61 @@ export default function FursuitDetailScreen() {
     return detail.owner_id === userId;
   }, [detail, userId]);
 
+  const { data: profileConventionIds = [] } = useQuery<string[], Error>({
+    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchProfileConventionIds(userId!),
+  });
+
+  const primaryConventionId = useMemo(
+    () => (profileConventionIds.length > 0 ? profileConventionIds[0] : null),
+    [profileConventionIds],
+  );
+
+  const viewedFursuitRef = useRef<string | null>(null);
+  const viewedFursuitId = detail?.id ?? null;
+  const viewedFursuitOwnerId = detail?.owner_id ?? null;
+
+  useEffect(() => {
+    if (!viewedFursuitId || !userId || !primaryConventionId) {
+      return;
+    }
+    const key = `${viewedFursuitId}:${primaryConventionId}`;
+    if (viewedFursuitRef.current === key) {
+      return;
+    }
+    viewedFursuitRef.current = key;
+    void emitGameplayEvent({
+      type: 'fursuit_bio_viewed',
+      conventionId: primaryConventionId,
+      payload: {
+        fursuit_id: viewedFursuitId,
+        convention_id: primaryConventionId,
+        convention_ids: profileConventionIds,
+        owner_id: viewedFursuitOwnerId,
+      },
+    });
+  }, [viewedFursuitId, viewedFursuitOwnerId, userId, primaryConventionId, profileConventionIds]);
+
+  const handleCodeCopied = useCallback(() => {
+    if (!userId || !viewedFursuitId || !primaryConventionId) {
+      return;
+    }
+    void emitGameplayEvent({
+      type: 'catch_shared',
+      conventionId: primaryConventionId,
+      payload: {
+        convention_id: primaryConventionId,
+        convention_ids: profileConventionIds,
+        fursuit_id: viewedFursuitId,
+        context: 'fursuit_detail',
+      },
+    });
+  }, [userId, viewedFursuitId, primaryConventionId, profileConventionIds]);
+
   const handleEditBio = () => {
     if (!fursuitId) {
       return;
@@ -122,6 +183,7 @@ export default function FursuitDetailScreen() {
               avatarUrl={detail.avatar_url}
               uniqueCode={detail.unique_code}
               timelineLabel={addedDate ? `Added on ${addedDate}` : null}
+              onCodeCopied={handleCodeCopied}
             />
             {detail.bio ? (
               <FursuitBioDetails bio={detail.bio} />

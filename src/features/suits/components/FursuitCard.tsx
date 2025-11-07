@@ -18,6 +18,7 @@ type FursuitCardProps = {
   codeLabel?: string;
   actionSlot?: ReactNode;
   onPress?: () => void;
+  onCodeCopied?: () => void;
 };
 
 const normalizeSpecies = (value: string | null | undefined) => {
@@ -64,6 +65,7 @@ export function FursuitCard({
   codeLabel = 'Catch code',
   actionSlot,
   onPress,
+  onCodeCopied,
 }: FursuitCardProps) {
   const displaySpecies = normalizeSpecies(species);
   const displayColors = buildColorLine(colorOptions);
@@ -73,6 +75,9 @@ export function FursuitCard({
     // Copy the displayed code so users can share it quickly.
     void Clipboard.setStringAsync(displayCode);
     Alert.alert('Code copied', 'The catch code is ready to paste.');
+    if (onCodeCopied) {
+      onCodeCopied();
+    }
   };
 
   return (
