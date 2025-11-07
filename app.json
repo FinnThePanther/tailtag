@@ -13,7 +13,13 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.finnthepanther.tailtag",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "TailTag needs access to your photo library so you can add photos of your fursuits to your profile.",
+        "NSCameraUsageDescription": "TailTag needs access to your camera so you can take photos of your fursuits.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -39,6 +45,13 @@
       ],
       "expo-font"
     ],
-    "scheme": "tailtag"
+    "scheme": "tailtag",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3ae47a1a-6584-423d-b52d-90b5acd11048"
+      }
+    },
+    "owner": "finnthepanther"
   }
 }
