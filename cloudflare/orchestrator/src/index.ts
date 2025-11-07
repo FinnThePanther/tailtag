@@ -139,10 +139,10 @@ async function countDistinctSpeciesCaught(env: Env, userId: string): Promise<num
       env,
       `/rest/v1/catches?select=is_tutorial,fursuit:fursuits(species_id,species)&catcher_id=eq.${encodeURIComponent(userId)}&order=caught_at.asc&limit=20000`,
     );
-    const rows = (await response.json()) as Array<{
+    const rows = (await response.json()) as {
       is_tutorial?: boolean | null;
-      fursuit?: { species_id?: string | null; species?: string | null } | { }
-    }>;
+      fursuit?: { species_id?: string | null; species?: string | null } | Record<string, never>;
+    }[];
     const species = new Set<string>();
 
     for (const row of rows ?? []) {
@@ -171,7 +171,7 @@ async function hasHybridOrMultiSpecies(env: Env, fursuitId: string): Promise<boo
       env,
       `/rest/v1/fursuits?select=species,species_id&id=eq.${encodeURIComponent(fursuitId)}&limit=1`,
     );
-    const rows = (await response.json()) as Array<{ species?: string | null; species_id?: string | null }>;
+    const rows = (await response.json()) as { species?: string | null; species_id?: string | null }[];
     const record = rows?.[0];
     if (!record) return false;
 
@@ -185,7 +185,7 @@ async function hasHybridOrMultiSpecies(env: Env, fursuitId: string): Promise<boo
           env,
           `/rest/v1/fursuit_species?select=name,normalized_name&id=eq.${encodeURIComponent(record.species_id)}&limit=1`,
         );
-        const speciesRows = (await speciesResponse.json()) as Array<{ name?: string | null; normalized_name?: string | null }>;
+        const speciesRows = (await speciesResponse.json()) as { name?: string | null; normalized_name?: string | null }[];
         const speciesRecord = speciesRows?.[0];
         if (speciesRecord) {
           const name = (speciesRecord.normalized_name ?? speciesRecord.name ?? "").toLowerCase();
@@ -209,7 +209,7 @@ async function hasHybridOrMultiSpecies(env: Env, fursuitId: string): Promise<boo
         env,
         `/rest/v1/fursuit_species_map?select=species_id&fursuit_id=eq.${encodeURIComponent(fursuitId)}&limit=200`,
       );
-      const mapRows = (await mapResponse.json()) as Array<{ species_id?: string | null }>;
+      const mapRows = (await mapResponse.json()) as { species_id?: string | null }[];
       const ids = new Set<string>();
       for (const row of mapRows ?? []) {
         if (row.species_id) ids.add(row.species_id);
@@ -237,7 +237,7 @@ async function countDistinctConventionsForUser(env: Env, userId: string): Promis
         env,
         `/rest/v1/events?select=payload,user_id&type=eq.catch_performed&user_id=eq.${encodeURIComponent(userId)}&order=occurred_at.asc&limit=20000`,
       );
-      const rows = (await response.json()) as Array<{ payload?: Record<string, unknown> | null }>;
+      const rows = (await response.json()) as { payload?: Record<string, unknown> | null }[];
       const conventions = new Set<string>();
       for (const row of rows ?? []) {
         const payload = row.payload ?? {};
@@ -270,10 +270,10 @@ async function countDistinctConventionsForUser(env: Env, userId: string): Promis
       limit: "20000",
     });
     const response = await supabaseFetch(env, `/rest/v1/catches?${params.toString()}`);
-    const rows = (await response.json()) as Array<{
+    const rows = (await response.json()) as {
       convention_id: string | null;
       is_tutorial?: boolean | null;
-    }>;
+    }[];
     const conventions = new Set<string>();
     for (const row of rows ?? []) {
       if (row.is_tutorial === true) continue;
@@ -306,7 +306,7 @@ async function fetchCatchRecordsForFursuitAtConvention(
       limit: "20000",
     });
     const response = await supabaseFetch(env, `/rest/v1/catches?${params.toString()}`);
-    const rows = (await response.json()) as Array<{ catcher_id: string | null; is_tutorial?: boolean | null }>;
+    const rows = (await response.json()) as { catcher_id: string | null; is_tutorial?: boolean | null }[];
     const normalized: CatchEventRecord[] = [];
     for (const row of rows ?? []) {
       if (!row.catcher_id) continue;
@@ -367,7 +367,8 @@ async function countCatchEventsForFursuitAtConvention(
   }
 }
 
-async function countCatchesForFursuitAtConvention(
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _countCatchesForFursuitAtConvention(
   env: Env,
   fursuitId: string,
   conventionId: string,
@@ -379,7 +380,8 @@ async function countCatchesForFursuitAtConvention(
   }).length;
 }
 
-async function countUniqueCatchersForFursuitAtConvention(
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _countUniqueCatchersForFursuitAtConvention(
   env: Env,
   fursuitId: string,
   conventionId: string,
@@ -421,7 +423,7 @@ async function fetchConventionInfo(
       env,
       `/rest/v1/conventions?select=start_date,timezone&id=eq.${encodeURIComponent(conventionId)}&limit=1`,
     );
-    const rows = (await response.json()) as Array<{ start_date?: string | null; timezone?: string | null }>;
+    const rows = (await response.json()) as { start_date?: string | null; timezone?: string | null }[];
     const record = rows?.[0];
     if (!record) {
       return null;
@@ -474,7 +476,7 @@ async function hasSecondCatchWithinMinute(env: Env, userId: string, caughtAtIso:
       env,
       `/rest/v1/catches?select=id,caught_at,is_tutorial&catcher_id=eq.${encodeURIComponent(userId)}&caught_at=gte.${encodeURIComponent(windowStart)}&caught_at=lte.${encodeURIComponent(windowEnd)}&order=caught_at.asc&limit=200`,
     );
-    const rows = (await response.json()) as Array<{ is_tutorial?: boolean | null }>;
+    const rows = (await response.json()) as { is_tutorial?: boolean | null }[];
     return rows.filter((row) => row.is_tutorial !== true).length >= 2;
   } catch (error) {
     console.error("[orchestrator] Failed checking double trouble window", {
@@ -497,7 +499,7 @@ async function ensureAchievementCache(env: Env): Promise<Map<string, { id: strin
     is_active: "eq.true",
   });
   const response = await supabaseFetch(env, `/rest/v1/achievements?${params.toString()}`);
-  const rows = (await response.json()) as Array<{ id: string; key: string; rule_id: string | null }>;
+  const rows = (await response.json()) as { id: string; key: string; rule_id: string | null }[];
 
   const map = new Map<string, { id: string; key: string; rule_id: string | null }>();
   for (const row of rows ?? []) {
@@ -511,7 +513,8 @@ async function ensureAchievementCache(env: Env): Promise<Map<string, { id: strin
   return map;
 }
 
-async function countRows(env: Env, path: string): Promise<number> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _countRows(env: Env, path: string): Promise<number> {
   const response = await supabaseFetch(env, path, {
     method: "GET",
     headers: {
@@ -531,13 +534,13 @@ async function countRows(env: Env, path: string): Promise<number> {
 }
 
 function buildAwardLookup(
-  awards: Array<{
+  awards: {
     userId: string;
     achievementKey: string;
     context: Record<string, unknown>;
     occurredAt: string;
     sourceEventId: string;
-  }>,
+  }[],
 ) {
   const lookup = new Map<string, {
     context: Record<string, unknown>;
@@ -560,22 +563,22 @@ function buildAwardLookup(
 async function sendAchievementNotifications(
   env: Env,
   summaries: AchievementAwardSummary[],
-  awards: Array<{
+  awards: {
     userId: string;
     achievementKey: string;
     context: Record<string, unknown>;
     occurredAt: string;
     sourceEventId: string;
-  }>,
+  }[],
 ): Promise<void> {
   const awardLookup = buildAwardLookup(awards);
   const achievementMap = await ensureAchievementCache(env);
 
-  const notifications = [] as Array<{
+  const notifications = [] as {
     user_id: string;
     type: string;
     payload: Record<string, unknown>;
-  }>;
+  }[];
 
   for (const summary of summaries) {
     if (!summary.awarded) {
@@ -639,13 +642,13 @@ async function sendAchievementNotifications(
 
 async function grantAchievementsBatch(
   env: Env,
-  awards: Array<{
+  awards: {
     userId: string;
     achievementKey: string;
     context: Record<string, unknown>;
     occurredAt: string;
     sourceEventId: string;
-  }>,
+  }[],
 ): Promise<AchievementAwardSummary[]> {
   if (awards.length === 0) {
     return [];
@@ -851,13 +854,13 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
 
   // ========== PHASE 1: QUICK AWARDS (grant immediately) ==========
   const phase1Start = Date.now();
-  const quickAwards: Array<{
+  const quickAwards: {
     userId: string;
     achievementKey: string;
     context: Record<string, unknown>;
     occurredAt: string;
     sourceEventId: string;
-  }> = [];
+  }[] = [];
 
   // Parallelize independent queries for Phase 1
   const [totalCatches, totalFursuitCatches] = await Promise.all([
@@ -981,13 +984,13 @@ async function handleCatchPerformed(env: Env, event: EventRecord) {
 
   // ========== PHASE 2: COMPLEX AWARDS (grant after heavy queries) ==========
   const phase2Start = Date.now();
-  const complexAwards: Array<{
+  const complexAwards: {
     userId: string;
     achievementKey: string;
     context: Record<string, unknown>;
     occurredAt: string;
     sourceEventId: string;
-  }> = [];
+  }[] = [];
 
   // Heavy query: Distinct species count
   const distinctSpeciesStart = Date.now();
@@ -1186,7 +1189,7 @@ async function handleProfileUpdated(env: Env, event: EventRecord) {
       env,
       `/rest/v1/profiles?select=username,bio,avatar_url&id=eq.${encodeURIComponent(userId)}`,
     );
-    const rows = (await response.json()) as Array<{ username: string | null; bio: string | null; avatar_url: string | null }>;
+    const rows = (await response.json()) as { username: string | null; bio: string | null; avatar_url: string | null }[];
     const profile = rows?.[0];
 
     if (!profile) {
