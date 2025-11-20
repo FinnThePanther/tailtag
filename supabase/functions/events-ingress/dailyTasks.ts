@@ -279,7 +279,17 @@ function normalizeEvent(raw: Record<string, unknown>): NormalizedEvent {
 }
 
 function evaluateMetric(events: NormalizedEvent[], metadata: DailyTaskMetadata): number {
-  const filtered = applyFilters(events, metadata.filters);
+  // Filter out tutorial catches if not explicitly included
+  let processedEvents = events;
+  if (!metadata.includeTutorialCatches) {
+    processedEvents = events.filter((event) => {
+      const tutorialValue = event.payload["is_tutorial"];
+      const isTutorial = tutorialValue === true || (typeof tutorialValue === "string" && tutorialValue === "true");
+      return !isTutorial;
+    });
+  }
+
+  const filtered = applyFilters(processedEvents, metadata.filters);
   if (metadata.metric === "unique" && metadata.uniqueBy) {
     const seen = new Set<string>();
     for (const event of filtered) {
