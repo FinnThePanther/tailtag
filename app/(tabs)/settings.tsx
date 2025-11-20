@@ -49,6 +49,7 @@ import {
   fetchCaughtSuits,
 } from '../../src/features/suits/api/caughtSuits';
 import type { CaughtRecord } from '../../src/features/suits/api/caughtSuits';
+import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../src/features/leaderboard/api/leaderboard';
 
 type UploadCandidate = {
   uri: string;
@@ -505,6 +506,7 @@ export default function SettingsScreen() {
          });
        }
         void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+        void queryClient.invalidateQueries({ queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId] });
      } catch (caught) {
         const fallbackMessage =
           caught instanceof Error
