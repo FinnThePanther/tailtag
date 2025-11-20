@@ -14,6 +14,7 @@ import {
 } from '../../conventions';
 import { ConventionToggle } from '../../../components/conventions/ConventionToggle';
 import { colors, spacing } from '../../../theme';
+import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../leaderboard/api/leaderboard';
 
 type ConventionStepProps = {
   userId: string;
@@ -84,6 +85,11 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
           return [...merged];
         }
       );
+
+      // Invalidate leaderboard cache for all joined conventions
+      selections.forEach((conventionId) => {
+        void queryClient.invalidateQueries({ queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId] });
+      });
 
       onComplete(selections);
     } catch (caught) {

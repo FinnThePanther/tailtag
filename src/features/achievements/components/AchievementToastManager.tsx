@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSegments } from 'expo-router';
 
 import { useAuth } from '../../auth';
 import { useAchievementUnlockToast } from '..';
 import { achievementsStatusQueryKey, fetchAchievementStatus } from '../api/achievements';
+import {
+  subscribeToImmediateAchievementAwards,
+  type ImmediateAchievementAward,
+} from '../immediateAwardsBus';
 import { supabase } from '../../../lib/supabase';
 import { addMonitoringBreadcrumb, captureHandledException } from '../../../lib/sentry';
 import { useToast } from '../../../hooks/useToast';
@@ -81,6 +85,41 @@ export function AchievementToastManager() {
   const unlockedSnapshotRef = useRef<Set<string>>(new Set());
   const hasPrimedSnapshotRef = useRef<boolean>(false);
 
+  const applyImmediateAwardToCache = useCallback(
+    (award: ImmediateAchievementAward): AchievementWithStatus | null => {
+      const current = queryClient.getQueryData<AchievementWithStatus[] | undefined>(statusQueryKey);
+      if (!current) {
+        return null;
+      }
+
+      let resolved: AchievementWithStatus | null = null;
+      const next = current.map((entry) => {
+        const matches =
+          (!!award.achievementId && entry.id === award.achievementId) ||
+          entry.key === award.achievementKey;
+        if (!matches) {
+          return entry;
+        }
+        const unlockedAt = award.awardedAt ?? entry.unlockedAt ?? new Date().toISOString();
+        resolved = {
+          ...entry,
+          unlocked: true,
+          unlockedAt,
+          context: award.context ?? entry.context,
+        };
+        return resolved;
+      });
+
+      if (!resolved) {
+        return null;
+      }
+
+      queryClient.setQueryData(statusQueryKey, next);
+      return resolved;
+    },
+    [queryClient, statusQueryKey],
+  );
+
   useEffect(() => {
     if (!userId || !achievementStatus) {
       unlockedSnapshotRef.current.clear();
@@ -113,6 +152,52 @@ export function AchievementToastManager() {
       hasPrimedSnapshotRef.current = true;
     }
   }, [achievementStatus, userId, handleToast]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const unsubscribe = subscribeToImmediateAchievementAwards(({ userId: eventUserId, awards }) => {
+      if (eventUserId !== userId || awards.length === 0) {
+        return;
+      }
+
+      const receivedAt = Date.now();
+
+      for (const award of awards) {
+        const resolved = applyImmediateAwardToCache(award);
+
+        if (resolved) {
+          const toastDisplayedAt = Date.now();
+          addMonitoringBreadcrumb({
+            category: 'achievements',
+            message: 'Achievement unlocked (inline)',
+            data: {
+              userId,
+              achievementId: resolved.id,
+              latencyMs: toastDisplayedAt - receivedAt,
+            },
+          });
+          handleToast(resolved);
+          continue;
+        }
+
+        showToast(`You just unlocked ${award.achievementKey}!`);
+        addMonitoringBreadcrumb({
+          category: 'achievements',
+          message: 'Achievement unlocked (inline fallback)',
+          data: {
+            userId,
+            achievementKey: award.achievementKey,
+          },
+          level: 'warning',
+        });
+      }
+    });
+
+    return unsubscribe;
+  }, [applyImmediateAwardToCache, handleToast, showToast, userId]);
 
   useEffect(() => {
     const teardown = () => {

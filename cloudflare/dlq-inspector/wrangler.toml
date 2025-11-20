@@ -1,8 +1,0 @@
-name = "dlq-inspector"
-main = "src/index.ts"
-compatibility_date = "2024-03-30"
-
-[[queues.consumers]]
-queue = "tailtag-events-dlq"
-max_batch_size = 10
-max_batch_timeout = 5

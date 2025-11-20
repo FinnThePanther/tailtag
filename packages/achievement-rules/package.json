@@ -1,0 +1,17 @@
+{
+  "name": "@tailtag/achievement-rules",
+  "version": "0.1.0",
+  "description": "Shared achievement + task rule definitions for Tailtag clients and workers.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "lint": "tsc --noEmit --pretty"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

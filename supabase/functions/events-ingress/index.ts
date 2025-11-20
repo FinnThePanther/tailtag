@@ -6,35 +6,11 @@
  * - SUPABASE_URL: Supabase project URL
  * - SUPABASE_ANON_KEY: Anon key for validating the caller JWT
  * - SERVICE_ROLE_KEY: Service role key (or SUPABASE_SERVICE_ROLE_KEY) for privileged inserts
- * - CF_EVENT_INGRESS_URL: Cloudflare Worker endpoint that accepts event payloads
- * - CF_EVENT_INGRESS_SECRET: HMAC signing secret shared with the Cloudflare Worker
  */
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote esm.sh imports.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
-
-type Json = Record<string, unknown>;
-
-type EventRequestBody = {
-  type?: unknown;
-  convention_id?: unknown;
-  payload?: unknown;
-  occurred_at?: unknown;
-};
-
-type InsertableEventRow = {
-  event_id: string;
-  user_id: string;
-  type: string;
-  convention_id: string | null;
-  payload: Json;
-  occurred_at: string;
-};
-
-type ForwardResult =
-  | { ok: true; status: number }
-  | { ok: false; status: number; error: string };
-
-const encoder = new TextEncoder();
+import { processAchievementsForEvent } from "./achievements.ts";
+import type { EventRequestBody, InsertableEventRow, Json } from "./types.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -45,15 +21,8 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("ANON_KEY");
 const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-const cloudflareEventIngressUrl = Deno.env.get("CF_EVENT_INGRESS_URL");
-const cloudflareIngressSecret = Deno.env.get("CF_EVENT_INGRESS_SECRET");
-
 if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
   throw new Error("Missing Supabase configuration (SUPABASE_URL / SUPABASE_ANON_KEY / SERVICE_ROLE_KEY)");
-}
-
-if (!cloudflareEventIngressUrl || !cloudflareIngressSecret) {
-  throw new Error("Missing Cloudflare configuration (CF_EVENT_INGRESS_URL / CF_EVENT_INGRESS_SECRET)");
 }
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -147,15 +116,6 @@ function extractBearerAuthorization(req: Request): string | null {
   return `Bearer ${parts[1]}`;
 }
 
-function toHex(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let result = "";
-  for (const byte of bytes) {
-    result += byte.toString(16).padStart(2, "0");
-  }
-  return result;
-}
-
 function generateUuidV7(): string {
   const now = BigInt(Date.now());
   const random = crypto.getRandomValues(new Uint8Array(10));
@@ -200,61 +160,6 @@ async function getUserIdFromRequest(req: Request): Promise<string | null> {
   }
 
   return data.user.id;
-}
-
-async function signPayload(payload: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(cloudflareIngressSecret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
-  return `sha256=${toHex(signature)}`;
-}
-
-async function forwardEvent(event: InsertableEventRow): Promise<ForwardResult> {
-  const envelope = {
-    event,
-    forwarded_at: new Date().toISOString(),
-    source: "supabase-edge",
-  };
-
-  const payload = JSON.stringify(envelope);
-  const signature = await signPayload(payload);
-
-  try {
-    const response = await fetch(cloudflareEventIngressUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Connection": "keep-alive",
-        "X-Tailtag-Event-Id": event.event_id,
-        "X-Tailtag-Event-Signature": signature,
-      },
-      body: payload,
-      keepalive: true,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => response.statusText);
-      return {
-        ok: false,
-        status: response.status,
-        error: errorText || response.statusText || "Unknown error from Cloudflare ingress",
-      };
-    }
-
-    return { ok: true, status: response.status };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      error: error instanceof Error ? error.message : "Unknown network error",
-    };
-  }
 }
 
 async function handlePost(req: Request): Promise<Response> {
@@ -306,21 +211,19 @@ async function handlePost(req: Request): Promise<Response> {
     return jsonResponse(500, { error: "Failed to persist event" });
   }
 
-  const forwardResult = await forwardEvent(eventRow);
-
-  if (!forwardResult.ok) {
-    console.error("[events-ingress] Failed forwarding event", {
+  let achievementResult = { awards: [] };
+  try {
+    achievementResult = await processAchievementsForEvent(supabaseAdmin, eventRow);
+  } catch (error) {
+    console.error("[events-ingress] synchronous achievement processing failed", {
       event_id: eventId,
-      status: forwardResult.status,
-      error: forwardResult.error,
+      error,
     });
   }
 
   return jsonResponse(201, {
     event_id: eventId,
-    forwarded: forwardResult.ok,
-    forward_status: forwardResult.status,
-    forward_error: forwardResult.ok ? null : forwardResult.error,
+    awards: achievementResult.awards,
   });
 }
 
