@@ -1,5 +1,5 @@
-import { ACHIEVEMENT_RULE_IDS } from "../constants.ts";
-import type { AwardCandidate, CatchEventContext, CatchRuleDefinition } from "../types.ts";
+import { ACHIEVEMENT_RULE_IDS } from "../constants";
+import type { AwardCandidate, CatchEventContext, CatchRuleDefinition } from "../types";
 
 function baseCatchContext(context: CatchEventContext, extra?: Record<string, unknown>) {
   return {
