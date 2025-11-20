@@ -15,7 +15,6 @@ const SENTRY_DSN =
 const ENVIRONMENT =
   process.env.EXPO_PUBLIC_APP_ENV ??
   Constants.expoConfig?.extra?.environment ??
-  (Constants.manifest2 ? Constants.manifest2.extra?.expoClient?.releaseChannel : undefined) ??
   (process.env.NODE_ENV ?? (__DEV__ ? "development" : "production"));
 
 const RELEASE = (() => {
@@ -101,6 +100,8 @@ export const captureHandledMessage = (
     Sentry.captureMessage(message);
   });
 };
+
+export const traceEventIngress = (_extras: { type: string; conventionId: string | null }) => null;
 
 export const captureSupabaseError = (
   error: unknown,

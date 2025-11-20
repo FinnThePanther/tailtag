@@ -30,20 +30,8 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
 });
 
 const textEncoder = new TextEncoder();
-const cfEventIngressUrl = Deno.env.get("CF_EVENT_INGRESS_URL");
-const cfEventIngressSecret = Deno.env.get("CF_EVENT_INGRESS_SECRET");
 const systemEventUserId = Deno.env.get("SYSTEM_EVENT_USER_ID");
-
-let eventForwardingWarned = false;
-
-function toHex(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let result = "";
-  for (const byte of bytes) {
-    result += byte.toString(16).padStart(2, "0");
-  }
-  return result;
-}
+let missingSystemUserWarned = false;
 
 function generateUuidV7(): string {
   const now = BigInt(Date.now());
@@ -67,35 +55,6 @@ function generateUuidV7(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-async function signEventPayload(payload: string): Promise<string> {
-  if (!cfEventIngressSecret) {
-    throw new Error("CF_EVENT_INGRESS_SECRET is not configured");
-  }
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    textEncoder.encode(cfEventIngressSecret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-
-  const signature = await crypto.subtle.sign("HMAC", key, textEncoder.encode(payload));
-  return `sha256=${toHex(signature)}`;
-}
-
-function isEventForwardingConfigured(): boolean {
-  if (cfEventIngressUrl && cfEventIngressSecret && systemEventUserId) {
-    return true;
-  }
-
-  if (!eventForwardingWarned) {
-    console.warn("[rotate-dailys] Event forwarding disabled: missing CF_EVENT_INGRESS_URL, CF_EVENT_INGRESS_SECRET, or SYSTEM_EVENT_USER_ID");
-    eventForwardingWarned = true;
-  }
-  return false;
-}
-
 type EventRow = {
   event_id: string;
   user_id: string;
@@ -110,13 +69,17 @@ async function emitDailyResetEvent(
   day: string,
   seedHash: string | null,
 ): Promise<void> {
-  if (!isEventForwardingConfigured()) {
+  if (!systemEventUserId) {
+    if (!missingSystemUserWarned) {
+      console.warn("[rotate-dailys] SYSTEM_EVENT_USER_ID not configured; skipping daily_reset event emit");
+      missingSystemUserWarned = true;
+    }
     return;
   }
 
   const eventRow: EventRow = {
     event_id: generateUuidV7(),
-    user_id: systemEventUserId!,
+    user_id: systemEventUserId,
     type: "daily_reset",
     convention_id: conventionId,
     payload: {
@@ -137,47 +100,12 @@ async function emitDailyResetEvent(
       day,
       error,
     });
-    return;
-  }
-
-  if (!cfEventIngressUrl) {
-    return;
-  }
-
-  const envelope = {
-    event: eventRow,
-    forwarded_at: new Date().toISOString(),
-    source: "supabase.rotate-dailys",
-  };
-
-  try {
-    const payload = JSON.stringify(envelope);
-    const signature = await signEventPayload(payload);
-    const response = await fetch(cfEventIngressUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Tailtag-Event-Id": eventRow.event_id,
-        "X-Tailtag-Event-Signature": signature,
-      },
-      body: payload,
-    });
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => response.statusText);
-      console.error("[rotate-dailys] Failed forwarding daily_reset event", {
-        convention_id: conventionId,
-        day,
-        status: response.status,
-        statusText: response.statusText,
-        body: text,
-      });
-    }
-  } catch (forwardError) {
-    console.error("[rotate-dailys] Exception forwarding daily_reset event", {
+  } else {
+    console.log("[rotate-dailys] daily_reset event stored", {
       convention_id: conventionId,
       day,
-      error: forwardError,
+      event_id: eventRow.event_id,
+      seed_hash: seedHash,
     });
   }
 }
