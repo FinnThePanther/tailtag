@@ -238,12 +238,11 @@ export function AchievementToastManager() {
       return;
     }
 
-    const canSubscribe = hasLoadedAchievements || hasPrimedChannelRef.current;
-
-    if (!canSubscribe) {
-      return;
-    }
-
+    // Removed canSubscribe gate to prevent race condition:
+    // The subscription needs to be active immediately when user logs in
+    // so it can catch notifications that arrive while achievements are still loading.
+    // The snapshot-based detection (lines 123-154) handles achievements
+    // that were unlocked before the subscription became active.
     hasPrimedChannelRef.current = true;
 
     if (activeUserRef.current === userId && channelRef.current) {

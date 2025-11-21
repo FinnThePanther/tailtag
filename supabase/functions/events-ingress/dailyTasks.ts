@@ -8,6 +8,7 @@ type DailyTaskMetadataFilter = {
   in?: unknown[];
   notIn?: unknown[];
   exists?: boolean;
+  notEqualsUserId?: boolean;
 };
 
 type DailyTaskMetadata = {
@@ -233,7 +234,7 @@ function coerceTaskMetadata(raw: unknown): DailyTaskMetadata {
   return metadata;
 }
 
-function applyFilters(events: NormalizedEvent[], filters: DailyTaskMetadataFilter[]): NormalizedEvent[] {
+function applyFilters(events: NormalizedEvent[], filters: DailyTaskMetadataFilter[], userId: string): NormalizedEvent[] {
   if (filters.length === 0) {
     return events;
   }
@@ -264,6 +265,9 @@ function applyFilters(events: NormalizedEvent[], filters: DailyTaskMetadataFilte
       if (filter.exists === false && value !== undefined) {
         return false;
       }
+      if (filter.notEqualsUserId === true && value === userId) {
+        return false;
+      }
     }
     return true;
   });
@@ -278,7 +282,7 @@ function normalizeEvent(raw: Record<string, unknown>): NormalizedEvent {
   };
 }
 
-function evaluateMetric(events: NormalizedEvent[], metadata: DailyTaskMetadata): number {
+function evaluateMetric(events: NormalizedEvent[], metadata: DailyTaskMetadata, userId: string): number {
   // Filter out tutorial catches if not explicitly included
   let processedEvents = events;
   if (!metadata.includeTutorialCatches) {
@@ -289,7 +293,7 @@ function evaluateMetric(events: NormalizedEvent[], metadata: DailyTaskMetadata):
     });
   }
 
-  const filtered = applyFilters(processedEvents, metadata.filters);
+  const filtered = applyFilters(processedEvents, metadata.filters, userId);
   if (metadata.metric === "unique" && metadata.uniqueBy) {
     const seen = new Set<string>();
     for (const event of filtered) {
@@ -532,7 +536,7 @@ export async function processDailyTasksForEvent(
 
   for (const assignment of assignments) {
     const events = eventsByType.get(assignment.metadata.eventType) ?? [];
-    let count = evaluateMetric(events, assignment.metadata);
+    let count = evaluateMetric(events, assignment.metadata, userId);
 
     const capped = Math.min(count, assignment.requirement);
     const existing = progressMap.get(assignment.taskId);

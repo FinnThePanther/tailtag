@@ -76,12 +76,26 @@ function RootLayoutNav() {
   const shouldGateOnboarding =
     Boolean(session) &&
     !profileError &&
+    profile !== null && // Explicit null check - don't gate while loading
     (profile?.is_new === true || profile?.onboarding_completed !== true);
 
   if (session && shouldGateOnboarding && !inOnboardingFlow) {
     if ((isProfileLoading || isProfileFetching) && !profile && !profileError) {
       return <LoadingScreen />;
     }
+
+    // Log onboarding redirect for debugging
+    addMonitoringBreadcrumb({
+      category: "routing",
+      message: "Redirecting to onboarding",
+      data: {
+        userId,
+        profileIsNew: profile?.is_new,
+        profileOnboardingCompleted: profile?.onboarding_completed,
+        isProfileLoading,
+        isProfileFetching,
+      },
+    });
 
     return <Redirect href="/onboarding" />;
   }

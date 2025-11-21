@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { DailyTasksSummary } from './api/dailyTasks';
 import { fetchDailyTasks } from './api/dailyTasks';
 import { useToast } from '../../hooks/useToast';
+import { supabase } from '../../lib/supabase';
+import { addMonitoringBreadcrumb } from '../../lib/sentry';
 
 export const DAILY_TASKS_QUERY_KEY = 'daily-tasks';
 
@@ -256,6 +258,79 @@ export function useDailyTasks(
       void persistToastState(stateKey, state);
     }
   }, [enabled, isToastStateReady, query.data, showToast, stateKey, suppressToasts, userId]);
+
+  // Realtime subscription to user_daily_progress for instant updates
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const activeSubscriptionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!userId || !conventionId || !enabled) {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+        activeSubscriptionRef.current = null;
+      }
+      return;
+    }
+
+    const subscriptionKey = `${userId}:${conventionId}`;
+    if (activeSubscriptionRef.current === subscriptionKey) {
+      return;
+    }
+
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+    }
+
+    const instanceId = Math.random().toString(36).slice(2, 10);
+    const channel = supabase
+      .channel(`daily-progress:${userId}:${conventionId}:${instanceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_daily_progress',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          addMonitoringBreadcrumb({
+            category: 'daily-tasks',
+            message: 'Realtime: user_daily_progress changed',
+            data: {
+              userId,
+              conventionId,
+              event: payload.eventType,
+            },
+          });
+
+          // Invalidate query to trigger refetch and toast logic
+          void queryClient.invalidateQueries({
+            queryKey: dailyTasksQueryKey(userId, conventionId),
+          });
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          addMonitoringBreadcrumb({
+            category: 'daily-tasks',
+            message: 'Realtime subscription active',
+            data: { userId, conventionId },
+          });
+        }
+      });
+
+    channelRef.current = channel;
+    activeSubscriptionRef.current = subscriptionKey;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+        activeSubscriptionRef.current = null;
+      }
+    };
+  }, [userId, conventionId, enabled, queryClient]);
 
   return {
     ...query,

@@ -351,20 +351,26 @@ export async function completeOnboarding(userId: string): Promise<void> {
     });
     throw new Error(`We couldn't finish onboarding: ${error.message}`);
   }
+}
 
-  const emitted = await emitGameplayEvent({
+/**
+ * Emit the onboarding_completed event to trigger achievement processing.
+ * This is intentionally separate from completeOnboarding() so the caller
+ * can control when the event is emitted (e.g., after navigation).
+ */
+export function emitOnboardingCompletedEvent(userId: string): void {
+  // Fire-and-forget: emit event without blocking navigation
+  emitGameplayEvent({
     type: 'onboarding_completed',
     payload: {
       user_id: userId,
       source: 'finish_onboarding',
       achievement_key: GETTING_STARTED_ACHIEVEMENT_KEY,
     },
-  });
-
-  if (!emitted) {
-    captureHandledMessage('Failed to enqueue onboarding_completed gameplay event', {
-      scope: 'onboarding.completeOnboarding',
+  }).catch((error) => {
+    captureHandledException(error, {
+      scope: 'onboarding.emitOnboardingCompletedEvent',
       userId,
     });
-  }
+  });
 }

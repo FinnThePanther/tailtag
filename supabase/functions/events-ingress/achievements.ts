@@ -147,20 +147,13 @@ async function processCatchEvent(
   let catchesAtConvention = 0;
   let uniqueCatchersAtConvention = 0;
   if (primaryConventionId) {
-    const eventsAtConvention = await fetchCatchEventsForFursuitAtConvention(
+    const stats = await fetchCatchEventsForFursuitAtConvention(
       supabaseAdmin,
       fursuitId,
       primaryConventionId,
     );
-    const filteredEvents = eventsAtConvention.filter((evt) => !evt.is_tutorial);
-    catchesAtConvention = filteredEvents.length;
-    const uniqueCatchers = new Set<string>();
-    for (const evt of filteredEvents) {
-      if (evt.catcher_id) {
-        uniqueCatchers.add(evt.catcher_id);
-      }
-    }
-    uniqueCatchersAtConvention = uniqueCatchers.size;
+    catchesAtConvention = stats.totalCatches;
+    uniqueCatchersAtConvention = stats.uniqueCatchers;
   }
 
   const localParts =
@@ -519,29 +512,16 @@ async function countDistinctSpeciesCaught(
   supabaseAdmin: SupabaseClient<any, "public", any>,
   userId: string,
 ) {
+  // Optimized: Use SQL aggregation instead of fetching all rows
   const { data, error } = await supabaseAdmin
-    .from("catches")
-    .select("is_tutorial,fursuit:fursuits(species_id,species)")
-    .eq("catcher_id", userId)
-    .order("caught_at", { ascending: true })
-    .limit(MAX_QUERY_LIMIT);
+    .rpc("count_distinct_species_caught", { user_id: userId });
 
   if (error) {
     console.error("[events-ingress] Failed counting species", { userId, error });
     return 0;
   }
-  const species = new Set<string>();
-  for (const row of data ?? []) {
-    if (row.is_tutorial) continue;
-    const relation = row.fursuit as { species_id?: string | null; species?: string | null } | null;
-    if (!relation) continue;
-    if (relation.species_id) {
-      species.add(relation.species_id);
-    } else if (relation.species) {
-      species.add(relation.species.trim().toLowerCase());
-    }
-  }
-  return species.size;
+
+  return data ?? 0;
 }
 
 async function hasHybridOrMultiSpecies(
@@ -636,12 +616,12 @@ async function fetchCatchEventsForFursuitAtConvention(
   fursuitId: string,
   conventionId: string,
 ) {
+  // Optimized: Use SQL aggregation to get counts directly
   const { data, error } = await supabaseAdmin
-    .from("catches")
-    .select("catcher_id,is_tutorial")
-    .eq("fursuit_id", fursuitId)
-    .eq("convention_id", conventionId)
-    .limit(MAX_QUERY_LIMIT);
+    .rpc("get_fursuit_convention_stats", {
+      p_fursuit_id: fursuitId,
+      p_convention_id: conventionId,
+    });
 
   if (error) {
     console.error("[events-ingress] Failed fetching convention catches", {
@@ -649,39 +629,31 @@ async function fetchCatchEventsForFursuitAtConvention(
       conventionId,
       error,
     });
-    return [];
+    return { totalCatches: 0, uniqueCatchers: 0 };
   }
 
-  return (data ?? []).map((row) => ({
-    catcher_id: row.catcher_id ?? null,
-    is_tutorial: row.is_tutorial === true,
-  }));
+  // RPC returns a single row with total_catches and unique_catchers
+  const stats = (data ?? [])[0];
+  return {
+    totalCatches: Number(stats?.total_catches ?? 0),
+    uniqueCatchers: Number(stats?.unique_catchers ?? 0),
+  };
 }
 
 async function countDistinctConventionsForUser(
   supabaseAdmin: SupabaseClient<any, "public", any>,
   userId: string,
 ) {
+  // Optimized: Use SQL aggregation instead of fetching all rows
   const { data, error } = await supabaseAdmin
-    .from("catches")
-    .select("convention_id,is_tutorial")
-    .eq("catcher_id", userId)
-    .order("caught_at", { ascending: true })
-    .limit(MAX_QUERY_LIMIT);
+    .rpc("count_distinct_conventions", { user_id: userId });
 
   if (error) {
     console.error("[events-ingress] Failed counting conventions for user", { userId, error });
     return 0;
   }
 
-  const conventions = new Set<string>();
-  for (const row of data ?? []) {
-    if (row.is_tutorial === true) continue;
-    if (row.convention_id) {
-      conventions.add(row.convention_id);
-    }
-  }
-  return conventions.size;
+  return data ?? 0;
 }
 
 async function fetchConventionInfo(

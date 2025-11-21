@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { TailTagInput } from '../../../src/components/ui/TailTagInput';
+import { KeyboardAwareFormWrapper } from '../../../src/components/ui/KeyboardAwareFormWrapper';
 import {
   CAUGHT_SUITS_QUERY_KEY,
   FursuitBio,
@@ -615,12 +616,8 @@ export default function EditFursuitScreen() {
   );
 
   return (
-    <KeyboardAvoidingView
-      style={styles.wrapper}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
+    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+      <View style={styles.header}>
           <Text style={styles.eyebrow}>Edit bio</Text>
           <Text style={styles.title}>Refresh your fursuit entry</Text>
           <Text style={styles.subtitle}>
@@ -989,16 +986,11 @@ export default function EditFursuitScreen() {
             </View>
           )}
         </TailTagCard>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareFormWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,

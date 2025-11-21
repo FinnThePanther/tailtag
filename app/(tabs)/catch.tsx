@@ -1,8 +1,5 @@
 import { useCallback, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -27,10 +24,12 @@ import {
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagInput } from "../../src/components/ui/TailTagInput";
+import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareFormWrapper";
 import { useAuth } from "../../src/features/auth";
 import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import { supabase } from "../../src/lib/supabase";
+import { captureHandledException } from "../../src/lib/sentry";
 import { colors, spacing } from "../../src/theme";
 import { normalizeUniqueCodeInput } from "../../src/utils/code";
 import { toDisplayDateTime } from "../../src/utils/dates";
@@ -394,18 +393,6 @@ export default function CatchScreen() {
         normalizedCatchRecord?.catch_number ?? latestCatchCount
       );
       setConversationPrompt(promptCandidate ?? null);
-      await emitGameplayEvent({
-        type: "catch_performed",
-        conventionId: primaryConventionId,
-        payload: {
-          fursuit_id: normalizedFursuit.id,
-          catch_id: normalizedCatchRecord?.id ?? null,
-          catch_number: normalizedCatchRecord?.catch_number ?? null,
-          convention_ids: sharedConventions,
-          is_tutorial: Boolean(normalizedFursuit.is_tutorial),
-        },
-        occurredAt: normalizedCatchRecord?.caught_at ?? new Date().toISOString(),
-      });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
       queryClient.invalidateQueries({
         queryKey: fursuitDetailQueryKey(normalizedFursuit.id),
@@ -422,6 +409,28 @@ export default function CatchScreen() {
         queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
       });
       setCodeInput("");
+
+      // Fire-and-forget: emit event without blocking UI
+      // Achievement processing happens in background
+      emitGameplayEvent({
+        type: "catch_performed",
+        conventionId: primaryConventionId,
+        payload: {
+          fursuit_id: normalizedFursuit.id,
+          catch_id: normalizedCatchRecord?.id ?? null,
+          catch_number: normalizedCatchRecord?.catch_number ?? null,
+          convention_ids: sharedConventions,
+          is_tutorial: Boolean(normalizedFursuit.is_tutorial),
+        },
+        occurredAt: normalizedCatchRecord?.caught_at ?? new Date().toISOString(),
+      }).catch((error) => {
+        captureHandledException(error, {
+          scope: "catch.performCatch.eventEmission",
+          userId,
+          fursuitId: normalizedFursuit.id,
+          catchId: normalizedCatchRecord?.id,
+        });
+      });
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error
@@ -445,22 +454,15 @@ export default function CatchScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.wrapper}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>Tag Fursuits Here</Text>
-          <Text style={styles.title}>Log a new catch</Text>
-          <Text style={styles.subtitle}>
-            Enter the eight-letter code from a friend&apos;s tail tag to add
-            them to your collection.
-          </Text>
-        </View>
+    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>Tag Fursuits Here</Text>
+        <Text style={styles.title}>Log a new catch</Text>
+        <Text style={styles.subtitle}>
+          Enter the eight-letter code from a friend&apos;s tail tag to add
+          them to your collection.
+        </Text>
+      </View>
 
         <TailTagCard style={styles.cardSpacing}>
           <View style={styles.fieldGroup}>
@@ -548,16 +550,11 @@ export default function CatchScreen() {
             </View>
           </TailTagCard>
         ) : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareFormWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,

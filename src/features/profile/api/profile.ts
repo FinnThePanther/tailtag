@@ -48,6 +48,7 @@ export const createProfileQueryOptions = (userId: string) => ({
   queryKey: profileQueryKey(userId),
   queryFn: () => fetchProfile(userId),
   staleTime: PROFILE_STALE_TIME,
+  gcTime: 5 * 60_000, // Keep cache for 5 minutes even when unmounted
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
 });

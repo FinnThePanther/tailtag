@@ -93,11 +93,24 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
 
       onComplete(selections);
     } catch (caught) {
-      const message =
-        caught instanceof Error
-          ? caught.message
-          : 'We could not save your convention picks. Please try again.';
-      setSubmitError(message);
+      // Check if this is an RLS policy violation (user already has convention assigned)
+      // This can happen when users are forced through onboarding again due to data inconsistency
+      const errorMessage = caught instanceof Error ? caught.message : String(caught);
+      const isRLSViolation = errorMessage.includes('row-level-security policy');
+
+      if (isRLSViolation) {
+        // User already has conventions - treat as success and proceed
+        // Invalidate cache to ensure fresh data
+        await queryClient.invalidateQueries({ queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId] });
+        onComplete([...selectedConventionIds]);
+      } else {
+        // Genuine error - display to user
+        const message =
+          caught instanceof Error
+            ? caught.message
+            : 'We could not save your convention picks. Please try again.';
+        setSubmitError(message);
+      }
     } finally {
       setIsSubmitting(false);
     }
