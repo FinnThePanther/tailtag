@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
-import { completeOnboarding } from '../../onboarding';
+import { completeOnboarding, emitOnboardingCompletedEvent } from '../../onboarding';
 import { achievementsStatusQueryKey } from '../../achievements';
 import { profileQueryKey, type ProfileSummary } from '../../profile';
 import { colors, spacing } from '../../../theme';
@@ -49,7 +49,12 @@ export function AchievementStep({
       await queryClient.invalidateQueries({ queryKey: profileQueryKey(userId) });
       await queryClient.invalidateQueries({ queryKey: achievementsStatusQueryKey(userId) });
 
+      // Navigate immediately
       onFinish();
+
+      // Emit event after navigation (fire-and-forget)
+      // Toast will appear on home screen a few seconds later
+      emitOnboardingCompletedEvent(userId);
     } catch (caught) {
       const message =
         caught instanceof Error

@@ -31,6 +31,7 @@ import { useAuth } from "../../src/features/auth";
 import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import { supabase } from "../../src/lib/supabase";
+import { captureHandledException } from "../../src/lib/sentry";
 import { colors, spacing } from "../../src/theme";
 import { normalizeUniqueCodeInput } from "../../src/utils/code";
 import { toDisplayDateTime } from "../../src/utils/dates";
@@ -394,18 +395,6 @@ export default function CatchScreen() {
         normalizedCatchRecord?.catch_number ?? latestCatchCount
       );
       setConversationPrompt(promptCandidate ?? null);
-      await emitGameplayEvent({
-        type: "catch_performed",
-        conventionId: primaryConventionId,
-        payload: {
-          fursuit_id: normalizedFursuit.id,
-          catch_id: normalizedCatchRecord?.id ?? null,
-          catch_number: normalizedCatchRecord?.catch_number ?? null,
-          convention_ids: sharedConventions,
-          is_tutorial: Boolean(normalizedFursuit.is_tutorial),
-        },
-        occurredAt: normalizedCatchRecord?.caught_at ?? new Date().toISOString(),
-      });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
       queryClient.invalidateQueries({
         queryKey: fursuitDetailQueryKey(normalizedFursuit.id),
@@ -422,6 +411,28 @@ export default function CatchScreen() {
         queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
       });
       setCodeInput("");
+
+      // Fire-and-forget: emit event without blocking UI
+      // Achievement processing happens in background
+      emitGameplayEvent({
+        type: "catch_performed",
+        conventionId: primaryConventionId,
+        payload: {
+          fursuit_id: normalizedFursuit.id,
+          catch_id: normalizedCatchRecord?.id ?? null,
+          catch_number: normalizedCatchRecord?.catch_number ?? null,
+          convention_ids: sharedConventions,
+          is_tutorial: Boolean(normalizedFursuit.is_tutorial),
+        },
+        occurredAt: normalizedCatchRecord?.caught_at ?? new Date().toISOString(),
+      }).catch((error) => {
+        captureHandledException(error, {
+          scope: "catch.performCatch.eventEmission",
+          userId,
+          fursuitId: normalizedFursuit.id,
+          catchId: normalizedCatchRecord?.id,
+        });
+      });
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error

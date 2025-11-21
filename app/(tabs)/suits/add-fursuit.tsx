@@ -21,6 +21,7 @@ import { FURSUIT_BUCKET, MAX_IMAGE_SIZE } from '../../../src/constants/storage';
 import { UNIQUE_CODE_ATTEMPTS, UNIQUE_INSERT_ATTEMPTS } from '../../../src/constants/codes';
 import { useAuth } from '../../../src/features/auth';
 import { supabase } from '../../../src/lib/supabase';
+import { captureHandledException } from '../../../src/lib/sentry';
 import { generateUniqueCodeCandidate } from '../../../src/utils/code';
 import { loadUriAsUint8Array } from '../../../src/utils/files';
 import { colors, spacing, radius } from '../../../src/theme';
@@ -585,16 +586,26 @@ export default function AddFursuitScreen() {
       setSubmitError(null);
 
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
-      await emitGameplayEvent({
+      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+
+      // Navigate immediately
+      router.replace('/suits');
+
+      // Fire-and-forget: emit event without blocking navigation
+      emitGameplayEvent({
         type: 'fursuit_created',
         payload: {
           fursuit_id: createdFursuitId,
           owner_id: userId,
           convention_ids: allowedConventionIds,
         },
+      }).catch((error) => {
+        captureHandledException(error, {
+          scope: 'suits.addFursuit.eventEmission',
+          userId,
+          fursuitId: createdFursuitId,
+        });
       });
-      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
-      router.replace('/suits');
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error
