@@ -6,7 +6,7 @@ import type { DailyTasksSummary } from './api/dailyTasks';
 import { fetchDailyTasks } from './api/dailyTasks';
 import { useToast } from '../../hooks/useToast';
 import { supabase } from '../../lib/supabase';
-import { addMonitoringBreadcrumb, captureHandledException } from '../../lib/sentry';
+import { addMonitoringBreadcrumb } from '../../lib/sentry';
 
 export const DAILY_TASKS_QUERY_KEY = 'daily-tasks';
 

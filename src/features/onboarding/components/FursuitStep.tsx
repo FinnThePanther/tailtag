@@ -1,8 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,6 +13,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { TailTagInput } from '../../../components/ui/TailTagInput';
+import { KeyboardAwareFormWrapper } from '../../../components/ui/KeyboardAwareFormWrapper';
 import { SkipButton } from './SkipButton';
 import { createQuickFursuit, type FursuitPhotoCandidate } from '../../onboarding';
 import { MY_SUITS_QUERY_KEY } from '../../suits';
@@ -195,10 +194,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-    >
+    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
       <TailTagCard>
         <Text style={styles.eyebrow}>Step 3</Text>
         <Text style={styles.title}>Add a fursuit (optional)</Text>
@@ -348,7 +344,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
           </View>
         )}
       </TailTagCard>
-    </KeyboardAvoidingView>
+    </KeyboardAwareFormWrapper>
   );
 }
 

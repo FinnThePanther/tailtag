@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
-  KeyboardAvoidingView,
   Pressable,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -17,6 +14,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../../src/components/ui/TailTagInput';
+import { KeyboardAwareFormWrapper } from '../../../src/components/ui/KeyboardAwareFormWrapper';
 import { FURSUIT_BUCKET, MAX_IMAGE_SIZE } from '../../../src/constants/storage';
 import { UNIQUE_CODE_ATTEMPTS, UNIQUE_INSERT_ATTEMPTS } from '../../../src/constants/codes';
 import { useAuth } from '../../../src/features/auth';
@@ -664,12 +662,8 @@ export default function AddFursuitScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.wrapper}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
+    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+      <View style={styles.header}>
           <Text style={styles.eyebrow}>Add fursuit</Text>
           <Text style={styles.title}>Tag a new suit</Text>
           <Text style={styles.subtitle}>
@@ -1039,16 +1033,11 @@ export default function AddFursuitScreen() {
             Save fursuit
           </TailTagButton>
         </TailTagCard>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareFormWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,

@@ -1,8 +1,5 @@
 import { useCallback, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -27,6 +24,7 @@ import {
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagInput } from "../../src/components/ui/TailTagInput";
+import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareFormWrapper";
 import { useAuth } from "../../src/features/auth";
 import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
@@ -456,22 +454,15 @@ export default function CatchScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.wrapper}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>Tag Fursuits Here</Text>
-          <Text style={styles.title}>Log a new catch</Text>
-          <Text style={styles.subtitle}>
-            Enter the eight-letter code from a friend&apos;s tail tag to add
-            them to your collection.
-          </Text>
-        </View>
+    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>Tag Fursuits Here</Text>
+        <Text style={styles.title}>Log a new catch</Text>
+        <Text style={styles.subtitle}>
+          Enter the eight-letter code from a friend&apos;s tail tag to add
+          them to your collection.
+        </Text>
+      </View>
 
         <TailTagCard style={styles.cardSpacing}>
           <View style={styles.fieldGroup}>
@@ -559,16 +550,11 @@ export default function CatchScreen() {
             </View>
           </TailTagCard>
         ) : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareFormWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
