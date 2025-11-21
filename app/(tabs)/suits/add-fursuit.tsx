@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
-  KeyboardAvoidingView,
   Pressable,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -17,10 +14,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../../src/components/ui/TailTagInput';
+import { KeyboardAwareFormWrapper } from '../../../src/components/ui/KeyboardAwareFormWrapper';
 import { FURSUIT_BUCKET, MAX_IMAGE_SIZE } from '../../../src/constants/storage';
 import { UNIQUE_CODE_ATTEMPTS, UNIQUE_INSERT_ATTEMPTS } from '../../../src/constants/codes';
 import { useAuth } from '../../../src/features/auth';
 import { supabase } from '../../../src/lib/supabase';
+import { captureHandledException } from '../../../src/lib/sentry';
 import { generateUniqueCodeCandidate } from '../../../src/utils/code';
 import { loadUriAsUint8Array } from '../../../src/utils/files';
 import { colors, spacing, radius } from '../../../src/theme';
@@ -585,16 +584,26 @@ export default function AddFursuitScreen() {
       setSubmitError(null);
 
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
-      await emitGameplayEvent({
+      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+
+      // Navigate immediately
+      router.replace('/suits');
+
+      // Fire-and-forget: emit event without blocking navigation
+      emitGameplayEvent({
         type: 'fursuit_created',
         payload: {
           fursuit_id: createdFursuitId,
           owner_id: userId,
           convention_ids: allowedConventionIds,
         },
+      }).catch((error) => {
+        captureHandledException(error, {
+          scope: 'suits.addFursuit.eventEmission',
+          userId,
+          fursuitId: createdFursuitId,
+        });
       });
-      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
-      router.replace('/suits');
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error
@@ -653,12 +662,8 @@ export default function AddFursuitScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.wrapper}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
+    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+      <View style={styles.header}>
           <Text style={styles.eyebrow}>Add fursuit</Text>
           <Text style={styles.title}>Tag a new suit</Text>
           <Text style={styles.subtitle}>
@@ -1028,16 +1033,11 @@ export default function AddFursuitScreen() {
             Save fursuit
           </TailTagButton>
         </TailTagCard>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareFormWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,

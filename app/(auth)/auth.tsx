@@ -1,8 +1,5 @@
 import { useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -11,6 +8,7 @@ import {
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagInput } from "../../src/components/ui/TailTagInput";
+import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareFormWrapper";
 import { supabase } from "../../src/lib/supabase";
 import { colors, spacing } from "../../src/theme";
 
@@ -113,15 +111,8 @@ export default function AuthScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.wrapper}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.header}>
+    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+      <View style={styles.header}>
           <Text style={styles.eyebrow}>TailTag</Text>
           <Text style={styles.title}>
             {mode === "sign_in" ? "Welcome back" : "Create your TailTag"}
@@ -188,16 +179,11 @@ export default function AuthScreen() {
             account.
           </Text>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareFormWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,

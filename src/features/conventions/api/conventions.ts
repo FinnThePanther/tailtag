@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import { captureSupabaseError } from '../../../lib/sentry';
+import { captureHandledException, captureSupabaseError } from '../../../lib/sentry';
 import { emitGameplayEvent } from '../../events';
 
 export type ConventionSummary = {
@@ -89,13 +89,20 @@ export async function optInToConvention(profileId: string, conventionId: string)
     throw new Error(`We couldn't save your convention opt-in: ${error.message}`);
   }
 
-  await emitGameplayEvent({
+  // Fire-and-forget: emit event without blocking user flow
+  emitGameplayEvent({
     type: 'convention_joined',
     conventionId,
     payload: {
       profile_id: profileId,
       convention_id: conventionId,
     },
+  }).catch((error) => {
+    captureHandledException(error, {
+      scope: 'conventions.optInToConvention.eventEmission',
+      profileId,
+      conventionId,
+    });
   });
 }
 
@@ -117,13 +124,20 @@ export async function optOutOfConvention(profileId: string, conventionId: string
     throw new Error(`We couldn't remove your convention opt-in: ${error.message}`);
   }
 
-  await emitGameplayEvent({
+  // Fire-and-forget: emit event without blocking user flow
+  emitGameplayEvent({
     type: 'convention_left',
     conventionId,
     payload: {
       profile_id: profileId,
       convention_id: conventionId,
     },
+  }).catch((error) => {
+    captureHandledException(error, {
+      scope: 'conventions.optOutOfConvention.eventEmission',
+      profileId,
+      conventionId,
+    });
   });
 }
 
@@ -146,13 +160,20 @@ export async function addFursuitConvention(fursuitId: string, conventionId: stri
     throw new Error(`We couldn't add that convention to the fursuit: ${error.message}`);
   }
 
-  await emitGameplayEvent({
+  // Fire-and-forget: emit event without blocking user flow
+  emitGameplayEvent({
     type: 'fursuit_convention_joined',
     conventionId,
     payload: {
       fursuit_id: fursuitId,
       convention_id: conventionId,
     },
+  }).catch((error) => {
+    captureHandledException(error, {
+      scope: 'conventions.addFursuitConvention.eventEmission',
+      fursuitId,
+      conventionId,
+    });
   });
 }
 
@@ -174,12 +195,19 @@ export async function removeFursuitConvention(fursuitId: string, conventionId: s
     throw new Error(`We couldn't remove that convention from the fursuit: ${error.message}`);
   }
 
-  await emitGameplayEvent({
+  // Fire-and-forget: emit event without blocking user flow
+  emitGameplayEvent({
     type: 'fursuit_convention_left',
     conventionId,
     payload: {
       fursuit_id: fursuitId,
       convention_id: conventionId,
     },
+  }).catch((error) => {
+    captureHandledException(error, {
+      scope: 'conventions.removeFursuitConvention.eventEmission',
+      fursuitId,
+      conventionId,
+    });
   });
 }

@@ -2,9 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -17,6 +14,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
+import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { AVATAR_BUCKET, MAX_IMAGE_SIZE } from '../../src/constants/storage';
 import {
   CONVENTIONS_QUERY_KEY,
@@ -619,16 +617,8 @@ export default function SettingsScreen() {
   }, [isDeletingAccount, performAccountDeletion, userId]);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.wrapper}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.header}>
+    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+      <View style={styles.header}>
           <Text style={styles.eyebrow}>Settings</Text>
           <Text style={styles.title}>Profile & account</Text>
           <Text style={styles.subtitle}>Update your details or sign out of TailTag.</Text>
@@ -845,19 +835,11 @@ export default function SettingsScreen() {
             <Text style={styles.warning}>This action cannot be undone.</Text>
           </View>
         </TailTagCard>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareFormWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
