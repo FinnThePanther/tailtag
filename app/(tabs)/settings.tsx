@@ -29,6 +29,7 @@ import { useAuth } from '../../src/features/auth';
 import type { ConventionSummary } from '../../src/features/conventions';
 import { ConventionToggle } from '../../src/components/conventions/ConventionToggle';
 import { supabase } from '../../src/lib/supabase';
+import { captureHandledException } from '../../src/lib/sentry';
 import { colors, spacing, radius } from '../../src/theme';
 import { loadUriAsUint8Array } from '../../src/utils/files';
 import { deriveStoragePathFromPublicUrl } from '../../src/utils/storage';
@@ -431,12 +432,19 @@ export default function SettingsScreen() {
       setSelectedAvatar(null);
       setShouldRemoveAvatar(false);
       setSaveMessage('Profile updated');
-      await emitGameplayEvent({
+
+      // Fire-and-forget: don't block UI on event emission
+      void emitGameplayEvent({
         type: 'profile_updated',
         payload: {
           has_avatar: Boolean(nextAvatarUrl),
           username_present: trimmedUsername.length > 0,
         },
+      }).catch((error) => {
+        captureHandledException(error, {
+          scope: 'settings.handleSave.profileUpdated',
+          userId,
+        });
       });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
     } catch (caught) {

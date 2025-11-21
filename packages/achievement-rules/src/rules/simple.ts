@@ -1,5 +1,5 @@
-import { ACHIEVEMENT_RULE_IDS } from "../constants";
-import type { AwardCandidate, SimpleEventContext, SimpleRuleDefinition } from "../types";
+import { ACHIEVEMENT_RULE_IDS } from "../constants.ts";
+import type { AwardCandidate, SimpleEventContext, SimpleRuleDefinition } from "../types.ts";
 
 const simpleRules: SimpleRuleDefinition[] = [
   {
