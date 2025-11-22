@@ -16,6 +16,7 @@ import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagProgressBar } from "../../src/components/ui/TailTagProgressBar";
 import { useAuth } from "../../src/features/auth";
 import { supabase } from "../../src/lib/supabase";
+import { captureHandledException } from "../../src/lib/sentry";
 import {
   CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
@@ -389,7 +390,7 @@ export default function HomeScreen() {
     return pieces.join(" · ");
   };
 
-  const handleReloadStandings = useCallback(async () => {
+  const handleReloadStandings = useCallback(() => {
     void refetchLeaderboard({ throwOnError: false });
     void refetchSuitLeaderboard({ throwOnError: false });
 
@@ -397,18 +398,19 @@ export default function HomeScreen() {
       return;
     }
 
-    const emitted = await emitGameplayEvent({
+    // Fire-and-forget: don't block UI on event emission
+    void emitGameplayEvent({
       type: "leaderboard_refreshed",
       conventionId: selectedConventionId,
       payload: {
         convention_id: selectedConventionId,
       },
+    }).catch((error) => {
+      captureHandledException(error, {
+        scope: "home.handleReloadStandings",
+        conventionId: selectedConventionId,
+      });
     });
-    if (!emitted) {
-      console.warn(
-        "Failed to enqueue leaderboard_refreshed event; daily task progress may be delayed",
-      );
-    }
     void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
   }, [
     refetchLeaderboard,

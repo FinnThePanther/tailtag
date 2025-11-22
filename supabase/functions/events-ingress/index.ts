@@ -202,6 +202,7 @@ async function handlePost(req: Request): Promise<Response> {
     occurred_at: occurredAt,
   };
 
+  const insertStart = Date.now();
   const { error: insertError } = await supabaseAdmin
     .from("events")
     .insert([eventRow]);
@@ -211,19 +212,29 @@ async function handlePost(req: Request): Promise<Response> {
     return jsonResponse(500, { error: "Failed to persist event" });
   }
 
-  let achievementResult = { awards: [] };
-  try {
-    achievementResult = await processAchievementsForEvent(supabaseAdmin, eventRow);
-  } catch (error) {
-    console.error("[events-ingress] synchronous achievement processing failed", {
-      event_id: eventId,
-      error,
-    });
-  }
+  const insertDuration = Date.now() - insertStart;
+  console.log(`[events-ingress] Event inserted in ${insertDuration}ms`, { event_id: eventId, type });
 
+  // Process achievements asynchronously (don't await)
+  // This will execute in the background
+  processAchievementsForEvent(supabaseAdmin, eventRow)
+    .then(() => {
+      console.log(`[events-ingress] Achievement processing completed for ${eventId}`);
+    })
+    .catch((error) => {
+      console.error("[events-ingress] async achievement processing failed", {
+        event_id: eventId,
+        error,
+      });
+    });
+
+  console.log(`[events-ingress] Returning response for event ${eventId}`);
+
+  // Return immediately with event_id
+  // Achievements will be delivered via Realtime subscriptions
   return jsonResponse(201, {
     event_id: eventId,
-    awards: achievementResult.awards,
+    awards: [], // Empty array since processing is async
   });
 }
 
