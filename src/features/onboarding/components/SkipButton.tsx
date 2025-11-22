@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
 
 import { colors, spacing } from '../../../theme';
 
@@ -6,9 +6,15 @@ type SkipButtonProps = {
   label?: string;
   onPress: () => void;
   disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
 };
 
-export function SkipButton({ label = 'Skip for now', onPress, disabled = false }: SkipButtonProps) {
+export function SkipButton({
+  label = 'Skip for now',
+  onPress,
+  disabled = false,
+  style,
+}: SkipButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -18,6 +24,7 @@ export function SkipButton({ label = 'Skip for now', onPress, disabled = false }
         styles.button,
         disabled ? styles.buttonDisabled : null,
         pressed && !disabled ? styles.buttonPressed : null,
+        style,
       ]}
     >
       <Text style={styles.text}>{label}</Text>
@@ -30,6 +37,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: 999,
+    alignItems: 'center',
+    alignSelf: 'stretch',
   },
   buttonPressed: {
     opacity: 0.85,
@@ -41,5 +50,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
+    textAlign: 'center',
   },
 });
