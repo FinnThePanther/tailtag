@@ -113,6 +113,7 @@ export async function emitGameplayEvent(
   }
 
   const startTime = Date.now();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   try {
     const idempotencyKey = input.idempotencyKey ?? generateIdempotencyKey();
@@ -140,12 +141,22 @@ export async function emitGameplayEvent(
 
     // Race between the invoke and a 5-second timeout
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         reject(new Error(`Event emission timed out after 5 seconds (type: ${type})`));
       }, 5000);
     });
 
+    // Suppress unhandled rejection if timeout wins the race
+    invokePromise.catch(() => {
+      // Intentionally empty - the error will be handled by the race loser
+    });
+
     const invokeResult = await Promise.race([invokePromise, timeoutPromise]);
+
+    // Clear the timeout since we got a result
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
     const { data, error } = invokeResult;
 
     const duration = Date.now() - startTime;
@@ -214,6 +225,11 @@ export async function emitGameplayEvent(
       awards,
     };
   } catch (error) {
+    // Clear the timeout on error path
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+
     const duration = Date.now() - startTime;
     console.error(`[emitGameplayEvent] Failed after ${duration}ms:`, {
       type,
