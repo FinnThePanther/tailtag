@@ -95,7 +95,7 @@ const normalizeOccurredAt = (input: GameplayEventInput["occurredAt"]) => {
 };
 
 /**
- * Emit a gameplay event into the Supabase → Cloudflare ingestion pipeline.
+ * Emit a gameplay event into the Supabase ingestion pipeline.
  * Returns `null` when the request fails so callers can degrade gracefully
  * without interrupting the primary UX flow (e.g. catching a suit).
  */
@@ -112,6 +112,9 @@ export async function emitGameplayEvent(
     return null;
   }
 
+  const startTime = Date.now();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
   try {
     const idempotencyKey = input.idempotencyKey ?? generateIdempotencyKey();
 
@@ -123,14 +126,77 @@ export async function emitGameplayEvent(
       idempotency_key: idempotencyKey,
     };
 
-    const { data, error } = await supabase.functions.invoke<{
+    console.log(`[emitGameplayEvent] Starting event emission: ${type}`, {
+      conventionId: input.conventionId,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Invoke the edge function with a timeout wrapper
+    const invokePromise = supabase.functions.invoke<{
       event_id: string;
       awards?: unknown;
-    }>("events-ingress", { body });
+    }>("events-ingress", {
+      body,
+    });
+
+    // Race between the invoke and a 5-second timeout
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(`Event emission timed out after 5 seconds (type: ${type})`));
+      }, 5000);
+    });
+
+    // Suppress unhandled rejection if timeout wins the race
+    invokePromise.catch(() => {
+      // Intentionally empty - the error will be handled by the race loser
+    });
+
+    const invokeResult = await Promise.race([invokePromise, timeoutPromise]);
+
+    // Clear the timeout since we got a result
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+    const { data, error } = invokeResult;
+
+    const duration = Date.now() - startTime;
 
     if (error) {
-      throw error;
+      // Extract the actual error message from the response body
+      let actualError = error.message;
+      try {
+        // @ts-ignore - context has the Response object
+        if (error.context && typeof error.context.json === 'function') {
+          const errorBody = await error.context.json();
+          actualError = errorBody.error || errorBody.message || error.message;
+          console.error(`[emitGameplayEvent] Edge function returned ${error.context.status} after ${duration}ms:`, {
+            type,
+            status: error.context.status,
+            errorBody,
+            actualError,
+          });
+        } else {
+          console.error(`[emitGameplayEvent] Edge function returned error after ${duration}ms:`, {
+            type,
+            error,
+            errorMessage: error.message,
+          });
+        }
+      } catch (parseError) {
+        console.error(`[emitGameplayEvent] Could not parse error response:`, {
+          type,
+          error,
+          parseError,
+        });
+      }
+      throw new Error(actualError);
     }
+
+    console.log(`[emitGameplayEvent] Completed in ${duration}ms:`, {
+      type,
+      success: true,
+      hasData: !!data,
+    });
 
     if (!data || typeof data.event_id !== "string") {
       throw new Error("events-ingress response missing event_id");
@@ -159,10 +225,24 @@ export async function emitGameplayEvent(
       awards,
     };
   } catch (error) {
+    // Clear the timeout on error path
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+
+    const duration = Date.now() - startTime;
+    console.error(`[emitGameplayEvent] Failed after ${duration}ms:`, {
+      type,
+      error: error instanceof Error ? error.message : String(error),
+      isTimeout: error instanceof Error && error.message.includes('timed out'),
+    });
+
     captureHandledException(error, {
       scope: "events.emitGameplayEvent",
       type,
       conventionId: input.conventionId ?? null,
+      duration,
+      isTimeout: error instanceof Error && error.message.includes('timed out'),
     });
     return null;
   }

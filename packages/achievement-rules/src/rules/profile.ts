@@ -1,5 +1,5 @@
-import { ACHIEVEMENT_RULE_IDS } from "../constants";
-import type { AwardCandidate, ProfileEventContext, ProfileRuleDefinition } from "../types";
+import { ACHIEVEMENT_RULE_IDS } from "../constants.ts";
+import type { AwardCandidate, ProfileEventContext, ProfileRuleDefinition } from "../types.ts";
 
 const profileRules: ProfileRuleDefinition[] = [
   {
