@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,7 +8,9 @@ import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { TailTagInput } from '../../../components/ui/TailTagInput';
 import {
   createConventionsQueryOptions,
+  fetchProfileConventionIds,
   optInToConvention,
+  optOutOfConvention,
   PROFILE_CONVENTIONS_QUERY_KEY,
   type ConventionSummary,
 } from '../../conventions';
@@ -23,6 +25,7 @@ type ConventionStepProps = {
 
 export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
   const queryClient = useQueryClient();
+  const hasInitializedSelectionsRef = useRef(false);
   const [searchInput, setSearchInput] = useState('');
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -38,6 +41,28 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
     ...conventionsQueryOptions,
     refetchOnMount: true,
   });
+
+  // Fetch user's existing conventions to handle onboarding restarts
+  const {
+    data: existingConventionIds = [],
+    isLoading: isLoadingExisting,
+  } = useQuery<string[], Error>({
+    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    queryFn: () => fetchProfileConventionIds(userId),
+    staleTime: 0, // Always fetch fresh data during onboarding
+    refetchOnMount: true,
+    refetchOnWindowFocus: false, // Don't refetch while user is editing selections
+    refetchOnReconnect: false, // Don't refetch on reconnect to avoid overwriting edits
+  });
+
+  // Pre-populate selected conventions with existing ones on initial load only
+  // This ensures we don't overwrite user's in-progress edits if the query refetches
+  useEffect(() => {
+    if (!isLoadingExisting && existingConventionIds.length > 0 && !hasInitializedSelectionsRef.current) {
+      setSelectedConventionIds(new Set(existingConventionIds));
+      hasInitializedSelectionsRef.current = true;
+    }
+  }, [isLoadingExisting, existingConventionIds]);
 
   const filteredConventions = useMemo(() => {
     if (searchInput.trim().length === 0) {
@@ -74,43 +99,46 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
 
     try {
       const selections = [...selectedConventionIds];
+      const existing = existingConventionIds;
 
-      await Promise.all(selections.map((conventionId) => optInToConvention(userId, conventionId)));
+      // Calculate delta: what to add and what to remove
+      const toAdd = selections.filter((id) => !existing.includes(id));
+      const toRemove = existing.filter((id) => !selections.includes(id));
 
+      // Only make API calls if there are changes
+      const operations: Promise<void>[] = [];
+
+      toAdd.forEach((conventionId) => {
+        operations.push(optInToConvention(userId, conventionId));
+      });
+
+      toRemove.forEach((conventionId) => {
+        operations.push(optOutOfConvention(userId, conventionId));
+      });
+
+      // Execute all operations in parallel (if any)
+      if (operations.length > 0) {
+        await Promise.all(operations);
+      }
+
+      // Optimistically update cache with final state
       queryClient.setQueryData<string[] | undefined>(
         [PROFILE_CONVENTIONS_QUERY_KEY, userId],
-        (current = []) => {
-          const merged = new Set(current);
-          selections.forEach((id) => merged.add(id));
-          return [...merged];
-        }
+        selections
       );
 
-      // Invalidate leaderboard cache for all joined conventions
-      selections.forEach((conventionId) => {
+      // Invalidate leaderboard cache for joined conventions
+      toAdd.forEach((conventionId) => {
         void queryClient.invalidateQueries({ queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId] });
       });
 
       onComplete(selections);
     } catch (caught) {
-      // Check if this is an RLS policy violation (user already has convention assigned)
-      // This can happen when users are forced through onboarding again due to data inconsistency
-      const errorMessage = caught instanceof Error ? caught.message : String(caught);
-      const isRLSViolation = errorMessage.includes('row-level-security policy');
-
-      if (isRLSViolation) {
-        // User already has conventions - treat as success and proceed
-        // Invalidate cache to ensure fresh data
-        await queryClient.invalidateQueries({ queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId] });
-        onComplete([...selectedConventionIds]);
-      } else {
-        // Genuine error - display to user
-        const message =
-          caught instanceof Error
-            ? caught.message
-            : 'We could not save your convention picks. Please try again.';
-        setSubmitError(message);
-      }
+      const message =
+        caught instanceof Error
+          ? caught.message
+          : 'We could not save your convention picks. Please try again.';
+      setSubmitError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -130,13 +158,13 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
           placeholder="Search conventions"
           value={searchInput}
           onChangeText={setSearchInput}
-          editable={!isLoading && !isSubmitting}
+          editable={!isLoading && !isLoadingExisting && !isSubmitting}
           style={styles.search}
         />
 
         <View style={styles.listHeader}>
           <Text style={styles.listHeaderText}>Active conventions</Text>
-          <TailTagButton size="sm" variant="outline" onPress={() => refetch()} disabled={isLoading}>
+          <TailTagButton size="sm" variant="outline" onPress={() => refetch()} disabled={isLoading || isLoadingExisting}>
             Refresh
           </TailTagButton>
         </View>
@@ -147,7 +175,7 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
           nestedScrollEnabled
           scrollEnabled
         >
-          {isLoading ? (
+          {isLoading || isLoadingExisting ? (
             <Text style={styles.message}>Loading conventions…</Text>
           ) : error ? (
             <Text style={styles.error}>{error.message}</Text>
