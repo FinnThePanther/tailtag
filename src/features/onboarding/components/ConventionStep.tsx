@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -25,6 +25,7 @@ type ConventionStepProps = {
 
 export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
   const queryClient = useQueryClient();
+  const hasInitializedSelectionsRef = useRef(false);
   const [searchInput, setSearchInput] = useState('');
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -50,12 +51,16 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
     queryFn: () => fetchProfileConventionIds(userId),
     staleTime: 0, // Always fetch fresh data during onboarding
     refetchOnMount: true,
+    refetchOnWindowFocus: false, // Don't refetch while user is editing selections
+    refetchOnReconnect: false, // Don't refetch on reconnect to avoid overwriting edits
   });
 
-  // Pre-populate selected conventions with existing ones when data loads
+  // Pre-populate selected conventions with existing ones on initial load only
+  // This ensures we don't overwrite user's in-progress edits if the query refetches
   useEffect(() => {
-    if (!isLoadingExisting && existingConventionIds.length > 0) {
+    if (!isLoadingExisting && existingConventionIds.length > 0 && !hasInitializedSelectionsRef.current) {
       setSelectedConventionIds(new Set(existingConventionIds));
+      hasInitializedSelectionsRef.current = true;
     }
   }, [isLoadingExisting, existingConventionIds]);
 
