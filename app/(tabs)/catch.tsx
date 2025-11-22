@@ -493,6 +493,7 @@ export default function CatchScreen() {
             onPress={handleSubmit}
             loading={isSubmitting}
             disabled={!userId || isSubmitting}
+            style={styles.fullWidthButton}
           >
             Record catch
           </TailTagButton>
@@ -540,11 +541,15 @@ export default function CatchScreen() {
               <TailTagButton
                 variant="outline"
                 onPress={() => router.push("/caught")}
-                style={styles.inlineButtonSpacing}
+                style={[styles.fullWidthButton, styles.stackedButtonSpacing]}
               >
                 View catches
               </TailTagButton>
-              <TailTagButton variant="ghost" onPress={handleCatchAnother}>
+              <TailTagButton
+                variant="ghost"
+                onPress={handleCatchAnother}
+                style={styles.fullWidthButton}
+              >
                 Catch another suit
               </TailTagButton>
             </View>
@@ -621,17 +626,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   buttonRow: {
-    flexDirection: "row",
+    flexDirection: "column",
     marginTop: spacing.md,
-    alignItems: "center",
+    alignItems: "stretch",
   },
-  inlineButtonSpacing: {
-    marginRight: spacing.md,
+  stackedButtonSpacing: {
+    marginBottom: spacing.sm,
   },
   codeInput: {
     textTransform: "uppercase",
     letterSpacing: 4,
     fontSize: 20,
+  },
+  fullWidthButton: {
+    width: "100%",
   },
   promptCard: {
     marginBottom: spacing.md,
