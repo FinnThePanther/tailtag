@@ -75,11 +75,12 @@ export function TutorialCatchStep({ userId, onComplete, onSkip }: TutorialCatchS
         {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
 
         <View style={styles.ctaRow}>
-          <SkipButton onPress={onSkip} disabled={isSubmitting} />
+          <SkipButton onPress={onSkip} disabled={isSubmitting} style={styles.fullWidthCta} />
           <TailTagButton
             onPress={handleSubmit}
             loading={isSubmitting}
             disabled={isSubmitting}
+            style={styles.fullWidthCta}
           >
             Catch Trainer
           </TailTagButton>
@@ -113,10 +114,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   ctaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: spacing.sm,
+  },
+  fullWidthCta: {
+    alignSelf: 'stretch',
   },
   error: {
     color: colors.destructive,

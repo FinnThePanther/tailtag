@@ -204,8 +204,10 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
 
         {!isExpanded ? (
           <View style={styles.ctaRow}>
-            <TailTagButton onPress={handleOpenForm}>Add my fursuit</TailTagButton>
-            <SkipButton onPress={onSkip} />
+            <TailTagButton style={styles.fullWidthCta} onPress={handleOpenForm}>
+              Add my fursuit
+            </TailTagButton>
+            <SkipButton style={styles.fullWidthCta} onPress={onSkip} />
           </View>
         ) : (
           <View style={styles.form}>
@@ -336,8 +338,13 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
             {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
 
             <View style={styles.formCtaRow}>
-              <SkipButton onPress={onSkip} disabled={isSubmitting} />
-              <TailTagButton onPress={handleSubmit} loading={isSubmitting} disabled={isSubmitting}>
+              <SkipButton onPress={onSkip} disabled={isSubmitting} style={styles.fullWidthCta} />
+              <TailTagButton
+                onPress={handleSubmit}
+                loading={isSubmitting}
+                disabled={isSubmitting}
+                style={styles.fullWidthCta}
+              >
                 Continue
               </TailTagButton>
             </View>
@@ -372,10 +379,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   ctaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
+    flexDirection: 'column',
+    gap: spacing.sm,
+  },
+  fullWidthCta: {
+    alignSelf: 'stretch',
   },
   form: {
     gap: spacing.md,
@@ -477,9 +485,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   formCtaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: spacing.sm,
   },
 });
