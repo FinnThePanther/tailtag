@@ -354,7 +354,6 @@ export default function AddFursuitScreen() {
       }))
       .filter((entry) => entry.label.length > 0 || entry.url.length > 0);
     const selectedColorIds = selectedColors.map((color) => color.id);
-    const selectedColorNames = selectedColors.map((color) => color.name);
 
     if (!trimmedName) {
       setSubmitError('Give your fursuit a name before saving.');
@@ -546,15 +545,12 @@ export default function AddFursuitScreen() {
       const bioPayload: FursuitBiosInsert = {
         fursuit_id: createdFursuitId,
         version: 1,
-        fursuit_name: trimmedName,
-        fursuit_species: speciesRecord.name,
         owner_name: trimmedOwnerName,
         pronouns: trimmedPronouns,
         tagline: trimmedTagline,
         fun_fact: trimmedFunFact,
         likes_and_interests: trimmedLikes,
         ask_me_about: trimmedAskMeAbout,
-        fursuit_colors: selectedColorNames,
         social_links: normalizedSocialLinks as unknown as Json,
       };
 

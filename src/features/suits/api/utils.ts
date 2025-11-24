@@ -9,9 +9,6 @@ type RawSocialLink = {
 
 type RawFursuitBio = {
   version?: unknown;
-  fursuit_name?: unknown;
-  fursuit_species?: unknown;
-  fursuit_colors?: unknown;
   owner_name?: unknown;
   pronouns?: unknown;
   tagline?: unknown;
@@ -42,16 +39,6 @@ const coerceString = (value: unknown): string => {
   }
 
   return String(value);
-};
-
-const parseStringArray = (value: unknown): string[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((entry) => coerceString(entry).trim())
-    .filter((entry) => entry.length > 0);
 };
 
 const parseSocialLinks = (value: unknown): FursuitSocialLink[] => {
@@ -90,9 +77,6 @@ export const mapFursuitBio = (raw: unknown): FursuitBio | null => {
   const versionNumber = Number(source.version);
   const version = Number.isFinite(versionNumber) && versionNumber > 0 ? versionNumber : 1;
 
-  const fursuitName = coerceString(source.fursuit_name).trim();
-  const fursuitSpecies = coerceString(source.fursuit_species).trim();
-  const fursuitColors = parseStringArray(source.fursuit_colors);
   const ownerName = coerceString(source.owner_name).trim();
   const pronouns = coerceString(source.pronouns).trim();
   const tagline = coerceString(source.tagline).trim();
@@ -111,17 +95,13 @@ export const mapFursuitBio = (raw: unknown): FursuitBio | null => {
     !funFact &&
     !likesAndInterests &&
     !askMeAbout &&
-    socialLinks.length === 0 &&
-    fursuitColors.length === 0
+    socialLinks.length === 0
   ) {
     return null;
   }
 
   return {
     version,
-    fursuitName,
-    fursuitSpecies,
-    fursuitColors,
     ownerName,
     pronouns,
     tagline,
