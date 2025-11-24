@@ -48,6 +48,16 @@ export async function processAchievementsForEvent(
     switch (event.type) {
       case "catch_performed":
         return await processCatchEvent(supabaseAdmin, event);
+      case "catch_confirmed":
+        // Process achievements when a catch is confirmed after manual approval
+        return await processCatchConfirmedEvent(supabaseAdmin, event);
+      case "catch_pending":
+        // No achievements for pending catches
+        return { awards: [] };
+      case "catch_rejected":
+      case "catch_expired":
+        // No achievements for rejected or expired catches
+        return { awards: [] };
       case "profile_updated":
         return await processProfileEvent(supabaseAdmin, event);
       case "onboarding_completed":
@@ -208,6 +218,31 @@ async function processCatchEvent(
 
   const combinedAwards = [...awards, ...dailyAwards];
   return await applyAwards(supabaseAdmin, combinedAwards, event);
+}
+
+async function processCatchConfirmedEvent(
+  supabaseAdmin: SupabaseClient<any, "public", any>,
+  event: InsertableEventRow,
+): Promise<ProcessedAchievementResult> {
+  // When a catch is confirmed, process it as a normal catch event
+  // The catch_id should be in the payload
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
+  const catchIdValue = payload["catch_id"];
+  const catchId = typeof catchIdValue === "string" ? catchIdValue : null;
+
+  if (!catchId) {
+    console.error("[events-ingress] catch_confirmed event missing catch_id");
+    return { awards: [] };
+  }
+
+  // Update the event type to catch_performed for processing
+  // This allows us to reuse all the existing catch processing logic
+  const catchEvent = {
+    ...event,
+    type: "catch_performed" as const,
+  };
+
+  return await processCatchEvent(supabaseAdmin, catchEvent);
 }
 
 async function processProfileEvent(
