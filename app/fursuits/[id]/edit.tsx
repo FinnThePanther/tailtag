@@ -483,15 +483,12 @@ export default function EditFursuitScreen() {
       const { error: bioError } = await client.from('fursuit_bios').insert({
         fursuit_id: fursuitId,
         version: nextVersion,
-        fursuit_name: trimmedName,
-        fursuit_species: speciesRecord.name,
         owner_name: trimmedOwnerName,
         pronouns: trimmedPronouns,
         tagline: trimmedTagline,
         fun_fact: trimmedFunFact,
         likes_and_interests: trimmedLikes,
         ask_me_about: trimmedAskMeAbout,
-        fursuit_colors: selectedColorNames,
         social_links: normalizedSocialLinks as unknown as Json,
       });
 

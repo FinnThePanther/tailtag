@@ -28,151 +28,29 @@ export const conventionLeaderboardQueryKey = (conventionId: string) =>
   [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId] as const;
 
 export async function fetchConventionLeaderboard(conventionId: string): Promise<LeaderboardEntry[]> {
-  const client = supabase as any;
+  const { data, error } = await supabase
+    .from('mv_convention_leaderboard')
+    .select('*')
+    .eq('convention_id', conventionId)
+    .order('catch_count', { ascending: false })
+    .order('username', { ascending: true, nullsFirst: false })
+    .order('catcher_id', { ascending: true });
 
-  const { data: membershipRows, error: membershipError } = await client
-    .from('profile_conventions')
-    .select('profile_id')
-    .eq('convention_id', conventionId);
-
-  if (membershipError) {
-    captureSupabaseError(membershipError, {
+  if (error) {
+    captureSupabaseError(error, {
       scope: 'leaderboard.fetchConventionLeaderboard',
-      action: 'loadParticipants',
+      action: 'loadLeaderboard',
       conventionId,
     });
-    throw new Error(`We couldn't load convention participants: ${membershipError.message}`);
+    throw new Error(`We couldn't load the leaderboard: ${error.message}`);
   }
 
-  const membershipEntries = (membershipRows ?? []) as { profile_id: string | null }[];
-  const participantIds = Array.from(
-    new Set(
-      membershipEntries
-        .map((row) => row.profile_id)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0)
-    )
-  );
-
-  if (participantIds.length === 0) {
-    return [];
-  }
-
-  const { data: profileRows, error: profileError } = await client
-    .from('profiles')
-    .select('id, username, avatar_url')
-    .in('id', participantIds);
-
-  if (profileError) {
-    captureSupabaseError(profileError, {
-      scope: 'leaderboard.fetchConventionLeaderboard',
-      action: 'loadProfiles',
-      conventionId,
-      participantIds,
-    });
-    throw new Error(`We couldn't load player profiles: ${profileError.message}`);
-  }
-
-  const profileEntries = (profileRows ?? []) as {
-    id: string;
-    username: string | null;
-    avatar_url: string | null;
-  }[];
-
-  const profileMap = new Map<string, { username: string | null; avatarUrl: string | null }>();
-
-  for (const row of profileEntries) {
-    profileMap.set(row.id, {
-      username: row.username ?? null,
-      avatarUrl: row.avatar_url ?? null,
-    });
-  }
-
-  const { data: fursuitRows, error: fursuitError } = await client
-    .from('fursuit_conventions')
-    .select('fursuit_id')
-    .eq('convention_id', conventionId);
-
-  if (fursuitError) {
-    captureSupabaseError(fursuitError, {
-      scope: 'leaderboard.fetchConventionLeaderboard',
-      action: 'loadFursuitIds',
-      conventionId,
-    });
-    throw new Error(`We couldn't load convention fursuits: ${fursuitError.message}`);
-  }
-
-  const fursuitEntries = (fursuitRows ?? []) as { fursuit_id: string | null }[];
-
-  const conventionFursuitIds = Array.from(
-    new Set(
-      fursuitEntries
-        .map((row) => row.fursuit_id)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0)
-    )
-  );
-
-  const catchCounts = new Map<string, number>();
-
-  if (conventionFursuitIds.length > 0) {
-    const { data: catchRows, error: catchesError } = await client
-      .from('catches')
-      .select('id, catcher_id, fursuit_id')
-      .eq('convention_id', conventionId)
-      .in('catcher_id', participantIds)
-      .in('fursuit_id', conventionFursuitIds);
-
-    if (catchesError) {
-      captureSupabaseError(catchesError, {
-        scope: 'leaderboard.fetchConventionLeaderboard',
-        action: 'loadCatches',
-        conventionId,
-      });
-      throw new Error(`We couldn't load convention catches: ${catchesError.message}`);
-    }
-
-    const catchEntries = (catchRows ?? []) as { catcher_id: string | null }[];
-
-    for (const row of catchEntries) {
-      const catcherId = row.catcher_id;
-      if (!catcherId) {
-        continue;
-      }
-      catchCounts.set(catcherId, (catchCounts.get(catcherId) ?? 0) + 1);
-    }
-  }
-
-  const entries: LeaderboardEntry[] = participantIds.map((profileId) => {
-    const profile = profileMap.get(profileId) ?? { username: null, avatarUrl: null };
-    return {
-      profileId,
-      username: profile.username,
-      avatarUrl: profile.avatarUrl,
-      catchCount: catchCounts.get(profileId) ?? 0,
-    };
-  });
-
-  return entries.sort((a, b) => {
-    if (b.catchCount !== a.catchCount) {
-      return b.catchCount - a.catchCount;
-    }
-
-    const nameA = (a.username ?? '').toLowerCase();
-    const nameB = (b.username ?? '').toLowerCase();
-
-    if (nameA && nameB && nameA !== nameB) {
-      return nameA < nameB ? -1 : 1;
-    }
-
-    if (!nameA && nameB) {
-      return 1;
-    }
-
-    if (nameA && !nameB) {
-      return -1;
-    }
-
-    return a.profileId < b.profileId ? -1 : 1;
-  });
+  return (data ?? []).map((row) => ({
+    profileId: row.catcher_id,
+    username: row.username,
+    avatarUrl: row.avatar_url,
+    catchCount: row.catch_count,
+  }));
 }
 
 export const createConventionLeaderboardQueryOptions = (conventionId: string) => ({
@@ -189,23 +67,16 @@ export const conventionSuitLeaderboardQueryKey = (conventionId: string) =>
   [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, conventionId] as const;
 
 export async function fetchConventionSuitLeaderboard(conventionId: string): Promise<SuitLeaderboardEntry[]> {
-  const client = supabase as any;
-
-  const { data: suitRows, error: suitError } = await client
-    .from('fursuit_conventions')
+  const { data, error } = await supabase
+    .from('mv_fursuit_popularity')
     .select(
       `
+      *,
       fursuit:fursuits (
-        id,
-        name,
         species,
-        species_id,
-        avatar_url,
-        owner_id,
         species_entry:fursuit_species (
           id,
-          name,
-          normalized_name
+          name
         ),
         color_assignments:fursuit_color_assignments (
           position,
@@ -214,132 +85,37 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
             name,
             normalized_name
           )
-        ),
-        owner:profiles (id, username)
+        )
       )
     `
     )
-    .eq('convention_id', conventionId);
-
-  if (suitError) {
-    captureSupabaseError(suitError, {
-      scope: 'leaderboard.fetchConventionSuitLeaderboard',
-      action: 'loadSuitData',
-      conventionId,
-    });
-    throw new Error(`We couldn't load convention fursuits: ${suitError.message}`);
-  }
-
-  const suitEntries = (suitRows ?? []) as {
-    fursuit: {
-      id: string | null;
-      name: string | null;
-      species: string | null;
-      species_id: string | null;
-      avatar_url: string | null;
-      owner_id: string | null;
-      species_entry?: { id: string | null; name: string | null; normalized_name: string | null } | null;
-      color_assignments?:
-        | {
-            position?: number | null;
-            color?: { id: string | null; name: string | null; normalized_name: string | null } | null;
-          }[]
-        | null;
-      owner: { id: string | null; username: string | null } | null;
-    } | null;
-  }[];
-
-  const suitMap = new Map<
-    string,
-    {
-      name: string;
-      species: string | null;
-      speciesId: string | null;
-      avatarUrl: string | null;
-      ownerProfileId: string | null;
-      ownerUsername: string | null;
-      colors: FursuitColorOption[];
-    }
-  >();
-
-  for (const entry of suitEntries) {
-    const suit = entry?.fursuit;
-    if (!suit || !suit.id || !suit.name) {
-      continue;
-    }
-
-    suitMap.set(suit.id, {
-      name: suit.name,
-      species: suit.species_entry?.name ?? suit.species ?? null,
-      speciesId: suit.species_entry?.id ?? suit.species_id ?? null,
-      colors: mapFursuitColors(suit.color_assignments ?? null),
-      avatarUrl: suit.avatar_url ?? null,
-      ownerProfileId: suit.owner_id ?? null,
-      ownerUsername: suit.owner?.username ?? null,
-    });
-  }
-
-  const suitIds = Array.from(suitMap.keys());
-
-  if (suitIds.length === 0) {
-    return [];
-  }
-
-  const { data: catchRows, error: catchError } = await client
-    .from('catches')
-    .select('fursuit_id')
     .eq('convention_id', conventionId)
-    .in('fursuit_id', suitIds);
+    .order('catch_count', { ascending: false })
+    .order('fursuit_name', { ascending: true })
+    .order('fursuit_id', { ascending: true });
 
-  if (catchError) {
-    captureSupabaseError(catchError, {
+  if (error) {
+    captureSupabaseError(error, {
       scope: 'leaderboard.fetchConventionSuitLeaderboard',
-      action: 'loadCatches',
+      action: 'loadSuitLeaderboard',
       conventionId,
-      suitIds,
     });
-    throw new Error(`We couldn't load suit catches: ${catchError.message}`);
+    throw new Error(`We couldn't load the suit leaderboard: ${error.message}`);
   }
 
-  const catchEntries = (catchRows ?? []) as { fursuit_id: string | null }[];
-  const catchCounts = new Map<string, number>();
-
-  for (const row of catchEntries) {
-    const suitId = row.fursuit_id;
-    if (!suitId) {
-      continue;
-    }
-    catchCounts.set(suitId, (catchCounts.get(suitId) ?? 0) + 1);
-  }
-
-  const entries = suitIds.map((suitId) => {
-    const suit = suitMap.get(suitId);
+  return (data ?? []).map((row) => {
+    const fursuit = row.fursuit as any;
     return {
-      fursuitId: suitId,
-      name: suit?.name ?? 'Unknown suit',
-      species: suit?.species ?? null,
-      speciesId: suit?.speciesId ?? null,
-      colors: suit?.colors ?? [],
-      avatarUrl: suit?.avatarUrl ?? null,
-      ownerProfileId: suit?.ownerProfileId ?? null,
-      ownerUsername: suit?.ownerUsername ?? null,
-      catchCount: catchCounts.get(suitId) ?? 0,
+      fursuitId: row.fursuit_id,
+      name: row.fursuit_name ?? 'Unknown suit',
+      species: fursuit?.species_entry?.name ?? fursuit?.species ?? null,
+      speciesId: fursuit?.species_entry?.id ?? null,
+      colors: mapFursuitColors(fursuit?.color_assignments ?? null),
+      avatarUrl: row.fursuit_avatar_url,
+      ownerProfileId: row.owner_id,
+      ownerUsername: null, // Not in materialized view, but not displayed in UI
+      catchCount: row.catch_count,
     } satisfies SuitLeaderboardEntry;
-  });
-
-  return entries.sort((a, b) => {
-    if (b.catchCount !== a.catchCount) {
-      return b.catchCount - a.catchCount;
-    }
-
-    const nameA = a.name.toLowerCase();
-    const nameB = b.name.toLowerCase();
-
-    if (nameA && nameB && nameA !== nameB) {
-      return nameA < nameB ? -1 : 1;
-    }
-
-    return a.fursuitId < b.fursuitId ? -1 : 1;
   });
 }
 

@@ -54,8 +54,6 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       ),
       fursuit_bios (
         version,
-        fursuit_name,
-        fursuit_species,
         owner_name,
         pronouns,
         tagline,

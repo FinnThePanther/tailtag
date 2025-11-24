@@ -50,8 +50,6 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
         ),
         fursuit_bios (
           version,
-          fursuit_name,
-          fursuit_species,
           owner_name,
           pronouns,
           tagline,

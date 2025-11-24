@@ -4,9 +4,6 @@ import type { FursuitSocialLink } from '../../types/database';
 
 export type FursuitBio = {
   version: number;
-  fursuitName: string;
-  fursuitSpecies: string;
-  fursuitColors: string[];
   ownerName: string;
   pronouns: string;
   tagline: string;

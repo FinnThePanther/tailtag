@@ -380,7 +380,6 @@ async function applyAwards(
 
   const results = (data ?? []) as RpcAwardResult[];
   await insertNotificationsForAwards(supabaseAdmin, results);
-  await logAwardEvents(supabaseAdmin, "edge", "edge-active", event.event_id, results);
 
   return { awards: results };
 }
@@ -731,50 +730,4 @@ function toLocalParts(iso: string, timeZone: string | null | undefined) {
     hour: Number.parseInt(lookup.hour ?? "0", 10),
     minute: Number.parseInt(lookup.minute ?? "0", 10),
   };
-}
-
-async function logAwardEvents(
-  supabaseAdmin: SupabaseClient<any, "public", any>,
-  processedBy: "edge" | "cloudflare",
-  mode: string,
-  fallbackEventId: string,
-  results: RpcAwardResult[],
-) {
-  if (results.length === 0) {
-    return;
-  }
-
-  const rows = results
-    .filter((result) => typeof result.user_id === "string" && result.user_id.length > 0)
-    .map((result) => ({
-      processed_by: processedBy,
-      mode,
-      event_id: (result.source_event_id as string | null) ?? fallbackEventId,
-      user_id: result.user_id,
-      achievement_key: result.achievement_key,
-      awarded: result.awarded !== false,
-      awarded_at:
-        typeof result.awarded_at === "string" && result.awarded_at.length > 0
-          ? result.awarded_at
-          : null,
-      context: (result.context as Json) ?? {},
-      metadata: {
-        reason: result.reason ?? null,
-      },
-    }));
-
-  if (rows.length === 0) {
-    return;
-  }
-
-  const { error } = await supabaseAdmin
-    .from("achievement_award_events")
-    .upsert(rows, {
-      onConflict: "processed_by,event_id,achievement_key",
-      returning: "minimal",
-    });
-
-  if (error) {
-    console.error("[events-ingress] Failed logging achievement awards", { error });
-  }
 }
