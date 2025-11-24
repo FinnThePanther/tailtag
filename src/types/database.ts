@@ -1057,3 +1057,29 @@ export const Constants = {
     },
   },
 } as const
+
+// Convenience type exports for legacy code compatibility
+export type AchievementsRow = Tables<"achievements">
+export type UserAchievementsRow = Tables<"user_achievements">
+export type AchievementCategory = Database["public"]["Enums"]["achievement_category"]
+export type AchievementRecipientRole = Database["public"]["Enums"]["achievement_recipient_role"]
+export type AchievementTriggerEvent = Database["public"]["Enums"]["achievement_trigger_event"]
+
+export type DailyTasksRow = Tables<"daily_tasks">
+export type DailyAssignmentsRow = Tables<"daily_assignments">
+export type UserDailyProgressRow = Tables<"user_daily_progress">
+export type UserDailyStreaksRow = Tables<"user_daily_streaks">
+export type DailyTaskKind = string // "catch" | "view_bio" | "share" | "leaderboard" | "meta"
+
+export type FursuitsRow = Tables<"fursuits">
+export type FursuitsInsert = TablesInsert<"fursuits">
+export type FursuitBiosInsert = TablesInsert<"fursuit_bios">
+
+// Legacy removed type - no longer exists in database
+export type AchievementEventsRow = never
+
+// FursuitSocialLink type based on JSONB schema
+export type FursuitSocialLink = {
+  label: string
+  url: string
+}

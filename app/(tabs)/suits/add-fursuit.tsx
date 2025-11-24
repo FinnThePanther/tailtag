@@ -354,7 +354,6 @@ export default function AddFursuitScreen() {
       }))
       .filter((entry) => entry.label.length > 0 || entry.url.length > 0);
     const selectedColorIds = selectedColors.map((color) => color.id);
-    const selectedColorNames = selectedColors.map((color) => color.name);
 
     if (!trimmedName) {
       setSubmitError('Give your fursuit a name before saving.');

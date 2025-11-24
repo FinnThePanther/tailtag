@@ -41,16 +41,6 @@ const coerceString = (value: unknown): string => {
   return String(value);
 };
 
-const parseStringArray = (value: unknown): string[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((entry) => coerceString(entry).trim())
-    .filter((entry) => entry.length > 0);
-};
-
 const parseSocialLinks = (value: unknown): FursuitSocialLink[] => {
   if (!Array.isArray(value)) {
     return [];

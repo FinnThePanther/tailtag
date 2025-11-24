@@ -322,7 +322,6 @@ export default function EditFursuitScreen() {
 
     const normalizedSocialLinks = normalizeLinksForSave(socialLinks);
     const selectedColorIds = selectedColors.map((color) => color.id);
-    const selectedColorNames = selectedColors.map((color) => color.name);
     const previousColors = initialColors;
     const previousColorIds = previousColors.map((color) => color.id);
 

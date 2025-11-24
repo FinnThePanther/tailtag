@@ -45,12 +45,14 @@ export async function fetchConventionLeaderboard(conventionId: string): Promise<
     throw new Error(`We couldn't load the leaderboard: ${error.message}`);
   }
 
-  return (data ?? []).map((row) => ({
-    profileId: row.catcher_id,
-    username: row.username,
-    avatarUrl: row.avatar_url,
-    catchCount: row.catch_count,
-  }));
+  return (data ?? [])
+    .filter((row) => row.catcher_id != null && row.catch_count != null)
+    .map((row) => ({
+      profileId: row.catcher_id!,
+      username: row.username,
+      avatarUrl: row.avatar_url,
+      catchCount: row.catch_count!,
+    }));
 }
 
 export const createConventionLeaderboardQueryOptions = (conventionId: string) => ({
@@ -103,20 +105,22 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
     throw new Error(`We couldn't load the suit leaderboard: ${error.message}`);
   }
 
-  return (data ?? []).map((row) => {
-    const fursuit = row.fursuit as any;
-    return {
-      fursuitId: row.fursuit_id,
-      name: row.fursuit_name ?? 'Unknown suit',
-      species: fursuit?.species_entry?.name ?? fursuit?.species ?? null,
-      speciesId: fursuit?.species_entry?.id ?? null,
-      colors: mapFursuitColors(fursuit?.color_assignments ?? null),
-      avatarUrl: row.fursuit_avatar_url,
-      ownerProfileId: row.owner_id,
-      ownerUsername: null, // Not in materialized view, but not displayed in UI
-      catchCount: row.catch_count,
-    } satisfies SuitLeaderboardEntry;
-  });
+  return (data ?? [])
+    .filter((row) => row.fursuit_id != null && row.catch_count != null)
+    .map((row) => {
+      const fursuit = row.fursuit as any;
+      return {
+        fursuitId: row.fursuit_id!,
+        name: row.fursuit_name ?? 'Unknown suit',
+        species: fursuit?.species_entry?.name ?? fursuit?.species ?? null,
+        speciesId: fursuit?.species_entry?.id ?? null,
+        colors: mapFursuitColors(fursuit?.color_assignments ?? null),
+        avatarUrl: row.fursuit_avatar_url,
+        ownerProfileId: row.owner_id,
+        ownerUsername: null, // Not in materialized view, but not displayed in UI
+        catchCount: row.catch_count!,
+      } satisfies SuitLeaderboardEntry;
+    });
 }
 
 export const createConventionSuitLeaderboardQueryOptions = (conventionId: string) => ({
