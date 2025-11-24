@@ -58,40 +58,27 @@ Deno.serve(async (req) => {
   console.log(`[delete-account] Deleting user ${userId}`);
 
   try {
-    // STEP 1: Delete notifications first (has NO ACTION constraint)
-    console.log("[delete-account] Deleting notifications");
-    await supabaseAdmin.from("notifications").delete().eq("user_id", userId);
+    // STEP 1: Handle special case - preserve catches on other users' fursuits
+    // SET NULL for decided_by_user_id (these catches belong to other users)
+    // The foreign key constraint uses SET NULL, but we do it explicitly for clarity
+    console.log("[delete-account] Nullifying decided_by references");
+    await supabaseAdmin
+      .from("catches")
+      .update({ decided_by_user_id: null })
+      .eq("decided_by_user_id", userId);
 
-    // STEP 2: Delete other user data
-    console.log("[delete-account] Deleting user data");
-    await supabaseAdmin.from("user_achievements").delete().eq("user_id", userId);
-    await supabaseAdmin.from("user_daily_progress").delete().eq("user_id", userId);
-    await supabaseAdmin.from("user_daily_streaks").delete().eq("user_id", userId);
-    await supabaseAdmin.from("profile_conventions").delete().eq("profile_id", userId);
-    await supabaseAdmin.from("catches").delete().eq("catcher_id", userId);
-
-    // STEP 3: Delete fursuits and related data
-    console.log("[delete-account] Deleting fursuits");
-    const { data: fursuits } = await supabaseAdmin
-      .from("fursuits")
-      .select("id")
-      .eq("owner_id", userId);
-
-    if (fursuits && fursuits.length > 0) {
-      const fursuitIds = fursuits.map((f) => f.id);
-      await supabaseAdmin.from("fursuit_conventions").delete().in("fursuit_id", fursuitIds);
-      await supabaseAdmin.from("fursuit_bios").delete().in("fursuit_id", fursuitIds);
-      await supabaseAdmin.from("catches").delete().in("fursuit_id", fursuitIds);
-    }
-
-    await supabaseAdmin.from("fursuits").delete().eq("owner_id", userId);
-
-    // STEP 4: Delete profile
-    console.log("[delete-account] Deleting profile");
-    await supabaseAdmin.from("profiles").delete().eq("id", userId);
-
-    // STEP 5: Delete auth user LAST
-    console.log("[delete-account] Deleting auth user");
+    // STEP 2: Delete auth user - CASCADE constraints handle all related data
+    // This will automatically cascade delete:
+    //   - profiles (CASCADE) →
+    //       - fursuits (CASCADE) → fursuit_conventions, fursuit_bios, catches [by fursuit_id]
+    //       - catches [by catcher_id] (CASCADE)
+    //       - profile_conventions (CASCADE)
+    //   - notifications (CASCADE)
+    //   - events (CASCADE)
+    //   - user_achievements (CASCADE)
+    //   - user_daily_progress (CASCADE)
+    //   - user_daily_streaks (CASCADE)
+    console.log("[delete-account] Deleting auth user (cascade will handle all related data)");
     const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (deleteAuthError) {
       console.error("[delete-account] Auth deletion failed:", deleteAuthError);

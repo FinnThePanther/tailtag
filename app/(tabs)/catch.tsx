@@ -166,8 +166,6 @@ export default function CatchScreen() {
           ),
           fursuit_bios (
             version,
-            fursuit_name,
-            fursuit_species,
             owner_name,
             pronouns,
             tagline,

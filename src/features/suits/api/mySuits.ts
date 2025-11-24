@@ -49,8 +49,6 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       ),
       fursuit_bios (
         version,
-        fursuit_name,
-        fursuit_species,
         owner_name,
         pronouns,
         tagline,
