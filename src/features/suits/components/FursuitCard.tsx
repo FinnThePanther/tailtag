@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Dimensions, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 
 import { colors, radius, spacing } from '../../../theme';
 import type { FursuitColorOption } from '../../colors';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const IS_SMALL_SCREEN = SCREEN_WIDTH <= 375;
 
 const DEFAULT_SPECIES = 'Species not set yet';
 const DEFAULT_CODE = 'Pending code';
@@ -130,7 +133,7 @@ export function FursuitCard({
             </Pressable>
           </View>
         ) : null}
-        {actionSlot ? <View>{actionSlot}</View> : null}
+        {actionSlot ? <View style={styles.actionSlot}>{actionSlot}</View> : null}
       </View>
     </Pressable>
   );
@@ -142,16 +145,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: 'rgba(148,163,184,0.25)',
-    padding: spacing.md,
+    padding: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
   },
   leadRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
   },
   avatarWrapper: {
-    width: 64,
-    height: 64,
+    width: IS_SMALL_SCREEN ? 56 : 64,
+    height: IS_SMALL_SCREEN ? 56 : 64,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: 'rgba(148,163,184,0.2)',
@@ -174,43 +177,50 @@ const styles = StyleSheet.create({
   },
   details: {
     flex: 1,
-    marginLeft: spacing.md,
+    marginLeft: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
   },
   name: {
     color: colors.foreground,
-    fontSize: 18,
+    fontSize: IS_SMALL_SCREEN ? 16 : 18,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: IS_SMALL_SCREEN ? 2 : 4,
   },
   species: {
     color: 'rgba(203,213,225,0.9)',
-    fontSize: 14,
-    marginBottom: 4,
+    fontSize: IS_SMALL_SCREEN ? 13 : 14,
+    marginBottom: IS_SMALL_SCREEN ? 2 : 4,
   },
   colors: {
     color: 'rgba(148,163,184,0.9)',
-    fontSize: 13,
-    marginBottom: 4,
+    fontSize: IS_SMALL_SCREEN ? 12 : 13,
+    marginBottom: IS_SMALL_SCREEN ? 2 : 4,
   },
   timeline: {
     color: 'rgba(148,163,184,0.9)',
-    fontSize: 12,
+    fontSize: IS_SMALL_SCREEN ? 11 : 12,
   },
   metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: IS_SMALL_SCREEN ? 'column' : 'row',
+    alignItems: IS_SMALL_SCREEN ? 'flex-start' : 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.md,
+    marginTop: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
+    gap: spacing.xs,
   },
   codeBlock: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: spacing.sm,
+    flex: IS_SMALL_SCREEN ? 0 : 1,
+    minWidth: 0,
+  },
+  actionSlot: {
+    flexShrink: 0,
+    alignSelf: IS_SMALL_SCREEN ? 'stretch' : 'auto',
+    width: IS_SMALL_SCREEN ? '100%' : 'auto',
   },
   codeLabel: {
-    fontSize: 11,
+    fontSize: IS_SMALL_SCREEN ? 10 : 11,
     textTransform: 'uppercase',
-    letterSpacing: 3,
+    letterSpacing: IS_SMALL_SCREEN ? 2 : 3,
     color: 'rgba(148,163,184,0.9)',
     marginRight: spacing.xs,
   },
@@ -218,10 +228,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Courier',
     fontWeight: '600',
     color: '#38bdf8',
-    fontSize: 16,
+    fontSize: IS_SMALL_SCREEN ? 14 : 16,
     backgroundColor: 'rgba(30,41,59,0.8)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingHorizontal: IS_SMALL_SCREEN ? spacing.xs : spacing.sm,
+    paddingVertical: IS_SMALL_SCREEN ? 2 : 4,
     borderRadius: radius.md,
   },
 });

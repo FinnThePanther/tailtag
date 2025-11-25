@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +17,65 @@ import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { useAuth } from '../../src/features/auth';
 import { colors, spacing } from '../../src/theme';
 import { toDisplayDateTime } from '../../src/utils/dates';
+
+function ListHeader() {
+  return (
+    <View style={styles.header}>
+      <Text style={styles.eyebrow}>Caught suits</Text>
+      <Text style={styles.title}>Your collection</Text>
+      <Text style={styles.subtitle}>
+        Every tag you log shows up here. Keep hunting to grow your streak.
+      </Text>
+    </View>
+  );
+}
+
+function ItemSeparator() {
+  return <View style={styles.separator} />;
+}
+
+function CaughtSuitItem({
+  record,
+  onPress,
+}: {
+  record: CaughtRecord;
+  onPress: () => void;
+}) {
+  const details = record.fursuit;
+
+  if (!details) {
+    return null;
+  }
+
+  const caughtLabel = toDisplayDateTime(record.caught_at) ?? 'Caught just now';
+  const pieces = [caughtLabel];
+
+  if (typeof record.catchNumber === 'number' && record.catchNumber > 0) {
+    pieces.push(`Catcher #${record.catchNumber}`);
+  }
+
+  const timelineLabel = pieces.join(' · ');
+
+  return (
+    <View>
+      <FursuitCard
+        name={details.name}
+        species={details.species}
+        colors={details.colors}
+        avatarUrl={details.avatar_url}
+        uniqueCode={details.unique_code}
+        timelineLabel={timelineLabel}
+        codeLabel={undefined}
+        onPress={onPress}
+      />
+      {details.bio ? (
+        <View style={styles.bioSpacing}>
+          <FursuitBioDetails bio={details.bio} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 export default function CaughtSuitsScreen() {
   const { session } = useAuth();
@@ -63,89 +122,74 @@ export default function CaughtSuitsScreen() {
     await refetch({ throwOnError: false });
   }, [refetch]);
 
-  const hasRecords = records.length > 0;
   const errorMessage = error?.message ?? null;
 
-  return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={colors.primary} />
-      }
-    >
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>Caught suits</Text>
-        <Text style={styles.title}>Your collection</Text>
-        <Text style={styles.subtitle}>
-          Every tag you log shows up here. Keep hunting to grow your streak.
-        </Text>
-      </View>
+  const renderItem = useCallback(
+    ({ item }: { item: CaughtRecord }) => (
+      <CaughtSuitItem
+        record={item}
+        onPress={() => {
+          if (item.fursuit?.id) {
+            router.push({ pathname: '/fursuits/[id]', params: { id: item.fursuit.id } });
+          }
+        }}
+      />
+    ),
+    [router]
+  );
 
-      <TailTagCard>
-        {isLoading ? (
+  const keyExtractor = useCallback((item: CaughtRecord) => item.id, []);
+
+  const ListEmptyComponent = useMemo(() => {
+    if (isLoading) {
+      return (
+        <TailTagCard>
           <Text style={styles.message}>Loading your catches…</Text>
-        ) : errorMessage ? (
+        </TailTagCard>
+      );
+    }
+
+    if (errorMessage) {
+      return (
+        <TailTagCard>
           <View style={styles.helper}>
             <Text style={styles.error}>{errorMessage}</Text>
             <TailTagButton variant="outline" size="sm" onPress={handleRefresh}>
               Try again
             </TailTagButton>
           </View>
-        ) : hasRecords ? (
-          <View style={styles.list}>
-            {records.map((record, index) => {
-              const details = record.fursuit;
+        </TailTagCard>
+      );
+    }
 
-              if (!details) {
-                return null;
-              }
-
-              const caughtLabel = toDisplayDateTime(record.caught_at) ?? 'Caught just now';
-              const pieces = [caughtLabel];
-
-              if (typeof record.catchNumber === 'number' && record.catchNumber > 0) {
-                pieces.push(`Catcher #${record.catchNumber}`);
-              }
-
-              const timelineLabel = pieces.join(' · ');
-
-              return (
-                <View
-                  key={record.id}
-                  style={index < records.length - 1 ? styles.listItemSpacing : undefined}
-                >
-                  <FursuitCard
-                    name={details.name}
-                    species={details.species}
-                    colors={details.colors}
-                    avatarUrl={details.avatar_url}
-                    uniqueCode={details.unique_code}
-                    timelineLabel={timelineLabel}
-                    codeLabel={undefined}
-                    onPress={() => router.push({ pathname: '/fursuits/[id]', params: { id: details.id } })}
-                  />
-                  {details.bio ? (
-                    <View style={styles.bioSpacing}>
-                      <FursuitBioDetails bio={details.bio} />
-                    </View>
-                  ) : null}
-                </View>
-              );
-            })}
-          </View>
-        ) : (
-          <Text style={styles.message}>
-            You haven&apos;t caught any suits yet. Tap “Catch” to log a fresh tag.
-          </Text>
-        )}
+    return (
+      <TailTagCard>
+        <Text style={styles.message}>
+          You haven&apos;t caught any suits yet. Tap "Catch" to log a fresh tag.
+        </Text>
       </TailTagCard>
-    </ScrollView>
+    );
+  }, [isLoading, errorMessage, handleRefresh]);
+
+  return (
+    <FlatList
+      style={styles.list}
+      contentContainerStyle={styles.container}
+      data={records}
+      keyExtractor={keyExtractor}
+      renderItem={renderItem}
+      ItemSeparatorComponent={ItemSeparator}
+      ListHeaderComponent={ListHeader}
+      ListEmptyComponent={ListEmptyComponent}
+      refreshControl={
+        <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={colors.primary} />
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
+  list: {
     flex: 1,
     backgroundColor: colors.background,
   },
@@ -157,6 +201,7 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: spacing.xs,
+    marginBottom: spacing.md,
   },
   eyebrow: {
     fontSize: 12,
@@ -184,11 +229,8 @@ const styles = StyleSheet.create({
     color: '#fca5a5',
     fontSize: 14,
   },
-  list: {
-    marginTop: spacing.md,
-  },
-  listItemSpacing: {
-    marginBottom: spacing.md,
+  separator: {
+    height: spacing.md,
   },
   bioSpacing: {
     marginTop: spacing.sm,

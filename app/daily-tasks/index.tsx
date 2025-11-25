@@ -7,7 +7,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
@@ -70,7 +69,6 @@ function getTaskStatusCopy(taskRequirement: number, currentCount: number, isComp
 }
 
 export default function DailyTasksScreen() {
-  const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
 
@@ -146,10 +144,6 @@ export default function DailyTasksScreen() {
 
   const isRefreshing = isFetching && !isLoading;
 
-  const handleBack = useCallback(() => {
-    router.back();
-  }, [router]);
-
   const handleRetry = useCallback(() => {
     void refetch({ throwOnError: false });
   }, [refetch]);
@@ -175,12 +169,6 @@ export default function DailyTasksScreen() {
         />
       }
     >
-      <View style={styles.headerRow}>
-        <TailTagButton variant="ghost" onPress={handleBack}>
-          Back
-        </TailTagButton>
-      </View>
-
       <TailTagCard style={styles.selectorCard}>
         <Text style={styles.selectorEyebrow}>Convention</Text>
         {isLoadingConventions ? (
@@ -221,18 +209,18 @@ export default function DailyTasksScreen() {
 
         <View style={styles.summaryStatsRow}>
           <View style={styles.summaryStat}>
-            <Text style={styles.statLabel}>Completed</Text>
-            <Text style={styles.statValue}>
+            <Text numberOfLines={1} style={styles.statLabel}>Done</Text>
+            <Text numberOfLines={1} style={styles.statValue}>
               {completedCount} / {totalCount}
             </Text>
           </View>
           <View style={styles.summaryStat}>
-            <Text style={styles.statLabel}>Current streak</Text>
-            <Text style={styles.statValue}>{data?.streak.current ?? 0}</Text>
+            <Text numberOfLines={1} style={styles.statLabel}>Streak</Text>
+            <Text numberOfLines={1} style={styles.statValue}>{data?.streak.current ?? 0}</Text>
           </View>
           <View style={styles.summaryStat}>
-            <Text style={styles.statLabel}>Best streak</Text>
-            <Text style={styles.statValue}>{data?.streak.best ?? 0}</Text>
+            <Text numberOfLines={1} style={styles.statLabel}>Best</Text>
+            <Text numberOfLines={1} style={styles.statValue}>{data?.streak.best ?? 0}</Text>
           </View>
         </View>
 
@@ -290,7 +278,7 @@ export default function DailyTasksScreen() {
                 <View key={task.id} style={styles.taskRow}>
                   <View style={styles.taskHeader}>
                     <Text style={styles.taskTitle}>{task.name}</Text>
-                    <Text style={task.isCompleted ? styles.taskBadgeDone : styles.taskBadgePending}>
+                    <Text numberOfLines={1} style={task.isCompleted ? styles.taskBadgeDone : styles.taskBadgePending}>
                       {getTaskStatusCopy(task.requirement, task.currentCount, task.isCompleted)}
                     </Text>
                   </View>
@@ -322,10 +310,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     paddingTop: spacing.lg,
     gap: spacing.lg,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
   },
   selectorCard: {
     gap: spacing.sm,
@@ -456,11 +440,13 @@ const styles = StyleSheet.create({
     color: colors.amber,
     fontSize: 12,
     fontWeight: '600',
+    flexShrink: 0,
   },
   taskBadgeDone: {
     color: colors.primary,
     fontSize: 12,
     fontWeight: '600',
+    flexShrink: 0,
   },
   taskDescription: {
     color: colors.slate200,

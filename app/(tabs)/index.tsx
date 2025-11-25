@@ -448,20 +448,16 @@ export default function HomeScreen() {
             from your phone.
           </Text>
           <View style={styles.ctaRow}>
-            <View style={styles.ctaItem}>
-              <TailTagButton onPress={() => router.push("/catch")} size="lg">
-                Catch a suit
-              </TailTagButton>
-            </View>
-            <View style={styles.ctaItem}>
-              <TailTagButton
-                variant="outline"
-                onPress={() => router.push("/suits/add-fursuit")}
-                size="lg"
-              >
-                Add your suit
-              </TailTagButton>
-            </View>
+            <TailTagButton onPress={() => router.push("/catch")} size="lg">
+              Catch a suit
+            </TailTagButton>
+            <TailTagButton
+              variant="outline"
+              onPress={() => router.push("/suits/add-fursuit")}
+              size="lg"
+            >
+              Add your suit
+            </TailTagButton>
           </View>
         </View>
 
@@ -932,9 +928,7 @@ const styles = StyleSheet.create({
     color: "rgba(203,213,225,0.8)",
     fontSize: 12,
   },
-  dailyCta: {
-    alignSelf: "flex-start",
-  },
+  dailyCta: {},
   achievementsCard: {
     marginBottom: spacing.xl,
     gap: spacing.md,
@@ -967,9 +961,7 @@ const styles = StyleSheet.create({
     color: "rgba(203,213,225,0.75)",
     fontSize: 13,
   },
-  achievementCta: {
-    alignSelf: "flex-start",
-  },
+  achievementCta: {},
   badge: {
     alignSelf: "flex-start",
     color: "#bae6fd",
@@ -995,12 +987,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   ctaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  ctaItem: {
-    marginRight: spacing.md,
-    marginBottom: spacing.md,
+    gap: spacing.md,
   },
   leaderboardCard: {
     marginBottom: spacing.xl,
@@ -1066,9 +1053,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
     paddingHorizontal: spacing.md,
   },
-  reloadButton: {
-    marginLeft: "auto",
-  },
+  reloadButton: {},
   suitLeaderboardSection: {
     gap: spacing.sm,
   },

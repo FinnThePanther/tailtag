@@ -6,7 +6,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -91,6 +91,17 @@ export default function CatchScreen() {
     setLastCatchConventionId(null);
     setLastCatchConventionIds([]);
   };
+
+  // Clear caught fursuit state when user navigates away
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        // Cleanup on blur (when navigating away)
+        resetCatchState();
+        setSubmitError(null);
+      };
+    }, [])
+  );
 
   const lastCaughtFursuitId = caughtFursuit?.id ?? null;
   const lastCatchRecordId = catchRecord?.id ?? null;
@@ -471,22 +482,9 @@ export default function CatchScreen() {
               {isPending ? "Catch pending approval" : "Nice catch!"}
             </Text>
             {isPending ? (
-              <>
-                <Text style={[styles.sectionBody, styles.pendingHighlight]}>
-                  The owner of {caughtFursuit.name} will be notified. Your catch will count once they approve it.
-                </Text>
-                <Text style={styles.sectionBody}>
-                  If you have suits in manual approval mode, check for pending requests.
-                </Text>
-                <TailTagButton
-                  variant="outline"
-                  size="sm"
-                  onPress={() => router.push("/suits")}
-                  style={styles.viewPendingButton}
-                >
-                  View pending catches
-                </TailTagButton>
-              </>
+              <Text style={[styles.sectionBody, styles.pendingHighlight]}>
+                The owner of {caughtFursuit.name} will be notified. Your catch will count once they approve it.
+              </Text>
             ) : catchNumber !== null ? (
               <Text style={[styles.sectionBody, styles.sectionHighlight]}>
                 You were catcher #{catchNumber} for this suit!
@@ -610,10 +608,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
-  },
-  viewPendingButton: {
-    marginTop: spacing.sm,
-    alignSelf: "flex-start",
   },
   errorText: {
     color: "#f87171",

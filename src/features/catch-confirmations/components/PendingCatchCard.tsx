@@ -136,9 +136,6 @@ export function PendingCatchCard({
                 {pendingCatch.catcherUsername}
               </Text>
             </Pressable>
-            <Text style={styles.subtitle} numberOfLines={1}>
-              wants to catch <Text style={styles.fursuitName}>{pendingCatch.fursuitName}</Text>
-            </Text>
           </View>
         </View>
         <View
@@ -157,11 +154,19 @@ export function PendingCatchCard({
         </View>
       </View>
 
-      <View style={styles.contextRow}>
-        <Ionicons name="location-outline" size={14} color="rgba(148,163,184,0.8)" />
-        <Text style={styles.contextText} numberOfLines={1}>
-          {pendingCatch.conventionName}
-        </Text>
+      <View style={styles.contextContainer}>
+        <View style={styles.contextRow}>
+          <Ionicons name="paw-outline" size={14} color={colors.primary} />
+          <Text style={styles.fursuitContextText} numberOfLines={1}>
+            {pendingCatch.fursuitName}
+          </Text>
+        </View>
+        <View style={styles.contextRow}>
+          <Ionicons name="location-outline" size={14} color="rgba(148,163,184,0.8)" />
+          <Text style={styles.contextText} numberOfLines={1}>
+            {pendingCatch.conventionName}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.actions}>
@@ -292,11 +297,19 @@ const styles = StyleSheet.create({
   expiredText: {
     color: '#f87171',
   },
+  contextContainer: {
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
   contextRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: spacing.md,
+  },
+  fursuitContextText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '500',
   },
   contextText: {
     color: 'rgba(148,163,184,0.8)',

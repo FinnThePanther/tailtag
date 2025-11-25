@@ -113,6 +113,7 @@ export function TailTagButton({
         <ActivityIndicator color={variantStyles.text.color ?? colors.foreground} />
       ) : (
         <Text
+          numberOfLines={1}
           style={[
             styles.text,
             {
@@ -134,6 +135,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44,
+    alignSelf: 'stretch',
   },
   text: {
     fontWeight: '600',

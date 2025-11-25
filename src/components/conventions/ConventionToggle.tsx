@@ -55,7 +55,7 @@ export function ConventionToggle({
         {pending ? (
           <ActivityIndicator size="small" color={colors.foreground} />
         ) : (
-          <Text style={styles.conventionBadgeText}>
+          <Text numberOfLines={1} style={styles.conventionBadgeText}>
             {badgeText ?? (selected ? 'Assigned' : 'Tap to assign')}
           </Text>
         )}
@@ -110,6 +110,7 @@ const styles = StyleSheet.create({
     minWidth: 90,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   conventionBadgeActive: {
     borderColor: colors.primary,
