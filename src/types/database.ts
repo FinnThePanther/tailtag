@@ -871,15 +871,33 @@ export type Database = {
       }
     }
     Functions: {
-      calculate_catch_expiration: {
-        Args: { convention_id_param: string }
-        Returns: string
+      calculate_catch_expiration:
+        | { Args: { convention_id_param: string }; Returns: string }
+        | { Args: Record<PropertyKey, never>; Returns: string }
+      confirm_catch: {
+        Args: {
+          p_catch_id: string
+          p_decision: string
+          p_reason?: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       count_distinct_conventions: { Args: { user_id: string }; Returns: number }
       count_distinct_species_caught: {
         Args: { user_id: string }
         Returns: number
       }
+      create_catch_with_approval: {
+        Args: {
+          p_catcher_id: string
+          p_convention_id?: string
+          p_fursuit_id: string
+          p_is_tutorial?: boolean
+        }
+        Returns: Json
+      }
+      expire_pending_catches: { Args: Record<PropertyKey, never>; Returns: Json }
       finish_onboarding: { Args: { target_user_id?: string }; Returns: Json }
       get_fursuit_convention_stats: {
         Args: { p_convention_id: string; p_fursuit_id: string }
@@ -888,7 +906,46 @@ export type Database = {
           unique_catchers: number
         }[]
       }
+      get_pending_catch_count: { Args: { p_user_id: string }; Returns: number }
+      get_pending_catches: {
+        Args: { p_user_id: string }
+        Returns: {
+          catch_id: string
+          catcher_avatar_url: string
+          catcher_id: string
+          catcher_username: string
+          caught_at: string
+          convention_id: string
+          convention_name: string
+          expires_at: string
+          fursuit_avatar_url: string
+          fursuit_id: string
+          fursuit_name: string
+          time_remaining: unknown
+        }[]
+      }
       grant_achievements_batch: { Args: { awards: Json }; Returns: Json }
+      notify_catch_decision: {
+        Args: {
+          p_catch_id: string
+          p_catcher_id: string
+          p_decision: string
+          p_fursuit_id: string
+          p_fursuit_name: string
+          p_rejection_reason?: string
+        }
+        Returns: undefined
+      }
+      notify_catch_pending: {
+        Args: {
+          p_catch_id: string
+          p_catcher_id: string
+          p_catcher_username: string
+          p_fursuit_name: string
+          p_fursuit_owner_id: string
+        }
+        Returns: undefined
+      }
       refresh_convention_leaderboard: {
         Args: { convention_uuid?: string }
         Returns: undefined
@@ -912,6 +969,8 @@ export type Database = {
         | "profile.updated"
         | "convention.checkin"
         | "leaderboard.refreshed"
+      catch_mode: "AUTO_ACCEPT" | "MANUAL_APPROVAL"
+      catch_status: "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1054,6 +1113,8 @@ export const Constants = {
         "convention.checkin",
         "leaderboard.refreshed",
       ],
+      catch_mode: ["AUTO_ACCEPT", "MANUAL_APPROVAL"],
+      catch_status: ["PENDING", "ACCEPTED", "REJECTED", "EXPIRED"],
     },
   },
 } as const

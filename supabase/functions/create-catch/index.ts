@@ -116,33 +116,41 @@ async function handlePost(req: Request): Promise<Response> {
     const result = data as CreateCatchResponse;
 
     // If the catch requires approval, send notification to fursuit owner
+    // This is done in a try/catch to ensure notification failures don't fail the catch
     if (result.requires_approval) {
-      // Get fursuit and catcher details for notification
-      const [fursuitData, catcherData] = await Promise.all([
-        supabaseAdmin
-          .from('fursuits')
-          .select('name')
-          .eq('id', body.fursuit_id)
-          .single(),
-        supabaseAdmin
-          .from('profiles')
-          .select('username')
-          .eq('id', userId)
-          .single(),
-      ]);
+      try {
+        // Get fursuit and catcher details for notification
+        const [fursuitData, catcherData] = await Promise.all([
+          supabaseAdmin
+            .from('fursuits')
+            .select('name')
+            .eq('id', body.fursuit_id)
+            .single(),
+          supabaseAdmin
+            .from('profiles')
+            .select('username')
+            .eq('id', userId)
+            .single(),
+        ]);
 
-      if (fursuitData.data && catcherData.data) {
-        // Send notification to fursuit owner
-        await supabaseAdmin.rpc('notify_catch_pending', {
-          p_catch_id: result.catch_id,
-          p_fursuit_owner_id: result.fursuit_owner_id,
-          p_catcher_id: userId,
-          p_fursuit_name: fursuitData.data.name,
-          p_catcher_username: catcherData.data.username || 'Someone',
-        }).catch((notifError) => {
-          console.error("[create-catch] Failed to send notification:", notifError);
-          // Don't fail the catch creation if notification fails
-        });
+        if (fursuitData.data && catcherData.data) {
+          // Send notification to fursuit owner
+          const { error: notifError } = await supabaseAdmin.rpc('notify_catch_pending', {
+            p_catch_id: result.catch_id,
+            p_fursuit_owner_id: result.fursuit_owner_id,
+            p_catcher_id: userId,
+            p_fursuit_name: fursuitData.data.name,
+            p_catcher_username: catcherData.data.username || 'Someone',
+          });
+
+          if (notifError) {
+            console.error("[create-catch] Failed to send notification:", notifError);
+            // Don't fail the catch creation if notification fails
+          }
+        }
+      } catch (notifError) {
+        console.error("[create-catch] Notification error:", notifError);
+        // Don't fail the catch creation if notification fails
       }
     }
 

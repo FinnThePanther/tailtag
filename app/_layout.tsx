@@ -13,6 +13,7 @@ import { colors } from "../src/theme";
 import { ToastProvider } from "../src/hooks/useToast";
 import { DailyTaskToastManager } from "../src/features/daily-tasks/components/DailyTaskToastManager";
 import { AchievementToastManager } from "../src/features/achievements";
+import { CatchConfirmationToastManager } from "../src/features/catch-confirmations";
 import {
   Sentry,
   addMonitoringBreadcrumb,
@@ -206,6 +207,7 @@ function Layout() {
               >
                 <AchievementToastManager />
                 <DailyTaskToastManager />
+                <CatchConfirmationToastManager />
                 <RootLayoutNav />
               </SafeAreaView>
             </ToastProvider>
