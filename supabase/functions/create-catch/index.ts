@@ -167,6 +167,7 @@ async function handlePost(req: Request): Promise<Response> {
       },
       body: JSON.stringify({
         type: eventType,
+        user_id: userId, // Required for service role requests
         convention_id: body.convention_id,
         payload: {
           catch_id: result.catch_id,
