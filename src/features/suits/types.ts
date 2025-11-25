@@ -1,6 +1,7 @@
 import type { ConventionSummary } from '../conventions';
 import type { FursuitColorOption } from '../colors';
 import type { FursuitSocialLink } from '../../types/database';
+import type { CatchMode } from '../catch-confirmations';
 
 export type FursuitBio = {
   version: number;
@@ -25,6 +26,7 @@ export type FursuitSummary = {
   description: string | null;
   unique_code: string | null;
   catchCount: number;
+  catchMode: CatchMode;
   created_at: string | null;
   conventions: ConventionSummary[];
   bio: FursuitBio | null;

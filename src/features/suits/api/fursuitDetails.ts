@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
 import type { FursuitDetail } from '../types';
+import type { CatchMode } from '../../catch-confirmations';
 import { captureHandledMessage, captureSupabaseError } from '../../../lib/sentry';
 
 export const FURSUIT_DETAIL_QUERY_KEY = 'fursuit-detail';
@@ -23,6 +24,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       description,
       unique_code,
       catch_count,
+      catch_mode,
       created_at,
       species_entry:fursuit_species (
         id,
@@ -125,6 +127,9 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     }
   }
 
+  // Default to AUTO_ACCEPT if not set
+  const catchMode: CatchMode = data.catch_mode === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
+
   return {
     id: data.id,
     owner_id: data.owner_id,
@@ -136,6 +141,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     description: data.description ?? null,
     unique_code: data.unique_code ?? null,
     catchCount: resolvedCatchCount,
+    catchMode,
     created_at: data.created_at ?? null,
     conventions,
     bio,

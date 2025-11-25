@@ -138,6 +138,22 @@ function generateUuidV7(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+/**
+ * Check if request is authenticated with service role key
+ */
+function isServiceRoleAuth(req: Request): boolean {
+  const token = extractBearerAuthorization(req);
+  if (!token) {
+    return false;
+  }
+
+  // Extract the JWT part (after "Bearer ")
+  const jwtToken = token.substring(7);
+
+  // Compare with service role key
+  return jwtToken === serviceRoleKey;
+}
+
 async function getUserIdFromRequest(req: Request): Promise<string | null> {
   const token = extractBearerAuthorization(req);
 
@@ -163,18 +179,32 @@ async function getUserIdFromRequest(req: Request): Promise<string | null> {
 }
 
 async function handlePost(req: Request): Promise<Response> {
-  const userId = await getUserIdFromRequest(req);
-
-  if (!userId) {
-    return jsonResponse(401, { error: "Unauthorized" });
-  }
-
   let parsed: EventRequestBody;
 
   try {
     parsed = (await req.json()) as EventRequestBody;
   } catch {
     return jsonResponse(400, { error: "Invalid JSON payload" });
+  }
+
+  // Check authentication: either user JWT or service role
+  const isServiceRole = isServiceRoleAuth(req);
+  let userId: string | null = null;
+
+  if (isServiceRole) {
+    // For service role requests, user_id must be in payload
+    userId = typeof parsed.user_id === 'string' ? parsed.user_id : null;
+
+    if (!userId) {
+      return jsonResponse(400, { error: "user_id required for service role requests" });
+    }
+  } else {
+    // For user requests, get user from JWT
+    userId = await getUserIdFromRequest(req);
+
+    if (!userId) {
+      return jsonResponse(401, { error: "Unauthorized" });
+    }
   }
 
   const type = normalizeEventType(parsed.type);

@@ -18,6 +18,11 @@ import {
   MY_SUITS_STALE_TIME,
 } from "../../../src/features/suits";
 import type { FursuitSummary } from "../../../src/features/suits";
+import {
+  PendingCatchesList,
+  usePendingCatches,
+  useConfirmCatch,
+} from "../../../src/features/catch-confirmations";
 import { TailTagButton } from "../../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../../src/components/ui/TailTagCard";
 import { FURSUIT_BUCKET } from "../../../src/constants/storage";
@@ -54,6 +59,37 @@ export default function MySuitsScreen() {
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
+
+  // Pending catches
+  const {
+    data: pendingCatches = [],
+    refetch: refetchPendingCatches,
+  } = usePendingCatches();
+
+  const confirmCatchMutation = useConfirmCatch();
+
+  const handleAcceptCatch = useCallback(
+    (catchId: string, conventionId?: string) => {
+      setProcessingCatchId(catchId);
+      confirmCatchMutation.mutate(
+        { catchId, decision: "accept", conventionId },
+        { onSettled: () => setProcessingCatchId(null) }
+      );
+    },
+    [confirmCatchMutation]
+  );
+
+  const handleRejectCatch = useCallback(
+    (catchId: string) => {
+      setProcessingCatchId(catchId);
+      confirmCatchMutation.mutate(
+        { catchId, decision: "reject" },
+        { onSettled: () => setProcessingCatchId(null) }
+      );
+    },
+    [confirmCatchMutation]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -78,8 +114,11 @@ export default function MySuitsScreen() {
 
   const handleRefresh = useCallback(async () => {
     setActionError(null);
-    await refetch({ throwOnError: false });
-  }, [refetch]);
+    await Promise.all([
+      refetch({ throwOnError: false }),
+      refetchPendingCatches(),
+    ]);
+  }, [refetch, refetchPendingCatches]);
 
   const handleDelete = useCallback(
     (suit: FursuitSummary) => {
@@ -172,6 +211,13 @@ export default function MySuitsScreen() {
           Keep your suits up to date so other players know who they just tagged.
         </Text>
       </View>
+
+      <PendingCatchesList
+        pendingCatches={pendingCatches}
+        processingCatchId={processingCatchId}
+        onAccept={handleAcceptCatch}
+        onReject={handleRejectCatch}
+      />
 
       <TailTagCard style={styles.cardSpacing}>
         <View style={styles.helperRow}>

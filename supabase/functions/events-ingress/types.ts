@@ -7,6 +7,7 @@ export type EventRequestBody = {
   occurred_at?: unknown;
   catch_id?: unknown;
   idempotency_key?: unknown;
+  user_id?: unknown; // For service role authenticated requests
 };
 
 export type InsertableEventRow = {

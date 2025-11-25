@@ -44,6 +44,10 @@ import {
   type FursuitColorOption,
 } from '../../../src/features/colors';
 import { useAuth } from '../../../src/features/auth';
+import {
+  CatchModeSwitch,
+  type CatchMode,
+} from '../../../src/features/catch-confirmations';
 import { supabase } from '../../../src/lib/supabase';
 import { colors, spacing, radius } from '../../../src/theme';
 import type { Json } from '../../../src/types/database';
@@ -155,6 +159,8 @@ export default function EditFursuitScreen() {
   const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption | null>(null);
   const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
   const [initialColors, setInitialColors] = useState<FursuitColorOption[]>([]);
+  const [catchMode, setCatchMode] = useState<CatchMode>('AUTO_ACCEPT');
+  const [initialCatchMode, setInitialCatchMode] = useState<CatchMode>('AUTO_ACCEPT');
 
   const speciesLoadError = speciesError?.message ?? null;
   const isSpeciesBusy = isSpeciesLoading;
@@ -263,6 +269,10 @@ export default function EditFursuitScreen() {
     const resolvedColors = detail.colors ?? [];
     setSelectedColors(resolvedColors);
     setInitialColors(resolvedColors);
+
+    const resolvedCatchMode = detail.catchMode ?? 'AUTO_ACCEPT';
+    setCatchMode(resolvedCatchMode);
+    setInitialCatchMode(resolvedCatchMode);
 
     setHasHydratedForm(true);
   }, [detail, hasHydratedForm]);
@@ -399,6 +409,7 @@ export default function EditFursuitScreen() {
     const previousName = detail.name;
     const previousSpecies = detail.species;
     const previousSpeciesId = detail.speciesId ?? null;
+    const previousCatchMode = initialCatchMode;
     let updatedCoreRecord = false;
     let replacedColors = false;
     const addedConventionIds: string[] = [];
@@ -434,6 +445,7 @@ export default function EditFursuitScreen() {
           name: trimmedName,
           species: speciesRecord.name,
           species_id: speciesRecord.id,
+          catch_mode: catchMode,
         })
         .eq('id', fursuitId)
         .eq('owner_id', userId);
@@ -511,6 +523,7 @@ export default function EditFursuitScreen() {
 
       setInitialConventionIds(new Set(selectedConventionIds));
       setInitialColors(selectedColors);
+      setInitialCatchMode(catchMode);
 
       router.back();
     } catch (caught) {
@@ -575,6 +588,7 @@ export default function EditFursuitScreen() {
             name: previousName,
             species: previousSpecies,
             species_id: previousSpeciesId,
+            catch_mode: previousCatchMode,
           })
           .eq('id', fursuitId)
           .eq('owner_id', userId);
@@ -582,6 +596,9 @@ export default function EditFursuitScreen() {
         if (revertError) {
           console.warn('Failed to revert fursuit record after edit error', revertError);
         }
+
+        // Also revert local state for catch mode
+        setCatchMode(previousCatchMode);
       }
     } finally {
       setIsSubmitting(false);
@@ -906,6 +923,15 @@ export default function EditFursuitScreen() {
                 ) : (
                   <Text style={styles.helperLabel}>You can add up to {SOCIAL_LINK_LIMIT} links.</Text>
                 )}
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Catch settings</Text>
+                <CatchModeSwitch
+                  value={catchMode}
+                  onChange={setCatchMode}
+                  disabled={disableForm}
+                />
               </View>
 
               <View style={styles.fieldGroup}>
