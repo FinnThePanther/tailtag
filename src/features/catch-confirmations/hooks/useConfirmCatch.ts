@@ -6,7 +6,6 @@ import { captureHandledException } from '../../../lib/sentry';
 import {
   confirmCatch,
   pendingCatchesQueryKey,
-  pendingCatchCountQueryKey,
 } from '../api/confirmations';
 import type { PendingCatch } from '../types';
 
@@ -38,20 +37,27 @@ export function useConfirmCatch(options?: UseConfirmCatchOptions) {
       return confirmCatch(catchId, userId, decision, reason, conventionId);
     },
     onMutate: async ({ catchId }) => {
-      // Cancel any outgoing refetches
+      /**
+       * Optimistic Update Flow:
+       * 1. Cancel in-flight queries to prevent race conditions
+       * 2. Snapshot current state for potential rollback
+       * 3. Immediately update UI by removing the catch from the list
+       * 4. Return snapshot for use in onError rollback
+       *
+       * Why no onSettled refetch?
+       * - The optimistic update + server mutation is sufficient
+       * - Realtime subscriptions will push any external changes
+       * - Avoiding unnecessary refetches improves perceived performance
+       * - onError already handles rollback if the mutation fails
+       */
       await queryClient.cancelQueries({
         queryKey: pendingCatchesQueryKey(userId ?? ''),
       });
 
-      // Snapshot current state
       const previousCatches = queryClient.getQueryData<PendingCatch[]>(
         pendingCatchesQueryKey(userId ?? '')
       );
-      const previousCount = queryClient.getQueryData<number>(
-        pendingCatchCountQueryKey(userId ?? '')
-      );
 
-      // Optimistically remove the catch from the list
       if (previousCatches) {
         queryClient.setQueryData<PendingCatch[]>(
           pendingCatchesQueryKey(userId ?? ''),
@@ -59,21 +65,13 @@ export function useConfirmCatch(options?: UseConfirmCatchOptions) {
         );
       }
 
-      // Optimistically decrement the count
-      if (typeof previousCount === 'number' && previousCount > 0) {
-        queryClient.setQueryData<number>(
-          pendingCatchCountQueryKey(userId ?? ''),
-          previousCount - 1
-        );
-      }
-
-      return { previousCatches, previousCount };
+      return { previousCatches };
     },
     onSuccess: (result) => {
       const message =
         result.decision === 'accept'
-          ? 'Catch approved!'
-          : 'Catch request declined.';
+          ? 'Catch approved! The catcher has been notified and it now counts in their collection.'
+          : 'Catch request declined. The catcher has been notified.';
       showToast(message);
       options?.onSuccess?.(result.decision);
     },
@@ -83,12 +81,6 @@ export function useConfirmCatch(options?: UseConfirmCatchOptions) {
         queryClient.setQueryData<PendingCatch[]>(
           pendingCatchesQueryKey(userId ?? ''),
           context.previousCatches
-        );
-      }
-      if (context?.previousCount !== undefined) {
-        queryClient.setQueryData<number>(
-          pendingCatchCountQueryKey(userId ?? ''),
-          context.previousCount
         );
       }
 
@@ -101,15 +93,6 @@ export function useConfirmCatch(options?: UseConfirmCatchOptions) {
       captureHandledException(error, {
         scope: 'catch-confirmations.useConfirmCatch',
         userId,
-      });
-    },
-    onSettled: () => {
-      // Refetch to ensure consistency
-      void queryClient.invalidateQueries({
-        queryKey: pendingCatchesQueryKey(userId ?? ''),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: pendingCatchCountQueryKey(userId ?? ''),
       });
     },
   });

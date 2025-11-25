@@ -16,7 +16,7 @@ export function usePendingCatches() {
     queryFn: () => fetchPendingCatches(userId!),
     enabled: Boolean(userId),
     staleTime: PENDING_CATCHES_STALE_TIME,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
 }

@@ -4,6 +4,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,7 +24,7 @@ import {
 } from "../../src/features/leaderboard";
 import {
   createCatch,
-  pendingCatchCountQueryKey,
+  pendingCatchesQueryKey,
   type CatchStatus,
 } from "../../src/features/catch-confirmations";
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
@@ -35,7 +36,7 @@ import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import { supabase } from "../../src/lib/supabase";
 import { captureHandledException } from "../../src/lib/sentry";
-import { colors, spacing } from "../../src/theme";
+import { colors, radius, spacing } from "../../src/theme";
 import { normalizeUniqueCodeInput } from "../../src/utils/code";
 import { toDisplayDateTime } from "../../src/utils/dates";
 
@@ -375,10 +376,10 @@ export default function CatchScreen() {
         queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
       });
 
-      // Invalidate pending catch count for the fursuit owner (if it's a pending catch)
+      // Invalidate pending catches for the fursuit owner (if it's a pending catch)
       if (catchResult.requiresApproval && catchResult.fursuitOwnerId) {
         queryClient.invalidateQueries({
-          queryKey: pendingCatchCountQueryKey(catchResult.fursuitOwnerId),
+          queryKey: pendingCatchesQueryKey(catchResult.fursuitOwnerId),
         });
       }
 
@@ -442,10 +443,16 @@ export default function CatchScreen() {
             <Text style={styles.helpText}>
               Letters only, up to 8 characters.
             </Text>
+            <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
+              Some fursuits require manual approval. If so, the owner will be notified and your catch will count once approved.
+            </Text>
           </View>
 
           {submitError ? (
-            <Text style={styles.errorText}>{submitError}</Text>
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={18} color="#f87171" />
+              <Text style={styles.errorText}>{submitError}</Text>
+            </View>
           ) : null}
 
           <TailTagButton
@@ -464,9 +471,22 @@ export default function CatchScreen() {
               {isPending ? "Catch pending approval" : "Nice catch!"}
             </Text>
             {isPending ? (
-              <Text style={[styles.sectionBody, styles.pendingHighlight]}>
-                The owner of {caughtFursuit.name} will be notified. Your catch will count once they approve it.
-              </Text>
+              <>
+                <Text style={[styles.sectionBody, styles.pendingHighlight]}>
+                  The owner of {caughtFursuit.name} will be notified. Your catch will count once they approve it.
+                </Text>
+                <Text style={styles.sectionBody}>
+                  If you have suits in manual approval mode, check for pending requests.
+                </Text>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => router.push("/suits")}
+                  style={styles.viewPendingButton}
+                >
+                  View pending catches
+                </TailTagButton>
+              </>
             ) : catchNumber !== null ? (
               <Text style={[styles.sectionBody, styles.sectionHighlight]}>
                 You were catcher #{catchNumber} for this suit!
@@ -580,10 +600,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: spacing.xs,
   },
-  errorText: {
-    color: "#fca5a5",
-    fontSize: 14,
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    backgroundColor: "rgba(248,113,113,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(248,113,113,0.4)",
+    borderRadius: radius.lg,
+    padding: spacing.md,
     marginBottom: spacing.sm,
+  },
+  viewPendingButton: {
+    marginTop: spacing.sm,
+    alignSelf: "flex-start",
+  },
+  errorText: {
+    color: "#f87171",
+    fontSize: 14,
+    flex: 1,
+    lineHeight: 20,
   },
   sectionTitle: {
     color: colors.foreground,

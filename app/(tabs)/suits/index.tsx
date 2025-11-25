@@ -212,14 +212,12 @@ export default function MySuitsScreen() {
         </Text>
       </View>
 
-      {pendingCatches.length > 0 && (
-        <PendingCatchesList
-          pendingCatches={pendingCatches}
-          processingCatchId={processingCatchId}
-          onAccept={handleAcceptCatch}
-          onReject={handleRejectCatch}
-        />
-      )}
+      <PendingCatchesList
+        pendingCatches={pendingCatches}
+        processingCatchId={processingCatchId}
+        onAccept={handleAcceptCatch}
+        onReject={handleRejectCatch}
+      />
 
       <TailTagCard style={styles.cardSpacing}>
         <View style={styles.helperRow}>

@@ -1,21 +1,15 @@
 import { supabase } from '../../../lib/supabase';
 import { captureSupabaseError, captureHandledException } from '../../../lib/sentry';
-import { emitGameplayEvent } from '../../events/api/events';
 import type { CatchMode, PendingCatch, ConfirmCatchResult, CreateCatchResult, CreateCatchParams } from '../types';
 
 // Query keys
 export const PENDING_CATCHES_QUERY_KEY = 'pending-catches';
-export const PENDING_CATCH_COUNT_QUERY_KEY = 'pending-catch-count';
 
 export const pendingCatchesQueryKey = (userId: string) =>
   [PENDING_CATCHES_QUERY_KEY, userId] as const;
 
-export const pendingCatchCountQueryKey = (userId: string) =>
-  [PENDING_CATCH_COUNT_QUERY_KEY, userId] as const;
-
 // Stale times
-export const PENDING_CATCHES_STALE_TIME = 30 * 1000; // 30 seconds
-export const PENDING_CATCH_COUNT_STALE_TIME = 30 * 1000; // 30 seconds
+export const PENDING_CATCHES_STALE_TIME = 15 * 1000; // 15 seconds
 
 /**
  * Fetch all pending catches for the user's fursuits
@@ -54,36 +48,23 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
   }));
 }
 
-/**
- * Fetch count of pending catches for badge display
- */
-export async function fetchPendingCatchCount(userId: string): Promise<number> {
-  const { data, error } = await supabase.rpc('get_pending_catch_count', {
-    p_user_id: userId,
-  });
-
-  if (error) {
-    captureSupabaseError(error, {
-      scope: 'catch-confirmations.fetchPendingCatchCount',
-      action: 'rpc',
-      userId,
-    });
-    return 0; // Graceful degradation - don't throw for badge count
-  }
-
-  return typeof data === 'number' ? data : 0;
-}
 
 /**
  * Confirm or reject a pending catch.
- * When accepting, emits a catch_confirmed event to trigger achievement processing.
+ * When accepting, the catch_confirmed event is emitted server-side by the RPC function.
+ *
+ * Idempotency:
+ * This function is naturally idempotent - the RPC uses `WHERE status = 'PENDING'` which
+ * prevents the same catch from being confirmed twice. Retrying with the same catchId will
+ * fail with "Catch not found or already decided", which is safe behavior for duplicate requests.
+ * The row-level lock (FOR UPDATE) prevents race conditions during concurrent requests.
  */
 export async function confirmCatch(
   catchId: string,
   userId: string,
   decision: 'accept' | 'reject',
   reason?: string,
-  conventionId?: string
+  _conventionId?: string // No longer needed - server-side emission handles this
 ): Promise<ConfirmCatchResult> {
   const { data, error } = await supabase.rpc('confirm_catch', {
     p_catch_id: catchId,
@@ -113,20 +94,8 @@ export async function confirmCatch(
     throw new Error(result?.message ?? 'Failed to process catch decision.');
   }
 
-  // Emit catch_confirmed event to trigger achievement processing (fire-and-forget)
-  if (decision === 'accept') {
-    void emitGameplayEvent({
-      type: 'catch_confirmed',
-      conventionId: conventionId ?? null,
-      payload: { catch_id: catchId },
-    }).catch((eventError) => {
-      captureHandledException(eventError, {
-        scope: 'catch-confirmations.confirmCatch.event',
-        catchId,
-        conventionId,
-      });
-    });
-  }
+  // Event emission now happens server-side in the confirm_catch RPC function
+  // This eliminates the 401 auth error that occurred with client-side emission
 
   return {
     success: true,
@@ -181,51 +150,75 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
     throw new Error('Supabase URL not configured.');
   }
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      fursuit_id: params.fursuitId,
-      convention_id: params.conventionId,
-      is_tutorial: params.isTutorial ?? false,
-    }),
-  });
+  // Create AbortController for 5-second timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-  const responseData = await response.json();
-
-  if (!response.ok) {
-    const errorMessage = responseData?.error ?? 'Failed to create catch';
-
-    captureHandledException(new Error(errorMessage), {
-      scope: 'catch-confirmations.createCatch',
-      action: 'edge-function',
-      fursuitId: params.fursuitId,
-      statusCode: response.status,
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fursuit_id: params.fursuitId,
+        convention_id: params.conventionId,
+        is_tutorial: params.isTutorial ?? false,
+      }),
+      signal: controller.signal,
     });
 
-    // Return user-friendly messages for known errors
-    if (errorMessage.includes('Cannot catch your own')) {
-      throw new Error('That tag belongs to one of your own suits. Trade codes with friends to grow your collection.');
-    }
-    if (errorMessage.includes('already caught') || errorMessage.includes('pending')) {
-      throw new Error('You already caught this suit. Swap codes with another fursuiter to keep hunting.');
-    }
-    if (errorMessage.includes('not found')) {
-      throw new Error("We couldn't find a fursuit with that code. Double-check the letters and try again.");
+    clearTimeout(timeoutId);
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      const errorMessage = responseData?.error ?? 'Failed to create catch';
+
+      captureHandledException(new Error(errorMessage), {
+        scope: 'catch-confirmations.createCatch',
+        action: 'edge-function',
+        fursuitId: params.fursuitId,
+        statusCode: response.status,
+      });
+
+      // Return user-friendly messages for known errors
+      if (errorMessage.includes('Cannot catch your own')) {
+        throw new Error('That tag belongs to one of your own suits. Trade codes with friends to grow your collection.');
+      }
+      if (errorMessage.includes('already caught') || errorMessage.includes('pending')) {
+        throw new Error('You already caught this suit. Swap codes with another fursuiter to keep hunting.');
+      }
+      if (errorMessage.includes('not found')) {
+        throw new Error("We couldn't find a fursuit with that code. Double-check the letters and try again.");
+      }
+
+      throw new Error("We couldn't save that catch. Please try again.");
     }
 
-    throw new Error("We couldn't save that catch. Please try again.");
+    return {
+      catchId: responseData.catch_id,
+      status: responseData.status,
+      expiresAt: responseData.expires_at ?? null,
+      catchNumber: responseData.catch_number ?? null,
+      requiresApproval: responseData.requires_approval ?? false,
+      fursuitOwnerId: responseData.fursuit_owner_id,
+    };
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    // Handle timeout/abort
+    if (error instanceof Error && error.name === 'AbortError') {
+      captureHandledException(new Error('Create catch request timed out after 5 seconds'), {
+        scope: 'catch-confirmations.createCatch',
+        action: 'timeout',
+        fursuitId: params.fursuitId,
+      });
+      throw new Error('The request took too long. Please check your connection and try again.');
+    }
+
+    // Re-throw other errors
+    throw error;
   }
-
-  return {
-    catchId: responseData.catch_id,
-    status: responseData.status,
-    expiresAt: responseData.expires_at ?? null,
-    catchNumber: responseData.catch_number ?? null,
-    requiresApproval: responseData.requires_approval ?? false,
-    fursuitOwnerId: responseData.fursuit_owner_id,
-  };
 }

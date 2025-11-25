@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -48,6 +48,28 @@ export function PendingCatchCard({
   const [timeDisplay, setTimeDisplay] = useState(() =>
     formatTimeRemaining(pendingCatch.expiresAt)
   );
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [animatingSuccess, setAnimatingSuccess] = useState(false);
+
+  // Trigger success animation when processing completes
+  useEffect(() => {
+    if (!isProcessing && animatingSuccess) {
+      // Animate out: fade + scale down
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0.8,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isProcessing, animatingSuccess, fadeAnim, scaleAnim]);
 
   // Update countdown every minute
   useEffect(() => {
@@ -69,8 +91,33 @@ export function PendingCatchCard({
     });
   };
 
+  const handleAccept = () => {
+    setAnimatingSuccess(true);
+    onAccept();
+  };
+
+  const handleReject = () => {
+    setAnimatingSuccess(true);
+    onReject();
+  };
+
   return (
-    <View style={styles.container}>
+    <Animated.View
+      style={[
+        styles.container,
+        isExpired && styles.expiredContainer,
+        {
+          opacity: fadeAnim,
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+    >
+      {isExpired && (
+        <View style={styles.expiredOverlay}>
+          <Text style={styles.expiredTitle}>This request has expired</Text>
+          <Text style={styles.expiredSubtitle}>Ask them to scan your code again</Text>
+        </View>
+      )}
       <View style={styles.header}>
         <View style={styles.catcherInfo}>
           <Pressable onPress={handleViewProfile} style={styles.avatarWrapper}>
@@ -94,7 +141,11 @@ export function PendingCatchCard({
             </Text>
           </View>
         </View>
-        <View style={styles.timeContainer}>
+        <View
+          style={styles.timeContainer}
+          accessibilityLabel={isExpired ? 'This catch request has expired' : `Expires in ${timeDisplay}`}
+          accessibilityRole="text"
+        >
           <Ionicons
             name="time-outline"
             size={14}
@@ -117,22 +168,26 @@ export function PendingCatchCard({
         <TailTagButton
           variant="outline"
           size="sm"
-          onPress={onReject}
+          onPress={handleReject}
           disabled={isProcessing || isExpired}
           style={styles.rejectButton}
+          accessibilityLabel={`Decline catch request from ${pendingCatch.catcherUsername} for ${pendingCatch.fursuitName}`}
+          accessibilityHint="Double tap to reject this catch request"
         >
           Decline
         </TailTagButton>
         <TailTagButton
           size="sm"
-          onPress={onAccept}
+          onPress={handleAccept}
           disabled={isProcessing || isExpired}
           loading={isProcessing}
+          accessibilityLabel={`Approve catch request from ${pendingCatch.catcherUsername} for ${pendingCatch.fursuitName}`}
+          accessibilityHint="Double tap to accept this catch request"
         >
           Approve
         </TailTagButton>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -143,6 +198,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fbbf24',
     padding: spacing.md,
+    position: 'relative',
+  },
+  expiredContainer: {
+    borderColor: '#f87171',
+    opacity: 0.7,
+  },
+  expiredOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15,23,42,0.95)',
+    borderRadius: radius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    zIndex: 10,
+  },
+  expiredTitle: {
+    color: '#f87171',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  expiredSubtitle: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 13,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',

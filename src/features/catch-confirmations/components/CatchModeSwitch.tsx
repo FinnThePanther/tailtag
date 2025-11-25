@@ -51,6 +51,17 @@ export function CatchModeSwitch({ value, onChange, disabled = false }: CatchMode
         }}
         thumbColor={isManualApproval ? colors.primary : 'rgba(203,213,225,0.9)'}
         ios_backgroundColor="rgba(148,163,184,0.3)"
+        accessibilityRole="switch"
+        accessibilityLabel="Require approval for catches"
+        accessibilityHint={
+          isManualApproval
+            ? 'Currently enabled. Players must wait for approval. Toggle to auto-accept catches.'
+            : 'Currently disabled. Catches are recorded instantly. Toggle to require manual approval.'
+        }
+        accessibilityState={{
+          checked: isManualApproval,
+          disabled: disabled || isUpdating,
+        }}
       />
     </View>
   );

@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { colors } from "../../src/theme";
 import { TabBadge } from "../../src/components/TabBadge";
-import { usePendingCatchCount } from "../../src/features/catch-confirmations";
+import { usePendingCatches } from "../../src/features/catch-confirmations";
 
 type IconOptions = {
   pendingCatchCount?: number;
@@ -64,7 +64,8 @@ const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => 
 };
 
 export default function TabsLayout() {
-  const { data: pendingCatchCount = 0 } = usePendingCatchCount();
+  const { data: pendingCatches = [] } = usePendingCatches();
+  const pendingCatchCount = pendingCatches.length;
 
   return (
     <Tabs

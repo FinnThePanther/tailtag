@@ -58,24 +58,29 @@ function respondJson(data: unknown, status = 200) {
 }
 
 /**
- * Send notification to a user about an expired catch
+ * Batch insert notifications for all expired catches
  */
-async function sendExpiredNotification(
-  userId: string,
-  payload: Record<string, unknown>
-): Promise<void> {
-  const { error } = await supabaseAdmin.from("notifications").insert({
-    user_id: userId,
-    type: "catch_expired",
-    payload,
-  });
+async function batchInsertNotifications(
+  notifications: Array<{ user_id: string; type: string; payload: Record<string, unknown> }>
+): Promise<number> {
+  if (notifications.length === 0) {
+    return 0;
+  }
+
+  const { error, count } = await supabaseAdmin
+    .from("notifications")
+    .insert(notifications)
+    .select('*', { count: 'exact', head: true });
 
   if (error) {
     console.error(
-      `[expire-pending-catches] Failed to send notification to ${userId}:`,
+      `[expire-pending-catches] Failed to batch insert ${notifications.length} notifications:`,
       error
     );
+    return 0;
   }
+
+  return count ?? notifications.length;
 }
 
 /**
@@ -108,31 +113,44 @@ async function emitExpiredEvent(catchData: ExpiredCatch): Promise<void> {
 }
 
 /**
- * Process a single expired catch - send notifications to both parties
+ * Build notification objects for a single expired catch
  */
-async function processExpiredCatch(catchData: ExpiredCatch): Promise<void> {
+function buildNotificationsForExpiredCatch(catchData: ExpiredCatch) {
   const catcherUsername = catchData.catcher_username || "Someone";
   const fursuitName = catchData.fursuit_name || "a fursuit";
 
-  // Send notification to catcher
-  await sendExpiredNotification(catchData.catcher_id, {
-    fursuit_name: fursuitName,
-    catch_id: catchData.id,
+  return [
+    {
+      user_id: catchData.catcher_id,
+      type: "catch_expired" as const,
+      payload: {
+        fursuit_name: fursuitName,
+        catch_id: catchData.id,
+      },
+    },
+    {
+      user_id: catchData.owner_id,
+      type: "catch_expired" as const,
+      payload: {
+        fursuit_name: fursuitName,
+        catcher_username: catcherUsername,
+        catch_id: catchData.id,
+      },
+    },
+  ];
+}
+
+/**
+ * Emit event for a single expired catch (fire-and-forget, non-blocking)
+ */
+function emitExpiredEventAsync(catchData: ExpiredCatch): void {
+  // Fire and forget - don't block on event emission
+  void emitExpiredEvent(catchData).catch((error) => {
+    console.error(
+      `[expire-pending-catches] Failed to emit event for catch ${catchData.id}:`,
+      error
+    );
   });
-
-  // Send notification to fursuit owner
-  await sendExpiredNotification(catchData.owner_id, {
-    fursuit_name: fursuitName,
-    catcher_username: catcherUsername,
-    catch_id: catchData.id,
-  });
-
-  // Emit event for tracking/stats
-  await emitExpiredEvent(catchData);
-
-  console.log(
-    `[expire-pending-catches] Processed expired catch ${catchData.id}: ${catcherUsername} -> ${fursuitName}`
-  );
 }
 
 async function handleRequest(): Promise<Response> {
@@ -152,22 +170,22 @@ async function handleRequest(): Promise<Response> {
       return respondJson({ error: "Expire operation failed" }, 500);
     }
 
-    // Process each expired catch (send notifications)
+    // Process expired catches: batch notifications and emit events
     const expiredCatches = result.expired_catches || [];
-    let notificationsSent = 0;
 
-    for (const catchData of expiredCatches) {
-      try {
-        await processExpiredCatch(catchData);
-        notificationsSent += 2; // One for catcher, one for owner
-      } catch (notifError) {
-        console.error(
-          `[expire-pending-catches] Error processing catch ${catchData.id}:`,
-          notifError
-        );
-        // Continue processing other catches even if one fails
-      }
-    }
+    // Build all notifications for batch insert
+    const allNotifications = expiredCatches.flatMap(buildNotificationsForExpiredCatch);
+
+    // Batch insert all notifications at once
+    const notificationsSent = await batchInsertNotifications(allNotifications);
+
+    // Emit events asynchronously (fire-and-forget, non-blocking)
+    expiredCatches.forEach((catchData) => {
+      emitExpiredEventAsync(catchData);
+      console.log(
+        `[expire-pending-catches] Processed expired catch ${catchData.id}: ${catchData.catcher_username || "Someone"} -> ${catchData.fursuit_name || "a fursuit"}`
+      );
+    });
 
     console.log(
       `[expire-pending-catches] Completed: ${result.expired_count} catches expired, ${notificationsSent} notifications sent`

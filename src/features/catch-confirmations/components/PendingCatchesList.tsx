@@ -19,9 +19,7 @@ export function PendingCatchesList({
   onAccept,
   onReject,
 }: PendingCatchesListProps) {
-  if (pendingCatches.length === 0) {
-    return null;
-  }
+  const isEmpty = pendingCatches.length === 0;
 
   return (
     <TailTagCard style={styles.container}>
@@ -30,28 +28,42 @@ export function PendingCatchesList({
           <Ionicons name="hourglass-outline" size={18} color="#fbbf24" />
           <Text style={styles.title}>Pending Catch Requests</Text>
         </View>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{pendingCatches.length}</Text>
-        </View>
-      </View>
-      <Text style={styles.description}>
-        These players are waiting for you to approve their catches.
-      </Text>
-      <View style={styles.list}>
-        {pendingCatches.map((pendingCatch, index) => (
+        {!isEmpty && (
           <View
-            key={pendingCatch.catchId}
-            style={index < pendingCatches.length - 1 ? styles.listItemSpacing : undefined}
+            style={styles.badge}
+            accessibilityLabel={`${pendingCatches.length} pending ${pendingCatches.length === 1 ? 'catch' : 'catches'}`}
+            accessibilityRole="text"
           >
-            <PendingCatchCard
-              pendingCatch={pendingCatch}
-              isProcessing={processingCatchId === pendingCatch.catchId}
-              onAccept={() => onAccept(pendingCatch.catchId, pendingCatch.conventionId)}
-              onReject={() => onReject(pendingCatch.catchId)}
-            />
+            <Text style={styles.badgeText}>{pendingCatches.length}</Text>
           </View>
-        ))}
+        )}
       </View>
+      {isEmpty ? (
+        <Text style={styles.description}>
+          No pending requests right now. When someone catches your suit and you have manual approval enabled, their requests will appear here for you to approve or decline.
+        </Text>
+      ) : (
+        <>
+          <Text style={styles.description}>
+            These players are waiting for you to approve their catches.
+          </Text>
+          <View style={styles.list}>
+            {pendingCatches.map((pendingCatch, index) => (
+              <View
+                key={pendingCatch.catchId}
+                style={index < pendingCatches.length - 1 ? styles.listItemSpacing : undefined}
+              >
+                <PendingCatchCard
+                  pendingCatch={pendingCatch}
+                  isProcessing={processingCatchId === pendingCatch.catchId}
+                  onAccept={() => onAccept(pendingCatch.catchId, pendingCatch.conventionId)}
+                  onReject={() => onReject(pendingCatch.catchId)}
+                />
+              </View>
+            ))}
+          </View>
+        </>
+      )}
     </TailTagCard>
   );
 }

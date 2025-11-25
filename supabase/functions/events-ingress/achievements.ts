@@ -17,6 +17,32 @@ import type { InsertableEventRow, Json } from "./types.ts";
 
 const DAILY_TASK_ACHIEVEMENT_PREFIX = "DAILY_TASK_";
 
+/**
+ * Generate a UUID v7 (time-ordered UUID).
+ * Used for creating new event IDs when inserting catch_performed events.
+ */
+function generateUuidV7(): string {
+  const now = BigInt(Date.now());
+  const random = crypto.getRandomValues(new Uint8Array(10));
+  const bytes = new Uint8Array(16);
+
+  bytes[0] = Number((now >> 40n) & 0xffn);
+  bytes[1] = Number((now >> 32n) & 0xffn);
+  bytes[2] = Number((now >> 24n) & 0xffn);
+  bytes[3] = Number((now >> 16n) & 0xffn);
+  bytes[4] = Number((now >> 8n) & 0xffn);
+  bytes[5] = Number(now & 0xffn);
+
+  bytes.set(random, 6);
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x70; // Version 7
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant RFC 4122
+
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 type RpcAwardResult = {
   achievement_key: string;
   achievement_id?: string | null;
@@ -124,21 +150,20 @@ async function processCatchEvent(
     (value, index, self) => self.indexOf(value) === index,
   );
   const primaryConventionId = uniqueConventionIds[0] ?? null;
+
+  // Batch fetch ALL convention infos at once (avoids N+1)
   const conventionInfoMap = new Map<string, ConventionInfo | null>();
-  let conventionInfo: ConventionInfo | null = null;
-  if (primaryConventionId) {
-    conventionInfo = await fetchConventionInfo(supabaseAdmin, primaryConventionId);
-    conventionInfoMap.set(primaryConventionId, conventionInfo);
-  }
-  const otherConventionIds = uniqueConventionIds.filter((id) => id !== primaryConventionId);
-  if (otherConventionIds.length > 0) {
-    const otherInfos = await Promise.all(
-      otherConventionIds.map((id) => fetchConventionInfo(supabaseAdmin, id).catch(() => null)),
+  if (uniqueConventionIds.length > 0) {
+    const allInfos = await Promise.all(
+      uniqueConventionIds.map((id) => fetchConventionInfo(supabaseAdmin, id).catch(() => null)),
     );
-    otherConventionIds.forEach((id, index) => {
-      conventionInfoMap.set(id, otherInfos[index] ?? null);
+    uniqueConventionIds.forEach((id, index) => {
+      conventionInfoMap.set(id, allInfos[index] ?? null);
     });
   }
+
+  // Primary convention info is first in the map
+  const conventionInfo = primaryConventionId ? conventionInfoMap.get(primaryConventionId) ?? null : null;
 
   const fursuitOwnerId = rawOwnerId && rawOwnerId !== catcherId ? rawOwnerId : null;
   const occurredAt =
@@ -219,7 +244,8 @@ async function processCatchEvent(
     return await applyAwards(supabaseAdmin, awards, event);
   }
 
-  const dailyAwards = await collectDailyTaskAwardsFromCatch({
+  // Process daily tasks for the catcher
+  const catcherDailyAwards = await collectDailyTaskAwardsFromCatch({
     event,
     userId: catcherId,
     occurredAt,
@@ -227,7 +253,20 @@ async function processCatchEvent(
     conventionInfoMap,
   });
 
-  const combinedAwards = [...awards, ...dailyAwards];
+  // Also process daily tasks for the fursuit owner (if different from catcher)
+  // Both the catcher and owner should receive daily task credit when a suit is caught
+  let ownerDailyAwards: AwardCandidate[] = [];
+  if (fursuitOwnerId && fursuitOwnerId !== catcherId) {
+    ownerDailyAwards = await collectDailyTaskAwardsFromCatch({
+      event,
+      userId: fursuitOwnerId,
+      occurredAt,
+      conventionIds: uniqueConventionIds,
+      conventionInfoMap,
+    });
+  }
+
+  const combinedAwards = [...awards, ...catcherDailyAwards, ...ownerDailyAwards];
   return await applyAwards(supabaseAdmin, combinedAwards, event);
 }
 
@@ -235,8 +274,9 @@ async function processCatchConfirmedEvent(
   supabaseAdmin: SupabaseClient<any, "public", any>,
   event: InsertableEventRow,
 ): Promise<ProcessedAchievementResult> {
-  // When a catch is confirmed, process achievements and daily tasks.
-  // Daily tasks only count if confirmed on the same day as the catch occurred.
+  // When a catch is confirmed, we need to:
+  // 1. Insert a catch_performed event into the database (for daily task queries)
+  // 2. Process achievements and daily tasks
   const payload = (event.payload ?? {}) as Record<string, unknown>;
   const catchIdValue = payload["catch_id"];
   const catchId = typeof catchIdValue === "string" ? catchIdValue : null;
@@ -246,41 +286,74 @@ async function processCatchConfirmedEvent(
     return { awards: [] };
   }
 
-  // Fetch the catch to get the original caught_at timestamp
+  // Fetch the catch to get details for the catch_performed event
   const catchRow = await fetchCatchWithRelations(supabaseAdmin, catchId);
   if (!catchRow) {
     console.error("[events-ingress] catch_confirmed event: catch not found", { catchId });
     return { awards: [] };
   }
 
-  // Check if the catch was confirmed on the same day it occurred
-  // If not, skip daily tasks (they're date-specific)
-  const caughtAt = catchRow.caught_at ? new Date(catchRow.caught_at) : null;
+  // For daily tasks, always use the confirmation date (not the original catch date)
+  // This means if a catch is made on Monday and approved on Tuesday,
+  // it counts toward Tuesday's daily tasks
   const confirmedAt = new Date(event.occurred_at);
-  const skipDailyTasks = caughtAt
-    ? !isSameDay(caughtAt, confirmedAt)
-    : true; // Skip if no caught_at timestamp
 
-  if (skipDailyTasks) {
-    console.log("[events-ingress] catch_confirmed: skipping daily tasks (different day)", {
+  console.log("[events-ingress] catch_confirmed: processing for confirmation date", {
+    catchId,
+    caughtAt: catchRow.caught_at,
+    confirmedAt: confirmedAt.toISOString(),
+  });
+
+  // Create the catch_performed event that will be inserted into the database.
+  // This is necessary because daily task processing queries the events table
+  // for catch_performed events - without this insert, daily tasks won't update.
+  const catchPerformedEvent: InsertableEventRow = {
+    event_id: generateUuidV7(),
+    user_id: event.user_id,
+    type: "catch_performed",
+    convention_id: event.convention_id,
+    payload: {
+      catch_id: catchId,
+      fursuit_id: catchRow.fursuit_id,
+      fursuit_owner_id: catchRow.fursuit?.owner_id ?? null,
+      is_tutorial: false,
+      source: "catch_confirmed", // Track that this originated from a confirmation
+    },
+    occurred_at: event.occurred_at, // Use confirmation timestamp
+  };
+
+  // Insert the catch_performed event into the database
+  const { error: insertError } = await supabaseAdmin
+    .from("events")
+    .insert([catchPerformedEvent]);
+
+  if (insertError) {
+    console.error("[events-ingress] Failed to insert catch_performed event", {
       catchId,
-      caughtAt: caughtAt?.toISOString(),
-      confirmedAt: confirmedAt.toISOString(),
+      error: insertError,
+    });
+    // Continue with processing even if insert fails - achievements should still work
+  } else {
+    console.log("[events-ingress] Inserted catch_performed event for daily tasks", {
+      event_id: catchPerformedEvent.event_id,
+      catch_id: catchId,
     });
   }
 
-  // Update the event type to catch_performed for achievement processing
-  // This allows us to reuse all the existing catch processing logic
-  const catchEvent = {
-    ...event,
-    type: "catch_performed" as const,
-  };
-
-  return await processCatchEvent(supabaseAdmin, catchEvent, { skipDailyTasks });
+  // Process achievements and daily tasks using the catch_performed event
+  // The catch_performed event is now in the database, so daily task queries will find it
+  return await processCatchEvent(supabaseAdmin, catchPerformedEvent, { skipDailyTasks: false });
 }
 
 /**
- * Check if two dates are on the same calendar day (UTC)
+ * Check if two dates are on the same calendar day (UTC).
+ *
+ * We use UTC comparison instead of local time to ensure consistent behavior
+ * across all users regardless of their timezone.
+ *
+ * Note: This function is kept for potential future use, but catch_confirmed events
+ * now always count daily tasks using the confirmation date rather than comparing
+ * against the original catch date.
  */
 function isSameDay(date1: Date, date2: Date): boolean {
   return (

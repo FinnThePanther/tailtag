@@ -16,6 +16,8 @@ type TailTagButtonProps = {
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle | ViewStyle[];
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 };
 
 const VARIANT_STYLES: Record<ButtonVariant, { container: ViewStyle; text: TextStyle }> = {
@@ -81,6 +83,8 @@ export function TailTagButton({
   loading = false,
   disabled = false,
   style,
+  accessibilityLabel,
+  accessibilityHint,
 }: TailTagButtonProps) {
   const sizeStyles = SIZE_STYLES[size];
   const variantStyles = VARIANT_STYLES[variant];
@@ -90,6 +94,9 @@ export function TailTagButton({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       style={({ pressed }) => [
         styles.base,
         {

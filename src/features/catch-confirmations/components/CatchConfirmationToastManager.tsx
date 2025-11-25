@@ -7,11 +7,10 @@ import { supabase } from '../../../lib/supabase';
 import { addMonitoringBreadcrumb, captureHandledException } from '../../../lib/sentry';
 import {
   pendingCatchesQueryKey,
-  pendingCatchCountQueryKey,
   PENDING_CATCHES_QUERY_KEY,
-  PENDING_CATCH_COUNT_QUERY_KEY,
 } from '../api/confirmations';
 import { CAUGHT_SUITS_QUERY_KEY } from '../../suits';
+import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks/hooks';
 
 /**
  * Mount once inside the app shell so catch confirmation notifications raise toasts in real time.
@@ -20,6 +19,18 @@ import { CAUGHT_SUITS_QUERY_KEY } from '../../suits';
  * - catch_confirmed: When your catch was approved
  * - catch_rejected: When your catch was declined
  * - catch_expired: When a pending catch expired
+ *
+ * Deduplication Strategy:
+ * We track processed notification IDs in-memory (processedNotificationIdsRef) to prevent
+ * duplicate toasts during the current app session. This handles the race condition where
+ * a notification arrives before the realtime subscription is fully established.
+ *
+ * The Set is cleared on user change to avoid memory leaks and ensure fresh notifications
+ * for different users. We limit the Set to 200 entries and use FIFO eviction to prevent
+ * unbounded growth during long-lived sessions.
+ *
+ * NOTE: This is session-only deduplication - notifications may show again after app restart,
+ * which is acceptable UX since users expect to see notifications they haven't acted on yet.
  */
 export function CatchConfirmationToastManager() {
   const { session } = useAuth();
@@ -100,12 +111,9 @@ export function CatchConfirmationToastManager() {
         data: { userId, catcherUsername, fursuitName },
       });
 
-      // Invalidate pending catches queries
+      // Invalidate pending catches query
       void queryClient.invalidateQueries({
         queryKey: pendingCatchesQueryKey(userId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: pendingCatchCountQueryKey(userId),
       });
     };
 
@@ -125,6 +133,12 @@ export function CatchConfirmationToastManager() {
       // Invalidate caught suits to show the confirmed catch
       void queryClient.invalidateQueries({
         queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
+      });
+
+      // Invalidate daily tasks to update catch-related task progress in real-time
+      // Only catches confirmed today count toward today's tasks
+      void queryClient.invalidateQueries({
+        queryKey: [DAILY_TASKS_QUERY_KEY],
       });
     };
 
@@ -162,10 +176,7 @@ export function CatchConfirmationToastManager() {
 
       // Invalidate both pending catches (for owners) and caught suits (for catchers)
       void queryClient.invalidateQueries({
-        queryKey: [PENDING_CATCHES_QUERY_KEY],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [PENDING_CATCH_COUNT_QUERY_KEY],
+        queryKey: pendingCatchesQueryKey(userId),
       });
       void queryClient.invalidateQueries({
         queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
