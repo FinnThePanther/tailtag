@@ -345,24 +345,6 @@ async function processCatchConfirmedEvent(
   return await processCatchEvent(supabaseAdmin, catchPerformedEvent, { skipDailyTasks: false });
 }
 
-/**
- * Check if two dates are on the same calendar day (UTC).
- *
- * We use UTC comparison instead of local time to ensure consistent behavior
- * across all users regardless of their timezone.
- *
- * Note: This function is kept for potential future use, but catch_confirmed events
- * now always count daily tasks using the confirmation date rather than comparing
- * against the original catch date.
- */
-function isSameDay(date1: Date, date2: Date): boolean {
-  return (
-    date1.getUTCFullYear() === date2.getUTCFullYear() &&
-    date1.getUTCMonth() === date2.getUTCMonth() &&
-    date1.getUTCDate() === date2.getUTCDate()
-  );
-}
-
 async function processProfileEvent(
   supabaseAdmin: SupabaseClient<any, "public", any>,
   event: InsertableEventRow,

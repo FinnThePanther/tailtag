@@ -5,10 +5,7 @@ import { useAuth } from '../../auth';
 import { useToast } from '../../../hooks/useToast';
 import { supabase } from '../../../lib/supabase';
 import { addMonitoringBreadcrumb, captureHandledException } from '../../../lib/sentry';
-import {
-  pendingCatchesQueryKey,
-  PENDING_CATCHES_QUERY_KEY,
-} from '../api/confirmations';
+import { pendingCatchesQueryKey } from '../api/confirmations';
 import { CAUGHT_SUITS_QUERY_KEY } from '../../suits';
 import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks/hooks';
 

@@ -61,7 +61,7 @@ function respondJson(data: unknown, status = 200) {
  * Batch insert notifications for all expired catches
  */
 async function batchInsertNotifications(
-  notifications: Array<{ user_id: string; type: string; payload: Record<string, unknown> }>
+  notifications: { user_id: string; type: string; payload: Record<string, unknown> }[]
 ): Promise<number> {
   if (notifications.length === 0) {
     return 0;
