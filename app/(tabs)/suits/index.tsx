@@ -70,10 +70,10 @@ export default function MySuitsScreen() {
   const confirmCatchMutation = useConfirmCatch();
 
   const handleAcceptCatch = useCallback(
-    (catchId: string) => {
+    (catchId: string, conventionId?: string) => {
       setProcessingCatchId(catchId);
       confirmCatchMutation.mutate(
-        { catchId, decision: "accept" },
+        { catchId, decision: "accept", conventionId },
         { onSettled: () => setProcessingCatchId(null) }
       );
     },

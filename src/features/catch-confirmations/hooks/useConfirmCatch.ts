@@ -25,15 +25,17 @@ export function useConfirmCatch(options?: UseConfirmCatchOptions) {
       catchId,
       decision,
       reason,
+      conventionId,
     }: {
       catchId: string;
       decision: 'accept' | 'reject';
       reason?: string;
+      conventionId?: string;
     }) => {
       if (!userId) {
         throw new Error('You must be signed in to confirm catches.');
       }
-      return confirmCatch(catchId, userId, decision, reason);
+      return confirmCatch(catchId, userId, decision, reason, conventionId);
     },
     onMutate: async ({ catchId }) => {
       // Cancel any outgoing refetches

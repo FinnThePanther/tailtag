@@ -9,7 +9,7 @@ import { PendingCatchCard } from './PendingCatchCard';
 type PendingCatchesListProps = {
   pendingCatches: PendingCatch[];
   processingCatchId: string | null;
-  onAccept: (catchId: string) => void;
+  onAccept: (catchId: string, conventionId?: string) => void;
   onReject: (catchId: string) => void;
 };
 
@@ -46,7 +46,7 @@ export function PendingCatchesList({
             <PendingCatchCard
               pendingCatch={pendingCatch}
               isProcessing={processingCatchId === pendingCatch.catchId}
-              onAccept={() => onAccept(pendingCatch.catchId)}
+              onAccept={() => onAccept(pendingCatch.catchId, pendingCatch.conventionId)}
               onReject={() => onReject(pendingCatch.catchId)}
             />
           </View>

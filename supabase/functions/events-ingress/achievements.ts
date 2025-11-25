@@ -81,9 +81,14 @@ export async function processAchievementsForEvent(
   }
 }
 
+type ProcessCatchEventOptions = {
+  skipDailyTasks?: boolean;
+};
+
 async function processCatchEvent(
   supabaseAdmin: SupabaseClient<any, "public", any>,
   event: InsertableEventRow,
+  options: ProcessCatchEventOptions = {},
 ): Promise<ProcessedAchievementResult> {
   const payload = (event.payload ?? {}) as Record<string, unknown>;
   const catchIdValue = payload["catch_id"];
@@ -208,6 +213,12 @@ async function processCatchEvent(
 
   const awards = evaluateCatchAchievements(catchContext);
 
+  // Skip daily task processing if requested (e.g., for catch_confirmed events)
+  // Daily tasks should only count for immediately accepted catches
+  if (options.skipDailyTasks) {
+    return await applyAwards(supabaseAdmin, awards, event);
+  }
+
   const dailyAwards = await collectDailyTaskAwardsFromCatch({
     event,
     userId: catcherId,
@@ -224,8 +235,8 @@ async function processCatchConfirmedEvent(
   supabaseAdmin: SupabaseClient<any, "public", any>,
   event: InsertableEventRow,
 ): Promise<ProcessedAchievementResult> {
-  // When a catch is confirmed, process it as a normal catch event
-  // The catch_id should be in the payload
+  // When a catch is confirmed, process achievements and daily tasks.
+  // Daily tasks only count if confirmed on the same day as the catch occurred.
   const payload = (event.payload ?? {}) as Record<string, unknown>;
   const catchIdValue = payload["catch_id"];
   const catchId = typeof catchIdValue === "string" ? catchIdValue : null;
@@ -235,14 +246,48 @@ async function processCatchConfirmedEvent(
     return { awards: [] };
   }
 
-  // Update the event type to catch_performed for processing
+  // Fetch the catch to get the original caught_at timestamp
+  const catchRow = await fetchCatchWithRelations(supabaseAdmin, catchId);
+  if (!catchRow) {
+    console.error("[events-ingress] catch_confirmed event: catch not found", { catchId });
+    return { awards: [] };
+  }
+
+  // Check if the catch was confirmed on the same day it occurred
+  // If not, skip daily tasks (they're date-specific)
+  const caughtAt = catchRow.caught_at ? new Date(catchRow.caught_at) : null;
+  const confirmedAt = new Date(event.occurred_at);
+  const skipDailyTasks = caughtAt
+    ? !isSameDay(caughtAt, confirmedAt)
+    : true; // Skip if no caught_at timestamp
+
+  if (skipDailyTasks) {
+    console.log("[events-ingress] catch_confirmed: skipping daily tasks (different day)", {
+      catchId,
+      caughtAt: caughtAt?.toISOString(),
+      confirmedAt: confirmedAt.toISOString(),
+    });
+  }
+
+  // Update the event type to catch_performed for achievement processing
   // This allows us to reuse all the existing catch processing logic
   const catchEvent = {
     ...event,
     type: "catch_performed" as const,
   };
 
-  return await processCatchEvent(supabaseAdmin, catchEvent);
+  return await processCatchEvent(supabaseAdmin, catchEvent, { skipDailyTasks });
+}
+
+/**
+ * Check if two dates are on the same calendar day (UTC)
+ */
+function isSameDay(date1: Date, date2: Date): boolean {
+  return (
+    date1.getUTCFullYear() === date2.getUTCFullYear() &&
+    date1.getUTCMonth() === date2.getUTCMonth() &&
+    date1.getUTCDate() === date2.getUTCDate()
+  );
 }
 
 async function processProfileEvent(
@@ -514,7 +559,8 @@ async function countCatchesByUser(
     .from("catches")
     .select("id", { count: "exact", head: true })
     .eq("catcher_id", userId)
-    .eq("is_tutorial", false);
+    .eq("is_tutorial", false)
+    .eq("status", "ACCEPTED");
   if (error) {
     console.error("[events-ingress] Failed counting catches for user", { userId, error });
     return 0;
@@ -530,7 +576,8 @@ async function countCatchesByFursuit(
   let query = supabaseAdmin
     .from("catches")
     .select("id", { count: "exact", head: true })
-    .eq("fursuit_id", fursuitId);
+    .eq("fursuit_id", fursuitId)
+    .eq("status", "ACCEPTED");
   if (excludeTutorials) {
     query = query.eq("is_tutorial", false);
   }
@@ -633,6 +680,7 @@ async function hasSecondCatchWithinMinute(
     .from("catches")
     .select("id,is_tutorial,caught_at")
     .eq("catcher_id", userId)
+    .eq("status", "ACCEPTED")
     .gte("caught_at", windowStart)
     .lte("caught_at", windowEnd)
     .order("caught_at", { ascending: true });

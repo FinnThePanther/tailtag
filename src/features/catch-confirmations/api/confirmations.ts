@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { captureSupabaseError, captureHandledException } from '../../../lib/sentry';
+import { emitGameplayEvent } from '../../events/api/events';
 import type { CatchMode, PendingCatch, ConfirmCatchResult, CreateCatchResult, CreateCatchParams } from '../types';
 
 // Query keys
@@ -74,13 +75,15 @@ export async function fetchPendingCatchCount(userId: string): Promise<number> {
 }
 
 /**
- * Confirm or reject a pending catch
+ * Confirm or reject a pending catch.
+ * When accepting, emits a catch_confirmed event to trigger achievement processing.
  */
 export async function confirmCatch(
   catchId: string,
   userId: string,
   decision: 'accept' | 'reject',
-  reason?: string
+  reason?: string,
+  conventionId?: string
 ): Promise<ConfirmCatchResult> {
   const { data, error } = await supabase.rpc('confirm_catch', {
     p_catch_id: catchId,
@@ -108,6 +111,21 @@ export async function confirmCatch(
 
   if (!result?.success) {
     throw new Error(result?.message ?? 'Failed to process catch decision.');
+  }
+
+  // Emit catch_confirmed event to trigger achievement processing (fire-and-forget)
+  if (decision === 'accept') {
+    void emitGameplayEvent({
+      type: 'catch_confirmed',
+      conventionId: conventionId ?? null,
+      payload: { catch_id: catchId },
+    }).catch((eventError) => {
+      captureHandledException(eventError, {
+        scope: 'catch-confirmations.confirmCatch.event',
+        catchId,
+        conventionId,
+      });
+    });
   }
 
   return {
