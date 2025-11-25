@@ -17,6 +17,32 @@ import type { InsertableEventRow, Json } from "./types.ts";
 
 const DAILY_TASK_ACHIEVEMENT_PREFIX = "DAILY_TASK_";
 
+/**
+ * Generate a UUID v7 (time-ordered UUID).
+ * Used for creating new event IDs when inserting catch_performed events.
+ */
+function generateUuidV7(): string {
+  const now = BigInt(Date.now());
+  const random = crypto.getRandomValues(new Uint8Array(10));
+  const bytes = new Uint8Array(16);
+
+  bytes[0] = Number((now >> 40n) & 0xffn);
+  bytes[1] = Number((now >> 32n) & 0xffn);
+  bytes[2] = Number((now >> 24n) & 0xffn);
+  bytes[3] = Number((now >> 16n) & 0xffn);
+  bytes[4] = Number((now >> 8n) & 0xffn);
+  bytes[5] = Number(now & 0xffn);
+
+  bytes.set(random, 6);
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x70; // Version 7
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant RFC 4122
+
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 type RpcAwardResult = {
   achievement_key: string;
   achievement_id?: string | null;
@@ -48,6 +74,16 @@ export async function processAchievementsForEvent(
     switch (event.type) {
       case "catch_performed":
         return await processCatchEvent(supabaseAdmin, event);
+      case "catch_confirmed":
+        // Process achievements when a catch is confirmed after manual approval
+        return await processCatchConfirmedEvent(supabaseAdmin, event);
+      case "catch_pending":
+        // No achievements for pending catches
+        return { awards: [] };
+      case "catch_rejected":
+      case "catch_expired":
+        // No achievements for rejected or expired catches
+        return { awards: [] };
       case "profile_updated":
         return await processProfileEvent(supabaseAdmin, event);
       case "onboarding_completed":
@@ -71,9 +107,14 @@ export async function processAchievementsForEvent(
   }
 }
 
+type ProcessCatchEventOptions = {
+  skipDailyTasks?: boolean;
+};
+
 async function processCatchEvent(
   supabaseAdmin: SupabaseClient<any, "public", any>,
   event: InsertableEventRow,
+  options: ProcessCatchEventOptions = {},
 ): Promise<ProcessedAchievementResult> {
   const payload = (event.payload ?? {}) as Record<string, unknown>;
   const catchIdValue = payload["catch_id"];
@@ -109,21 +150,20 @@ async function processCatchEvent(
     (value, index, self) => self.indexOf(value) === index,
   );
   const primaryConventionId = uniqueConventionIds[0] ?? null;
+
+  // Batch fetch ALL convention infos at once (avoids N+1)
   const conventionInfoMap = new Map<string, ConventionInfo | null>();
-  let conventionInfo: ConventionInfo | null = null;
-  if (primaryConventionId) {
-    conventionInfo = await fetchConventionInfo(supabaseAdmin, primaryConventionId);
-    conventionInfoMap.set(primaryConventionId, conventionInfo);
-  }
-  const otherConventionIds = uniqueConventionIds.filter((id) => id !== primaryConventionId);
-  if (otherConventionIds.length > 0) {
-    const otherInfos = await Promise.all(
-      otherConventionIds.map((id) => fetchConventionInfo(supabaseAdmin, id).catch(() => null)),
+  if (uniqueConventionIds.length > 0) {
+    const allInfos = await Promise.all(
+      uniqueConventionIds.map((id) => fetchConventionInfo(supabaseAdmin, id).catch(() => null)),
     );
-    otherConventionIds.forEach((id, index) => {
-      conventionInfoMap.set(id, otherInfos[index] ?? null);
+    uniqueConventionIds.forEach((id, index) => {
+      conventionInfoMap.set(id, allInfos[index] ?? null);
     });
   }
+
+  // Primary convention info is first in the map
+  const conventionInfo = primaryConventionId ? conventionInfoMap.get(primaryConventionId) ?? null : null;
 
   const fursuitOwnerId = rawOwnerId && rawOwnerId !== catcherId ? rawOwnerId : null;
   const occurredAt =
@@ -198,7 +238,14 @@ async function processCatchEvent(
 
   const awards = evaluateCatchAchievements(catchContext);
 
-  const dailyAwards = await collectDailyTaskAwardsFromCatch({
+  // Skip daily task processing if requested (e.g., for catch_confirmed events)
+  // Daily tasks should only count for immediately accepted catches
+  if (options.skipDailyTasks) {
+    return await applyAwards(supabaseAdmin, awards, event);
+  }
+
+  // Process daily tasks for the catcher
+  const catcherDailyAwards = await collectDailyTaskAwardsFromCatch({
     event,
     userId: catcherId,
     occurredAt,
@@ -206,8 +253,96 @@ async function processCatchEvent(
     conventionInfoMap,
   });
 
-  const combinedAwards = [...awards, ...dailyAwards];
+  // Also process daily tasks for the fursuit owner (if different from catcher)
+  // Both the catcher and owner should receive daily task credit when a suit is caught
+  let ownerDailyAwards: AwardCandidate[] = [];
+  if (fursuitOwnerId && fursuitOwnerId !== catcherId) {
+    ownerDailyAwards = await collectDailyTaskAwardsFromCatch({
+      event,
+      userId: fursuitOwnerId,
+      occurredAt,
+      conventionIds: uniqueConventionIds,
+      conventionInfoMap,
+    });
+  }
+
+  const combinedAwards = [...awards, ...catcherDailyAwards, ...ownerDailyAwards];
   return await applyAwards(supabaseAdmin, combinedAwards, event);
+}
+
+async function processCatchConfirmedEvent(
+  supabaseAdmin: SupabaseClient<any, "public", any>,
+  event: InsertableEventRow,
+): Promise<ProcessedAchievementResult> {
+  // When a catch is confirmed, we need to:
+  // 1. Insert a catch_performed event into the database (for daily task queries)
+  // 2. Process achievements and daily tasks
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
+  const catchIdValue = payload["catch_id"];
+  const catchId = typeof catchIdValue === "string" ? catchIdValue : null;
+
+  if (!catchId) {
+    console.error("[events-ingress] catch_confirmed event missing catch_id");
+    return { awards: [] };
+  }
+
+  // Fetch the catch to get details for the catch_performed event
+  const catchRow = await fetchCatchWithRelations(supabaseAdmin, catchId);
+  if (!catchRow) {
+    console.error("[events-ingress] catch_confirmed event: catch not found", { catchId });
+    return { awards: [] };
+  }
+
+  // For daily tasks, always use the confirmation date (not the original catch date)
+  // This means if a catch is made on Monday and approved on Tuesday,
+  // it counts toward Tuesday's daily tasks
+  const confirmedAt = new Date(event.occurred_at);
+
+  console.log("[events-ingress] catch_confirmed: processing for confirmation date", {
+    catchId,
+    caughtAt: catchRow.caught_at,
+    confirmedAt: confirmedAt.toISOString(),
+  });
+
+  // Create the catch_performed event that will be inserted into the database.
+  // This is necessary because daily task processing queries the events table
+  // for catch_performed events - without this insert, daily tasks won't update.
+  const catchPerformedEvent: InsertableEventRow = {
+    event_id: generateUuidV7(),
+    user_id: event.user_id,
+    type: "catch_performed",
+    convention_id: event.convention_id,
+    payload: {
+      catch_id: catchId,
+      fursuit_id: catchRow.fursuit_id,
+      fursuit_owner_id: catchRow.fursuit?.owner_id ?? null,
+      is_tutorial: false,
+      source: "catch_confirmed", // Track that this originated from a confirmation
+    },
+    occurred_at: event.occurred_at, // Use confirmation timestamp
+  };
+
+  // Insert the catch_performed event into the database
+  const { error: insertError } = await supabaseAdmin
+    .from("events")
+    .insert([catchPerformedEvent]);
+
+  if (insertError) {
+    console.error("[events-ingress] Failed to insert catch_performed event", {
+      catchId,
+      error: insertError,
+    });
+    // Continue with processing even if insert fails - achievements should still work
+  } else {
+    console.log("[events-ingress] Inserted catch_performed event for daily tasks", {
+      event_id: catchPerformedEvent.event_id,
+      catch_id: catchId,
+    });
+  }
+
+  // Process achievements and daily tasks using the catch_performed event
+  // The catch_performed event is now in the database, so daily task queries will find it
+  return await processCatchEvent(supabaseAdmin, catchPerformedEvent, { skipDailyTasks: false });
 }
 
 async function processProfileEvent(
@@ -479,7 +614,8 @@ async function countCatchesByUser(
     .from("catches")
     .select("id", { count: "exact", head: true })
     .eq("catcher_id", userId)
-    .eq("is_tutorial", false);
+    .eq("is_tutorial", false)
+    .eq("status", "ACCEPTED");
   if (error) {
     console.error("[events-ingress] Failed counting catches for user", { userId, error });
     return 0;
@@ -495,7 +631,8 @@ async function countCatchesByFursuit(
   let query = supabaseAdmin
     .from("catches")
     .select("id", { count: "exact", head: true })
-    .eq("fursuit_id", fursuitId);
+    .eq("fursuit_id", fursuitId)
+    .eq("status", "ACCEPTED");
   if (excludeTutorials) {
     query = query.eq("is_tutorial", false);
   }
@@ -598,6 +735,7 @@ async function hasSecondCatchWithinMinute(
     .from("catches")
     .select("id,is_tutorial,caught_at")
     .eq("catcher_id", userId)
+    .eq("status", "ACCEPTED")
     .gte("caught_at", windowStart)
     .lte("caught_at", windowEnd)
     .order("caught_at", { ascending: true });

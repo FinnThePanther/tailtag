@@ -25,6 +25,10 @@ import { loadUriAsUint8Array } from '../../../src/utils/files';
 import { colors, spacing, radius } from '../../../src/theme';
 import { MY_SUITS_QUERY_KEY } from '../../../src/features/suits';
 import {
+  CatchModeSwitch,
+  type CatchMode,
+} from '../../../src/features/catch-confirmations';
+import {
   ensureSpeciesEntry,
   fetchFursuitSpecies,
   FURSUIT_SPECIES_QUERY_KEY,
@@ -106,6 +110,7 @@ export default function AddFursuitScreen() {
   const [likesInput, setLikesInput] = useState('');
   const [askMeAboutInput, setAskMeAboutInput] = useState('');
   const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>([createEmptySocialLink()]);
+  const [catchMode, setCatchMode] = useState<CatchMode>('AUTO_ACCEPT');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -495,6 +500,7 @@ export default function AddFursuitScreen() {
           species_id: speciesRecord.id,
           avatar_url: avatarUrl,
           unique_code: uniqueCode,
+          catch_mode: catchMode,
         };
         const { data: inserted, error } = await (supabase as any)
           .from('fursuits')
@@ -573,6 +579,7 @@ export default function AddFursuitScreen() {
       setLikesInput('');
       setAskMeAboutInput('');
       setSocialLinks([createEmptySocialLink()]);
+      setCatchMode('AUTO_ACCEPT');
       setSelectedConventionIds(new Set(profileConventionIds));
       setHasHydratedConventions(true);
       setSelectedPhoto(null);
@@ -965,6 +972,15 @@ export default function AddFursuitScreen() {
             ) : (
               <Text style={styles.helperLabel}>You can add up to {SOCIAL_LINK_LIMIT} links.</Text>
             )}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Catch settings</Text>
+            <CatchModeSwitch
+              value={catchMode}
+              onChange={setCatchMode}
+              disabled={isSubmitting}
+            />
           </View>
 
           <View style={styles.fieldGroup}>

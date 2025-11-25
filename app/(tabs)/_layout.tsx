@@ -1,9 +1,17 @@
+import { View } from "react-native";
+
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { colors } from "../../src/theme";
+import { TabBadge } from "../../src/components/TabBadge";
+import { usePendingCatches } from "../../src/features/catch-confirmations";
 
-const iconForRoute = (name: string, focused: boolean) => {
+type IconOptions = {
+  pendingCatchCount?: number;
+};
+
+const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => {
   const color = focused ? colors.primary : "rgba(203,213,225,0.8)";
 
   switch (name) {
@@ -33,11 +41,14 @@ const iconForRoute = (name: string, focused: boolean) => {
       );
     case "suits":
       return (
-        <Ionicons
-          name={focused ? "paw" : "paw-outline"}
-          size={22}
-          color={color}
-        />
+        <View>
+          <Ionicons
+            name={focused ? "paw" : "paw-outline"}
+            size={22}
+            color={color}
+          />
+          <TabBadge count={options?.pendingCatchCount ?? 0} />
+        </View>
       );
     case "settings":
       return (
@@ -53,6 +64,9 @@ const iconForRoute = (name: string, focused: boolean) => {
 };
 
 export default function TabsLayout() {
+  const { data: pendingCatches = [] } = usePendingCatches();
+  const pendingCatchCount = pendingCatches.length;
+
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -63,7 +77,7 @@ export default function TabsLayout() {
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: "rgba(203,213,225,0.8)",
-        tabBarIcon: ({ focused }) => iconForRoute(route.name, focused),
+        tabBarIcon: ({ focused }) => iconForRoute(route.name, focused, { pendingCatchCount }),
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: "600",
