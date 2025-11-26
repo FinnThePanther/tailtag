@@ -1,13 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
+  Dimensions,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-
 import { useRouter, useFocusEffect } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -31,6 +31,9 @@ import { supabase } from "../../../src/lib/supabase";
 import { colors, spacing } from "../../../src/theme";
 import { toDisplayDate } from "../../../src/utils/dates";
 import { deriveStoragePathFromPublicUrl } from "../../../src/utils/storage";
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const IS_SMALL_SCREEN = SCREEN_WIDTH <= 375;
 
 export default function MySuitsScreen() {
   const router = useRouter();
@@ -224,7 +227,9 @@ export default function MySuitsScreen() {
           <Text style={styles.helperText}>
             Add a new suit before you head to the floor.
           </Text>
-          <TailTagButton onPress={() => router.push("/suits/add-fursuit")}>
+          <TailTagButton
+            onPress={() => router.push("/suits/add-fursuit")}
+          >
             Add a fursuit
           </TailTagButton>
         </View>
@@ -301,10 +306,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingHorizontal: IS_SMALL_SCREEN ? spacing.md : spacing.lg,
+    paddingTop: IS_SMALL_SCREEN ? spacing.lg : spacing.xl,
     paddingBottom: spacing.xxl,
-    gap: spacing.lg,
+    gap: IS_SMALL_SCREEN ? spacing.md : spacing.lg,
   },
   header: {
     gap: spacing.xs,
@@ -325,14 +330,14 @@ const styles = StyleSheet.create({
     color: "rgba(203,213,225,0.9)",
   },
   helperRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: IS_SMALL_SCREEN ? "column" : "row",
+    alignItems: IS_SMALL_SCREEN ? "flex-start" : "center",
     justifyContent: "space-between",
     gap: spacing.md,
   },
   helperText: {
     color: "rgba(203,213,225,0.9)",
-    flex: 1,
+    flex: IS_SMALL_SCREEN ? 0 : 1,
     fontSize: 14,
   },
   cardSpacing: {

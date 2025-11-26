@@ -34,7 +34,7 @@ export function PendingCatchesList({
             accessibilityLabel={`${pendingCatches.length} pending ${pendingCatches.length === 1 ? 'catch' : 'catches'}`}
             accessibilityRole="text"
           >
-            <Text style={styles.badgeText}>{pendingCatches.length}</Text>
+            <Text numberOfLines={1} style={styles.badgeText}>{pendingCatches.length}</Text>
           </View>
         )}
       </View>
@@ -96,6 +96,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
+    flexShrink: 0,
   },
   badgeText: {
     color: '#fff',

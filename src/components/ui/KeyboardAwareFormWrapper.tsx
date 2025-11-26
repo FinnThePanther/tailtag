@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { StyleSheet } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from "react-native";
 
 import type { StyleProp, ViewStyle } from "react-native";
 
@@ -9,42 +8,35 @@ import { colors, spacing } from "../../theme";
 interface KeyboardAwareFormWrapperProps {
   children: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
-  extraScrollHeight?: number;
-  enableOnAndroid?: boolean;
-  enableAutomaticScroll?: boolean;
 }
 
 /**
  * A reusable wrapper component that handles keyboard avoidance for forms.
- * Uses react-native-keyboard-aware-scroll-view for robust cross-platform behavior.
+ * Uses native KeyboardAvoidingView for platform-specific behavior.
  *
- * This component automatically:
- * - Scrolls to focused text inputs
- * - Accounts for tab bar and safe area insets
+ * This component:
+ * - Adjusts layout when keyboard appears (padding on iOS, height on Android)
  * - Works on both iOS and Android
  * - Dismisses keyboard on tap outside inputs
  */
 export function KeyboardAwareFormWrapper({
   children,
   contentContainerStyle,
-  extraScrollHeight = 150,
-  enableOnAndroid = true,
-  enableAutomaticScroll = true,
 }: KeyboardAwareFormWrapperProps) {
   return (
-    <KeyboardAwareScrollView
+    <KeyboardAvoidingView
       style={styles.wrapper}
-      contentContainerStyle={[styles.defaultContainer, contentContainerStyle]}
-      keyboardShouldPersistTaps="handled"
-      enableOnAndroid={enableOnAndroid}
-      enableAutomaticScroll={enableAutomaticScroll}
-      extraScrollHeight={extraScrollHeight}
-      extraHeight={150}
-      viewIsInsideTabBar={true}
-      showsVerticalScrollIndicator={true}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
     >
-      {children}
-    </KeyboardAwareScrollView>
+      <ScrollView
+        contentContainerStyle={[styles.defaultContainer, contentContainerStyle]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator
+      >
+        {children}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -7,7 +7,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
@@ -65,7 +64,6 @@ const groupByCategory = (achievements: AchievementWithStatus[]) => {
 };
 
 export default function AchievementsScreen() {
-  const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
 
@@ -88,10 +86,6 @@ export default function AchievementsScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-
-  const handleBack = useCallback(() => {
-    router.back();
-  }, [router]);
 
   const unlocked = useMemo(
     () => achievements.filter((achievement) => achievement.unlocked),
@@ -145,12 +139,6 @@ export default function AchievementsScreen() {
         />
       }
     >
-      <View style={styles.headerRow}>
-        <TailTagButton variant="ghost" onPress={handleBack}>
-          Back
-        </TailTagButton>
-      </View>
-
       <TailTagCard style={styles.summaryCard}>
         <View style={styles.summaryHeader}>
           <Text style={styles.summaryEyebrow}>Achievements</Text>
@@ -272,10 +260,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
     paddingHorizontal: spacing.lg,
     gap: spacing.lg,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
   },
   summaryCard: {
     gap: spacing.md,

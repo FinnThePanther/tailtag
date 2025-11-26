@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
@@ -132,35 +132,33 @@ export default function FursuitDetailScreen() {
     });
   }, [userId, viewedFursuitId, primaryConventionId, profileConventionIds]);
 
-  const handleEditBio = () => {
+  const handleEditBio = useCallback(() => {
     if (!fursuitId) {
       return;
     }
 
     router.push({ pathname: '/fursuits/[id]/edit', params: { id: fursuitId } });
-  };
-
-  const handleGoBack = () => {
-    router.back();
-  };
+  }, [fursuitId, router]);
 
   const addedDate = detail ? formatDate(detail.created_at) : null;
   const catchSummary = detail ? formatCatchSummary(detail.catchCount) : null;
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-      <View style={styles.headerRow}>
-        <TailTagButton variant="ghost" onPress={handleGoBack}>
-          Back
-        </TailTagButton>
-        {isOwner ? (
-          <TailTagButton variant="outline" onPress={handleEditBio}>
-            Edit bio
-          </TailTagButton>
-        ) : null}
-      </View>
-
-      <TailTagCard>
+    <>
+      <Stack.Screen
+        options={{
+          title: detail?.name ?? 'Fursuit',
+          headerRight: isOwner
+            ? () => (
+                <TailTagButton variant="ghost" size="sm" onPress={handleEditBio}>
+                  Edit
+                </TailTagButton>
+              )
+            : undefined,
+        }}
+      />
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+        <TailTagCard>
         {isLoading ? (
           <Text style={styles.message}>Loading that fursuit…</Text>
         ) : error ? (
@@ -224,7 +222,8 @@ export default function FursuitDetailScreen() {
           </View>
         )}
       </TailTagCard>
-    </ScrollView>
+      </ScrollView>
+    </>
   );
 }
 
@@ -238,11 +237,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   message: {
     color: 'rgba(203,213,225,0.9)',

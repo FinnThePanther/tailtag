@@ -149,17 +149,64 @@ function zonedTimeToUtc(
   minute = 0,
   second = 0,
 ): Date {
-  const utcTimestamp = Date.UTC(year, month - 1, day, hour, minute, second);
-  let offset = getOffsetMilliseconds(utcTimestamp, timezone);
-  let adjusted = utcTimestamp - offset;
+  // Use toLocaleString to format a date in the target timezone, then parse it back
+  // This handles DST and all timezone complexities automatically
 
-  const newOffset = getOffsetMilliseconds(adjusted, timezone);
-  if (newOffset !== offset) {
-    offset = newOffset;
-    adjusted = utcTimestamp - offset;
+  // Step 1: Create a reference date using the actual target time
+  // IMPORTANT: Use the target hour/minute/second to get the correct offset for that specific time
+  // (not noon) because DST transitions can cause different offsets at different times of day
+  const referenceUtc = Date.UTC(year, month - 1, day, hour, minute, second);
+  const referenceDate = new Date(referenceUtc);
+
+  // Step 2: Get the offset by comparing UTC vs timezone rendering
+  const utcStr = referenceDate.toLocaleString('en-CA', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  const tzStr = referenceDate.toLocaleString('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  // Parse both strings (format: "YYYY-MM-DD, HH:MM:SS")
+  const utcParts = utcStr.match(/(\d{4})-(\d{2})-(\d{2}), (\d{2}):(\d{2}):(\d{2})/);
+  const tzParts = tzStr.match(/(\d{4})-(\d{2})-(\d{2}), (\d{2}):(\d{2}):(\d{2})/);
+
+  if (!utcParts || !tzParts) {
+    // Fallback to original calculation
+    const utcTimestamp = Date.UTC(year, month - 1, day, hour, minute, second);
+    const offset = getOffsetMilliseconds(utcTimestamp, timezone);
+    return new Date(utcTimestamp - offset);
   }
 
-  return new Date(adjusted);
+  const utcMillis = Date.UTC(
+    Number(utcParts[1]), Number(utcParts[2]) - 1, Number(utcParts[3]),
+    Number(utcParts[4]), Number(utcParts[5]), Number(utcParts[6])
+  );
+
+  const tzMillis = Date.UTC(
+    Number(tzParts[1]), Number(tzParts[2]) - 1, Number(tzParts[3]),
+    Number(tzParts[4]), Number(tzParts[5]), Number(tzParts[6])
+  );
+
+  const offsetMs = utcMillis - tzMillis;
+
+  // Step 3: Apply the offset to our target local time
+  const targetLocalMillis = Date.UTC(year, month - 1, day, hour, minute, second);
+  return new Date(targetLocalMillis + offsetMs);
 }
 
 function computeResetMetadata(timezone: string, nowUtc: Date) {
