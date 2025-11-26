@@ -66,6 +66,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
     `
     )
     .eq('catcher_id', userId)
+    .eq('status', 'ACCEPTED')
     .order('caught_at', { ascending: false });
 
   if (error) {

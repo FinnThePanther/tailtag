@@ -2,6 +2,7 @@ import { View } from "react-native";
 
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors } from "../../src/theme";
 import { TabBadge } from "../../src/components/TabBadge";
@@ -66,6 +67,7 @@ const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => 
 export default function TabsLayout() {
   const { data: pendingCatches = [] } = usePendingCatches();
   const pendingCatchCount = pendingCatches.length;
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -82,7 +84,10 @@ export default function TabsLayout() {
           fontSize: 12,
           fontWeight: "600",
         },
-        sceneStyle: { backgroundColor: colors.background },
+        sceneStyle: {
+          backgroundColor: colors.background,
+          paddingTop: insets.top,
+        },
       })}
     >
       <Tabs.Screen name="index" options={{ title: "Home" }} />

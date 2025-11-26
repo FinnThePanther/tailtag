@@ -3,22 +3,23 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { TailTagCard } from '../../src/components/ui/TailTagCard';
-import { TailTagButton } from '../../src/components/ui/TailTagButton';
+import { TailTagCard } from '../../../src/components/ui/TailTagCard';
+import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import {
   FursuitCard,
   FursuitBioDetails,
   fetchFursuitDetail,
   fursuitDetailQueryKey,
-} from '../../src/features/suits';
-import { useAuth } from '../../src/features/auth';
+} from '../../../src/features/suits';
+import { useAuth } from '../../../src/features/auth';
+import { FursuitTagSection } from '../../../src/features/nfc';
 import {
   PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
   fetchProfileConventionIds,
-} from '../../src/features/conventions';
-import { emitGameplayEvent } from '../../src/features/events';
-import { colors, spacing } from '../../src/theme';
+} from '../../../src/features/conventions';
+import { emitGameplayEvent } from '../../../src/features/events';
+import { colors, spacing } from '../../../src/theme';
 
 const formatDate = (isoTimestamp: string | null) => {
   if (!isoTimestamp) {
@@ -195,6 +196,9 @@ export default function FursuitDetailScreen() {
                 </Text>
                 <Text style={styles.sectionItem}>{catchSummary}</Text>
               </View>
+            ) : null}
+            {isOwner && fursuitId ? (
+              <FursuitTagSection fursuitId={fursuitId} />
             ) : null}
             {detail.conventions.length > 0 ? (
               <View style={styles.section}>

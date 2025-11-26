@@ -7,7 +7,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import { useRouter, useFocusEffect } from "expo-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 
 import {
   FursuitCard,
@@ -34,6 +34,11 @@ import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareF
 import { useAuth } from "../../src/features/auth";
 import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
+import { NfcScanCard } from "../../src/features/nfc";
+import {
+  fetchProfileConventionIds,
+  PROFILE_CONVENTIONS_QUERY_KEY,
+} from "../../src/features/conventions";
 import { supabase } from "../../src/lib/supabase";
 import { captureHandledException } from "../../src/lib/sentry";
 import { colors, radius, spacing } from "../../src/theme";
@@ -82,6 +87,15 @@ export default function CatchScreen() {
   );
   const [lastCatchConventionId, setLastCatchConventionId] = useState<string | null>(null);
   const [lastCatchConventionIds, setLastCatchConventionIds] = useState<string[]>([]);
+
+  // Fetch user's conventions for NFC scanning
+  const { data: userConventionIds = [] } = useQuery({
+    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    queryFn: () => (userId ? fetchProfileConventionIds(userId) : Promise.resolve([])),
+    enabled: !!userId,
+    staleTime: 5 * 60_000,
+  });
+  const primaryConventionId = userConventionIds[0] ?? null;
 
   const resetCatchState = () => {
     setCaughtFursuit(null);
@@ -430,10 +444,52 @@ export default function CatchScreen() {
         <Text style={styles.eyebrow}>Tag Fursuits Here</Text>
         <Text style={styles.title}>Log a new catch</Text>
         <Text style={styles.subtitle}>
-          Enter the eight-letter code from a friend&apos;s tail tag to add
-          them to your collection.
+          Scan an NFC TailTag or enter a catch code to add fursuits to your
+          collection.
         </Text>
       </View>
+
+      {primaryConventionId && (
+        <>
+          <NfcScanCard
+            conventionId={primaryConventionId}
+            onScanComplete={(result) => {
+              console.log("NFC Scan complete:", result);
+            }}
+            onCatchComplete={(result) => {
+              // Invalidate queries on successful NFC catch
+              void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+              queryClient.invalidateQueries({
+                queryKey: fursuitDetailQueryKey(result.fursuitId),
+              });
+              queryClient.invalidateQueries({
+                queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
+              });
+              // Also invalidate leaderboards for the convention
+              queryClient.invalidateQueries({
+                queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, primaryConventionId],
+              });
+              queryClient.invalidateQueries({
+                queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, primaryConventionId],
+              });
+            }}
+            createCatchFn={async ({ fursuitId, conventionId: convId }) => {
+              const result = await createCatch({
+                fursuitId,
+                conventionId: convId,
+                isTutorial: false,
+              });
+              return {
+                catchId: result.catchId,
+                catchNumber: result.catchNumber,
+                status: result.status,
+                requiresApproval: result.requiresApproval,
+              };
+            }}
+          />
+          <Text style={styles.orDivider}>- or -</Text>
+        </>
+      )}
 
         <TailTagCard style={styles.cardSpacing}>
           <View style={styles.fieldGroup}>
@@ -683,5 +739,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.foreground,
     lineHeight: 22,
+  },
+  orDivider: {
+    color: "rgba(148,163,184,0.6)",
+    fontSize: 14,
+    textAlign: "center",
+    marginVertical: spacing.md,
   },
 });

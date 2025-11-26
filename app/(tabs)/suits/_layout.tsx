@@ -13,8 +13,19 @@ export default function SuitsLayout() {
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="add-fursuit" options={{ title: "Add a Fursuit" }} />
+      <Stack.Screen
+        name="index"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="add-fursuit"
+        options={{
+          headerShown: true,
+          title: "Add a Fursuit",
+        }}
+      />
     </Stack>
   );
 }
