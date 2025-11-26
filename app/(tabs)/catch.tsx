@@ -456,6 +456,36 @@ export default function CatchScreen() {
             onScanComplete={(result) => {
               console.log("NFC Scan complete:", result);
             }}
+            onCatchComplete={(result) => {
+              // Invalidate queries on successful NFC catch
+              void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+              queryClient.invalidateQueries({
+                queryKey: fursuitDetailQueryKey(result.fursuitId),
+              });
+              queryClient.invalidateQueries({
+                queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
+              });
+              // Also invalidate leaderboards for the convention
+              queryClient.invalidateQueries({
+                queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, primaryConventionId],
+              });
+              queryClient.invalidateQueries({
+                queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, primaryConventionId],
+              });
+            }}
+            createCatchFn={async ({ fursuitId, conventionId: convId }) => {
+              const result = await createCatch({
+                fursuitId,
+                conventionId: convId,
+                isTutorial: false,
+              });
+              return {
+                catchId: result.catchId,
+                catchNumber: result.catchNumber,
+                status: result.status,
+                requiresApproval: result.requiresApproval,
+              };
+            }}
           />
           <Text style={styles.orDivider}>- or -</Text>
         </>

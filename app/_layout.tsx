@@ -130,9 +130,8 @@ function RootLayoutNav() {
       {/* Onboarding - no header (custom multi-step wizard) */}
       <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
 
-      {/* Standalone fursuit flows */}
-      <Stack.Screen name="fursuits/[id]" options={{ title: 'Fursuit' }} />
-      <Stack.Screen name="fursuits/[id]/edit" options={{ title: 'Edit Fursuit' }} />
+      {/* Standalone fursuit flows - has its own _layout.tsx */}
+      <Stack.Screen name="fursuits" options={{ headerShown: false }} />
 
       {/* Achievements */}
       <Stack.Screen name="achievements/index" options={{ title: 'Achievements' }} />
