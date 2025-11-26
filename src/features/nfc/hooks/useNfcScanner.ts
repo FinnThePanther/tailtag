@@ -32,19 +32,29 @@ export function useNfcScanner() {
   const [error, setError] = useState<NfcScanError | null>(null);
   const isCleanedUp = useRef(false);
 
-  // Check NFC support on mount
+  // Initialize NFC manager on mount
   useEffect(() => {
     let mounted = true;
 
-    async function checkNfcSupport() {
+    async function initializeNfc() {
       // During testing, allow NFC on all devices
+      if (!isNfcSimulatorMode) {
+        try {
+          const NfcManager = getNfcManager();
+          await NfcManager.start();
+        } catch (err) {
+          if (mounted) {
+            captureHandledException(err, { scope: 'nfc.initialize' });
+          }
+        }
+      }
+
       if (mounted) {
         setSupportStatus('supported');
       }
-      return;
     }
 
-    checkNfcSupport();
+    initializeNfc();
 
     return () => {
       mounted = false;
