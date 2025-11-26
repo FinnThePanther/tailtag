@@ -588,6 +588,51 @@ export type Database = {
           },
         ]
       }
+      nfc_tags: {
+        Row: {
+          fursuit_id: string | null
+          linked_at: string | null
+          registered_at: string
+          registered_by_user_id: string
+          status: string
+          uid: string
+          updated_at: string
+        }
+        Insert: {
+          fursuit_id?: string | null
+          linked_at?: string | null
+          registered_at?: string
+          registered_by_user_id: string
+          status?: string
+          uid: string
+          updated_at?: string
+        }
+        Update: {
+          fursuit_id?: string | null
+          linked_at?: string | null
+          registered_at?: string
+          registered_by_user_id?: string
+          status?: string
+          uid?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfc_tags_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nfc_tags_registered_by_user_id_fkey"
+            columns: ["registered_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string

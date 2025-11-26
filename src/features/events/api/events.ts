@@ -1,5 +1,6 @@
 import { supabase } from "../../../lib/supabase";
 import { captureHandledException } from "../../../lib/sentry";
+import { handleAuthError } from "../../../lib/authErrorHandler";
 import {
   emitImmediateAchievementAwards,
   type ImmediateAchievementAward,
@@ -164,9 +165,11 @@ export async function emitGameplayEvent(
     if (error) {
       // Extract the actual error message from the response body
       let actualError = error.message;
+      let statusCode: number | undefined;
       try {
         // @ts-ignore - context has the Response object
         if (error.context && typeof error.context.json === 'function') {
+          statusCode = error.context.status;
           const errorBody = await error.context.json();
           actualError = errorBody.error || errorBody.message || error.message;
           console.error(`[emitGameplayEvent] Edge function returned ${error.context.status} after ${duration}ms:`, {
@@ -175,6 +178,12 @@ export async function emitGameplayEvent(
             errorBody,
             actualError,
           });
+
+          // Handle 401 Unauthorized - force sign out
+          if (statusCode === 401) {
+            console.warn('[emitGameplayEvent] Received 401, triggering force sign out');
+            void handleAuthError(new Error('Unauthorized'));
+          }
         } else {
           console.error(`[emitGameplayEvent] Edge function returned error after ${duration}ms:`, {
             type,
