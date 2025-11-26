@@ -43,7 +43,13 @@
           "organization": "finnapps"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "react-native-nfc-manager",
+        {
+          "nfcPermission": "TailTag needs NFC access to scan fursuit tags."
+        }
+      ]
     ],
     "scheme": "tailtag",
     "extra": {
