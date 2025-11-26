@@ -113,28 +113,32 @@ function RootLayoutNav() {
   return (
     <Stack
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
+        headerStyle: { backgroundColor: '#0f172a' },
+        headerTintColor: colors.primary,
+        headerTitleStyle: { color: colors.foreground, fontWeight: '600' },
+        headerBackTitle: ' ',
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      {/* Auth group */}
+      {/* Auth group - no header (full-screen auth flow) */}
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
 
-      {/* Main app (tabs) */}
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      {/* Main app (tabs) - no header (tab navigator has its own) */}
+      <Stack.Screen name="(tabs)" options={{ headerShown: false, title: '' }} />
 
-      {/* Onboarding */}
+      {/* Onboarding - no header (custom multi-step wizard) */}
       <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
 
       {/* Standalone fursuit flows */}
-      <Stack.Screen name="fursuits/[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="fursuits/[id]/edit" options={{ headerShown: false }} />
+      <Stack.Screen name="fursuits/[id]" options={{ title: 'Fursuit' }} />
+      <Stack.Screen name="fursuits/[id]/edit" options={{ title: 'Edit Fursuit' }} />
 
       {/* Achievements */}
-      <Stack.Screen name="achievements/index" options={{ headerShown: false }} />
+      <Stack.Screen name="achievements/index" options={{ title: 'Achievements' }} />
 
       {/* Daily tasks */}
-      <Stack.Screen name="daily-tasks/index" options={{ headerShown: false }} />
+      <Stack.Screen name="daily-tasks/index" options={{ title: 'Daily Tasks' }} />
     </Stack>
   );
 }
