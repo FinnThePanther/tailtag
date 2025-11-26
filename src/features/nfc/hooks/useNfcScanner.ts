@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 import { Platform } from 'react-native';
+import {
+  getNfcManager,
+  getNfcTech,
+  isNfcSimulatorMode,
+} from '../lib/nfcManager';
 import {
   captureHandledException,
   addMonitoringBreadcrumb,
@@ -34,33 +38,11 @@ export function useNfcScanner() {
     let mounted = true;
 
     async function checkNfcSupport() {
-      try {
-        const isSupported = await NfcManager.isSupported();
-
-        if (!mounted) return;
-
-        if (!isSupported) {
-          setSupportStatus('unsupported');
-          return;
-        }
-
-        await NfcManager.start();
-
-        if (!mounted) return;
-
-        // Check if NFC is enabled (Android only - iOS always returns true)
-        if (Platform.OS === 'android') {
-          const isEnabled = await NfcManager.isEnabled();
-          setSupportStatus(isEnabled ? 'supported' : 'disabled');
-        } else {
-          setSupportStatus('supported');
-        }
-      } catch (err) {
-        if (mounted) {
-          setSupportStatus('unsupported');
-          captureHandledException(err, { scope: 'nfc.checkSupport' });
-        }
+      // During testing, allow NFC on all devices
+      if (mounted) {
+        setSupportStatus('supported');
       }
+      return;
     }
 
     checkNfcSupport();
@@ -74,7 +56,9 @@ export function useNfcScanner() {
   useEffect(() => {
     return () => {
       isCleanedUp.current = true;
-      NfcManager.cancelTechnologyRequest().catch(() => {});
+      if (!isNfcSimulatorMode) {
+        getNfcManager().cancelTechnologyRequest().catch(() => {});
+      }
     };
   }, []);
 
@@ -98,6 +82,9 @@ export function useNfcScanner() {
       category: 'nfc',
       message: 'Starting NFC scan',
     });
+
+    const NfcManager = getNfcManager();
+    const NfcTech = getNfcTech();
 
     try {
       // Request NFC technology - NfcA covers most tags (including NTAG)
@@ -162,7 +149,9 @@ export function useNfcScanner() {
 
   const cancelScan = useCallback(async () => {
     try {
-      await NfcManager.cancelTechnologyRequest();
+      if (!isNfcSimulatorMode) {
+        await getNfcManager().cancelTechnologyRequest();
+      }
       setScanState('idle');
       setError(null);
     } catch {

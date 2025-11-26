@@ -9,6 +9,10 @@ import {
   captureSupabaseError,
   setUser,
 } from '../../../lib/sentry';
+import {
+  registerForceSignOut,
+  unregisterForceSignOut,
+} from '../../../lib/authErrorHandler';
 
 type AuthStatus = 'loading' | 'signed_in' | 'signed_out';
 
@@ -140,16 +144,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const refreshSession = async () => {
+  const refreshSession = useCallback(async () => {
+    addMonitoringBreadcrumb({
+      category: 'auth',
+      message: 'Refreshing session',
+    });
+
+    // First try to refresh the token
     const {
       data: { session: refreshedSession },
       error: refreshError,
-    } = await supabase.auth.getSession();
+    } = await supabase.auth.refreshSession();
 
     if (refreshError) {
+      // If refresh fails, try to get the current session as fallback
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+      if (currentSession) {
+        // We have a valid cached session, use it
+        supabase.realtime.setAuth(currentSession.access_token);
+        setSession(currentSession);
+        setStatus('signed_in');
+        setError(null);
+        setUser({
+          id: currentSession.user.id,
+          email: currentSession.user.email ?? null,
+        });
+        return;
+      }
+
+      // No valid session at all
       captureSupabaseError(refreshError, {
         scope: 'auth.refreshSession',
-        action: 'getSession',
+        action: 'refreshSession',
       });
       setError(refreshError.message);
       setSession(null);
@@ -157,6 +184,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       return;
     }
+
+    // Update realtime auth with new token
+    supabase.realtime.setAuth(refreshedSession?.access_token ?? '');
 
     setSession(refreshedSession ?? null);
     setStatus(refreshedSession ? 'signed_in' : 'signed_out');
@@ -170,7 +200,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         : null,
     );
-  };
+
+    addMonitoringBreadcrumb({
+      category: 'auth',
+      message: 'Session refreshed',
+      data: { userId: refreshedSession?.user.id ?? null },
+    });
+  }, []);
 
   const forceSignOut = useCallback(async () => {
     addMonitoringBreadcrumb({
@@ -209,6 +245,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Register force sign out handler for global auth error handling
+  useEffect(() => {
+    registerForceSignOut(forceSignOut);
+    return () => {
+      unregisterForceSignOut();
+    };
+  }, [forceSignOut]);
+
   const value = useMemo(
     () => ({
       session,
@@ -217,7 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshSession,
       forceSignOut,
     }),
-    [session, status, error, forceSignOut]
+    [session, status, error, refreshSession, forceSignOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

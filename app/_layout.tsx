@@ -4,7 +4,7 @@ import { ActivityIndicator, View } from "react-native";
 import { useSegments, Stack, Redirect, useNavigationContainerRef } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryCache, QueryClient, QueryClientProvider, MutationCache, useQuery } from "@tanstack/react-query";
 
 import { AuthProvider, useAuth, usePrimeUserData } from "../src/features/auth";
@@ -20,6 +20,7 @@ import {
   captureHandledException,
   routingInstrumentation,
 } from "../src/lib/sentry";
+import { handleAuthError } from "../src/lib/authErrorHandler";
 
 function LoadingScreen() {
   return (
@@ -153,6 +154,8 @@ function Layout() {
               queryHash: query?.queryHash,
               queryKey: query?.queryKey,
             });
+            // Handle auth errors globally - force sign out on 401
+            void handleAuthError(error);
           },
         }),
         mutationCache: new MutationCache({
@@ -162,6 +165,8 @@ function Layout() {
               mutationId: mutation?.mutationId,
               mutationKey: mutation?.options?.mutationKey,
             });
+            // Handle auth errors globally - force sign out on 401
+            void handleAuthError(error);
           },
         }),
       })
@@ -198,21 +203,16 @@ function Layout() {
   }, [navigationRef]);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <SafeAreaProvider>
         <StatusBar style="light" />
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <ToastProvider>
-              <SafeAreaView
-                style={{ flex: 1, backgroundColor: colors.background }}
-                edges={["top", "left", "right", "bottom"]}
-              >
-                <AchievementToastManager />
-                <DailyTaskToastManager />
-                <CatchConfirmationToastManager />
-                <RootLayoutNav />
-              </SafeAreaView>
+              <AchievementToastManager />
+              <DailyTaskToastManager />
+              <CatchConfirmationToastManager />
+              <RootLayoutNav />
             </ToastProvider>
           </AuthProvider>
         </QueryClientProvider>
