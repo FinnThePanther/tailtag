@@ -152,9 +152,10 @@ function zonedTimeToUtc(
   // Use toLocaleString to format a date in the target timezone, then parse it back
   // This handles DST and all timezone complexities automatically
 
-  // Step 1: Create a reference date to determine the offset
-  // We use an arbitrary UTC time to figure out the timezone offset at the target date
-  const referenceUtc = Date.UTC(year, month - 1, day, 12, 0, 0); // Noon on the target day
+  // Step 1: Create a reference date using the actual target time
+  // IMPORTANT: Use the target hour/minute/second to get the correct offset for that specific time
+  // (not noon) because DST transitions can cause different offsets at different times of day
+  const referenceUtc = Date.UTC(year, month - 1, day, hour, minute, second);
   const referenceDate = new Date(referenceUtc);
 
   // Step 2: Get the offset by comparing UTC vs timezone rendering
