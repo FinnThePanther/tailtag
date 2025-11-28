@@ -23,7 +23,8 @@ import { captureHandledException } from '../../../src/lib/sentry';
 import { generateUniqueCodeCandidate } from '../../../src/utils/code';
 import { loadUriAsUint8Array } from '../../../src/utils/files';
 import { colors, spacing, radius } from '../../../src/theme';
-import { MY_SUITS_QUERY_KEY } from '../../../src/features/suits';
+import { MY_SUITS_QUERY_KEY, createMySuitsCountQueryOptions } from '../../../src/features/suits';
+import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
 import {
   CatchModeSwitch,
   type CatchMode,
@@ -98,6 +99,15 @@ export default function AddFursuitScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+
+  const {
+    data: suitCount = 0,
+  } = useQuery({
+    ...createMySuitsCountQueryOptions(userId!),
+    enabled: Boolean(userId),
+  });
+
+  const isAtFursuitLimit = suitCount >= MAX_FURSUITS_PER_USER;
 
   const [nameInput, setNameInput] = useState('');
   const [speciesInput, setSpeciesInput] = useState('');
@@ -340,6 +350,11 @@ export default function AddFursuitScreen() {
 
   const handleSubmit = async () => {
     if (!userId || isSubmitting) {
+      return;
+    }
+
+    if (isAtFursuitLimit) {
+      setSubmitError(`You can only have ${MAX_FURSUITS_PER_USER} fursuits. Delete an existing fursuit to add a new one.`);
       return;
     }
 
@@ -674,6 +689,20 @@ export default function AddFursuitScreen() {
             Then fill out a bio so every catcher knows how to say hello.
           </Text>
         </View>
+
+        {isAtFursuitLimit && (
+          <TailTagCard style={styles.limitBanner}>
+            <Text style={styles.limitBannerText}>
+              You have reached the maximum of {MAX_FURSUITS_PER_USER} fursuits. Delete an existing fursuit to add a new one.
+            </Text>
+            <TailTagButton
+              variant="outline"
+              onPress={() => router.push('/suits')}
+            >
+              Manage my suits
+            </TailTagButton>
+          </TailTagCard>
+        )}
 
         <TailTagCard>
           <View style={styles.fieldGroup}>
@@ -1073,6 +1102,14 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 15,
     color: 'rgba(203,213,225,0.9)',
+  },
+  limitBanner: {
+    gap: spacing.md,
+  },
+  limitBannerText: {
+    fontSize: 14,
+    color: '#fca5a5',
+    lineHeight: 20,
   },
   fieldGroup: {
     gap: spacing.sm,
