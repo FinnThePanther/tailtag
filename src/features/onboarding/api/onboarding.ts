@@ -13,6 +13,7 @@ import { emitGameplayEvent } from '../../events';
 
 import type { FursuitsInsert } from '../../../types/database';
 import { MAX_FURSUIT_COLORS } from '../../colors';
+import { MAX_FURSUITS_PER_USER } from '../../../constants/fursuits';
 
 const TUTORIAL_FURSUIT_NAME = 'TailTag Trainer';
 const TUTORIAL_FURSUIT_SPECIES = 'Fox';
@@ -174,6 +175,26 @@ export async function createQuickFursuit(options: {
 }): Promise<string> {
   const { userId, name, species, description, photo, colorIds } = options;
   const client = supabase as any;
+
+  // Check fursuit count limit
+  const { count, error: countError } = await client
+    .from('fursuits')
+    .select('id', { count: 'exact', head: true })
+    .eq('owner_id', userId)
+    .eq('is_tutorial', false);
+
+  if (countError) {
+    captureSupabaseError(countError, {
+      scope: 'onboarding.createQuickFursuit',
+      action: 'countExisting',
+      userId,
+    });
+    throw new Error(`We couldn't verify your fursuit count: ${countError.message}`);
+  }
+
+  if ((count ?? 0) >= MAX_FURSUITS_PER_USER) {
+    throw new Error(`You can only have ${MAX_FURSUITS_PER_USER} fursuits.`);
+  }
 
   let uploadedStoragePath: string | null = null;
   let avatarUrl: string | null = null;

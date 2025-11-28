@@ -15,8 +15,10 @@ import {
   FursuitCard,
   fetchMySuits,
   MY_SUITS_QUERY_KEY,
+  MY_SUITS_COUNT_QUERY_KEY,
   MY_SUITS_STALE_TIME,
 } from "../../../src/features/suits";
+import { MAX_FURSUITS_PER_USER } from "../../../src/constants/fursuits";
 import type { FursuitSummary } from "../../../src/features/suits";
 import {
   PendingCatchesList,
@@ -175,6 +177,11 @@ export default function MySuitsScreen() {
                   (current) =>
                     (current ?? []).filter((item) => item.id !== suit.id)
                 );
+
+                // Invalidate count cache so limit check updates immediately
+                void queryClient.invalidateQueries({
+                  queryKey: [MY_SUITS_COUNT_QUERY_KEY, userId],
+                });
               } catch (caught) {
                 const message =
                   caught instanceof Error
@@ -193,6 +200,8 @@ export default function MySuitsScreen() {
   );
 
   const hasSuits = suits.length > 0;
+  const suitCount = suits.length;
+  const isAtFursuitLimit = suitCount >= MAX_FURSUITS_PER_USER;
   const combinedError = actionError ?? error?.message ?? null;
 
   return (
@@ -225,10 +234,14 @@ export default function MySuitsScreen() {
       <TailTagCard style={styles.cardSpacing}>
         <View style={styles.helperRow}>
           <Text style={styles.helperText}>
-            Add a new suit before you head to the floor.
+            {isAtFursuitLimit
+              ? `You have ${MAX_FURSUITS_PER_USER}/${MAX_FURSUITS_PER_USER} suits. Delete one to add another.`
+              : `Add a new suit before you head to the floor. (${suitCount}/${MAX_FURSUITS_PER_USER})`
+            }
           </Text>
           <TailTagButton
             onPress={() => router.push("/suits/add-fursuit")}
+            disabled={isAtFursuitLimit}
           >
             Add a fursuit
           </TailTagButton>
