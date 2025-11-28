@@ -23,7 +23,7 @@ import { captureHandledException } from '../../../src/lib/sentry';
 import { generateUniqueCodeCandidate } from '../../../src/utils/code';
 import { loadUriAsUint8Array } from '../../../src/utils/files';
 import { colors, spacing, radius } from '../../../src/theme';
-import { MY_SUITS_QUERY_KEY, createMySuitsCountQueryOptions } from '../../../src/features/suits';
+import { MY_SUITS_QUERY_KEY, MY_SUITS_COUNT_QUERY_KEY, createMySuitsCountQueryOptions } from '../../../src/features/suits';
 import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
 import {
   CatchModeSwitch,
@@ -602,6 +602,7 @@ export default function AddFursuitScreen() {
       setSubmitError(null);
 
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
+      void queryClient.invalidateQueries({ queryKey: [MY_SUITS_COUNT_QUERY_KEY, userId] });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
 
       // Navigate immediately

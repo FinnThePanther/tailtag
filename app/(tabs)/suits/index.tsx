@@ -15,6 +15,7 @@ import {
   FursuitCard,
   fetchMySuits,
   MY_SUITS_QUERY_KEY,
+  MY_SUITS_COUNT_QUERY_KEY,
   MY_SUITS_STALE_TIME,
 } from "../../../src/features/suits";
 import { MAX_FURSUITS_PER_USER } from "../../../src/constants/fursuits";
@@ -176,6 +177,11 @@ export default function MySuitsScreen() {
                   (current) =>
                     (current ?? []).filter((item) => item.id !== suit.id)
                 );
+
+                // Invalidate count cache so limit check updates immediately
+                void queryClient.invalidateQueries({
+                  queryKey: [MY_SUITS_COUNT_QUERY_KEY, userId],
+                });
               } catch (caught) {
                 const message =
                   caught instanceof Error
