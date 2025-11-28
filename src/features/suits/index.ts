@@ -2,10 +2,14 @@ export { FursuitCard } from './components/FursuitCard';
 export { FursuitBioDetails } from './components/FursuitBioDetails';
 export {
   fetchMySuits,
+  fetchMySuitsCount,
   MY_SUITS_QUERY_KEY,
+  MY_SUITS_COUNT_QUERY_KEY,
   MY_SUITS_STALE_TIME,
   mySuitsQueryKey,
+  mySuitsCountQueryKey,
   createMySuitsQueryOptions,
+  createMySuitsCountQueryOptions,
 } from './api/mySuits';
 export type { FursuitSummary, FursuitBio } from './types';
 export {

@@ -6,9 +6,11 @@ import { mapFursuitColors, mapLatestFursuitBio } from './utils';
 import { captureSupabaseError } from '../../../lib/sentry';
 
 export const MY_SUITS_QUERY_KEY = 'my-suits';
+export const MY_SUITS_COUNT_QUERY_KEY = 'my-suits-count';
 export const MY_SUITS_STALE_TIME = 2 * 60_000;
 
 export const mySuitsQueryKey = (userId: string) => [MY_SUITS_QUERY_KEY, userId] as const;
+export const mySuitsCountQueryKey = (userId: string) => [MY_SUITS_COUNT_QUERY_KEY, userId] as const;
 
 export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
   const client = supabase as any;
@@ -119,6 +121,34 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
 export const createMySuitsQueryOptions = (userId: string) => ({
   queryKey: mySuitsQueryKey(userId),
   queryFn: () => fetchMySuits(userId),
+  staleTime: MY_SUITS_STALE_TIME,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
+
+export async function fetchMySuitsCount(userId: string): Promise<number> {
+  const client = supabase as any;
+  const { count, error } = await client
+    .from('fursuits')
+    .select('id', { count: 'exact', head: true })
+    .eq('owner_id', userId)
+    .eq('is_tutorial', false);
+
+  if (error) {
+    captureSupabaseError(error, {
+      scope: 'suits.fetchMySuitsCount',
+      action: 'count',
+      userId,
+    });
+    throw new Error(`We couldn't count your suits: ${error.message}`);
+  }
+
+  return count ?? 0;
+}
+
+export const createMySuitsCountQueryOptions = (userId: string) => ({
+  queryKey: mySuitsCountQueryKey(userId),
+  queryFn: () => fetchMySuitsCount(userId),
   staleTime: MY_SUITS_STALE_TIME,
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
