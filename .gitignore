@@ -41,7 +41,12 @@ yarn-error.*
 /ios
 /android
 
+# Next.js admin
+/.next
+admin/.next
+admin/.env.local
+
 # Local PRDs for feature development
-/docs
+#/docs
 CLAUDE.md
 .mcp.json

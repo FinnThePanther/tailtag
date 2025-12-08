@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { captureSupabaseError } from '../../../lib/sentry';
+import type { Database } from '../../../types/database';
 
 export type ProfileSummary = {
   username: string | null;
@@ -7,6 +8,7 @@ export type ProfileSummary = {
   avatar_url: string | null;
   is_new: boolean;
   onboarding_completed: boolean;
+  role?: Database['public']['Enums']['user_role'];
 };
 
 export const PROFILE_QUERY_KEY = 'profile';
@@ -18,7 +20,7 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
   const client = supabase as any;
   const { data, error } = await client
     .from('profiles')
-    .select('username, bio, avatar_url, is_new, onboarding_completed')
+    .select('username, bio, avatar_url, is_new, onboarding_completed, role')
     .eq('id', userId)
     .maybeSingle();
 
@@ -41,6 +43,7 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
     avatar_url: data.avatar_url ?? null,
     is_new: data.is_new === true,
     onboarding_completed: data.onboarding_completed === true,
+    role: data.role ?? undefined,
   };
 }
 
