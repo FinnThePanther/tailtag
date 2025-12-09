@@ -202,3 +202,102 @@ export async function fetchTagActivity(uid: string) {
 
   return data;
 }
+
+export async function fetchReports(params: {
+  status?: string | null;
+  severity?: string | null;
+  conventionId?: string | null;
+  limit?: number;
+}) {
+  const supabase = createServiceRoleClient();
+  const query = supabase
+    .from('user_reports')
+    .select(
+      [
+        'id',
+        'report_type',
+        'severity',
+        'status',
+        'description',
+        'convention_id',
+        'reporter_id',
+        'reported_user_id',
+        'reported_fursuit_id',
+        'resolved_by_user_id',
+        'resolved_at',
+        'resolution_notes',
+        'created_at',
+        'profiles:reporter_id(username)',
+        'reported:reported_user_id(username)',
+      ].join(', ')
+    )
+    .order('created_at', { ascending: false })
+    .limit(params.limit ?? 50);
+
+  if (params.status) query.eq('status', params.status);
+  if (params.severity) query.eq('severity', params.severity);
+  if (params.conventionId) query.eq('convention_id', params.conventionId);
+
+  const { data, error } = await query;
+  if (error) {
+    throw error;
+  }
+  return data ?? [];
+}
+
+export async function fetchFursuitQueue(limit = 50) {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from('fursuit_moderation_queue')
+    .select(
+      [
+        'id',
+        'fursuit_id',
+        'flag_reason',
+        'status',
+        'flagged_content',
+        'moderator_notes',
+        'action_taken',
+        'flagged_by_user_id',
+        'reviewed_by_user_id',
+        'reviewed_at',
+        'created_at',
+        'fursuits(name, owner_id)',
+        'flagger:flagged_by_user_id(username)',
+        'reviewer:reviewed_by_user_id(username)',
+      ].join(', ')
+    )
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+  return data ?? [];
+}
+
+export async function fetchAchievements() {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from('achievements')
+    .select('id, key, name, description')
+    .eq('is_active', true)
+    .order('name', { ascending: true });
+  if (error) {
+    throw error;
+  }
+  return data ?? [];
+}
+
+export async function fetchAdminErrors(limit = 50) {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from('admin_error_log')
+    .select('id, convention_id, error_type, error_message, severity, occurred_at, created_at')
+    .order('occurred_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    throw error;
+  }
+  return data ?? [];
+}

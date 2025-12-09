@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
@@ -11,15 +11,31 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [persistentError, setPersistentError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const supabase = createBrowserSupabaseClient();
   const incomingError = searchParams.get('error');
 
+  useEffect(() => {
+    const storedEmail = sessionStorage.getItem('admin_login_email');
+    if (storedEmail) {
+      setEmail(storedEmail);
+    }
+
+    const existing = incomingError || sessionStorage.getItem('admin_login_error');
+    if (existing) {
+      setPersistentError(existing);
+      sessionStorage.setItem('admin_login_error', existing);
+    }
+  }, [incomingError]);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    setPersistentError(null);
+    sessionStorage.removeItem('admin_login_error');
 
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
@@ -28,10 +44,14 @@ export default function LoginPage() {
 
     if (signInError) {
       setError(signInError.message);
+      setPersistentError(signInError.message);
+      sessionStorage.setItem('admin_login_error', signInError.message);
+      sessionStorage.setItem('admin_login_email', email);
       setIsSubmitting(false);
       return;
     }
 
+    sessionStorage.removeItem('admin_login_email');
     router.replace('/dashboard');
   };
 
@@ -40,9 +60,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md rounded-2xl border border-border bg-panel p-8 shadow-xl">
         <h1 className="text-2xl font-semibold text-white">TailTag Admin</h1>
         <p className="mt-2 text-sm text-slate-300">Sign in with your admin credentials.</p>
-        {(error || incomingError) && (
+        {(error || persistentError) && (
           <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">
-            {error ?? 'You do not have access to that page.'}
+            {error ?? persistentError ?? 'You do not have access to that page.'}
           </div>
         )}
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
