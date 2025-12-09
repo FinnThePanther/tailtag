@@ -44,6 +44,7 @@ export function AchievementStep({
         avatar_url: current?.avatar_url ?? null,
         onboarding_completed: true,
         is_new: false,
+        role: current?.role,
       }));
 
       await queryClient.invalidateQueries({ queryKey: profileQueryKey(userId) });

@@ -115,94 +115,6 @@ export type Database = {
           },
         ]
       }
-      admin_error_log: {
-        Row: {
-          context: Json | null
-          convention_id: string | null
-          created_at: string
-          error_message: string
-          error_type: string
-          id: string
-          occurred_at: string
-          severity: string
-        }
-        Insert: {
-          context?: Json | null
-          convention_id?: string | null
-          created_at?: string
-          error_message: string
-          error_type: string
-          id?: string
-          occurred_at?: string
-          severity: string
-        }
-        Update: {
-          context?: Json | null
-          convention_id?: string | null
-          created_at?: string
-          error_message?: string
-          error_type?: string
-          id?: string
-          occurred_at?: string
-          severity?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "admin_error_log_convention_id_fkey"
-            columns: ["convention_id"]
-            isOneToOne: false
-            referencedRelation: "conventions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      audit_log: {
-        Row: {
-          action: string
-          actor_id: string
-          context: Json | null
-          created_at: string
-          diff: Json | null
-          entity_id: string | null
-          entity_type: string
-          id: string
-          ip_address: unknown
-          user_agent: string | null
-        }
-        Insert: {
-          action: string
-          actor_id: string
-          context?: Json | null
-          created_at?: string
-          diff?: Json | null
-          entity_id?: string | null
-          entity_type: string
-          id?: string
-          ip_address?: unknown
-          user_agent?: string | null
-        }
-        Update: {
-          action?: string
-          actor_id?: string
-          context?: Json | null
-          created_at?: string
-          diff?: Json | null
-          entity_id?: string | null
-          entity_type?: string
-          id?: string
-          ip_address?: unknown
-          user_agent?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "audit_log_actor_id_fkey"
-            columns: ["actor_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       catches: {
         Row: {
           catch_number: number | null
@@ -279,7 +191,6 @@ export type Database = {
       }
       conventions: {
         Row: {
-          config: Json
           created_at: string
           end_date: string | null
           id: string
@@ -291,7 +202,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          config?: Json
           created_at?: string
           end_date?: string | null
           id?: string
@@ -303,7 +213,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          config?: Json
           created_at?: string
           end_date?: string | null
           id?: string
@@ -405,67 +314,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "achievement_rules"
             referencedColumns: ["rule_id"]
-          },
-        ]
-      }
-      event_staff: {
-        Row: {
-          assigned_at: string
-          assigned_by_user_id: string | null
-          convention_id: string
-          created_at: string
-          id: string
-          notes: string | null
-          profile_id: string
-          role: Database["public"]["Enums"]["user_role"]
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          assigned_at?: string
-          assigned_by_user_id?: string | null
-          convention_id: string
-          created_at?: string
-          id?: string
-          notes?: string | null
-          profile_id: string
-          role: Database["public"]["Enums"]["user_role"]
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          assigned_at?: string
-          assigned_by_user_id?: string | null
-          convention_id?: string
-          created_at?: string
-          id?: string
-          notes?: string | null
-          profile_id?: string
-          role?: Database["public"]["Enums"]["user_role"]
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_staff_assigned_by_user_id_fkey"
-            columns: ["assigned_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_staff_convention_id_fkey"
-            columns: ["convention_id"]
-            isOneToOne: false
-            referencedRelation: "conventions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_staff_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -656,70 +504,6 @@ export type Database = {
           },
         ]
       }
-      fursuit_moderation_queue: {
-        Row: {
-          action_taken: string | null
-          created_at: string
-          flag_reason: string
-          flagged_by_user_id: string | null
-          flagged_content: Json
-          fursuit_id: string
-          id: string
-          moderator_notes: string | null
-          reviewed_at: string | null
-          reviewed_by_user_id: string | null
-          status: string
-        }
-        Insert: {
-          action_taken?: string | null
-          created_at?: string
-          flag_reason: string
-          flagged_by_user_id?: string | null
-          flagged_content: Json
-          fursuit_id: string
-          id?: string
-          moderator_notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by_user_id?: string | null
-          status?: string
-        }
-        Update: {
-          action_taken?: string | null
-          created_at?: string
-          flag_reason?: string
-          flagged_by_user_id?: string | null
-          flagged_content?: Json
-          fursuit_id?: string
-          id?: string
-          moderator_notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by_user_id?: string | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fursuit_moderation_queue_flagged_by_user_id_fkey"
-            columns: ["flagged_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fursuit_moderation_queue_fursuit_id_fkey"
-            columns: ["fursuit_id"]
-            isOneToOne: false
-            referencedRelation: "fursuits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fursuit_moderation_queue_reviewed_by_user_id_fkey"
-            columns: ["reviewed_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       fursuit_species: {
         Row: {
           created_at: string
@@ -751,10 +535,7 @@ export type Database = {
           catch_mode: string
           created_at: string | null
           description: string | null
-          flagged_at: string | null
-          flagged_reason: string | null
           id: string
-          is_flagged: boolean
           is_tutorial: boolean
           name: string
           owner_id: string
@@ -768,10 +549,7 @@ export type Database = {
           catch_mode?: string
           created_at?: string | null
           description?: string | null
-          flagged_at?: string | null
-          flagged_reason?: string | null
           id?: string
-          is_flagged?: boolean
           is_tutorial?: boolean
           name: string
           owner_id: string
@@ -785,10 +563,7 @@ export type Database = {
           catch_mode?: string
           created_at?: string | null
           description?: string | null
-          flagged_at?: string | null
-          flagged_reason?: string | null
           id?: string
-          is_flagged?: boolean
           is_tutorial?: boolean
           name?: string
           owner_id?: string
@@ -809,48 +584,6 @@ export type Database = {
             columns: ["species_id"]
             isOneToOne: false
             referencedRelation: "fursuit_species"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      moderation_notes: {
-        Row: {
-          author_id: string
-          created_at: string
-          id: string
-          is_flagged: boolean
-          note: string
-          user_id: string
-        }
-        Insert: {
-          author_id: string
-          created_at?: string
-          id?: string
-          is_flagged?: boolean
-          note: string
-          user_id: string
-        }
-        Update: {
-          author_id?: string
-          created_at?: string
-          id?: string
-          is_flagged?: boolean
-          note?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "moderation_notes_author_id_fkey"
-            columns: ["author_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "moderation_notes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -965,11 +698,7 @@ export type Database = {
           default_catch_mode: string
           id: string
           is_new: boolean
-          is_suspended: boolean
           onboarding_completed: boolean
-          role: Database["public"]["Enums"]["user_role"]
-          suspended_until: string | null
-          suspension_reason: string | null
           updated_at: string | null
           username: string | null
         }
@@ -980,11 +709,7 @@ export type Database = {
           default_catch_mode?: string
           id: string
           is_new?: boolean
-          is_suspended?: boolean
           onboarding_completed?: boolean
-          role?: Database["public"]["Enums"]["user_role"]
-          suspended_until?: string | null
-          suspension_reason?: string | null
           updated_at?: string | null
           username?: string | null
         }
@@ -995,70 +720,11 @@ export type Database = {
           default_catch_mode?: string
           id?: string
           is_new?: boolean
-          is_suspended?: boolean
           onboarding_completed?: boolean
-          role?: Database["public"]["Enums"]["user_role"]
-          suspended_until?: string | null
-          suspension_reason?: string | null
           updated_at?: string | null
           username?: string | null
         }
         Relationships: []
-      }
-      tag_activity: {
-        Row: {
-          catcher_id: string | null
-          convention_id: string | null
-          created_at: string
-          device_id: string | null
-          id: string
-          location: Json | null
-          seen_at: string
-          tag_uid: string
-        }
-        Insert: {
-          catcher_id?: string | null
-          convention_id?: string | null
-          created_at?: string
-          device_id?: string | null
-          id?: string
-          location?: Json | null
-          seen_at?: string
-          tag_uid: string
-        }
-        Update: {
-          catcher_id?: string | null
-          convention_id?: string | null
-          created_at?: string
-          device_id?: string | null
-          id?: string
-          location?: Json | null
-          seen_at?: string
-          tag_uid?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tag_activity_catcher_id_fkey"
-            columns: ["catcher_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tag_activity_convention_id_fkey"
-            columns: ["convention_id"]
-            isOneToOne: false
-            referencedRelation: "conventions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tag_activity_tag_uid_fkey"
-            columns: ["tag_uid"]
-            isOneToOne: false
-            referencedRelation: "nfc_tags"
-            referencedColumns: ["uid"]
-          },
-        ]
       }
       user_achievements: {
         Row: {
@@ -1181,233 +847,8 @@ export type Database = {
           },
         ]
       }
-      user_moderation_actions: {
-        Row: {
-          action_type: string
-          applied_by_user_id: string
-          convention_id: string | null
-          created_at: string
-          duration_hours: number | null
-          expires_at: string | null
-          id: string
-          internal_notes: string | null
-          is_active: boolean
-          reason: string
-          revoke_reason: string | null
-          revoked_at: string | null
-          revoked_by_user_id: string | null
-          scope: string
-          user_id: string
-        }
-        Insert: {
-          action_type: string
-          applied_by_user_id: string
-          convention_id?: string | null
-          created_at?: string
-          duration_hours?: number | null
-          expires_at?: string | null
-          id?: string
-          internal_notes?: string | null
-          is_active?: boolean
-          reason: string
-          revoke_reason?: string | null
-          revoked_at?: string | null
-          revoked_by_user_id?: string | null
-          scope?: string
-          user_id: string
-        }
-        Update: {
-          action_type?: string
-          applied_by_user_id?: string
-          convention_id?: string | null
-          created_at?: string
-          duration_hours?: number | null
-          expires_at?: string | null
-          id?: string
-          internal_notes?: string | null
-          is_active?: boolean
-          reason?: string
-          revoke_reason?: string | null
-          revoked_at?: string | null
-          revoked_by_user_id?: string | null
-          scope?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_moderation_actions_applied_by_user_id_fkey"
-            columns: ["applied_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_moderation_actions_convention_id_fkey"
-            columns: ["convention_id"]
-            isOneToOne: false
-            referencedRelation: "conventions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_moderation_actions_revoked_by_user_id_fkey"
-            columns: ["revoked_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_moderation_actions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_reports: {
-        Row: {
-          convention_id: string | null
-          created_at: string
-          description: string
-          id: string
-          report_type: string
-          reported_fursuit_id: string | null
-          reported_user_id: string | null
-          reporter_id: string
-          resolution_notes: string | null
-          resolved_at: string | null
-          resolved_by_user_id: string | null
-          severity: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          convention_id?: string | null
-          created_at?: string
-          description: string
-          id?: string
-          report_type: string
-          reported_fursuit_id?: string | null
-          reported_user_id?: string | null
-          reporter_id: string
-          resolution_notes?: string | null
-          resolved_at?: string | null
-          resolved_by_user_id?: string | null
-          severity?: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          convention_id?: string | null
-          created_at?: string
-          description?: string
-          id?: string
-          report_type?: string
-          reported_fursuit_id?: string | null
-          reported_user_id?: string | null
-          reporter_id?: string
-          resolution_notes?: string | null
-          resolved_at?: string | null
-          resolved_by_user_id?: string | null
-          severity?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_reports_convention_id_fkey"
-            columns: ["convention_id"]
-            isOneToOne: false
-            referencedRelation: "conventions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_reports_reported_fursuit_id_fkey"
-            columns: ["reported_fursuit_id"]
-            isOneToOne: false
-            referencedRelation: "fursuits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_reports_reported_user_id_fkey"
-            columns: ["reported_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_reports_reporter_id_fkey"
-            columns: ["reporter_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_reports_resolved_by_user_id_fkey"
-            columns: ["resolved_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
-      mv_achievement_unlocks_daily: {
-        Row: {
-          achievement_id: string | null
-          day_bucket: string | null
-          unlock_count: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_achievements_achievement_id_fkey"
-            columns: ["achievement_id"]
-            isOneToOne: false
-            referencedRelation: "achievements"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      mv_catches_hourly: {
-        Row: {
-          avg_approval_seconds: number | null
-          catch_count: number | null
-          convention_id: string | null
-          hour_bucket: string | null
-          unique_catchers: number | null
-          unique_fursuits: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catches_convention_id_fkey"
-            columns: ["convention_id"]
-            isOneToOne: false
-            referencedRelation: "conventions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      mv_convention_daily_stats: {
-        Row: {
-          active_fursuits: number | null
-          active_players: number | null
-          convention_id: string | null
-          day_bucket: string | null
-          pending_count: number | null
-          rejected_count: number | null
-          total_catches: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catches_convention_id_fkey"
-            columns: ["convention_id"]
-            isOneToOne: false
-            referencedRelation: "conventions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       mv_convention_leaderboard: {
         Row: {
           avatar_url: string | null
@@ -1477,7 +918,7 @@ export type Database = {
     Functions: {
       calculate_catch_expiration:
         | { Args: { convention_id_param: string }; Returns: string }
-        | { Args: never; Returns: string }
+        | { Args: Record<PropertyKey, never>; Returns: string }
       confirm_catch: {
         Args: {
           p_catch_id: string
@@ -1492,7 +933,6 @@ export type Database = {
         Args: { user_id: string }
         Returns: number
       }
-      count_user_fursuits: { Args: { p_user_id: string }; Returns: number }
       create_catch_with_approval: {
         Args: {
           p_catcher_id: string
@@ -1502,46 +942,13 @@ export type Database = {
         }
         Returns: Json
       }
-      detect_duplicate_tag_users: {
-        Args: { p_hours_ago?: number; p_tag_uid: string }
-        Returns: {
-          catcher_id: string
-          last_seen: string
-          scan_count: number
-        }[]
-      }
-      expire_moderation_actions: { Args: never; Returns: undefined }
-      expire_pending_catches: { Args: never; Returns: Json }
+      expire_pending_catches: { Args: Record<PropertyKey, never>; Returns: Json }
       finish_onboarding: { Args: { target_user_id?: string }; Returns: Json }
-      get_event_dashboard_summary: {
-        Args: { p_convention_id: string }
-        Returns: {
-          active_fursuits: number
-          active_players: number
-          avg_catches_per_hour: number
-          peak_hour: string
-          pending_approval: number
-          total_achievements: number
-          total_catches: number
-        }[]
-      }
       get_fursuit_convention_stats: {
         Args: { p_convention_id: string; p_fursuit_id: string }
         Returns: {
           total_catches: number
           unique_catchers: number
-        }[]
-      }
-      get_global_dashboard_summary: {
-        Args: never
-        Returns: {
-          active_fursuits: number
-          active_players: number
-          avg_catches_per_hour: number
-          peak_hour: string
-          pending_approval: number
-          total_achievements: number
-          total_catches: number
         }[]
       }
       get_pending_catch_count: { Args: { p_user_id: string }; Returns: number }
@@ -1562,33 +969,7 @@ export type Database = {
           time_remaining: unknown
         }[]
       }
-      get_user_moderation_summary: {
-        Args: { p_user_id: string }
-        Returns: Json
-      }
-      get_user_role: {
-        Args: { user_id: string }
-        Returns: Database["public"]["Enums"]["user_role"]
-      }
       grant_achievements_batch: { Args: { awards: Json }; Returns: Json }
-      is_admin: { Args: { user_id: string }; Returns: boolean }
-      is_event_staff: {
-        Args: { convention_id: string; user_id: string }
-        Returns: boolean
-      }
-      log_admin_action: {
-        Args: {
-          p_action: string
-          p_actor_id: string
-          p_context?: Json
-          p_diff?: Json
-          p_entity_id?: string
-          p_entity_type: string
-          p_ip_address?: unknown
-          p_user_agent?: string
-        }
-        Returns: string
-      }
       notify_catch_decision: {
         Args: {
           p_catch_id: string
@@ -1610,7 +991,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      refresh_analytics_views: { Args: never; Returns: undefined }
       refresh_convention_leaderboard: {
         Args: { convention_uuid?: string }
         Returns: undefined
@@ -1618,29 +998,6 @@ export type Database = {
       refresh_fursuit_popularity: {
         Args: { convention_uuid?: string }
         Returns: undefined
-      }
-      search_players: {
-        Args: {
-          convention_filter?: string
-          is_suspended_filter?: boolean
-          limit_count?: number
-          offset_count?: number
-          role_filter?: Database["public"]["Enums"]["user_role"]
-          search_term?: string
-        }
-        Returns: {
-          avatar_url: string
-          catch_count: number
-          created_at: string
-          email: string
-          fursuit_count: number
-          id: string
-          is_suspended: boolean
-          report_count: number
-          role: Database["public"]["Enums"]["user_role"]
-          suspended_until: string
-          username: string
-        }[]
       }
     }
     Enums: {
@@ -1659,7 +1016,6 @@ export type Database = {
         | "leaderboard.refreshed"
       catch_mode: "AUTO_ACCEPT" | "MANUAL_APPROVAL"
       catch_status: "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED"
-      user_role: "player" | "staff" | "moderator" | "organizer" | "owner"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1804,32 +1160,32 @@ export const Constants = {
       ],
       catch_mode: ["AUTO_ACCEPT", "MANUAL_APPROVAL"],
       catch_status: ["PENDING", "ACCEPTED", "REJECTED", "EXPIRED"],
-      user_role: ["player", "staff", "moderator", "organizer", "owner"],
     },
   },
 } as const
 
-// Convenience type exports
-export type AchievementsRow = Database['public']['Tables']['achievements']['Row']
-export type AchievementEventsRow = Database['public']['Tables']['achievements']['Row']
-export type UserAchievementsRow = Database['public']['Tables']['user_achievements']['Row']
-export type AchievementCategory = Database['public']['Enums']['achievement_category']
-export type AchievementRecipientRole = Database['public']['Enums']['achievement_recipient_role']
-export type AchievementTriggerEvent = Database['public']['Enums']['achievement_trigger_event']
+// Convenience type exports for legacy code compatibility
+export type AchievementsRow = Tables<"achievements">
+export type UserAchievementsRow = Tables<"user_achievements">
+export type AchievementCategory = Database["public"]["Enums"]["achievement_category"]
+export type AchievementRecipientRole = Database["public"]["Enums"]["achievement_recipient_role"]
+export type AchievementTriggerEvent = Database["public"]["Enums"]["achievement_trigger_event"]
 
-export type DailyTasksRow = Database['public']['Tables']['daily_tasks']['Row']
-export type DailyAssignmentsRow = Database['public']['Tables']['daily_assignments']['Row']
-export type UserDailyProgressRow = Database['public']['Tables']['user_daily_progress']['Row']
-export type UserDailyStreaksRow = Database['public']['Tables']['user_daily_streaks']['Row']
-export type DailyTaskKind = string
+export type DailyTasksRow = Tables<"daily_tasks">
+export type DailyAssignmentsRow = Tables<"daily_assignments">
+export type UserDailyProgressRow = Tables<"user_daily_progress">
+export type UserDailyStreaksRow = Tables<"user_daily_streaks">
+export type DailyTaskKind = string // "catch" | "view_bio" | "share" | "leaderboard" | "meta"
 
-export type FursuitsRow = Database['public']['Tables']['fursuits']['Row']
-export type FursuitsInsert = Database['public']['Tables']['fursuits']['Insert']
-export type FursuitBiosInsert = Database['public']['Tables']['fursuit_bios']['Insert']
+export type FursuitsRow = Tables<"fursuits">
+export type FursuitsInsert = TablesInsert<"fursuits">
+export type FursuitBiosInsert = TablesInsert<"fursuit_bios">
+
+// Legacy removed type - no longer exists in database
+export type AchievementEventsRow = never
+
+// FursuitSocialLink type based on JSONB schema
 export type FursuitSocialLink = {
   label: string
   url: string
 }
-
-export type CatchMode = Database['public']['Enums']['catch_mode']
-export type CatchStatus = Database['public']['Enums']['catch_status']

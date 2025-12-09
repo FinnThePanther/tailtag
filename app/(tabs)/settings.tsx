@@ -8,13 +8,14 @@ import {
 } from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
+import { STAFF_MODE_ENABLED } from '../../src/constants/features';
 import { AVATAR_BUCKET, MAX_IMAGE_SIZE } from '../../src/constants/storage';
 import {
   CONVENTIONS_QUERY_KEY,
@@ -41,6 +42,7 @@ import {
   PROFILE_STALE_TIME,
 } from '../../src/features/profile';
 import type { ProfileSummary } from '../../src/features/profile';
+import { canUseStaffMode } from '../../src/features/staff-mode/constants';
 import {
   CAUGHT_SUITS_QUERY_KEY,
   CAUGHT_SUITS_STALE_TIME,
@@ -58,6 +60,7 @@ type UploadCandidate = {
 } | null;
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { session, forceSignOut } = useAuth();
   const userId = session?.user.id ?? null;
 
@@ -333,6 +336,10 @@ export default function SettingsScreen() {
   const isStatsLoading = isCaughtSuitsLoading || isProfileConventionsLoading;
   const caughtSuitCount = caughtSuits.length;
   const attendedConventionCount = profileConventionIds.length;
+  const staffModeAllowed = useMemo(
+    () => STAFF_MODE_ENABLED && canUseStaffMode(profile?.role ?? null),
+    [profile?.role]
+  );
 
   const isDirty = (() => {
     const usernameChanged = (profile?.username ?? '') !== usernameInput.trim();
@@ -426,6 +433,7 @@ export default function SettingsScreen() {
         avatar_url: nextAvatarUrl,
         is_new: current?.is_new ?? false,
         onboarding_completed: current?.onboarding_completed ?? false,
+        role: current?.role,
       }));
       setUsernameInput(trimmedUsername);
       setBioInput(trimmedBio);
@@ -817,6 +825,21 @@ export default function SettingsScreen() {
             {conventionError ? <Text style={styles.error}>{conventionError}</Text> : null}
           </View>
         </TailTagCard>
+
+        {staffModeAllowed ? (
+          <TailTagCard>
+            <View style={styles.accountSection}>
+              <Text style={styles.sectionTitle}>Staff Mode</Text>
+              <Text style={styles.sectionDescription}>
+                On-site search and scan tools for staff, organizers, and owners.
+              </Text>
+              <TailTagButton onPress={() => router.push('/staff-mode')}>Open Staff Mode</TailTagButton>
+              <Text style={styles.sectionHint}>
+                You may be prompted to re-authenticate before using staff tools.
+              </Text>
+            </View>
+          </TailTagCard>
+        ) : null}
 
         <TailTagCard>
           <View style={styles.accountSection}>
