@@ -37,3 +37,4 @@ App runs on http://localhost:3000. Login with a Supabase Auth user whose `profil
 - Server actions use the service role; ensure env var is present before running.
 - CSV export currently limits to 2000 rows per request.
 - Mobile Staff Mode in the main app is gated by `EXPO_PUBLIC_STAFF_MODE_ENABLED` and roles.
+- Database types (`types/database.ts`) are copied from the main app. If schema changes, re-copy from `../src/types/database.ts`.
