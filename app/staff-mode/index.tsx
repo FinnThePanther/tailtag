@@ -255,4 +255,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(148,163,184,0.2)',
     marginVertical: spacing.sm,
   },
+  lastSection: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
 });

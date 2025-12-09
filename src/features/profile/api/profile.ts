@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { captureSupabaseError } from '../../../lib/sentry';
-import type { Database } from '../../../types/database';
+type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
 
 export type ProfileSummary = {
   username: string | null;
@@ -8,7 +8,7 @@ export type ProfileSummary = {
   avatar_url: string | null;
   is_new: boolean;
   onboarding_completed: boolean;
-  role?: Database['public']['Enums']['user_role'];
+  role?: UserRole;
 };
 
 export const PROFILE_QUERY_KEY = 'profile';

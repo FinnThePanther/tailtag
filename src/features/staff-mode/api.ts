@@ -1,12 +1,12 @@
 import { supabase } from '../../lib/supabase';
 import { captureSupabaseError } from '../../lib/sentry';
-import type { Database } from '../../types/database';
+type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
 
 export type StaffPlayerResult = {
   id: string;
   username: string | null;
   email: string | null;
-  role: Database['public']['Enums']['user_role'];
+  role: UserRole;
   is_suspended: boolean;
   fursuit_count: number;
   catch_count: number;
@@ -18,7 +18,7 @@ export async function searchPlayersForStaff(term: string): Promise<StaffPlayerRe
     return [];
   }
 
-  const { data, error } = await supabase.rpc('search_players', {
+  const { data, error } = await (supabase as any).rpc('search_players', {
     search_term: trimmed,
     limit_count: 10,
     offset_count: 0,
@@ -32,11 +32,15 @@ export async function searchPlayersForStaff(term: string): Promise<StaffPlayerRe
     throw error;
   }
 
-  return (data ?? []).map((row: any) => ({
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return data.map((row: any) => ({
     id: row.id,
     username: row.username ?? null,
     email: row.email ?? null,
-    role: row.role,
+    role: row.role as UserRole,
     is_suspended: row.is_suspended === true,
     fursuit_count: Number(row.fursuit_count ?? 0),
     catch_count: Number(row.catch_count ?? 0),

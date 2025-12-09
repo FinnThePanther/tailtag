@@ -1,19 +1,30 @@
 import { NextResponse } from 'next/server';
 
 import { createServiceRoleClient } from '@/lib/supabase/service';
+import { requireAdminProfile } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  await requireAdminProfile(); // Gate export to authorized admin roles
+
   const supabase = createServiceRoleClient();
   const conventionId = params.id;
+  if (!conventionId) {
+    return NextResponse.json({ error: 'Missing convention id' }, { status: 400 });
+  }
+
+  // Optional ?limit= query param with sane cap
+  const url = new URL(req.url);
+  const limitParam = Number(url.searchParams.get('limit') ?? '2000');
+  const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 10000) : 2000;
 
   const { data, error } = await supabase
     .from('catches')
     .select('id, catcher_id, fursuit_id, convention_id, status, caught_at, decided_at, rejection_reason')
     .eq('convention_id', conventionId)
     .order('caught_at', { ascending: false })
-    .limit(2000);
+    .limit(limit);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
