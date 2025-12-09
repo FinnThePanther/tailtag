@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShieldCheck, Users, CalendarDays, UserCog, FileClock } from 'lucide-react';
+import { ShieldCheck, Users, CalendarDays, UserCog, FileClock, Tag } from 'lucide-react';
 import clsx from 'clsx';
 
 import type { AdminProfile } from '@/lib/auth';
@@ -11,6 +11,7 @@ const navItems = [
   { href: '/dashboard', label: 'Overview', icon: ShieldCheck },
   { href: '/players', label: 'Players', icon: Users },
   { href: '/conventions', label: 'Conventions', icon: CalendarDays },
+  { href: '/tags', label: 'Tags', icon: Tag },
   { href: '/staff', label: 'Staff', icon: UserCog },
   { href: '/audit', label: 'Audit Log', icon: FileClock },
 ];

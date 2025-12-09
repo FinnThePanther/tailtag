@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation';
-import { Users, MapPin, CalendarRange } from 'lucide-react';
+import { Users, MapPin, CalendarRange, SlidersHorizontal } from 'lucide-react';
 
 import { Card } from '@/components/card';
 import { Table } from '@/components/table';
 import { fetchConvention } from '@/lib/data';
+import { ConventionConfigForm } from '@/components/convention-config-form';
 
 export default async function ConventionDetail({ params }: { params: { id: string } }) {
   const { convention, staff } = await fetchConvention(params.id);
@@ -11,6 +12,8 @@ export default async function ConventionDetail({ params }: { params: { id: strin
   if (!convention) {
     notFound();
   }
+
+  const config = normalizeConfig(convention.config);
 
   return (
     <div className="space-y-4">
@@ -28,6 +31,20 @@ export default async function ConventionDetail({ params }: { params: { id: strin
             {staff?.length ?? 0}
           </Info>
         </div>
+      </Card>
+
+      <Card
+        title="Configuration"
+        subtitle="Adjust event rules and feature flags"
+        actions={<SlidersHorizontal size={16} className="text-primary" />}
+      >
+        <ConventionConfigForm
+          conventionId={convention.id}
+          catchCooldownSeconds={config.catchCooldownSeconds}
+          catchPoints={config.catchPoints}
+          featureTagScan={config.featureTagScan}
+          featureStaffMode={config.featureStaffMode}
+        />
       </Card>
 
       <Card title="Staff assignments" subtitle="People assigned to this convention">
@@ -68,4 +85,12 @@ function Info({ icon, label, children }: { icon: React.ReactNode; label: string;
       </div>
     </div>
   );
+}
+
+function normalizeConfig(raw: any) {
+  const catchCooldownSeconds = Number(raw?.cooldowns?.catch_seconds ?? 0);
+  const catchPoints = Number(raw?.points?.catch ?? 1);
+  const featureTagScan = Boolean(raw?.feature_flags?.tag_scan ?? true);
+  const featureStaffMode = Boolean(raw?.feature_flags?.staff_mode ?? true);
+  return { catchCooldownSeconds, catchPoints, featureTagScan, featureStaffMode };
 }

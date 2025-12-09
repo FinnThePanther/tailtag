@@ -158,3 +158,47 @@ export async function fetchStaffAssignments() {
   }
   return data;
 }
+
+export async function fetchTags(limit = 50) {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from('nfc_tags')
+    .select(
+      [
+        'uid',
+        'status',
+        'fursuit_id',
+        'registered_by_user_id',
+        'registered_at',
+        'linked_at',
+        'updated_at',
+        'fursuits(name)',
+        'profiles:registered_by_user_id(username)',
+      ].join(', ')
+    )
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export async function fetchTagActivity(uid: string) {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from('tag_activity')
+    .select('seen_at, convention_id, catcher_id')
+    .eq('tag_uid', uid)
+    .order('seen_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
