@@ -52,7 +52,12 @@ export default async function ConventionDetail({ params }: { params: { id: strin
           {staff?.map((assignment) => (
             <tr key={assignment.id}>
               <td className="px-4 py-3 text-slate-200">
-                {assignment.profiles?.username ?? 'Unknown'}
+                {(() => {
+                  const profile = Array.isArray(assignment.profiles)
+                    ? assignment.profiles[0]
+                    : assignment.profiles;
+                  return profile?.username ?? 'Unknown';
+                })()}
               </td>
               <td className="px-4 py-3 capitalize text-slate-200">{assignment.role}</td>
               <td className="px-4 py-3 text-slate-200">{assignment.status}</td>

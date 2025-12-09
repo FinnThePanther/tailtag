@@ -196,7 +196,12 @@ export async function fetchTags(limit = 50) {
     throw error;
   }
 
-  return (data ?? []) as any;
+  return (data ?? []) as Array<
+    Database['public']['Tables']['nfc_tags']['Row'] & {
+      fursuits?: { name?: string | null };
+      profiles?: { username?: string | null };
+    }
+  >;
 }
 
 export async function fetchTagActivity(uid: string) {
@@ -255,7 +260,12 @@ export async function fetchReports(params: {
   if (error) {
     throw error;
   }
-  return (data ?? []) as any;
+  return (data ?? []) as Array<
+    Database['public']['Tables']['user_reports']['Row'] & {
+      profiles?: { username?: string | null } | { username?: string | null }[];
+      reported?: { username?: string | null } | { username?: string | null }[];
+    }
+  >;
 }
 
 export async function fetchFursuitQueue(limit = 50) {
@@ -286,7 +296,13 @@ export async function fetchFursuitQueue(limit = 50) {
   if (error) {
     throw error;
   }
-  return (data ?? []) as any;
+  return (data ?? []) as Array<
+    Database['public']['Tables']['fursuit_moderation_queue']['Row'] & {
+      fursuits?: { name?: string | null; owner_id?: string | null };
+      flagger?: { username?: string | null };
+      reviewer?: { username?: string | null };
+    }
+  >;
 }
 
 export async function fetchAchievements() {

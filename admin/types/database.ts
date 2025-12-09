@@ -1,1 +1,1 @@
-export type { Database } from '../src/types/database';
+export type { Database } from '../../src/types/database';

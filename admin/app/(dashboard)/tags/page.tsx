@@ -8,7 +8,7 @@ export default async function TagsPage() {
   const tags = await fetchTags(100);
 
   const tagsWithActivity = await Promise.all(
-    tags.map(async (tag) => {
+    tags.map(async (tag: any) => {
       const activity = await fetchTagActivity(tag.uid).catch(() => null);
       return { ...tag, last_activity: activity };
     })

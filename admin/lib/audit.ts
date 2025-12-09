@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from './supabase/service';
+import type { Database } from '@/types/database';
 
 type AuditEntry = {
   actorId: string;
@@ -18,5 +19,5 @@ export async function logAudit(entry: AuditEntry) {
     entity_id: entry.entityId ?? null,
     diff: entry.diff ?? null,
     context: entry.context ?? null,
-  });
+  } as Database['public']['Tables']['audit_log']['Insert']);
 }

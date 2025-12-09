@@ -3,8 +3,8 @@ import { redirect } from 'next/navigation';
 import type { Database } from '@/types/database';
 import { createServerSupabaseClient } from './supabase/server';
 
-export const adminRoles = ['owner', 'organizer', 'staff', 'moderator'] as const;
-export type AdminRole = (typeof adminRoles)[number];
+export type AdminRole = 'owner' | 'organizer' | 'staff' | 'moderator';
+export const adminRoles: AdminRole[] = ['owner', 'organizer', 'staff', 'moderator'];
 
 export type AdminProfile = Pick<
   Database['public']['Tables']['profiles']['Row'],

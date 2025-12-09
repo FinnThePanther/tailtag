@@ -27,16 +27,23 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
       </Card>
       <Card title="Reports" subtitle={`Total: ${reports.length}`}>
         <Table headers={['Type', 'Severity', 'Status', 'Reporter', 'Target', 'Created', 'Actions']}>
-          {reports.map((report) => (
-            <tr key={report.id}>
+        {reports.map((report: any) => {
+          const id = (report as any)?.id ?? '';
+          const reporter = Array.isArray(report.profiles)
+            ? report.profiles[0]?.username
+            : (report.profiles as any)?.username;
+          const target = Array.isArray(report.reported)
+            ? report.reported[0]?.username
+            : (report.reported as any)?.username;
+
+          return (
+            <tr key={id}>
               <td className="px-4 py-3 text-slate-200">{report.report_type}</td>
               <td className="px-4 py-3 capitalize text-slate-200">{report.severity}</td>
               <td className="px-4 py-3 capitalize text-slate-200">{report.status}</td>
+              <td className="px-4 py-3 text-slate-200">{reporter ?? report.reporter_id}</td>
               <td className="px-4 py-3 text-slate-200">
-                {report.profiles?.username ?? report.reporter_id}
-              </td>
-              <td className="px-4 py-3 text-slate-200">
-                {report.reported?.username ?? report.reported_user_id ?? report.reported_fursuit_id ?? '—'}
+                {target ?? report.reported_user_id ?? report.reported_fursuit_id ?? '—'}
               </td>
               <td className="px-4 py-3 text-slate-200">
                 {report.created_at ? new Date(report.created_at).toLocaleString() : '—'}
@@ -45,11 +52,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
                 {report.status === 'resolved' || report.status === 'dismissed' ? (
                   <span className="text-xs text-muted">Closed</span>
                 ) : (
-                  <ReportActions reportId={report.id} />
+                  <ReportActions reportId={id} />
                 )}
               </td>
             </tr>
-          ))}
+          );
+        })}
           {!reports.length ? (
             <tr>
               <td className="px-4 py-3 text-sm text-muted" colSpan={7}>

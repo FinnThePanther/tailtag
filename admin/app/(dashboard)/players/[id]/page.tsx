@@ -32,7 +32,7 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
       >
         <div className="grid gap-4 md:grid-cols-4">
           <Info label="Role" value={profile.role} />
-          <Info label="Created" value={new Date(profile.created_at).toLocaleDateString()} />
+          <Info label="Created" value={profile.created_at ? new Date(profile.created_at).toLocaleDateString() : '—'} />
           <Info label="Suspended until" value={profile.suspended_until ?? '—'} />
           <Info label="Suspension reason" value={profile.suspension_reason ?? '—'} />
         </div>
@@ -41,12 +41,12 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Moderation summary" subtitle="Counts and flags">
           <div className="grid gap-3 sm:grid-cols-2">
-            <SummaryMetric label="Active bans" value={moderationSummary?.active_bans ?? 0} />
-            <SummaryMetric label="Active mutes" value={moderationSummary?.active_mutes ?? 0} />
-            <SummaryMetric label="Warnings" value={moderationSummary?.warning_count ?? 0} />
-            <SummaryMetric label="Reports" value={moderationSummary?.report_count ?? 0} />
-            <SummaryMetric label="Pending reports" value={moderationSummary?.pending_reports ?? 0} />
-            <SummaryMetric label="Flagged suits" value={moderationSummary?.flagged_fursuits ?? 0} />
+            <SummaryMetric label="Active bans" value={(moderationSummary as any)?.active_bans ?? 0} />
+            <SummaryMetric label="Active mutes" value={(moderationSummary as any)?.active_mutes ?? 0} />
+            <SummaryMetric label="Warnings" value={(moderationSummary as any)?.warning_count ?? 0} />
+            <SummaryMetric label="Reports" value={(moderationSummary as any)?.report_count ?? 0} />
+            <SummaryMetric label="Pending reports" value={(moderationSummary as any)?.pending_reports ?? 0} />
+            <SummaryMetric label="Flagged suits" value={(moderationSummary as any)?.flagged_fursuits ?? 0} />
           </div>
         </Card>
         <ModerationPanel userId={profile.id} isSuspended={profile.is_suspended} conventions={conventions} />
