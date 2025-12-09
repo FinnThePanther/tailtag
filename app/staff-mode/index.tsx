@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -32,11 +32,18 @@ export default function StaffModeScreen() {
   const staffAllowed = STAFF_MODE_ENABLED && canUseStaffMode(profile?.role ?? null);
 
   const [search, setSearch] = useState('');
+  const [lastResult, setLastResult] = useState<StaffPlayerResult | null>(null);
   const { data: results = [], isFetching, error: searchError, refetch } = useQuery({
     queryKey: ['staff-mode-search', search],
     enabled: staffAllowed && search.trim().length > 2,
     queryFn: () => searchPlayersForStaff(search),
   });
+
+  useEffect(() => {
+    if (results.length > 0) {
+      setLastResult(results[0]);
+    }
+  }, [results]);
 
   const statusMessage = useMemo(() => {
     if (!STAFF_MODE_ENABLED) return 'Staff Mode is disabled in this build.';
@@ -97,6 +104,18 @@ export default function StaffModeScreen() {
                 renderItem={({ item }) => <PlayerRow player={item} />}
               />
             )}
+          </View>
+        ) : null}
+
+        {staffAllowed && lastResult ? (
+          <View style={styles.lastSection}>
+            <View style={styles.headerRow}>
+              <Text style={styles.sectionTitle}>Last lookup</Text>
+              <TailTagButton variant="ghost" size="sm" onPress={() => setSearch(lastResult.username ?? '')}>
+                Search again
+              </TailTagButton>
+            </View>
+            <PlayerRow player={lastResult} />
           </View>
         ) : null}
       </TailTagCard>

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ShieldCheck,
   Users,
@@ -11,23 +11,25 @@ import {
   Tag,
   Flag,
   Shield,
-} from 'lucide-react';
-import clsx from 'clsx';
+  Check,
+} from "lucide-react";
+import clsx from "clsx";
 
-import type { AdminProfile } from '@/lib/auth';
+import type { AdminProfile } from "@/lib/auth";
 
 const navItems = [
-  { href: '/dashboard', label: 'Overview', icon: ShieldCheck },
-  { href: '/players', label: 'Players', icon: Users },
-  { href: '/conventions', label: 'Conventions', icon: CalendarDays },
-  { href: '/tags', label: 'Tags', icon: Tag },
-  { href: '/staff', label: 'Staff', icon: UserCog },
-  { href: '/analytics', label: 'Analytics', icon: ShieldCheck },
-  { href: '/achievements', label: 'Achievements', icon: ShieldCheck },
-  { href: '/errors', label: 'Errors', icon: ShieldCheck },
-  { href: '/reports', label: 'Reports', icon: Flag },
-  { href: '/fursuits', label: 'Fursuit Queue', icon: Shield },
-  { href: '/audit', label: 'Audit Log', icon: FileClock },
+  { href: "/dashboard", label: "Overview", icon: ShieldCheck },
+  { href: "/players", label: "Players", icon: Users },
+  { href: "/conventions", label: "Conventions", icon: CalendarDays },
+  { href: "/tags", label: "Tags", icon: Tag },
+  { href: "/staff", label: "Staff", icon: UserCog },
+  { href: "/analytics", label: "Analytics", icon: ShieldCheck },
+  { href: "/achievements", label: "Achievements", icon: ShieldCheck },
+  { href: "/errors", label: "Errors", icon: ShieldCheck },
+  { href: "/checklist", label: "Pre-Event Checklist", icon: Check },
+  { href: "/reports", label: "Reports", icon: Flag },
+  { href: "/fursuits", label: "Fursuit Queue", icon: Shield },
+  { href: "/audit", label: "Audit Log", icon: FileClock },
 ];
 
 export function Sidebar({ profile }: { profile: AdminProfile }) {
@@ -42,19 +44,23 @@ export function Sidebar({ profile }: { profile: AdminProfile }) {
       <nav className="flex-1 space-y-1">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const isActive =
+            pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.href}
               href={item.href}
               className={clsx(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition',
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
                 isActive
-                  ? 'bg-white/5 text-white ring-1 ring-primary/60'
-                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                  ? "bg-white/5 text-white ring-1 ring-primary/60"
+                  : "text-slate-300 hover:bg-white/5 hover:text-white"
               )}
             >
-              <Icon size={18} className={isActive ? 'text-primary' : 'text-slate-400'} />
+              <Icon
+                size={18}
+                className={isActive ? "text-primary" : "text-slate-400"}
+              />
               <span>{item.label}</span>
             </Link>
           );
@@ -64,7 +70,9 @@ export function Sidebar({ profile }: { profile: AdminProfile }) {
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-white/5" />
           <div>
-            <div className="text-sm font-semibold text-white">{profile.username ?? 'Admin'}</div>
+            <div className="text-sm font-semibold text-white">
+              {profile.username ?? "Admin"}
+            </div>
             <div className="capitalize text-muted">{profile.role}</div>
           </div>
         </div>
