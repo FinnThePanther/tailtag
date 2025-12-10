@@ -10,6 +10,25 @@ export type ConventionSummary = {
   start_date: string | null;
   end_date: string | null;
   timezone: string;
+  latitude: number | null;
+  longitude: number | null;
+  geofence_radius_meters: number | null;
+  geofence_enabled: boolean;
+  location_verification_required: boolean;
+};
+
+export type VerifiedLocation = {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+};
+
+export type OptInParams = {
+  profileId: string;
+  conventionId: string;
+  verifiedLocation?: VerifiedLocation | null;
+  verificationMethod?: 'none' | 'gps' | 'manual_override' | 'grandfathered';
+  overrideReason?: string | null;
 };
 
 export const CONVENTIONS_QUERY_KEY = 'conventions';
@@ -20,7 +39,22 @@ export async function fetchConventions(): Promise<ConventionSummary[]> {
   const client = supabase as any;
   const { data, error } = await client
     .from('conventions')
-    .select('id, slug, name, location, start_date, end_date, timezone')
+    .select(
+      [
+        'id',
+        'slug',
+        'name',
+        'location',
+        'start_date',
+        'end_date',
+        'timezone',
+        'latitude',
+        'longitude',
+        'geofence_radius_meters',
+        'geofence_enabled',
+        'location_verification_required',
+      ].join(', ')
+    )
     .order('start_date', { ascending: true, nullsFirst: false })
     .order('name', { ascending: true });
 
@@ -40,6 +74,11 @@ export async function fetchConventions(): Promise<ConventionSummary[]> {
     start_date: convention.start_date ?? null,
     end_date: convention.end_date ?? null,
     timezone: convention.timezone ?? 'UTC',
+    latitude: convention.latitude ?? null,
+    longitude: convention.longitude ?? null,
+    geofence_radius_meters: convention.geofence_radius_meters ?? null,
+    geofence_enabled: Boolean(convention.geofence_enabled),
+    location_verification_required: Boolean(convention.location_verification_required),
   }));
 }
 
@@ -70,14 +109,29 @@ export async function fetchProfileConventionIds(profileId: string): Promise<stri
   return (data ?? []).map((row: any) => row.convention_id);
 }
 
-export async function optInToConvention(profileId: string, conventionId: string): Promise<void> {
+export async function optInToConvention(params: OptInParams): Promise<void> {
+  const {
+    profileId,
+    conventionId,
+    verifiedLocation = null,
+    verificationMethod = verifiedLocation ? 'gps' : 'none',
+    overrideReason = null,
+  } = params;
+
   const client = supabase as any;
-  const { error } = await client
-    .from('profile_conventions')
-    .upsert(
-      { profile_id: profileId, convention_id: conventionId },
-      { onConflict: 'profile_id, convention_id' }
-    );
+  const { error } = await client.rpc('opt_in_to_convention', {
+    p_profile_id: profileId,
+    p_convention_id: conventionId,
+    p_verified_location: verifiedLocation
+      ? {
+          lat: verifiedLocation.latitude,
+          lng: verifiedLocation.longitude,
+          accuracy: verifiedLocation.accuracy,
+        }
+      : null,
+    p_verification_method: verificationMethod,
+    p_override_reason: overrideReason,
+  });
 
   if (error) {
     captureSupabaseError(error, {
@@ -96,6 +150,7 @@ export async function optInToConvention(profileId: string, conventionId: string)
     payload: {
       profile_id: profileId,
       convention_id: conventionId,
+      verification_method: verificationMethod,
     },
   }).catch((error) => {
     captureHandledException(error, {

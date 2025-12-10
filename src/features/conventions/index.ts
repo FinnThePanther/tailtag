@@ -11,3 +11,8 @@ export {
   addFursuitConvention,
   removeFursuitConvention,
 } from './api/conventions';
+export {
+  verifyConventionLocation,
+  type LocationVerificationRequest,
+  type LocationVerificationResponse,
+} from './api/geoVerification';

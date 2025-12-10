@@ -506,22 +506,22 @@ export default function SettingsScreen() {
       });
 
       try {
-       if (isSelected) {
-         await optOutOfConvention(userId, conventionId);
-         queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) =>
-           (current ?? []).filter((value) => value !== conventionId)
-         );
-       } else {
-         await optInToConvention(userId, conventionId);
-         queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) => {
-           const next = new Set(current ?? []);
-           next.add(conventionId);
-           return Array.from(next);
-         });
-       }
+        if (isSelected) {
+          await optOutOfConvention(userId, conventionId);
+          queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) =>
+            (current ?? []).filter((value) => value !== conventionId)
+          );
+        } else {
+          await optInToConvention({ profileId: userId, conventionId });
+          queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) => {
+            const next = new Set(current ?? []);
+            next.add(conventionId);
+            return Array.from(next);
+          });
+        }
         void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
         void queryClient.invalidateQueries({ queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId] });
-     } catch (caught) {
+      } catch (caught) {
         const fallbackMessage =
           caught instanceof Error
             ? caught.message

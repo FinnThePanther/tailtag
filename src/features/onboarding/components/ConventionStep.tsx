@@ -109,7 +109,7 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
       const operations: Promise<void>[] = [];
 
       toAdd.forEach((conventionId) => {
-        operations.push(optInToConvention(userId, conventionId));
+        operations.push(optInToConvention({ profileId: userId, conventionId }));
       });
 
       toRemove.forEach((conventionId) => {
