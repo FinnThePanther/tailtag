@@ -151,7 +151,7 @@ export async function fetchConvention(conventionId: string): Promise<{
     .eq('id', conventionId)
     .single();
 
-  if (conventionError) {
+  if (conventionError && conventionError.code !== 'PGRST116') {
     throw conventionError;
   }
 
