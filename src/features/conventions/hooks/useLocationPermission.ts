@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 
 import { supabase } from '@/lib/supabase';
@@ -22,11 +22,34 @@ export function useLocationPermission(profileId?: string): UseLocationPermission
   const [status, setStatus] = useState<LocationPermissionStatus>('not_determined');
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    void checkPermission();
-  }, []);
+  const persistPermission = useCallback(
+    async (nextStatus: LocationPermissionStatus, source: PermissionSource) => {
+      if (!profileId) return;
+      const now = new Date().toISOString();
+      const payload: Record<string, unknown> = {
+        location_permission_status: nextStatus === 'not_determined' ? 'not_requested' : nextStatus,
+      };
 
-  async function checkPermission() {
+      if (source === 'request') {
+        payload.location_permission_requested_at = now;
+      }
+      if (nextStatus === 'granted') {
+        payload.location_permission_granted_at = now;
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', profileId);
+
+      if (error) {
+        captureHandledException(error, { scope: 'location-permission.persist', profileId });
+      }
+    },
+    [profileId]
+  );
+
+  const checkPermission = useCallback(async () => {
     try {
       const { status: nativeStatus } = await Location.getForegroundPermissionsAsync();
       const mapped = mapPermissionStatus(nativeStatus);
@@ -35,7 +58,11 @@ export function useLocationPermission(profileId?: string): UseLocationPermission
     } catch (error) {
       captureHandledException(error, { scope: 'location-permission.check' });
     }
-  }
+  }, [persistPermission]);
+
+  useEffect(() => {
+    void checkPermission();
+  }, [checkPermission]);
 
   async function requestPermission(): Promise<boolean> {
     setIsLoading(true);
@@ -50,30 +77,6 @@ export function useLocationPermission(profileId?: string): UseLocationPermission
       return false;
     } finally {
       setIsLoading(false);
-    }
-  }
-
-  async function persistPermission(nextStatus: LocationPermissionStatus, source: PermissionSource) {
-    if (!profileId) return;
-    const now = new Date().toISOString();
-    const payload: Record<string, unknown> = {
-      location_permission_status: nextStatus === 'not_determined' ? 'not_requested' : nextStatus,
-    };
-
-    if (source === 'request') {
-      payload.location_permission_requested_at = now;
-    }
-    if (nextStatus === 'granted') {
-      payload.location_permission_granted_at = now;
-    }
-
-    const { error } = await supabase
-      .from('profiles')
-      .update(payload)
-      .eq('id', profileId);
-
-    if (error) {
-      captureHandledException(error, { scope: 'location-permission.persist', profileId });
     }
   }
 

@@ -32,7 +32,7 @@ export function VerificationErrorModal({
         <Pressable style={styles.cardWrapper} onPress={(event) => event.stopPropagation()}>
           <TailTagCard>
             <View style={styles.iconRow}>
-              <Ionicons name="warning-outline" size={48} color={colors.error} />
+              <Ionicons name="warning-outline" size={48} color={colors.destructive} />
             </View>
             <Text style={styles.title}>Couldn&apos;t verify location</Text>
             <Text style={styles.body}>{error ?? 'You must be at the convention to join.'}</Text>
