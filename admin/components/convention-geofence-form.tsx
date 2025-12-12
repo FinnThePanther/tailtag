@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -69,7 +69,7 @@ export function ConventionGeofenceForm({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [viewState, setViewState] = useState(initialView);
+  const mapRef = useRef<any>(null);
 
   const mapModule = useMapLibre();
   const Map = mapModule?.Map;
@@ -78,14 +78,13 @@ export function ConventionGeofenceForm({
   const Layer = mapModule?.Layer;
 
   useEffect(() => {
-    if (latitude !== null && longitude !== null) {
-      setViewState((prev) => ({
-        ...prev,
-        latitude,
-        longitude,
-        zoom: 14,
-      }));
-    }
+    if (!mapRef.current) return;
+    if (latitude === null || longitude === null) return;
+    mapRef.current.flyTo?.({
+      center: [longitude, latitude],
+      zoom: 14,
+      essential: true,
+    });
   }, [latitude, longitude]);
 
   useEffect(() => {
@@ -130,11 +129,6 @@ export function ConventionGeofenceForm({
     }
     setLatitude(result.latitude);
     setLongitude(result.longitude);
-    setViewState({
-      latitude: result.latitude,
-      longitude: result.longitude,
-      zoom: 14,
-    });
     setSearchResults([]);
   };
 
@@ -252,11 +246,10 @@ export function ConventionGeofenceForm({
         <div className="rounded-xl border border-border bg-background/70 p-2">
           {Map && mapModule?.maplibregl ? (
             <Map
+              ref={mapRef}
               reuseMaps
               mapLib={mapModule.maplibregl}
               initialViewState={initialView}
-              viewState={viewState}
-              onMove={(event: any) => setViewState(event.viewState)}
               onClick={(event: any) => handleMapClick(event.lngLat)}
               style={{ width: '100%', height: 360 }}
               mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
