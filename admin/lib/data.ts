@@ -86,7 +86,23 @@ export async function fetchConventions() {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from('conventions')
-    .select('id, name, slug, start_date, end_date, location, timezone, config')
+    .select(
+      [
+        'id',
+        'name',
+        'slug',
+        'start_date',
+        'end_date',
+        'location',
+        'timezone',
+        'config',
+        'latitude',
+        'longitude',
+        'geofence_radius_meters',
+        'geofence_enabled',
+        'location_verification_required',
+      ].join(', ')
+    )
     .order('start_date', { ascending: false });
   if (error) {
     throw error;
@@ -110,7 +126,23 @@ export async function fetchConvention(conventionId: string) {
   // TODO: Create event_staff table in database
   const convention = await supabase
     .from('conventions')
-    .select('id, name, slug, start_date, end_date, location, timezone, config')
+    .select(
+      [
+        'id',
+        'name',
+        'slug',
+        'start_date',
+        'end_date',
+        'location',
+        'timezone',
+        'config',
+        'latitude',
+        'longitude',
+        'geofence_radius_meters',
+        'geofence_enabled',
+        'location_verification_required',
+      ].join(', ')
+    )
     .eq('id', conventionId)
     .single();
 
