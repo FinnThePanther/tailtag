@@ -27,7 +27,7 @@ import {
   PROFILE_CONVENTIONS_QUERY_KEY,
 } from '../../src/features/conventions';
 import { useAuth } from '../../src/features/auth';
-import type { ConventionSummary } from '../../src/features/conventions';
+import type { ConventionSummary, VerifiedLocation } from '../../src/features/conventions';
 import { ConventionToggle } from '../../src/components/conventions/ConventionToggle';
 import { supabase } from '../../src/lib/supabase';
 import { captureHandledException } from '../../src/lib/sentry';
@@ -487,7 +487,7 @@ export default function SettingsScreen() {
   ]);
 
   const handleToggleProfileConvention = useCallback(
-    async (conventionId: string, isSelected: boolean) => {
+    async (conventionId: string, nextSelected: boolean, verifiedLocation?: VerifiedLocation | null) => {
       if (!userId) {
         return;
       }
@@ -506,22 +506,27 @@ export default function SettingsScreen() {
       });
 
       try {
-       if (isSelected) {
-         await optOutOfConvention(userId, conventionId);
-         queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) =>
-           (current ?? []).filter((value) => value !== conventionId)
-         );
-       } else {
-         await optInToConvention(userId, conventionId);
-         queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) => {
-           const next = new Set(current ?? []);
-           next.add(conventionId);
-           return Array.from(next);
-         });
-       }
+        if (!nextSelected) {
+          await optOutOfConvention(userId, conventionId);
+          queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) =>
+            (current ?? []).filter((value) => value !== conventionId)
+          );
+        } else {
+          await optInToConvention({
+            profileId: userId,
+            conventionId,
+            verifiedLocation: verifiedLocation ?? undefined,
+            verificationMethod: verifiedLocation ? 'gps' : 'none',
+          });
+          queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) => {
+            const next = new Set(current ?? []);
+            next.add(conventionId);
+            return Array.from(next);
+          });
+        }
         void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
         void queryClient.invalidateQueries({ queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId] });
-     } catch (caught) {
+      } catch (caught) {
         const fallbackMessage =
           caught instanceof Error
             ? caught.message
@@ -815,7 +820,10 @@ export default function SettingsScreen() {
                       convention={convention}
                       selected={isSelected}
                       pending={isPending}
-                      onToggle={() => handleToggleProfileConvention(convention.id, isSelected)}
+                      profileId={userId ?? undefined}
+                      onToggle={(conventionId, nextSelected, verifiedLocation) =>
+                        handleToggleProfileConvention(conventionId, nextSelected, verifiedLocation)
+                      }
                     />
                   );
                 })}

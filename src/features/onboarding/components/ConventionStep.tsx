@@ -13,6 +13,7 @@ import {
   optOutOfConvention,
   PROFILE_CONVENTIONS_QUERY_KEY,
   type ConventionSummary,
+  type VerifiedLocation,
 } from '../../conventions';
 import { ConventionToggle } from '../../../components/conventions/ConventionToggle';
 import { colors, spacing } from '../../../theme';
@@ -28,6 +29,7 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
   const hasInitializedSelectionsRef = useRef(false);
   const [searchInput, setSearchInput] = useState('');
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
+  const [verifiedLocations, setVerifiedLocations] = useState<Record<string, VerifiedLocation>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -76,13 +78,27 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
     });
   }, [conventions, searchInput]);
 
-  const toggleConvention = (conventionId: string) => {
+  const toggleConvention = (
+    conventionId: string,
+    nextSelected: boolean,
+    verifiedLocation?: VerifiedLocation | null
+  ) => {
     setSelectedConventionIds((current) => {
       const next = new Set(current);
-      if (next.has(conventionId)) {
-        next.delete(conventionId);
-      } else {
+      if (nextSelected) {
         next.add(conventionId);
+      } else {
+        next.delete(conventionId);
+      }
+      return next;
+    });
+
+    setVerifiedLocations((current) => {
+      const next = { ...current };
+      if (nextSelected && verifiedLocation) {
+        next[conventionId] = verifiedLocation;
+      } else if (!nextSelected && next[conventionId]) {
+        delete next[conventionId];
       }
       return next;
     });
@@ -109,7 +125,13 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
       const operations: Promise<void>[] = [];
 
       toAdd.forEach((conventionId) => {
-        operations.push(optInToConvention(userId, conventionId));
+        operations.push(
+          optInToConvention({
+            profileId: userId,
+            conventionId,
+            verifiedLocation: verifiedLocations[conventionId],
+          })
+        );
       });
 
       toRemove.forEach((conventionId) => {
@@ -191,7 +213,10 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
                     selected={selected}
                     pending={isSubmitting}
                     disabled={isSubmitting}
-                    onToggle={() => toggleConvention(convention.id)}
+                    profileId={userId}
+                    onToggle={(conventionId, nextSelected, verifiedLocation) =>
+                      toggleConvention(conventionId, nextSelected, verifiedLocation)
+                    }
                   />
                 </View>
               );

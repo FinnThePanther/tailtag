@@ -48,7 +48,13 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
           name,
           location,
           start_date,
-          end_date
+          end_date,
+          timezone,
+          latitude,
+          longitude,
+          geofence_radius_meters,
+          geofence_enabled,
+          location_verification_required
         )
       ),
       fursuit_bios (
@@ -89,6 +95,12 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
         location: convention.location ?? null,
         start_date: convention.start_date ?? null,
         end_date: convention.end_date ?? null,
+        timezone: convention.timezone ?? 'UTC',
+        latitude: convention.latitude ?? null,
+        longitude: convention.longitude ?? null,
+        geofence_radius_meters: convention.geofence_radius_meters ?? null,
+        geofence_enabled: Boolean(convention.geofence_enabled),
+        location_verification_required: Boolean(convention.location_verification_required),
       }));
 
     const bio = mapLatestFursuitBio(item.fursuit_bios ?? null);
