@@ -1,5 +1,6 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Users, MapPin, CalendarRange, SlidersHorizontal } from 'lucide-react';
+import { Users, MapPin, CalendarRange, SlidersHorizontal, ArrowUpRight } from 'lucide-react';
 
 import { Card } from '@/components/card';
 import { Table } from '@/components/table';
@@ -45,6 +46,33 @@ export default async function ConventionDetail({ params }: { params: { id: strin
           featureTagScan={config.featureTagScan}
           featureStaffMode={config.featureStaffMode}
         />
+      </Card>
+
+      <Card
+        title="Geo-fence"
+        subtitle="Manage on-site verification boundaries"
+        actions={
+          <Link
+            href={`/conventions/${convention.id}/location`}
+            className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-primary"
+          >
+            Manage map <ArrowUpRight size={14} />
+          </Link>
+        }
+      >
+        <div className="grid gap-3 md:grid-cols-3">
+          <Info icon={<MapPin size={14} />} label="Status">
+            {convention.geofence_enabled ? 'Enabled' : 'Disabled'}
+          </Info>
+          <Info icon={<MapPin size={14} />} label="Radius">
+            {convention.geofence_radius_meters
+              ? `${convention.geofence_radius_meters}m`
+              : 'Not configured'}
+          </Info>
+          <Info icon={<MapPin size={14} />} label="Verification">
+            {convention.location_verification_required ? 'Required on opt-in' : 'Optional'}
+          </Info>
+        </div>
       </Card>
 
       <Card title="Staff assignments" subtitle="People assigned to this convention">

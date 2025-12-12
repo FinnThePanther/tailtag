@@ -16,6 +16,8 @@ type PlayerSearchResult = {
   created_at: string;
 };
 
+type ConventionRow = Database['public']['Tables']['conventions']['Row'];
+
 export async function fetchDashboardSummary() {
   const supabase = createServiceRoleClient();
   const [players, suspended, conventions, pendingReports] = await Promise.all([
@@ -82,16 +84,32 @@ export async function fetchPlayerProfile(userId: string) {
   return { profile, moderationSummary, actions };
 }
 
-export async function fetchConventions() {
+export async function fetchConventions(): Promise<ConventionRow[]> {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from('conventions')
-    .select('id, name, slug, start_date, end_date, location, timezone, config')
+    .select(
+      [
+        'id',
+        'name',
+        'slug',
+        'start_date',
+        'end_date',
+        'location',
+        'timezone',
+        'config',
+        'latitude',
+        'longitude',
+        'geofence_radius_meters',
+        'geofence_enabled',
+        'location_verification_required',
+      ].join(', ')
+    )
     .order('start_date', { ascending: false });
   if (error) {
     throw error;
   }
-  return data;
+  return ((data ?? []) as unknown) as ConventionRow[];
 }
 
 type EventStaffAssignment = {
@@ -104,15 +122,38 @@ type EventStaffAssignment = {
   profiles?: { username?: string | null; avatar_url?: string | null; role?: string | null } | { username?: string | null; avatar_url?: string | null; role?: string | null }[];
 };
 
-export async function fetchConvention(conventionId: string) {
+export async function fetchConvention(conventionId: string): Promise<{
+  convention: ConventionRow | null;
+  staff: EventStaffAssignment[];
+}> {
   const supabase = createServiceRoleClient();
 
   // TODO: Create event_staff table in database
-  const convention = await supabase
+  const { data: conventionData, error: conventionError } = await supabase
     .from('conventions')
-    .select('id, name, slug, start_date, end_date, location, timezone, config')
+    .select(
+      [
+        'id',
+        'name',
+        'slug',
+        'start_date',
+        'end_date',
+        'location',
+        'timezone',
+        'config',
+        'latitude',
+        'longitude',
+        'geofence_radius_meters',
+        'geofence_enabled',
+        'location_verification_required',
+      ].join(', ')
+    )
     .eq('id', conventionId)
     .single();
+
+  if (conventionError && conventionError.code !== 'PGRST116') {
+    throw conventionError;
+  }
 
   const staffQuery = await supabase
     .from('event_staff')
@@ -124,7 +165,9 @@ export async function fetchConvention(conventionId: string) {
 
   const staff = (staffQuery.data ?? []) as EventStaffAssignment[];
 
-  return { convention: convention.data, staff };
+  const convention = (conventionData ?? null) as unknown as ConventionRow | null;
+
+  return { convention, staff };
 }
 
 export async function fetchAuditLogs(limit = 50) {

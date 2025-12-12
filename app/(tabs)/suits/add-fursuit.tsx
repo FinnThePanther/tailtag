@@ -250,7 +250,7 @@ export default function AddFursuitScreen() {
   const conventionsLoadError = conventionsError?.message ?? profileConventionsError?.message ?? null;
 
   const handleConventionToggle = useCallback(
-    (conventionId: string) => {
+    (conventionId: string, nextSelected: boolean) => {
       if (!profileConventionIdSet.has(conventionId)) {
         return;
       }
@@ -258,10 +258,10 @@ export default function AddFursuitScreen() {
       setSelectedConventionIds((current) => {
         const next = new Set(current);
 
-        if (next.has(conventionId)) {
-          next.delete(conventionId);
-        } else {
+        if (nextSelected) {
           next.add(conventionId);
+        } else {
+          next.delete(conventionId);
         }
 
         return next;
@@ -1061,7 +1061,9 @@ export default function AddFursuitScreen() {
                             : 'Tap to assign'
                           : 'Opt in via Settings'
                       }
-                      onToggle={() => handleConventionToggle(convention.id)}
+                      onToggle={(conventionId, nextSelected) =>
+                        handleConventionToggle(conventionId, nextSelected)
+                      }
                     />
                   );
                 })}

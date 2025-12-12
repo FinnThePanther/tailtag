@@ -1,4 +1,4 @@
-export type { ConventionSummary } from './api/conventions';
+export type { ConventionSummary, VerifiedLocation } from './api/conventions';
 export {
   fetchConventions,
   CONVENTIONS_QUERY_KEY,
@@ -11,3 +11,8 @@ export {
   addFursuitConvention,
   removeFursuitConvention,
 } from './api/conventions';
+export {
+  verifyConventionLocation,
+  type LocationVerificationRequest,
+  type LocationVerificationResponse,
+} from './api/geoVerification';

@@ -282,8 +282,13 @@ export type Database = {
           config: Json
           created_at: string
           end_date: string | null
+          geofence_enabled: boolean
+          geofence_radius_meters: number | null
           id: string
+          latitude: number | null
           location: string | null
+          location_verification_required: boolean
+          longitude: number | null
           name: string
           slug: string
           start_date: string | null
@@ -294,8 +299,13 @@ export type Database = {
           config?: Json
           created_at?: string
           end_date?: string | null
+          geofence_enabled?: boolean
+          geofence_radius_meters?: number | null
           id?: string
+          latitude?: number | null
           location?: string | null
+          location_verification_required?: boolean
+          longitude?: number | null
           name: string
           slug: string
           start_date?: string | null
@@ -306,8 +316,13 @@ export type Database = {
           config?: Json
           created_at?: string
           end_date?: string | null
+          geofence_enabled?: boolean
+          geofence_radius_meters?: number | null
           id?: string
+          latitude?: number | null
           location?: string | null
+          location_verification_required?: boolean
+          longitude?: number | null
           name?: string
           slug?: string
           start_date?: string | null
@@ -928,17 +943,35 @@ export type Database = {
         Row: {
           convention_id: string
           created_at: string
+          override_actor_id: string | null
+          override_at: string | null
+          override_reason: string | null
           profile_id: string
+          verified_at: string | null
+          verified_location: Json | null
+          verification_method: "none" | "gps" | "manual_override" | "grandfathered"
         }
         Insert: {
           convention_id: string
           created_at?: string
+          override_actor_id?: string | null
+          override_at?: string | null
+          override_reason?: string | null
           profile_id: string
+          verified_at?: string | null
+          verified_location?: Json | null
+          verification_method?: "none" | "gps" | "manual_override" | "grandfathered"
         }
         Update: {
           convention_id?: string
           created_at?: string
+          override_actor_id?: string | null
+          override_at?: string | null
+          override_reason?: string | null
           profile_id?: string
+          verified_at?: string | null
+          verified_location?: Json | null
+          verification_method?: "none" | "gps" | "manual_override" | "grandfathered"
         }
         Relationships: [
           {
@@ -966,6 +999,9 @@ export type Database = {
           id: string
           is_new: boolean
           is_suspended: boolean
+          location_permission_granted_at: string | null
+          location_permission_requested_at: string | null
+          location_permission_status: "not_requested" | "granted" | "denied" | "restricted"
           onboarding_completed: boolean
           role: Database["public"]["Enums"]["user_role"]
           suspended_until: string | null
@@ -981,6 +1017,9 @@ export type Database = {
           id: string
           is_new?: boolean
           is_suspended?: boolean
+          location_permission_granted_at?: string | null
+          location_permission_requested_at?: string | null
+          location_permission_status?: "not_requested" | "granted" | "denied" | "restricted"
           onboarding_completed?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           suspended_until?: string | null
@@ -996,6 +1035,9 @@ export type Database = {
           id?: string
           is_new?: boolean
           is_suspended?: boolean
+          location_permission_granted_at?: string | null
+          location_permission_requested_at?: string | null
+          location_permission_status?: "not_requested" | "granted" | "denied" | "restricted"
           onboarding_completed?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           suspended_until?: string | null
@@ -1057,6 +1099,54 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "nfc_tags"
             referencedColumns: ["uid"]
+          },
+        ]
+      }
+      verification_attempts: {
+        Row: {
+          convention_id: string | null
+          created_at: string | null
+          distance_meters: number | null
+          error_code: string | null
+          gps_accuracy: number | null
+          id: string
+          profile_id: string | null
+          verified: boolean
+        }
+        Insert: {
+          convention_id?: string | null
+          created_at?: string | null
+          distance_meters?: number | null
+          error_code?: string | null
+          gps_accuracy?: number | null
+          id?: string
+          profile_id?: string | null
+          verified: boolean
+        }
+        Update: {
+          convention_id?: string | null
+          created_at?: string | null
+          distance_meters?: number | null
+          error_code?: string | null
+          gps_accuracy?: number | null
+          id?: string
+          profile_id?: string | null
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_attempts_convention_id_fkey"
+            columns: ["convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_attempts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1571,6 +1661,16 @@ export type Database = {
         Returns: Database["public"]["Enums"]["user_role"]
       }
       grant_achievements_batch: { Args: { awards: Json }; Returns: Json }
+      opt_in_to_convention: {
+        Args: {
+          p_convention_id: string
+          p_override_reason?: string | null
+          p_profile_id: string
+          p_verification_method?: string
+          p_verified_location?: Json | null
+        }
+        Returns: void
+      }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_event_staff: {
         Args: { convention_id: string; user_id: string }
@@ -1618,6 +1718,16 @@ export type Database = {
       refresh_fursuit_popularity: {
         Args: { convention_uuid?: string }
         Returns: undefined
+      }
+      verify_convention_location: {
+        Args: {
+          p_accuracy: number
+          p_convention_id: string
+          p_profile_id: string
+          p_user_lat: number
+          p_user_lng: number
+        }
+        Returns: Json
       }
       search_players: {
         Args: {
