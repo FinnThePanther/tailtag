@@ -1,4 +1,4 @@
-export type { ConventionSummary } from './api/conventions';
+export type { ConventionSummary, VerifiedLocation } from './api/conventions';
 export {
   fetchConventions,
   CONVENTIONS_QUERY_KEY,

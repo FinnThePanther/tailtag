@@ -608,7 +608,7 @@ export default function EditFursuitScreen() {
   const disableForm = isLoading || !detail || !isOwner || isSubmitting;
 
   const handleConventionToggle = useCallback(
-    (conventionId: string) => {
+    (conventionId: string, nextSelected: boolean) => {
       if (disableForm || !profileConventionIdSet.has(conventionId)) {
         return;
       }
@@ -616,10 +616,10 @@ export default function EditFursuitScreen() {
       setSelectedConventionIds((current) => {
         const next = new Set(current);
 
-        if (next.has(conventionId)) {
-          next.delete(conventionId);
-        } else {
+        if (nextSelected) {
           next.add(conventionId);
+        } else {
+          next.delete(conventionId);
         }
 
         return next;
@@ -982,7 +982,9 @@ export default function EditFursuitScreen() {
                                 : 'Tap to assign'
                               : 'Opt in via Settings'
                           }
-                          onToggle={() => handleConventionToggle(convention.id)}
+                          onToggle={(conventionId, nextSelected) =>
+                            handleConventionToggle(conventionId, nextSelected)
+                          }
                         />
                       );
                     })}

@@ -37,6 +37,7 @@
     "expo-image-picker": "~17.0.9",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.10",
+    "expo-location": "~17.0.1",
     "expo-router": "~6.0.17",
     "expo-status-bar": "~3.0.9",
     "p-retry": "^6.2.1",
