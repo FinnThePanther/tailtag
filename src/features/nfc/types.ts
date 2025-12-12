@@ -84,6 +84,8 @@ export type TagRegistrationErrorCode =
   | 'FURSUIT_ALREADY_HAS_TAG'
   | 'INVALID_TAG_STATUS'
   | 'INVALID_REQUEST'
+  | 'QR_ALREADY_EXISTS'
+  | 'QR_NOT_FOUND'
   | 'NETWORK_ERROR'
   | 'UNKNOWN_ERROR';
 

@@ -17,9 +17,13 @@ export const nfcTagQueryKey = (fursuitId: string) =>
 // API Response types from edge functions
 interface RegisterTagApiResponse {
   success?: boolean;
-  tag_uid?: string;
+  tag_id?: string;
+  tag_uid?: string | null;
+  nfc_uid?: string | null;
   status?: NfcTagStatus;
   fursuit_id?: string | null;
+  qr_token?: string | null;
+  qr_download_url?: string | null;
   exists?: boolean;
   is_mine?: boolean;
   error?: string;
@@ -29,12 +33,14 @@ interface RegisterTagApiResponse {
 interface LookupTagApiResponse {
   found: boolean;
   fursuit_id?: string;
+  tag_id?: string;
   reason?: string;
   error?: string;
 }
 
-interface NfcTagRow {
-  uid: string;
+interface TagRow {
+  id: string;
+  nfc_uid: string | null;
   fursuit_id: string | null;
   registered_by_user_id: string;
   status: NfcTagStatus;
@@ -43,9 +49,9 @@ interface NfcTagRow {
   updated_at: string;
 }
 
-function mapTagRowToTag(row: NfcTagRow): NfcTag {
+function mapTagRowToTag(row: TagRow): NfcTag {
   return {
-    uid: row.uid,
+    uid: row.nfc_uid ?? '',
     fursuitId: row.fursuit_id,
     registeredByUserId: row.registered_by_user_id,
     status: row.status,
@@ -64,15 +70,21 @@ function createApiError(
   };
 }
 
+function resolveTagUidFromApi(
+  response: RegisterTagApiResponse
+): string {
+  return response.nfc_uid ?? response.tag_uid ?? '';
+}
+
 /**
  * Check if a tag exists and its ownership status.
  */
 export async function checkTagStatus(uid: string): Promise<TagCheckResult> {
   try {
     const { data, error } = await supabase.functions.invoke<RegisterTagApiResponse>(
-      'register-nfc-tag',
+      'register-tag',
       {
-        body: { action: 'check', uid },
+        body: { action: 'check', nfc_uid: uid },
       }
     );
 
@@ -108,9 +120,9 @@ export async function registerTag(
 ): Promise<TagRegistrationResult | TagRegistrationError> {
   try {
     const { data, error } = await supabase.functions.invoke<RegisterTagApiResponse>(
-      'register-nfc-tag',
+      'register-tag',
       {
-        body: { action: 'register', uid },
+        body: { action: 'register', nfc_uid: uid },
       }
     );
 
@@ -129,7 +141,7 @@ export async function registerTag(
 
     return {
       success: true,
-      tagUid: data.tag_uid!,
+      tagUid: resolveTagUidFromApi(data),
       status: data.status!,
     };
   } catch (error) {
@@ -154,9 +166,9 @@ export async function linkTagToFursuit(
 ): Promise<TagRegistrationResult | TagRegistrationError> {
   try {
     const { data, error } = await supabase.functions.invoke<RegisterTagApiResponse>(
-      'register-nfc-tag',
+      'register-tag',
       {
-        body: { action: 'link', uid, fursuit_id: fursuitId },
+        body: { action: 'link', nfc_uid: uid, fursuit_id: fursuitId },
       }
     );
 
@@ -175,7 +187,7 @@ export async function linkTagToFursuit(
 
     return {
       success: true,
-      tagUid: data.tag_uid!,
+      tagUid: resolveTagUidFromApi(data),
       status: data.status!,
       fursuitId: data.fursuit_id,
     };
@@ -201,9 +213,9 @@ export async function unlinkTag(
 ): Promise<TagRegistrationResult | TagRegistrationError> {
   try {
     const { data, error } = await supabase.functions.invoke<RegisterTagApiResponse>(
-      'register-nfc-tag',
+      'register-tag',
       {
-        body: { action: 'unlink', uid },
+        body: { action: 'unlink', nfc_uid: uid },
       }
     );
 
@@ -222,7 +234,7 @@ export async function unlinkTag(
 
     return {
       success: true,
-      tagUid: data.tag_uid!,
+      tagUid: resolveTagUidFromApi(data),
       status: data.status!,
     };
   } catch (error) {
@@ -246,9 +258,9 @@ export async function markTagLost(
 ): Promise<TagRegistrationResult | TagRegistrationError> {
   try {
     const { data, error } = await supabase.functions.invoke<RegisterTagApiResponse>(
-      'register-nfc-tag',
+      'register-tag',
       {
-        body: { action: 'mark_lost', uid },
+        body: { action: 'mark_lost', nfc_uid: uid },
       }
     );
 
@@ -267,7 +279,7 @@ export async function markTagLost(
 
     return {
       success: true,
-      tagUid: data.tag_uid!,
+      tagUid: resolveTagUidFromApi(data),
       status: data.status!,
       fursuitId: data.fursuit_id,
     };
@@ -292,9 +304,9 @@ export async function markTagFound(
 ): Promise<TagRegistrationResult | TagRegistrationError> {
   try {
     const { data, error } = await supabase.functions.invoke<RegisterTagApiResponse>(
-      'register-nfc-tag',
+      'register-tag',
       {
-        body: { action: 'mark_found', uid },
+        body: { action: 'mark_found', nfc_uid: uid },
       }
     );
 
@@ -313,7 +325,7 @@ export async function markTagFound(
 
     return {
       success: true,
-      tagUid: data.tag_uid!,
+      tagUid: resolveTagUidFromApi(data),
       status: data.status!,
       fursuitId: data.fursuit_id,
     };
@@ -339,7 +351,7 @@ export async function fetchFursuitTag(
 ): Promise<NfcTag | null> {
   try {
     const { data, error } = await supabase
-      .from('nfc_tags')
+      .from('tags')
       .select('*')
       .eq('fursuit_id', fursuitId)
       .eq('status', 'active')
@@ -354,7 +366,7 @@ export async function fetchFursuitTag(
       return null;
     }
 
-    return mapTagRowToTag(data as NfcTagRow);
+    return mapTagRowToTag(data as TagRow);
   } catch (error) {
     captureHandledException(error, {
       scope: 'nfc.fetchFursuitTag',
@@ -371,9 +383,9 @@ export async function fetchFursuitTag(
 export async function lookupTagForCatch(uid: string): Promise<TagLookupResult> {
   try {
     const { data, error } = await supabase.functions.invoke<LookupTagApiResponse>(
-      'lookup-nfc-tag',
+      'lookup-tag',
       {
-        body: { uid },
+        body: { nfc_uid: uid },
       }
     );
 
