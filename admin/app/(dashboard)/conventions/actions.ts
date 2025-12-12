@@ -71,6 +71,14 @@ export async function updateConventionGeofenceAction(input: {
   const { profile } = await assertAdminAction([...CONFIG_ROLES]);
   const supabase = createServiceRoleClient();
 
+  type GeofenceSettings = {
+    latitude: number | null;
+    longitude: number | null;
+    geofence_radius_meters: number | null;
+    geofence_enabled: boolean;
+    location_verification_required: boolean;
+  };
+
   const { data: current } = await supabase
     .from('conventions')
     .select(
@@ -85,7 +93,14 @@ export async function updateConventionGeofenceAction(input: {
     .eq('id', input.conventionId)
     .single();
 
-  const before = current ?? {};
+  const before: GeofenceSettings =
+    (current as GeofenceSettings | null) ?? {
+      latitude: null,
+      longitude: null,
+      geofence_radius_meters: null,
+      geofence_enabled: false,
+      location_verification_required: false,
+    };
 
   const sanitizedRadius = input.radiusMeters ? Math.round(input.radiusMeters) : null;
   if (sanitizedRadius && (sanitizedRadius < 100 || sanitizedRadius > 10000)) {
