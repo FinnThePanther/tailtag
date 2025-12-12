@@ -16,7 +16,6 @@ export type ConventionToggleProps = {
   disabled?: boolean;
   badgeText?: string;
   profileId?: string;
-  enableVerification?: boolean;
   onToggle: (conventionId: string, nextSelected: boolean, verifiedLocation?: VerifiedLocation | null) => void;
 };
 
@@ -27,18 +26,13 @@ export function ConventionToggle({
   disabled = false,
   badgeText,
   profileId,
-  enableVerification = false,
   onToggle,
 }: ConventionToggleProps) {
   const requiresVerification =
-    enableVerification &&
     Boolean(profileId) &&
     Boolean(convention.location_verification_required) &&
     Boolean(convention.geofence_enabled);
-  const { status, requestPermission, isLoading: isRequestingPermission } = useLocationPermission(
-    profileId,
-    enableVerification
-  );
+  const { status, requestPermission, isLoading: isRequestingPermission } = useLocationPermission(profileId);
   const { verifyLocation, isVerifying } = useGeoVerification();
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);

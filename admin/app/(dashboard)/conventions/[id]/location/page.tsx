@@ -31,7 +31,6 @@ export default async function ConventionLocationPage({ params }: { params: { id:
           longitude={convention.longitude}
           radiusMeters={convention.geofence_radius_meters}
           geofenceEnabled={Boolean(convention.geofence_enabled)}
-          verificationRequired={Boolean(convention.location_verification_required)}
         />
       </Card>
     </div>

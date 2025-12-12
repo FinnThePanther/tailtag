@@ -214,7 +214,6 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
                     pending={isSubmitting}
                     disabled={isSubmitting}
                     profileId={userId}
-                    enableVerification
                     onToggle={(conventionId, nextSelected, verifiedLocation) =>
                       toggleConvention(conventionId, nextSelected, verifiedLocation)
                     }

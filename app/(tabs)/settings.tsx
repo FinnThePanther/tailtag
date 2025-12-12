@@ -821,7 +821,6 @@ export default function SettingsScreen() {
                       selected={isSelected}
                       pending={isPending}
                       profileId={userId ?? undefined}
-                      enableVerification
                       onToggle={(conventionId, nextSelected, verifiedLocation) =>
                         handleToggleProfileConvention(conventionId, nextSelected, verifiedLocation)
                       }

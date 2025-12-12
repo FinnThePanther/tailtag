@@ -18,18 +18,15 @@ type UseLocationPermissionReturn = {
   isLoading: boolean;
 };
 
-export function useLocationPermission(profileId?: string, enabled = true): UseLocationPermissionReturn {
+export function useLocationPermission(profileId?: string): UseLocationPermissionReturn {
   const [status, setStatus] = useState<LocationPermissionStatus>('not_determined');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (enabled) {
-      void checkPermission();
-    }
-  }, [enabled]);
+    void checkPermission();
+  }, []);
 
   async function checkPermission() {
-    if (!enabled) return;
     try {
       const { status: nativeStatus } = await Location.getForegroundPermissionsAsync();
       const mapped = mapPermissionStatus(nativeStatus);
@@ -41,7 +38,6 @@ export function useLocationPermission(profileId?: string, enabled = true): UseLo
   }
 
   async function requestPermission(): Promise<boolean> {
-    if (!enabled) return false;
     setIsLoading(true);
     try {
       const { status: nativeStatus } = await Location.requestForegroundPermissionsAsync();

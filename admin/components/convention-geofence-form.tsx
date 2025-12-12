@@ -14,7 +14,6 @@ type Props = {
   longitude: number | null;
   radiusMeters: number | null;
   geofenceEnabled: boolean;
-  verificationRequired: boolean;
 };
 
 type GeocodeResult = {
@@ -47,7 +46,6 @@ export function ConventionGeofenceForm({
   longitude: initialLongitude,
   radiusMeters,
   geofenceEnabled,
-  verificationRequired,
 }: Props) {
   const initialView = useMemo(
     () => ({
@@ -62,7 +60,6 @@ export function ConventionGeofenceForm({
   const [longitude, setLongitude] = useState<number | null>(initialLongitude);
   const [radius, setRadius] = useState<number>(radiusMeters ?? 500);
   const [enabled, setEnabled] = useState<boolean>(geofenceEnabled);
-  const [requireVerification, setRequireVerification] = useState<boolean>(verificationRequired);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<GeocodeResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -86,12 +83,6 @@ export function ConventionGeofenceForm({
       essential: true,
     });
   }, [latitude, longitude]);
-
-  useEffect(() => {
-    if (!enabled && requireVerification) {
-      setRequireVerification(false);
-    }
-  }, [enabled, requireVerification]);
 
   const geofenceFeature = useMemo(() => {
     if (!enabled || latitude === null || longitude === null) {
@@ -150,7 +141,6 @@ export function ConventionGeofenceForm({
           longitude,
           radiusMeters: radius,
           geofenceEnabled: enabled,
-          verificationRequired: requireVerification,
         });
         setMessage('Geofence saved.');
       } catch (caught) {
@@ -161,7 +151,7 @@ export function ConventionGeofenceForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm text-slate-200">
           <input
             type="checkbox"
@@ -171,16 +161,9 @@ export function ConventionGeofenceForm({
           />
           Enable geofence for this convention
         </label>
-        <label className="flex items-center gap-2 text-sm text-slate-200">
-          <input
-            type="checkbox"
-            checked={requireVerification}
-            onChange={(event) => setRequireVerification(event.target.checked)}
-            disabled={!enabled}
-            className="h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary disabled:opacity-40"
-          />
-          Require location verification on opt-in
-        </label>
+        <p className="text-xs text-muted">
+          When enabled, players must pass on-site location verification before they can join this convention.
+        </p>
       </div>
 
       <div className="space-y-2">

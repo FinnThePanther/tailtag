@@ -67,7 +67,6 @@ export async function updateConventionGeofenceAction(input: {
   longitude: number | null;
   radiusMeters: number | null;
   geofenceEnabled: boolean;
-  verificationRequired: boolean;
 }) {
   const { profile } = await assertAdminAction([...CONFIG_ROLES]);
   const supabase = createServiceRoleClient();
@@ -111,7 +110,7 @@ export async function updateConventionGeofenceAction(input: {
     longitude: nextLongitude,
     geofence_radius_meters: nextRadius,
     geofence_enabled: input.geofenceEnabled,
-    location_verification_required: input.geofenceEnabled ? input.verificationRequired : false,
+    location_verification_required: input.geofenceEnabled,
   };
 
   await supabase.from('conventions').update(payload).eq('id', input.conventionId);
