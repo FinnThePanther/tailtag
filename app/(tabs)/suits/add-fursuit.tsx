@@ -53,7 +53,6 @@ import {
 import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
 import { emitGameplayEvent } from '../../../src/features/events';
 import { DAILY_TASKS_QUERY_KEY } from '../../../src/features/daily-tasks/hooks';
-
 import type { FursuitBiosInsert, FursuitsInsert, Json } from '../../../src/types/database';
 import {
   createEmptySocialLink,

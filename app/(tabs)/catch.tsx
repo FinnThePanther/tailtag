@@ -1,13 +1,15 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
   View,
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useRouter, useFocusEffect } from "expo-router";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
   FursuitCard,
@@ -34,7 +36,7 @@ import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareF
 import { useAuth } from "../../src/features/auth";
 import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
-import { NfcScanCard } from "../../src/features/nfc";
+import { NfcScanCard, QrScanCard } from "../../src/features/nfc";
 import {
   fetchProfileConventionIds,
   PROFILE_CONVENTIONS_QUERY_KEY,
@@ -68,11 +70,35 @@ type CatchRecord = {
   status: CatchStatus;
 };
 
+const SCAN_MODE_STORAGE_KEY = "tailtag:catch:scan-mode";
+type ScanMode = "nfc" | "qr";
+
 export default function CatchScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
+  const [scanMode, setScanMode] = useState<ScanMode>("nfc");
+
+  useEffect(() => {
+    let mounted = true;
+    AsyncStorage.getItem(SCAN_MODE_STORAGE_KEY)
+      .then((stored) => {
+        if (!mounted || !stored) return;
+        if (stored === "qr" || stored === "nfc") {
+          setScanMode(stored);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleScanModeChange = useCallback((mode: ScanMode) => {
+    setScanMode(mode);
+    AsyncStorage.setItem(SCAN_MODE_STORAGE_KEY, mode).catch(() => undefined);
+  }, []);
 
   const [codeInput, setCodeInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,6 +122,46 @@ export default function CatchScreen() {
     staleTime: 5 * 60_000,
   });
   const primaryConventionId = userConventionIds[0] ?? null;
+
+  const handleScannerCatchComplete = useCallback(
+    (result: { fursuitId: string }) => {
+      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      queryClient.invalidateQueries({
+        queryKey: fursuitDetailQueryKey(result.fursuitId),
+      });
+      if (userId) {
+        queryClient.invalidateQueries({
+          queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
+        });
+      }
+      if (primaryConventionId) {
+        queryClient.invalidateQueries({
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, primaryConventionId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, primaryConventionId],
+        });
+      }
+    },
+    [primaryConventionId, queryClient, userId]
+  );
+
+  const createScannerCatch = useCallback(
+    async ({ fursuitId, conventionId: convId }: { fursuitId: string; conventionId: string }) => {
+      const result = await createCatch({
+        fursuitId,
+        conventionId: convId,
+        isTutorial: false,
+      });
+      return {
+        catchId: result.catchId,
+        catchNumber: result.catchNumber,
+        status: result.status,
+        requiresApproval: result.requiresApproval,
+      };
+    },
+    []
+  );
 
   const resetCatchState = () => {
     setCaughtFursuit(null);
@@ -451,42 +517,38 @@ export default function CatchScreen() {
 
       {primaryConventionId && (
         <>
-          <NfcScanCard
-            conventionId={primaryConventionId}
-            onScanComplete={(result) => {
-              console.log("NFC Scan complete:", result);
-            }}
-            onCatchComplete={(result) => {
-              // Invalidate queries on successful NFC catch
-              void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
-              queryClient.invalidateQueries({
-                queryKey: fursuitDetailQueryKey(result.fursuitId),
-              });
-              queryClient.invalidateQueries({
-                queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
-              });
-              // Also invalidate leaderboards for the convention
-              queryClient.invalidateQueries({
-                queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, primaryConventionId],
-              });
-              queryClient.invalidateQueries({
-                queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, primaryConventionId],
-              });
-            }}
-            createCatchFn={async ({ fursuitId, conventionId: convId }) => {
-              const result = await createCatch({
-                fursuitId,
-                conventionId: convId,
-                isTutorial: false,
-              });
-              return {
-                catchId: result.catchId,
-                catchNumber: result.catchNumber,
-                status: result.status,
-                requiresApproval: result.requiresApproval,
-              };
-            }}
-          />
+          <TailTagCard style={[styles.cardSpacing, styles.scanModeCard]}>
+            <Text style={styles.label}>Scan method</Text>
+            <View style={styles.scanModeToggle}>
+              {(['nfc', 'qr'] as ScanMode[]).map((mode) => (
+                <Pressable
+                  key={mode}
+                  onPress={() => handleScanModeChange(mode)}
+                  style={[
+                    styles.scanModeButton,
+                    scanMode === mode && styles.scanModeButtonActive,
+                  ]}
+                >
+                  <Text style={[styles.scanModeLabel, scanMode === mode && styles.scanModeLabelActive]}>
+                    {mode === "nfc" ? "NFC Tap" : "QR Scan"}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </TailTagCard>
+          {scanMode === "nfc" ? (
+            <NfcScanCard
+              conventionId={primaryConventionId}
+              onCatchComplete={handleScannerCatchComplete}
+              createCatchFn={createScannerCatch}
+            />
+          ) : (
+            <QrScanCard
+              conventionId={primaryConventionId}
+              onCatchComplete={handleScannerCatchComplete}
+              createCatchFn={createScannerCatch}
+            />
+          )}
           <Text style={styles.orDivider}>- or -</Text>
         </>
       )}
@@ -648,6 +710,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginBottom: spacing.xs,
+  },
+  scanModeCard: {
+    alignItems: "stretch",
+  },
+  scanModeToggle: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  scanModeButton: {
+    flex: 1,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.3)",
+    paddingVertical: spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(15,23,42,0.4)",
+  },
+  scanModeButtonActive: {
+    backgroundColor: colors.primaryMuted,
+    borderColor: colors.primary,
+  },
+  scanModeLabel: {
+    color: "rgba(203,213,225,0.8)",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  scanModeLabelActive: {
+    color: colors.primary,
   },
   helpText: {
     color: "rgba(148,163,184,0.9)",

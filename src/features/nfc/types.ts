@@ -42,6 +42,8 @@ export type EmitNfcScanResult = {
 export type NfcTagStatus = 'pending_link' | 'active' | 'lost' | 'revoked';
 
 export type NfcTag = {
+  id: string;
+  kind: 'nfc' | 'qr';
   uid: string;
   fursuitId: string | null;
   registeredByUserId: string;
@@ -49,10 +51,14 @@ export type NfcTag = {
   registeredAt: string;
   linkedAt: string | null;
   updatedAt: string;
+  qrToken: string | null;
+  qrTokenCreatedAt: string | null;
+  qrAssetPath: string | null;
 };
 
 export type TagCheckResult = {
   exists: boolean;
+  tagId?: string;
   status?: NfcTagStatus;
   fursuitId?: string | null;
   isMine?: boolean;
@@ -60,9 +66,12 @@ export type TagCheckResult = {
 
 export type TagRegistrationResult = {
   success: boolean;
+  tagId: string;
   tagUid: string;
   status: NfcTagStatus;
   fursuitId?: string | null;
+  qrToken?: string | null;
+  qrDownloadUrl?: string | null;
 };
 
 export type TagLookupResult =
@@ -82,12 +91,34 @@ export type TagRegistrationErrorCode =
   | 'NOT_TAG_OWNER'
   | 'FURSUIT_NOT_OWNED'
   | 'FURSUIT_ALREADY_HAS_TAG'
+  | 'FURSUIT_ALREADY_HAS_QR'
   | 'INVALID_TAG_STATUS'
   | 'INVALID_REQUEST'
+  | 'QR_ALREADY_EXISTS'
+  | 'QR_NOT_FOUND'
   | 'NETWORK_ERROR'
   | 'UNKNOWN_ERROR';
 
 export type TagRegistrationError = {
   code: TagRegistrationErrorCode;
   message: string;
+};
+
+export type TagQrActionResult = {
+  success: true;
+  tagId: string;
+  qrToken: string | null;
+  qrDownloadUrl?: string | null;
+};
+
+export type QrReadyFursuit = {
+  tagId: string;
+  tagStatus: NfcTagStatus;
+  qrToken: string;
+  qrTokenCreatedAt: string | null;
+  qrAssetPath: string | null;
+  fursuitId: string;
+  fursuitName: string;
+  fursuitAvatarUrl: string | null;
+  fursuitCatchMode?: string | null;
 };
