@@ -12,9 +12,14 @@ const QR_BUCKET = 'tag-qr-codes';
 
 const normalizeUid = (uid: string) => uid.trim().toUpperCase().replace(/[:\s-]/g, '');
 
-async function invokeTagFunction(body: Record<string, unknown>) {
+async function invokeTagFunction(body: Record<string, unknown>, accessToken: string) {
   const supabase = createServiceRoleClient();
-  const { data, error } = await supabase.functions.invoke('register-tag', { body });
+  const { data, error } = await supabase.functions.invoke('register-tag', {
+    body,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
 
   if (error) {
     throw new Error(error.message ?? 'Failed to process tag request');
@@ -28,14 +33,17 @@ async function invokeTagFunction(body: Record<string, unknown>) {
 }
 
 export async function registerTagAction(input: { uid: string }) {
-  const { profile } = await assertAdminAction([...TAG_ROLES]);
+  const { session, profile } = await assertAdminAction([...TAG_ROLES]);
   const normalizedUid = normalizeUid(input.uid);
 
   if (!normalizedUid) {
     throw new Error('Tag UID is required.');
   }
 
-  await invokeTagFunction({ action: 'register', nfc_uid: normalizedUid });
+  if (!session.access_token) {
+    throw new Error('Unable to authenticate with Supabase.');
+  }
+  await invokeTagFunction({ action: 'register', nfc_uid: normalizedUid }, session.access_token);
 
   await logAudit({
     actorId: profile.id,
@@ -49,10 +57,20 @@ export async function registerTagAction(input: { uid: string }) {
 }
 
 export async function linkTagAction(input: { tagId: string; fursuitId: string }) {
-  const { profile } = await assertAdminAction([...TAG_ROLES]);
+  const { session, profile } = await assertAdminAction([...TAG_ROLES]);
   if (!input.tagId || !input.fursuitId) throw new Error('Tag and fursuit IDs are required.');
 
-  await invokeTagFunction({
+  if (!session.access_token) {
+    throw new Error('Unable to authenticate with Supabase.');
+  }
+  await invokeTagFunction(
+    {
+      action: 'link',
+      tag_id: input.tagId,
+      fursuit_id: input.fursuitId,
+    },
+    session.access_token,
+  );
     action: 'link',
     tag_id: input.tagId,
     fursuit_id: input.fursuitId,
@@ -70,10 +88,19 @@ export async function linkTagAction(input: { tagId: string; fursuitId: string })
 }
 
 export async function unlinkTagAction(input: { tagId: string }) {
-  const { profile } = await assertAdminAction([...TAG_ROLES]);
+  const { session, profile } = await assertAdminAction([...TAG_ROLES]);
   if (!input.tagId) throw new Error('Tag ID is required.');
 
-  await invokeTagFunction({
+  if (!session.access_token) {
+    throw new Error('Unable to authenticate with Supabase.');
+  }
+  await invokeTagFunction(
+    {
+      action: 'unlink',
+      tag_id: input.tagId,
+    },
+    session.access_token,
+  );
     action: 'unlink',
     tag_id: input.tagId,
   });
@@ -90,10 +117,19 @@ export async function unlinkTagAction(input: { tagId: string }) {
 }
 
 export async function markTagLostAction(input: { tagId: string }) {
-  const { profile } = await assertAdminAction([...TAG_ROLES]);
+  const { session, profile } = await assertAdminAction([...TAG_ROLES]);
   if (!input.tagId) throw new Error('Tag ID is required.');
 
-  await invokeTagFunction({
+  if (!session.access_token) {
+    throw new Error('Unable to authenticate with Supabase.');
+  }
+  await invokeTagFunction(
+    {
+      action: 'mark_lost',
+      tag_id: input.tagId,
+    },
+    session.access_token,
+  );
     action: 'mark_lost',
     tag_id: input.tagId,
   });
@@ -110,10 +146,19 @@ export async function markTagLostAction(input: { tagId: string }) {
 }
 
 export async function markTagFoundAction(input: { tagId: string }) {
-  const { profile } = await assertAdminAction([...TAG_ROLES]);
+  const { session, profile } = await assertAdminAction([...TAG_ROLES]);
   if (!input.tagId) throw new Error('Tag ID is required.');
 
-  await invokeTagFunction({
+  if (!session.access_token) {
+    throw new Error('Unable to authenticate with Supabase.');
+  }
+  await invokeTagFunction(
+    {
+      action: 'mark_found',
+      tag_id: input.tagId,
+    },
+    session.access_token,
+  );
     action: 'mark_found',
     tag_id: input.tagId,
   });
@@ -130,10 +175,19 @@ export async function markTagFoundAction(input: { tagId: string }) {
 }
 
 export async function generateQrForTagAction(input: { tagId: string }) {
-  const { profile } = await assertAdminAction([...TAG_ROLES]);
+  const { session, profile } = await assertAdminAction([...TAG_ROLES]);
   if (!input.tagId) throw new Error('Tag ID is required.');
 
-  await invokeTagFunction({
+  if (!session.access_token) {
+    throw new Error('Unable to authenticate with Supabase.');
+  }
+  await invokeTagFunction(
+    {
+      action: 'generate_qr',
+      tag_id: input.tagId,
+    },
+    session.access_token,
+  );
     action: 'generate_qr',
     tag_id: input.tagId,
   });
@@ -150,10 +204,19 @@ export async function generateQrForTagAction(input: { tagId: string }) {
 }
 
 export async function rotateQrForTagAction(input: { tagId: string }) {
-  const { profile } = await assertAdminAction([...TAG_ROLES]);
+  const { session, profile } = await assertAdminAction([...TAG_ROLES]);
   if (!input.tagId) throw new Error('Tag ID is required.');
 
-  await invokeTagFunction({
+  if (!session.access_token) {
+    throw new Error('Unable to authenticate with Supabase.');
+  }
+  await invokeTagFunction(
+    {
+      action: 'rotate_qr',
+      tag_id: input.tagId,
+    },
+    session.access_token,
+  );
     action: 'rotate_qr',
     tag_id: input.tagId,
   });
@@ -170,10 +233,19 @@ export async function rotateQrForTagAction(input: { tagId: string }) {
 }
 
 export async function revokeQrForTagAction(input: { tagId: string }) {
-  const { profile } = await assertAdminAction([...TAG_ROLES]);
+  const { session, profile } = await assertAdminAction([...TAG_ROLES]);
   if (!input.tagId) throw new Error('Tag ID is required.');
 
-  await invokeTagFunction({
+  if (!session.access_token) {
+    throw new Error('Unable to authenticate with Supabase.');
+  }
+  await invokeTagFunction(
+    {
+      action: 'revoke_qr',
+      tag_id: input.tagId,
+    },
+    session.access_token,
+  );
     action: 'revoke_qr',
     tag_id: input.tagId,
   });
