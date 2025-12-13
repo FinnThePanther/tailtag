@@ -139,6 +139,9 @@ function RootLayoutNav() {
 
       {/* Daily tasks */}
       <Stack.Screen name="daily-tasks/index" options={{ title: 'Daily Tasks' }} />
+
+      {/* Show My QR */}
+      <Stack.Screen name="show-qr" options={{ title: 'Show My QR', presentation: 'modal' }} />
     </Stack>
   );
 }
