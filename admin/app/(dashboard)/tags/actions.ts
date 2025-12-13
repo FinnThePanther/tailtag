@@ -1,4 +1,5 @@
 'use server';
+'use server';
 
 import { revalidatePath } from 'next/cache';
 
@@ -7,172 +8,199 @@ import { createServiceRoleClient } from '@/lib/supabase/service';
 import { logAudit } from '@/lib/audit';
 
 const TAG_ROLES = ['owner', 'organizer', 'staff'] as const;
+const QR_BUCKET = 'tag-qr-codes';
 
 const normalizeUid = (uid: string) => uid.trim().toUpperCase().replace(/[:\s-]/g, '');
 
-async function ensureTag(uid: string) {
+async function invokeTagFunction(body: Record<string, unknown>) {
   const supabase = createServiceRoleClient();
-  const { data, error } = await supabase.from('nfc_tags').select('uid, status').eq('uid', uid).maybeSingle();
+  const { data, error } = await supabase.functions.invoke('register-tag', { body });
+
   if (error) {
-    throw error;
+    throw new Error(error.message ?? 'Failed to process tag request');
   }
+
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
   return data;
 }
 
 export async function registerTagAction(input: { uid: string }) {
   const { profile } = await assertAdminAction([...TAG_ROLES]);
-  const supabase = createServiceRoleClient();
   const normalizedUid = normalizeUid(input.uid);
 
   if (!normalizedUid) {
     throw new Error('Tag UID is required.');
   }
 
-  const now = new Date().toISOString();
-  await supabase.from('nfc_tags').upsert(
-    {
-      uid: normalizedUid,
-      status: 'pending_link',
-      registered_by_user_id: profile.id,
-      registered_at: now,
-      updated_at: now,
-      linked_at: null,
-      fursuit_id: null,
-    },
-    { onConflict: 'uid' }
-  );
+  await invokeTagFunction({ action: 'register', nfc_uid: normalizedUid });
 
   await logAudit({
     actorId: profile.id,
     action: 'register_tag',
-    entityType: 'nfc_tag',
+    entityType: 'tag',
     entityId: null,
-    context: { uid: normalizedUid },
+    context: { nfc_uid: normalizedUid },
   });
 
   revalidatePath('/tags');
 }
 
-export async function linkTagAction(input: { uid: string; fursuitId: string }) {
+export async function linkTagAction(input: { tagId: string; fursuitId: string }) {
   const { profile } = await assertAdminAction([...TAG_ROLES]);
-  const supabase = createServiceRoleClient();
-  const normalizedUid = normalizeUid(input.uid);
+  if (!input.tagId || !input.fursuitId) throw new Error('Tag and fursuit IDs are required.');
 
-  if (!normalizedUid || !input.fursuitId) {
-    throw new Error('Tag UID and fursuit ID are required.');
-  }
-
-  await ensureTag(normalizedUid);
-
-  const now = new Date().toISOString();
-  await supabase
-    .from('nfc_tags')
-    .update({
-      fursuit_id: input.fursuitId,
-      status: 'active',
-      linked_at: now,
-      updated_at: now,
-    })
-    .eq('uid', normalizedUid);
+  await invokeTagFunction({
+    action: 'link',
+    tag_id: input.tagId,
+    fursuit_id: input.fursuitId,
+  });
 
   await logAudit({
     actorId: profile.id,
     action: 'link_tag',
-    entityType: 'nfc_tag',
-    entityId: null,
-    context: { uid: normalizedUid, fursuit_id: input.fursuitId },
+    entityType: 'tag',
+    entityId: input.tagId,
+    context: { tag_id: input.tagId, fursuit_id: input.fursuitId },
   });
 
   revalidatePath('/tags');
 }
 
-export async function unlinkTagAction(input: { uid: string }) {
+export async function unlinkTagAction(input: { tagId: string }) {
   const { profile } = await assertAdminAction([...TAG_ROLES]);
-  const supabase = createServiceRoleClient();
-  const normalizedUid = normalizeUid(input.uid);
+  if (!input.tagId) throw new Error('Tag ID is required.');
 
-  if (!normalizedUid) {
-    throw new Error('Tag UID is required.');
-  }
-
-  await ensureTag(normalizedUid);
-
-  await supabase
-    .from('nfc_tags')
-    .update({
-      fursuit_id: null,
-      status: 'revoked',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('uid', normalizedUid);
+  await invokeTagFunction({
+    action: 'unlink',
+    tag_id: input.tagId,
+  });
 
   await logAudit({
     actorId: profile.id,
     action: 'unlink_tag',
-    entityType: 'nfc_tag',
-    entityId: null,
-    context: { uid: normalizedUid },
+    entityType: 'tag',
+    entityId: input.tagId,
+    context: { tag_id: input.tagId },
   });
 
   revalidatePath('/tags');
 }
 
-export async function markTagLostAction(input: { uid: string }) {
+export async function markTagLostAction(input: { tagId: string }) {
   const { profile } = await assertAdminAction([...TAG_ROLES]);
-  const supabase = createServiceRoleClient();
-  const normalizedUid = normalizeUid(input.uid);
+  if (!input.tagId) throw new Error('Tag ID is required.');
 
-  if (!normalizedUid) {
-    throw new Error('Tag UID is required.');
-  }
-
-  await ensureTag(normalizedUid);
-
-  await supabase
-    .from('nfc_tags')
-    .update({
-      status: 'lost',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('uid', normalizedUid);
+  await invokeTagFunction({
+    action: 'mark_lost',
+    tag_id: input.tagId,
+  });
 
   await logAudit({
     actorId: profile.id,
     action: 'mark_tag_lost',
-    entityType: 'nfc_tag',
-    entityId: null,
-    context: { uid: normalizedUid },
+    entityType: 'tag',
+    entityId: input.tagId,
+    context: { tag_id: input.tagId },
   });
 
   revalidatePath('/tags');
 }
 
-export async function markTagFoundAction(input: { uid: string }) {
+export async function markTagFoundAction(input: { tagId: string }) {
   const { profile } = await assertAdminAction([...TAG_ROLES]);
-  const supabase = createServiceRoleClient();
-  const normalizedUid = normalizeUid(input.uid);
+  if (!input.tagId) throw new Error('Tag ID is required.');
 
-  if (!normalizedUid) {
-    throw new Error('Tag UID is required.');
-  }
-
-  await ensureTag(normalizedUid);
-
-  await supabase
-    .from('nfc_tags')
-    .update({
-      status: 'active',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('uid', normalizedUid);
+  await invokeTagFunction({
+    action: 'mark_found',
+    tag_id: input.tagId,
+  });
 
   await logAudit({
     actorId: profile.id,
     action: 'mark_tag_found',
-    entityType: 'nfc_tag',
-    entityId: null,
-    context: { uid: normalizedUid },
+    entityType: 'tag',
+    entityId: input.tagId,
+    context: { tag_id: input.tagId },
   });
 
   revalidatePath('/tags');
+}
+
+export async function generateQrForTagAction(input: { tagId: string }) {
+  const { profile } = await assertAdminAction([...TAG_ROLES]);
+  if (!input.tagId) throw new Error('Tag ID is required.');
+
+  await invokeTagFunction({
+    action: 'generate_qr',
+    tag_id: input.tagId,
+  });
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'generate_qr',
+    entityType: 'tag',
+    entityId: input.tagId,
+    context: { tag_id: input.tagId },
+  });
+
+  revalidatePath('/tags');
+}
+
+export async function rotateQrForTagAction(input: { tagId: string }) {
+  const { profile } = await assertAdminAction([...TAG_ROLES]);
+  if (!input.tagId) throw new Error('Tag ID is required.');
+
+  await invokeTagFunction({
+    action: 'rotate_qr',
+    tag_id: input.tagId,
+  });
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'rotate_qr',
+    entityType: 'tag',
+    entityId: input.tagId,
+    context: { tag_id: input.tagId },
+  });
+
+  revalidatePath('/tags');
+}
+
+export async function revokeQrForTagAction(input: { tagId: string }) {
+  const { profile } = await assertAdminAction([...TAG_ROLES]);
+  if (!input.tagId) throw new Error('Tag ID is required.');
+
+  await invokeTagFunction({
+    action: 'revoke_qr',
+    tag_id: input.tagId,
+  });
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'revoke_qr',
+    entityType: 'tag',
+    entityId: input.tagId,
+    context: { tag_id: input.tagId },
+  });
+
+  revalidatePath('/tags');
+}
+
+export async function createQrDownloadUrlAction(input: { assetPath: string }) {
+  await assertAdminAction([...TAG_ROLES]);
+  if (!input.assetPath) throw new Error('QR asset not available.');
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase.storage
+    .from(QR_BUCKET)
+    .createSignedUrl(input.assetPath, 60);
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.signedUrl ?? null;
 }

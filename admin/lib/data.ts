@@ -215,20 +215,45 @@ export async function fetchStaffAssignments() {
   return (data ?? []) as any;
 }
 
-export async function fetchTags(limit = 50) {
+type TagWithMeta = {
+  id: string;
+  nfc_uid: string | null;
+  qr_token: string | null;
+  qr_token_created_at: string | null;
+  qr_asset_path: string | null;
+  status: string;
+  fursuit_id: string | null;
+  registered_by_user_id: string;
+  registered_at: string | null;
+  linked_at: string | null;
+  updated_at: string | null;
+  fursuits?: { id: string; name: string | null } | null;
+  profiles?: { username: string | null } | null;
+  last_scan?: {
+    scan_method: string;
+    result: string;
+    created_at: string;
+  } | null;
+};
+
+export async function fetchTags(limit = 50): Promise<TagWithMeta[]> {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
-    .from('nfc_tags')
+    .from('tags')
     .select(
       [
-        'uid',
+        'id',
+        'nfc_uid',
+        'qr_token',
+        'qr_token_created_at',
+        'qr_asset_path',
         'status',
         'fursuit_id',
         'registered_by_user_id',
         'registered_at',
         'linked_at',
         'updated_at',
-        'fursuits(name)',
+        'fursuits(id, name)',
         'profiles:registered_by_user_id(username)',
       ].join(', ')
     )
@@ -239,16 +264,47 @@ export async function fetchTags(limit = 50) {
     throw error;
   }
 
-  return (data ?? []) as any;
+  const tags = (data ?? []) as TagWithMeta[];
+  const tagIds = tags.map((tag) => tag.id);
+
+  if (tagIds.length === 0) {
+    return tags;
+  }
+
+  const { data: scanData, error: scanError } = await supabase
+    .from('tag_scans')
+    .select('tag_id, scan_method, result, created_at')
+    .in('tag_id', tagIds)
+    .order('created_at', { ascending: false });
+
+  if (scanError) {
+    throw scanError;
+  }
+
+  const scanMap = new Map<string, TagWithMeta['last_scan']>();
+  for (const entry of scanData ?? []) {
+    if (!scanMap.has(entry.tag_id)) {
+      scanMap.set(entry.tag_id, {
+        scan_method: entry.scan_method,
+        result: entry.result,
+        created_at: entry.created_at,
+      });
+    }
+  }
+
+  return tags.map((tag) => ({
+    ...tag,
+    last_scan: scanMap.get(tag.id) ?? null,
+  }));
 }
 
-export async function fetchTagActivity(uid: string) {
+export async function fetchTagActivity(tagId: string) {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
-    .from('tag_activity')
-    .select('seen_at, convention_id, catcher_id')
-    .eq('tag_uid', uid)
-    .order('seen_at', { ascending: false })
+    .from('tag_scans')
+    .select('scan_method, result, created_at, scanner_user_id')
+    .eq('tag_id', tagId)
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -257,6 +313,55 @@ export async function fetchTagActivity(uid: string) {
   }
 
   return data;
+}
+
+export async function fetchTagScanLogs(params: {
+  tagId?: string | null;
+  method?: 'nfc' | 'qr' | null;
+  result?: string | null;
+  identifier?: string | null;
+  limit?: number;
+}) {
+  const supabase = createServiceRoleClient();
+  const limit = params.limit ?? 100;
+
+  const query = supabase
+    .from('tag_scans')
+    .select(
+      [
+        'id',
+        'tag_id',
+        'scanned_identifier',
+        'scan_method',
+        'result',
+        'created_at',
+        'metadata',
+        'tags:tag_id(id, nfc_uid, qr_token, fursuit_id, fursuits(name))',
+        'profiles:scanner_user_id(username)',
+      ].join(', ')
+    )
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (params.tagId) {
+    query.eq('tag_id', params.tagId);
+  }
+  if (params.method) {
+    query.eq('scan_method', params.method);
+  }
+  if (params.result) {
+    query.eq('result', params.result);
+  }
+  if (params.identifier) {
+    query.ilike('scanned_identifier', `%${params.identifier}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
 }
 
 export async function fetchReports(params: {
