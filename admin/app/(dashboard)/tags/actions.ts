@@ -71,10 +71,6 @@ export async function linkTagAction(input: { tagId: string; fursuitId: string })
     },
     session.access_token,
   );
-    action: 'link',
-    tag_id: input.tagId,
-    fursuit_id: input.fursuitId,
-  });
 
   await logAudit({
     actorId: profile.id,
@@ -101,9 +97,6 @@ export async function unlinkTagAction(input: { tagId: string }) {
     },
     session.access_token,
   );
-    action: 'unlink',
-    tag_id: input.tagId,
-  });
 
   await logAudit({
     actorId: profile.id,
@@ -130,9 +123,6 @@ export async function markTagLostAction(input: { tagId: string }) {
     },
     session.access_token,
   );
-    action: 'mark_lost',
-    tag_id: input.tagId,
-  });
 
   await logAudit({
     actorId: profile.id,
@@ -159,9 +149,6 @@ export async function markTagFoundAction(input: { tagId: string }) {
     },
     session.access_token,
   );
-    action: 'mark_found',
-    tag_id: input.tagId,
-  });
 
   await logAudit({
     actorId: profile.id,
@@ -188,9 +175,6 @@ export async function generateQrForTagAction(input: { tagId: string }) {
     },
     session.access_token,
   );
-    action: 'generate_qr',
-    tag_id: input.tagId,
-  });
 
   await logAudit({
     actorId: profile.id,
@@ -217,9 +201,6 @@ export async function rotateQrForTagAction(input: { tagId: string }) {
     },
     session.access_token,
   );
-    action: 'rotate_qr',
-    tag_id: input.tagId,
-  });
 
   await logAudit({
     actorId: profile.id,
@@ -246,9 +227,6 @@ export async function revokeQrForTagAction(input: { tagId: string }) {
     },
     session.access_token,
   );
-    action: 'revoke_qr',
-    tag_id: input.tagId,
-  });
 
   await logAudit({
     actorId: profile.id,
