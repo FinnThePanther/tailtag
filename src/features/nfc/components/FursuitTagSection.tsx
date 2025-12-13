@@ -37,6 +37,13 @@ export function FursuitTagSection({ fursuitId }: FursuitTagSectionProps) {
     });
   };
 
+  const handleShowQr = () => {
+    router.push({
+      pathname: '/show-qr',
+      params: { initialFursuitId: fursuitId },
+    });
+  };
+
   // Truncate UID for display (show first 4 and last 4 chars)
   const formatUid = (uid: string) => {
     if (uid.length <= 8) return uid;
@@ -44,69 +51,101 @@ export function FursuitTagSection({ fursuitId }: FursuitTagSectionProps) {
   };
 
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>NFC Tag</Text>
+    <View style={styles.sectionGroup}>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>NFC Tag</Text>
 
-      {isLoading ? (
-        <Text style={styles.loadingText}>Loading...</Text>
-      ) : tag ? (
-        <Pressable style={styles.tagCard} onPress={handleManageTags}>
-          <View style={styles.tagInfo}>
-            <View style={styles.tagHeader}>
-              <Ionicons name="radio-outline" size={20} color={colors.primary} />
-              <Text style={styles.tagUid}>{formatUid(tag.uid)}</Text>
-              <TagStatusBadge status={tag.status} />
+        {isLoading ? (
+          <Text style={styles.loadingText}>Loading...</Text>
+        ) : tag ? (
+          <Pressable style={styles.tagCard} onPress={handleManageTags}>
+            <View style={styles.tagInfo}>
+              <View style={styles.tagHeader}>
+                <Ionicons name="radio-outline" size={20} color={colors.primary} />
+                <Text style={styles.tagUid}>{formatUid(tag.uid)}</Text>
+                <TagStatusBadge status={tag.status} />
+              </View>
+              {tag.linkedAt && (
+                <Text style={styles.tagDate}>
+                  Linked {new Date(tag.linkedAt).toLocaleDateString()}
+                </Text>
+              )}
             </View>
-            {tag.linkedAt && (
-              <Text style={styles.tagDate}>
-                Linked {new Date(tag.linkedAt).toLocaleDateString()}
-              </Text>
-            )}
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color="rgba(148,163,184,0.6)"
-          />
-        </Pressable>
-      ) : (
-        <Pressable style={styles.emptyCard} onPress={handleManageTags}>
-          <View style={styles.emptyContent}>
             <Ionicons
-              name="add-circle-outline"
-              size={24}
-              color={colors.primary}
+              name="chevron-forward"
+              size={20}
+              color="rgba(148,163,184,0.6)"
             />
-            <Text style={styles.emptyText}>Register an NFC tag</Text>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color="rgba(148,163,184,0.6)"
-          />
-        </Pressable>
-      )}
+          </Pressable>
+        ) : (
+          <Pressable style={styles.emptyCard} onPress={handleManageTags}>
+            <View style={styles.emptyContent}>
+              <Ionicons
+                name="add-circle-outline"
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={styles.emptyText}>Register an NFC tag</Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color="rgba(148,163,184,0.6)"
+            />
+          </Pressable>
+        )}
+      </View>
 
-      {qrTag?.qrToken ? (
-        <TailTagButton
-          variant="outline"
-          size="sm"
-          style={styles.showQrButton}
-          onPress={() =>
-            router.push({
-              pathname: '/show-qr',
-              params: { initialFursuitId: fursuitId },
-            })
-          }
-        >
-          Show My QR
-        </TailTagButton>
-      ) : null}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>QR Tag</Text>
+        {qrTag?.qrToken ? (
+          <>
+            <Pressable style={styles.qrCard} onPress={handleManageTags}>
+              <View style={styles.tagInfo}>
+                <View style={styles.tagHeader}>
+                  <Ionicons name="qr-code-outline" size={20} color={colors.primary} />
+                  <Text style={styles.qrLabel}>Ready to scan</Text>
+                  <TagStatusBadge status={qrTag.status} />
+                </View>
+                {qrTag.qrTokenCreatedAt ? (
+                  <Text style={styles.tagDate}>
+                    Generated {new Date(qrTag.qrTokenCreatedAt).toLocaleDateString()}
+                  </Text>
+                ) : null}
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color="rgba(148,163,184,0.6)"
+              />
+            </Pressable>
+            <View style={styles.qrActions}>
+              <TailTagButton variant="outline" size="sm" style={styles.showQrButton} onPress={handleShowQr}>
+                Show My QR
+              </TailTagButton>
+              <TailTagButton variant="ghost" size="sm" onPress={handleManageTags}>
+                Manage QR
+              </TailTagButton>
+            </View>
+          </>
+        ) : (
+          <Pressable style={[styles.emptyCard, styles.qrEmptyCard]} onPress={handleManageTags}>
+            <View style={styles.emptyContent}>
+              <Ionicons name="qr-code-outline" size={24} color={colors.primary} />
+              <Text style={styles.emptyText}>Register a QR tag</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="rgba(148,163,184,0.6)" />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  sectionGroup: {
+    gap: spacing.xs,
+  },
   section: {
     gap: spacing.xs,
   },
@@ -170,8 +209,33 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '500',
   },
+  qrLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.foreground,
+    flex: 1,
+  },
+  qrCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(17,24,39,0.5)',
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(94,234,212,0.2)',
+  },
+  qrActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  qrEmptyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderColor: 'rgba(148,163,184,0.15)',
+    backgroundColor: 'rgba(30,41,59,0.3)',
+  },
   showQrButton: {
     marginTop: spacing.sm,
-    alignSelf: 'flex-start',
   },
 });

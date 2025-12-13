@@ -53,8 +53,6 @@ import {
 import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
 import { emitGameplayEvent } from '../../../src/features/events';
 import { DAILY_TASKS_QUERY_KEY } from '../../../src/features/daily-tasks/hooks';
-import { ensureQrBackupForFursuit } from '../../../src/features/nfc';
-
 import type { FursuitBiosInsert, FursuitsInsert, Json } from '../../../src/types/database';
 import {
   createEmptySocialLink,
@@ -583,8 +581,6 @@ export default function AddFursuitScreen() {
       if (bioError) {
         throw bioError;
       }
-
-      await ensureQrBackupForFursuit(createdFursuitId!);
 
       setNameInput('');
       setSpeciesInput('');
