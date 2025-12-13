@@ -910,6 +910,63 @@ export type Database = {
             foreignKeyName: "nfc_tags_registered_by_user_id_fkey"
             columns: ["registered_by_user_id"]
             isOneToOne: false
+          referencedRelation: "profiles"
+          referencedColumns: ["id"]
+        },
+      ]
+    }
+      tags: {
+        Row: {
+          id: string
+          nfc_uid: string | null
+          qr_token: string | null
+          qr_token_created_at: string | null
+          qr_asset_path: string | null
+          fursuit_id: string | null
+          registered_by_user_id: string
+          status: string
+          registered_at: string
+          linked_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          nfc_uid?: string | null
+          qr_token?: string | null
+          qr_token_created_at?: string | null
+          qr_asset_path?: string | null
+          fursuit_id?: string | null
+          registered_by_user_id: string
+          status?: string
+          registered_at?: string
+          linked_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          nfc_uid?: string | null
+          qr_token?: string | null
+          qr_token_created_at?: string | null
+          qr_asset_path?: string | null
+          fursuit_id?: string | null
+          registered_by_user_id?: string
+          status?: string
+          registered_at?: string
+          linked_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfc_tags_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nfc_tags_registered_by_user_id_fkey"
+            columns: ["registered_by_user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1097,8 +1154,8 @@ export type Database = {
             foreignKeyName: "tag_activity_tag_uid_fkey"
             columns: ["tag_uid"]
             isOneToOne: false
-            referencedRelation: "nfc_tags"
-            referencedColumns: ["uid"]
+            referencedRelation: "tags"
+            referencedColumns: ["nfc_uid"]
           },
         ]
       }
@@ -1178,6 +1235,54 @@ export type Database = {
             columns: ["achievement_id"]
             isOneToOne: false
             referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tag_scans: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json
+          result: string
+          scan_method: string
+          scanned_identifier: string
+          scanner_user_id: string | null
+          tag_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          result: string
+          scan_method: string
+          scanned_identifier: string
+          scanner_user_id?: string | null
+          tag_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          result?: string
+          scan_method?: string
+          scanned_identifier?: string
+          scanner_user_id?: string | null
+          tag_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tag_scans_scanner_user_id_fkey"
+            columns: ["scanner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_scans_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
             referencedColumns: ["id"]
           },
         ]

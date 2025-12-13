@@ -264,7 +264,7 @@ export async function fetchTags(limit = 50): Promise<TagWithMeta[]> {
     throw error;
   }
 
-  const tags = (data ?? []) as TagWithMeta[];
+  const tags = (data ?? []) as unknown as TagWithMeta[];
   const tagIds = tags.map((tag) => tag.id);
 
   if (tagIds.length === 0) {
@@ -283,13 +283,14 @@ export async function fetchTags(limit = 50): Promise<TagWithMeta[]> {
 
   const scanMap = new Map<string, TagWithMeta['last_scan']>();
   for (const entry of scanData ?? []) {
-    if (!scanMap.has(entry.tag_id)) {
-      scanMap.set(entry.tag_id, {
-        scan_method: entry.scan_method,
-        result: entry.result,
-        created_at: entry.created_at,
-      });
+    if (!entry.tag_id || scanMap.has(entry.tag_id)) {
+      continue;
     }
+    scanMap.set(entry.tag_id, {
+      scan_method: entry.scan_method,
+      result: entry.result,
+      created_at: entry.created_at,
+    });
   }
 
   return tags.map((tag) => ({
