@@ -3,8 +3,9 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '@/theme';
-import { fetchFursuitTag, nfcTagQueryKey } from '../api/nfcTags';
+import { fetchFursuitTag, nfcTagQueryKey, fetchFursuitQrTag, fursuitQrQueryKey } from '../api/nfcTags';
 import { TagStatusBadge } from './TagStatusBadge';
+import { TailTagButton } from '@/components/ui/TailTagButton';
 
 type FursuitTagSectionProps = {
   fursuitId: string;
@@ -20,6 +21,12 @@ export function FursuitTagSection({ fursuitId }: FursuitTagSectionProps) {
   const { data: tag, isLoading } = useQuery({
     queryKey: nfcTagQueryKey(fursuitId),
     queryFn: () => fetchFursuitTag(fursuitId),
+    staleTime: 2 * 60_000,
+  });
+
+  const { data: qrTag } = useQuery({
+    queryKey: fursuitQrQueryKey(fursuitId),
+    queryFn: () => fetchFursuitQrTag(fursuitId),
     staleTime: 2 * 60_000,
   });
 
@@ -79,6 +86,22 @@ export function FursuitTagSection({ fursuitId }: FursuitTagSectionProps) {
           />
         </Pressable>
       )}
+
+      {qrTag?.qrToken ? (
+        <TailTagButton
+          variant="outline"
+          size="sm"
+          style={styles.showQrButton}
+          onPress={() =>
+            router.push({
+              pathname: '/show-qr',
+              params: { initialFursuitId: fursuitId },
+            })
+          }
+        >
+          Show My QR
+        </TailTagButton>
+      ) : null}
     </View>
   );
 }
@@ -146,5 +169,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.primary,
     fontWeight: '500',
+  },
+  showQrButton: {
+    marginTop: spacing.sm,
+    alignSelf: 'flex-start',
   },
 });

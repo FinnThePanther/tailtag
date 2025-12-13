@@ -16,6 +16,8 @@ export type {
   TagRegistrationErrorCode,
   TagLookupResult,
   TagLookupFailReason,
+  TagQrActionResult,
+  QrReadyFursuit,
 } from './types';
 
 // Hooks
@@ -34,12 +36,24 @@ export { emitNfcScan } from './api/nfc';
 export {
   NFC_TAG_QUERY_KEY,
   nfcTagQueryKey,
+  FURSUIT_QR_TAG_QUERY_KEY,
+  fursuitQrQueryKey,
   checkTagStatus,
   registerTag,
   linkTagToFursuit,
+  linkTagByIdToFursuit,
   unlinkTag,
   markTagLost,
   markTagFound,
   fetchFursuitTag,
+  fetchFursuitQrTag,
   lookupTagForCatch,
+  generateQrForTag,
+  rotateQrForTag,
+  revokeQrForTag,
+  createSignedQrDownloadUrl,
+  QR_READY_SUITS_QUERY_KEY,
+  qrReadySuitsQueryKey,
+  fetchQrReadySuits,
+  ensureQrBackupForFursuit,
 } from './api/nfcTags';

@@ -219,10 +219,24 @@ export default function MySuitsScreen() {
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Your suits</Text>
         <Text style={styles.title}>Suit deck</Text>
-        <Text style={styles.subtitle}>
-          Keep your suits up to date so other players know who they just tagged.
-        </Text>
-      </View>
+      <Text style={styles.subtitle}>
+        Keep your suits up to date so other players know who they just tagged.
+      </Text>
+    </View>
+
+      <TailTagCard style={styles.cardSpacing}>
+        <View style={styles.helperRow}>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text style={styles.helperTitle}>Need your QR fast?</Text>
+            <Text style={styles.helperText}>
+              Show a scannable QR backup for any suit directly from your phone. Perfect when NFC is finicky.
+            </Text>
+          </View>
+          <TailTagButton variant="outline" size="sm" onPress={() => router.push('/show-qr')}>
+            Show My QR
+          </TailTagButton>
+        </View>
+      </TailTagCard>
 
       <PendingCatchesList
         pendingCatches={pendingCatches}
@@ -352,6 +366,11 @@ const styles = StyleSheet.create({
     color: "rgba(203,213,225,0.9)",
     flex: IS_SMALL_SCREEN ? 0 : 1,
     fontSize: 14,
+  },
+  helperTitle: {
+    color: colors.foreground,
+    fontSize: 16,
+    fontWeight: "600",
   },
   cardSpacing: {
     marginBottom: spacing.lg,

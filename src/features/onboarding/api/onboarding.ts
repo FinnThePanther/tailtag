@@ -10,6 +10,7 @@ import {
   captureSupabaseError,
 } from '../../../lib/sentry';
 import { emitGameplayEvent } from '../../events';
+import { ensureQrBackupForFursuit } from '../../nfc';
 
 import type { FursuitsInsert } from '../../../types/database';
 import { MAX_FURSUIT_COLORS } from '../../colors';
@@ -280,6 +281,19 @@ export async function createQuickFursuit(options: {
 
             throw colorAssignmentError;
           }
+        }
+
+        try {
+          await ensureQrBackupForFursuit(fursuitId);
+        } catch (error) {
+          captureHandledException(error, {
+            scope: 'onboarding.createQuickFursuit.ensureQrBackup',
+            userId,
+            fursuitId,
+          });
+          throw error instanceof Error
+            ? error
+            : new Error('We could not prepare your QR backup. Please try again.');
         }
 
         addMonitoringBreadcrumb({

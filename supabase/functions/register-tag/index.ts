@@ -95,6 +95,7 @@ type ErrorCode =
   | "NOT_TAG_OWNER"
   | "FURSUIT_NOT_OWNED"
   | "FURSUIT_ALREADY_HAS_TAG"
+  | "FURSUIT_ALREADY_HAS_QR"
   | "INVALID_TAG_STATUS"
   | "INVALID_REQUEST"
   | "QR_ALREADY_EXISTS"
@@ -318,26 +319,52 @@ async function ensureFursuitOwnership(
   return null;
 }
 
-async function ensureFursuitHasNoActiveTag(
+async function ensureFursuitCanLinkTag(
   fursuitId: string,
-  tagId: string,
+  tag: TagRow,
 ): Promise<Response | null> {
-  const { data } = await supabaseAdmin
-    .from("tags")
-    .select("id")
-    .eq("fursuit_id", fursuitId)
-    .eq("status", "active")
-    .maybeSingle();
+  if (tag.nfc_uid) {
+    const { data } = await supabaseAdmin
+      .from("tags")
+      .select("id")
+      .eq("fursuit_id", fursuitId)
+      .eq("status", "active")
+      .not("nfc_uid", "is", null)
+      .maybeSingle();
 
-  if (data && (data as { id: string }).id !== tagId) {
-    return errorResponse(
-      400,
-      "FURSUIT_ALREADY_HAS_TAG",
-      "This fursuit already has an active tag",
-    );
+    if (data && (data as { id: string }).id !== tag.id) {
+      return errorResponse(
+        400,
+        "FURSUIT_ALREADY_HAS_TAG",
+        "This fursuit already has an active NFC tag",
+      );
+    }
+    return null;
   }
 
-  return null;
+  if (tag.qr_token) {
+    const { data } = await supabaseAdmin
+      .from("tags")
+      .select("id")
+      .eq("fursuit_id", fursuitId)
+      .not("qr_token", "is", null)
+      .maybeSingle();
+
+    if (data && (data as { id: string }).id !== tag.id) {
+      return errorResponse(
+        400,
+        "FURSUIT_ALREADY_HAS_QR",
+        "This fursuit already has a QR tag",
+      );
+    }
+    return null;
+  }
+
+  return errorResponse(
+    400,
+    "INVALID_REQUEST",
+    "Tags must include an NFC UID or QR token before linking",
+  );
 }
 
 async function ensureQrForTag(
@@ -448,6 +475,14 @@ async function handleRegister(body: RequestBody, userId: string): Promise<Respon
     );
   }
 
+  if (nfcUid && wantsQr) {
+    return errorResponse(
+      400,
+      "INVALID_REQUEST",
+      "QR backups are issued as separate tags. Register QR-only tags without an NFC UID.",
+    );
+  }
+
   if (nfcUid) {
     const { data: existing } = await supabaseAdmin
       .from("tags")
@@ -541,8 +576,8 @@ async function handleLink(body: RequestBody, userId: string): Promise<Response> 
   const ownershipError = await ensureFursuitOwnership(fursuitId, userId);
   if (ownershipError) return ownershipError;
 
-  const activeError = await ensureFursuitHasNoActiveTag(fursuitId, tag.id);
-  if (activeError) return activeError;
+  const conflictError = await ensureFursuitCanLinkTag(fursuitId, tag);
+  if (conflictError) return conflictError;
 
   const { data, error } = await supabaseAdmin
     .from("tags")
@@ -564,10 +599,12 @@ async function handleLink(body: RequestBody, userId: string): Promise<Response> 
   tag = data as TagRow;
 
   let qrDownloadUrl: string | undefined;
-  if (tag.qr_token || DEFAULT_GENERATE_QR_ON_LINK) {
+  if (!tag.nfc_uid && (tag.qr_token || DEFAULT_GENERATE_QR_ON_LINK)) {
     const qrResult = await ensureQrForTag(tag, { desiredFursuitId: fursuitId });
     tag = qrResult.tag;
     qrDownloadUrl = qrResult.downloadUrl;
+  } else if (tag.qr_asset_path) {
+    qrDownloadUrl = await createSignedQrUrl(tag.qr_asset_path);
   }
 
   return jsonResponse(200, formatLegacyTagResponse(tag, { qr_download_url: qrDownloadUrl }));
@@ -676,6 +713,14 @@ async function handleGenerateQr(body: RequestBody, userId: string): Promise<Resp
   if (tagOrResponse instanceof Response) return tagOrResponse;
   const tag = tagOrResponse;
 
+  if (tag.nfc_uid) {
+    return errorResponse(
+      400,
+      "INVALID_REQUEST",
+      "QR codes are managed via dedicated QR tags. Register a QR-only tag instead.",
+    );
+  }
+
   if (tag.qr_token) {
     return errorResponse(400, "QR_ALREADY_EXISTS", "Tag already has a QR token");
   }
@@ -695,6 +740,14 @@ async function handleRotateQr(body: RequestBody, userId: string): Promise<Respon
   );
   if (tagOrResponse instanceof Response) return tagOrResponse;
   const tag = tagOrResponse;
+
+  if (tag.nfc_uid) {
+    return errorResponse(
+      400,
+      "INVALID_REQUEST",
+      "QR codes are managed via dedicated QR tags. Register a QR-only tag instead.",
+    );
+  }
 
   if (!tag.qr_token) {
     return errorResponse(400, "QR_NOT_FOUND", "Tag does not have a QR token to rotate");
@@ -716,6 +769,14 @@ async function handleRevokeQr(body: RequestBody, userId: string): Promise<Respon
   );
   if (tagOrResponse instanceof Response) return tagOrResponse;
   const tag = tagOrResponse;
+
+  if (tag.nfc_uid) {
+    return errorResponse(
+      400,
+      "INVALID_REQUEST",
+      "QR codes are managed via dedicated QR tags. Register a QR-only tag instead.",
+    );
+  }
 
   if (!tag.qr_token) {
     return errorResponse(400, "QR_NOT_FOUND", "Tag does not have a QR token");
