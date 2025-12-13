@@ -725,12 +725,26 @@ export async function ensureQrBackupForFursuit(fursuitId: string): Promise<NfcTa
  * Look up an NFC tag for catching purposes.
  * Returns the fursuit ID if the tag is active, or a reason why not.
  */
-export async function lookupTagForCatch(uid: string): Promise<TagLookupResult> {
+type LookupTagInput = string | { nfcUid?: string | null; qrToken?: string | null };
+
+export async function lookupTagForCatch(input: LookupTagInput): Promise<TagLookupResult> {
+  const payload =
+    typeof input === 'string'
+      ? { nfc_uid: input, qr_token: undefined }
+      : {
+          nfc_uid: input.nfcUid ?? undefined,
+          qr_token: input.qrToken ?? undefined,
+        };
+
+  if (!payload.nfc_uid && !payload.qr_token) {
+    throw new Error('Lookup requires an NFC UID or QR token');
+  }
+
   try {
     const { data, error } = await supabase.functions.invoke<LookupTagApiResponse>(
       'lookup-tag',
       {
-        body: { nfc_uid: uid },
+        body: payload,
       }
     );
 
@@ -759,7 +773,7 @@ export async function lookupTagForCatch(uid: string): Promise<TagLookupResult> {
   } catch (error) {
     captureHandledException(error, {
       scope: 'nfc.lookupTagForCatch',
-      tagUid: uid,
+      tagUid: payload.nfc_uid ?? payload.qr_token ?? 'unknown',
     });
 
     // Return not registered on error for graceful degradation

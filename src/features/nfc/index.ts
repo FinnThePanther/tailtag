@@ -30,6 +30,7 @@ export { NfcScanCard } from './components/NfcScanCard';
 export { TagStatusBadge } from './components/TagStatusBadge';
 export { FursuitTagSection } from './components/FursuitTagSection';
 export { TagRegistrationFlow } from './components/TagRegistrationFlow';
+export { QrScanCard } from './components/QrScanCard';
 
 // API
 export { emitNfcScan } from './api/nfc';
