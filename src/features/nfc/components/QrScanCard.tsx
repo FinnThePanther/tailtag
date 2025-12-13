@@ -73,7 +73,6 @@ export function QrScanCard({ conventionId, onCatchComplete, createCatchFn }: QrS
   const [step, setStep] = useState<ScanStep>('idle');
   const [qrResult, setQrResult] = useState<QrCatchResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [scannedToken, setScannedToken] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const { data: fursuitDetail, isLoading: isFursuitLoading } = useQuery({
@@ -127,7 +126,6 @@ export function QrScanCard({ conventionId, onCatchComplete, createCatchFn }: QrS
     setStep('idle');
     setErrorMessage(null);
     setQrResult(null);
-    setScannedToken(null);
     setIsProcessing(false);
   }, []);
 
@@ -145,7 +143,6 @@ export function QrScanCard({ conventionId, onCatchComplete, createCatchFn }: QrS
       }
 
       setIsProcessing(true);
-      setScannedToken(parsed.token);
       setErrorMessage(null);
       setStep('looking_up');
 
