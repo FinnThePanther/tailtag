@@ -26,9 +26,12 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
 const AVATAR_BUCKET = "avatars";
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const FALLBACK_CONTENT_TYPE = "image/jpeg";
+const GOOGLE_USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v3/userinfo";
 
 type SyncPayload = {
   sourceUrl?: string;
+  provider?: string;
+  accessToken?: string;
 };
 
 function jsonResponse(status: number, payload: unknown) {
@@ -118,6 +121,8 @@ async function handlePost(req: Request) {
     return jsonResponse(401, { error: "Unauthorized" });
   }
 
+  const provider = typeof user.app_metadata?.provider === "string" ? user.app_metadata.provider : null;
+
   let payload: SyncPayload;
   try {
     payload = (await req.json()) as SyncPayload;
@@ -125,9 +130,38 @@ async function handlePost(req: Request) {
     return jsonResponse(400, { error: "Invalid JSON payload" });
   }
 
-  const sourceUrl = payload.sourceUrl?.trim();
+  let sourceUrl = payload.sourceUrl?.trim();
   if (!isHttpUrl(sourceUrl)) {
-    return jsonResponse(400, { error: "A valid sourceUrl is required" });
+    if (provider === "google") {
+      const accessToken = payload.accessToken?.trim();
+      if (!accessToken) {
+        return jsonResponse(400, { error: "accessToken is required for Google sync" });
+      }
+
+      try {
+        const googleResponse = await fetch(GOOGLE_USERINFO_ENDPOINT, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (!googleResponse.ok) {
+          console.error("[sync-provider-avatar] Google userinfo error", await googleResponse.text());
+          return jsonResponse(502, { error: "Unable to fetch Google profile photo" });
+        }
+
+        const googleProfile: { picture?: string } = await googleResponse.json();
+
+        if (isHttpUrl(googleProfile.picture)) {
+          sourceUrl = googleProfile.picture!;
+        } else {
+          return jsonResponse(400, { error: "Google account does not provide a profile photo" });
+        }
+      } catch (error) {
+        console.error("[sync-provider-avatar] Failed to fetch Google userinfo", error);
+        return jsonResponse(502, { error: "Unable to fetch Google profile data" });
+      }
+    } else {
+      return jsonResponse(400, { error: "A valid sourceUrl is required" });
+    }
   }
 
   try {

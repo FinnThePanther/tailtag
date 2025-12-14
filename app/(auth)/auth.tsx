@@ -70,6 +70,21 @@ export default function AuthScreen() {
   };
 
   const isDiscordLoading = activeProvider === "discord";
+  const isGoogleLoading = activeProvider === "google";
+
+  const handleGoogleSignIn = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      await signInWithProvider("google");
+    } catch {
+      // Error state is surfaced by the hook
+    }
+  };
 
   const handleSubmit = async () => {
     if (isSubmitting) {
@@ -211,6 +226,17 @@ export default function AuthScreen() {
             accessibilityHint="Opens Discord to continue signing in."
           >
             Continue with Discord
+          </TailTagButton>
+
+          <TailTagButton
+            variant="outline"
+            onPress={handleGoogleSignIn}
+            loading={isGoogleLoading}
+            disabled={isSubmitting}
+            accessibilityLabel="Continue with Google"
+            accessibilityHint="Opens Google to continue signing in."
+          >
+            Continue with Google
           </TailTagButton>
         </TailTagCard>
 

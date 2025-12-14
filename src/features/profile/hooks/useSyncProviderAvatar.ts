@@ -6,6 +6,7 @@ import { AVATAR_BUCKET } from '../../../constants/storage';
 import { supabase } from '../../../lib/supabase';
 import { captureHandledException } from '../../../lib/sentry';
 import { deriveStoragePathFromPublicUrl } from '../../../utils/storage';
+import { consumeStoredProviderToken } from '../../auth/utils/oauth';
 import type { ProfileSummary } from '../api/profile';
 import { profileQueryKey } from '../api/profile';
 
@@ -122,9 +123,12 @@ export function useSyncProviderAvatar({ session, profile }: Params) {
     }
 
     const candidateUrl = extractCandidateAvatarUrl(provider, combinedMetadata);
+    const providerAllowsFallback = provider === 'google';
 
     if (!candidateUrl || !isHttpUrl(candidateUrl) || isStorageAvatarUrl(candidateUrl)) {
-      return;
+      if (!providerAllowsFallback) {
+        return;
+      }
     }
 
     if (syncingRef.current) {
@@ -139,11 +143,42 @@ export function useSyncProviderAvatar({ session, profile }: Params) {
           throw new Error('No access token available for avatar sync.');
         }
 
+        let googleProviderToken: string | null = null;
+        if (provider === 'google') {
+          googleProviderToken =
+            typeof (session as any).provider_token === 'string'
+              ? (session as any).provider_token
+              : (() => {
+                  const identity = session.user.identities?.find((item) => item.provider === 'google');
+                  if (identity && identity.identity_data && typeof identity.identity_data === 'object') {
+                    const maybeAccessToken = (identity.identity_data as Record<string, unknown>).access_token;
+                    return typeof maybeAccessToken === 'string' ? maybeAccessToken : null;
+                  }
+                  return null;
+                })();
+
+          if (!googleProviderToken) {
+            const storedTokenPayload = consumeStoredProviderToken('google');
+            if (storedTokenPayload?.accessToken) {
+              googleProviderToken = storedTokenPayload.accessToken;
+            }
+          }
+
+          if (!googleProviderToken) {
+            return;
+          }
+        }
+
+        const payload =
+          provider === 'google'
+            ? { accessToken: googleProviderToken, provider }
+            : { sourceUrl: candidateUrl };
+
         const { data, error } = await supabase.functions.invoke<{
           avatarUrl?: string;
         }>('sync-provider-avatar', {
           body: {
-            sourceUrl: candidateUrl,
+            ...payload,
           },
           headers: {
             Authorization: `Bearer ${accessToken}`,

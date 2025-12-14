@@ -5,7 +5,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
 import { supabase } from '../../../lib/supabase';
-import { completeOAuthSessionFromUrl, getOAuthRedirectUri } from '../utils/oauth';
+import { completeOAuthSessionFromUrl, getOAuthRedirectUri, setPendingOAuthProvider } from '../utils/oauth';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -15,6 +15,12 @@ type OAuthErrorState = string | null;
 
 const formatErrorMessage = (input: unknown) =>
   input instanceof Error ? input.message : 'Unable to complete sign-in. Please try again.';
+
+const PROVIDER_OPTIONS: Partial<Record<SupportedProvider, { scopes?: string }>> = {
+  google: {
+    scopes: 'openid email profile',
+  },
+};
 
 export function useOAuthSignIn() {
   const [activeProvider, setActiveProvider] = useState<SupportedProvider | null>(null);
@@ -77,11 +83,15 @@ export function useOAuthSignIn() {
       setError(null);
 
       try {
+        setPendingOAuthProvider(provider);
+        const providerSpecificOptions = PROVIDER_OPTIONS[provider];
+
         const { data, error: authError } = await supabase.auth.signInWithOAuth({
           provider,
           options: {
             redirectTo: redirectUri,
             skipBrowserRedirect: true,
+            ...providerSpecificOptions,
           },
         });
 
@@ -111,9 +121,11 @@ export function useOAuthSignIn() {
 
         throw new Error('Unable to complete the sign-in flow. Please try again.');
       } catch (caught) {
+        setPendingOAuthProvider(null);
         setError(formatErrorMessage(caught));
         throw caught;
       } finally {
+        setPendingOAuthProvider(null);
         setActiveProvider(null);
       }
     },
