@@ -9,6 +9,7 @@ import { QueryCache, QueryClient, QueryClientProvider, MutationCache, useQuery }
 
 import { AuthProvider, useAuth, usePrimeUserData } from "../src/features/auth";
 import { createProfileQueryOptions } from "../src/features/profile";
+import { useSyncProviderAvatar } from "../src/features/profile/hooks/useSyncProviderAvatar";
 import { colors } from "../src/theme";
 import { ToastProvider } from "../src/hooks/useToast";
 import { DailyTaskToastManager } from "../src/features/daily-tasks/components/DailyTaskToastManager";
@@ -60,6 +61,7 @@ function RootLayoutNav() {
   });
 
   usePrimeUserData(session?.user.id ?? null);
+  useSyncProviderAvatar({ session, profile });
 
   if (status === "loading") {
     return <LoadingScreen />;
