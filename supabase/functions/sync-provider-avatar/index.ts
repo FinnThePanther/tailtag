@@ -27,6 +27,9 @@ const AVATAR_BUCKET = "avatars";
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const FALLBACK_CONTENT_TYPE = "image/jpeg";
 const GOOGLE_USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v3/userinfo";
+const DISCORD_CDN = "cdn.discordapp.com";
+const DISCORD_TARGET_SIZE = 1024;
+const GOOGLE_TARGET_SIZE = 512;
 
 type SyncPayload = {
   sourceUrl?: string;
@@ -130,7 +133,32 @@ async function handlePost(req: Request) {
     return jsonResponse(400, { error: "Invalid JSON payload" });
   }
 
-  let sourceUrl = payload.sourceUrl?.trim();
+  const normalizeSourceUrl = (provider: string | null, url: string | undefined | null) => {
+    if (!url) return url ?? null;
+    try {
+      const parsed = new URL(url);
+      if (provider === "google" && parsed.hostname.endsWith("googleusercontent.com")) {
+        parsed.pathname = parsed.pathname.replace(/=s\d+-c$/i, "");
+        parsed.search = parsed.search.replace(/(=s)(\d+)(-c)?$/i, `=s${GOOGLE_TARGET_SIZE}-c`);
+        if (!/=s\d+-c$/i.test(parsed.search)) {
+          parsed.search += parsed.search ? "&" : "?";
+          parsed.search += `sz=${GOOGLE_TARGET_SIZE}`;
+        }
+        return parsed.toString();
+      }
+
+      if (provider === "discord" && parsed.hostname === DISCORD_CDN) {
+        parsed.searchParams.set("size", String(DISCORD_TARGET_SIZE));
+        return parsed.toString();
+      }
+    } catch {
+      return url;
+    }
+
+    return url;
+  };
+
+  let sourceUrl = normalizeSourceUrl(provider, payload.sourceUrl?.trim());
   if (!isHttpUrl(sourceUrl)) {
     if (provider === "google") {
       const accessToken = payload.accessToken?.trim();
@@ -151,7 +179,7 @@ async function handlePost(req: Request) {
         const googleProfile: { picture?: string } = await googleResponse.json();
 
         if (isHttpUrl(googleProfile.picture)) {
-          sourceUrl = googleProfile.picture!;
+          sourceUrl = normalizeSourceUrl(provider, googleProfile.picture!);
         } else {
           return jsonResponse(400, { error: "Google account does not provide a profile photo" });
         }
@@ -184,7 +212,7 @@ async function handlePost(req: Request) {
     const headerType = cleanContentType(response.headers.get("content-type"));
     const contentType = headerType ?? inferContentTypeFromUrl(sourceUrl!);
     const extension = inferExtension(headerType, sourceUrl!);
-    const storagePath = `${user.id}/provider-${Date.now()}.${extension}`;
+    const storagePath = `${user.id}/provider-avatar.${extension}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from(AVATAR_BUCKET)

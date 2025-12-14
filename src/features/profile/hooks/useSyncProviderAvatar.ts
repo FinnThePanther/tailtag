@@ -38,9 +38,10 @@ const buildDiscordAvatarUrl = (metadata: Record<string, unknown>) => {
         ? metadata.id
         : null;
   const avatarHash = typeof metadata.avatar === 'string' ? metadata.avatar : null;
+  const size = 1024;
 
   if (providerId && avatarHash) {
-    return `https://cdn.discordapp.com/avatars/${providerId}/${avatarHash}.png`;
+    return `https://cdn.discordapp.com/avatars/${providerId}/${avatarHash}.png?size=${size}`;
   }
 
   return null;
@@ -93,6 +94,10 @@ export function useSyncProviderAvatar({ session, profile }: Params) {
     }
 
     if (syncedUsersRef.current.has(userId)) {
+      return;
+    }
+
+    if (profile === undefined) {
       return;
     }
 

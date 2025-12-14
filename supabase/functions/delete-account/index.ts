@@ -9,6 +9,9 @@ const corsHeaders: Record<string, string> = {
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const AVATAR_BUCKET = "avatars";
+const FURSUIT_BUCKET = "fursuit-avatars";
+const TAG_QR_BUCKET = "tag-qr-codes";
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error("Missing environment variables");
@@ -57,7 +60,113 @@ Deno.serve(async (req) => {
   const userId = user.id;
   console.log(`[delete-account] Deleting user ${userId}`);
 
+  const removeUserBucketFolder = async (
+    bucketId: string,
+    prefix: string,
+    label: string,
+  ) => {
+    const pageSize = 100;
+    try {
+      while (true) {
+        const { data, error } = await supabaseAdmin.storage
+          .from(bucketId)
+          .list(prefix, { limit: pageSize });
+
+        if (error) {
+          console.error(
+            `[delete-account] Failed to list ${label} objects`,
+            error,
+          );
+          break;
+        }
+
+        if (!data || data.length === 0) {
+          break;
+        }
+
+        const paths = data
+          .filter((item) => Boolean(item.name))
+          .map((item) => `${prefix}/${item.name}`);
+
+        if (paths.length === 0) {
+          break;
+        }
+
+        const { error: removeError } = await supabaseAdmin.storage
+          .from(bucketId)
+          .remove(paths);
+
+        if (removeError) {
+          console.error(
+            `[delete-account] Failed to remove ${label} objects`,
+            removeError,
+          );
+          break;
+        }
+
+        if (data.length < pageSize) {
+          break;
+        }
+      }
+    } catch (error) {
+      console.error(
+        `[delete-account] Unexpected error removing ${label} objects`,
+        error,
+      );
+    }
+  };
+
+  const chunkArray = <T,>(input: T[], size: number): T[][] => {
+    const chunks: T[][] = [];
+    for (let index = 0; index < input.length; index += size) {
+      chunks.push(input.slice(index, index + size));
+    }
+    return chunks;
+  };
+
+  const removeQrAssetsForUser = async (userId: string) => {
+    const { data, error } = await supabaseAdmin
+      .from("tags")
+      .select("qr_asset_path")
+      .eq("registered_by_user_id", userId)
+      .not("qr_asset_path", "is", null);
+
+    if (error) {
+      console.error("[delete-account] Failed to look up QR assets", error);
+      return;
+    }
+
+    const uniquePaths = Array.from(
+      new Set(
+        (data ?? [])
+          .map((row) => row.qr_asset_path)
+          .filter((path): path is string =>
+            typeof path === "string" && path.length > 0
+          ),
+      ),
+    );
+
+    for (const chunk of chunkArray(uniquePaths, 100)) {
+      const { error: removalError } = await supabaseAdmin.storage
+        .from(TAG_QR_BUCKET)
+        .remove(chunk);
+
+      if (removalError) {
+        console.error(
+          "[delete-account] Failed to remove QR asset chunk",
+          removalError,
+        );
+        break;
+      }
+    }
+  };
+
   try {
+    console.log("[delete-account] Removing stored assets");
+    await removeUserBucketFolder(AVATAR_BUCKET, userId, "profile avatars");
+    await removeUserBucketFolder(FURSUIT_BUCKET, userId, "fursuit photos");
+    await removeQrAssetsForUser(userId);
+
     // STEP 1: Handle special case - preserve catches on other users' fursuits
     // SET NULL for decided_by_user_id (these catches belong to other users)
     // The foreign key constraint uses SET NULL, but we do it explicitly for clarity
