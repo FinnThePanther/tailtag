@@ -142,6 +142,9 @@ function RootLayoutNav() {
 
       {/* Show My QR */}
       <Stack.Screen name="show-qr" options={{ title: 'Show My QR', presentation: 'modal' }} />
+
+      {/* OAuth callback (deep link landing) */}
+      <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
     </Stack>
   );
 }

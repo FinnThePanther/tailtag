@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -9,6 +9,7 @@ import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagInput } from "../../src/components/ui/TailTagInput";
 import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareFormWrapper";
+import { useOAuthSignIn } from "../../src/features/auth/hooks/useOAuthSignIn";
 import { supabase } from "../../src/lib/supabase";
 import { colors, spacing } from "../../src/theme";
 
@@ -41,11 +42,34 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { signInWithProvider, activeProvider, error: oauthError } = useOAuthSignIn();
 
   const toggleMode = () => {
     setMode((current) => (current === "sign_in" ? "sign_up" : "sign_in"));
     setError(null);
   };
+
+  useEffect(() => {
+    if (oauthError) {
+      setError(oauthError);
+    }
+  }, [oauthError]);
+
+  const handleDiscordSignIn = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      await signInWithProvider("discord");
+    } catch {
+      // Error state handled inside useOAuthSignIn
+    }
+  };
+
+  const isDiscordLoading = activeProvider === "discord";
 
   const handleSubmit = async () => {
     if (isSubmitting) {
@@ -171,12 +195,29 @@ export default function AuthScreen() {
               ? "Need an account? Sign up"
               : "Already have an account? Log in"}
           </TailTagButton>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerLabel}>or continue with</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TailTagButton
+            variant="outline"
+            onPress={handleDiscordSignIn}
+            loading={isDiscordLoading}
+            disabled={isSubmitting}
+            accessibilityLabel="Continue with Discord"
+            accessibilityHint="Opens Discord to continue signing in."
+          >
+            Continue with Discord
+          </TailTagButton>
         </TailTagCard>
 
         <View style={styles.footerHelper}>
           <Text style={styles.helperText}>
-            Problems signing in? Make sure email auth is enabled for your
-            account.
+            Problems signing in? Email/password and Discord are both supported—
+            make sure at least one provider is enabled for your account.
           </Text>
         </View>
     </KeyboardAwareFormWrapper>
@@ -227,6 +268,22 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#fca5a5",
     fontSize: 14,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(148,163,184,0.4)",
+  },
+  dividerLabel: {
+    color: "rgba(148,163,184,0.9)",
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
   footerHelper: {
     marginTop: spacing.lg,
