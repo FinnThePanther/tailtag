@@ -5,6 +5,8 @@ import {
   View,
 } from "react-native";
 
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagInput } from "../../src/components/ui/TailTagInput";
@@ -150,8 +152,9 @@ export default function AuthScreen() {
   };
 
   return (
-    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+        <View style={styles.header}>
           <Text style={styles.eyebrow}>TailTag</Text>
           <Text style={styles.title}>
             {mode === "sign_in" ? "Welcome back" : "Create your TailTag"}
@@ -246,11 +249,16 @@ export default function AuthScreen() {
             make sure at least one provider is enabled for your account.
           </Text>
         </View>
-    </KeyboardAwareFormWrapper>
+      </KeyboardAwareFormWrapper>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
