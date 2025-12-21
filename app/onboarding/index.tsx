@@ -3,6 +3,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../src/features/auth';
 import { createProfileQueryOptions, type ProfileSummary } from '../../src/features/profile';
@@ -85,60 +86,66 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={styles.header}>New player onboarding</Text>
-      <ProgressDots currentIndex={currentIndex} total={STEPS.length} />
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.header}>New player onboarding</Text>
+        <ProgressDots currentIndex={currentIndex} total={STEPS.length} />
 
-      {currentStep === 'welcome' ? (
-        <WelcomeStep onContinue={goToNextStep} />
-      ) : currentStep === 'convention' ? (
-        <ConventionStep
-          userId={userId}
-          onComplete={() => {
-            goToNextStep();
-          }}
-        />
-      ) : currentStep === 'fursuit' ? (
-        <FursuitStep
-          userId={userId}
-          onSkip={() => {
-            setHasRegisteredFursuit(false);
-            goToNextStep();
-          }}
-          onComplete={({ created }) => {
-            setHasRegisteredFursuit(created);
-            goToNextStep();
-          }}
-        />
-      ) : currentStep === 'tutorial' ? (
-        <TutorialCatchStep
-          userId={userId}
-          onSkip={() => {
-            setHasTutorialCatch(false);
-            goToNextStep();
-          }}
-          onComplete={({ recorded }) => {
-            setHasTutorialCatch(recorded);
-            goToNextStep();
-          }}
-        />
-      ) : (
-        <AchievementStep
-          userId={userId}
-          hasTutorialCatch={hasTutorialCatch}
-          hasFursuit={hasRegisteredFursuit}
-          onFinish={handleFinish}
-        />
-      )}
-    </ScrollView>
+        {currentStep === 'welcome' ? (
+          <WelcomeStep onContinue={goToNextStep} />
+        ) : currentStep === 'convention' ? (
+          <ConventionStep
+            userId={userId}
+            onComplete={() => {
+              goToNextStep();
+            }}
+          />
+        ) : currentStep === 'fursuit' ? (
+          <FursuitStep
+            userId={userId}
+            onSkip={() => {
+              setHasRegisteredFursuit(false);
+              goToNextStep();
+            }}
+            onComplete={({ created }) => {
+              setHasRegisteredFursuit(created);
+              goToNextStep();
+            }}
+          />
+        ) : currentStep === 'tutorial' ? (
+          <TutorialCatchStep
+            userId={userId}
+            onSkip={() => {
+              setHasTutorialCatch(false);
+              goToNextStep();
+            }}
+            onComplete={({ recorded }) => {
+              setHasTutorialCatch(recorded);
+              goToNextStep();
+            }}
+          />
+        ) : (
+          <AchievementStep
+            userId={userId}
+            hasTutorialCatch={hasTutorialCatch}
+            hasFursuit={hasRegisteredFursuit}
+            onFinish={handleFinish}
+          />
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   scroll: {
     flex: 1,
     backgroundColor: colors.background,
