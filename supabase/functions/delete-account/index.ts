@@ -60,60 +60,19 @@ Deno.serve(async (req) => {
   const userId = user.id;
   console.log(`[delete-account] Deleting user ${userId}`);
 
-  const removeUserBucketFolder = async (
-    bucketId: string,
-    prefix: string,
-    label: string,
-  ) => {
-    const pageSize = 100;
-    try {
-      while (true) {
-        const { data, error } = await supabaseAdmin.storage
-          .from(bucketId)
-          .list(prefix, { limit: pageSize });
+  type CleanupSummary = {
+    label: string;
+    totalListed: number;
+    totalRemoved: number;
+    complete: boolean;
+    lastError?: string;
+  };
 
-        if (error) {
-          console.error(
-            `[delete-account] Failed to list ${label} objects`,
-            error,
-          );
-          break;
-        }
-
-        if (!data || data.length === 0) {
-          break;
-        }
-
-        const paths = data
-          .filter((item) => Boolean(item.name))
-          .map((item) => `${prefix}/${item.name}`);
-
-        if (paths.length === 0) {
-          break;
-        }
-
-        const { error: removeError } = await supabaseAdmin.storage
-          .from(bucketId)
-          .remove(paths);
-
-        if (removeError) {
-          console.error(
-            `[delete-account] Failed to remove ${label} objects`,
-            removeError,
-          );
-          break;
-        }
-
-        if (data.length < pageSize) {
-          break;
-        }
-      }
-    } catch (error) {
-      console.error(
-        `[delete-account] Unexpected error removing ${label} objects`,
-        error,
-      );
+  const formatCleanupError = (input: unknown) => {
+    if (input && typeof input === "object" && "message" in input) {
+      return String((input as { message?: unknown }).message ?? "Unknown error");
     }
+    return typeof input === "string" ? input : "Unknown error";
   };
 
   const chunkArray = <T,>(input: T[], size: number): T[][] => {
@@ -124,7 +83,98 @@ Deno.serve(async (req) => {
     return chunks;
   };
 
-  const removeQrAssetsForUser = async (userId: string) => {
+  const removeUserBucketFolder = async (
+    bucketId: string,
+    prefix: string,
+    label: string,
+  ): Promise<CleanupSummary> => {
+    const summary: CleanupSummary = {
+      label,
+      totalListed: 0,
+      totalRemoved: 0,
+      complete: true,
+    };
+    const pageSize = 100;
+    try {
+      const paths: string[] = [];
+      let offset = 0;
+
+      while (true) {
+        const { data, error } = await supabaseAdmin.storage
+          .from(bucketId)
+          .list(prefix, {
+            limit: pageSize,
+            offset,
+            sortBy: { column: "name", order: "asc" },
+          });
+
+        if (error) {
+          console.error(
+            `[delete-account] Failed to list ${label} objects`,
+            error,
+          );
+          summary.complete = false;
+          summary.lastError = formatCleanupError(error);
+          break;
+        }
+
+        if (!data || data.length === 0) {
+          break;
+        }
+
+        const pagePaths = data
+          .filter((item) => Boolean(item.name))
+          .map((item) => `${prefix}/${item.name}`);
+
+        summary.totalListed += data.length;
+        if (pagePaths.length === 0) {
+          break;
+        }
+
+        paths.push(...pagePaths);
+
+        if (data.length < pageSize) {
+          break;
+        }
+
+        offset += data.length;
+      }
+
+      for (const chunk of chunkArray(paths, pageSize)) {
+        const { error: removeError } = await supabaseAdmin.storage
+          .from(bucketId)
+          .remove(chunk);
+
+        if (removeError) {
+          console.error(
+            `[delete-account] Failed to remove ${label} objects`,
+            removeError,
+          );
+          summary.complete = false;
+          summary.lastError = formatCleanupError(removeError);
+          continue;
+        }
+
+        summary.totalRemoved += chunk.length;
+      }
+    } catch (error) {
+      console.error(
+        `[delete-account] Unexpected error removing ${label} objects`,
+        error,
+      );
+      summary.complete = false;
+      summary.lastError = formatCleanupError(error);
+    }
+    return summary;
+  };
+
+  const removeQrAssetsForUser = async (userId: string): Promise<CleanupSummary> => {
+    const summary: CleanupSummary = {
+      label: "tag QR codes",
+      totalListed: 0,
+      totalRemoved: 0,
+      complete: true,
+    };
     const { data, error } = await supabaseAdmin
       .from("tags")
       .select("qr_asset_path")
@@ -133,7 +183,9 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error("[delete-account] Failed to look up QR assets", error);
-      return;
+      summary.complete = false;
+      summary.lastError = formatCleanupError(error);
+      return summary;
     }
 
     const uniquePaths = Array.from(
@@ -146,6 +198,8 @@ Deno.serve(async (req) => {
       ),
     );
 
+    summary.totalListed = uniquePaths.length;
+
     for (const chunk of chunkArray(uniquePaths, 100)) {
       const { error: removalError } = await supabaseAdmin.storage
         .from(TAG_QR_BUCKET)
@@ -156,16 +210,32 @@ Deno.serve(async (req) => {
           "[delete-account] Failed to remove QR asset chunk",
           removalError,
         );
-        break;
+        summary.complete = false;
+        summary.lastError = formatCleanupError(removalError);
+        continue;
       }
+
+      summary.totalRemoved += chunk.length;
     }
+
+    return summary;
   };
 
   try {
     console.log("[delete-account] Removing stored assets");
-    await removeUserBucketFolder(AVATAR_BUCKET, userId, "profile avatars");
-    await removeUserBucketFolder(FURSUIT_BUCKET, userId, "fursuit photos");
-    await removeQrAssetsForUser(userId);
+    const cleanupSummaries = [
+      await removeUserBucketFolder(AVATAR_BUCKET, userId, "profile avatars"),
+      await removeUserBucketFolder(FURSUIT_BUCKET, userId, "fursuit photos"),
+      await removeQrAssetsForUser(userId),
+    ];
+
+    for (const summary of cleanupSummaries) {
+      const status = summary.complete ? "complete" : "partial";
+      const errorSuffix = summary.lastError ? ` lastError=${summary.lastError}` : "";
+      console.log(
+        `[delete-account] Cleanup summary (${summary.label}): status=${status} listed=${summary.totalListed} removed=${summary.totalRemoved}${errorSuffix}`,
+      );
+    }
 
     // STEP 1: Handle special case - preserve catches on other users' fursuits
     // SET NULL for decided_by_user_id (these catches belong to other users)

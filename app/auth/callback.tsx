@@ -59,9 +59,14 @@ export default function OAuthCallbackScreen() {
     if (url) {
       void completeFromUrl(url);
     } else {
-      Linking.getInitialURL().then((initialUrl) => {
-        void completeFromUrl(initialUrl);
-      });
+      void Linking.getInitialURL()
+        .then((initialUrl) => {
+          void completeFromUrl(initialUrl);
+        })
+        .catch((caught) => {
+          console.error("[auth-callback] Failed to load initial URL", caught);
+          void completeFromUrl(null);
+        });
     }
 
     return () => {

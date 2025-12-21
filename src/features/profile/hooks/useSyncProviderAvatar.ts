@@ -225,5 +225,5 @@ export function useSyncProviderAvatar({ session, profile }: Params) {
 
     void sync();
 
-  }, [profile?.avatar_url, queryClient, session]);
+  }, [profile, queryClient, session]);
 }

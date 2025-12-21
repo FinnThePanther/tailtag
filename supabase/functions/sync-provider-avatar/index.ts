@@ -57,6 +57,108 @@ const isHttpUrl = (value: string | undefined) => {
   }
 };
 
+/**
+ * SSRF protection: blocked hostnames and IP patterns.
+ * Prevents requests to internal/private network endpoints.
+ */
+const BLOCKED_HOSTNAME_PATTERNS = [
+  // Localhost variants
+  /^localhost$/i,
+  /^localhost\.localdomain$/i,
+  /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/,  // 127.0.0.0/8 loopback
+  /^0\.0\.0\.0$/,
+  /^\[?::1\]?$/,  // IPv6 loopback
+  /^\[?::\]?$/,   // IPv6 unspecified
+
+  // Private IPv4 ranges
+  /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/,           // 10.0.0.0/8
+  /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/,  // 172.16.0.0/12
+  /^192\.168\.\d{1,3}\.\d{1,3}$/,              // 192.168.0.0/16
+  /^169\.254\.\d{1,3}\.\d{1,3}$/,              // 169.254.0.0/16 link-local
+
+  // Cloud metadata endpoints
+  /^metadata\.google\.internal$/i,
+  /^metadata\.google\.internal\.$/i,
+  /^169\.254\.169\.254$/,  // AWS/GCP/Azure metadata
+  /^100\.100\.100\.200$/,  // Alibaba metadata
+  /^fd00:ec2::254$/i,      // AWS IMDSv2 IPv6
+
+  // Internal/reserved hostnames
+  /^.*\.internal$/i,
+  /^.*\.local$/i,
+  /^.*\.localdomain$/i,
+  /^internal\..*/i,
+  /^kubernetes\.default/i,
+  /^.*\.svc\.cluster\.local$/i,
+
+  // IPv6 private/internal ranges (simplified patterns)
+  /^\[?fe80:/i,  // Link-local
+  /^\[?fc00:/i,  // Unique local
+  /^\[?fd[0-9a-f]{2}:/i,  // Unique local
+];
+
+/**
+ * Checks if a hostname or IP is in a private/internal range.
+ */
+const isBlockedHostname = (hostname: string): boolean => {
+  const normalizedHostname = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  return BLOCKED_HOSTNAME_PATTERNS.some((pattern) => pattern.test(normalizedHostname));
+};
+
+/**
+ * Checks if an IP address string falls within private/internal ranges.
+ */
+const isPrivateIP = (ip: string): boolean => {
+  // Check against our blocked patterns which include private IP ranges
+  return isBlockedHostname(ip);
+};
+
+/**
+ * Combined SSRF-safe URL validation.
+ * Checks protocol, hostname, and optionally resolved IP.
+ */
+const isSafeUrl = async (value: string | undefined): Promise<{ safe: boolean; reason?: string }> => {
+  if (!value) return { safe: false, reason: "URL is empty" };
+
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return { safe: false, reason: "Invalid URL format" };
+  }
+
+  // Protocol check
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return { safe: false, reason: "URL must use http or https protocol" };
+  }
+
+  // Hostname blocklist check
+  if (isBlockedHostname(parsed.hostname)) {
+    return { safe: false, reason: "URL hostname is blocked (private/internal address)" };
+  }
+
+  // Attempt DNS resolution to catch hostnames that resolve to private IPs
+  // This is optional and depends on Deno.resolveDns availability
+  try {
+    if (typeof Deno !== "undefined" && typeof Deno.resolveDns === "function") {
+      // Only resolve if hostname is not already an IP address
+      const ipv4Pattern = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+      if (!ipv4Pattern.test(parsed.hostname) && !parsed.hostname.startsWith("[")) {
+        const ips = await Deno.resolveDns(parsed.hostname, "A").catch(() => [] as string[]);
+        for (const ip of ips) {
+          if (isPrivateIP(ip)) {
+            return { safe: false, reason: `URL hostname resolves to private IP: ${ip}` };
+          }
+        }
+      }
+    }
+  } catch {
+    // DNS resolution failed or not available; proceed with hostname check only
+  }
+
+  return { safe: true };
+};
+
 const cleanContentType = (value: string | null) => value?.split(";")[0]?.trim().toLowerCase() ?? null;
 
 const inferContentTypeFromUrl = (url: string) => {
@@ -139,11 +241,7 @@ async function handlePost(req: Request) {
       const parsed = new URL(url);
       if (provider === "google" && parsed.hostname.endsWith("googleusercontent.com")) {
         parsed.pathname = parsed.pathname.replace(/=s\d+-c$/i, "");
-        parsed.search = parsed.search.replace(/(=s)(\d+)(-c)?$/i, `=s${GOOGLE_TARGET_SIZE}-c`);
-        if (!/=s\d+-c$/i.test(parsed.search)) {
-          parsed.search += parsed.search ? "&" : "?";
-          parsed.search += `sz=${GOOGLE_TARGET_SIZE}`;
-        }
+        parsed.searchParams.set("sz", String(GOOGLE_TARGET_SIZE));
         return parsed.toString();
       }
 
@@ -159,8 +257,9 @@ async function handlePost(req: Request) {
   };
 
   let sourceUrl = normalizeSourceUrl(provider, payload.sourceUrl?.trim());
-  if (!isHttpUrl(sourceUrl)) {
-    if (provider === "google") {
+  const initialUrlCheck = await isSafeUrl(sourceUrl);
+  if (!initialUrlCheck.safe) {
+    if (provider === "google" && (!sourceUrl || initialUrlCheck.reason === "URL is empty")) {
       const accessToken = payload.accessToken?.trim();
       if (!accessToken) {
         return jsonResponse(400, { error: "accessToken is required for Google sync" });
@@ -178,18 +277,25 @@ async function handlePost(req: Request) {
 
         const googleProfile: { picture?: string } = await googleResponse.json();
 
-        if (isHttpUrl(googleProfile.picture)) {
+        const googlePictureCheck = await isSafeUrl(googleProfile.picture);
+        if (googlePictureCheck.safe) {
           sourceUrl = normalizeSourceUrl(provider, googleProfile.picture!);
         } else {
-          return jsonResponse(400, { error: "Google account does not provide a profile photo" });
+          return jsonResponse(400, { error: googlePictureCheck.reason?.includes("blocked") ? googlePictureCheck.reason : "Google account does not provide a profile photo" });
         }
       } catch (error) {
         console.error("[sync-provider-avatar] Failed to fetch Google userinfo", error);
         return jsonResponse(502, { error: "Unable to fetch Google profile data" });
       }
     } else {
-      return jsonResponse(400, { error: "A valid sourceUrl is required" });
+      return jsonResponse(400, { error: initialUrlCheck.reason?.includes("blocked") ? initialUrlCheck.reason : "A valid sourceUrl is required" });
     }
+  }
+
+  // Final SSRF check before fetching (sourceUrl may have changed)
+  const finalUrlCheck = await isSafeUrl(sourceUrl);
+  if (!finalUrlCheck.safe) {
+    return jsonResponse(400, { error: finalUrlCheck.reason ?? "URL is not allowed" });
   }
 
   try {

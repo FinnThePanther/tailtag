@@ -245,7 +245,7 @@ export default function AuthScreen() {
 
         <View style={styles.footerHelper}>
           <Text style={styles.helperText}>
-            Problems signing in? Email/password and Discord are both supported—
+            Problems signing in? Email/password, Google, and Discord are all supported—
             make sure at least one provider is enabled for your account.
           </Text>
         </View>
