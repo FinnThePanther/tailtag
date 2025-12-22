@@ -18,7 +18,10 @@
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "TailTag needs access to your photo library so you can add photos of your fursuits to your profile.",
         "NSCameraUsageDescription": "TailTag needs access to your camera so you can take photos of your fursuits.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -50,7 +53,14 @@
           "nfcPermission": "TailTag needs NFC access to scan fursuit tags."
         }
       ],
-      "expo-camera"
+      "expo-camera",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#7c3aed"
+        }
+      ]
     ],
     "scheme": "tailtag",
     "extra": {

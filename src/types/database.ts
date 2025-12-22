@@ -1053,6 +1053,7 @@ export type Database = {
           bio: string | null
           created_at: string | null
           default_catch_mode: string
+          expo_push_token: string | null
           id: string
           is_new: boolean
           is_suspended: boolean
@@ -1060,6 +1061,7 @@ export type Database = {
           location_permission_requested_at: string | null
           location_permission_status: "not_requested" | "granted" | "denied" | "restricted"
           onboarding_completed: boolean
+          push_notifications_enabled: boolean
           role: Database["public"]["Enums"]["user_role"]
           suspended_until: string | null
           suspension_reason: string | null
@@ -1071,6 +1073,7 @@ export type Database = {
           bio?: string | null
           created_at?: string | null
           default_catch_mode?: string
+          expo_push_token?: string | null
           id: string
           is_new?: boolean
           is_suspended?: boolean
@@ -1078,6 +1081,7 @@ export type Database = {
           location_permission_requested_at?: string | null
           location_permission_status?: "not_requested" | "granted" | "denied" | "restricted"
           onboarding_completed?: boolean
+          push_notifications_enabled?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           suspended_until?: string | null
           suspension_reason?: string | null
@@ -1089,6 +1093,7 @@ export type Database = {
           bio?: string | null
           created_at?: string | null
           default_catch_mode?: string
+          expo_push_token?: string | null
           id?: string
           is_new?: boolean
           is_suspended?: boolean
@@ -1096,6 +1101,7 @@ export type Database = {
           location_permission_requested_at?: string | null
           location_permission_status?: "not_requested" | "granted" | "denied" | "restricted"
           onboarding_completed?: boolean
+          push_notifications_enabled?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           suspended_until?: string | null
           suspension_reason?: string | null
