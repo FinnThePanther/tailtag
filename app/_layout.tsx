@@ -15,6 +15,7 @@ import { ToastProvider } from "../src/hooks/useToast";
 import { DailyTaskToastManager } from "../src/features/daily-tasks/components/DailyTaskToastManager";
 import { AchievementToastManager } from "../src/features/achievements";
 import { CatchConfirmationToastManager } from "../src/features/catch-confirmations";
+import { PushNotificationManager } from "../src/features/push-notifications";
 import {
   Sentry,
   addMonitoringBreadcrumb,
@@ -217,6 +218,7 @@ function Layout() {
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <ToastProvider>
+              <PushNotificationManager />
               <AchievementToastManager />
               <DailyTaskToastManager />
               <CatchConfirmationToastManager />

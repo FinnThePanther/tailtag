@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
@@ -116,6 +116,52 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
     };
   }, [resolvedUserId]);
 
+  const refreshState = useCallback(async () => {
+    if (!isSupported) {
+      setPermissionStatus('denied');
+      return;
+    }
+
+    try {
+      const status = await Notifications.getPermissionsAsync();
+      setPermissionStatus(status.status as PermissionStatus);
+    } catch (permissionError) {
+      captureHandledException(permissionError, {
+        scope: 'push-notifications.permissions',
+        action: 'refreshPermissions',
+      });
+    }
+
+    if (!resolvedUserId) {
+      return;
+    }
+
+    try {
+      const settings = await fetchPushSettings(resolvedUserId);
+      setToken(settings.token);
+      setIsEnabled(settings.enabled);
+    } catch (settingsError) {
+      captureHandledException(settingsError, {
+        scope: 'push-notifications.settings',
+        action: 'refresh',
+        userId: resolvedUserId,
+      });
+    }
+  }, [isSupported, resolvedUserId]);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === 'active') {
+        void refreshState();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, [refreshState]);
+
   const requestPermissionAndRegister = useCallback(async () => {
     if (!resolvedUserId) {
       setError('You need to be signed in to enable push notifications.');
@@ -211,6 +257,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       isEnabled,
       isRegistering,
       error,
+      refreshState,
       requestPermissionAndRegister,
       disablePushNotifications,
     }),
@@ -221,6 +268,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       isRegistering,
       isSupported,
       permissionStatus,
+      refreshState,
       requestPermissionAndRegister,
       token,
     ]

@@ -80,7 +80,7 @@ function toRecord(value: unknown): Record<string, unknown> {
   return {};
 }
 
-function toString(value: unknown): string | null {
+function extractString(value: unknown): string | null {
   if (typeof value === "string") {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : null;
@@ -89,12 +89,12 @@ function toString(value: unknown): string | null {
 }
 
 async function resolveAchievementName(payload: Record<string, unknown>): Promise<string> {
-  const existing = toString(payload.achievement_name);
+  const existing = extractString(payload.achievement_name);
   if (existing) {
     return existing;
   }
 
-  const achievementId = toString(payload.achievement_id);
+  const achievementId = extractString(payload.achievement_id);
   if (achievementId) {
     const { data, error } = await supabaseAdmin
       .from("achievements")
@@ -107,7 +107,7 @@ async function resolveAchievementName(payload: Record<string, unknown>): Promise
     }
   }
 
-  const achievementKey = toString(payload.achievement_key);
+  const achievementKey = extractString(payload.achievement_key);
   if (achievementKey) {
     const { data, error } = await supabaseAdmin
       .from("achievements")
@@ -136,30 +136,30 @@ async function buildMessage(
       };
     }
     case "catch_pending": {
-      const catcherUsername = toString(payload.catcher_username) ?? "Someone";
-      const fursuitName = toString(payload.fursuit_name) ?? "your fursuit";
+      const catcherUsername = extractString(payload.catcher_username) ?? "Someone";
+      const fursuitName = extractString(payload.fursuit_name) ?? "your fursuit";
       return {
         title: "Catch Request",
         body: `${catcherUsername} wants to catch ${fursuitName}`,
       };
     }
     case "catch_confirmed": {
-      const fursuitName = toString(payload.fursuit_name) ?? "a fursuit";
+      const fursuitName = extractString(payload.fursuit_name) ?? "a fursuit";
       return {
         title: "Catch Approved!",
         body: `Your catch of ${fursuitName} was approved!`,
       };
     }
     case "catch_rejected": {
-      const fursuitName = toString(payload.fursuit_name) ?? "a fursuit";
+      const fursuitName = extractString(payload.fursuit_name) ?? "a fursuit";
       return {
         title: "Catch Declined",
         body: `Your request for ${fursuitName} was declined`,
       };
     }
     case "catch_expired": {
-      const fursuitName = toString(payload.fursuit_name) ?? "a fursuit";
-      const catcherUsername = toString(payload.catcher_username);
+      const fursuitName = extractString(payload.fursuit_name) ?? "a fursuit";
+      const catcherUsername = extractString(payload.catcher_username);
       if (catcherUsername) {
         return {
           title: "Catch Request Expired",
@@ -225,7 +225,7 @@ async function handleRequest(req: Request): Promise<Response> {
     return respondJson({ skipped: "Missing record" }, 200);
   }
 
-  const notificationType = toString(record.type);
+  const notificationType = extractString(record.type);
   if (!notificationType) {
     return respondJson({ skipped: "Missing notification type" }, 200);
   }
@@ -238,7 +238,7 @@ async function handleRequest(req: Request): Promise<Response> {
     return respondJson({ skipped: "Unhandled type" }, 200);
   }
 
-  const userId = toString(record.user_id);
+  const userId = extractString(record.user_id);
   if (!userId) {
     return respondJson({ skipped: "Missing user_id" }, 200);
   }

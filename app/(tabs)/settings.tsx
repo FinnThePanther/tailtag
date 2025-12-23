@@ -3,11 +3,13 @@ import {
   Alert,
   Image,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -51,6 +53,7 @@ import {
 } from '../../src/features/suits/api/caughtSuits';
 import type { CaughtRecord } from '../../src/features/suits/api/caughtSuits';
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../src/features/leaderboard/api/leaderboard';
+import { usePushNotifications } from '../../src/features/push-notifications';
 
 type UploadCandidate = {
   uri: string;
@@ -130,6 +133,17 @@ export default function SettingsScreen() {
     refetchOnReconnect: false,
     queryFn: () => fetchCaughtSuits(userId!),
   });
+
+  const {
+    isSupported: isPushSupported,
+    permissionStatus,
+    isEnabled: isPushEnabled,
+    isRegistering: isPushRegistering,
+    error: pushError,
+    requestPermissionAndRegister,
+    disablePushNotifications,
+    refreshState: refreshPushState,
+  } = usePushNotifications({ userId });
 
   const [usernameInput, setUsernameInput] = useState('');
   const [bioInput, setBioInput] = useState('');
@@ -223,6 +237,8 @@ export default function SettingsScreen() {
         void refetchCaughtSuits({ throwOnError: false });
       }
 
+      void refreshPushState();
+
     }, [
       profile,
       profileQueryKey,
@@ -236,6 +252,7 @@ export default function SettingsScreen() {
       refetchProfileConventions,
       caughtSuitsQueryKeyValue,
       refetchCaughtSuits,
+      refreshPushState,
     ])
   );
 
@@ -340,6 +357,29 @@ export default function SettingsScreen() {
     () => STAFF_MODE_ENABLED && canUseStaffMode(profile?.role ?? null),
     [profile?.role]
   );
+  const isPushDenied = permissionStatus === 'denied';
+  const canTogglePush = isPushSupported && !isPushDenied && !isPushRegistering;
+  const isPushToggleOn = isPushSupported && permissionStatus === 'granted' && isPushEnabled;
+
+  const handleTogglePush = useCallback(
+    async (nextValue: boolean) => {
+      if (nextValue) {
+        await requestPermissionAndRegister();
+        return;
+      }
+
+      await disablePushNotifications();
+    },
+    [disablePushNotifications, requestPermissionAndRegister]
+  );
+
+  const handleOpenSettings = useCallback(async () => {
+    try {
+      await Linking.openSettings();
+    } catch (caught) {
+      console.warn('Failed to open settings', caught);
+    }
+  }, []);
 
   const isDirty = (() => {
     const usernameChanged = (profile?.username ?? '') !== usernameInput.trim();
@@ -834,6 +874,55 @@ export default function SettingsScreen() {
           </View>
         </TailTagCard>
 
+        <TailTagCard>
+          <View style={styles.accountSection}>
+            <Text style={styles.sectionTitle}>Push Notifications</Text>
+            <Text style={styles.sectionDescription}>
+              Get alerts when you unlock achievements or catches change status.
+            </Text>
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleText}>
+                <Text style={styles.sectionSubtitle}>Enable push notifications</Text>
+                <Text style={styles.sectionHint}>
+                  {isPushDenied
+                    ? 'Turn on notifications in Settings to re-enable push.'
+                    : 'We only send important game updates.'}
+                </Text>
+              </View>
+              <Switch
+                value={isPushToggleOn}
+                onValueChange={handleTogglePush}
+                disabled={!canTogglePush}
+                trackColor={{
+                  false: 'rgba(148,163,184,0.3)',
+                  true: colors.primaryDark,
+                }}
+                thumbColor={isPushToggleOn ? colors.primary : 'rgba(203,213,225,0.9)'}
+                ios_backgroundColor="rgba(148,163,184,0.3)"
+                accessibilityRole="switch"
+                accessibilityLabel="Enable push notifications"
+                accessibilityHint="Toggle push notifications on or off."
+                accessibilityState={{
+                  checked: isPushToggleOn,
+                  disabled: !canTogglePush,
+                }}
+              />
+            </View>
+            {!isPushSupported ? (
+              <Text style={styles.warning}>Push notifications require a physical device.</Text>
+            ) : null}
+            {isPushDenied ? (
+              <Text style={styles.warning}>Notifications are disabled in system settings.</Text>
+            ) : null}
+            {pushError ? <Text style={styles.error}>{pushError}</Text> : null}
+            {isPushDenied ? (
+              <TailTagButton variant="outline" size="sm" onPress={handleOpenSettings}>
+                Open Settings
+              </TailTagButton>
+            ) : null}
+          </View>
+        </TailTagCard>
+
         {staffModeAllowed ? (
           <TailTagCard>
             <View style={styles.accountSection}>
@@ -918,6 +1007,16 @@ const styles = StyleSheet.create({
   },
   accountSection: {
     gap: spacing.md,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  toggleText: {
+    flex: 1,
+    gap: spacing.xs,
   },
   sectionTitle: {
     color: colors.foreground,

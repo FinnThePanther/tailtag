@@ -192,7 +192,7 @@ export function PushNotificationManager() {
         const shouldAutoEnable = previousStatus === 'denied' || previousStatus === 'undetermined';
         const shouldEnable = settings?.enabled === true;
 
-        if (shouldRefreshToken || (!shouldEnable && shouldAutoEnable)) {
+        if (shouldRefreshToken || shouldAutoEnable || shouldEnable) {
           await registerPushToken(userId, pushToken);
         }
       } catch (error) {
