@@ -238,7 +238,10 @@ export function PushNotificationManager() {
         }
 
         const shouldRefreshToken = !settings || settings.token !== pushToken;
-        const shouldAutoEnable = previousStatus === 'denied' || previousStatus === 'undetermined';
+        const userExplicitlyDisabled = settings?.enabled === false;
+        const shouldAutoEnable =
+          (previousStatus === 'denied' || previousStatus === 'undetermined') &&
+          !userExplicitlyDisabled;
         const shouldEnable = settings?.enabled === true;
 
         if (shouldRefreshToken || shouldAutoEnable || shouldEnable) {
@@ -247,6 +250,7 @@ export function PushNotificationManager() {
             shouldRefreshToken,
             shouldAutoEnable,
             shouldEnable,
+            userExplicitlyDisabled,
           });
         }
       } catch (error) {
