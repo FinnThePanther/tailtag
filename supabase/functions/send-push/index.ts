@@ -1,6 +1,7 @@
 /// <reference lib="deno.unstable" />
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote imports.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
+import { jwtVerify } from "https://esm.sh/jose@5.6.3";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -11,10 +12,16 @@ const corsHeaders: Record<string, string> = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey =
   Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const supabaseJwtSecret =
+  Deno.env.get("SUPABASE_JWT_SECRET") ??
+  Deno.env.get("JWT_SECRET") ??
+  Deno.env.get("SERVICE_JWT_SECRET");
 const expoAccessToken = Deno.env.get("EXPO_ACCESS_TOKEN") ?? null;
 
-if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error("Missing SUPABASE_URL or SERVICE_ROLE_KEY environment variables");
+if (!supabaseUrl || !serviceRoleKey || !supabaseJwtSecret) {
+  throw new Error(
+    "Missing SUPABASE_URL, SERVICE_ROLE_KEY, or SUPABASE_JWT_SECRET environment variables",
+  );
 }
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -445,32 +452,21 @@ Deno.serve(async (req) => {
 
   const token = authHeader.substring(7);
 
-  // Verify the JWT is valid and get the role
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-  if (authError || !user) {
-    // Token is invalid or expired
-    return respondJson({ error: "Invalid or expired token" }, 401);
-  }
-
-  // Check if the token has service_role privileges
-  // Service role tokens have a specific role claim
   try {
-    // Decode the JWT to check the role claim
-    const parts = token.split(".");
-    if (parts.length !== 3) {
-      return respondJson({ error: "Invalid token format" }, 401);
-    }
-
-    const payload = JSON.parse(atob(parts[1]));
-    const role = payload?.role;
+    const { payload } = await jwtVerify(
+      token,
+      new TextEncoder().encode(supabaseJwtSecret),
+      { algorithms: ["HS256"] },
+    );
+    const role = typeof payload.role === "string" ? payload.role : null;
 
     // Only allow service_role tokens (used by database triggers and server-side code)
     if (role !== "service_role") {
       return respondJson({ error: "Insufficient permissions" }, 403);
     }
-  } catch {
-    return respondJson({ error: "Invalid token" }, 401);
+  } catch (error) {
+    console.error("[send-push] Token verification failed", { error });
+    return respondJson({ error: "Invalid or expired token" }, 401);
   }
 
   return handleRequest(req);
