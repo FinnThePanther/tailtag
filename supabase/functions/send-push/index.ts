@@ -332,5 +332,41 @@ Deno.serve(async (req) => {
     return respondJson({ error: "Method not allowed" }, 405);
   }
 
+  // Verify the request is authenticated with service role
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return respondJson({ error: "Missing authorization" }, 401);
+  }
+
+  const token = authHeader.substring(7);
+
+  // Verify the JWT is valid and get the role
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+  if (authError || !user) {
+    // Token is invalid or expired
+    return respondJson({ error: "Invalid or expired token" }, 401);
+  }
+
+  // Check if the token has service_role privileges
+  // Service role tokens have a specific role claim
+  try {
+    // Decode the JWT to check the role claim
+    const parts = token.split(".");
+    if (parts.length !== 3) {
+      return respondJson({ error: "Invalid token format" }, 401);
+    }
+
+    const payload = JSON.parse(atob(parts[1]));
+    const role = payload?.role;
+
+    // Only allow service_role tokens (used by database triggers and server-side code)
+    if (role !== "service_role") {
+      return respondJson({ error: "Insufficient permissions" }, 403);
+    }
+  } catch {
+    return respondJson({ error: "Invalid token" }, 401);
+  }
+
   return handleRequest(req);
 });
