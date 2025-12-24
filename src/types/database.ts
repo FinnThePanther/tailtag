@@ -902,7 +902,7 @@ export type Database = {
           override_at: string | null
           override_reason: string | null
           profile_id: string
-          verification_method: string | null
+          verification_method: "none" | "gps" | "manual_override" | "grandfathered" | null
           verified_at: string | null
           verified_location: Json | null
         }
@@ -913,7 +913,7 @@ export type Database = {
           override_at?: string | null
           override_reason?: string | null
           profile_id: string
-          verification_method?: string | null
+          verification_method?: "none" | "gps" | "manual_override" | "grandfathered" | null
           verified_at?: string | null
           verified_location?: Json | null
         }
@@ -924,7 +924,7 @@ export type Database = {
           override_at?: string | null
           override_reason?: string | null
           profile_id?: string
-          verification_method?: string | null
+          verification_method?: "none" | "gps" | "manual_override" | "grandfathered" | null
           verified_at?: string | null
           verified_location?: Json | null
         }
