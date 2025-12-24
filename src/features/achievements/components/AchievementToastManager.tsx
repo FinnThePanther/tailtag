@@ -70,7 +70,7 @@ export function AchievementToastManager() {
 
   // Ensure we have achievement data loaded BEFORE realtime notifications start arriving
   // This prevents missing toast notifications when achievements are unlocked
-  const { data: achievementStatus, isSuccess: hasLoadedAchievements } = useQuery({
+  const { data: achievementStatus } = useQuery({
     queryKey: statusQueryKey,
     queryFn: () => fetchAchievementStatus(userId ?? ''),
     enabled: Boolean(userId),
