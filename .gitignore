@@ -13,6 +13,7 @@ expo-env.d.ts
 .kotlin/
 *.orig.*
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
@@ -33,6 +34,7 @@ yarn-error.*
 # local env files
 .env
 .env.*
+.envrc
 
 # typescript
 *.tsbuildinfo
@@ -50,3 +52,11 @@ admin/.env.local
 /docs
 CLAUDE.md
 .mcp.json
+
+# Firebase / credentials
+google-services.json
+GoogleService-Info.plist
+*firebase-adminsdk*.json
+service-account*.json
+credentials.json
+.npmrc

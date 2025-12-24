@@ -70,7 +70,7 @@ export function AchievementToastManager() {
 
   // Ensure we have achievement data loaded BEFORE realtime notifications start arriving
   // This prevents missing toast notifications when achievements are unlocked
-  const { data: achievementStatus, isSuccess: hasLoadedAchievements } = useQuery({
+  const { data: achievementStatus } = useQuery({
     queryKey: statusQueryKey,
     queryFn: () => fetchAchievementStatus(userId ?? ''),
     enabled: Boolean(userId),
@@ -734,7 +734,10 @@ export function AchievementToastManager() {
       activeUserRef.current = null;
       channelInstanceRef.current = null;
     };
-  }, [userId, hasLoadedAchievements, queryClient, statusQueryKey, handleToast, showToast]);
+    // Note: hasLoadedAchievements is intentionally NOT in the dependency array
+    // The subscription needs to be active immediately when user logs in
+    // so it can catch notifications that arrive during onboarding/navigation
+  }, [userId, queryClient, statusQueryKey, handleToast, showToast]);
 
   return null;
 }
