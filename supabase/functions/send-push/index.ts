@@ -63,6 +63,17 @@ type ExpoPushResponse = {
   errors?: Array<{ code?: string; message?: string }>;
 };
 
+type PushFailureContext = {
+  notificationId: string;
+  userId: string;
+  notificationType: string;
+  payload: Record<string, unknown>;
+  requestBody: Record<string, unknown>;
+  responseStatus?: number;
+  responseBody?: ExpoPushResponse | null;
+  errorMessage: string;
+};
+
 function respondJson(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -212,6 +223,76 @@ function extractExpoErrors(responseJson: ExpoPushResponse): string[] {
   return errors;
 }
 
+function formatErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Unknown error";
+  }
+}
+
+async function recordPushFailure(context: PushFailureContext) {
+  const occurredAt = new Date().toISOString();
+  const queuePayload = {
+    notification_id: context.notificationId,
+    user_id: context.userId,
+    notification_type: context.notificationType,
+    payload: context.payload,
+    request_body: context.requestBody,
+    response_status: context.responseStatus ?? null,
+    response_body: context.responseBody ?? null,
+    last_error: context.errorMessage,
+  };
+
+  try {
+    const { error: queueError } = await supabaseAdmin
+      .from("push_notification_retry_queue")
+      .insert(queuePayload);
+
+    if (queueError) {
+      console.error("[send-push] Failed enqueueing push retry", {
+        error: queueError,
+        notificationId: context.notificationId,
+      });
+    }
+  } catch (error) {
+    console.error("[send-push] Failed enqueueing push retry", { error });
+  }
+
+  try {
+    const { error: logError } = await supabaseAdmin
+      .from("admin_error_log")
+      .insert({
+        error_type: "push_notification_failed",
+        error_message: context.errorMessage,
+        severity: "error",
+        occurred_at: occurredAt,
+        context: {
+          notification_id: context.notificationId,
+          user_id: context.userId,
+          notification_type: context.notificationType,
+          response_status: context.responseStatus ?? null,
+          response_body: context.responseBody ?? null,
+        },
+      });
+
+    if (logError) {
+      console.error("[send-push] Failed logging push error", {
+        error: logError,
+        notificationId: context.notificationId,
+      });
+    }
+  } catch (error) {
+    console.error("[send-push] Failed logging push error", { error });
+  }
+}
+
 async function handleRequest(req: Request): Promise<Response> {
   let parsed: WebhookPayload;
   try {
@@ -305,10 +386,34 @@ async function handleRequest(req: Request): Promise<Response> {
         status: response.status,
         response: responseJson,
       });
+      await recordPushFailure({
+        notificationId: record.id,
+        userId,
+        notificationType,
+        payload,
+        requestBody,
+        responseStatus: response.status,
+        responseBody: responseJson,
+        errorMessage: `Expo responded with status ${response.status}`,
+      });
+      // Only return a retryable status for transient Expo failures (5xx/429).
+      if (response.status >= 500 || response.status === 429) {
+        return respondJson({ error: "Expo request failed" }, 503);
+      }
+      return respondJson({ error: "Expo request failed" }, 200);
     }
   } catch (error) {
+    const errorMessage = formatErrorMessage(error);
     console.error("[send-push] Expo push request failed", { error });
-    return respondJson({ error: "Expo request failed" }, 200);
+    await recordPushFailure({
+      notificationId: record.id,
+      userId,
+      notificationType,
+      payload,
+      requestBody,
+      errorMessage,
+    });
+    return respondJson({ error: "Expo request failed" }, 503);
   }
 
   if (responseJson) {
