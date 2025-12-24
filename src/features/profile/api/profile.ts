@@ -9,6 +9,8 @@ export type ProfileSummary = {
   is_new: boolean;
   onboarding_completed: boolean;
   role?: UserRole;
+  push_notifications_enabled?: boolean;
+  push_notifications_prompted?: boolean;
 };
 
 export const PROFILE_QUERY_KEY = 'profile';
@@ -20,7 +22,7 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
   const client = supabase as any;
   const { data, error } = await client
     .from('profiles')
-    .select('username, bio, avatar_url, is_new, onboarding_completed, role')
+    .select('username, bio, avatar_url, is_new, onboarding_completed, role, push_notifications_enabled, push_notifications_prompted')
     .eq('id', userId)
     .maybeSingle();
 
@@ -44,6 +46,8 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
     is_new: data.is_new === true,
     onboarding_completed: data.onboarding_completed === true,
     role: data.role ?? undefined,
+    push_notifications_enabled: data.push_notifications_enabled ?? false,
+    push_notifications_prompted: data.push_notifications_prompted ?? false,
   };
 }
 

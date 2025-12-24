@@ -43,6 +43,7 @@ import {
   useDailyTasks,
   DAILY_TASKS_QUERY_KEY,
 } from "../../src/features/daily-tasks";
+import { useAutoRequestPushPermission } from "../../src/features/push-notifications";
 import { colors, spacing, radius } from "../../src/theme";
 
 const MAX_LEADERBOARD_ENTRIES = 10;
@@ -56,6 +57,9 @@ export default function HomeScreen() {
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
   const { width: windowWidth } = useWindowDimensions();
+
+  // Auto-request push notification permissions on first visit
+  useAutoRequestPushPermission();
 
   const maxContentWidth = useMemo(() => {
     const safeWidth = Number.isFinite(windowWidth) ? windowWidth : 0;
