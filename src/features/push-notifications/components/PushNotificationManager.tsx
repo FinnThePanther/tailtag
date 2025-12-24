@@ -313,11 +313,12 @@ export function PushNotificationManager() {
   }, [syncPushState]);
 
   useEffect(() => {
-    if (previousUserIdRef.current && !userId) {
-      void clearPushToken(previousUserIdRef.current).catch((error) => {
+    const prevUserId = previousUserIdRef.current;
+    if (prevUserId && !userId) {
+      void clearPushToken(prevUserId).catch((error) => {
         captureHandledException(error, {
           scope: 'push-notifications.manager.signout',
-          userId: previousUserIdRef.current,
+          userId: prevUserId,
         });
       });
     }
