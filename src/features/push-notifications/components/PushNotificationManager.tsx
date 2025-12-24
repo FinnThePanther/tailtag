@@ -22,6 +22,7 @@ type NotificationData = {
 };
 
 const logPrefix = '[push-notifications]';
+const MAX_HANDLED_NOTIFICATION_IDS = 1000;
 
 function extractTypeFromNotification(response: Notifications.NotificationResponse | null) {
   if (!response) {
@@ -40,7 +41,30 @@ export function PushNotificationManager() {
   const previousUserIdRef = useRef<string | null>(null);
   const lastPermissionStatusRef = useRef<PermissionStatus>('undetermined');
   const isSyncingRef = useRef(false);
-  const handledNotificationIdsRef = useRef<Set<string>>(new Set());
+  // Use Map instead of Set to maintain insertion order for LRU eviction
+  const handledNotificationIdsRef = useRef<Map<string, number>>(new Map());
+
+  // Helper to add notification ID with bounded size (LRU eviction)
+  const addHandledNotificationId = useCallback((notificationId: string) => {
+    const cache = handledNotificationIdsRef.current;
+
+    // If already exists, update timestamp to mark as recently used
+    if (cache.has(notificationId)) {
+      cache.delete(notificationId);
+    }
+
+    // Add with current timestamp
+    cache.set(notificationId, Date.now());
+
+    // Evict oldest entries if size exceeds limit
+    if (cache.size > MAX_HANDLED_NOTIFICATION_IDS) {
+      // Map maintains insertion order, so first key is oldest
+      const firstKey = cache.keys().next().value;
+      if (firstKey !== undefined) {
+        cache.delete(firstKey);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     Notifications.setNotificationHandler({
@@ -114,8 +138,8 @@ export function PushNotificationManager() {
         return;
       }
 
-      // Mark as handled
-      handledNotificationIdsRef.current.add(notificationId);
+      // Mark as handled (with LRU eviction)
+      addHandledNotificationId(notificationId);
 
       const notificationType = extractTypeFromNotification(response);
       handleNavigation(notificationType);
@@ -139,7 +163,7 @@ export function PushNotificationManager() {
       responseSubscription.remove();
       foregroundSubscription.remove();
     };
-  }, [handleNavigation]);
+  }, [handleNavigation, addHandledNotificationId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -157,8 +181,8 @@ export function PushNotificationManager() {
           return;
         }
 
-        // Mark as handled
-        handledNotificationIdsRef.current.add(notificationId);
+        // Mark as handled (with LRU eviction)
+        addHandledNotificationId(notificationId);
 
         const notificationType = extractTypeFromNotification(response);
         handleNavigation(notificationType);
@@ -175,7 +199,7 @@ export function PushNotificationManager() {
     return () => {
       isMounted = false;
     };
-  }, [handleNavigation]);
+  }, [handleNavigation, addHandledNotificationId]);
 
   useEffect(() => {
     if (!session?.user || !pendingRouteRef.current) {
