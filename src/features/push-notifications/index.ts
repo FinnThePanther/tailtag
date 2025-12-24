@@ -1,5 +1,6 @@
 export { PushNotificationManager } from './components/PushNotificationManager';
 export { usePushNotifications } from './hooks/usePushNotifications';
+export { useAutoRequestPushPermission } from './hooks/useAutoRequestPushPermission';
 export {
   fetchPushSettings,
   registerPushToken,

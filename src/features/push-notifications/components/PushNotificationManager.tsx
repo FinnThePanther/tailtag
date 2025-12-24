@@ -21,6 +21,8 @@ type NotificationData = {
   type?: unknown;
 };
 
+const logPrefix = '[push-notifications]';
+
 function extractTypeFromNotification(response: Notifications.NotificationResponse | null) {
   if (!response) {
     return null;
@@ -42,11 +44,32 @@ export function PushNotificationManager() {
 
   useEffect(() => {
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: false,
-        shouldPlaySound: false,
-        shouldSetBadge: false,
-      }),
+      handleNotification: async (notification) => {
+        const appState = AppState.currentState;
+
+        // If app is active, suppress system notification
+        // Toasts are handled via Realtime subscriptions on notifications table
+        if (appState === 'active') {
+          console.log(`${logPrefix} Suppressing foreground notification (will show via toast)`);
+          return {
+            shouldShowAlert: false,
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+            shouldShowBanner: false,
+            shouldShowList: false,
+          };
+        }
+
+        // App is background/inactive - show system notification
+        console.log(`${logPrefix} Showing system notification (app in background)`);
+        return {
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        };
+      },
     });
   }, []);
 
@@ -98,10 +121,23 @@ export function PushNotificationManager() {
       handleNavigation(notificationType);
     };
 
-    const subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+
+    // Listen for notifications received while app is in foreground
+    const foregroundSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      console.log(`${logPrefix} Received push notification in foreground:`, {
+        title: notification.request.content.title,
+        body: notification.request.content.body,
+        data: notification.request.content.data,
+      });
+
+      // Note: Actual toast display is handled via Realtime subscriptions
+      // This listener is here for logging and potential future use
+    });
 
     return () => {
-      subscription.remove();
+      responseSubscription.remove();
+      foregroundSubscription.remove();
     };
   }, [handleNavigation]);
 
@@ -158,15 +194,18 @@ export function PushNotificationManager() {
       }
 
       isSyncingRef.current = true;
+      console.info(`${logPrefix} sync:start`, { reason, userId });
 
       try {
         const permissions = await Notifications.getPermissionsAsync();
         const status = permissions.status as PermissionStatus;
         const previousStatus = lastPermissionStatusRef.current;
         lastPermissionStatusRef.current = status;
+        console.info(`${logPrefix} sync:permissions`, { status, previousStatus });
 
         if (status !== 'granted') {
           await updatePushPreference(userId, false);
+          console.info(`${logPrefix} sync:permissionDenied`, { userId });
           return;
         }
 
@@ -174,9 +213,19 @@ export function PushNotificationManager() {
         if (!projectId) {
           throw new Error('Missing Expo project ID for push notifications.');
         }
+        console.info(`${logPrefix} sync:projectIdResolved`, { hasProjectId: true });
 
-        const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
-        const pushToken = tokenResponse.data;
+        let pushToken = '';
+        try {
+          const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
+          pushToken = tokenResponse.data;
+          console.info(`${logPrefix} sync:expoPushToken`, {
+            token: pushToken || 'empty',
+          });
+        } catch (tokenError) {
+          console.error(`${logPrefix} sync:expoPushTokenError`, tokenError);
+          throw tokenError;
+        }
 
         let settings = null as { token: string | null; enabled: boolean } | null;
         try {
@@ -194,8 +243,14 @@ export function PushNotificationManager() {
 
         if (shouldRefreshToken || shouldAutoEnable || shouldEnable) {
           await registerPushToken(userId, pushToken);
+          console.info(`${logPrefix} sync:register`, {
+            shouldRefreshToken,
+            shouldAutoEnable,
+            shouldEnable,
+          });
         }
       } catch (error) {
+        console.error(`${logPrefix} sync:error`, error);
         captureHandledException(error, {
           scope: 'push-notifications.manager.sync',
           reason,

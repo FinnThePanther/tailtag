@@ -734,7 +734,10 @@ export function AchievementToastManager() {
       activeUserRef.current = null;
       channelInstanceRef.current = null;
     };
-  }, [userId, hasLoadedAchievements, queryClient, statusQueryKey, handleToast, showToast]);
+    // Note: hasLoadedAchievements is intentionally NOT in the dependency array
+    // The subscription needs to be active immediately when user logs in
+    // so it can catch notifications that arrive during onboarding/navigation
+  }, [userId, queryClient, statusQueryKey, handleToast, showToast]);
 
   return null;
 }

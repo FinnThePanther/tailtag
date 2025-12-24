@@ -88,3 +88,22 @@ export async function clearPushToken(userId: string): Promise<void> {
     throw new Error(error.message);
   }
 }
+
+export async function markPushNotificationPrompted(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      push_notifications_prompted: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId);
+
+  if (error) {
+    captureSupabaseError(error, {
+      scope: 'push-notifications.markPrompted',
+      action: 'update',
+      userId,
+    });
+    throw new Error(error.message);
+  }
+}
