@@ -1,0 +1,67 @@
+---
+import Base from '../layouts/Base.astro';
+import Footer from '../components/Footer.astro';
+import { siteConfig } from '../config/site';
+---
+
+<Base title="Privacy Policy">
+  <article class="flex-1 px-6 py-12 max-w-2xl mx-auto">
+    <h1 class="text-3xl font-bold text-foreground mb-8">Privacy Policy</h1>
+
+    <div class="prose prose-invert prose-sm max-w-none space-y-6 text-foreground/80">
+      <p class="text-foreground/60 text-sm">
+        Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+      </p>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Overview</h2>
+        <p>
+          {siteConfig.name} ("we", "our", or "us") respects your privacy. This Privacy Policy explains how we collect, use, and protect your information when you use our mobile application.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Information We Collect</h2>
+        <ul class="list-disc list-inside space-y-2">
+          <li><strong>Account Information:</strong> Email address and display name when you create an account.</li>
+          <li><strong>Profile Data:</strong> Fursuit photos and details you choose to share.</li>
+          <li><strong>Usage Data:</strong> Catches, achievements, and gameplay statistics.</li>
+          <li><strong>Device Information:</strong> Device type and operating system for app functionality.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">How We Use Your Information</h2>
+        <ul class="list-disc list-inside space-y-2">
+          <li>To provide and maintain the {siteConfig.name} service</li>
+          <li>To display your profile to other users</li>
+          <li>To track catches, achievements, and leaderboard standings</li>
+          <li>To improve the app and fix bugs</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Data Sharing</h2>
+        <p>
+          We do not sell your personal information. Your profile and catch data are visible to other {siteConfig.name} users as part of the gameplay experience.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Data Retention</h2>
+        <p>
+          We retain your data while your account is active. You can delete your account at any time through the app settings, which will remove all your data from our systems.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Contact</h2>
+        <p>
+          For privacy questions, please reach out via our{' '}
+          <a href={siteConfig.links.discord} class="text-primary hover:underline">Discord server</a>.
+        </p>
+      </section>
+    </div>
+  </article>
+  <Footer />
+</Base>
