@@ -510,7 +510,6 @@ export default function AddFursuitScreen() {
         const payload: FursuitsInsert = {
           owner_id: userId,
           name: trimmedName,
-          species: speciesRecord.name,
           species_id: speciesRecord.id,
           avatar_url: avatarUrl,
           unique_code: uniqueCode,
