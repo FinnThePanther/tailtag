@@ -75,7 +75,6 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
       `
       *,
       fursuit:fursuits (
-        species,
         species_entry:fursuit_species (
           id,
           name
@@ -112,7 +111,7 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
       return {
         fursuitId: row.fursuit_id!,
         name: row.fursuit_name ?? 'Unknown suit',
-        species: fursuit?.species_entry?.name ?? fursuit?.species ?? null,
+        species: fursuit?.species_entry?.name ?? null,
         speciesId: fursuit?.species_entry?.id ?? null,
         colors: mapFursuitColors(fursuit?.color_assignments ?? null),
         avatarUrl: row.fursuit_avatar_url,
