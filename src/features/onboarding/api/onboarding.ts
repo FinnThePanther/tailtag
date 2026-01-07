@@ -14,6 +14,7 @@ import { emitGameplayEvent } from '../../events';
 import type { FursuitsInsert } from '../../../types/database';
 import { MAX_FURSUIT_COLORS } from '../../colors';
 import { MAX_FURSUITS_PER_USER } from '../../../constants/fursuits';
+import { ensureSpeciesEntry } from '../../species';
 
 const TUTORIAL_FURSUIT_NAME = 'TailTag Trainer';
 const TUTORIAL_FURSUIT_SPECIES = 'Fox';
@@ -128,13 +129,15 @@ const ensureTutorialFursuitForUser = async (userId: string) => {
 
   for (let attempt = 0; attempt < UNIQUE_INSERT_ATTEMPTS; attempt += 1) {
     const tutorialCode = await generateAvailableFursuitCode();
+    // Ensure tutorial species exists
+    const tutorialSpeciesRecord = await ensureSpeciesEntry(TUTORIAL_FURSUIT_SPECIES);
+
     const { data: inserted, error: insertError } = await client
       .from('fursuits')
       .insert({
         owner_id: userId,
         name: TUTORIAL_FURSUIT_NAME,
-        species: TUTORIAL_FURSUIT_SPECIES,
-        species_id: null,
+        species_id: tutorialSpeciesRecord.id,
         avatar_url: null,
         unique_code: tutorialCode,
         description: TUTORIAL_FURSUIT_DESCRIPTION,
@@ -235,11 +238,14 @@ export async function createQuickFursuit(options: {
 
     for (let attempt = 0; attempt < UNIQUE_INSERT_ATTEMPTS; attempt += 1) {
       const uniqueCode = await generateAvailableFursuitCode();
+
+      // Ensure species entry exists in database
+      const speciesRecord = await ensureSpeciesEntry(normalizedSpecies);
+
       const payload: FursuitsInsert = {
         owner_id: userId,
         name: normalizedName,
-        species: normalizedSpecies,
-        species_id: null,
+        species_id: speciesRecord.id,
         avatar_url: avatarUrl,
         unique_code: uniqueCode,
         description: normalizedDescription,

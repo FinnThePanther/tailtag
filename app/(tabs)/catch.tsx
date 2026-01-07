@@ -243,7 +243,6 @@ export default function CatchScreen() {
           `
           id,
           name,
-          species,
           species_id,
           avatar_url,
           is_tutorial,
@@ -305,7 +304,7 @@ export default function CatchScreen() {
         id: fursuit.id,
         name: fursuit.name,
         species:
-          (fursuit as any)?.species_entry?.name ?? fursuit.species ?? null,
+          (fursuit as any)?.species_entry?.name ?? null,
         species_id:
           (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
         avatar_url: fursuit.avatar_url ?? null,
