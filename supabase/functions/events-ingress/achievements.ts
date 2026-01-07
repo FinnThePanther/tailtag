@@ -594,7 +594,7 @@ async function fetchCatchWithRelations(
 ) {
   const { data, error } = await supabaseAdmin
     .from("catches")
-    .select("id,catcher_id,fursuit_id,convention_id,is_tutorial,caught_at,fursuit:fursuits(id,owner_id,species,species_id)")
+    .select("id,catcher_id,fursuit_id,convention_id,is_tutorial,caught_at,fursuit:fursuits(id,owner_id,species_id)")
     .eq("id", catchId)
     .limit(1)
     .maybeSingle();
@@ -666,7 +666,7 @@ async function hasHybridOrMultiSpecies(
 ) {
   const { data, error } = await supabaseAdmin
     .from("fursuits")
-    .select("species,species_id")
+    .select("species_id")
     .eq("id", fursuitId)
     .limit(1)
     .maybeSingle();
@@ -676,10 +676,6 @@ async function hasHybridOrMultiSpecies(
       console.error("[events-ingress] Failed fetching fursuit metadata", { fursuitId, error });
     }
     return false;
-  }
-
-  if (typeof data.species === "string" && data.species.toLowerCase().includes("hybrid")) {
-    return true;
   }
 
   if (data.species_id) {

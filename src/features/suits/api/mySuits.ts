@@ -20,7 +20,6 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       `
       id,
       name,
-      species,
       species_id,
       avatar_url,
       description,
@@ -105,7 +104,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
 
     const bio = mapLatestFursuitBio(item.fursuit_bios ?? null);
     const speciesEntry = item.species_entry ?? null;
-    const speciesName = speciesEntry?.name ?? item.species ?? null;
+    const speciesName = speciesEntry?.name ?? null;
     const speciesId = speciesEntry?.id ?? item.species_id ?? null;
     const colors = mapFursuitColors(item.color_assignments ?? null);
 
