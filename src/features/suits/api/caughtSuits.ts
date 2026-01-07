@@ -28,7 +28,6 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       fursuit:fursuits (
         id,
         name,
-        species,
         species_id,
         avatar_url,
         catch_count,
@@ -93,8 +92,8 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
         ? ({
             id: rawFursuit.id,
             name: rawFursuit.name,
-            species: (rawFursuit.species_entry?.name ?? rawFursuit.species) ?? null,
-            speciesId: (rawFursuit.species_entry?.id ?? rawFursuit.species_id) ?? null,
+            species: rawFursuit.species_entry?.name ?? null,
+            speciesId: rawFursuit.species_entry?.id ?? rawFursuit.species_id ?? null,
             colors: mapFursuitColors(rawFursuit.color_assignments ?? null),
             avatar_url: rawFursuit.avatar_url ?? null,
             description: rawFursuit.description ?? null,
