@@ -17,7 +17,6 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       id,
       owner_id,
       name,
-      species,
       species_id,
       avatar_url,
       is_tutorial,
@@ -103,7 +102,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
 
   const bio = mapLatestFursuitBio(data.fursuit_bios ?? null);
   const speciesEntry = data.species_entry ?? null;
-  const speciesName = speciesEntry?.name ?? data.species ?? null;
+  const speciesName = speciesEntry?.name ?? null;
   const speciesId = speciesEntry?.id ?? data.species_id ?? null;
   const colors = mapFursuitColors(data.color_assignments ?? null);
 
