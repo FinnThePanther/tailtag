@@ -1418,20 +1418,6 @@ export type Database = {
             foreignKeyName: "tag_activity_tag_uid_fkey"
             columns: ["tag_uid"]
             isOneToOne: false
-            referencedRelation: "nfc_tags"
-            referencedColumns: ["nfc_uid"]
-          },
-          {
-            foreignKeyName: "tag_activity_tag_uid_fkey"
-            columns: ["tag_uid"]
-            isOneToOne: false
-            referencedRelation: "nfc_tags"
-            referencedColumns: ["uid"]
-          },
-          {
-            foreignKeyName: "tag_activity_tag_uid_fkey"
-            columns: ["tag_uid"]
-            isOneToOne: false
             referencedRelation: "tags"
             referencedColumns: ["nfc_uid"]
           },
@@ -1474,13 +1460,6 @@ export type Database = {
             columns: ["scanner_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tag_scans_tag_id_fkey"
-            columns: ["tag_id"]
-            isOneToOne: false
-            referencedRelation: "nfc_tags"
             referencedColumns: ["id"]
           },
           {
@@ -2114,73 +2093,6 @@ export type Database = {
           },
         ]
       }
-      nfc_tags: {
-        Row: {
-          fursuit_id: string | null
-          id: string | null
-          linked_at: string | null
-          nfc_uid: string | null
-          qr_asset_path: string | null
-          qr_token: string | null
-          qr_token_created_at: string | null
-          registered_at: string | null
-          registered_by_user_id: string | null
-          status: string | null
-          uid: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          fursuit_id?: string | null
-          id?: string | null
-          linked_at?: string | null
-          nfc_uid?: string | null
-          qr_asset_path?: string | null
-          qr_token?: string | null
-          qr_token_created_at?: string | null
-          registered_at?: string | null
-          registered_by_user_id?: string | null
-          status?: string | null
-          uid?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          fursuit_id?: string | null
-          id?: string | null
-          linked_at?: string | null
-          nfc_uid?: string | null
-          qr_asset_path?: string | null
-          qr_token?: string | null
-          qr_token_created_at?: string | null
-          registered_at?: string | null
-          registered_by_user_id?: string | null
-          status?: string | null
-          uid?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "nfc_tags_fursuit_id_fkey"
-            columns: ["fursuit_id"]
-            isOneToOne: false
-            referencedRelation: "fursuits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "nfc_tags_fursuit_id_fkey"
-            columns: ["fursuit_id"]
-            isOneToOne: false
-            referencedRelation: "fursuits_moderation"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tags_registered_by_user_id_fkey"
-            columns: ["registered_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Functions: {
       _postgis_deprecate: {
@@ -2552,8 +2464,13 @@ export type Database = {
       grant_achievements_batch: { Args: { awards: Json }; Returns: Json }
       hash_ip_address: { Args: { ip_addr: unknown }; Returns: string }
       is_admin: { Args: { user_id: string }; Returns: boolean }
+      is_admin_user: { Args: { check_user_id: string }; Returns: boolean }
       is_event_staff: {
         Args: { convention_id: string; user_id: string }
+        Returns: boolean
+      }
+      is_moderator_or_higher: {
+        Args: { check_user_id: string }
         Returns: boolean
       }
       is_valid_event_type: { Args: { p_event_type: string }; Returns: boolean }
@@ -3470,3 +3387,4 @@ export const Constants = {
     },
   },
 } as const
+
