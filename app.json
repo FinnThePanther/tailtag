@@ -20,7 +20,9 @@
         "NSPhotoLibraryUsageDescription": "TailTag needs access to your photo library so you can add photos of your fursuits to your profile.",
         "NSCameraUsageDescription": "TailTag needs access to your camera so you can take photos of your fursuits.",
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -61,7 +63,8 @@
           "color": "#7c3aed"
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "@sentry/react-native"
     ],
     "scheme": "tailtag",
     "extra": {
