@@ -171,12 +171,11 @@ export default function HomeScreen() {
   >(null);
 
   useEffect(() => {
-    if (availableConventions.length === 0) {
-      setSelectedConventionId(null);
-      return;
-    }
-
     setSelectedConventionId((current) => {
+      if (availableConventions.length === 0) {
+        return null;
+      }
+
       if (
         current &&
         availableConventions.some((convention) => convention.id === current)

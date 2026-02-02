@@ -54,14 +54,13 @@ type FursuitDetails = Pick<
   FursuitsRow,
   | "id"
   | "name"
-  | "species"
   | "species_id"
   | "avatar_url"
   | "unique_code"
   | "owner_id"
   | "is_tutorial"
   | "catch_count"
-> & { created_at: string | null; bio: FursuitBio | null; colors: FursuitColorOption[] };
+> & { created_at: string | null; species: string | null; bio: FursuitBio | null; colors: FursuitColorOption[] };
 
 type CatchRecord = {
   id: string;

@@ -34,7 +34,10 @@ export function AchievementToastManager() {
   const processedNotificationIdsRef = useRef<Set<string>>(new Set());
 
   const segments = useSegments();
-  routeRef.current = segments.join('/') || 'root';
+
+  useEffect(() => {
+    routeRef.current = segments.join('/') || 'root';
+  }, [segments]);
 
   const statusQueryKey = useMemo(
     () => (userId ? achievementsStatusQueryKey(userId) : ['achievements-status', 'guest'] as const),

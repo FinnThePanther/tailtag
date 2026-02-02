@@ -7,8 +7,6 @@ import { usePushNotifications } from './usePushNotifications';
 import { markPushNotificationPrompted } from '../api/pushNotifications';
 import { captureNonCriticalError } from '../../../lib/sentry';
 
-const logPrefix = '[push-notifications.auto-request]';
-
 /**
  * Hook to automatically request push notification permissions on first visit to home screen.
  *
@@ -45,7 +43,6 @@ export function useAutoRequestPushPermission() {
 
     // Guard: Simulator or unsupported device
     if (!isSupported) {
-      console.info(`${logPrefix} Skipping - device not supported`);
       return;
     }
 
@@ -62,7 +59,6 @@ export function useAutoRequestPushPermission() {
     // Guard: User already prompted before (database tracking)
     // This handles both cases: user accepted OR user declined previously
     if (profile.push_notifications_prompted === true) {
-      console.info(`${logPrefix} Skipping - user already prompted`);
       return;
     }
 
@@ -71,12 +67,9 @@ export function useAutoRequestPushPermission() {
 
     // Permission already granted - just register token silently
     if (permissionStatus === 'granted') {
-      console.info(`${logPrefix} Permission already granted - registering token`);
-
       void (async () => {
         try {
           await requestPermissionAndRegister();
-          console.info(`${logPrefix} Token registered successfully`);
         } catch (error) {
           captureNonCriticalError(error, {
             scope: 'push-notifications.auto-request.silentRegister',
@@ -98,16 +91,9 @@ export function useAutoRequestPushPermission() {
 
     // Permission undetermined - request permission
     if (permissionStatus === 'undetermined') {
-      console.info(`${logPrefix} Requesting push notification permission`);
-
       void (async () => {
         try {
-          const granted = await requestPermissionAndRegister();
-          if (granted) {
-            console.info(`${logPrefix} Permission granted and token registered`);
-          } else {
-            console.info(`${logPrefix} Permission denied by user`);
-          }
+          await requestPermissionAndRegister();
         } catch (error) {
           captureNonCriticalError(error, {
             scope: 'push-notifications.auto-request.requestPermission',
@@ -129,7 +115,6 @@ export function useAutoRequestPushPermission() {
 
     // Permission denied - do nothing, but mark as prompted
     if (permissionStatus === 'denied') {
-      console.info(`${logPrefix} Permission already denied - skipping`);
       void markPushNotificationPrompted(userId).catch((error) => {
         captureNonCriticalError(error, {
           scope: 'push-notifications.auto-request.markPrompted',

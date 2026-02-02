@@ -95,14 +95,6 @@ export function useOAuthSignIn() {
         throw new Error('Apple sign-in did not return an identity token.');
       }
 
-      // Log credential details for debugging (remove in production)
-      console.log('[Apple Sign-In] Credential received:', {
-        user: credential.user,
-        email: credential.email,
-        hasFullName: !!credential.fullName,
-        hasIdentityToken: !!credential.identityToken,
-        identityTokenLength: credential.identityToken?.length,
-      });
 
       // Exchange credential with Supabase
       const { data, error: authError } = await supabase.auth.signInWithIdToken({
@@ -111,12 +103,6 @@ export function useOAuthSignIn() {
       });
 
       if (authError) {
-        // Log detailed error information
-        console.error('[Apple Sign-In] Supabase error:', {
-          message: authError.message,
-          status: authError.status,
-          name: authError.name,
-        });
         throw authError;
       }
 
@@ -143,8 +129,7 @@ export function useOAuthSignIn() {
         });
 
         if (updateError) {
-          // Log but don't fail - name update is optional
-          console.warn('[Apple Sign-In] Failed to update user name:', updateError);
+          // Name update is optional; silently ignore failure
         }
       }
 
@@ -159,9 +144,6 @@ export function useOAuthSignIn() {
       ) {
         throw new Error('Sign-in was canceled.');
       }
-
-      // Log unexpected errors for debugging
-      console.error('[Apple Sign-In] Unexpected error:', caught);
 
       throw caught;
     }

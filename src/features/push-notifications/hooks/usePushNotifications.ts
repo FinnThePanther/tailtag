@@ -18,8 +18,6 @@ type UsePushNotificationsOptions = {
   userId?: string | null;
 };
 
-const logPrefix = '[push-notifications]';
-
 export function usePushNotifications(options: UsePushNotificationsOptions = {}) {
   const { session } = useAuth();
   const resolvedUserId = options.userId ?? session?.user.id ?? null;
@@ -167,21 +165,14 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
 
     setIsRegistering(true);
     setError(null);
-    console.info(`${logPrefix} requestPermissionAndRegister:start`, {
-      userId: resolvedUserId,
-      isDevice: Device.isDevice,
-      platform: Platform.OS,
-    });
 
     try {
       const existing = await Notifications.getPermissionsAsync();
       let status = existing.status as PermissionStatus;
-      console.info(`${logPrefix} permissions:current`, { status });
 
       if (status !== 'granted') {
         const requested = await Notifications.requestPermissionsAsync();
         status = requested.status as PermissionStatus;
-        console.info(`${logPrefix} permissions:requested`, { status });
       }
 
       setPermissionStatus(status);
@@ -190,7 +181,6 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         await updatePushPreference(resolvedUserId, false);
         setToken(null);
         setIsEnabled(false);
-        console.info(`${logPrefix} permissions:denied`, { userId: resolvedUserId });
         return false;
       }
 
@@ -198,24 +188,18 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       if (!projectId) {
         throw new Error('Missing Expo project ID for push notifications.');
       }
-      console.info(`${logPrefix} projectId:resolved`, { hasProjectId: true });
 
       let pushToken = '';
       try {
         const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
         pushToken = tokenResponse.data;
-        console.info(`${logPrefix} expoPushToken:received`, {
-          token: pushToken || 'empty',
-        });
       } catch (tokenError) {
-        console.error(`${logPrefix} expoPushToken:error`, tokenError);
         throw tokenError;
       }
 
       await registerPushToken(resolvedUserId, pushToken);
       setToken(pushToken);
       setIsEnabled(true);
-      console.info(`${logPrefix} register:success`, { userId: resolvedUserId });
       return true;
     } catch (caught) {
       const fallbackMessage =
@@ -223,7 +207,6 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
           ? caught.message
           : 'Unable to enable push notifications right now.';
       setError(fallbackMessage);
-      console.error(`${logPrefix} requestPermissionAndRegister:error`, caught);
       captureNonCriticalError(caught, {
         scope: 'push-notifications.requestPermission',
         userId: resolvedUserId,

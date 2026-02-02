@@ -407,7 +407,6 @@ export default function EditFursuitScreen() {
 
     const client = supabase as any;
     const previousName = detail.name;
-    const previousSpecies = detail.species;
     const previousSpeciesId = detail.speciesId ?? null;
     const previousCatchMode = initialCatchMode;
     let updatedCoreRecord = false;
