@@ -19,7 +19,8 @@ import { PushNotificationManager } from "../src/features/push-notifications";
 import {
   Sentry,
   addMonitoringBreadcrumb,
-  captureHandledException,
+  captureFeatureError,
+  captureNonCriticalError,
   routingInstrumentation,
 } from "../src/lib/sentry";
 import { handleAuthError } from "../src/lib/authErrorHandler";
@@ -152,29 +153,61 @@ function RootLayoutNav() {
   );
 }
 
+/** Query key prefixes that map to non-critical severity. */
+const NON_CRITICAL_KEY_PREFIXES = [
+  "convention-leaderboard",
+  "convention-suit-leaderboard",
+  "fursuit-species",
+  "fursuit-colors",
+];
+
+function isNonCriticalQueryKey(queryKey: unknown): boolean {
+  if (!Array.isArray(queryKey) || queryKey.length === 0) return false;
+  const first = String(queryKey[0]);
+  return NON_CRITICAL_KEY_PREFIXES.some((prefix) => first.startsWith(prefix));
+}
+
+/** Extract Supabase error metadata (code/details/hint) into extras. */
+function extractQueryErrorExtras(
+  error: unknown,
+  base: Record<string, unknown>,
+): Record<string, unknown> {
+  const extras = { ...base };
+  if (typeof error === "object" && error !== null) {
+    const e = error as { code?: string; details?: string; hint?: string };
+    if (e.code) extras.supabaseCode = e.code;
+    if (e.details) extras.supabaseDetails = e.details;
+    if (e.hint) extras.supabaseHint = e.hint;
+  }
+  return extras;
+}
+
 function Layout() {
   const [queryClient] = useState(
     () =>
       new QueryClient({
         queryCache: new QueryCache({
           onError: (error, query) => {
-            captureHandledException(error, {
+            const extras = extractQueryErrorExtras(error, {
               scope: "react-query.query",
               queryHash: query?.queryHash,
               queryKey: query?.queryKey,
             });
-            // Handle auth errors globally - force sign out on 401
+            const capturer = isNonCriticalQueryKey(query?.queryKey)
+              ? captureNonCriticalError
+              : captureFeatureError;
+            capturer(error, extras);
             void handleAuthError(error);
           },
         }),
         mutationCache: new MutationCache({
           onError: (error, _variables, _context, mutation) => {
-            captureHandledException(error, {
+            const extras = extractQueryErrorExtras(error, {
               scope: "react-query.mutation",
               mutationId: mutation?.mutationId,
               mutationKey: mutation?.options?.mutationKey,
             });
-            // Handle auth errors globally - force sign out on 401
+            captureFeatureError(error, extras);
             void handleAuthError(error);
           },
         }),

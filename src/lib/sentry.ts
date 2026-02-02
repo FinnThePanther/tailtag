@@ -3,6 +3,8 @@ import Constants from "expo-constants";
 
 type Extras = Record<string, unknown>;
 
+export type SeverityTier = "critical" | "feature" | "non-critical";
+
 const routingInstrumentation = Sentry.reactNavigationIntegration({
   enableTimeToInitialDisplay: true,
   enableTimeToInitialDisplayForPreloadedRoutes: true,
@@ -26,24 +28,63 @@ const RELEASE = (() => {
   return version ? `${slug}@${version}` : slug;
 })();
 
+/** Patterns for errors that are expected/transient and should not be reported. */
+const IGNORED_ERROR_PATTERNS = [
+  /network request failed/i,
+  /load failed/i,
+  /internet connection appears to be offline/i,
+  /aborted/i,
+  /timed out after 5 seconds/i,
+  /JWT expired/i,
+  /PGRST116/, // Supabase "no rows returned" — expected for optional lookups
+];
+
 Sentry.init({
   dsn: SENTRY_DSN,
   environment: ENVIRONMENT,
   release: RELEASE,
   sendDefaultPii: true,
-  debug: __DEV__,
-  // Adjust sampling rates before shipping to production.
-  tracesSampleRate: 1.0,
-  profilesSampleRate: 1.0,
-  replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1,
+  debug: false,
+  spotlight: __DEV__,
+  tracesSampleRate: __DEV__ ? 1.0 : 0.1,
+  profilesSampleRate: __DEV__ ? 1.0 : 0.05,
+  replaysSessionSampleRate: 0.01,
+  replaysOnErrorSampleRate: 1.0,
   integrations: [
     routingInstrumentation,
     Sentry.reactNativeTracingIntegration(),
     Sentry.mobileReplayIntegration(),
   ],
-  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  // spotlight: __DEV__,
+  beforeSend(event, hint) {
+    const error = hint.originalException;
+    const message =
+      error instanceof Error ? error.message : String(error ?? "");
+
+    if (IGNORED_ERROR_PATTERNS.some((pattern) => pattern.test(message))) {
+      return null;
+    }
+
+    return event;
+  },
+  beforeBreadcrumb(breadcrumb) {
+    // Drop console.log breadcrumbs in production (keep warn/error)
+    if (
+      breadcrumb.category === "console" &&
+      breadcrumb.level !== "warning" &&
+      breadcrumb.level !== "error"
+    ) {
+      return null;
+    }
+    // Drop XHR breadcrumbs for realtime polling/heartbeat
+    if (
+      breadcrumb.category === "xhr" &&
+      typeof breadcrumb.data?.url === "string" &&
+      breadcrumb.data.url.includes("/realtime/")
+    ) {
+      return null;
+    }
+    return breadcrumb;
+  },
 });
 
 const normalizeError = (error: unknown, fallbackMessage = "Unknown error"): Error => {
@@ -65,12 +106,29 @@ const normalizeError = (error: unknown, fallbackMessage = "Unknown error"): Erro
   return new Error(fallbackMessage);
 };
 
-export const captureHandledException = (error: unknown, extras?: Extras, fingerprint?: string[]) => {
+// ---------------------------------------------------------------------------
+// Severity-tiered capture functions
+// ---------------------------------------------------------------------------
+
+const TIER_CONFIG: Record<SeverityTier, { level: Sentry.SeverityLevel; tag: string }> = {
+  critical: { level: "fatal", tag: "critical" },
+  feature: { level: "error", tag: "feature" },
+  "non-critical": { level: "warning", tag: "non-critical" },
+};
+
+const captureWithTier = (
+  tier: SeverityTier,
+  error: unknown,
+  extras?: Extras,
+  fingerprint?: string[],
+) => {
   const capturedError = normalizeError(error);
+  const config = TIER_CONFIG[tier];
 
   Sentry.withScope((scope) => {
     scope.setTag("handled", "true");
-    scope.setLevel("error");
+    scope.setTag("severity_tier", config.tag);
+    scope.setLevel(config.level);
 
     if (extras) {
       scope.setExtras(extras);
@@ -83,6 +141,36 @@ export const captureHandledException = (error: unknown, extras?: Extras, fingerp
     Sentry.captureException(capturedError);
   });
 };
+
+/** Auth failures, event pipeline broken, data corruption. */
+export const captureCriticalError = (
+  error: unknown,
+  extras?: Extras,
+  fingerprint?: string[],
+) => captureWithTier("critical", error, extras, fingerprint);
+
+/** Core feature failures: catches, achievements, fursuit CRUD. */
+export const captureFeatureError = (
+  error: unknown,
+  extras?: Extras,
+  fingerprint?: string[],
+) => captureWithTier("feature", error, extras, fingerprint);
+
+/** Non-critical failures: leaderboard, metadata, push notifications. */
+export const captureNonCriticalError = (
+  error: unknown,
+  extras?: Extras,
+) => captureWithTier("non-critical", error, extras);
+
+/**
+ * @deprecated Use `captureCriticalError`, `captureFeatureError`, or
+ * `captureNonCriticalError` instead. This alias maps to `captureFeatureError`.
+ */
+export const captureHandledException = (
+  error: unknown,
+  extras?: Extras,
+  fingerprint?: string[],
+) => captureFeatureError(error, extras, fingerprint);
 
 export const captureHandledMessage = (
   message: string,
@@ -101,11 +189,15 @@ export const captureHandledMessage = (
   });
 };
 
-export const traceEventIngress = (_extras: { type: string; conventionId: string | null }) => null;
+// ---------------------------------------------------------------------------
+// Supabase-specific error capture
+// ---------------------------------------------------------------------------
 
+/** Extract Supabase error metadata and capture with the given severity tier. */
 export const captureSupabaseError = (
   error: unknown,
-  context: Extras & { scope: string; action?: string }
+  context: Extras & { scope: string; action?: string },
+  tier: SeverityTier = "feature",
 ) => {
   if (!error) {
     captureHandledMessage("Supabase error without details", context, "warning");
@@ -135,8 +227,12 @@ export const captureSupabaseError = (
     }
   }
 
-  captureHandledException(error, metadata);
+  captureWithTier(tier, error, metadata);
 };
+
+// ---------------------------------------------------------------------------
+// Breadcrumbs & user context
+// ---------------------------------------------------------------------------
 
 export const addMonitoringBreadcrumb = (breadcrumb: {
   category: string;

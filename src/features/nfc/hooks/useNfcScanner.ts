@@ -5,7 +5,7 @@ import {
   isNfcSimulatorMode,
 } from '../lib/nfcManager';
 import {
-  captureHandledException,
+  captureNonCriticalError,
   addMonitoringBreadcrumb,
 } from '@/lib/sentry';
 import type {
@@ -74,7 +74,7 @@ export function useNfcScanner() {
         }
       } catch (err) {
         if (mounted) {
-          captureHandledException(err, { scope: 'nfc.initialize' });
+          captureNonCriticalError(err, { scope: 'nfc.initialize' });
           // If initialization fails, treat as unsupported
           setSupportStatus('unsupported');
         }
@@ -198,7 +198,7 @@ export function useNfcScanner() {
       setError({ code, message });
       setScanState('error');
 
-      captureHandledException(err, {
+      captureNonCriticalError(err, {
         scope: 'nfc.startScan',
         extra: { errorMessage, isNfcOff },
       });

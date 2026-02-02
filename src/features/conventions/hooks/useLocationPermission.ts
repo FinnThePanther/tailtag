@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 
 import { supabase } from '@/lib/supabase';
-import { captureHandledException } from '@/lib/sentry';
+import { captureNonCriticalError } from '@/lib/sentry';
 
 export type LocationPermissionStatus =
   | 'not_determined'
@@ -43,7 +43,7 @@ export function useLocationPermission(profileId?: string): UseLocationPermission
         .eq('id', profileId);
 
       if (error) {
-        captureHandledException(error, { scope: 'location-permission.persist', profileId });
+        captureNonCriticalError(error, { scope: 'location-permission.persist', profileId });
       }
     },
     [profileId]
@@ -56,7 +56,7 @@ export function useLocationPermission(profileId?: string): UseLocationPermission
       setStatus(mapped);
       await persistPermission(mapped, 'check');
     } catch (error) {
-      captureHandledException(error, { scope: 'location-permission.check' });
+      captureNonCriticalError(error, { scope: 'location-permission.check' });
     }
   }, [persistPermission]);
 
@@ -73,7 +73,7 @@ export function useLocationPermission(profileId?: string): UseLocationPermission
       await persistPermission(mapped, 'request');
       return mapped === 'granted';
     } catch (error) {
-      captureHandledException(error, { scope: 'location-permission.request' });
+      captureNonCriticalError(error, { scope: 'location-permission.request' });
       return false;
     } finally {
       setIsLoading(false);

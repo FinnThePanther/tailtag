@@ -1,5 +1,5 @@
 import { supabase } from "../../../lib/supabase";
-import { captureHandledException } from "../../../lib/sentry";
+import { captureCriticalError, addMonitoringBreadcrumb } from "../../../lib/sentry";
 import { handleAuthError } from "../../../lib/authErrorHandler";
 import {
   emitImmediateAchievementAwards,
@@ -106,7 +106,7 @@ export async function emitGameplayEvent(
   const type = input.type.trim();
 
   if (!type) {
-    captureHandledException(
+    captureCriticalError(
       new Error("Missing gameplay event type"),
       { scope: "events.emitGameplayEvent", input },
     );
@@ -127,9 +127,10 @@ export async function emitGameplayEvent(
       idempotency_key: idempotencyKey,
     };
 
-    console.log(`[emitGameplayEvent] Starting event emission: ${type}`, {
-      conventionId: input.conventionId,
-      timestamp: new Date().toISOString(),
+    addMonitoringBreadcrumb({
+      category: "events",
+      message: "Event emission started",
+      data: { type, conventionId: input.conventionId ?? null },
     });
 
     // Invoke the edge function with a timeout wrapper
@@ -172,39 +173,22 @@ export async function emitGameplayEvent(
           statusCode = error.context.status;
           const errorBody = await error.context.json();
           actualError = errorBody.error || errorBody.message || error.message;
-          console.error(`[emitGameplayEvent] Edge function returned ${error.context.status} after ${duration}ms:`, {
-            type,
-            status: error.context.status,
-            errorBody,
-            actualError,
-          });
 
           // Handle 401 Unauthorized - force sign out
           if (statusCode === 401) {
-            console.warn('[emitGameplayEvent] Received 401, triggering force sign out');
             void handleAuthError(new Error('Unauthorized'));
           }
-        } else {
-          console.error(`[emitGameplayEvent] Edge function returned error after ${duration}ms:`, {
-            type,
-            error,
-            errorMessage: error.message,
-          });
         }
-      } catch (parseError) {
-        console.error(`[emitGameplayEvent] Could not parse error response:`, {
-          type,
-          error,
-          parseError,
-        });
+      } catch {
+        // Error response couldn't be parsed; fall through with original message
       }
       throw new Error(actualError);
     }
 
-    console.log(`[emitGameplayEvent] Completed in ${duration}ms:`, {
-      type,
-      success: true,
-      hasData: !!data,
+    addMonitoringBreadcrumb({
+      category: "events",
+      message: "Event emission completed",
+      data: { type, durationMs: duration },
     });
 
     if (!data || typeof data.event_id !== "string") {
@@ -240,13 +224,8 @@ export async function emitGameplayEvent(
     }
 
     const duration = Date.now() - startTime;
-    console.error(`[emitGameplayEvent] Failed after ${duration}ms:`, {
-      type,
-      error: error instanceof Error ? error.message : String(error),
-      isTimeout: error instanceof Error && error.message.includes('timed out'),
-    });
 
-    captureHandledException(error, {
+    captureCriticalError(error, {
       scope: "events.emitGameplayEvent",
       type,
       conventionId: input.conventionId ?? null,

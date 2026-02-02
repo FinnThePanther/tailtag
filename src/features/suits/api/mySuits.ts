@@ -3,7 +3,6 @@ import type { ConventionSummary } from '../../conventions';
 import type { FursuitSummary } from '../types';
 import type { CatchMode } from '../../catch-confirmations';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
-import { captureSupabaseError } from '../../../lib/sentry';
 
 export const MY_SUITS_QUERY_KEY = 'my-suits';
 export const MY_SUITS_COUNT_QUERY_KEY = 'my-suits-count';
@@ -75,11 +74,6 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
     .order('created_at', { ascending: false });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'suits.fetchMySuits',
-      action: 'select',
-      userId,
-    });
     throw new Error(`We couldn't load your suits: ${error.message}`);
   }
 
@@ -146,11 +140,6 @@ export async function fetchMySuitsCount(userId: string): Promise<number> {
     .eq('is_tutorial', false);
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'suits.fetchMySuitsCount',
-      action: 'count',
-      userId,
-    });
     throw new Error(`We couldn't count your suits: ${error.message}`);
   }
 

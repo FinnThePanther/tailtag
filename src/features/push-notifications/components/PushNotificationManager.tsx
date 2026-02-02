@@ -5,7 +5,7 @@ import * as Device from 'expo-device';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../auth';
-import { captureHandledException } from '../../../lib/sentry';
+import { captureNonCriticalError } from '../../../lib/sentry';
 import {
   clearPushToken,
   fetchPushSettings,
@@ -106,7 +106,7 @@ export function PushNotificationManager() {
       name: 'default',
       importance: Notifications.AndroidImportance.DEFAULT,
     }).catch((channelError) => {
-      captureHandledException(channelError, {
+      captureNonCriticalError(channelError, {
         scope: 'push-notifications.manager.channel',
       });
     });
@@ -191,7 +191,7 @@ export function PushNotificationManager() {
         if (!isMounted) {
           return;
         }
-        captureHandledException(error, {
+        captureNonCriticalError(error, {
           scope: 'push-notifications.manager.lastResponse',
         });
       });
@@ -255,7 +255,7 @@ export function PushNotificationManager() {
         try {
           settings = await fetchPushSettings(userId);
         } catch (settingsError) {
-          captureHandledException(settingsError, {
+          captureNonCriticalError(settingsError, {
             scope: 'push-notifications.manager.fetchSettings',
             userId,
           });
@@ -279,7 +279,7 @@ export function PushNotificationManager() {
         }
       } catch (error) {
         console.error(`${logPrefix} sync:error`, error);
-        captureHandledException(error, {
+        captureNonCriticalError(error, {
           scope: 'push-notifications.manager.sync',
           reason,
           userId,
@@ -316,7 +316,7 @@ export function PushNotificationManager() {
     const prevUserId = previousUserIdRef.current;
     if (prevUserId && !userId) {
       void clearPushToken(prevUserId).catch((error) => {
-        captureHandledException(error, {
+        captureNonCriticalError(error, {
           scope: 'push-notifications.manager.signout',
           userId: prevUserId,
         });

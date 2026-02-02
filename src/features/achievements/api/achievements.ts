@@ -1,5 +1,4 @@
 import { supabase } from '../../../lib/supabase';
-import { captureSupabaseError } from '../../../lib/sentry';
 import type {
   AchievementCategory,
   AchievementEventsRow,
@@ -43,10 +42,6 @@ export async function fetchAchievementCatalog(): Promise<AchievementRecord[]> {
     .order('name', { ascending: true });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'achievements.fetchAchievementCatalog',
-      action: 'select',
-    });
     throw new Error(`We couldn't load achievements: ${error.message}`);
   }
 
@@ -71,11 +66,6 @@ export async function fetchUserAchievements(userId: string): Promise<UserAchieve
     .order('unlocked_at', { ascending: false });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'achievements.fetchUserAchievements',
-      action: 'select',
-      userId,
-    });
     throw new Error(`We couldn't load your achievements: ${error.message}`);
   }
 

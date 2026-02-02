@@ -2,7 +2,6 @@ import { supabase } from '../../../lib/supabase';
 import type { FursuitSummary } from '../types';
 import type { CatchMode } from '../../catch-confirmations';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
-import { captureSupabaseError } from '../../../lib/sentry';
 
 export type CaughtRecord = {
   id: string;
@@ -69,11 +68,6 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
     .order('caught_at', { ascending: false });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'suits.fetchCaughtSuits',
-      action: 'select',
-      userId,
-    });
     throw new Error(`We couldn't load your catches: ${error.message}`);
   }
 

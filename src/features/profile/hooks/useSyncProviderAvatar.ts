@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { AVATAR_BUCKET } from '../../../constants/storage';
 import { supabase } from '../../../lib/supabase';
-import { captureHandledException } from '../../../lib/sentry';
+import { captureNonCriticalError } from '../../../lib/sentry';
 import { deriveStoragePathFromPublicUrl } from '../../../utils/storage';
 import { consumeStoredProviderToken } from '../../auth/utils/oauth';
 import type { ProfileSummary } from '../api/profile';
@@ -213,7 +213,7 @@ export function useSyncProviderAvatar({ session, profile }: Params) {
 
         syncedUsersRef.current.add(userId);
       } catch (caught) {
-        captureHandledException(caught, {
+        captureNonCriticalError(caught, {
           scope: 'profile.syncProviderAvatar',
           userId,
           provider,

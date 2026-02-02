@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
 import { useAuth } from '../../auth';
-import { captureHandledException } from '../../../lib/sentry';
+import { captureNonCriticalError } from '../../../lib/sentry';
 import {
   fetchPushSettings,
   registerPushToken,
@@ -40,7 +40,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       name: 'default',
       importance: Notifications.AndroidImportance.DEFAULT,
     }).catch((channelError) => {
-      captureHandledException(channelError, {
+      captureNonCriticalError(channelError, {
         scope: 'push-notifications.setChannel',
       });
     });
@@ -64,7 +64,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         if (!isMounted) {
           return;
         }
-        captureHandledException(permissionError, {
+        captureNonCriticalError(permissionError, {
           scope: 'push-notifications.permissions',
           action: 'getPermissions',
         });
@@ -96,7 +96,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         if (!isMounted) {
           return;
         }
-        captureHandledException(settingsError, {
+        captureNonCriticalError(settingsError, {
           scope: 'push-notifications.settings',
           action: 'fetch',
           userId: resolvedUserId,
@@ -118,7 +118,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       const status = await Notifications.getPermissionsAsync();
       setPermissionStatus(status.status as PermissionStatus);
     } catch (permissionError) {
-      captureHandledException(permissionError, {
+      captureNonCriticalError(permissionError, {
         scope: 'push-notifications.permissions',
         action: 'refreshPermissions',
       });
@@ -133,7 +133,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       setToken(settings.token);
       setIsEnabled(settings.enabled);
     } catch (settingsError) {
-      captureHandledException(settingsError, {
+      captureNonCriticalError(settingsError, {
         scope: 'push-notifications.settings',
         action: 'refresh',
         userId: resolvedUserId,
@@ -224,7 +224,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
           : 'Unable to enable push notifications right now.';
       setError(fallbackMessage);
       console.error(`${logPrefix} requestPermissionAndRegister:error`, caught);
-      captureHandledException(caught, {
+      captureNonCriticalError(caught, {
         scope: 'push-notifications.requestPermission',
         userId: resolvedUserId,
       });
@@ -252,7 +252,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
           ? caught.message
           : 'Unable to disable push notifications right now.';
       setError(fallbackMessage);
-      captureHandledException(caught, {
+      captureNonCriticalError(caught, {
         scope: 'push-notifications.disable',
         userId: resolvedUserId,
       });

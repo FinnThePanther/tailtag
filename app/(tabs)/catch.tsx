@@ -42,7 +42,7 @@ import {
   PROFILE_CONVENTIONS_QUERY_KEY,
 } from "../../src/features/conventions";
 import { supabase } from "../../src/lib/supabase";
-import { captureHandledException } from "../../src/lib/sentry";
+import { captureHandledException, addMonitoringBreadcrumb } from "../../src/lib/sentry";
 import { colors, radius, spacing } from "../../src/theme";
 import { normalizeUniqueCodeInput } from "../../src/utils/code";
 import { toDisplayDateTime } from "../../src/utils/dates";
@@ -386,6 +386,11 @@ export default function CatchScreen() {
 
       // Use the Edge Function to create the catch
       // This handles approval mode logic server-side
+      addMonitoringBreadcrumb({
+        category: "catch",
+        message: "Catch initiated",
+        data: { fursuitId: normalizedFursuit.id, conventionId: primaryConventionId, method: "manual" },
+      });
       const catchResult = await createCatch({
         fursuitId: normalizedFursuit.id,
         conventionId: primaryConventionId,

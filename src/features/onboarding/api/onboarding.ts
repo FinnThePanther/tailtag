@@ -5,7 +5,6 @@ import { generateUniqueCodeCandidate } from '../../../utils/code';
 import { loadUriAsUint8Array } from '../../../utils/files';
 import {
   addMonitoringBreadcrumb,
-  captureHandledException,
   captureHandledMessage,
   captureSupabaseError,
 } from '../../../lib/sentry';
@@ -40,12 +39,6 @@ const generateAvailableFursuitCode = async (): Promise<string> => {
       .limit(1);
 
     if (error) {
-      captureSupabaseError(error, {
-        scope: 'onboarding.generateAvailableFursuitCode',
-        action: 'checkCandidate',
-        attempt,
-        candidate,
-      });
       throw new Error(`We couldn't generate a tag code right now: ${error.message}`);
     }
 
@@ -69,19 +62,7 @@ const uploadFursuitPhoto = async (userId: string, photo: FursuitPhotoCandidate) 
   const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const storagePath = `${userId}/${uniqueSuffix}.${extension}`;
 
-  let fileBytes: Uint8Array;
-
-  try {
-    fileBytes = await loadUriAsUint8Array(photo.uri);
-  } catch (error) {
-    captureHandledException(error, {
-      scope: 'onboarding.uploadFursuitPhoto',
-      action: 'readFile',
-      userId,
-      mimeType: photo.mimeType,
-    });
-    throw error;
-  }
+  const fileBytes = await loadUriAsUint8Array(photo.uri);
 
   const { error: uploadError } = await supabase.storage.from(FURSUIT_BUCKET).upload(storagePath, fileBytes, {
     contentType: photo.mimeType,
@@ -89,12 +70,6 @@ const uploadFursuitPhoto = async (userId: string, photo: FursuitPhotoCandidate) 
   });
 
   if (uploadError) {
-    captureSupabaseError(uploadError, {
-      scope: 'onboarding.uploadFursuitPhoto',
-      action: 'upload',
-      userId,
-      storagePath,
-    });
     throw uploadError;
   }
 
@@ -115,11 +90,6 @@ const ensureTutorialFursuitForUser = async (userId: string) => {
     .maybeSingle();
 
   if (fetchError) {
-    captureSupabaseError(fetchError, {
-      scope: 'onboarding.ensureTutorialFursuit',
-      action: 'lookupExisting',
-      userId,
-    });
     throw new Error(`We couldn't look up the tutorial suit: ${fetchError.message}`);
   }
 
@@ -151,12 +121,6 @@ const ensureTutorialFursuitForUser = async (userId: string) => {
     }
 
     if (insertError?.code !== '23505') {
-      captureSupabaseError(insertError, {
-        scope: 'onboarding.ensureTutorialFursuit',
-        action: 'insertTutorial',
-        attempt,
-        userId,
-      });
       throw new Error(`We couldn't prepare the tutorial suit: ${insertError?.message ?? 'Unknown error'}`);
     }
   }
@@ -187,11 +151,6 @@ export async function createQuickFursuit(options: {
     .eq('is_tutorial', false);
 
   if (countError) {
-    captureSupabaseError(countError, {
-      scope: 'onboarding.createQuickFursuit',
-      action: 'countExisting',
-      userId,
-    });
     throw new Error(`We couldn't verify your fursuit count: ${countError.message}`);
   }
 
@@ -300,12 +259,6 @@ export async function createQuickFursuit(options: {
       }
 
       if (error?.code !== '23505') {
-        captureSupabaseError(error, {
-          scope: 'onboarding.createQuickFursuit',
-          action: 'insertFursuit',
-          userId,
-          attempt,
-        });
         throw error ?? new Error("We couldn't save that fursuit. Please try again.");
       }
     }
@@ -350,12 +303,6 @@ export async function recordTutorialCatch(userId: string): Promise<void> {
     .maybeSingle();
 
   if (error && error.code !== '23505') {
-    captureSupabaseError(error, {
-      scope: 'onboarding.recordTutorialCatch',
-      action: 'insertCatch',
-      userId,
-      tutorialFursuitId,
-    });
     throw new Error(`We couldn't record your practice catch: ${error.message}`);
   }
 }
@@ -371,11 +318,6 @@ export async function completeOnboarding(userId: string): Promise<void> {
     .eq('id', userId);
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'onboarding.completeOnboarding',
-      action: 'updateProfile',
-      userId,
-    });
     throw new Error(`We couldn't finish onboarding: ${error.message}`);
   }
 }
@@ -387,17 +329,12 @@ export async function completeOnboarding(userId: string): Promise<void> {
  */
 export function emitOnboardingCompletedEvent(userId: string): void {
   // Fire-and-forget: emit event without blocking navigation
-  emitGameplayEvent({
+  void emitGameplayEvent({
     type: 'onboarding_completed',
     payload: {
       user_id: userId,
       source: 'finish_onboarding',
       achievement_key: GETTING_STARTED_ACHIEVEMENT_KEY,
     },
-  }).catch((error) => {
-    captureHandledException(error, {
-      scope: 'onboarding.emitOnboardingCompletedEvent',
-      userId,
-    });
   });
 }

@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createProfileQueryOptions } from '../../profile';
 import { usePushNotifications } from './usePushNotifications';
 import { markPushNotificationPrompted } from '../api/pushNotifications';
-import { captureHandledException } from '../../../lib/sentry';
+import { captureNonCriticalError } from '../../../lib/sentry';
 
 const logPrefix = '[push-notifications.auto-request]';
 
@@ -78,14 +78,14 @@ export function useAutoRequestPushPermission() {
           await requestPermissionAndRegister();
           console.info(`${logPrefix} Token registered successfully`);
         } catch (error) {
-          captureHandledException(error, {
+          captureNonCriticalError(error, {
             scope: 'push-notifications.auto-request.silentRegister',
             userId,
           });
         } finally {
           // Mark as prompted regardless of outcome
           void markPushNotificationPrompted(userId).catch((markError) => {
-            captureHandledException(markError, {
+            captureNonCriticalError(markError, {
               scope: 'push-notifications.auto-request.markPrompted',
               userId,
             });
@@ -109,14 +109,14 @@ export function useAutoRequestPushPermission() {
             console.info(`${logPrefix} Permission denied by user`);
           }
         } catch (error) {
-          captureHandledException(error, {
+          captureNonCriticalError(error, {
             scope: 'push-notifications.auto-request.requestPermission',
             userId,
           });
         } finally {
           // Mark as prompted regardless of outcome (grant or deny)
           void markPushNotificationPrompted(userId).catch((markError) => {
-            captureHandledException(markError, {
+            captureNonCriticalError(markError, {
               scope: 'push-notifications.auto-request.markPrompted',
               userId,
             });
@@ -131,7 +131,7 @@ export function useAutoRequestPushPermission() {
     if (permissionStatus === 'denied') {
       console.info(`${logPrefix} Permission already denied - skipping`);
       void markPushNotificationPrompted(userId).catch((error) => {
-        captureHandledException(error, {
+        captureNonCriticalError(error, {
           scope: 'push-notifications.auto-request.markPrompted',
           userId,
         });

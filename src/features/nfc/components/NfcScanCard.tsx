@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { TailTagButton } from '@/components/ui/TailTagButton';
 import { TailTagCard } from '@/components/ui/TailTagCard';
 import { colors, spacing, radius } from '@/theme';
-import { captureHandledException } from '@/lib/sentry';
+import { captureNonCriticalError } from '@/lib/sentry';
 import {
   FursuitCard,
   FursuitBioDetails,
@@ -123,7 +123,7 @@ export function NfcScanCard({
 
     // Always emit the scan event for tracking
     void emitNfcScan({ tagUid, conventionId }).catch((err) => {
-      captureHandledException(err, { scope: 'nfc.emitNfcScan', tagUid });
+      captureNonCriticalError(err, { scope: 'nfc.emitNfcScan', tagUid });
     });
 
     // If no createCatchFn is provided, just show the old Phase 1 behavior
@@ -170,7 +170,7 @@ export function NfcScanCard({
       const message = catchError instanceof Error ? catchError.message : 'Failed to create catch';
       setStep('error');
       setErrorMessage(message);
-      captureHandledException(catchError, {
+      captureNonCriticalError(catchError, {
         scope: 'nfc.createCatch',
         tagUid,
         fursuitId: lookupResult.fursuitId,

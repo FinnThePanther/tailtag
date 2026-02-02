@@ -1,5 +1,4 @@
 import { supabase } from '../../lib/supabase';
-import { captureSupabaseError } from '../../lib/sentry';
 
 export type FursuitColorOption = {
   id: string;
@@ -39,10 +38,6 @@ export async function fetchFursuitColors(): Promise<FursuitColorOption[]> {
     .order('name', { ascending: true });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'colors.fetchFursuitColors',
-      action: 'select',
-    });
     throw new Error(`Failed to load fursuit colors: ${error.message}`);
   }
 

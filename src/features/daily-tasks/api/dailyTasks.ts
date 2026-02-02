@@ -7,7 +7,7 @@ import type {
   UserDailyProgressRow,
   UserDailyStreaksRow,
 } from '../../../types/database';
-import { captureHandledMessage, captureSupabaseError } from '../../../lib/sentry';
+import { captureHandledMessage } from '../../../lib/sentry';
 
 export type DailyTaskRecord = {
   id: string;
@@ -238,12 +238,6 @@ export async function fetchDailyTasks({
     .maybeSingle();
 
   if (conventionError) {
-    captureSupabaseError(conventionError, {
-      scope: 'dailyTasks.fetchDailyTasks',
-      action: 'loadConvention',
-      userId,
-      conventionId,
-    });
     throw new Error(`We couldn't load convention info: ${conventionError.message}`);
   }
 
@@ -294,35 +288,14 @@ export async function fetchDailyTasks({
   ]);
 
   if (assignmentsResult.error) {
-    captureSupabaseError(assignmentsResult.error, {
-      scope: 'dailyTasks.fetchDailyTasks',
-      action: 'loadAssignments',
-      userId,
-      conventionId,
-      day: localDay,
-    });
     throw new Error(`We couldn't load today's tasks: ${assignmentsResult.error.message}`);
   }
 
   if (progressResult.error) {
-    captureSupabaseError(progressResult.error, {
-      scope: 'dailyTasks.fetchDailyTasks',
-      action: 'loadProgress',
-      userId,
-      conventionId,
-      day: localDay,
-    });
     throw new Error(`We couldn't load your task progress: ${progressResult.error.message}`);
   }
 
   if (streakResult.error) {
-    captureSupabaseError(streakResult.error, {
-      scope: 'dailyTasks.fetchDailyTasks',
-      action: 'loadStreak',
-      userId,
-      conventionId,
-      day: localDay,
-    });
     throw new Error(`We couldn't load your streak: ${streakResult.error.message}`);
   }
 
