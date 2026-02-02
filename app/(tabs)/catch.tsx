@@ -42,7 +42,7 @@ import {
   PROFILE_CONVENTIONS_QUERY_KEY,
 } from "../../src/features/conventions";
 import { supabase } from "../../src/lib/supabase";
-import { captureHandledException } from "../../src/lib/sentry";
+import { captureHandledException, addMonitoringBreadcrumb } from "../../src/lib/sentry";
 import { colors, radius, spacing } from "../../src/theme";
 import { normalizeUniqueCodeInput } from "../../src/utils/code";
 import { toDisplayDateTime } from "../../src/utils/dates";
@@ -54,14 +54,13 @@ type FursuitDetails = Pick<
   FursuitsRow,
   | "id"
   | "name"
-  | "species"
   | "species_id"
   | "avatar_url"
   | "unique_code"
   | "owner_id"
   | "is_tutorial"
   | "catch_count"
-> & { created_at: string | null; bio: FursuitBio | null; colors: FursuitColorOption[] };
+> & { created_at: string | null; species: string | null; bio: FursuitBio | null; colors: FursuitColorOption[] };
 
 type CatchRecord = {
   id: string;
@@ -243,7 +242,6 @@ export default function CatchScreen() {
           `
           id,
           name,
-          species,
           species_id,
           avatar_url,
           is_tutorial,
@@ -305,7 +303,7 @@ export default function CatchScreen() {
         id: fursuit.id,
         name: fursuit.name,
         species:
-          (fursuit as any)?.species_entry?.name ?? fursuit.species ?? null,
+          (fursuit as any)?.species_entry?.name ?? null,
         species_id:
           (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
         avatar_url: fursuit.avatar_url ?? null,
@@ -387,6 +385,11 @@ export default function CatchScreen() {
 
       // Use the Edge Function to create the catch
       // This handles approval mode logic server-side
+      addMonitoringBreadcrumb({
+        category: "catch",
+        message: "Catch initiated",
+        data: { fursuitId: normalizedFursuit.id, conventionId: primaryConventionId, method: "manual" },
+      });
       const catchResult = await createCatch({
         fursuitId: normalizedFursuit.id,
         conventionId: primaryConventionId,

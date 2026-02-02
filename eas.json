@@ -8,7 +8,7 @@
       "distribution": "internal",
       "ios": {
         "buildConfiguration": "Debug",
-        "simulator": true
+        "simulator": false
       },
       "android": {
         "buildType": "apk",

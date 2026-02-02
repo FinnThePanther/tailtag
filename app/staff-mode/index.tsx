@@ -40,9 +40,12 @@ export default function StaffModeScreen() {
   });
 
   useEffect(() => {
-    if (results.length > 0) {
-      setLastResult(results[0]);
-    }
+    setLastResult((current) => {
+      if (results.length > 0) {
+        return results[0];
+      }
+      return current;
+    });
   }, [results]);
 
   const statusMessage = useMemo(() => {

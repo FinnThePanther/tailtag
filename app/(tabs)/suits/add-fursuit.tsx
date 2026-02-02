@@ -510,7 +510,6 @@ export default function AddFursuitScreen() {
         const payload: FursuitsInsert = {
           owner_id: userId,
           name: trimmedName,
-          species: speciesRecord.name,
           species_id: speciesRecord.id,
           avatar_url: avatarUrl,
           unique_code: uniqueCode,
@@ -681,15 +680,6 @@ export default function AddFursuitScreen() {
 
   return (
     <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-          <Text style={styles.eyebrow}>Add fursuit</Text>
-          <Text style={styles.title}>Tag a new suit</Text>
-          <Text style={styles.subtitle}>
-            Upload a photo, add a name, and TailTag will generate a unique catch code for you.
-            Then fill out a bio so every catcher knows how to say hello.
-          </Text>
-        </View>
-
         {isAtFursuitLimit && (
           <TailTagCard style={styles.limitBanner}>
             <Text style={styles.limitBannerText}>
@@ -1083,27 +1073,9 @@ export default function AddFursuitScreen() {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
-  },
-  header: {
-    gap: spacing.xs,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: 'uppercase',
-    color: colors.primary,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.foreground,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: 'rgba(203,213,225,0.9)',
   },
   limitBanner: {
     gap: spacing.md,

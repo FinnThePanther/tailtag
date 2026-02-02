@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import { captureSupabaseError, captureHandledException } from '../../../lib/sentry';
+import { captureFeatureError } from '../../../lib/sentry';
 import type { CatchMode, PendingCatch, ConfirmCatchResult, CreateCatchResult, CreateCatchParams } from '../types';
 
 // Query keys
@@ -20,11 +20,6 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
   });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'catch-confirmations.fetchPendingCatches',
-      action: 'rpc',
-      userId,
-    });
     throw new Error("We couldn't load pending catches. Please try again.");
   }
 
@@ -74,13 +69,6 @@ export async function confirmCatch(
   });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'catch-confirmations.confirmCatch',
-      action: 'rpc',
-      catchId,
-      userId,
-      decision,
-    });
     throw new Error(
       decision === 'accept'
         ? "We couldn't approve this catch. Please try again."
@@ -122,13 +110,6 @@ export async function updateFursuitCatchMode(
     .eq('owner_id', userId);
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'catch-confirmations.updateFursuitCatchMode',
-      action: 'update',
-      fursuitId,
-      userId,
-      catchMode,
-    });
     throw new Error("We couldn't update the catch mode. Please try again.");
   }
 }
@@ -176,7 +157,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
     if (!response.ok) {
       const errorMessage = responseData?.error ?? 'Failed to create catch';
 
-      captureHandledException(new Error(errorMessage), {
+      captureFeatureError(new Error(errorMessage), {
         scope: 'catch-confirmations.createCatch',
         action: 'edge-function',
         fursuitId: params.fursuitId,
@@ -210,7 +191,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
 
     // Handle timeout/abort
     if (error instanceof Error && error.name === 'AbortError') {
-      captureHandledException(new Error('Create catch request timed out after 5 seconds'), {
+      captureFeatureError(new Error('Create catch request timed out after 5 seconds'), {
         scope: 'catch-confirmations.createCatch',
         action: 'timeout',
         fursuitId: params.fursuitId,

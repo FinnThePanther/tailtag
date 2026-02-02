@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
 
 import type { Provider } from '@supabase/supabase-js';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -73,6 +75,80 @@ export function useOAuthSignIn() {
     };
   }, [resolveSessionFromUrl]);
 
+  const signInWithAppleNative = useCallback(async () => {
+    // Check if Apple Authentication is available
+    const isAvailable = await AppleAuthentication.isAvailableAsync();
+    if (!isAvailable) {
+      throw new Error('Sign in with Apple is not available on this device.');
+    }
+
+    try {
+      // Request Apple credential
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('Apple sign-in did not return an identity token.');
+      }
+
+
+      // Exchange credential with Supabase
+      const { data, error: authError } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+
+      if (authError) {
+        throw authError;
+      }
+
+      if (!data.session) {
+        throw new Error('Sign-in did not return a valid session.');
+      }
+
+      // Apple only provides fullName on the first sign-in attempt
+      // Capture and save it immediately if available
+      if (credential.fullName) {
+        const fullName = [
+          credential.fullName.givenName,
+          credential.fullName.familyName,
+        ]
+          .filter(Boolean)
+          .join(' ');
+
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: {
+            full_name: fullName || undefined,
+            given_name: credential.fullName.givenName || undefined,
+            family_name: credential.fullName.familyName || undefined,
+          },
+        });
+
+        if (updateError) {
+          // Name update is optional; silently ignore failure
+        }
+      }
+
+      return;
+    } catch (caught) {
+      // Handle user cancellation gracefully
+      if (
+        caught instanceof Error &&
+        (caught.message.includes('cancel') ||
+          caught.message.includes('dismiss') ||
+          caught.message.includes('1001'))
+      ) {
+        throw new Error('Sign-in was canceled.');
+      }
+
+      throw caught;
+    }
+  }, []);
+
   const signInWithProvider = useCallback(
     async (provider: SupportedProvider) => {
       if (activeProvider) {
@@ -84,6 +160,20 @@ export function useOAuthSignIn() {
 
       try {
         setPendingOAuthProvider(provider);
+
+        // Apple uses native authentication flow, not web OAuth
+        if (provider === 'apple') {
+          if (Platform.OS !== 'ios') {
+            throw new Error('Sign in with Apple is only available on iOS devices.');
+          }
+
+          await signInWithAppleNative();
+          setPendingOAuthProvider(null);
+          setActiveProvider(null);
+          return;
+        }
+
+        // Google and Discord use web-based OAuth
         const providerSpecificOptions = PROVIDER_OPTIONS[provider];
 
         const { data, error: authError } = await supabase.auth.signInWithOAuth({
@@ -129,7 +219,7 @@ export function useOAuthSignIn() {
         setActiveProvider(null);
       }
     },
-    [activeProvider, redirectUri, resolveSessionFromUrl]
+    [activeProvider, redirectUri, resolveSessionFromUrl, signInWithAppleNative]
   );
 
   return {

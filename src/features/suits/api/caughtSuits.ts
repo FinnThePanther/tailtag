@@ -2,7 +2,6 @@ import { supabase } from '../../../lib/supabase';
 import type { FursuitSummary } from '../types';
 import type { CatchMode } from '../../catch-confirmations';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
-import { captureSupabaseError } from '../../../lib/sentry';
 
 export type CaughtRecord = {
   id: string;
@@ -28,7 +27,6 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       fursuit:fursuits (
         id,
         name,
-        species,
         species_id,
         avatar_url,
         catch_count,
@@ -70,11 +68,6 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
     .order('caught_at', { ascending: false });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'suits.fetchCaughtSuits',
-      action: 'select',
-      userId,
-    });
     throw new Error(`We couldn't load your catches: ${error.message}`);
   }
 
@@ -93,8 +86,8 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
         ? ({
             id: rawFursuit.id,
             name: rawFursuit.name,
-            species: (rawFursuit.species_entry?.name ?? rawFursuit.species) ?? null,
-            speciesId: (rawFursuit.species_entry?.id ?? rawFursuit.species_id) ?? null,
+            species: rawFursuit.species_entry?.name ?? null,
+            speciesId: rawFursuit.species_entry?.id ?? rawFursuit.species_id ?? null,
             colors: mapFursuitColors(rawFursuit.color_assignments ?? null),
             avatar_url: rawFursuit.avatar_url ?? null,
             description: rawFursuit.description ?? null,

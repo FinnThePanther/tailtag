@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -44,7 +40,11 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { signInWithProvider, activeProvider, error: oauthError } = useOAuthSignIn();
+  const {
+    signInWithProvider,
+    activeProvider,
+    error: oauthError,
+  } = useOAuthSignIn();
 
   const toggleMode = () => {
     setMode((current) => (current === "sign_in" ? "sign_up" : "sign_in"));
@@ -73,6 +73,7 @@ export default function AuthScreen() {
 
   const isDiscordLoading = activeProvider === "discord";
   const isGoogleLoading = activeProvider === "google";
+  const isAppleLoading = activeProvider === "apple";
 
   const handleGoogleSignIn = async () => {
     if (isSubmitting) {
@@ -83,6 +84,20 @@ export default function AuthScreen() {
 
     try {
       await signInWithProvider("google");
+    } catch {
+      // Error state is surfaced by the hook
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      await signInWithProvider("apple");
     } catch {
       // Error state is surfaced by the hook
     }
@@ -125,7 +140,7 @@ export default function AuthScreen() {
             {
               email: trimmedEmail,
               password: trimmedPassword,
-            }
+            },
           );
 
           if (signInError) {
@@ -220,6 +235,19 @@ export default function AuthScreen() {
             <View style={styles.dividerLine} />
           </View>
 
+          {Platform.OS === "ios" && (
+            <TailTagButton
+              variant="outline"
+              onPress={handleAppleSignIn}
+              loading={isAppleLoading}
+              disabled={isSubmitting}
+              accessibilityLabel="Continue with Apple"
+              accessibilityHint="Signs in with your Apple ID."
+            >
+              Continue with Apple
+            </TailTagButton>
+          )}
+
           <TailTagButton
             variant="outline"
             onPress={handleDiscordSignIn}
@@ -245,8 +273,9 @@ export default function AuthScreen() {
 
         <View style={styles.footerHelper}>
           <Text style={styles.helperText}>
-            Problems signing in? Email/password, Google, and Discord are all supported—
-            make sure at least one provider is enabled for your account.
+            Problems signing in? Email/password, Google, Discord
+            {Platform.OS === "ios" ? ", and Apple" : ""} are all supported—make
+            sure at least one provider is enabled for your account.
           </Text>
         </View>
       </KeyboardAwareFormWrapper>

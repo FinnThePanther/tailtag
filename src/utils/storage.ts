@@ -1,4 +1,4 @@
-import { captureHandledException } from '../lib/sentry';
+import { captureNonCriticalError } from '../lib/sentry';
 
 export const deriveStoragePathFromPublicUrl = (
   publicUrl: string | null | undefined,
@@ -31,7 +31,7 @@ export const deriveStoragePathFromPublicUrl = (
     const objectSegments = segments.slice(bucketIndex + 1);
     return objectSegments.join('/');
   } catch (error) {
-    captureHandledException(error, {
+    captureNonCriticalError(error, {
       scope: 'storage.deriveStoragePath',
       bucketName,
       publicUrl,

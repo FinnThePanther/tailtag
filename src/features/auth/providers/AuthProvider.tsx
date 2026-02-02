@@ -5,7 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../../lib/supabase';
 import {
   addMonitoringBreadcrumb,
-  captureHandledException,
+  captureCriticalError,
   captureSupabaseError,
   setUser,
 } from '../../../lib/sentry';
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           captureSupabaseError(sessionError, {
             scope: 'auth.resolveSession',
             action: 'getSession',
-          });
+          }, 'critical');
           setError(sessionError.message);
           setSession(null);
           setStatus('signed_out');
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        captureHandledException(caughtError, {
+        captureCriticalError(caughtError, {
           scope: 'auth.resolveSession',
           action: 'unexpected',
         });
@@ -177,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       captureSupabaseError(refreshError, {
         scope: 'auth.refreshSession',
         action: 'refreshSession',
-      });
+      }, 'critical');
       setError(refreshError.message);
       setSession(null);
       setStatus('signed_out');
@@ -228,11 +228,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           captureSupabaseError(localSignOutError, {
             scope: 'auth.forceSignOut',
             action: 'signOutLocal',
-          });
+          }, 'critical');
         }
       }
     } catch (caughtError) {
-      captureHandledException(caughtError, {
+      captureCriticalError(caughtError, {
         scope: 'auth.forceSignOut',
         action: 'unexpected',
       });

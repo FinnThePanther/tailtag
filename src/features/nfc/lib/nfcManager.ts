@@ -9,8 +9,34 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import type { NfcTech as NfcTechEnum } from 'react-native-nfc-manager';
 
-// Check if running on simulator/emulator
-const isSimulator = !Constants.isDevice;
+// Determine if we should use mock NFC (simulator only)
+// We try to load real NFC on any device and let it fail gracefully if unavailable
+// Only use mock mode on iOS Simulator or Android Emulator where native modules crash
+let isSimulator = false;
+
+// Check using expo-constants
+if (Constants.isDevice === false) {
+  // Explicitly marked as not a device - likely simulator
+  isSimulator = true;
+}
+
+// However, Constants.isDevice can be undefined or unreliable in some builds
+// So we also check if the native NFC module exists
+// If it does, we're on a real device (or an emulator with NFC support, which is fine)
+let hasNativeModule = false;
+try {
+  // Try to require the native module - this will throw on simulators
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const nfcModule = require('react-native-nfc-manager');
+  hasNativeModule = nfcModule?.default != null;
+} catch {
+  hasNativeModule = false;
+}
+
+// If we have the native module, use real NFC regardless of isDevice value
+if (hasNativeModule) {
+  isSimulator = false;
+}
 
 // Mock NfcTech enum that matches the real library's values
 const MockNfcTech = {

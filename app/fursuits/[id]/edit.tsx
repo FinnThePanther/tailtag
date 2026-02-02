@@ -407,7 +407,6 @@ export default function EditFursuitScreen() {
 
     const client = supabase as any;
     const previousName = detail.name;
-    const previousSpecies = detail.species;
     const previousSpeciesId = detail.speciesId ?? null;
     const previousCatchMode = initialCatchMode;
     let updatedCoreRecord = false;
@@ -443,7 +442,6 @@ export default function EditFursuitScreen() {
         .from('fursuits')
         .update({
           name: trimmedName,
-          species: speciesRecord.name,
           species_id: speciesRecord.id,
           catch_mode: catchMode,
         })
@@ -586,7 +584,6 @@ export default function EditFursuitScreen() {
           .from('fursuits')
           .update({
             name: previousName,
-            species: previousSpecies,
             species_id: previousSpeciesId,
             catch_mode: previousCatchMode,
           })

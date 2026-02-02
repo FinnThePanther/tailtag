@@ -86,7 +86,8 @@ export default function TabsLayout() {
         },
         sceneStyle: {
           backgroundColor: colors.background,
-          paddingTop: insets.top,
+          // Don't add paddingTop for tabs with nested Stack navigators that handle their own headers
+          paddingTop: route.name === "suits" ? 0 : insets.top,
         },
       })}
     >

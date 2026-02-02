@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { useState } from 'react';
 
 import type { ConventionSummary, VerifiedLocation } from '../../features/conventions';
-import { formatConventionDateRange } from '../../features/conventions/utils';
+import { formatConventionDateRange, isConventionEnded } from '../../features/conventions/utils';
 import { useLocationPermission } from '@/features/conventions/hooks/useLocationPermission';
 import { useGeoVerification } from '@/features/conventions/hooks/useGeoVerification';
 import { LocationPermissionModal } from '@/features/conventions/components/LocationPermissionModal';
@@ -37,8 +37,10 @@ export function ConventionToggle({
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const dateRange = formatConventionDateRange(convention.start_date ?? null, convention.end_date ?? null);
-  const shouldDisable = disabled || pending || isVerifying || isRequestingPermission;
-  const showDisabledBadge = !selected && !pending && disabled;
+  const hasEnded = isConventionEnded(convention.end_date ?? null);
+  const isDisabledDueToEnd = hasEnded && !selected; // Allow deselecting even if ended
+  const shouldDisable = disabled || pending || isVerifying || isRequestingPermission || isDisabledDueToEnd;
+  const showDisabledBadge = !selected && !pending && (disabled || hasEnded);
 
   const handlePress = async () => {
     // Opt-out: no verification required
@@ -91,7 +93,10 @@ export function ConventionToggle({
         ]}
       >
         <View style={styles.conventionInfo}>
-          <Text style={styles.conventionName}>{convention.name}</Text>
+          <View style={styles.conventionNameRow}>
+            <Text style={styles.conventionName}>{convention.name}</Text>
+            {hasEnded ? <Text style={styles.endedBadge}>(Ended)</Text> : null}
+          </View>
           {convention.location ? (
             <Text style={styles.conventionMetaText}>{convention.location}</Text>
           ) : null}
@@ -162,10 +167,21 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  conventionNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   conventionName: {
     color: colors.foreground,
     fontSize: 15,
     fontWeight: '600',
+  },
+  endedBadge: {
+    color: 'rgba(148,163,184,0.8)',
+    fontSize: 13,
+    fontWeight: '500',
+    fontStyle: 'italic',
   },
   conventionMetaText: {
     color: 'rgba(148,163,184,0.9)',
