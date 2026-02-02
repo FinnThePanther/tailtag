@@ -15,13 +15,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.finnthepanther.tailtag",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "TailTag needs access to your photo library so you can add photos of your fursuits to your profile.",
         "NSCameraUsageDescription": "TailTag needs access to your camera so you can take photos of your fursuits.",
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": [
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -61,7 +60,8 @@
           "icon": "./assets/notification-icon.png",
           "color": "#7c3aed"
         }
-      ]
+      ],
+      "expo-apple-authentication"
     ],
     "scheme": "tailtag",
     "extra": {
