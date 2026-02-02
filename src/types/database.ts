@@ -156,6 +156,30 @@ export type Database = {
           },
         ]
       }
+      allowed_event_types: {
+        Row: {
+          created_at: string
+          deprecated_at: string | null
+          description: string
+          event_type: string
+          is_active: boolean
+        }
+        Insert: {
+          created_at?: string
+          deprecated_at?: string | null
+          description: string
+          event_type: string
+          is_active?: boolean
+        }
+        Update: {
+          created_at?: string
+          deprecated_at?: string | null
+          description?: string
+          event_type?: string
+          is_active?: boolean
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -202,6 +226,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      auth_security_checklist: {
+        Row: {
+          category: string
+          configuration_method: string
+          configured_at: string | null
+          configured_by: string | null
+          description: string
+          is_configured: boolean
+          notes: string | null
+          priority: string
+          remediation_url: string | null
+          setting_name: string
+        }
+        Insert: {
+          category: string
+          configuration_method: string
+          configured_at?: string | null
+          configured_by?: string | null
+          description: string
+          is_configured?: boolean
+          notes?: string | null
+          priority: string
+          remediation_url?: string | null
+          setting_name: string
+        }
+        Update: {
+          category?: string
+          configuration_method?: string
+          configured_at?: string | null
+          configured_by?: string | null
+          description?: string
+          is_configured?: boolean
+          notes?: string | null
+          priority?: string
+          remediation_url?: string | null
+          setting_name?: string
+        }
+        Relationships: []
       }
       catches: {
         Row: {
@@ -273,6 +336,13 @@ export type Database = {
             columns: ["fursuit_id"]
             isOneToOne: false
             referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catches_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
             referencedColumns: ["id"]
           },
         ]
@@ -423,6 +493,54 @@ export type Database = {
           },
         ]
       }
+      edge_function_config: {
+        Row: {
+          allowed_roles: string[] | null
+          deprecation_date: string | null
+          description: string
+          function_name: string
+          is_deprecated: boolean
+          max_payload_size_bytes: number | null
+          rate_limit_enabled: boolean
+          rate_limit_requests_per_hour: number | null
+          rate_limit_requests_per_minute: number | null
+          replacement_function: string | null
+          require_jwt: boolean
+          updated_at: string
+          validate_event_types: boolean | null
+        }
+        Insert: {
+          allowed_roles?: string[] | null
+          deprecation_date?: string | null
+          description: string
+          function_name: string
+          is_deprecated?: boolean
+          max_payload_size_bytes?: number | null
+          rate_limit_enabled?: boolean
+          rate_limit_requests_per_hour?: number | null
+          rate_limit_requests_per_minute?: number | null
+          replacement_function?: string | null
+          require_jwt?: boolean
+          updated_at?: string
+          validate_event_types?: boolean | null
+        }
+        Update: {
+          allowed_roles?: string[] | null
+          deprecation_date?: string | null
+          description?: string
+          function_name?: string
+          is_deprecated?: boolean
+          max_payload_size_bytes?: number | null
+          rate_limit_enabled?: boolean
+          rate_limit_requests_per_hour?: number | null
+          rate_limit_requests_per_minute?: number | null
+          replacement_function?: string | null
+          require_jwt?: boolean
+          updated_at?: string
+          validate_event_types?: boolean | null
+        }
+        Relationships: []
+      }
       event_staff: {
         Row: {
           assigned_at: string
@@ -522,6 +640,42 @@ export type Database = {
           },
         ]
       }
+      extension_migration_status: {
+        Row: {
+          blocking_reason: string | null
+          completed_migration_date: string | null
+          dependencies: string[] | null
+          extension_name: string
+          migration_status: string
+          notes: string | null
+          planned_migration_date: string | null
+          source_schema: string
+          target_schema: string
+        }
+        Insert: {
+          blocking_reason?: string | null
+          completed_migration_date?: string | null
+          dependencies?: string[] | null
+          extension_name: string
+          migration_status: string
+          notes?: string | null
+          planned_migration_date?: string | null
+          source_schema: string
+          target_schema: string
+        }
+        Update: {
+          blocking_reason?: string | null
+          completed_migration_date?: string | null
+          dependencies?: string[] | null
+          extension_name?: string
+          migration_status?: string
+          notes?: string | null
+          planned_migration_date?: string | null
+          source_schema?: string
+          target_schema?: string
+        }
+        Relationships: []
+      }
       fursuit_bios: {
         Row: {
           ask_me_about: string
@@ -573,6 +727,13 @@ export type Database = {
             referencedRelation: "fursuits"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fursuit_bios_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
+            referencedColumns: ["id"]
+          },
         ]
       }
       fursuit_color_assignments: {
@@ -610,6 +771,13 @@ export type Database = {
             columns: ["fursuit_id"]
             isOneToOne: false
             referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fursuit_color_assignments_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
             referencedColumns: ["id"]
           },
         ]
@@ -667,6 +835,13 @@ export type Database = {
             columns: ["fursuit_id"]
             isOneToOne: false
             referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fursuit_conventions_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
             referencedColumns: ["id"]
           },
         ]
@@ -727,6 +902,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fursuit_moderation_queue_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fursuit_moderation_queue_reviewed_by_user_id_fkey"
             columns: ["reviewed_by_user_id"]
             isOneToOne: false
@@ -773,7 +955,6 @@ export type Database = {
           is_tutorial: boolean
           name: string
           owner_id: string
-          species: string | null
           species_id: string | null
           unique_code: string
         }
@@ -790,7 +971,6 @@ export type Database = {
           is_tutorial?: boolean
           name: string
           owner_id: string
-          species?: string | null
           species_id?: string | null
           unique_code: string
         }
@@ -807,7 +987,6 @@ export type Database = {
           is_tutorial?: boolean
           name?: string
           owner_id?: string
-          species?: string | null
           species_id?: string | null
           unique_code?: string
         }
@@ -827,6 +1006,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      materialized_view_config: {
+        Row: {
+          access_justification: string | null
+          approximate_size: string | null
+          description: string
+          is_public_api_accessible: boolean
+          last_refreshed_at: string | null
+          next_refresh_at: string | null
+          notes: string | null
+          refresh_function_name: string | null
+          refresh_strategy: string
+          view_name: string
+        }
+        Insert: {
+          access_justification?: string | null
+          approximate_size?: string | null
+          description: string
+          is_public_api_accessible?: boolean
+          last_refreshed_at?: string | null
+          next_refresh_at?: string | null
+          notes?: string | null
+          refresh_function_name?: string | null
+          refresh_strategy: string
+          view_name: string
+        }
+        Update: {
+          access_justification?: string | null
+          approximate_size?: string | null
+          description?: string
+          is_public_api_accessible?: boolean
+          last_refreshed_at?: string | null
+          next_refresh_at?: string | null
+          notes?: string | null
+          refresh_function_name?: string | null
+          refresh_strategy?: string
+          view_name?: string
+        }
+        Relationships: []
       }
       moderation_notes: {
         Row: {
@@ -902,7 +1120,7 @@ export type Database = {
           override_at: string | null
           override_reason: string | null
           profile_id: string
-          verification_method: "none" | "gps" | "manual_override" | "grandfathered" | null
+          verification_method: string | null
           verified_at: string | null
           verified_location: Json | null
         }
@@ -913,7 +1131,7 @@ export type Database = {
           override_at?: string | null
           override_reason?: string | null
           profile_id: string
-          verification_method?: "none" | "gps" | "manual_override" | "grandfathered" | null
+          verification_method?: string | null
           verified_at?: string | null
           verified_location?: Json | null
         }
@@ -924,7 +1142,7 @@ export type Database = {
           override_at?: string | null
           override_reason?: string | null
           profile_id?: string
-          verification_method?: "none" | "gps" | "manual_override" | "grandfathered" | null
+          verification_method?: string | null
           verified_at?: string | null
           verified_location?: Json | null
         }
@@ -1017,6 +1235,66 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      push_notification_retry_queue: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          notification_id: string
+          notification_type: string
+          payload: Json | null
+          processed_at: string | null
+          request_body: Json | null
+          response_body: Json | null
+          response_status: number | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          notification_id: string
+          notification_type: string
+          payload?: Json | null
+          processed_at?: string | null
+          request_body?: Json | null
+          response_body?: Json | null
+          response_status?: number | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          notification_id?: string
+          notification_type?: string
+          payload?: Json | null
+          processed_at?: string | null
+          request_body?: Json | null
+          response_body?: Json | null
+          response_status?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_notification_retry_queue_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_notification_retry_queue_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       qr_asset_cleanup_config: {
         Row: {
@@ -1140,20 +1418,6 @@ export type Database = {
             foreignKeyName: "tag_activity_tag_uid_fkey"
             columns: ["tag_uid"]
             isOneToOne: false
-            referencedRelation: "nfc_tags"
-            referencedColumns: ["nfc_uid"]
-          },
-          {
-            foreignKeyName: "tag_activity_tag_uid_fkey"
-            columns: ["tag_uid"]
-            isOneToOne: false
-            referencedRelation: "nfc_tags"
-            referencedColumns: ["uid"]
-          },
-          {
-            foreignKeyName: "tag_activity_tag_uid_fkey"
-            columns: ["tag_uid"]
-            isOneToOne: false
             referencedRelation: "tags"
             referencedColumns: ["nfc_uid"]
           },
@@ -1196,13 +1460,6 @@ export type Database = {
             columns: ["scanner_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tag_scans_tag_id_fkey"
-            columns: ["tag_id"]
-            isOneToOne: false
-            referencedRelation: "nfc_tags"
             referencedColumns: ["id"]
           },
           {
@@ -1260,6 +1517,13 @@ export type Database = {
             columns: ["fursuit_id"]
             isOneToOne: false
             referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nfc_tags_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
             referencedColumns: ["id"]
           },
           {
@@ -1540,6 +1804,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "user_reports_reported_fursuit_id_fkey"
+            columns: ["reported_fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "user_reports_reported_user_id_fkey"
             columns: ["reported_user_id"]
             isOneToOne: false
@@ -1612,6 +1883,47 @@ export type Database = {
       }
     }
     Views: {
+      fursuits_moderation: {
+        Row: {
+          created_at: string | null
+          flagged_at: string | null
+          flagged_reason: string | null
+          id: string | null
+          is_flagged: boolean | null
+          name: string | null
+          owner_id: string | null
+          unique_code: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          flagged_at?: string | null
+          flagged_reason?: string | null
+          id?: string | null
+          is_flagged?: boolean | null
+          name?: string | null
+          owner_id?: string | null
+          unique_code?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          flagged_at?: string | null
+          flagged_reason?: string | null
+          id?: string | null
+          is_flagged?: boolean | null
+          name?: string | null
+          owner_id?: string | null
+          unique_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fursuits_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       geography_columns: {
         Row: {
           coord_dimension: number | null
@@ -1766,68 +2078,15 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fursuits_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      nfc_tags: {
-        Row: {
-          fursuit_id: string | null
-          id: string | null
-          linked_at: string | null
-          nfc_uid: string | null
-          qr_asset_path: string | null
-          qr_token: string | null
-          qr_token_created_at: string | null
-          registered_at: string | null
-          registered_by_user_id: string | null
-          status: string | null
-          uid: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          fursuit_id?: string | null
-          id?: string | null
-          linked_at?: string | null
-          nfc_uid?: string | null
-          qr_asset_path?: string | null
-          qr_token?: string | null
-          qr_token_created_at?: string | null
-          registered_at?: string | null
-          registered_by_user_id?: string | null
-          status?: string | null
-          uid?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          fursuit_id?: string | null
-          id?: string | null
-          linked_at?: string | null
-          nfc_uid?: string | null
-          qr_asset_path?: string | null
-          qr_token?: string | null
-          qr_token_created_at?: string | null
-          registered_at?: string | null
-          registered_by_user_id?: string | null
-          status?: string | null
-          uid?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "nfc_tags_fursuit_id_fkey"
+            foreignKeyName: "catches_fursuit_id_fkey"
             columns: ["fursuit_id"]
             isOneToOne: false
-            referencedRelation: "fursuits"
+            referencedRelation: "fursuits_moderation"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "tags_registered_by_user_id_fkey"
-            columns: ["registered_by_user_id"]
+            foreignKeyName: "fursuits_owner_id_fkey"
+            columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2205,10 +2464,16 @@ export type Database = {
       grant_achievements_batch: { Args: { awards: Json }; Returns: Json }
       hash_ip_address: { Args: { ip_addr: unknown }; Returns: string }
       is_admin: { Args: { user_id: string }; Returns: boolean }
+      is_admin_user: { Args: { check_user_id: string }; Returns: boolean }
       is_event_staff: {
         Args: { convention_id: string; user_id: string }
         Returns: boolean
       }
+      is_moderator_or_higher: {
+        Args: { check_user_id: string }
+        Returns: boolean
+      }
+      is_valid_event_type: { Args: { p_event_type: string }; Returns: boolean }
       log_admin_action: {
         Args: {
           p_action: string
@@ -3123,28 +3388,23 @@ export const Constants = {
   },
 } as const
 
-// Convenience type exports for legacy code compatibility.
-export type AchievementsRow = Tables<"achievements">
-export type UserAchievementsRow = Tables<"user_achievements">
-export type AchievementCategory = Database["public"]["Enums"]["achievement_category"]
-export type AchievementRecipientRole = Database["public"]["Enums"]["achievement_recipient_role"]
-export type AchievementTriggerEvent = Database["public"]["Enums"]["achievement_trigger_event"]
-
-export type DailyTasksRow = Tables<"daily_tasks">
-export type DailyAssignmentsRow = Tables<"daily_assignments">
-export type UserDailyProgressRow = Tables<"user_daily_progress">
-export type UserDailyStreaksRow = Tables<"user_daily_streaks">
-export type DailyTaskKind = string
-
-export type FursuitsRow = Tables<"fursuits">
-export type FursuitsInsert = TablesInsert<"fursuits">
-export type FursuitBiosInsert = TablesInsert<"fursuit_bios">
-
-// Legacy removed type - no longer exists in database.
-export type AchievementEventsRow = never
-
-// FursuitSocialLink type based on JSONB schema.
+// Type aliases for application use
 export type FursuitSocialLink = {
   label: string
   url: string
 }
+
+export type FursuitsRow = Database['public']['Tables']['fursuits']['Row']
+export type FursuitsInsert = Database['public']['Tables']['fursuits']['Insert']
+export type FursuitBiosInsert = Database['public']['Tables']['fursuit_bios']['Insert']
+export type AchievementCategory = Database['public']['Enums']['achievement_category']
+export type AchievementRecipientRole = Database['public']['Enums']['achievement_recipient_role']
+export type AchievementTriggerEvent = Database['public']['Enums']['achievement_trigger_event']
+export type AchievementsRow = Database['public']['Tables']['achievements']['Row']
+export type UserAchievementsRow = Database['public']['Tables']['user_achievements']['Row']
+export type AchievementEventsRow = Database['public']['Tables']['user_achievements']['Row']
+export type DailyTaskKind = string
+export type DailyAssignmentsRow = Database['public']['Tables']['daily_assignments']['Row']
+export type DailyTasksRow = Database['public']['Tables']['daily_tasks']['Row']
+export type UserDailyProgressRow = Database['public']['Tables']['user_daily_progress']['Row']
+export type UserDailyStreaksRow = Database['public']['Tables']['user_daily_streaks']['Row']

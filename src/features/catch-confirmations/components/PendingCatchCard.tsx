@@ -48,8 +48,8 @@ export function PendingCatchCard({
   const [timeDisplay, setTimeDisplay] = useState(() =>
     formatTimeRemaining(pendingCatch.expiresAt)
   );
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnimRef = useRef(new Animated.Value(1));
+  const scaleAnimRef = useRef(new Animated.Value(1));
   const [animatingSuccess, setAnimatingSuccess] = useState(false);
 
   // Trigger success animation when processing completes
@@ -57,19 +57,19 @@ export function PendingCatchCard({
     if (!isProcessing && animatingSuccess) {
       // Animate out: fade + scale down
       Animated.parallel([
-        Animated.timing(fadeAnim, {
+        Animated.timing(fadeAnimRef.current, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true,
         }),
-        Animated.timing(scaleAnim, {
+        Animated.timing(scaleAnimRef.current, {
           toValue: 0.8,
           duration: 300,
           useNativeDriver: true,
         }),
       ]).start();
     }
-  }, [isProcessing, animatingSuccess, fadeAnim, scaleAnim]);
+  }, [isProcessing, animatingSuccess]);
 
   // Update countdown every minute
   useEffect(() => {
@@ -81,8 +81,8 @@ export function PendingCatchCard({
   }, [pendingCatch.expiresAt]);
 
   const isExpired = useMemo(() => {
-    return new Date(pendingCatch.expiresAt).getTime() <= Date.now();
-  }, [pendingCatch.expiresAt]);
+    return timeDisplay === 'Expired';
+  }, [timeDisplay]);
 
   const handleViewProfile = () => {
     router.push({
@@ -101,16 +101,21 @@ export function PendingCatchCard({
     onReject();
   };
 
+  const containerStyle = useMemo(
+    () => [
+      styles.container,
+      isExpired && styles.expiredContainer,
+      {
+        opacity: fadeAnimRef.current,
+        transform: [{ scale: scaleAnimRef.current }],
+      },
+    ],
+    [isExpired, fadeAnimRef, scaleAnimRef],
+  );
+
   return (
     <Animated.View
-      style={[
-        styles.container,
-        isExpired && styles.expiredContainer,
-        {
-          opacity: fadeAnim,
-          transform: [{ scale: scaleAnim }],
-        },
-      ]}
+      style={containerStyle}
     >
       {isExpired && (
         <View style={styles.expiredOverlay}>

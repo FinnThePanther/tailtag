@@ -10,3 +10,21 @@ export const formatConventionDateRange = (start: string | null, end: string | nu
 
   return startLabel ?? endLabel ?? null;
 };
+
+/**
+ * Check if a convention has ended based on its end_date
+ * @param endDate - The convention end date (YYYY-MM-DD or ISO timestamp)
+ * @returns true if the convention has ended (end date is in the past)
+ */
+export const isConventionEnded = (endDate: string | null): boolean => {
+  if (!endDate) {
+    return false; // No end date means we can't determine if it ended
+  }
+
+  // Parse the end date and set to end of day (23:59:59) to be inclusive
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+
+  const now = new Date();
+  return end < now;
+};

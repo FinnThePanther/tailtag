@@ -108,12 +108,11 @@ export default function DailyTasksScreen() {
   const [selectedConventionId, setSelectedConventionId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (availableConventions.length === 0) {
-      setSelectedConventionId(null);
-      return;
-    }
-
     setSelectedConventionId((current) => {
+      if (availableConventions.length === 0) {
+        return null;
+      }
+
       if (current && availableConventions.some((convention) => convention.id === current)) {
         return current;
       }

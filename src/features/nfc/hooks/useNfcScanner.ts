@@ -5,7 +5,7 @@ import {
   isNfcSimulatorMode,
 } from '../lib/nfcManager';
 import {
-  captureHandledException,
+  captureNonCriticalError,
   addMonitoringBreadcrumb,
 } from '@/lib/sentry';
 import type {
@@ -37,20 +37,47 @@ export function useNfcScanner() {
     let mounted = true;
 
     async function initializeNfc() {
-      // During testing, allow NFC on all devices
-      if (!isNfcSimulatorMode) {
-        try {
-          const NfcManager = getNfcManager();
-          await NfcManager.start();
-        } catch (err) {
-          if (mounted) {
-            captureHandledException(err, { scope: 'nfc.initialize' });
-          }
+      // During testing/simulator, skip actual NFC checks
+      if (isNfcSimulatorMode) {
+        if (mounted) {
+          setSupportStatus('unsupported');
         }
+        return;
       }
 
-      if (mounted) {
-        setSupportStatus('supported');
+      const NfcManager = getNfcManager();
+
+      try {
+        // Check if device supports NFC
+        const isSupported = await NfcManager.isSupported();
+        if (!isSupported) {
+          if (mounted) {
+            setSupportStatus('unsupported');
+          }
+          return;
+        }
+
+        // Start the NFC manager
+        await NfcManager.start();
+
+        // Check if NFC is enabled in device settings
+        const isEnabled = await NfcManager.isEnabled();
+        if (!isEnabled) {
+          if (mounted) {
+            setSupportStatus('disabled');
+          }
+          return;
+        }
+
+        if (mounted) {
+          setSupportStatus('supported');
+        }
+      } catch (err) {
+        if (mounted) {
+          captureNonCriticalError(err, { scope: 'nfc.initialize' });
+          // If initialization fails, treat as unsupported
+          setSupportStatus('unsupported');
+        }
       }
     }
 
@@ -131,19 +158,50 @@ export function useNfcScanner() {
       if (isCleanedUp.current) return null;
 
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      const isCancelled = errorMessage.toLowerCase().includes('cancel');
+      const lowerMessage = errorMessage.toLowerCase();
 
-      setError({
-        code: isCancelled ? 'SCAN_CANCELLED' : 'SCAN_FAILED',
-        message: isCancelled
-          ? 'Scan was cancelled.'
-          : 'Failed to read NFC tag. Please try again.',
-      });
+      // Detect user cancellation - iOS and Android have different messages
+      const isCancelled =
+        lowerMessage.includes('cancel') ||
+        lowerMessage.includes('invalidate') || // iOS: session invalidated
+        lowerMessage.includes('user did not') || // iOS: user did not hold phone near
+        lowerMessage.includes('session timeout') || // iOS: session timed out
+        lowerMessage.includes('system resource unavailable'); // iOS: another app using NFC
+
+      // Android throws these errors when NFC is off or unavailable
+      const isNfcOff =
+        lowerMessage.includes('nfc adapter') ||
+        lowerMessage.includes('nfc is not enabled') ||
+        lowerMessage.includes('no tech request available') ||
+        lowerMessage.includes('nfc not available');
+
+      // For user cancellation, just reset to idle state (no error shown)
+      if (isCancelled) {
+        setScanState('idle');
+        setError(null);
+        return null;
+      }
+
+      let code: NfcScanError['code'];
+      let message: string;
+
+      if (isNfcOff) {
+        code = 'NFC_DISABLED';
+        message = 'NFC is turned off. Please enable NFC in your device settings and try again.';
+        // Update support status so UI can show appropriate message
+        setSupportStatus('disabled');
+      } else {
+        code = 'SCAN_FAILED';
+        message = 'Failed to read NFC tag. Please try again.';
+      }
+
+      setError({ code, message });
       setScanState('error');
 
-      if (!isCancelled) {
-        captureHandledException(err, { scope: 'nfc.startScan' });
-      }
+      captureNonCriticalError(err, {
+        scope: 'nfc.startScan',
+        extra: { errorMessage, isNfcOff },
+      });
 
       return null;
     } finally {

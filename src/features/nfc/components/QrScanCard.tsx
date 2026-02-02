@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { TailTagCard } from '@/components/ui/TailTagCard';
 import { TailTagButton } from '@/components/ui/TailTagButton';
 import { colors, spacing, radius } from '@/theme';
-import { captureHandledException } from '@/lib/sentry';
+import { captureNonCriticalError } from '@/lib/sentry';
 import {
   FursuitCard,
   FursuitBioDetails,
@@ -114,7 +114,7 @@ export function QrScanCard({ conventionId, onCatchComplete, createCatchFn }: QrS
         setStep('permission_denied');
       }
     } catch (error) {
-      captureHandledException(error, {
+      captureNonCriticalError(error, {
         scope: 'qrScan.requestPermission',
       });
       setStep('permission_denied');
@@ -180,7 +180,7 @@ export function QrScanCard({ conventionId, onCatchComplete, createCatchFn }: QrS
         setErrorMessage(message);
         setStep('error');
         setIsProcessing(false);
-        captureHandledException(error, {
+        captureNonCriticalError(error, {
           scope: 'qrScan.createCatch',
           qrToken: parsed.token,
         });

@@ -1,8 +1,11 @@
 import { Stack } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors } from "../../../src/theme";
 
 export default function SuitsLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Stack
       screenOptions={{
@@ -17,6 +20,12 @@ export default function SuitsLayout() {
         name="index"
         options={{
           headerShown: false,
+          title: "My Suits",
+          contentStyle: {
+            backgroundColor: colors.background,
+            // This screen has no header, so we need to add safe area padding
+            paddingTop: insets.top,
+          },
         }}
       />
       <Stack.Screen
@@ -24,6 +33,7 @@ export default function SuitsLayout() {
         options={{
           headerShown: true,
           title: "Add a Fursuit",
+          // Header handles safe area automatically, no extra padding needed
         }}
       />
     </Stack>

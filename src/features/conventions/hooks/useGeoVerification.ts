@@ -2,7 +2,7 @@ import { useState } from 'react';
 import * as Location from 'expo-location';
 
 import { verifyConventionLocation } from '../api/geoVerification';
-import { captureHandledException, captureHandledMessage } from '@/lib/sentry';
+import { captureNonCriticalError, captureHandledMessage } from '@/lib/sentry';
 import type { VerifiedLocation } from '../api/conventions';
 
 export type VerificationResult =
@@ -81,7 +81,7 @@ export function useGeoVerification(): UseGeoVerificationReturn {
         error: result.error ?? `You must be at ${result.convention_name} to join`,
       };
     } catch (error) {
-      captureHandledException(error, { scope: 'geo-verification' });
+      captureNonCriticalError(error, { scope: 'geo-verification' });
       return {
         verified: false,
         error: 'Unable to verify location. Please try again.',

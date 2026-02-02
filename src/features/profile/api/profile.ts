@@ -1,5 +1,4 @@
 import { supabase } from '../../../lib/supabase';
-import { captureSupabaseError } from '../../../lib/sentry';
 type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
 
 export type ProfileSummary = {
@@ -27,11 +26,6 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
     .maybeSingle();
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'profile.fetchProfile',
-      action: 'select',
-      userId,
-    });
     throw new Error(error.message);
   }
 

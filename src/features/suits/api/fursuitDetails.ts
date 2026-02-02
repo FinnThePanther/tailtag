@@ -2,7 +2,7 @@ import { supabase } from '../../../lib/supabase';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
 import type { FursuitDetail } from '../types';
 import type { CatchMode } from '../../catch-confirmations';
-import { captureHandledMessage, captureSupabaseError } from '../../../lib/sentry';
+import { captureHandledMessage } from '../../../lib/sentry';
 
 export const FURSUIT_DETAIL_QUERY_KEY = 'fursuit-detail';
 export const fursuitDetailQueryKey = (fursuitId: string) =>
@@ -17,7 +17,6 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       id,
       owner_id,
       name,
-      species,
       species_id,
       avatar_url,
       is_tutorial,
@@ -73,11 +72,6 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     .maybeSingle();
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'suits.fetchFursuitDetail',
-      action: 'select',
-      fursuitId,
-    });
     throw new Error("We couldn't load that fursuit right now. Please try again.");
   }
 
@@ -103,7 +97,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
 
   const bio = mapLatestFursuitBio(data.fursuit_bios ?? null);
   const speciesEntry = data.species_entry ?? null;
-  const speciesName = speciesEntry?.name ?? data.species ?? null;
+  const speciesName = speciesEntry?.name ?? null;
   const speciesId = speciesEntry?.id ?? data.species_id ?? null;
   const colors = mapFursuitColors(data.color_assignments ?? null);
 
@@ -117,11 +111,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       .eq('fursuit_id', data.id);
 
     if (fallbackError) {
-      captureSupabaseError(fallbackError, {
-        scope: 'suits.fetchFursuitDetail.fallback',
-        action: 'count',
-        fursuitId,
-      });
+      // Non-critical: fallback count is best-effort
     } else if (typeof fallbackCount === 'number') {
       resolvedCatchCount = fallbackCount;
     }

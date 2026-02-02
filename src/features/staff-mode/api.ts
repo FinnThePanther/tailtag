@@ -1,5 +1,4 @@
 import { supabase } from '../../lib/supabase';
-import { captureSupabaseError } from '../../lib/sentry';
 type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
 
 export type StaffPlayerResult = {
@@ -25,10 +24,6 @@ export async function searchPlayersForStaff(term: string): Promise<StaffPlayerRe
   });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'staffMode.searchPlayersForStaff',
-      action: 'rpc.search_players',
-    });
     throw error;
   }
 

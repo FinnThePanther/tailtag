@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase';
-import { captureHandledMessage, captureSupabaseError } from '../../lib/sentry';
+import { captureHandledMessage } from '../../lib/sentry';
 
 export type FursuitSpeciesOption = {
   id: string;
@@ -37,10 +37,6 @@ export async function fetchFursuitSpecies(): Promise<FursuitSpeciesOption[]> {
     .order('name', { ascending: true });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'species.fetchFursuitSpecies',
-      action: 'select',
-    });
     throw new Error(`Failed to load fursuit species: ${error.message}`);
   }
 
@@ -64,11 +60,6 @@ export async function ensureSpeciesEntry(name: string): Promise<FursuitSpeciesOp
     .maybeSingle();
 
   if (lookupError && lookupError.code !== 'PGRST116') {
-    captureSupabaseError(lookupError, {
-      scope: 'species.ensureSpeciesEntry',
-      action: 'lookup',
-      normalizedName,
-    });
     throw new Error(`Failed to look up species: ${lookupError.message}`);
   }
 
@@ -94,11 +85,6 @@ export async function ensureSpeciesEntry(name: string): Promise<FursuitSpeciesOp
       .maybeSingle();
 
     if (retryError) {
-      captureSupabaseError(retryError, {
-        scope: 'species.ensureSpeciesEntry',
-        action: 'retryLookup',
-        normalizedName,
-      });
       throw new Error(`Failed to finish species lookup: ${retryError.message}`);
     }
 
@@ -108,11 +94,6 @@ export async function ensureSpeciesEntry(name: string): Promise<FursuitSpeciesOp
   }
 
   if (insertError) {
-    captureSupabaseError(insertError, {
-      scope: 'species.ensureSpeciesEntry',
-      action: 'insert',
-      normalizedName,
-    });
     throw new Error(`Failed to save species: ${insertError.message}`);
   }
 

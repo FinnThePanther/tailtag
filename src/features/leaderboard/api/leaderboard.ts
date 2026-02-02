@@ -1,5 +1,4 @@
 import { supabase } from '../../../lib/supabase';
-import { captureSupabaseError } from '../../../lib/sentry';
 import { mapFursuitColors } from '../../suits';
 import type { FursuitColorOption } from '../../colors';
 
@@ -37,11 +36,6 @@ export async function fetchConventionLeaderboard(conventionId: string): Promise<
     .order('catcher_id', { ascending: true });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'leaderboard.fetchConventionLeaderboard',
-      action: 'loadLeaderboard',
-      conventionId,
-    });
     throw new Error(`We couldn't load the leaderboard: ${error.message}`);
   }
 
@@ -75,7 +69,6 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
       `
       *,
       fursuit:fursuits (
-        species,
         species_entry:fursuit_species (
           id,
           name
@@ -97,11 +90,6 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
     .order('fursuit_id', { ascending: true });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'leaderboard.fetchConventionSuitLeaderboard',
-      action: 'loadSuitLeaderboard',
-      conventionId,
-    });
     throw new Error(`We couldn't load the suit leaderboard: ${error.message}`);
   }
 
@@ -112,7 +100,7 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
       return {
         fursuitId: row.fursuit_id!,
         name: row.fursuit_name ?? 'Unknown suit',
-        species: fursuit?.species_entry?.name ?? fursuit?.species ?? null,
+        species: fursuit?.species_entry?.name ?? null,
         speciesId: fursuit?.species_entry?.id ?? null,
         colors: mapFursuitColors(fursuit?.color_assignments ?? null),
         avatarUrl: row.fursuit_avatar_url,

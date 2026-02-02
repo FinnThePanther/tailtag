@@ -2,7 +2,7 @@ import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 
 import type { FursuitBio } from '../types';
 import { colors, radius, spacing } from '../../../theme';
-import { captureHandledException } from '../../../lib/sentry';
+import { captureNonCriticalError } from '../../../lib/sentry';
 
 const openSocialLink = async (url: string) => {
   try {
@@ -15,7 +15,7 @@ const openSocialLink = async (url: string) => {
 
     await Linking.openURL(url);
   } catch (error) {
-    captureHandledException(error, {
+    captureNonCriticalError(error, {
       scope: 'suits.openSocialLink',
       url,
     });
