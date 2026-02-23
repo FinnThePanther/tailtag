@@ -246,10 +246,22 @@ async function handlePost(req: Request): Promise<Response> {
   console.log(`[events-ingress] Event inserted in ${insertDuration}ms`, { event_id: eventId, type });
 
   // Process achievements asynchronously (don't await)
-  // This will execute in the background
+  // On success, stamp processed_at so the queue worker skips this event.
+  // On failure (or if the runtime is reclaimed), processed_at stays NULL
+  // and the queue worker will pick it up within ~10 seconds.
   processAchievementsForEvent(supabaseAdmin, eventRow)
-    .then(() => {
+    .then(async () => {
       console.log(`[events-ingress] Achievement processing completed for ${eventId}`);
+      const { error: stampError } = await supabaseAdmin
+        .from("events")
+        .update({ processed_at: new Date().toISOString() })
+        .eq("event_id", eventId);
+      if (stampError) {
+        console.error("[events-ingress] Failed to stamp processed_at", {
+          event_id: eventId,
+          error: stampError,
+        });
+      }
     })
     .catch((error) => {
       console.error("[events-ingress] async achievement processing failed", {

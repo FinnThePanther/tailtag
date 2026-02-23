@@ -606,27 +606,36 @@ export type Database = {
         Row: {
           convention_id: string | null
           event_id: string
+          last_error: string | null
           occurred_at: string
           payload: Json
+          processed_at: string | null
           received_at: string
+          retry_count: number
           type: string
           user_id: string
         }
         Insert: {
           convention_id?: string | null
           event_id?: string
+          last_error?: string | null
           occurred_at?: string
           payload?: Json
+          processed_at?: string | null
           received_at?: string
+          retry_count?: number
           type: string
           user_id: string
         }
         Update: {
           convention_id?: string | null
           event_id?: string
+          last_error?: string | null
           occurred_at?: string
           payload?: Json
+          processed_at?: string | null
           received_at?: string
+          retry_count?: number
           type?: string
           user_id?: string
         }
@@ -1367,6 +1376,62 @@ export type Database = {
           srtext?: string | null
         }
         Relationships: []
+      }
+      suiting_sessions: {
+        Row: {
+          convention_id: string
+          ended_at: string | null
+          fursuit_id: string
+          id: string
+          owner_id: string
+          started_at: string
+        }
+        Insert: {
+          convention_id: string
+          ended_at?: string | null
+          fursuit_id: string
+          id?: string
+          owner_id: string
+          started_at?: string
+        }
+        Update: {
+          convention_id?: string
+          ended_at?: string | null
+          fursuit_id?: string
+          id?: string
+          owner_id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suiting_sessions_convention_id_fkey"
+            columns: ["convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suiting_sessions_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suiting_sessions_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suiting_sessions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tag_activity: {
         Row: {
@@ -2226,6 +2291,27 @@ export type Database = {
       calculate_catch_expiration:
         | { Args: never; Returns: string }
         | { Args: { convention_id_param: string }; Returns: string }
+      claim_unprocessed_events: {
+        Args: { p_batch_size?: number; p_min_age_seconds?: number }
+        Returns: {
+          convention_id: string | null
+          event_id: string
+          last_error: string | null
+          occurred_at: string
+          payload: Json
+          processed_at: string | null
+          received_at: string
+          retry_count: number
+          type: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       cleanup_old_audit_logs: { Args: never; Returns: undefined }
       cleanup_old_notifications: { Args: never; Returns: undefined }
       confirm_catch: {
@@ -2296,6 +2382,19 @@ export type Database = {
       execute_data_retention_cleanup: { Args: never; Returns: Json }
       expire_moderation_actions: { Args: never; Returns: undefined }
       expire_pending_catches: { Args: never; Returns: Json }
+      fetch_unprocessed_events: {
+        Args: { batch_size?: number; min_age_seconds?: number }
+        Returns: {
+          convention_id: string
+          event_id: string
+          occurred_at: string
+          payload: Json
+          received_at: string
+          retry_count: number
+          type: string
+          user_id: string
+        }[]
+      }
       finish_onboarding: { Args: { target_user_id?: string }; Returns: Json }
       generate_profile_avatar_url: {
         Args: { app_meta: Json; user_meta: Json }
@@ -2559,6 +2658,7 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      process_achievement_queue_if_active: { Args: never; Returns: undefined }
       process_qr_asset_cleanup: {
         Args: { batch_size?: number }
         Returns: {
@@ -3387,6 +3487,7 @@ export const Constants = {
     },
   },
 } as const
+
 
 // Type aliases for application use
 export type FursuitSocialLink = {
