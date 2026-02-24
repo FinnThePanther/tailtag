@@ -694,7 +694,7 @@ export default function AddFursuitScreen() {
           </TailTagCard>
         )}
 
-        <TailTagCard>
+        <TailTagCard style={styles.formCard}>
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Suit photo</Text>
             <View style={styles.photoRow}>
@@ -711,7 +711,6 @@ export default function AddFursuitScreen() {
                 variant="outline"
                 onPress={handlePickPhoto}
                 disabled={isSubmitting}
-                style={styles.photoButtonSpacing}
               >
                 Choose photo
               </TailTagButton>
@@ -1085,6 +1084,9 @@ const styles = StyleSheet.create({
     color: '#fca5a5',
     lineHeight: 20,
   },
+  formCard: {
+    gap: spacing.lg,
+  },
   fieldGroup: {
     gap: spacing.sm,
   },
@@ -1094,18 +1096,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   photoRow: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   photoPreview: {
-    width: 96,
-    height: 96,
+    width: '50%',
+    aspectRatio: 1,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: 'rgba(148,163,184,0.3)',
   },
   photoPlaceholder: {
-    width: 96,
-    height: 96,
+    width: '50%',
+    aspectRatio: 1,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: 'rgba(148,163,184,0.3)',
@@ -1120,12 +1122,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   photoButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
-  },
-  photoButtonSpacing: {
-    marginRight: spacing.sm,
   },
   textArea: {
     minHeight: 96,
@@ -1228,7 +1225,5 @@ const styles = StyleSheet.create({
   socialInput: {
     flex: 1,
   },
-  socialRemoveButton: {
-    alignSelf: 'flex-start',
-  },
+  socialRemoveButton: {},
 });
