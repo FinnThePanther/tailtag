@@ -640,16 +640,6 @@ export default function HomeScreen() {
                     {convention.name}
                   </TailTagButton>
                 ))}
-                {selectedConventionId ? (
-                  <TailTagButton
-                    variant="outline"
-                    size="sm"
-                    onPress={handleReloadStandings}
-                    style={styles.reloadButton}
-                  >
-                    Reload standings
-                  </TailTagButton>
-                ) : null}
               </View>
 
               {selectedConventionId ? (
@@ -797,6 +787,15 @@ export default function HomeScreen() {
               </TailTagButton>
             </View>
           )}
+
+          <TailTagButton
+            variant="outline"
+            onPress={handleReloadStandings}
+            style={styles.leaderboardCta}
+            disabled={!selectedConventionId}
+          >
+            Reload standings
+          </TailTagButton>
         </TailTagCard>
 
         <TailTagCard style={[styles.loopCard, contentWidthStyle]}>
@@ -994,7 +993,9 @@ const styles = StyleSheet.create({
   },
   leaderboardCard: {
     marginBottom: spacing.xl,
+    gap: spacing.md,
   },
+  leaderboardCta: {},
   loopCard: {
     marginBottom: spacing.xl,
   },
