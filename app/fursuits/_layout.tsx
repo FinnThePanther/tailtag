@@ -12,7 +12,6 @@ export default function FursuitsLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
-        navigationBarColor: colors.background,
       }}
     >
       <Stack.Screen name="[id]" />

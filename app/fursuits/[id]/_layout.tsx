@@ -16,7 +16,6 @@ export default function FursuitIdLayout() {
         headerTitleStyle: { color: colors.foreground, fontWeight: '600' },
         headerBackTitle: ' ',
         contentStyle: { backgroundColor: colors.background },
-        navigationBarColor: colors.background,
         // Custom back button for better Android touch handling
         headerLeft: () => (
           <Pressable
