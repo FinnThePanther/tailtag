@@ -739,14 +739,15 @@ export default function SettingsScreen() {
                 )}
               </View>
               <View style={styles.avatarButtons}>
-                <TailTagButton
-                  variant="outline"
-                  onPress={handlePickAvatar}
-                  disabled={isProfileLoading || isSaving}
-                  style={styles.avatarButtonSpacing}
-                >
-                  Choose new photo
-                </TailTagButton>
+                <View style={styles.avatarButtonFullWidth}>
+                  <TailTagButton
+                    variant="outline"
+                    onPress={handlePickAvatar}
+                    disabled={isProfileLoading || isSaving}
+                  >
+                    Choose new photo
+                  </TailTagButton>
+                </View>
                 {selectedAvatar ? (
                   <TailTagButton
                     variant="ghost"
@@ -1044,7 +1045,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   avatarRow: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   avatarPreview: {
     width: 96,
@@ -1074,8 +1075,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  avatarButtonSpacing: {
-    marginRight: spacing.sm,
+  avatarButtonFullWidth: {
+    width: '100%',
   },
   warning: {
     color: '#ef4444',
