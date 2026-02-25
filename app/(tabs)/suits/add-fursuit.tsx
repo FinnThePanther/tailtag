@@ -61,8 +61,12 @@ import type {
   Json,
 } from "../../../src/types/database";
 import {
+  ALLOWED_SOCIAL_PLATFORMS,
+  CUSTOM_PLATFORM_ID,
   createEmptySocialLink,
+  createInitialSocialLinks,
   SOCIAL_LINK_LIMIT,
+  socialLinksToSave,
 } from "../../../src/features/suits/forms/socialLinks";
 import type { EditableSocialLink } from "../../../src/features/suits/forms/socialLinks";
 
@@ -125,13 +129,11 @@ export default function AddFursuitScreen() {
     [],
   );
   const [pronounsInput, setPronounsInput] = useState("");
-  const [taglineInput, setTaglineInput] = useState("");
-  const [funFactInput, setFunFactInput] = useState("");
   const [likesInput, setLikesInput] = useState("");
   const [askMeAboutInput, setAskMeAboutInput] = useState("");
-  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>([
-    createEmptySocialLink(),
-  ]);
+  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(
+    () => createInitialSocialLinks(),
+  );
   const [catchMode, setCatchMode] = useState<CatchMode>("AUTO_ACCEPT");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -395,17 +397,10 @@ export default function AddFursuitScreen() {
     const trimmedName = nameInput.trim();
     const trimmedSpecies = speciesInput.trim();
     const trimmedPronouns = pronounsInput.trim();
-    const trimmedTagline = taglineInput.trim();
-    const trimmedFunFact = funFactInput.trim();
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
     const normalizedSpeciesValue = normalizeSpeciesName(trimmedSpecies);
-    const normalizedSocialLinks = socialLinks
-      .map((entry) => ({
-        label: entry.label.trim(),
-        url: entry.url.trim(),
-      }))
-      .filter((entry) => entry.label.length > 0 || entry.url.length > 0);
+    const normalizedSocialLinks = socialLinksToSave(socialLinks);
     const selectedColorIds = selectedColors.map((color) => color.id);
 
     if (!trimmedName) {
@@ -430,40 +425,12 @@ export default function AddFursuitScreen() {
       return;
     }
 
-    if (!trimmedPronouns) {
-      setSubmitError("Share pronouns so catchers can address you correctly.");
-      return;
-    }
-
-    if (!trimmedTagline) {
-      setSubmitError("Add a quick tagline to introduce your suit.");
-      return;
-    }
-
-    if (!trimmedFunFact) {
-      setSubmitError("Share a fun fact to make your bio memorable.");
-      return;
-    }
-
-    if (!trimmedLikes) {
-      setSubmitError("Tell players what you like or are interested in.");
-      return;
-    }
-
-    if (!trimmedAskMeAbout) {
-      setSubmitError("Give players a prompt so they know what to ask you.");
-      return;
-    }
-
     for (const entry of normalizedSocialLinks) {
       if (!entry.label || !entry.url) {
         setSubmitError("Fill in both the label and URL for each social link.");
         return;
       }
-
-      const hasValidProtocol = /^https?:\/\//i.test(entry.url);
-
-      if (!hasValidProtocol) {
+      if (!/^https?:\/\//i.test(entry.url)) {
         setSubmitError(
           "Links should include http:// or https:// so we can open them.",
         );
@@ -607,8 +574,6 @@ export default function AddFursuitScreen() {
         version: 1,
         owner_name: profile?.username ?? "",
         pronouns: trimmedPronouns,
-        tagline: trimmedTagline,
-        fun_fact: trimmedFunFact,
         likes_and_interests: trimmedLikes,
         ask_me_about: trimmedAskMeAbout,
         social_links: normalizedSocialLinks as unknown as Json,
@@ -627,11 +592,9 @@ export default function AddFursuitScreen() {
       setSelectedSpecies(null);
       setSelectedColors([]);
       setPronounsInput("");
-      setTaglineInput("");
-      setFunFactInput("");
       setLikesInput("");
       setAskMeAboutInput("");
-      setSocialLinks([createEmptySocialLink()]);
+      setSocialLinks(createInitialSocialLinks());
       setCatchMode("AUTO_ACCEPT");
       setSelectedConventionIds(new Set(profileConventionIds));
       setHasHydratedConventions(true);
@@ -703,7 +666,11 @@ export default function AddFursuitScreen() {
   };
 
   const handleSocialLinkChange = useCallback(
-    (id: string, field: "label" | "url", value: string) => {
+    (
+      id: string,
+      field: "platformId" | "handle" | "label" | "url",
+      value: string,
+    ) => {
       setSocialLinks((current) =>
         current.map((entry) =>
           entry.id === id ? { ...entry, [field]: value } : entry,
@@ -714,10 +681,7 @@ export default function AddFursuitScreen() {
   );
 
   const handleAddSocialLink = () => {
-    if (!socialLinksCanAddMore) {
-      return;
-    }
-
+    if (!socialLinksCanAddMore) return;
     setSocialLinks((current) => [...current, createEmptySocialLink()]);
   };
 
@@ -953,31 +917,6 @@ export default function AddFursuitScreen() {
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Tagline</Text>
-          <TailTagInput
-            value={taglineInput}
-            onChangeText={setTaglineInput}
-            placeholder="One-liner that captures your vibe"
-            editable={!isSubmitting}
-            returnKeyType="next"
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Fun fact</Text>
-          <TailTagInput
-            value={funFactInput}
-            onChangeText={setFunFactInput}
-            placeholder="What should catchers remember about you?"
-            editable={!isSubmitting}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            style={styles.textArea}
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
           <Text style={styles.label}>Likes & interests</Text>
           <TailTagInput
             value={likesInput}
@@ -1008,50 +947,161 @@ export default function AddFursuitScreen() {
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Social links</Text>
           <Text style={styles.helperLabel}>
-            Add the places where catchers can follow you. Leave a row blank to
-            skip it.
+            Add the places where catchers can follow you. Pick a platform and
+            enter your username.
           </Text>
           <View style={styles.socialList}>
-            {socialLinks.map((entry, index) => (
-              <View key={entry.id} style={styles.socialRow}>
-                <TailTagInput
-                  value={entry.label}
-                  onChangeText={(value) =>
-                    handleSocialLinkChange(entry.id, "label", value)
-                  }
-                  placeholder="Label (Twitter, Bluesky, Telegram, etc.)"
-                  editable={!isSubmitting}
-                  returnKeyType="next"
-                  style={styles.socialInput}
-                />
-                <TailTagInput
-                  value={entry.url}
-                  onChangeText={(value) =>
-                    handleSocialLinkChange(entry.id, "url", value)
-                  }
-                  placeholder="https://example.com/you"
-                  editable={!isSubmitting}
-                  autoCapitalize="none"
-                  keyboardType="url"
-                  returnKeyType={
-                    index === socialLinks.length - 1 ? "done" : "next"
-                  }
-                  onSubmitEditing={
-                    index === socialLinks.length - 1 ? handleSubmit : undefined
-                  }
-                  style={styles.socialInput}
-                />
-                <TailTagButton
-                  variant="ghost"
-                  size="sm"
-                  onPress={() => handleRemoveSocialLink(entry.id)}
-                  disabled={isSubmitting}
-                  style={styles.socialRemoveButton}
-                >
-                  Remove
-                </TailTagButton>
-              </View>
-            ))}
+            {socialLinks.map((entry, index) => {
+              const usedPlatformIds = socialLinks
+                .filter(
+                  (e) =>
+                    e.id !== entry.id &&
+                    e.platformId &&
+                    e.platformId !== CUSTOM_PLATFORM_ID,
+                )
+                .map((e) => e.platformId);
+              const isCustom = entry.platformId === CUSTOM_PLATFORM_ID;
+              return (
+                <View key={entry.id} style={styles.socialRow}>
+                  <View style={styles.socialPlatformChips}>
+                    {ALLOWED_SOCIAL_PLATFORMS.map((platform) => {
+                      const isSelected = entry.platformId === platform.id;
+                      const isUsedElsewhere = usedPlatformIds.includes(
+                        platform.id,
+                      );
+                      return (
+                        <Pressable
+                          key={platform.id}
+                          onPress={() =>
+                            !isUsedElsewhere &&
+                            handleSocialLinkChange(
+                              entry.id,
+                              "platformId",
+                              platform.id,
+                            )
+                          }
+                          disabled={isSubmitting || isUsedElsewhere}
+                          style={[
+                            styles.socialPlatformChip,
+                            isSelected && styles.socialPlatformChipSelected,
+                            isUsedElsewhere && styles.socialPlatformChipDisabled,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.socialPlatformChipText,
+                              isSelected && styles.socialPlatformChipTextSelected,
+                              isUsedElsewhere &&
+                                styles.socialPlatformChipTextDisabled,
+                            ]}
+                          >
+                            {platform.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                    <Pressable
+                      onPress={() =>
+                        handleSocialLinkChange(
+                          entry.id,
+                          "platformId",
+                          CUSTOM_PLATFORM_ID,
+                        )
+                      }
+                      disabled={isSubmitting}
+                      style={[
+                        styles.socialPlatformChip,
+                        isCustom && styles.socialPlatformChipSelected,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.socialPlatformChipText,
+                          isCustom && styles.socialPlatformChipTextSelected,
+                        ]}
+                      >
+                        Custom
+                      </Text>
+                    </Pressable>
+                  </View>
+                  {isCustom ? (
+                    <View style={styles.socialCustomInputs}>
+                      <TailTagInput
+                        value={entry.label ?? ""}
+                        onChangeText={(value) =>
+                          handleSocialLinkChange(entry.id, "label", value)
+                        }
+                        placeholder="Label (e.g. Mastodon, Website)"
+                        editable={!isSubmitting}
+                        returnKeyType="next"
+                        style={styles.socialInput}
+                      />
+                      <View style={styles.socialInputRow}>
+                        <TailTagInput
+                          value={entry.url ?? ""}
+                          onChangeText={(value) =>
+                            handleSocialLinkChange(entry.id, "url", value)
+                          }
+                          placeholder="https://example.com/you"
+                          editable={!isSubmitting}
+                          autoCapitalize="none"
+                          keyboardType="url"
+                          returnKeyType={
+                            index === socialLinks.length - 1 ? "done" : "next"
+                          }
+                          onSubmitEditing={
+                            index === socialLinks.length - 1
+                              ? handleSubmit
+                              : undefined
+                          }
+                          style={styles.socialInput}
+                        />
+                        <TailTagButton
+                          variant="ghost"
+                          size="sm"
+                          onPress={() => handleRemoveSocialLink(entry.id)}
+                          disabled={isSubmitting}
+                          style={styles.socialRemoveButton}
+                        >
+                          Remove
+                        </TailTagButton>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.socialInputRow}>
+                      <TailTagInput
+                        value={entry.handle}
+                        onChangeText={(value) =>
+                          handleSocialLinkChange(entry.id, "handle", value)
+                        }
+                        placeholder="Username"
+                        editable={!isSubmitting}
+                        autoCapitalize="none"
+                        keyboardType="default"
+                        returnKeyType={
+                          index === socialLinks.length - 1 ? "done" : "next"
+                        }
+                        onSubmitEditing={
+                          index === socialLinks.length - 1
+                            ? handleSubmit
+                            : undefined
+                        }
+                        style={styles.socialInput}
+                      />
+                      <TailTagButton
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => handleRemoveSocialLink(entry.id)}
+                        disabled={isSubmitting}
+                        style={styles.socialRemoveButton}
+                      >
+                        Remove
+                      </TailTagButton>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </View>
           {socialLinksCanAddMore ? (
             <TailTagButton
@@ -1298,9 +1348,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   socialList: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   socialRow: {
+    flexDirection: "column",
+    gap: spacing.sm,
+  },
+  socialPlatformChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  socialPlatformChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.35)",
+    backgroundColor: "rgba(30,41,59,0.6)",
+  },
+  socialPlatformChipSelected: {
+    borderColor: colors.primary,
+    backgroundColor: "rgba(99,102,241,0.2)",
+  },
+  socialPlatformChipDisabled: {
+    opacity: 0.5,
+  },
+  socialPlatformChipText: {
+    color: colors.foreground,
+    fontSize: 12,
+  },
+  socialPlatformChipTextSelected: {
+    color: colors.primary,
+    fontWeight: "600",
+  },
+  socialPlatformChipTextDisabled: {
+    color: "rgba(148,163,184,0.7)",
+  },
+  socialInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  socialCustomInputs: {
     flexDirection: "column",
     gap: spacing.sm,
   },

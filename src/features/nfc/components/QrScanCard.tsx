@@ -85,7 +85,7 @@ export function QrScanCard({ conventionId, onCatchComplete, createCatchFn }: QrS
   const conversationPrompt = useMemo(() => {
     const bio: FursuitBio | null | undefined = fursuitDetail?.bio;
     if (!bio) return null;
-    return [bio.askMeAbout, bio.tagline, bio.funFact, bio.likesAndInterests]
+    return [bio.askMeAbout, bio.likesAndInterests]
       .map((value) => value?.trim())
       .find((value) => value);
   }, [fursuitDetail]);

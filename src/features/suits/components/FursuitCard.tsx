@@ -113,7 +113,7 @@ export function FursuitCard({
             {displayColors}
           </Text>
           {timelineLabel ? (
-            <Text style={styles.timeline} numberOfLines={1}>
+            <Text style={styles.timeline}>
               {timelineLabel}
             </Text>
           ) : null}
@@ -149,12 +149,13 @@ const styles = StyleSheet.create({
   },
   leadRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
     marginBottom: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
   },
   avatarWrapper: {
-    width: IS_SMALL_SCREEN ? 56 : 64,
-    height: IS_SMALL_SCREEN ? 56 : 64,
+    width: '50%',
+    aspectRatio: 1,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: 'rgba(148,163,184,0.2)',
@@ -177,7 +178,6 @@ const styles = StyleSheet.create({
   },
   details: {
     flex: 1,
-    marginLeft: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
   },
   name: {
     color: colors.foreground,

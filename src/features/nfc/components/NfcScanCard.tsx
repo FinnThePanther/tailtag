@@ -252,8 +252,6 @@ export function NfcScanCard({
     const conversationPrompt = fursuitDetail?.bio
       ? [
           fursuitDetail.bio.askMeAbout,
-          fursuitDetail.bio.tagline,
-          fursuitDetail.bio.funFact,
           fursuitDetail.bio.likesAndInterests,
         ]
           .map((value) => value?.trim())

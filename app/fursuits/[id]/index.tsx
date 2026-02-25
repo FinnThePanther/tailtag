@@ -211,14 +211,6 @@ export default function FursuitDetailScreen() {
                 })}
               </View>
             ) : null}
-            {detail.owner_profile ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Owner profile</Text>
-                <Text style={styles.sectionItem}>
-                  {detail.owner_profile.username ?? 'No username yet'}
-                </Text>
-              </View>
-            ) : null}
           </View>
         )}
       </TailTagCard>

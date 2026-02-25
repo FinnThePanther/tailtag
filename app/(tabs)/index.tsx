@@ -485,7 +485,7 @@ export default function HomeScreen() {
 
         <TailTagCard style={[styles.dailyCard, contentWidthStyle]}>
           <Text style={styles.sectionEyebrow}>Daily tasks</Text>
-          <Text style={styles.sectionTitle}>Today's To-Dos</Text>
+          <Text style={styles.sectionTitle}>Today's objectives</Text>
 
           {!selectedConventionId ? (
             <Text style={styles.message}>
@@ -556,7 +556,7 @@ export default function HomeScreen() {
 
         <TailTagCard style={[styles.achievementsCard, contentWidthStyle]}>
           <Text style={styles.sectionEyebrow}>Achievements</Text>
-          <Text style={styles.sectionTitle}>Keep the streak going</Text>
+          <Text style={styles.sectionTitle}>Track your progress</Text>
 
           {isAchievementsBusy ? (
             <Text style={styles.message}>Checking your progress…</Text>
@@ -818,33 +818,31 @@ export default function HomeScreen() {
         </TailTagCard>
 
         <TailTagCard style={[styles.loopCard, contentWidthStyle]}>
-          <Text style={styles.sectionEyebrow}>Gameplay Loop</Text>
+          <Text style={styles.sectionEyebrow}>How to Play</Text>
           <Text style={styles.sectionTitle}>Four quick steps</Text>
           <View>
             {[
               {
                 step: "1",
-                title: "Register",
-                description:
-                  "Create your TailTag profile in seconds with email login.",
+                title: "Add your fursuit (if you have one)",
+                description: "Each gets an auto-generated catch code to share.",
               },
               {
                 step: "2",
-                title: "Add suits",
+                title: "Log catches",
                 description:
-                  "Give each fursuit a name, species, and a unique catch code.",
+                  "Catch fursuiters with their codes and watch your collection grow.",
               },
               {
                 step: "3",
-                title: "Trade tags",
+                title: "Complete tasks & earn achievements",
                 description:
-                  "Swap codes with other players out at a convention.",
+                  "Tackle daily challenges at conventions and unlock achievements along the way.",
               },
               {
                 step: "4",
-                title: "Log catches",
-                description:
-                  "Record new catches instantly and watch your collection fill out.",
+                title: "Meet fursuiters",
+                description: "Connect with cool new fursuiters while you play!",
               },
             ].map((item, index, array) => (
               <View

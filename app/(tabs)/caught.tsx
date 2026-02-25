@@ -70,7 +70,9 @@ function CaughtSuitItem({
       />
       {details.bio ? (
         <View style={styles.bioSpacing}>
-          <FursuitBioDetails bio={details.bio} />
+          <TailTagCard>
+            <FursuitBioDetails bio={details.bio} />
+          </TailTagCard>
         </View>
       ) : null}
     </View>

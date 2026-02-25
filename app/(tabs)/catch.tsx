@@ -186,8 +186,6 @@ export default function CatchScreen() {
             version,
             owner_name,
             pronouns,
-            tagline,
-            fun_fact,
             likes_and_interests,
             ask_me_about,
             social_links,
@@ -319,8 +317,6 @@ export default function CatchScreen() {
       const promptCandidate = normalizedFursuit.bio
         ? [
             normalizedFursuit.bio.askMeAbout,
-            normalizedFursuit.bio.tagline,
-            normalizedFursuit.bio.funFact,
             normalizedFursuit.bio.likesAndInterests,
           ]
             .map((value) => value?.trim())
@@ -524,7 +520,9 @@ export default function CatchScreen() {
             </View>
             {caughtFursuit.bio ? (
               <View style={styles.bioSpacing}>
-                <FursuitBioDetails bio={caughtFursuit.bio} />
+                <TailTagCard>
+                  <FursuitBioDetails bio={caughtFursuit.bio} />
+                </TailTagCard>
               </View>
             ) : null}
             <View style={styles.buttonRow}>

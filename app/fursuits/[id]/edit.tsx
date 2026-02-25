@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -16,9 +17,13 @@ import {
 } from '../../../src/features/suits';
 import type { EditableSocialLink } from '../../../src/features/suits/forms/socialLinks';
 import {
-  SOCIAL_LINK_LIMIT,
+  ALLOWED_SOCIAL_PLATFORMS,
+  CUSTOM_PLATFORM_ID,
   createEmptySocialLink,
+  createInitialSocialLinks,
   mapEditableSocialLinks,
+  SOCIAL_LINK_LIMIT,
+  socialLinksToSave,
 } from '../../../src/features/suits/forms/socialLinks';
 import {
   addFursuitConvention,
@@ -29,6 +34,7 @@ import {
   removeFursuitConvention,
 } from '../../../src/features/conventions';
 import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
+import { createProfileQueryOptions } from '../../../src/features/profile';
 import {
   ensureSpeciesEntry,
   fetchFursuitSpecies,
@@ -49,18 +55,17 @@ import {
   type CatchMode,
 } from '../../../src/features/catch-confirmations';
 import { supabase } from '../../../src/lib/supabase';
+import { FURSUIT_BUCKET, MAX_IMAGE_SIZE } from '../../../src/constants/storage';
+import { loadUriAsUint8Array } from '../../../src/utils/files';
 import { colors, spacing, radius } from '../../../src/theme';
 import type { Json } from '../../../src/types/database';
 
-const normalizeLinksForSave = (links: EditableSocialLink[]) =>
-  links
-    .map((entry) => ({
-      label: entry.label.trim(),
-      url: entry.url.trim(),
-    }))
-    .filter((entry) => entry.label.length > 0 || entry.url.length > 0);
-
-const enforceUrlProtocol = (value: string) => /^https?:\/\//i.test(value);
+type UploadCandidate = {
+  uri: string;
+  mimeType: string;
+  fileName: string;
+  fileSize: number;
+} | null;
 
 export default function EditFursuitScreen() {
   const router = useRouter();
@@ -119,6 +124,11 @@ export default function EditFursuitScreen() {
     enabled: Boolean(userId),
   });
 
+  const { data: profile } = useQuery({
+    ...createProfileQueryOptions(userId!),
+    enabled: Boolean(userId),
+  });
+
   const {
     data: profileConventionIds = [],
     error: profileConventionsError,
@@ -147,13 +157,12 @@ export default function EditFursuitScreen() {
   const [hasHydratedForm, setHasHydratedForm] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [speciesInput, setSpeciesInput] = useState('');
-  const [ownerNameInput, setOwnerNameInput] = useState('');
   const [pronounsInput, setPronounsInput] = useState('');
-  const [taglineInput, setTaglineInput] = useState('');
-  const [funFactInput, setFunFactInput] = useState('');
   const [likesInput, setLikesInput] = useState('');
   const [askMeAboutInput, setAskMeAboutInput] = useState('');
-  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>([createEmptySocialLink()]);
+  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(
+    () => createInitialSocialLinks()
+  );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption | null>(null);
@@ -161,6 +170,8 @@ export default function EditFursuitScreen() {
   const [initialColors, setInitialColors] = useState<FursuitColorOption[]>([]);
   const [catchMode, setCatchMode] = useState<CatchMode>('AUTO_ACCEPT');
   const [initialCatchMode, setInitialCatchMode] = useState<CatchMode>('AUTO_ACCEPT');
+  const [selectedPhoto, setSelectedPhoto] = useState<UploadCandidate>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const speciesLoadError = speciesError?.message ?? null;
   const isSpeciesBusy = isSpeciesLoading;
@@ -244,24 +255,15 @@ export default function EditFursuitScreen() {
 
     const bio: FursuitBio | null = detail.bio;
 
-    setOwnerNameInput(bio?.ownerName ?? '');
     setPronounsInput(bio?.pronouns ?? '');
-    setTaglineInput(bio?.tagline ?? '');
-    setFunFactInput(bio?.funFact ?? '');
     setLikesInput(bio?.likesAndInterests ?? '');
     setAskMeAboutInput(bio?.askMeAbout ?? '');
 
     const existingLinks = bio?.socialLinks ?? [];
-
-    if (existingLinks.length > 0) {
-      setSocialLinks(
-        mapEditableSocialLinks(
-          existingLinks.map((entry) => ({ label: entry.label, url: entry.url }))
-        )
-      );
-    } else {
-      setSocialLinks([createEmptySocialLink()]);
-    }
+    const linksToMap = existingLinks
+      .filter((e) => (e.label?.trim() ?? '') && (e.url?.trim() ?? ''))
+      .map((e) => ({ label: e.label, url: e.url }));
+    setSocialLinks(mapEditableSocialLinks(linksToMap));
 
     const initialConventionSet = new Set((detail.conventions ?? []).map((entry) => entry.id));
     setSelectedConventionIds(new Set(initialConventionSet));
@@ -290,17 +292,20 @@ export default function EditFursuitScreen() {
     [socialLinks.length]
   );
 
-  const handleSocialLinkChange = (id: string, field: 'label' | 'url', value: string) => {
+  const handleSocialLinkChange = (
+    id: string,
+    field: 'platformId' | 'handle' | 'label' | 'url',
+    value: string
+  ) => {
     setSocialLinks((current) =>
-      current.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry))
+      current.map((entry) =>
+        entry.id === id ? { ...entry, [field]: value } : entry
+      )
     );
   };
 
   const handleAddSocialLink = () => {
-    if (!socialLinksCanAddMore) {
-      return;
-    }
-
+    if (!socialLinksCanAddMore) return;
     setSocialLinks((current) => [...current, createEmptySocialLink()]);
   };
 
@@ -309,6 +314,60 @@ export default function EditFursuitScreen() {
       const next = current.filter((entry) => entry.id !== id);
       return next.length > 0 ? next : [createEmptySocialLink()];
     });
+  };
+
+
+  const handlePickPhoto = useCallback(async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== 'granted') {
+        setPhotoError('We need media library access to select a photo.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets[0];
+
+      if (!asset) {
+        setPhotoError('No photo selected.');
+        return;
+      }
+
+      if (asset.fileSize && asset.fileSize > MAX_IMAGE_SIZE) {
+        setPhotoError('Suit photos must be 5MB or smaller.');
+        return;
+      }
+
+      setSelectedPhoto({
+        uri: asset.uri,
+        mimeType: asset.mimeType ?? 'image/jpeg',
+        fileName: asset.fileName ?? `fursuit-${Date.now()}.jpg`,
+        fileSize: asset.fileSize ?? 0,
+      });
+      setPhotoError(null);
+    } catch (caught) {
+      setPhotoError(
+        caught instanceof Error
+          ? caught.message
+          : 'We could not open your photo library. Please try again.'
+      );
+    }
+  }, []);
+
+  const handleClearPhoto = () => {
+    setSelectedPhoto(null);
+    setPhotoError(null);
   };
 
   const handleCancel = () => {
@@ -322,15 +381,12 @@ export default function EditFursuitScreen() {
 
     const trimmedName = nameInput.trim();
     const trimmedSpecies = speciesInput.trim();
-    const trimmedOwnerName = ownerNameInput.trim();
     const trimmedPronouns = pronounsInput.trim();
-    const trimmedTagline = taglineInput.trim();
-    const trimmedFunFact = funFactInput.trim();
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
     const normalizedSpeciesValue = normalizeSpeciesName(trimmedSpecies);
 
-    const normalizedSocialLinks = normalizeLinksForSave(socialLinks);
+    const normalizedSocialLinks = socialLinksToSave(socialLinks);
     const selectedColorIds = selectedColors.map((color) => color.id);
     const previousColors = initialColors;
     const previousColorIds = previousColors.map((color) => color.id);
@@ -355,46 +411,22 @@ export default function EditFursuitScreen() {
       return;
     }
 
-    if (!trimmedOwnerName) {
-      setSubmitError('Add the owner name so players know who to talk to.');
-      return;
-    }
-
-    if (!trimmedPronouns) {
-      setSubmitError('Share pronouns so catchers can address you correctly.');
-      return;
-    }
-
-    if (!trimmedTagline) {
-      setSubmitError('Add a quick tagline to introduce your suit.');
-      return;
-    }
-
-    if (!trimmedFunFact) {
-      setSubmitError('Share a fun fact to make your bio memorable.');
-      return;
-    }
-
-    if (!trimmedLikes) {
-      setSubmitError('Tell players what you like or are interested in.');
-      return;
-    }
-
-    if (!trimmedAskMeAbout) {
-      setSubmitError('Give players a prompt so they know what to ask you.');
-      return;
-    }
-
     for (const entry of normalizedSocialLinks) {
       if (!entry.label || !entry.url) {
         setSubmitError('Fill in both the label and URL for each social link.');
         return;
       }
-
-      if (!enforceUrlProtocol(entry.url)) {
-        setSubmitError('Links should include http:// or https:// so we can open them.');
+      if (!/^https?:\/\//i.test(entry.url)) {
+        setSubmitError(
+          'Links should include http:// or https:// so we can open them.'
+        );
         return;
       }
+    }
+
+    if (selectedPhoto && selectedPhoto.fileSize > MAX_IMAGE_SIZE) {
+      setSubmitError('Suit photos must be 5MB or smaller.');
+      return;
     }
 
     const toAdd = Array.from(selectedConventionIds).filter(
@@ -409,6 +441,7 @@ export default function EditFursuitScreen() {
     const previousName = detail.name;
     const previousSpeciesId = detail.speciesId ?? null;
     const previousCatchMode = initialCatchMode;
+    const previousAvatarUrl = detail.avatar_url;
     let updatedCoreRecord = false;
     let replacedColors = false;
     const addedConventionIds: string[] = [];
@@ -438,12 +471,37 @@ export default function EditFursuitScreen() {
       );
       void queryClient.invalidateQueries({ queryKey: [FURSUIT_SPECIES_QUERY_KEY] });
 
+      let newAvatarUrl: string | undefined;
+
+      if (selectedPhoto) {
+        const extension = selectedPhoto.fileName.split('.').pop()?.toLowerCase() ?? 'jpg';
+        const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const storagePath = `${userId}/${uniqueSuffix}.${extension}`;
+
+        const fileBytes = await loadUriAsUint8Array(selectedPhoto.uri);
+
+        const { error: uploadError } = await supabase.storage
+          .from(FURSUIT_BUCKET)
+          .upload(storagePath, fileBytes, {
+            contentType: selectedPhoto.mimeType,
+            upsert: true,
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage.from(FURSUIT_BUCKET).getPublicUrl(storagePath);
+        newAvatarUrl = publicUrl;
+      }
+
       const { error: updateError } = await client
         .from('fursuits')
         .update({
           name: trimmedName,
           species_id: speciesRecord.id,
           catch_mode: catchMode,
+          ...(newAvatarUrl !== undefined ? { avatar_url: newAvatarUrl } : {}),
         })
         .eq('id', fursuitId)
         .eq('owner_id', userId);
@@ -492,10 +550,8 @@ export default function EditFursuitScreen() {
       const { error: bioError } = await client.from('fursuit_bios').insert({
         fursuit_id: fursuitId,
         version: nextVersion,
-        owner_name: trimmedOwnerName,
+        owner_name: profile?.username ?? '',
         pronouns: trimmedPronouns,
-        tagline: trimmedTagline,
-        fun_fact: trimmedFunFact,
         likes_and_interests: trimmedLikes,
         ask_me_about: trimmedAskMeAbout,
         social_links: normalizedSocialLinks as unknown as Json,
@@ -586,6 +642,7 @@ export default function EditFursuitScreen() {
             name: previousName,
             species_id: previousSpeciesId,
             catch_mode: previousCatchMode,
+            avatar_url: previousAvatarUrl,
           })
           .eq('id', fursuitId)
           .eq('owner_id', userId);
@@ -631,7 +688,7 @@ export default function EditFursuitScreen() {
           <Text style={styles.eyebrow}>Edit bio</Text>
           <Text style={styles.title}>Refresh your fursuit entry</Text>
           <Text style={styles.subtitle}>
-            Update your tagline, fun facts, and social links so players know how to say hi.
+            Update your bio and social links so players know how to say hi.
           </Text>
         </View>
 
@@ -653,6 +710,40 @@ export default function EditFursuitScreen() {
             </Text>
           ) : (
             <View style={styles.formStack}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Suit photo</Text>
+                <View style={styles.photoRow}>
+                  {selectedPhoto ? (
+                    <Image source={{ uri: selectedPhoto.uri }} style={styles.photoPreview} />
+                  ) : detail?.avatar_url ? (
+                    <Image source={{ uri: detail.avatar_url }} style={styles.photoPreview} />
+                  ) : (
+                    <View style={styles.photoPlaceholder}>
+                      <Text style={styles.photoPlaceholderText}>No photo</Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.photoButtons}>
+                  <TailTagButton
+                    variant="outline"
+                    onPress={() => { void handlePickPhoto(); }}
+                    disabled={disableForm}
+                  >
+                    {detail?.avatar_url || selectedPhoto ? 'Change photo' : 'Choose photo'}
+                  </TailTagButton>
+                  {selectedPhoto ? (
+                    <TailTagButton
+                      variant="ghost"
+                      onPress={handleClearPhoto}
+                      disabled={disableForm}
+                    >
+                      Remove new photo
+                    </TailTagButton>
+                  ) : null}
+                </View>
+                {photoError ? <Text style={styles.errorText}>{photoError}</Text> : null}
+              </View>
+
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Fursuit name</Text>
                 <TailTagInput
@@ -795,17 +886,6 @@ export default function EditFursuitScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Owner name</Text>
-                <TailTagInput
-                  value={ownerNameInput}
-                  onChangeText={setOwnerNameInput}
-                  placeholder="Who's inside the suit?"
-                  editable={!disableForm}
-                  returnKeyType="next"
-                />
-              </View>
-
-              <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Pronouns</Text>
                 <TailTagInput
                   value={pronounsInput}
@@ -813,31 +893,6 @@ export default function EditFursuitScreen() {
                   placeholder="They/them, she/they, he/him, etc."
                   editable={!disableForm}
                   returnKeyType="next"
-                />
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Tagline</Text>
-                <TailTagInput
-                  value={taglineInput}
-                  onChangeText={setTaglineInput}
-                  placeholder="One-liner that captures your vibe"
-                  editable={!disableForm}
-                  returnKeyType="next"
-                />
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Fun fact</Text>
-                <TailTagInput
-                  value={funFactInput}
-                  onChangeText={setFunFactInput}
-                  placeholder="What should catchers remember about you?"
-                  editable={!disableForm}
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                  style={styles.textArea}
                 />
               </View>
 
@@ -872,41 +927,175 @@ export default function EditFursuitScreen() {
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Social links</Text>
                 <Text style={styles.helperLabel}>
-                  Add the places where catchers can follow you. Leave a row blank to skip it.
+                  Add the places where catchers can follow you. Pick a platform and
+                  enter your username.
                 </Text>
                 <View style={styles.socialList}>
-                  {socialLinks.map((entry, index) => (
-                    <View key={entry.id} style={styles.socialRow}>
-                      <TailTagInput
-                        value={entry.label}
-                        onChangeText={(value) => handleSocialLinkChange(entry.id, 'label', value)}
-                        placeholder="Label (Twitter, Bluesky, Telegram, etc.)"
-                        editable={!disableForm}
-                        returnKeyType="next"
-                        style={styles.socialInput}
-                      />
-                      <TailTagInput
-                        value={entry.url}
-                        onChangeText={(value) => handleSocialLinkChange(entry.id, 'url', value)}
-                        placeholder="https://example.com/you"
-                        editable={!disableForm}
-                        autoCapitalize="none"
-                        keyboardType="url"
-                        returnKeyType={index === socialLinks.length - 1 ? 'done' : 'next'}
-                        onSubmitEditing={index === socialLinks.length - 1 ? handleSubmit : undefined}
-                        style={styles.socialInput}
-                      />
-                      <TailTagButton
-                        variant="ghost"
-                        size="sm"
-                        onPress={() => handleRemoveSocialLink(entry.id)}
-                        disabled={disableForm}
-                        style={styles.socialRemoveButton}
-                      >
-                        Remove
-                      </TailTagButton>
-                    </View>
-                  ))}
+                  {socialLinks.map((entry, index) => {
+                    const usedPlatformIds = socialLinks
+                      .filter(
+                        (e) =>
+                          e.id !== entry.id &&
+                          e.platformId &&
+                          e.platformId !== CUSTOM_PLATFORM_ID
+                      )
+                      .map((e) => e.platformId);
+                    const isCustom = entry.platformId === CUSTOM_PLATFORM_ID;
+                    return (
+                      <View key={entry.id} style={styles.socialRow}>
+                        <View style={styles.socialPlatformChips}>
+                          {ALLOWED_SOCIAL_PLATFORMS.map((platform) => {
+                            const isSelected = entry.platformId === platform.id;
+                            const isUsedElsewhere = usedPlatformIds.includes(
+                              platform.id
+                            );
+                            return (
+                              <Pressable
+                                key={platform.id}
+                                onPress={() =>
+                                  !isUsedElsewhere &&
+                                  handleSocialLinkChange(
+                                    entry.id,
+                                    'platformId',
+                                    platform.id
+                                  )
+                                }
+                                disabled={disableForm || isUsedElsewhere}
+                                style={[
+                                  styles.socialPlatformChip,
+                                  isSelected && styles.socialPlatformChipSelected,
+                                  isUsedElsewhere && styles.socialPlatformChipDisabled,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.socialPlatformChipText,
+                                    isSelected &&
+                                      styles.socialPlatformChipTextSelected,
+                                    isUsedElsewhere &&
+                                      styles.socialPlatformChipTextDisabled,
+                                  ]}
+                                >
+                                  {platform.label}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                          <Pressable
+                            onPress={() =>
+                              handleSocialLinkChange(
+                                entry.id,
+                                'platformId',
+                                CUSTOM_PLATFORM_ID
+                              )
+                            }
+                            disabled={disableForm}
+                            style={[
+                              styles.socialPlatformChip,
+                              isCustom && styles.socialPlatformChipSelected,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.socialPlatformChipText,
+                                isCustom &&
+                                  styles.socialPlatformChipTextSelected,
+                              ]}
+                            >
+                              Custom
+                            </Text>
+                          </Pressable>
+                        </View>
+                        {isCustom ? (
+                          <View style={styles.socialCustomInputs}>
+                            <TailTagInput
+                              value={entry.label ?? ''}
+                              onChangeText={(value) =>
+                                handleSocialLinkChange(entry.id, 'label', value)
+                              }
+                              placeholder="Label (e.g. Mastodon, Website)"
+                              editable={!disableForm}
+                              returnKeyType="next"
+                              style={styles.socialInput}
+                            />
+                            <View style={styles.socialInputRow}>
+                              <TailTagInput
+                                value={entry.url ?? ''}
+                                onChangeText={(value) =>
+                                  handleSocialLinkChange(entry.id, 'url', value)
+                                }
+                                placeholder="https://example.com/you"
+                                editable={!disableForm}
+                                autoCapitalize="none"
+                                keyboardType="url"
+                                returnKeyType={
+                                  index === socialLinks.length - 1
+                                    ? 'done'
+                                    : 'next'
+                                }
+                                onSubmitEditing={
+                                  index === socialLinks.length - 1
+                                    ? handleSubmit
+                                    : undefined
+                                }
+                                style={styles.socialInput}
+                              />
+                              <TailTagButton
+                                variant="ghost"
+                                size="sm"
+                                onPress={() =>
+                                  handleRemoveSocialLink(entry.id)
+                                }
+                                disabled={disableForm}
+                                style={styles.socialRemoveButton}
+                              >
+                                Remove
+                              </TailTagButton>
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={styles.socialInputRow}>
+                            <TailTagInput
+                              value={entry.handle}
+                              onChangeText={(value) =>
+                                handleSocialLinkChange(
+                                  entry.id,
+                                  'handle',
+                                  value
+                                )
+                              }
+                              placeholder="Username"
+                              editable={!disableForm}
+                              autoCapitalize="none"
+                              keyboardType="default"
+                              returnKeyType={
+                                index === socialLinks.length - 1
+                                  ? 'done'
+                                  : 'next'
+                              }
+                              onSubmitEditing={
+                                index === socialLinks.length - 1
+                                  ? handleSubmit
+                                  : undefined
+                              }
+                              style={styles.socialInput}
+                            />
+                            <TailTagButton
+                              variant="ghost"
+                              size="sm"
+                              onPress={() =>
+                                handleRemoveSocialLink(entry.id)
+                              }
+                              disabled={disableForm}
+                              style={styles.socialRemoveButton}
+                            >
+                              Remove
+                            </TailTagButton>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
                 {socialLinksCanAddMore ? (
                   <TailTagButton
@@ -918,7 +1107,9 @@ export default function EditFursuitScreen() {
                     Add another link
                   </TailTagButton>
                 ) : (
-                  <Text style={styles.helperLabel}>You can add up to {SOCIAL_LINK_LIMIT} links.</Text>
+                  <Text style={styles.helperLabel}>
+                    You can add up to {SOCIAL_LINK_LIMIT} links.
+                  </Text>
                 )}
               </View>
 
@@ -1131,17 +1322,55 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   socialList: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   socialRow: {
     flexDirection: 'column',
     gap: spacing.sm,
   },
+  socialPlatformChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  socialPlatformChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.35)',
+    backgroundColor: 'rgba(30,41,59,0.6)',
+  },
+  socialPlatformChipSelected: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(99,102,241,0.2)',
+  },
+  socialPlatformChipDisabled: {
+    opacity: 0.5,
+  },
+  socialPlatformChipText: {
+    color: colors.foreground,
+    fontSize: 12,
+  },
+  socialPlatformChipTextSelected: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  socialPlatformChipTextDisabled: {
+    color: 'rgba(148,163,184,0.7)',
+  },
+  socialInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   socialInput: {
     flex: 1,
   },
-  socialRemoveButton: {
-    alignSelf: 'flex-start',
+  socialRemoveButton: {},
+  socialCustomInputs: {
+    flexDirection: 'column',
+    gap: spacing.sm,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -1160,6 +1389,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   errorBlock: {
+    gap: spacing.sm,
+  },
+  photoRow: {
+    alignItems: 'center',
+  },
+  photoPreview: {
+    width: '50%',
+    aspectRatio: 1,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.3)',
+  },
+  photoPlaceholder: {
+    width: '50%',
+    aspectRatio: 1,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(30,41,59,0.6)',
+  },
+  photoPlaceholderText: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+  },
+  photoButtons: {
     gap: spacing.sm,
   },
 });

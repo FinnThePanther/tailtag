@@ -33,31 +33,15 @@ type FursuitBioDetailsProps = {
 };
 
 export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
-  const tagline = withFallback(bio.tagline, 'Tagline coming soon.');
-  const ownerName = withFallback(bio.ownerName, 'Owner name coming soon.');
   const pronounLine = withFallback(bio.pronouns, 'Pronouns coming soon.');
-  const funFact = withFallback(bio.funFact, 'Fun fact coming soon.');
   const likesAndInterests = withFallback(bio.likesAndInterests, 'Likes coming soon.');
   const askMeAbout = withFallback(bio.askMeAbout, 'Ask me anything!');
 
   return (
-    <View style={styles.container}>
+    <View style={styles.sections}>
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Tagline</Text>
-        <Text style={styles.sectionBody}>{tagline}</Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Owner & pronouns</Text>
-        <View style={styles.sectionDetail}>
-          <Text style={styles.sectionBody}>{ownerName}</Text>
-          <Text style={styles.sectionMeta}>{pronounLine}</Text>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Fun fact</Text>
-        <Text style={styles.sectionBody}>{funFact}</Text>
+        <Text style={styles.sectionLabel}>Pronouns</Text>
+        <Text style={styles.sectionBody}>{pronounLine}</Text>
       </View>
 
       <View style={styles.section}>
@@ -94,12 +78,7 @@ export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
-    backgroundColor: 'rgba(15,23,42,0.6)',
-    padding: spacing.md,
+  sections: {
     gap: spacing.md,
   },
   section: {
@@ -116,13 +95,6 @@ const styles = StyleSheet.create({
     color: 'rgba(203,213,225,0.95)',
     fontSize: 14,
     lineHeight: 20,
-  },
-  sectionDetail: {
-    gap: 2,
-  },
-  sectionMeta: {
-    color: 'rgba(148,163,184,0.85)',
-    fontSize: 13,
   },
   socialList: {
     gap: spacing.sm,

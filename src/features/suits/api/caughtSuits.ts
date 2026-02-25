@@ -52,8 +52,6 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
           version,
           owner_name,
           pronouns,
-          tagline,
-          fun_fact,
           likes_and_interests,
           ask_me_about,
           social_links,
