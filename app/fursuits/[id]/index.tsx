@@ -12,7 +12,6 @@ import {
   fursuitDetailQueryKey,
 } from '../../../src/features/suits';
 import { useAuth } from '../../../src/features/auth';
-import { FursuitTagSection } from '../../../src/features/nfc';
 import {
   PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
@@ -196,9 +195,6 @@ export default function FursuitDetailScreen() {
                 </Text>
                 <Text style={styles.sectionItem}>{catchSummary}</Text>
               </View>
-            ) : null}
-            {isOwner && fursuitId ? (
-              <FursuitTagSection fursuitId={fursuitId} />
             ) : null}
             {detail.conventions.length > 0 ? (
               <View style={styles.section}>
