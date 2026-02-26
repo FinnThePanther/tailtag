@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import * as ImagePicker from "expo-image-picker";
@@ -14,6 +14,15 @@ import {
   type FursuitPhotoCandidate,
 } from "../../onboarding";
 import { MY_SUITS_QUERY_KEY } from "../../suits";
+import {
+  addFursuitConvention,
+  CONVENTIONS_STALE_TIME,
+  createConventionsQueryOptions,
+  fetchProfileConventionIds,
+  isConventionActive,
+  PROFILE_CONVENTIONS_QUERY_KEY,
+} from "../../conventions";
+import { captureNonCriticalError } from "../../../lib/sentry";
 import { colors, radius, spacing } from "../../../theme";
 import {
   fetchFursuitColors,
@@ -56,6 +65,33 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
   );
   const colorLoadError = colorError?.message ?? null;
   const isColorBusy = isColorLoading;
+
+  const { data: conventions = [] } = useQuery({
+    ...createConventionsQueryOptions(),
+    enabled: Boolean(userId),
+  });
+
+  const { data: profileConventionIds = [] } = useQuery<string[], Error>({
+    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchProfileConventionIds(userId),
+  });
+
+  const profileConventionIdSet = useMemo(
+    () => new Set(profileConventionIds),
+    [profileConventionIds],
+  );
+
+  const activeConventionIds = useMemo(
+    () =>
+      conventions
+        .filter((c) => profileConventionIdSet.has(c.id) && isConventionActive(c))
+        .map((c) => c.id),
+    [conventions, profileConventionIdSet],
+  );
 
   const handleOpenForm = () => {
     setIsExpanded(true);
@@ -170,7 +206,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
     setSubmitError(null);
 
     try {
-      await createQuickFursuit({
+      const fursuitId = await createQuickFursuit({
         userId,
         name: trimmedName,
         species: trimmedSpecies,
@@ -178,6 +214,21 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
         photo: selectedPhoto,
         colorIds,
       });
+
+      if (activeConventionIds.length > 0) {
+        void Promise.all(
+          activeConventionIds.map((conventionId) =>
+            addFursuitConvention(fursuitId, conventionId).catch((error) => {
+              captureNonCriticalError(error, {
+                scope: 'onboarding.fursuitStep.attachConvention',
+                userId,
+                fursuitId,
+                conventionId,
+              });
+            }),
+          ),
+        );
+      }
 
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
 

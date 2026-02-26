@@ -19,4 +19,5 @@ export {
 export {
   formatConventionDateRange,
   isConventionEnded,
+  isConventionActive,
 } from './utils';

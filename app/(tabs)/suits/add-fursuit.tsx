@@ -16,7 +16,7 @@ import {
 } from "../../../src/constants/codes";
 import { useAuth } from "../../../src/features/auth";
 import { supabase } from "../../../src/lib/supabase";
-import { captureHandledException } from "../../../src/lib/sentry";
+import { captureNonCriticalError } from "../../../src/lib/sentry";
 import { generateUniqueCodeCandidate } from "../../../src/utils/code";
 import { loadUriAsUint8Array } from "../../../src/utils/files";
 import { colors, spacing, radius } from "../../../src/theme";
@@ -49,6 +49,7 @@ import {
   CONVENTIONS_STALE_TIME,
   createConventionsQueryOptions,
   fetchProfileConventionIds,
+  isConventionActive,
   PROFILE_CONVENTIONS_QUERY_KEY,
 } from "../../../src/features/conventions";
 import { ConventionToggle } from "../../../src/components/conventions/ConventionToggle";
@@ -250,6 +251,18 @@ export default function AddFursuitScreen() {
     [profileConventionIds],
   );
 
+  const activeProfileConventionIds = useMemo(
+    () =>
+      conventions
+        .filter((c) => profileConventionIdSet.has(c.id) && isConventionActive(c))
+        .map((c) => c.id),
+    [conventions, profileConventionIdSet],
+  );
+
+  const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
+  const conventionsLoadError =
+    conventionsError?.message ?? profileConventionsError?.message ?? null;
+
   useEffect(() => {
     if (!userId) {
       setSelectedConventionIds(new Set());
@@ -257,8 +270,8 @@ export default function AddFursuitScreen() {
       return;
     }
 
-    if (!hasHydratedConventions) {
-      setSelectedConventionIds(new Set(profileConventionIds));
+    if (!hasHydratedConventions && !isConventionsBusy) {
+      setSelectedConventionIds(new Set(activeProfileConventionIds));
       setHasHydratedConventions(true);
       return;
     }
@@ -271,14 +284,11 @@ export default function AddFursuitScreen() {
     });
   }, [
     hasHydratedConventions,
+    activeProfileConventionIds,
     profileConventionIdSet,
-    profileConventionIds,
+    isConventionsBusy,
     userId,
   ]);
-
-  const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
-  const conventionsLoadError =
-    conventionsError?.message ?? profileConventionsError?.message ?? null;
 
   const handleConventionToggle = useCallback(
     (conventionId: string, nextSelected: boolean) => {
@@ -596,7 +606,7 @@ export default function AddFursuitScreen() {
       setAskMeAboutInput("");
       setSocialLinks(createInitialSocialLinks());
       setCatchMode("AUTO_ACCEPT");
-      setSelectedConventionIds(new Set(profileConventionIds));
+      setSelectedConventionIds(new Set(activeProfileConventionIds));
       setHasHydratedConventions(true);
       setSelectedPhoto(null);
       setPhotoError(null);
@@ -620,7 +630,7 @@ export default function AddFursuitScreen() {
           convention_ids: allowedConventionIds,
         },
       }).catch((error) => {
-        captureHandledException(error, {
+        captureNonCriticalError(error, {
           scope: "suits.addFursuit.eventEmission",
           userId,
           fursuitId: createdFursuitId,
