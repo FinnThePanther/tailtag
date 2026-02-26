@@ -35,7 +35,6 @@ type FursuitBioDetailsProps = {
 export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
   const pronounLine = withFallback(bio.pronouns, 'Pronouns coming soon.');
   const likesAndInterests = withFallback(bio.likesAndInterests, 'Likes coming soon.');
-  const askMeAbout = withFallback(bio.askMeAbout, 'Ask me anything!');
 
   return (
     <View style={styles.sections}>
@@ -47,11 +46,6 @@ export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Likes & interests</Text>
         <Text style={styles.sectionBody}>{likesAndInterests}</Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Ask me about</Text>
-        <Text style={styles.sectionBody}>{askMeAbout}</Text>
       </View>
 
       {bio.socialLinks.length > 0 ? (

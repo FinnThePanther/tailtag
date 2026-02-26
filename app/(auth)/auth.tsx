@@ -35,7 +35,7 @@ const formatError = (input: unknown) => {
 };
 
 export default function AuthScreen() {
-  const [mode, setMode] = useState<AuthMode>("sign_in");
+  const [mode, setMode] = useState<AuthMode>("sign_up");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -208,9 +208,6 @@ export default function AuthScreen() {
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
             />
-            <Text style={styles.assistiveText}>
-              Keep it simple for now—TailTag uses straightforward email login.
-            </Text>
           </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -273,9 +270,10 @@ export default function AuthScreen() {
 
         <View style={styles.footerHelper}>
           <Text style={styles.helperText}>
-            Problems signing in? Email/password, Google, Discord
-            {Platform.OS === "ios" ? ", and Apple" : ""} are all supported—make
-            sure at least one provider is enabled for your account.
+            Having trouble logging in?{" "}
+            <Text style={styles.link} onPress={() => {}}>
+              Reset password
+            </Text>
           </Text>
         </View>
       </KeyboardAwareFormWrapper>
@@ -350,10 +348,17 @@ const styles = StyleSheet.create({
   },
   footerHelper: {
     marginTop: spacing.lg,
+    alignItems: "center",
   },
   helperText: {
     color: "rgba(148,163,184,0.9)",
     fontSize: 13,
     lineHeight: 20,
+    textAlign: "center",
+  },
+  link: {
+    color: colors.primary,
+    textDecorationLine: "underline",
+    fontWeight: "600",
   },
 });

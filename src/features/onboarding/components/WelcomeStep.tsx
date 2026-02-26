@@ -1,8 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from "react-native";
 
-import { TailTagButton } from '../../../components/ui/TailTagButton';
-import { TailTagCard } from '../../../components/ui/TailTagCard';
-import { colors, spacing } from '../../../theme';
+import { TailTagButton } from "../../../components/ui/TailTagButton";
+import { TailTagCard } from "../../../components/ui/TailTagCard";
+import { colors, spacing } from "../../../theme";
 
 type WelcomeStepProps = {
   onContinue: () => void;
@@ -15,15 +15,16 @@ export function WelcomeStep({ onContinue }: WelcomeStepProps) {
         <Text style={styles.eyebrow}>Welcome to TailTag</Text>
         <Text style={styles.title}>Ready to start tagging?</Text>
         <Text style={styles.body}>
-          TailTag is a friendly scavenger hunt for fursuiters and fans. Opt into conventions, tag suits,
-          and complete achievements to climb the leaderboard.
+          TailTag is a friendly scavenger hunt to find fursuiters. Join a
+          convention, tag suiters, and complete achievements while learning more
+          about the fursuiters you meet!
         </Text>
 
         <View style={styles.captionBlock}>
           <Text style={styles.captionTitle}>How onboarding works</Text>
           <Text style={styles.captionBody}>
-            Pick a convention, optionally register a suit, try a tutorial catch, then claim your first
-            achievement.
+            Pick a convention, register a suit if you have one, try a tutorial
+            catch, then claim your first achievements.
           </Text>
         </View>
 
@@ -41,17 +42,17 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     letterSpacing: 3,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     marginBottom: spacing.xs,
   },
   title: {
     color: colors.foreground,
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: spacing.sm,
   },
   body: {
-    color: 'rgba(226,232,240,0.85)',
+    color: "rgba(226,232,240,0.85)",
     fontSize: 16,
     lineHeight: 22,
   },
@@ -63,10 +64,10 @@ const styles = StyleSheet.create({
   captionTitle: {
     color: colors.foreground,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   captionBody: {
-    color: 'rgba(203,213,225,0.85)',
+    color: "rgba(203,213,225,0.85)",
     fontSize: 15,
     lineHeight: 21,
   },
