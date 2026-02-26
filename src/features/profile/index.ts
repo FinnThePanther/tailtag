@@ -1,5 +1,6 @@
 export {
   fetchProfile,
+  checkUsernameAvailability,
   PROFILE_QUERY_KEY,
   PROFILE_STALE_TIME,
   profileQueryKey,

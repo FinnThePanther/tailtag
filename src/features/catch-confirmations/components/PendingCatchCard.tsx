@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -126,14 +126,7 @@ export function PendingCatchCard({
       <View style={styles.header}>
         <View style={styles.catcherInfo}>
           <Pressable onPress={handleViewProfile} style={styles.avatarWrapper}>
-            {pendingCatch.catcherAvatarUrl ? (
-              <Image
-                source={{ uri: pendingCatch.catcherAvatarUrl }}
-                style={styles.avatar}
-              />
-            ) : (
-              <Ionicons name="person" size={20} color="rgba(148,163,184,0.7)" />
-            )}
+            <Ionicons name="person" size={20} color="rgba(148,163,184,0.7)" />
           </Pressable>
           <View style={styles.textInfo}>
             <Pressable onPress={handleViewProfile}>
@@ -261,11 +254,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(30,41,59,0.8)',
     overflow: 'hidden',
-  },
-  avatar: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
   },
   textInfo: {
     flex: 1,

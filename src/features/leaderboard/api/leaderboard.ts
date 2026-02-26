@@ -5,7 +5,6 @@ import type { FursuitColorOption } from '../../colors';
 export type LeaderboardEntry = {
   profileId: string;
   username: string | null;
-  avatarUrl: string | null;
   catchCount: number;
 };
 
@@ -44,7 +43,6 @@ export async function fetchConventionLeaderboard(conventionId: string): Promise<
     .map((row) => ({
       profileId: row.catcher_id!,
       username: row.username,
-      avatarUrl: row.avatar_url,
       catchCount: row.catch_count!,
     }));
 }

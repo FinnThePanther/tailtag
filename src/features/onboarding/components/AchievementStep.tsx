@@ -41,7 +41,6 @@ export function AchievementStep({
       queryClient.setQueryData<ProfileSummary | null>(profileQueryKey(userId), (current) => ({
         username: current?.username ?? null,
         bio: current?.bio ?? null,
-        avatar_url: current?.avatar_url ?? null,
         onboarding_completed: true,
         is_new: false,
         role: current?.role,

@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  Image,
   StyleSheet,
   Switch,
   Text,
   View,
 } from 'react-native';
 
-import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,7 +16,6 @@ import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { STAFF_MODE_ENABLED } from '../../src/constants/features';
-import { AVATAR_BUCKET, MAX_IMAGE_SIZE } from '../../src/constants/storage';
 import {
   CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
@@ -34,11 +31,10 @@ import { ConventionToggle } from '../../src/components/conventions/ConventionTog
 import { supabase } from '../../src/lib/supabase';
 import { captureHandledException } from '../../src/lib/sentry';
 import { colors, spacing, radius } from '../../src/theme';
-import { loadUriAsUint8Array } from '../../src/utils/files';
-import { deriveStoragePathFromPublicUrl } from '../../src/utils/storage';
 import { emitGameplayEvent } from '../../src/features/events';
 import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import {
+  checkUsernameAvailability,
   fetchProfile,
   PROFILE_QUERY_KEY,
   PROFILE_STALE_TIME,
@@ -54,13 +50,6 @@ import {
 import type { CaughtRecord } from '../../src/features/suits/api/caughtSuits';
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../src/features/leaderboard/api/leaderboard';
 import { usePushNotifications } from '../../src/features/push-notifications';
-
-type UploadCandidate = {
-  uri: string;
-  mimeType: string;
-  fileName: string;
-  fileSize: number;
-} | null;
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -148,9 +137,9 @@ export default function SettingsScreen() {
   const [usernameInput, setUsernameInput] = useState('');
   const [bioInput, setBioInput] = useState('');
 
-  const [selectedAvatar, setSelectedAvatar] = useState<UploadCandidate>(null);
-  const [shouldRemoveAvatar, setShouldRemoveAvatar] = useState(false);
-  const [avatarError, setAvatarError] = useState<string | null>(null);
+  type UsernameCheckStatus = 'idle' | 'checking' | 'available' | 'taken' | 'error';
+  const [usernameCheckStatus, setUsernameCheckStatus] = useState<UsernameCheckStatus>('idle');
+  const usernameCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -174,9 +163,6 @@ export default function SettingsScreen() {
 
       setUsernameInput(summary?.username ?? '');
       setBioInput(summary?.bio ?? '');
-      setSelectedAvatar(null);
-      setShouldRemoveAvatar(false);
-      setAvatarError(null);
 
       if (resetMessages) {
         setSaveMessage(null);
@@ -274,77 +260,38 @@ export default function SettingsScreen() {
     }
   }, [userId]);
 
-  const handlePickAvatar = useCallback(async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== 'granted') {
-        setAvatarError('We need media library access to pick a photo.');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.85,
-      });
-
-      if (result.canceled) {
-        return;
-      }
-
-      const asset = result.assets[0];
-
-      if (!asset) {
-        setAvatarError('No photo selected.');
-        return;
-      }
-
-      if (asset.fileSize && asset.fileSize > MAX_IMAGE_SIZE) {
-        setAvatarError('Profile photos must be 5MB or smaller.');
-        return;
-      }
-
-      const candidate: UploadCandidate = {
-        uri: asset.uri,
-        mimeType: asset.mimeType ?? 'image/jpeg',
-        fileName: asset.fileName ?? `profile-${Date.now()}.jpg`,
-        fileSize: asset.fileSize ?? 0,
-      };
-
-      setSelectedAvatar(candidate);
-      setShouldRemoveAvatar(false);
-      setAvatarError(null);
-      setSaveMessage(null);
-      setSaveError(null);
-    } catch (caught) {
-      const fallbackMessage =
-        caught instanceof Error
-          ? caught.message
-          : 'We could not open your photo library right now. Please try again.';
-      setAvatarError(fallbackMessage);
+  useEffect(() => {
+    if (usernameCheckRef.current) {
+      clearTimeout(usernameCheckRef.current);
     }
-  }, []);
 
-  const handleClearAvatar = useCallback(() => {
-    setSelectedAvatar(null);
-    setAvatarError(null);
-    setSaveMessage(null);
-  }, []);
+    const trimmed = usernameInput.trim();
 
-  const handleRemoveCurrentAvatar = useCallback(() => {
-    setSelectedAvatar(null);
-    setShouldRemoveAvatar(true);
-    setAvatarError(null);
-    setSaveMessage(null);
-  }, []);
+    // No check needed if empty or unchanged from saved profile
+    if (!trimmed || trimmed === (profile?.username ?? '')) {
+      setUsernameCheckStatus('idle');
+      return;
+    }
 
-  const handleCancelAvatarRemoval = useCallback(() => {
-    setShouldRemoveAvatar(false);
-    setAvatarError(null);
-    setSaveMessage(null);
-  }, []);
+    setUsernameCheckStatus('checking');
+
+    usernameCheckRef.current = setTimeout(() => {
+      if (!userId) return;
+      checkUsernameAvailability(trimmed, userId)
+        .then((available) => {
+          setUsernameCheckStatus(available ? 'available' : 'taken');
+        })
+        .catch(() => {
+          setUsernameCheckStatus('error');
+        });
+    }, 500);
+
+    return () => {
+      if (usernameCheckRef.current) {
+        clearTimeout(usernameCheckRef.current);
+      }
+    };
+  }, [usernameInput, profile?.username, userId]);
 
   const conventionsLoadError = conventionsError?.message ?? profileConventionsError?.message ?? null;
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
@@ -384,9 +331,11 @@ export default function SettingsScreen() {
   const isDirty = (() => {
     const usernameChanged = (profile?.username ?? '') !== usernameInput.trim();
     const bioChanged = (profile?.bio ?? '') !== bioInput.trim();
-    const avatarChanged = Boolean(selectedAvatar) || (shouldRemoveAvatar && profile?.avatar_url);
-    return usernameChanged || bioChanged || avatarChanged;
+    return usernameChanged || bioChanged;
   })();
+
+  const isUsernameTaken = usernameCheckStatus === 'taken';
+  const isUsernameChecking = usernameCheckStatus === 'checking';
 
   const handleSave = useCallback(async () => {
     if (!userId || isSaving || !isDirty) {
@@ -397,53 +346,17 @@ export default function SettingsScreen() {
     const trimmedBio = bioInput.trim();
     const normalizedUsername = trimmedUsername.length > 0 ? trimmedUsername : null;
     const normalizedBio = trimmedBio.length > 0 ? trimmedBio : null;
-    const previousAvatarUrl = profile?.avatar_url ?? null;
-
-    let uploadedAvatarPath: string | null = null;
-    let nextAvatarUrl = previousAvatarUrl;
 
     setIsSaving(true);
     setSaveError(null);
     setSaveMessage(null);
 
     try {
-      if (selectedAvatar) {
-        if (selectedAvatar.fileSize > MAX_IMAGE_SIZE) {
-          throw new Error('Profile photos must be 5MB or smaller.');
-        }
-
-        const extension = selectedAvatar.fileName.split('.').pop()?.toLowerCase() ?? 'png';
-        const storagePath = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
-        uploadedAvatarPath = storagePath;
-
-        const fileBytes = await loadUriAsUint8Array(selectedAvatar.uri);
-
-        const { error: uploadError } = await supabase.storage
-          .from(AVATAR_BUCKET)
-          .upload(storagePath, fileBytes, {
-            contentType: selectedAvatar.mimeType,
-            upsert: true,
-          });
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(storagePath);
-
-        nextAvatarUrl = publicUrl;
-      } else if (shouldRemoveAvatar) {
-        nextAvatarUrl = null;
-      }
-
       const { error } = await (supabase as any).from('profiles').upsert(
         {
           id: userId,
           username: normalizedUsername,
           bio: normalizedBio,
-          avatar_url: nextAvatarUrl,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' }
@@ -453,39 +366,21 @@ export default function SettingsScreen() {
         throw error;
       }
 
-      if (selectedAvatar && previousAvatarUrl && nextAvatarUrl !== previousAvatarUrl) {
-        const objectPath = deriveStoragePathFromPublicUrl(previousAvatarUrl, AVATAR_BUCKET);
-        if (objectPath) {
-          await supabase.storage.from(AVATAR_BUCKET).remove([objectPath]);
-        }
-      }
-
-      if (!selectedAvatar && shouldRemoveAvatar && previousAvatarUrl) {
-        const objectPath = deriveStoragePathFromPublicUrl(previousAvatarUrl, AVATAR_BUCKET);
-        if (objectPath) {
-          await supabase.storage.from(AVATAR_BUCKET).remove([objectPath]);
-        }
-      }
-
       queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) => ({
         username: normalizedUsername,
         bio: normalizedBio,
-        avatar_url: nextAvatarUrl,
         is_new: current?.is_new ?? false,
         onboarding_completed: current?.onboarding_completed ?? false,
         role: current?.role,
       }));
       setUsernameInput(trimmedUsername);
       setBioInput(trimmedBio);
-      setSelectedAvatar(null);
-      setShouldRemoveAvatar(false);
       setSaveMessage('Profile updated');
 
       // Fire-and-forget: don't block UI on event emission
       void emitGameplayEvent({
         type: 'profile_updated',
         payload: {
-          has_avatar: Boolean(nextAvatarUrl),
           username_present: trimmedUsername.length > 0,
         },
       }).catch((error) => {
@@ -501,15 +396,6 @@ export default function SettingsScreen() {
           ? caught.message
           : 'We could not update your profile right now. Please try again.';
       setSaveError(fallbackMessage);
-
-      if (uploadedAvatarPath) {
-        const { error: cleanupError } = await supabase.storage
-          .from(AVATAR_BUCKET)
-          .remove([uploadedAvatarPath]);
-        if (cleanupError) {
-          console.warn('Failed to clean up uploaded avatar after error', cleanupError);
-        }
-      }
     } finally {
       setIsSaving(false);
     }
@@ -519,9 +405,6 @@ export default function SettingsScreen() {
     isDirty,
     usernameInput,
     bioInput,
-    selectedAvatar,
-    shouldRemoveAvatar,
-    profile?.avatar_url,
     profileQueryKey,
     queryClient,
   ]);
@@ -725,102 +608,54 @@ export default function SettingsScreen() {
           ) : profileError ? (
             <Text style={styles.error}>{profileError.message}</Text>
           ) : (
-            <View style={styles.profileSection}>
-              <Text style={styles.sectionTitle}>Profile photo</Text>
-              <View style={styles.avatarRow}>
-                {selectedAvatar ? (
-                  <Image source={{ uri: selectedAvatar.uri }} style={styles.avatarPreview} />
-                ) : profile?.avatar_url && !shouldRemoveAvatar ? (
-                  <Image source={{ uri: profile.avatar_url }} style={styles.avatarPreview} />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarPlaceholderText}>No photo</Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.avatarButtons}>
-                <View style={styles.avatarButtonFullWidth}>
-                  <TailTagButton
-                    variant="outline"
-                    onPress={handlePickAvatar}
-                    disabled={isProfileLoading || isSaving}
-                  >
-                    Choose new photo
-                  </TailTagButton>
-                </View>
-                {selectedAvatar ? (
-                  <TailTagButton
-                    variant="ghost"
-                    onPress={handleClearAvatar}
-                    disabled={isProfileLoading || isSaving}
-                  >
-                    Clear new photo
-                  </TailTagButton>
-                ) : profile?.avatar_url && !shouldRemoveAvatar ? (
-                  <TailTagButton
-                    variant="ghost"
-                    onPress={handleRemoveCurrentAvatar}
-                    disabled={isProfileLoading || isSaving}
-                  >
-                    Remove current photo
-                  </TailTagButton>
-                ) : shouldRemoveAvatar ? (
-                  <TailTagButton
-                    variant="ghost"
-                    onPress={handleCancelAvatarRemoval}
-                    disabled={isProfileLoading || isSaving}
-                  >
-                    Keep current photo
-                  </TailTagButton>
+            <View style={styles.fieldGroup}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.sectionTitle}>Username</Text>
+                <TailTagInput
+                  value={usernameInput}
+                  onChangeText={(value) => {
+                    setUsernameInput(value);
+                    setSaveMessage(null);
+                    setSaveError(null);
+                  }}
+                  editable={!isProfileLoading && !isSaving}
+                  placeholder="Pick a handle tailtaggers will remember"
+                />
+                {usernameCheckStatus === 'checking' ? (
+                  <Text style={styles.usernameChecking}>Checking availability…</Text>
+                ) : usernameCheckStatus === 'available' ? (
+                  <Text style={styles.usernameAvailable}>Username is available</Text>
+                ) : usernameCheckStatus === 'taken' ? (
+                  <Text style={styles.usernameTaken}>Username is already taken</Text>
                 ) : null}
               </View>
-              {shouldRemoveAvatar && !selectedAvatar ? (
-                <Text style={styles.warning}>Avatar will be removed once you save.</Text>
-              ) : null}
-              {avatarError ? <Text style={styles.error}>{avatarError}</Text> : null}
+              <View style={styles.fieldGroup}>
+                <Text style={styles.sectionTitle}>Bio</Text>
+                <TailTagInput
+                  value={bioInput}
+                  onChangeText={(value) => {
+                    setBioInput(value);
+                    setSaveMessage(null);
+                    setSaveError(null);
+                  }}
+                  editable={!isProfileLoading && !isSaving}
+                  multiline
+                  numberOfLines={4}
+                  style={styles.bioInput}
+                  placeholder="Share species, favorite cons, or a quick hello."
+                />
+              </View>
+              {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
+              {saveMessage ? <Text style={styles.success}>{saveMessage}</Text> : null}
+              <TailTagButton
+                onPress={handleSave}
+                disabled={!isDirty || isProfileLoading || isSaving || isUsernameTaken || isUsernameChecking}
+                loading={isSaving}
+              >
+                Save profile
+              </TailTagButton>
             </View>
           )}
-        </TailTagCard>
-
-        <TailTagCard>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.sectionTitle}>Username</Text>
-            <TailTagInput
-              value={usernameInput}
-              onChangeText={(value) => {
-                setUsernameInput(value);
-                setSaveMessage(null);
-                setSaveError(null);
-              }}
-              editable={!isProfileLoading && !isSaving}
-              placeholder="Pick a handle tailtaggers will remember"
-            />
-          </View>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.sectionTitle}>Bio</Text>
-            <TailTagInput
-              value={bioInput}
-              onChangeText={(value) => {
-                setBioInput(value);
-                setSaveMessage(null);
-                setSaveError(null);
-              }}
-              editable={!isProfileLoading && !isSaving}
-              multiline
-              numberOfLines={4}
-              style={styles.bioInput}
-              placeholder="Share species, favorite cons, or a quick hello."
-            />
-          </View>
-          {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
-          {saveMessage ? <Text style={styles.success}>{saveMessage}</Text> : null}
-          <TailTagButton
-            onPress={handleSave}
-            disabled={!isDirty || isProfileLoading || isSaving}
-            loading={isSaving}
-          >
-            Save profile
-          </TailTagButton>
         </TailTagCard>
 
         <TailTagCard>
@@ -997,9 +832,6 @@ const styles = StyleSheet.create({
     color: 'rgba(203,213,225,0.9)',
     fontSize: 14,
   },
-  profileSection: {
-    gap: spacing.md,
-  },
   statsSection: {
     gap: spacing.md,
   },
@@ -1030,11 +862,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
   },
-  sectionDivider: {
-    borderBottomColor: 'rgba(148,163,184,0.18)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginVertical: spacing.md,
-  },
   sectionSubtitle: {
     color: colors.foreground,
     fontSize: 14,
@@ -1043,40 +870,6 @@ const styles = StyleSheet.create({
   sectionHint: {
     color: 'rgba(148,163,184,0.9)',
     fontSize: 12,
-  },
-  avatarRow: {
-    alignItems: 'center',
-  },
-  avatarPreview: {
-    width: 96,
-    height: 96,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.3)',
-  },
-  avatarPlaceholder: {
-    width: 96,
-    height: 96,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(30,41,59,0.6)',
-  },
-  avatarPlaceholderText: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  },
-  avatarButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  avatarButtonFullWidth: {
-    width: '100%',
   },
   warning: {
     color: '#ef4444',
@@ -1127,5 +920,20 @@ const styles = StyleSheet.create({
   success: {
     color: '#67e8f9',
     fontSize: 14,
+  },
+  usernameChecking: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 12,
+    marginTop: spacing.xs,
+  },
+  usernameAvailable: {
+    color: '#4ade80',
+    fontSize: 12,
+    marginTop: spacing.xs,
+  },
+  usernameTaken: {
+    color: '#fca5a5',
+    fontSize: 12,
+    marginTop: spacing.xs,
   },
 });
