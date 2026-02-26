@@ -141,6 +141,7 @@ export default function SettingsScreen() {
   const [usernameCheckStatus, setUsernameCheckStatus] = useState<UsernameCheckStatus>('idle');
   const usernameCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [optimisticPushEnabled, setOptimisticPushEnabled] = useState<boolean | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -305,28 +306,45 @@ export default function SettingsScreen() {
     [profile?.role]
   );
   const isPushDenied = permissionStatus === 'denied';
-  const canTogglePush = isPushSupported && !isPushDenied && !isPushRegistering;
+  const canTogglePush = isPushSupported && !isPushRegistering;
   const isPushToggleOn = isPushSupported && permissionStatus === 'granted' && isPushEnabled;
+  const displayPushToggleOn = optimisticPushEnabled ?? isPushToggleOn;
 
   const handleTogglePush = useCallback(
     async (nextValue: boolean) => {
-      if (nextValue) {
-        await requestPermissionAndRegister();
-        return;
+      // Optimistically reflect the tap immediately so the switch animates smoothly.
+      setOptimisticPushEnabled(nextValue);
+
+      try {
+        if (nextValue) {
+          if (isPushDenied) {
+            // Attempt re-request — works on Android if not permanently denied;
+            // on iOS returns denied immediately without showing a dialog.
+            const success = await requestPermissionAndRegister();
+            if (!success) {
+              Alert.alert(
+                'Notifications Blocked',
+                'Notifications for TailTag are disabled. To enable them, open your device settings and allow notifications for TailTag.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+                ]
+              );
+            }
+            return;
+          }
+          await requestPermissionAndRegister();
+          return;
+        }
+
+        await disablePushNotifications();
+      } finally {
+        // Clear optimistic state — real state from the hook now reflects truth.
+        setOptimisticPushEnabled(null);
       }
-
-      await disablePushNotifications();
     },
-    [disablePushNotifications, requestPermissionAndRegister]
+    [disablePushNotifications, isPushDenied, requestPermissionAndRegister]
   );
-
-  const handleOpenSettings = useCallback(async () => {
-    try {
-      await Linking.openSettings();
-    } catch (caught) {
-      console.warn('Failed to open settings', caught);
-    }
-  }, []);
 
   const isDirty = (() => {
     const usernameChanged = (profile?.username ?? '') !== usernameInput.trim();
@@ -726,20 +744,20 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               <Switch
-                value={isPushToggleOn}
+                value={displayPushToggleOn}
                 onValueChange={handleTogglePush}
                 disabled={!canTogglePush}
                 trackColor={{
                   false: 'rgba(148,163,184,0.3)',
                   true: colors.primaryDark,
                 }}
-                thumbColor={isPushToggleOn ? colors.primary : 'rgba(203,213,225,0.9)'}
+                thumbColor={displayPushToggleOn ? colors.primary : 'rgba(203,213,225,0.9)'}
                 ios_backgroundColor="rgba(148,163,184,0.3)"
                 accessibilityRole="switch"
                 accessibilityLabel="Enable push notifications"
                 accessibilityHint="Toggle push notifications on or off."
                 accessibilityState={{
-                  checked: isPushToggleOn,
+                  checked: displayPushToggleOn,
                   disabled: !canTogglePush,
                 }}
               />
@@ -751,11 +769,6 @@ export default function SettingsScreen() {
               <Text style={styles.warning}>Notifications are disabled in system settings.</Text>
             ) : null}
             {pushError ? <Text style={styles.error}>{pushError}</Text> : null}
-            {isPushDenied ? (
-              <TailTagButton variant="outline" size="sm" onPress={handleOpenSettings}>
-                Open Settings
-              </TailTagButton>
-            ) : null}
           </View>
         </TailTagCard>
 

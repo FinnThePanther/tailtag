@@ -79,7 +79,7 @@ export function AchievementStep({
   return (
     <View style={styles.container}>
       <TailTagCard>
-        <Text style={styles.eyebrow}>Step 5</Text>
+        <Text style={styles.eyebrow}>Step 6</Text>
         <Text style={styles.title}>Achievement unlocked!</Text>
         <Text style={styles.body}>
           You&apos;re ready to play TailTag! The Getting Started achievement is

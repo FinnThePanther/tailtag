@@ -6,6 +6,7 @@ export {
   registerPushToken,
   updatePushPreference,
   clearPushToken,
+  markPushNotificationPrompted,
 } from './api/pushNotifications';
 export {
   NOTIFICATION_DEEP_LINKS,
