@@ -1,25 +1,38 @@
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import type { FursuitBio } from '../types';
-import { colors, radius, spacing } from '../../../theme';
-import { captureNonCriticalError } from '../../../lib/sentry';
+import type { FursuitBio } from "../types";
+import { colors, radius, spacing } from "../../../theme";
+import { captureNonCriticalError } from "../../../lib/sentry";
 
 const openSocialLink = async (url: string) => {
   try {
     const canOpen = await Linking.canOpenURL(url);
 
     if (!canOpen) {
-      Alert.alert('Link unavailable', "We couldn't open that social link on this device.");
+      Alert.alert(
+        "Link unavailable",
+        "We couldn't open that social link on this device.",
+      );
       return;
     }
 
     await Linking.openURL(url);
   } catch (error) {
     captureNonCriticalError(error, {
-      scope: 'suits.openSocialLink',
+      scope: "suits.openSocialLink",
       url,
     });
-    Alert.alert('Link unavailable', "We couldn't open that social link. Try again later.");
+    Alert.alert(
+      "Link unavailable",
+      "We couldn't open that social link. Try again later.",
+    );
   }
 };
 
@@ -33,8 +46,11 @@ type FursuitBioDetailsProps = {
 };
 
 export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
-  const pronounLine = withFallback(bio.pronouns, 'Pronouns coming soon.');
-  const likesAndInterests = withFallback(bio.likesAndInterests, 'Likes coming soon.');
+  const pronounLine = withFallback(bio.pronouns, "None specified");
+  const likesAndInterests = withFallback(
+    bio.likesAndInterests,
+    "None specified",
+  );
 
   return (
     <View style={styles.sections}>
@@ -81,12 +97,12 @@ const styles = StyleSheet.create({
   sectionLabel: {
     color: colors.primary,
     fontSize: 13,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 2,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   sectionBody: {
-    color: 'rgba(203,213,225,0.95)',
+    color: "rgba(203,213,225,0.95)",
     fontSize: 14,
     lineHeight: 20,
   },
@@ -96,19 +112,19 @@ const styles = StyleSheet.create({
   socialLink: {
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.35)',
+    borderColor: "rgba(148,163,184,0.35)",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: 'rgba(30,41,59,0.6)',
+    backgroundColor: "rgba(30,41,59,0.6)",
   },
   socialLabel: {
     color: colors.foreground,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
   },
   socialUrl: {
-    color: '#38bdf8',
+    color: "#38bdf8",
     fontSize: 13,
   },
 });

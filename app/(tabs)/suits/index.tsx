@@ -34,7 +34,7 @@ import { colors, spacing } from "../../../src/theme";
 import { toDisplayDate } from "../../../src/utils/dates";
 import { deriveStoragePathFromPublicUrl } from "../../../src/utils/storage";
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_WIDTH = Dimensions.get("window").width;
 const IS_SMALL_SCREEN = SCREEN_WIDTH <= 375;
 
 export default function MySuitsScreen() {
@@ -43,7 +43,7 @@ export default function MySuitsScreen() {
   const userId = session?.user.id ?? null;
   const suitsQueryKey = useMemo(
     () => [MY_SUITS_QUERY_KEY, userId] as const,
-    [userId]
+    [userId],
   );
 
   const queryClient = useQueryClient();
@@ -64,13 +64,13 @@ export default function MySuitsScreen() {
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
+  const [processingCatchId, setProcessingCatchId] = useState<string | null>(
+    null,
+  );
 
   // Pending catches
-  const {
-    data: pendingCatches = [],
-    refetch: refetchPendingCatches,
-  } = usePendingCatches();
+  const { data: pendingCatches = [], refetch: refetchPendingCatches } =
+    usePendingCatches();
 
   const confirmCatchMutation = useConfirmCatch();
 
@@ -79,10 +79,10 @@ export default function MySuitsScreen() {
       setProcessingCatchId(catchId);
       confirmCatchMutation.mutate(
         { catchId, decision: "accept", conventionId },
-        { onSettled: () => setProcessingCatchId(null) }
+        { onSettled: () => setProcessingCatchId(null) },
       );
     },
-    [confirmCatchMutation]
+    [confirmCatchMutation],
   );
 
   const handleRejectCatch = useCallback(
@@ -90,10 +90,10 @@ export default function MySuitsScreen() {
       setProcessingCatchId(catchId);
       confirmCatchMutation.mutate(
         { catchId, decision: "reject" },
-        { onSettled: () => setProcessingCatchId(null) }
+        { onSettled: () => setProcessingCatchId(null) },
       );
     },
-    [confirmCatchMutation]
+    [confirmCatchMutation],
   );
 
   useFocusEffect(
@@ -114,7 +114,7 @@ export default function MySuitsScreen() {
       ) {
         void refetch({ throwOnError: false });
       }
-    }, [queryClient, refetch, setActionError, suitsQueryKey, userId])
+    }, [queryClient, refetch, setActionError, suitsQueryKey, userId]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -146,7 +146,7 @@ export default function MySuitsScreen() {
               try {
                 const objectPath = deriveStoragePathFromPublicUrl(
                   suit.avatar_url,
-                  FURSUIT_BUCKET
+                  FURSUIT_BUCKET,
                 );
 
                 if (objectPath) {
@@ -157,7 +157,7 @@ export default function MySuitsScreen() {
                   if (storageError) {
                     console.warn(
                       "Failed to remove fursuit avatar from storage",
-                      storageError
+                      storageError,
                     );
                   }
                 }
@@ -175,7 +175,7 @@ export default function MySuitsScreen() {
                 queryClient.setQueryData<FursuitSummary[]>(
                   suitsQueryKey,
                   (current) =>
-                    (current ?? []).filter((item) => item.id !== suit.id)
+                    (current ?? []).filter((item) => item.id !== suit.id),
                 );
 
                 // Invalidate count cache so limit check updates immediately
@@ -193,10 +193,10 @@ export default function MySuitsScreen() {
               }
             },
           },
-        ]
+        ],
       );
     },
-    [queryClient, suitsQueryKey, userId, deletingId]
+    [queryClient, suitsQueryKey, userId, deletingId],
   );
 
   const hasSuits = suits.length > 0;
@@ -219,10 +219,10 @@ export default function MySuitsScreen() {
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Your suits</Text>
         <Text style={styles.title}>Suit deck</Text>
-      <Text style={styles.subtitle}>
-        Keep your suits up to date so other players know who they just tagged.
-      </Text>
-    </View>
+        <Text style={styles.subtitle}>
+          Keep your suits up to date so other players know who they just tagged.
+        </Text>
+      </View>
 
       <PendingCatchesList
         pendingCatches={pendingCatches}
@@ -236,8 +236,7 @@ export default function MySuitsScreen() {
           <Text style={styles.helperText}>
             {isAtFursuitLimit
               ? `You have ${MAX_FURSUITS_PER_USER}/${MAX_FURSUITS_PER_USER} suits. Delete one to add another.`
-              : `Add a new suit before you head to the floor. (${suitCount}/${MAX_FURSUITS_PER_USER})`
-            }
+              : `Add a new suit before you head to the floor. (${suitCount}/${MAX_FURSUITS_PER_USER})`}
           </Text>
           <TailTagButton
             onPress={() => router.push("/suits/add-fursuit")}
@@ -274,12 +273,12 @@ export default function MySuitsScreen() {
                       : undefined
                   }
                 >
-                <FursuitCard
-                  name={suit.name}
-                  species={suit.species}
-                  colors={suit.colors}
-                  avatarUrl={suit.avatar_url}
-                  uniqueCode={suit.unique_code}
+                  <FursuitCard
+                    name={suit.name}
+                    species={suit.species}
+                    colors={suit.colors}
+                    avatarUrl={suit.avatar_url}
+                    uniqueCode={suit.unique_code}
                     timelineLabel={timelineLabel}
                     onPress={() =>
                       router.push({

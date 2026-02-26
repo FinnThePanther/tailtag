@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
+import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
 import { TailTagInput } from '../../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../../src/components/ui/KeyboardAwareFormWrapper';
 import {
@@ -683,6 +684,8 @@ export default function EditFursuitScreen() {
   );
 
   return (
+    <View style={styles.screen}>
+    <ScreenHeader title="Edit Fursuit" onBack={() => router.back()} />
     <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
       <View style={styles.header}>
           <Text style={styles.eyebrow}>Edit bio</Text>
@@ -1199,10 +1202,15 @@ export default function EditFursuitScreen() {
           )}
         </TailTagCard>
     </KeyboardAwareFormWrapper>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
