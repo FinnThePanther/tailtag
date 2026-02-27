@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   Dimensions,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -287,14 +288,25 @@ export default function MySuitsScreen() {
                       })
                     }
                     actionSlot={
-                      <TailTagButton
-                        variant="destructive"
-                        size="sm"
+                      <Pressable
                         onPress={() => handleDelete(suit)}
-                        loading={deletingId === suit.id}
+                        disabled={deletingId === suit.id}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete fursuit"
+                        style={({ pressed }) => [
+                          {
+                            opacity:
+                              deletingId === suit.id ? 0.6 : pressed ? 0.8 : 1,
+                          },
+                        ]}
                       >
-                        Delete
-                      </TailTagButton>
+                        {deletingId === suit.id ? (
+                          <Text style={styles.deleteLink}>Deleting…</Text>
+                        ) : (
+                          <Text style={styles.deleteLink}>Delete</Text>
+                        )}
+                      </Pressable>
                     }
                   />
                 </View>
@@ -371,5 +383,12 @@ const styles = StyleSheet.create({
   },
   listItemSpacing: {
     marginBottom: spacing.md,
+  },
+  deleteLink: {
+    fontSize: IS_SMALL_SCREEN ? 10 : 11,
+    textTransform: "uppercase",
+    letterSpacing: IS_SMALL_SCREEN ? 2 : 3,
+    color: colors.destructive,
+    fontWeight: "600",
   },
 });
