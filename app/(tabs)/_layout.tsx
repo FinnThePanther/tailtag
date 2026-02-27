@@ -26,11 +26,14 @@ const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => 
       );
     case "caught":
       return (
-        <Ionicons
-          name={focused ? "ribbon" : "ribbon-outline"}
-          size={22}
-          color={color}
-        />
+        <View>
+          <Ionicons
+            name={focused ? "ribbon" : "ribbon-outline"}
+            size={22}
+            color={color}
+          />
+          <TabBadge count={options?.pendingCatchCount ?? 0} />
+        </View>
       );
     case "catch":
       return (
@@ -42,14 +45,11 @@ const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => 
       );
     case "suits":
       return (
-        <View>
-          <Ionicons
-            name={focused ? "paw" : "paw-outline"}
-            size={22}
-            color={color}
-          />
-          <TabBadge count={options?.pendingCatchCount ?? 0} />
-        </View>
+        <Ionicons
+          name={focused ? "paw" : "paw-outline"}
+          size={22}
+          color={color}
+        />
       );
     case "settings":
       return (

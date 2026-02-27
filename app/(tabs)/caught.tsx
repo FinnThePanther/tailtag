@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 
 import { useFocusEffect, useRouter } from "expo-router";
@@ -12,6 +12,11 @@ import {
   fetchCaughtSuits,
 } from "../../src/features/suits";
 import type { CaughtRecord } from "../../src/features/suits";
+import {
+  PendingCatchesList,
+  usePendingCatches,
+  useConfirmCatch,
+} from "../../src/features/catch-confirmations";
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { useAuth } from "../../src/features/auth";
@@ -90,6 +95,35 @@ export default function CaughtSuitsScreen() {
 
   const queryClient = useQueryClient();
 
+  const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
+
+  const { data: pendingCatches = [], refetch: refetchPendingCatches } =
+    usePendingCatches();
+
+  const confirmCatchMutation = useConfirmCatch();
+
+  const handleAcceptCatch = useCallback(
+    (catchId: string, conventionId?: string) => {
+      setProcessingCatchId(catchId);
+      confirmCatchMutation.mutate(
+        { catchId, decision: "accept", conventionId },
+        { onSettled: () => setProcessingCatchId(null) },
+      );
+    },
+    [confirmCatchMutation],
+  );
+
+  const handleRejectCatch = useCallback(
+    (catchId: string) => {
+      setProcessingCatchId(catchId);
+      confirmCatchMutation.mutate(
+        { catchId, decision: "reject" },
+        { onSettled: () => setProcessingCatchId(null) },
+      );
+    },
+    [confirmCatchMutation],
+  );
+
   const {
     data: records = [],
     error,
@@ -125,8 +159,11 @@ export default function CaughtSuitsScreen() {
   );
 
   const handleRefresh = useCallback(async () => {
-    await refetch({ throwOnError: false });
-  }, [refetch]);
+    await Promise.all([
+      refetch({ throwOnError: false }),
+      refetchPendingCatches(),
+    ]);
+  }, [refetch, refetchPendingCatches]);
 
   const errorMessage = error?.message ?? null;
 
@@ -189,7 +226,17 @@ export default function CaughtSuitsScreen() {
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       ItemSeparatorComponent={ItemSeparator}
-      ListHeaderComponent={ListHeader}
+      ListHeaderComponent={
+        <View>
+          <ListHeader />
+          <PendingCatchesList
+            pendingCatches={pendingCatches}
+            processingCatchId={processingCatchId}
+            onAccept={handleAcceptCatch}
+            onReject={handleRejectCatch}
+          />
+        </View>
+      }
       ListEmptyComponent={ListEmptyComponent}
       refreshControl={
         <RefreshControl
