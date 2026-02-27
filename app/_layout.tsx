@@ -4,12 +4,12 @@ import { ActivityIndicator, View } from "react-native";
 import { useSegments, Stack, Redirect, useNavigationContainerRef } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryCache, QueryClient, QueryClientProvider, MutationCache, useQuery } from "@tanstack/react-query";
 
 import { AuthProvider, useAuth, usePrimeUserData } from "../src/features/auth";
 import { createProfileQueryOptions } from "../src/features/profile";
-import { useSyncProviderAvatar } from "../src/features/profile/hooks/useSyncProviderAvatar";
 import { colors } from "../src/theme";
 import { ToastProvider } from "../src/hooks/useToast";
 import { DailyTaskToastManager } from "../src/features/daily-tasks/components/DailyTaskToastManager";
@@ -63,7 +63,6 @@ function RootLayoutNav() {
   });
 
   usePrimeUserData(session?.user.id ?? null);
-  useSyncProviderAvatar({ session, profile });
 
   if (status === "loading") {
     return <LoadingScreen />;
@@ -139,10 +138,10 @@ function RootLayoutNav() {
       <Stack.Screen name="fursuits" options={{ headerShown: false }} />
 
       {/* Achievements */}
-      <Stack.Screen name="achievements/index" options={{ title: 'Achievements' }} />
+      <Stack.Screen name="achievements/index" options={{ headerShown: false }} />
 
       {/* Daily tasks */}
-      <Stack.Screen name="daily-tasks/index" options={{ title: 'Daily Tasks' }} />
+      <Stack.Screen name="daily-tasks/index" options={{ headerShown: false }} />
 
       {/* Show My QR */}
       <Stack.Screen name="show-qr" options={{ title: 'Show My QR', presentation: 'modal' }} />
@@ -246,20 +245,22 @@ function Layout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <ToastProvider>
-              <PushNotificationManager />
-              <AchievementToastManager />
-              <DailyTaskToastManager />
-              <CatchConfirmationToastManager />
-              <RootLayoutNav />
-            </ToastProvider>
-          </AuthProvider>
-        </QueryClientProvider>
-      </SafeAreaProvider>
+      <KeyboardProvider>
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+              <ToastProvider>
+                <PushNotificationManager />
+                <AchievementToastManager />
+                <DailyTaskToastManager />
+                <CatchConfirmationToastManager />
+                <RootLayoutNav />
+              </ToastProvider>
+            </AuthProvider>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

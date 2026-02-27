@@ -31,7 +31,6 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
     catchId: row.catch_id,
     catcherId: row.catcher_id,
     catcherUsername: row.catcher_username ?? 'Unknown',
-    catcherAvatarUrl: row.catcher_avatar_url ?? null,
     fursuitId: row.fursuit_id,
     fursuitName: row.fursuit_name ?? 'Unknown Fursuit',
     fursuitAvatarUrl: row.fursuit_avatar_url ?? null,

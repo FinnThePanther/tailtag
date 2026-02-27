@@ -9,8 +9,11 @@ import {
   captureSupabaseError,
 } from '../../../lib/sentry';
 import { emitGameplayEvent } from '../../events';
+import { mapLatestFursuitBio, mapFursuitColors } from '../../suits/api/utils';
 
 import type { FursuitsInsert } from '../../../types/database';
+import type { FursuitBio } from '../../suits/types';
+import type { FursuitColorOption } from '../../colors';
 import { MAX_FURSUIT_COLORS } from '../../colors';
 import { MAX_FURSUITS_PER_USER } from '../../../constants/fursuits';
 import { ensureSpeciesEntry } from '../../species';
@@ -19,6 +22,24 @@ const TUTORIAL_FURSUIT_NAME = 'TailTag Trainer';
 const TUTORIAL_FURSUIT_SPECIES = 'Fox';
 const TUTORIAL_FURSUIT_DESCRIPTION = 'Practice suit used during onboarding';
 export const GETTING_STARTED_ACHIEVEMENT_KEY = 'getting_started';
+
+const TUTORIAL_BIO = {
+  ownerName: 'TailTag Trainer',
+  pronouns: 'they/them',
+  likesAndInterests: 'Welcoming new players, teaching the ropes, and high-fives',
+  askMeAbout: 'How to find more fursuits at the convention!',
+};
+
+const TUTORIAL_COLOR_NAMES = ['Teal', 'White'] as const;
+
+export type TutorialCatchResult = {
+  name: string;
+  species: string | null;
+  uniqueCode: string | null;
+  avatarUrl: string | null;
+  colors: FursuitColorOption[];
+  bio: FursuitBio | null;
+};
 
 export type FursuitPhotoCandidate = {
   uri: string;
@@ -97,39 +118,87 @@ const ensureTutorialFursuitForUser = async (userId: string) => {
     return existing.id as string;
   }
 
-  for (let attempt = 0; attempt < UNIQUE_INSERT_ATTEMPTS; attempt += 1) {
-    const tutorialCode = await generateAvailableFursuitCode();
-    // Ensure tutorial species exists
-    const tutorialSpeciesRecord = await ensureSpeciesEntry(TUTORIAL_FURSUIT_SPECIES);
+  // Tutorial fursuits always use "TEST" as their code.
+  // The unique constraint only applies to non-tutorial fursuits (partial index),
+  // so multiple users can each have a tutorial fursuit with this code.
+  const tutorialSpeciesRecord = await ensureSpeciesEntry(TUTORIAL_FURSUIT_SPECIES);
 
-    const { data: inserted, error: insertError } = await client
-      .from('fursuits')
-      .insert({
-        owner_id: userId,
-        name: TUTORIAL_FURSUIT_NAME,
-        species_id: tutorialSpeciesRecord.id,
-        avatar_url: null,
-        unique_code: tutorialCode,
-        description: TUTORIAL_FURSUIT_DESCRIPTION,
-        is_tutorial: true,
-      })
-      .select('id')
-      .single();
+  const { data: inserted, error: insertError } = await client
+    .from('fursuits')
+    .insert({
+      owner_id: userId,
+      name: TUTORIAL_FURSUIT_NAME,
+      species_id: tutorialSpeciesRecord.id,
+      avatar_url: null,
+      unique_code: 'TEST',
+      description: TUTORIAL_FURSUIT_DESCRIPTION,
+      is_tutorial: true,
+    })
+    .select('id')
+    .single();
 
-    if (!insertError && inserted?.id) {
-      return inserted.id as string;
-    }
-
-    if (insertError?.code !== '23505') {
-      throw new Error(`We couldn't prepare the tutorial suit: ${insertError?.message ?? 'Unknown error'}`);
-    }
+  if (insertError) {
+    throw new Error(`We couldn't prepare the tutorial suit: ${insertError.message}`);
   }
 
-  captureHandledMessage('Ran out of attempts while preparing tutorial fursuit', {
-    scope: 'onboarding.ensureTutorialFursuit',
-    userId,
-  });
-  throw new Error("We couldn't prepare the tutorial suit: ran out of attempts.");
+  if (inserted?.id) {
+    const fursuitId = inserted.id as string;
+
+    // Add bio for the tutorial fursuit
+    const { error: bioError } = await client
+      .from('fursuit_bios')
+      .insert({
+        fursuit_id: fursuitId,
+        version: 1,
+        owner_name: TUTORIAL_BIO.ownerName,
+        pronouns: TUTORIAL_BIO.pronouns,
+        likes_and_interests: TUTORIAL_BIO.likesAndInterests,
+        ask_me_about: TUTORIAL_BIO.askMeAbout,
+        social_links: [],
+      });
+
+    if (bioError) {
+      captureSupabaseError(bioError, {
+        scope: 'onboarding.ensureTutorialFursuit',
+        action: 'insertBio',
+        userId,
+        fursuitId,
+      });
+    }
+
+    // Add colors for the tutorial fursuit
+    const { data: colorRows } = await client
+      .from('fursuit_colors')
+      .select('id, name')
+      .in('name', TUTORIAL_COLOR_NAMES);
+
+    if (colorRows && colorRows.length > 0) {
+      const colorAssignments = colorRows.map(
+        (row: { id: string; name: string }, index: number) => ({
+          fursuit_id: fursuitId,
+          color_id: row.id,
+          position: index + 1,
+        }),
+      );
+
+      const { error: colorError } = await client
+        .from('fursuit_color_assignments')
+        .insert(colorAssignments);
+
+      if (colorError) {
+        captureSupabaseError(colorError, {
+          scope: 'onboarding.ensureTutorialFursuit',
+          action: 'insertColors',
+          userId,
+          fursuitId,
+        });
+      }
+    }
+
+    return fursuitId;
+  }
+
+  throw new Error("We couldn't prepare the tutorial suit: insert returned no data.");
 };
 
 export async function createQuickFursuit(options: {
@@ -288,7 +357,7 @@ export async function createQuickFursuit(options: {
   }
 }
 
-export async function recordTutorialCatch(userId: string): Promise<void> {
+export async function recordTutorialCatch(userId: string): Promise<TutorialCatchResult> {
   const client = supabase as any;
   const tutorialFursuitId = await ensureTutorialFursuitForUser(userId);
   const { error } = await client
@@ -305,6 +374,38 @@ export async function recordTutorialCatch(userId: string): Promise<void> {
   if (error && error.code !== '23505') {
     throw new Error(`We couldn't record your practice catch: ${error.message}`);
   }
+
+  // Fetch the tutorial fursuit details for the result screen
+  const { data: fursuit, error: fetchError } = await client
+    .from('fursuits')
+    .select(`
+      name,
+      avatar_url,
+      unique_code,
+      fursuit_species ( name ),
+      fursuit_color_assignments ( position, color:fursuit_colors ( id, name, normalized_name ) ),
+      fursuit_bios ( version, owner_name, pronouns, likes_and_interests, ask_me_about, social_links, created_at, updated_at )
+    `)
+    .eq('id', tutorialFursuitId)
+    .single();
+
+  if (fetchError) {
+    throw new Error(`We couldn't load the tutorial suit details: ${fetchError.message}`);
+  }
+
+  const species =
+    fursuit.fursuit_species && typeof fursuit.fursuit_species === 'object'
+      ? (fursuit.fursuit_species as { name?: string }).name ?? null
+      : null;
+
+  return {
+    name: fursuit.name,
+    species,
+    uniqueCode: fursuit.unique_code,
+    avatarUrl: fursuit.avatar_url,
+    colors: mapFursuitColors(fursuit.fursuit_color_assignments),
+    bio: mapLatestFursuitBio(fursuit.fursuit_bios),
+  };
 }
 
 export async function completeOnboarding(userId: string): Promise<void> {

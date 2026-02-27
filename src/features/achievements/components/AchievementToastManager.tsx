@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSegments } from 'expo-router';
 
 import { useAuth } from '../../auth';
-import { useAchievementUnlockToast } from '..';
+import { useAchievementUnlockToast } from '../hooks';
 import { achievementsStatusQueryKey, fetchAchievementStatus } from '../api/achievements';
 import {
   subscribeToImmediateAchievementAwards,

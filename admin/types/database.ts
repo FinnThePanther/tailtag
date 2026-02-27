@@ -526,42 +526,36 @@ export type Database = {
         Row: {
           ask_me_about: string
           created_at: string
-          fun_fact: string
           fursuit_id: string
           id: string
           likes_and_interests: string
           owner_name: string
           pronouns: string
           social_links: Json
-          tagline: string
           updated_at: string
           version: number
         }
         Insert: {
           ask_me_about: string
           created_at?: string
-          fun_fact: string
           fursuit_id: string
           id?: string
           likes_and_interests: string
           owner_name: string
           pronouns: string
           social_links?: Json
-          tagline: string
           updated_at?: string
           version: number
         }
         Update: {
           ask_me_about?: string
           created_at?: string
-          fun_fact?: string
           fursuit_id?: string
           id?: string
           likes_and_interests?: string
           owner_name?: string
           pronouns?: string
           social_links?: Json
-          tagline?: string
           updated_at?: string
           version?: number
         }

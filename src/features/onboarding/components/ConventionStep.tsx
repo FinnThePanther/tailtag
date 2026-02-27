@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { TailTagButton } from '../../../components/ui/TailTagButton';
-import { TailTagCard } from '../../../components/ui/TailTagCard';
-import { TailTagInput } from '../../../components/ui/TailTagInput';
+import { TailTagButton } from "../../../components/ui/TailTagButton";
+import { TailTagCard } from "../../../components/ui/TailTagCard";
+import { TailTagInput } from "../../../components/ui/TailTagInput";
 import {
   createConventionsQueryOptions,
   fetchProfileConventionIds,
@@ -14,10 +14,10 @@ import {
   PROFILE_CONVENTIONS_QUERY_KEY,
   type ConventionSummary,
   type VerifiedLocation,
-} from '../../conventions';
-import { ConventionToggle } from '../../../components/conventions/ConventionToggle';
-import { colors, spacing } from '../../../theme';
-import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../leaderboard/api/leaderboard';
+} from "../../conventions";
+import { ConventionToggle } from "../../../components/conventions/ConventionToggle";
+import { colors, spacing } from "../../../theme";
+import { CONVENTION_LEADERBOARD_QUERY_KEY } from "../../leaderboard/api/leaderboard";
 
 type ConventionStepProps = {
   userId: string;
@@ -27,13 +27,20 @@ type ConventionStepProps = {
 export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
   const queryClient = useQueryClient();
   const hasInitializedSelectionsRef = useRef(false);
-  const [searchInput, setSearchInput] = useState('');
-  const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
-  const [verifiedLocations, setVerifiedLocations] = useState<Record<string, VerifiedLocation>>({});
+  const [searchInput, setSearchInput] = useState("");
+  const [selectedConventionIds, setSelectedConventionIds] = useState<
+    Set<string>
+  >(new Set());
+  const [verifiedLocations, setVerifiedLocations] = useState<
+    Record<string, VerifiedLocation>
+  >({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const conventionsQueryOptions = useMemo(() => createConventionsQueryOptions(), []);
+  const conventionsQueryOptions = useMemo(
+    () => createConventionsQueryOptions(),
+    [],
+  );
   const {
     data: conventions = [],
     error,
@@ -45,22 +52,24 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
   });
 
   // Fetch user's existing conventions to handle onboarding restarts
-  const {
-    data: existingConventionIds = [],
-    isLoading: isLoadingExisting,
-  } = useQuery<string[], Error>({
-    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
-    queryFn: () => fetchProfileConventionIds(userId),
-    staleTime: 0, // Always fetch fresh data during onboarding
-    refetchOnMount: true,
-    refetchOnWindowFocus: false, // Don't refetch while user is editing selections
-    refetchOnReconnect: false, // Don't refetch on reconnect to avoid overwriting edits
-  });
+  const { data: existingConventionIds = [], isLoading: isLoadingExisting } =
+    useQuery<string[], Error>({
+      queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+      queryFn: () => fetchProfileConventionIds(userId),
+      staleTime: 0, // Always fetch fresh data during onboarding
+      refetchOnMount: true,
+      refetchOnWindowFocus: false, // Don't refetch while user is editing selections
+      refetchOnReconnect: false, // Don't refetch on reconnect to avoid overwriting edits
+    });
 
   // Pre-populate selected conventions with existing ones on initial load only
   // This ensures we don't overwrite user's in-progress edits if the query refetches
   useEffect(() => {
-    if (!isLoadingExisting && existingConventionIds.length > 0 && !hasInitializedSelectionsRef.current) {
+    if (
+      !isLoadingExisting &&
+      existingConventionIds.length > 0 &&
+      !hasInitializedSelectionsRef.current
+    ) {
       setSelectedConventionIds(new Set(existingConventionIds));
       hasInitializedSelectionsRef.current = true;
     }
@@ -73,7 +82,8 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
 
     const normalized = searchInput.trim().toLowerCase();
     return conventions.filter((convention) => {
-      const haystack = `${convention.name} ${convention.location ?? ''}`.toLowerCase();
+      const haystack =
+        `${convention.name} ${convention.location ?? ""}`.toLowerCase();
       return haystack.includes(normalized);
     });
   }, [conventions, searchInput]);
@@ -81,7 +91,7 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
   const toggleConvention = (
     conventionId: string,
     nextSelected: boolean,
-    verifiedLocation?: VerifiedLocation | null
+    verifiedLocation?: VerifiedLocation | null,
   ) => {
     setSelectedConventionIds((current) => {
       const next = new Set(current);
@@ -106,7 +116,7 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
 
   const handleSubmit = async () => {
     if (selectedConventionIds.size === 0 || isSubmitting) {
-      setSubmitError('Select at least one convention to continue.');
+      setSubmitError("Select at least one convention to continue.");
       return;
     }
 
@@ -130,7 +140,7 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
             profileId: userId,
             conventionId,
             verifiedLocation: verifiedLocations[conventionId],
-          })
+          }),
         );
       });
 
@@ -146,12 +156,14 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
       // Optimistically update cache with final state
       queryClient.setQueryData<string[] | undefined>(
         [PROFILE_CONVENTIONS_QUERY_KEY, userId],
-        selections
+        selections,
       );
 
       // Invalidate leaderboard cache for joined conventions
       toAdd.forEach((conventionId) => {
-        void queryClient.invalidateQueries({ queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId] });
+        void queryClient.invalidateQueries({
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
+        });
       });
 
       onComplete(selections);
@@ -159,7 +171,7 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
       const message =
         caught instanceof Error
           ? caught.message
-          : 'We could not save your convention picks. Please try again.';
+          : "We could not save your convention picks. Please try again.";
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);
@@ -172,8 +184,7 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
         <Text style={styles.eyebrow}>Step 2</Text>
         <Text style={styles.title}>Choose your first convention</Text>
         <Text style={styles.body}>
-          Pick at least one convention so other players know where they can find you. You can change
-          this later in settings.
+          Pick the current convention you're attending to find other fursuiters!
         </Text>
 
         <TailTagInput
@@ -186,7 +197,12 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
 
         <View style={styles.listHeader}>
           <Text style={styles.listHeaderText}>Active conventions</Text>
-          <TailTagButton size="sm" variant="outline" onPress={() => refetch()} disabled={isLoading || isLoadingExisting}>
+          <TailTagButton
+            size="sm"
+            variant="outline"
+            onPress={() => refetch()}
+            disabled={isLoading || isLoadingExisting}
+          >
             Refresh
           </TailTagButton>
         </View>
@@ -202,7 +218,9 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
           ) : error ? (
             <Text style={styles.error}>{error.message}</Text>
           ) : filteredConventions.length === 0 ? (
-            <Text style={styles.message}>No conventions matched your search yet.</Text>
+            <Text style={styles.message}>
+              No conventions matched your search yet.
+            </Text>
           ) : (
             filteredConventions.map((convention) => {
               const selected = selectedConventionIds.has(convention.id);
@@ -215,7 +233,11 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
                     disabled={isSubmitting}
                     profileId={userId}
                     onToggle={(conventionId, nextSelected, verifiedLocation) =>
-                      toggleConvention(conventionId, nextSelected, verifiedLocation)
+                      toggleConvention(
+                        conventionId,
+                        nextSelected,
+                        verifiedLocation,
+                      )
                     }
                   />
                 </View>
@@ -226,7 +248,11 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
 
         {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
 
-        <TailTagButton onPress={handleSubmit} loading={isSubmitting} disabled={isSubmitting}>
+        <TailTagButton
+          onPress={handleSubmit}
+          loading={isSubmitting}
+          disabled={isSubmitting}
+        >
           Continue
         </TailTagButton>
       </TailTagCard>
@@ -242,17 +268,17 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 13,
     letterSpacing: 2,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     marginBottom: spacing.xs,
   },
   title: {
     color: colors.foreground,
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: spacing.xs,
   },
   body: {
-    color: 'rgba(226,232,240,0.85)',
+    color: "rgba(226,232,240,0.85)",
     fontSize: 15,
     lineHeight: 22,
     marginBottom: spacing.md,
@@ -261,15 +287,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: spacing.sm,
   },
   listHeaderText: {
     color: colors.foreground,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   list: {
     maxHeight: 320,
@@ -282,7 +308,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   message: {
-    color: 'rgba(148,163,184,0.85)',
+    color: "rgba(148,163,184,0.85)",
     fontSize: 15,
   },
   error: {

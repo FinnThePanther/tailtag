@@ -826,7 +826,7 @@ async function fetchProfileSnapshot(
 ) {
   const { data, error } = await supabaseAdmin
     .from("profiles")
-    .select("username,bio,avatar_url")
+    .select("username,bio")
     .eq("id", userId)
     .limit(1)
     .maybeSingle();
@@ -841,7 +841,6 @@ async function fetchProfileSnapshot(
   return {
     hasUsername: Boolean(data.username && data.username.trim().length > 0),
     hasBio: Boolean(data.bio && data.bio.trim().length > 0),
-    hasAvatar: Boolean(data.avatar_url && data.avatar_url.trim().length > 0),
   };
 }
 

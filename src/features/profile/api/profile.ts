@@ -4,7 +4,6 @@ type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
 export type ProfileSummary = {
   username: string | null;
   bio: string | null;
-  avatar_url: string | null;
   is_new: boolean;
   onboarding_completed: boolean;
   role?: UserRole;
@@ -21,7 +20,7 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
   const client = supabase as any;
   const { data, error } = await client
     .from('profiles')
-    .select('username, bio, avatar_url, is_new, onboarding_completed, role, push_notifications_enabled, push_notifications_prompted')
+    .select('username, bio, is_new, onboarding_completed, role, push_notifications_enabled, push_notifications_prompted')
     .eq('id', userId)
     .maybeSingle();
 
@@ -36,13 +35,30 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
   return {
     username: data.username ?? null,
     bio: data.bio ?? null,
-    avatar_url: data.avatar_url ?? null,
     is_new: data.is_new === true,
     onboarding_completed: data.onboarding_completed === true,
     role: data.role ?? undefined,
     push_notifications_enabled: data.push_notifications_enabled ?? false,
     push_notifications_prompted: data.push_notifications_prompted ?? false,
   };
+}
+
+export async function checkUsernameAvailability(
+  username: string,
+  currentUserId: string
+): Promise<boolean> {
+  const { data, error } = await (supabase as any)
+    .from('profiles')
+    .select('id')
+    .ilike('username', username)
+    .neq('id', currentUserId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data === null;
 }
 
 export const createProfileQueryOptions = (userId: string) => ({

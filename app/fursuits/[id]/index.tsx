@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
+import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
 import {
   FursuitCard,
   FursuitBioDetails,
@@ -12,7 +13,6 @@ import {
   fursuitDetailQueryKey,
 } from '../../../src/features/suits';
 import { useAuth } from '../../../src/features/auth';
-import { FursuitTagSection } from '../../../src/features/nfc';
 import {
   PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
@@ -144,19 +144,22 @@ export default function FursuitDetailScreen() {
   const addedDate = detail ? formatDate(detail.created_at) : null;
   const catchSummary = detail ? formatCatchSummary(detail.catchCount) : null;
 
+  const editButton = isOwner ? (
+    <Pressable
+      onPress={handleEditBio}
+      hitSlop={8}
+      style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+    >
+      <Text style={styles.headerButton}>Edit</Text>
+    </Pressable>
+  ) : undefined;
+
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: detail?.name ?? 'Fursuit',
-          headerRight: isOwner
-            ? () => (
-                <TailTagButton variant="ghost" size="sm" onPress={handleEditBio}>
-                  Edit
-                </TailTagButton>
-              )
-            : undefined,
-        }}
+    <View style={styles.screen}>
+      <ScreenHeader
+        title={detail?.name ?? 'Fursuit'}
+        onBack={() => router.back()}
+        right={editButton}
       />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
         <TailTagCard>
@@ -197,9 +200,6 @@ export default function FursuitDetailScreen() {
                 <Text style={styles.sectionItem}>{catchSummary}</Text>
               </View>
             ) : null}
-            {isOwner && fursuitId ? (
-              <FursuitTagSection fursuitId={fursuitId} />
-            ) : null}
             {detail.conventions.length > 0 ? (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Convention appearances</Text>
@@ -215,26 +215,21 @@ export default function FursuitDetailScreen() {
                 })}
               </View>
             ) : null}
-            {detail.owner_profile ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Owner profile</Text>
-                <Text style={styles.sectionItem}>
-                  {detail.owner_profile.username ?? 'No username yet'}
-                </Text>
-              </View>
-            ) : null}
           </View>
         )}
       </TailTagCard>
       </ScrollView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
+  screen: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  scroll: {
+    flex: 1,
   },
   container: {
     paddingHorizontal: spacing.lg,
@@ -267,5 +262,9 @@ const styles = StyleSheet.create({
   sectionItem: {
     color: 'rgba(203,213,225,0.9)',
     fontSize: 14,
+  },
+  headerButton: {
+    color: colors.primary,
+    fontSize: 17,
   },
 });
