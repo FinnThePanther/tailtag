@@ -38,11 +38,6 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
           normalized_name
         )
       ),
-      owner_profile:profiles (
-        id,
-        username,
-        avatar_url
-      ),
       fursuit_conventions:fursuit_conventions (
         convention:conventions (
           id,
@@ -57,8 +52,6 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
         version,
         owner_name,
         pronouns,
-        tagline,
-        fun_fact,
         likes_and_interests,
         ask_me_about,
         social_links,
@@ -135,12 +128,5 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     created_at: data.created_at ?? null,
     conventions,
     bio,
-    owner_profile: data.owner_profile
-      ? {
-          id: data.owner_profile.id,
-          username: data.owner_profile.username ?? null,
-          avatar_url: data.owner_profile.avatar_url ?? null,
-        }
-      : null,
   } satisfies FursuitDetail;
 }

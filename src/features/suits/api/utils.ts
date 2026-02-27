@@ -11,8 +11,6 @@ type RawFursuitBio = {
   version?: unknown;
   owner_name?: unknown;
   pronouns?: unknown;
-  tagline?: unknown;
-  fun_fact?: unknown;
   likes_and_interests?: unknown;
   ask_me_about?: unknown;
   social_links?: unknown;
@@ -79,8 +77,6 @@ export const mapFursuitBio = (raw: unknown): FursuitBio | null => {
 
   const ownerName = coerceString(source.owner_name).trim();
   const pronouns = coerceString(source.pronouns).trim();
-  const tagline = coerceString(source.tagline).trim();
-  const funFact = coerceString(source.fun_fact).trim();
   const likesAndInterests = coerceString(source.likes_and_interests).trim();
   const askMeAbout = coerceString(source.ask_me_about).trim();
   const socialLinks = parseSocialLinks(source.social_links);
@@ -91,8 +87,6 @@ export const mapFursuitBio = (raw: unknown): FursuitBio | null => {
   if (
     !ownerName &&
     !pronouns &&
-    !tagline &&
-    !funFact &&
     !likesAndInterests &&
     !askMeAbout &&
     socialLinks.length === 0
@@ -104,8 +98,6 @@ export const mapFursuitBio = (raw: unknown): FursuitBio | null => {
     version,
     ownerName,
     pronouns,
-    tagline,
-    funFact,
     likesAndInterests,
     askMeAbout,
     socialLinks,

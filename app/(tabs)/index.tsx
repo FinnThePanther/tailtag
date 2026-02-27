@@ -64,14 +64,13 @@ export default function HomeScreen() {
   const maxContentWidth = useMemo(() => {
     const safeWidth = Number.isFinite(windowWidth) ? windowWidth : 0;
     const paddedWidth = safeWidth - spacing.lg * 2;
-    const contentWidth =
-      paddedWidth > 0 ? paddedWidth : Math.max(safeWidth, 0);
+    const contentWidth = paddedWidth > 0 ? paddedWidth : Math.max(safeWidth, 0);
     return Math.min(contentWidth, 960);
   }, [windowWidth]);
 
   const contentWidthStyle = useMemo(
     () => ({ width: maxContentWidth }),
-    [maxContentWidth]
+    [maxContentWidth],
   );
 
   const {
@@ -107,7 +106,7 @@ export default function HomeScreen() {
       userId
         ? achievementsStatusQueryKey(userId)
         : (["achievements-status", "guest"] as const),
-    [userId]
+    [userId],
   );
 
   const {
@@ -127,7 +126,7 @@ export default function HomeScreen() {
 
   const unlockedAchievements = useMemo(
     () => achievementStatuses.filter((achievement) => achievement.unlocked),
-    [achievementStatuses]
+    [achievementStatuses],
   );
 
   const achievementsTotal = achievementStatuses.length;
@@ -154,7 +153,7 @@ export default function HomeScreen() {
 
   const conventionMap = useMemo(() => {
     return new Map(
-      conventions.map((convention) => [convention.id, convention])
+      conventions.map((convention) => [convention.id, convention]),
     );
   }, [conventions]);
 
@@ -162,7 +161,7 @@ export default function HomeScreen() {
     return profileConventionIds
       .map((id) => conventionMap.get(id))
       .filter((convention): convention is ConventionSummary =>
-        Boolean(convention)
+        Boolean(convention),
       );
   }, [conventionMap, profileConventionIds]);
 
@@ -193,7 +192,7 @@ export default function HomeScreen() {
     }
     return (
       availableConventions.find(
-        (convention) => convention.id === selectedConventionId
+        (convention) => convention.id === selectedConventionId,
       ) ?? null
     );
   }, [availableConventions, selectedConventionId]);
@@ -214,7 +213,7 @@ export default function HomeScreen() {
       : 0;
   const dailyRemainingTasks = Math.max(
     dailyTotalTasks - dailyCompletedTasks,
-    0
+    0,
   );
   const dailyTasksErrorMessage = dailyTasksError?.message ?? null;
   const hasDailyAssignments = dailyTotalTasks > 0;
@@ -255,7 +254,7 @@ export default function HomeScreen() {
           queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, "idle"],
           queryFn: async () => [],
           enabled: false,
-        }
+        },
   );
 
   const {
@@ -271,7 +270,7 @@ export default function HomeScreen() {
           queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, "idle"],
           queryFn: async () => [],
           enabled: false,
-        }
+        },
   );
 
   // Subscribe to realtime changes for leaderboard updates
@@ -283,48 +282,66 @@ export default function HomeScreen() {
     // Subscribe to catches - invalidate leaderboard when new catches happen
     const catchesChannel = supabase
       .channel(`leaderboard-catches:${selectedConventionId}:${instanceId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'catches',
-      }, () => {
-        void queryClient.invalidateQueries({
-          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId]
-        });
-        void queryClient.invalidateQueries({
-          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId]
-        });
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "catches",
+        },
+        () => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId],
+          });
+          void queryClient.invalidateQueries({
+            queryKey: [
+              CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
+              selectedConventionId,
+            ],
+          });
+        },
+      )
       .subscribe();
 
     // Subscribe to profile_conventions - invalidate when players join/leave
     const participantsChannel = supabase
       .channel(`leaderboard-participants:${selectedConventionId}:${instanceId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'profile_conventions',
-        filter: `convention_id=eq.${selectedConventionId}`,
-      }, () => {
-        void queryClient.invalidateQueries({
-          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId]
-        });
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "profile_conventions",
+          filter: `convention_id=eq.${selectedConventionId}`,
+        },
+        () => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId],
+          });
+        },
+      )
       .subscribe();
 
     // Subscribe to fursuit_conventions - invalidate when fursuits join/leave
     const fursuitsChannel = supabase
       .channel(`leaderboard-fursuits:${selectedConventionId}:${instanceId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'fursuit_conventions',
-        filter: `convention_id=eq.${selectedConventionId}`,
-      }, () => {
-        void queryClient.invalidateQueries({
-          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId]
-        });
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "fursuit_conventions",
+          filter: `convention_id=eq.${selectedConventionId}`,
+        },
+        () => {
+          void queryClient.invalidateQueries({
+            queryKey: [
+              CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
+              selectedConventionId,
+            ],
+          });
+        },
+      )
       .subscribe();
 
     return () => {
@@ -343,20 +360,22 @@ export default function HomeScreen() {
 
   const rankByProfileId = useMemo(() => {
     return new Map(
-      leaderboardEntries.map((entry, index) => [entry.profileId, index + 1])
+      leaderboardEntries.map((entry, index) => [entry.profileId, index + 1]),
     );
   }, [leaderboardEntries]);
 
   // Only show players with at least 1 catch
-  const entriesWithCatches = leaderboardEntries.filter((entry) => entry.catchCount > 0);
+  const entriesWithCatches = leaderboardEntries.filter(
+    (entry) => entry.catchCount > 0,
+  );
   const topEntries = entriesWithCatches.slice(0, MAX_LEADERBOARD_ENTRIES);
   const selfEntry = userId
-    ? entriesWithCatches.find((entry) => entry.profileId === userId) ?? null
+    ? (entriesWithCatches.find((entry) => entry.profileId === userId) ?? null)
     : null;
 
   const isSelfOutsideTop = Boolean(
     selfEntry &&
-      !topEntries.some((entry) => entry.profileId === selfEntry.profileId)
+    !topEntries.some((entry) => entry.profileId === selfEntry.profileId),
   );
 
   const displayEntries =
@@ -364,7 +383,7 @@ export default function HomeScreen() {
 
   const topSuitEntries = suitLeaderboardEntries.slice(
     0,
-    MAX_LEADERBOARD_ENTRIES
+    MAX_LEADERBOARD_ENTRIES,
   );
   const isSuitLeaderboardBusy =
     isSuitLeaderboardLoading || isSuitLeaderboardFetching;
@@ -441,14 +460,13 @@ export default function HomeScreen() {
         </View>
 
         <View style={[styles.heroBlock, contentWidthStyle]}>
-          <Text style={styles.badge}>Alpha Preview</Text>
+          <Text style={styles.badge}>BETA</Text>
           <Text style={styles.title}>
-            Catch fursuits, grow your collection, and keep the con energy going.
+            Catch fursuits, grow your collection, and make new furry friends!
           </Text>
           <Text style={styles.subtitle}>
-            TailTag makes swapping bespoke suit codes effortless. Choose your
-            con, catch suit tags on the floor, and watch your collection grow
-            from your phone.
+            TailTag makes meeting fursuiters fun! Collect their codes, learn
+            about thier likes and interests, and start a conversation!
           </Text>
           <View style={styles.ctaRow}>
             <TailTagButton onPress={() => router.push("/catch")} size="lg">
@@ -466,7 +484,7 @@ export default function HomeScreen() {
 
         <TailTagCard style={[styles.dailyCard, contentWidthStyle]}>
           <Text style={styles.sectionEyebrow}>Daily tasks</Text>
-          <Text style={styles.sectionTitle}>Today's To-Dos</Text>
+          <Text style={styles.sectionTitle}>Today's objectives</Text>
 
           {!selectedConventionId ? (
             <Text style={styles.message}>
@@ -537,7 +555,7 @@ export default function HomeScreen() {
 
         <TailTagCard style={[styles.achievementsCard, contentWidthStyle]}>
           <Text style={styles.sectionEyebrow}>Achievements</Text>
-          <Text style={styles.sectionTitle}>Keep the streak going</Text>
+          <Text style={styles.sectionTitle}>Track your progress</Text>
 
           {isAchievementsBusy ? (
             <Text style={styles.message}>Checking your progress…</Text>
@@ -576,7 +594,7 @@ export default function HomeScreen() {
                     {
                       width: `${Math.min(
                         Math.max(achievementsProgressPercent, 0),
-                        100
+                        100,
                       )}%`,
                     },
                   ]}
@@ -640,16 +658,6 @@ export default function HomeScreen() {
                     {convention.name}
                   </TailTagButton>
                 ))}
-                {selectedConventionId ? (
-                  <TailTagButton
-                    variant="outline"
-                    size="sm"
-                    onPress={handleReloadStandings}
-                    style={styles.reloadButton}
-                  >
-                    Reload standings
-                  </TailTagButton>
-                ) : null}
               </View>
 
               {selectedConventionId ? (
@@ -797,36 +805,43 @@ export default function HomeScreen() {
               </TailTagButton>
             </View>
           )}
+
+          <TailTagButton
+            variant="outline"
+            onPress={handleReloadStandings}
+            style={styles.leaderboardCta}
+            disabled={!selectedConventionId}
+          >
+            Reload standings
+          </TailTagButton>
         </TailTagCard>
 
         <TailTagCard style={[styles.loopCard, contentWidthStyle]}>
-          <Text style={styles.sectionEyebrow}>Gameplay Loop</Text>
+          <Text style={styles.sectionEyebrow}>How to Play</Text>
           <Text style={styles.sectionTitle}>Four quick steps</Text>
           <View>
             {[
               {
                 step: "1",
-                title: "Register",
-                description:
-                  "Create your TailTag profile in seconds with email login.",
+                title: "Add your fursuit (if you have one)",
+                description: "Each gets an auto-generated catch code to share.",
               },
               {
                 step: "2",
-                title: "Add suits",
+                title: "Log catches",
                 description:
-                  "Give each fursuit a name, species, and a unique catch code.",
+                  "Catch fursuiters with their codes and watch your collection grow.",
               },
               {
                 step: "3",
-                title: "Trade tags",
+                title: "Complete tasks & earn achievements",
                 description:
-                  "Swap codes with other players out at a convention.",
+                  "Tackle daily challenges at conventions and unlock achievements along the way.",
               },
               {
                 step: "4",
-                title: "Log catches",
-                description:
-                  "Record new catches instantly and watch your collection fill out.",
+                title: "Meet fursuiters",
+                description: "Connect with cool new fursuiters while you play!",
               },
             ].map((item, index, array) => (
               <View
@@ -994,7 +1009,9 @@ const styles = StyleSheet.create({
   },
   leaderboardCard: {
     marginBottom: spacing.xl,
+    gap: spacing.md,
   },
+  leaderboardCta: {},
   loopCard: {
     marginBottom: spacing.xl,
   },

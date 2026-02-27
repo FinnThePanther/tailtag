@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import QRCode from 'react-native-qrcode-svg';
 import * as FileSystem from 'expo-file-system';
@@ -9,6 +9,7 @@ import * as Sharing from 'expo-sharing';
 
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
+import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
 import {
   fetchFursuitDetail,
   fursuitDetailQueryKey,
@@ -281,8 +282,8 @@ export default function ManageTagsScreen() {
   // Show registration flow
   if (showRegistration && fursuitId) {
     return (
-      <>
-        <Stack.Screen options={{ title: 'Register Tag' }} />
+      <View style={styles.screen}>
+        <ScreenHeader title="Register Tag" onBack={() => router.back()} />
         <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
           <TagRegistrationFlow
             fursuitId={fursuitId}
@@ -291,13 +292,13 @@ export default function ManageTagsScreen() {
             onCancel={() => setShowRegistration(false)}
           />
         </ScrollView>
-      </>
+      </View>
     );
   }
 
   return (
-    <>
-      <Stack.Screen options={{ title: 'NFC Tag' }} />
+    <View style={styles.screen}>
+      <ScreenHeader title="NFC Tag" onBack={() => router.back()} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
         <TailTagCard>
           {isLoading ? (
@@ -490,14 +491,17 @@ export default function ManageTagsScreen() {
           </TailTagCard>
         )}
       </ScrollView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
+  screen: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  scroll: {
+    flex: 1,
   },
   container: {
     paddingHorizontal: spacing.lg,

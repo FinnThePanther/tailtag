@@ -26,11 +26,14 @@ const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => 
       );
     case "caught":
       return (
-        <Ionicons
-          name={focused ? "ribbon" : "ribbon-outline"}
-          size={22}
-          color={color}
-        />
+        <View>
+          <Ionicons
+            name={focused ? "ribbon" : "ribbon-outline"}
+            size={22}
+            color={color}
+          />
+          <TabBadge count={options?.pendingCatchCount ?? 0} />
+        </View>
       );
     case "catch":
       return (
@@ -42,14 +45,11 @@ const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => 
       );
     case "suits":
       return (
-        <View>
-          <Ionicons
-            name={focused ? "paw" : "paw-outline"}
-            size={22}
-            color={color}
-          />
-          <TabBadge count={options?.pendingCatchCount ?? 0} />
-        </View>
+        <Ionicons
+          name={focused ? "paw" : "paw-outline"}
+          size={22}
+          color={color}
+        />
       );
     case "settings":
       return (
@@ -94,7 +94,16 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: "Home" }} />
       <Tabs.Screen name="caught" options={{ title: "Caught" }} />
       <Tabs.Screen name="catch" options={{ title: "Catch" }} />
-      <Tabs.Screen name="suits" options={{ title: "My Suits" }} />
+      <Tabs.Screen
+        name="suits"
+        options={{ title: "My Suits" }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate("suits", { screen: "index" });
+          },
+        })}
+      />
       <Tabs.Screen name="settings" options={{ title: "Settings" }} />
     </Tabs>
   );

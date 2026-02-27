@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 import type { StyleProp, ViewStyle } from "react-native";
 
@@ -11,32 +12,26 @@ interface KeyboardAwareFormWrapperProps {
 }
 
 /**
- * A reusable wrapper component that handles keyboard avoidance for forms.
- * Uses native KeyboardAvoidingView for platform-specific behavior.
+ * Scrollable form wrapper that automatically scrolls to keep the focused
+ * TextInput visible above the keyboard on both iOS and Android.
  *
- * This component:
- * - Adjusts layout when keyboard appears (padding on iOS, height on Android)
- * - Works on both iOS and Android
- * - Dismisses keyboard on tap outside inputs
+ * Powered by react-native-keyboard-controller's KeyboardAwareScrollView,
+ * which requires <KeyboardProvider> in the app root.
  */
 export function KeyboardAwareFormWrapper({
   children,
   contentContainerStyle,
 }: KeyboardAwareFormWrapperProps) {
   return (
-    <KeyboardAvoidingView
+    <KeyboardAwareScrollView
       style={styles.wrapper}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+      contentContainerStyle={[styles.defaultContainer, contentContainerStyle]}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator
+      bottomOffset={spacing.xl}
     >
-      <ScrollView
-        contentContainerStyle={[styles.defaultContainer, contentContainerStyle]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator
-      >
-        {children}
-      </ScrollView>
-    </KeyboardAvoidingView>
+      {children}
+    </KeyboardAwareScrollView>
   );
 }
 

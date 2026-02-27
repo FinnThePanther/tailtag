@@ -1,8 +1,8 @@
-import { useCallback, useMemo } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from "react";
+import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useFocusEffect, useRouter } from "expo-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   FursuitCard,
@@ -10,13 +10,18 @@ import {
   CAUGHT_SUITS_QUERY_KEY,
   CAUGHT_SUITS_STALE_TIME,
   fetchCaughtSuits,
-} from '../../src/features/suits';
-import type { CaughtRecord } from '../../src/features/suits';
-import { TailTagButton } from '../../src/components/ui/TailTagButton';
-import { TailTagCard } from '../../src/components/ui/TailTagCard';
-import { useAuth } from '../../src/features/auth';
-import { colors, spacing } from '../../src/theme';
-import { toDisplayDateTime } from '../../src/utils/dates';
+} from "../../src/features/suits";
+import type { CaughtRecord } from "../../src/features/suits";
+import {
+  PendingCatchesList,
+  usePendingCatches,
+  useConfirmCatch,
+} from "../../src/features/catch-confirmations";
+import { TailTagButton } from "../../src/components/ui/TailTagButton";
+import { TailTagCard } from "../../src/components/ui/TailTagCard";
+import { useAuth } from "../../src/features/auth";
+import { colors, spacing } from "../../src/theme";
+import { toDisplayDateTime } from "../../src/utils/dates";
 
 function ListHeader() {
   return (
@@ -24,7 +29,7 @@ function ListHeader() {
       <Text style={styles.eyebrow}>Caught suits</Text>
       <Text style={styles.title}>Your collection</Text>
       <Text style={styles.subtitle}>
-        Every tag you log shows up here. Keep hunting to grow your streak.
+        Every catch you log shows up here. Keep tagging to grow your collection!
       </Text>
     </View>
   );
@@ -47,14 +52,14 @@ function CaughtSuitItem({
     return null;
   }
 
-  const caughtLabel = toDisplayDateTime(record.caught_at) ?? 'Caught just now';
+  const caughtLabel = toDisplayDateTime(record.caught_at) ?? "Caught just now";
   const pieces = [caughtLabel];
 
-  if (typeof record.catchNumber === 'number' && record.catchNumber > 0) {
+  if (typeof record.catchNumber === "number" && record.catchNumber > 0) {
     pieces.push(`Catcher #${record.catchNumber}`);
   }
 
-  const timelineLabel = pieces.join(' · ');
+  const timelineLabel = pieces.join(" · ");
 
   return (
     <View>
@@ -70,7 +75,9 @@ function CaughtSuitItem({
       />
       {details.bio ? (
         <View style={styles.bioSpacing}>
-          <FursuitBioDetails bio={details.bio} />
+          <TailTagCard>
+            <FursuitBioDetails bio={details.bio} />
+          </TailTagCard>
         </View>
       ) : null}
     </View>
@@ -81,9 +88,41 @@ export default function CaughtSuitsScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const router = useRouter();
-  const caughtSuitsKey = useMemo(() => [CAUGHT_SUITS_QUERY_KEY, userId] as const, [userId]);
+  const caughtSuitsKey = useMemo(
+    () => [CAUGHT_SUITS_QUERY_KEY, userId] as const,
+    [userId],
+  );
 
   const queryClient = useQueryClient();
+
+  const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
+
+  const { data: pendingCatches = [], refetch: refetchPendingCatches } =
+    usePendingCatches();
+
+  const confirmCatchMutation = useConfirmCatch();
+
+  const handleAcceptCatch = useCallback(
+    (catchId: string, conventionId?: string) => {
+      setProcessingCatchId(catchId);
+      confirmCatchMutation.mutate(
+        { catchId, decision: "accept", conventionId },
+        { onSettled: () => setProcessingCatchId(null) },
+      );
+    },
+    [confirmCatchMutation],
+  );
+
+  const handleRejectCatch = useCallback(
+    (catchId: string) => {
+      setProcessingCatchId(catchId);
+      confirmCatchMutation.mutate(
+        { catchId, decision: "reject" },
+        { onSettled: () => setProcessingCatchId(null) },
+      );
+    },
+    [confirmCatchMutation],
+  );
 
   const {
     data: records = [],
@@ -111,16 +150,20 @@ export default function CaughtSuitsScreen() {
       if (
         !state ||
         state.isInvalidated ||
-        (state.status === 'success' && Date.now() - state.dataUpdatedAt > CAUGHT_SUITS_STALE_TIME)
+        (state.status === "success" &&
+          Date.now() - state.dataUpdatedAt > CAUGHT_SUITS_STALE_TIME)
       ) {
         void refetch({ throwOnError: false });
       }
-    }, [caughtSuitsKey, queryClient, refetch, userId])
+    }, [caughtSuitsKey, queryClient, refetch, userId]),
   );
 
   const handleRefresh = useCallback(async () => {
-    await refetch({ throwOnError: false });
-  }, [refetch]);
+    await Promise.all([
+      refetch({ throwOnError: false }),
+      refetchPendingCatches(),
+    ]);
+  }, [refetch, refetchPendingCatches]);
 
   const errorMessage = error?.message ?? null;
 
@@ -130,12 +173,15 @@ export default function CaughtSuitsScreen() {
         record={item}
         onPress={() => {
           if (item.fursuit?.id) {
-            router.push({ pathname: '/fursuits/[id]', params: { id: item.fursuit.id } });
+            router.push({
+              pathname: "/fursuits/[id]",
+              params: { id: item.fursuit.id },
+            });
           }
         }}
       />
     ),
-    [router]
+    [router],
   );
 
   const keyExtractor = useCallback((item: CaughtRecord) => item.id, []);
@@ -165,7 +211,8 @@ export default function CaughtSuitsScreen() {
     return (
       <TailTagCard>
         <Text style={styles.message}>
-          You haven&apos;t caught any suits yet. Tap "Catch" to log a fresh tag.
+          You haven&apos;t caught any suits yet. Tap "Catch" to catch your first
+          fursuiter.
         </Text>
       </TailTagCard>
     );
@@ -179,10 +226,24 @@ export default function CaughtSuitsScreen() {
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       ItemSeparatorComponent={ItemSeparator}
-      ListHeaderComponent={ListHeader}
+      ListHeaderComponent={
+        <View>
+          <ListHeader />
+          <PendingCatchesList
+            pendingCatches={pendingCatches}
+            processingCatchId={processingCatchId}
+            onAccept={handleAcceptCatch}
+            onReject={handleRejectCatch}
+          />
+        </View>
+      }
       ListEmptyComponent={ListEmptyComponent}
       refreshControl={
-        <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={colors.primary} />
+        <RefreshControl
+          refreshing={isRefetching}
+          onRefresh={handleRefresh}
+          tintColor={colors.primary}
+        />
       }
     />
   );
@@ -206,27 +267,27 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 12,
     letterSpacing: 4,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     color: colors.primary,
   },
   title: {
     fontSize: 26,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.foreground,
   },
   subtitle: {
     fontSize: 15,
-    color: 'rgba(203,213,225,0.9)',
+    color: "rgba(203,213,225,0.9)",
   },
   message: {
-    color: 'rgba(203,213,225,0.9)',
+    color: "rgba(203,213,225,0.9)",
     fontSize: 14,
   },
   helper: {
     gap: spacing.sm,
   },
   error: {
-    color: '#fca5a5',
+    color: "#fca5a5",
     fontSize: 14,
   },
   separator: {

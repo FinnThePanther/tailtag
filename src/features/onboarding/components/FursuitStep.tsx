@@ -1,29 +1,35 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from "react";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+
+import * as ImagePicker from "expo-image-picker";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { TailTagButton } from "../../../components/ui/TailTagButton";
+import { TailTagCard } from "../../../components/ui/TailTagCard";
+import { TailTagInput } from "../../../components/ui/TailTagInput";
+import { KeyboardAwareFormWrapper } from "../../../components/ui/KeyboardAwareFormWrapper";
+import { SkipButton } from "./SkipButton";
 import {
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-
-import * as ImagePicker from 'expo-image-picker';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-
-import { TailTagButton } from '../../../components/ui/TailTagButton';
-import { TailTagCard } from '../../../components/ui/TailTagCard';
-import { TailTagInput } from '../../../components/ui/TailTagInput';
-import { KeyboardAwareFormWrapper } from '../../../components/ui/KeyboardAwareFormWrapper';
-import { SkipButton } from './SkipButton';
-import { createQuickFursuit, type FursuitPhotoCandidate } from '../../onboarding';
-import { MY_SUITS_QUERY_KEY } from '../../suits';
-import { colors, radius, spacing } from '../../../theme';
+  createQuickFursuit,
+  type FursuitPhotoCandidate,
+} from "../../onboarding";
+import { MY_SUITS_QUERY_KEY } from "../../suits";
+import {
+  addFursuitConvention,
+  CONVENTIONS_STALE_TIME,
+  createConventionsQueryOptions,
+  fetchProfileConventionIds,
+  isConventionActive,
+  PROFILE_CONVENTIONS_QUERY_KEY,
+} from "../../conventions";
+import { captureNonCriticalError } from "../../../lib/sentry";
+import { colors, radius, spacing } from "../../../theme";
 import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
   type FursuitColorOption,
-} from '../../colors';
+} from "../../colors";
 
 type FursuitStepProps = {
   userId: string;
@@ -46,16 +52,46 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
     refetchOnReconnect: false,
   });
   const [isExpanded, setIsExpanded] = useState(false);
-  const [nameInput, setNameInput] = useState('');
-  const [speciesInput, setSpeciesInput] = useState('');
-  const [descriptionInput, setDescriptionInput] = useState('');
-  const [selectedPhoto, setSelectedPhoto] = useState<FursuitPhotoCandidate | null>(null);
+  const [nameInput, setNameInput] = useState("");
+  const [speciesInput, setSpeciesInput] = useState("");
+  const [descriptionInput, setDescriptionInput] = useState("");
+  const [selectedPhoto, setSelectedPhoto] =
+    useState<FursuitPhotoCandidate | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
+  const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>(
+    [],
+  );
   const colorLoadError = colorError?.message ?? null;
   const isColorBusy = isColorLoading;
+
+  const { data: conventions = [] } = useQuery({
+    ...createConventionsQueryOptions(),
+    enabled: Boolean(userId),
+  });
+
+  const { data: profileConventionIds = [] } = useQuery<string[], Error>({
+    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchProfileConventionIds(userId),
+  });
+
+  const profileConventionIdSet = useMemo(
+    () => new Set(profileConventionIds),
+    [profileConventionIds],
+  );
+
+  const activeConventionIds = useMemo(
+    () =>
+      conventions
+        .filter((c) => profileConventionIdSet.has(c.id) && isConventionActive(c))
+        .map((c) => c.id),
+    [conventions, profileConventionIdSet],
+  );
 
   const handleOpenForm = () => {
     setIsExpanded(true);
@@ -79,15 +115,16 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
 
   const handlePickPhoto = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (status !== 'granted') {
-        setPhotoError('We need media access to attach a suit photo.');
+      if (status !== "granted") {
+        setPhotoError("We need media access to attach a suit photo.");
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
+        mediaTypes: "images",
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.85,
@@ -100,13 +137,13 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
       const asset = result.assets?.[0];
 
       if (!asset) {
-        setPhotoError('No photo selected.');
+        setPhotoError("No photo selected.");
         return;
       }
 
       setSelectedPhoto({
         uri: asset.uri,
-        mimeType: asset.mimeType ?? 'image/jpeg',
+        mimeType: asset.mimeType ?? "image/jpeg",
         fileName: asset.fileName ?? `fursuit-${Date.now()}.jpg`,
         fileSize: asset.fileSize ?? 0,
       });
@@ -115,7 +152,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
       const message =
         caught instanceof Error
           ? caught.message
-          : 'We could not open your photo library. Please try again.';
+          : "We could not open your photo library. Please try again.";
       setPhotoError(message);
     }
   };
@@ -126,9 +163,9 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
   };
 
   const resetForm = () => {
-    setNameInput('');
-    setSpeciesInput('');
-    setDescriptionInput('');
+    setNameInput("");
+    setSpeciesInput("");
+    setDescriptionInput("");
     setSelectedColors([]);
     setSelectedPhoto(null);
     setPhotoError(null);
@@ -141,27 +178,27 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
     }
 
     const trimmedName = nameInput.trim();
-   const trimmedSpecies = speciesInput.trim();
-   const trimmedDescription = descriptionInput.trim();
+    const trimmedSpecies = speciesInput.trim();
+    const trimmedDescription = descriptionInput.trim();
     const colorIds = selectedColors.map((color) => color.id);
 
     if (!trimmedName) {
-      setSubmitError('Give your fursuit a name before saving.');
+      setSubmitError("Give your fursuit a name before saving.");
       return;
     }
 
     if (!trimmedSpecies) {
-      setSubmitError('Add a suit species so others know who to call out.');
+      setSubmitError("Add a suit species so others know who to call out.");
       return;
     }
 
     if (colorIds.length === 0) {
-      setSubmitError('Pick at least one suit color before saving.');
+      setSubmitError("Pick at least one suit color before saving.");
       return;
     }
 
     if (colorIds.length > MAX_FURSUIT_COLORS) {
-      setSubmitError('Choose up to three colors. Remove one to add another.');
+      setSubmitError("Choose up to three colors. Remove one to add another.");
       return;
     }
 
@@ -169,7 +206,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
     setSubmitError(null);
 
     try {
-      await createQuickFursuit({
+      const fursuitId = await createQuickFursuit({
         userId,
         name: trimmedName,
         species: trimmedSpecies,
@@ -177,6 +214,21 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
         photo: selectedPhoto,
         colorIds,
       });
+
+      if (activeConventionIds.length > 0) {
+        void Promise.all(
+          activeConventionIds.map((conventionId) =>
+            addFursuitConvention(fursuitId, conventionId).catch((error) => {
+              captureNonCriticalError(error, {
+                scope: 'onboarding.fursuitStep.attachConvention',
+                userId,
+                fursuitId,
+                conventionId,
+              });
+            }),
+          ),
+        );
+      }
 
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
 
@@ -186,7 +238,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
       const message =
         caught instanceof Error
           ? caught.message
-          : 'We could not save that suit right now. Please try again.';
+          : "We could not save that suit right now. Please try again.";
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);
@@ -199,7 +251,8 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
         <Text style={styles.eyebrow}>Step 3</Text>
         <Text style={styles.title}>Add a fursuit (optional)</Text>
         <Text style={styles.body}>
-          TailTag suits are how other players recognize you. Add one now or skip and come back later.
+          Fursuits are how other players recognize you. Add one now or skip and
+          come back later.
         </Text>
 
         {!isExpanded ? (
@@ -254,7 +307,9 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
                 <>
                   <View style={styles.colorSelectedList}>
                     {selectedColors.length === 0 ? (
-                      <Text style={styles.helperLabel}>Tap a color to add it.</Text>
+                      <Text style={styles.helperLabel}>
+                        Tap a color to add it.
+                      </Text>
                     ) : null}
                     {selectedColors.map((color) => (
                       <Pressable
@@ -263,15 +318,21 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
                         onPress={() => handleToggleColor(color)}
                         disabled={isSubmitting}
                       >
-                        <Text style={styles.colorSelectedText}>{color.name}</Text>
+                        <Text style={styles.colorSelectedText}>
+                          {color.name}
+                        </Text>
                         <Text style={styles.colorSelectedRemove}>Remove</Text>
                       </Pressable>
                     ))}
                   </View>
                   <View style={styles.colorOptionList}>
                     {colorOptions.map((option) => {
-                      const isSelected = selectedColors.some((color) => color.id === option.id);
-                      const isAtLimit = !isSelected && selectedColors.length >= MAX_FURSUIT_COLORS;
+                      const isSelected = selectedColors.some(
+                        (color) => color.id === option.id,
+                      );
+                      const isAtLimit =
+                        !isSelected &&
+                        selectedColors.length >= MAX_FURSUIT_COLORS;
                       return (
                         <Pressable
                           key={option.id}
@@ -305,40 +366,48 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
               )}
             </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Description (optional)</Text>
-              <TailTagInput
-                value={descriptionInput}
-                onChangeText={setDescriptionInput}
-                placeholder="Share a quick intro or fun fact"
-                editable={!isSubmitting}
-                multiline
-                numberOfLines={3}
-                style={styles.descriptionInput}
-              />
-            </View>
-
             <View style={styles.photoSection}>
               <Text style={styles.label}>Suit photo (optional)</Text>
               {selectedPhoto ? (
                 <View style={styles.photoPreview}>
-                  <Image source={{ uri: selectedPhoto.uri }} style={styles.photo} />
-                  <TailTagButton variant="outline" size="sm" onPress={handleClearPhoto} disabled={isSubmitting}>
+                  <Image
+                    source={{ uri: selectedPhoto.uri }}
+                    style={styles.photo}
+                  />
+                  <TailTagButton
+                    variant="outline"
+                    size="sm"
+                    onPress={handleClearPhoto}
+                    disabled={isSubmitting}
+                  >
                     Remove photo
                   </TailTagButton>
                 </View>
               ) : (
-                <TailTagButton variant="outline" size="sm" onPress={handlePickPhoto} disabled={isSubmitting}>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={handlePickPhoto}
+                  disabled={isSubmitting}
+                >
                   Choose photo
                 </TailTagButton>
               )}
-              {photoError ? <Text style={styles.error}>{photoError}</Text> : null}
+              {photoError ? (
+                <Text style={styles.error}>{photoError}</Text>
+              ) : null}
             </View>
 
-            {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
+            {submitError ? (
+              <Text style={styles.error}>{submitError}</Text>
+            ) : null}
 
             <View style={styles.formCtaRow}>
-              <SkipButton onPress={onSkip} disabled={isSubmitting} style={styles.fullWidthCta} />
+              <SkipButton
+                onPress={onSkip}
+                disabled={isSubmitting}
+                style={styles.fullWidthCta}
+              />
               <TailTagButton
                 onPress={handleSubmit}
                 loading={isSubmitting}
@@ -363,27 +432,27 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 13,
     letterSpacing: 2,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     marginBottom: spacing.xs,
   },
   title: {
     color: colors.foreground,
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: spacing.xs,
   },
   body: {
-    color: 'rgba(226,232,240,0.85)',
+    color: "rgba(226,232,240,0.85)",
     fontSize: 15,
     lineHeight: 22,
     marginBottom: spacing.lg,
   },
   ctaRow: {
-    flexDirection: 'column',
+    flexDirection: "column",
     gap: spacing.sm,
   },
   fullWidthCta: {
-    alignSelf: 'stretch',
+    alignSelf: "stretch",
   },
   form: {
     gap: spacing.md,
@@ -394,46 +463,46 @@ const styles = StyleSheet.create({
   label: {
     color: colors.foreground,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   helperLabel: {
-    color: 'rgba(148,163,184,0.9)',
+    color: "rgba(148,163,184,0.9)",
     fontSize: 12,
   },
   helperColumn: {
     gap: spacing.sm,
   },
   colorSelectedList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
     gap: spacing.xs,
   },
   colorSelectedChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.3)',
-    backgroundColor: 'rgba(37,99,235,0.18)',
+    borderColor: "rgba(59,130,246,0.3)",
+    backgroundColor: "rgba(37,99,235,0.18)",
   },
   colorSelectedText: {
     color: colors.foreground,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   colorSelectedRemove: {
     marginLeft: spacing.xs,
-    color: 'rgba(148,163,184,0.9)',
+    color: "rgba(148,163,184,0.9)",
     fontSize: 11,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 1,
   },
   colorOptionList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.xs,
   },
   colorChip: {
@@ -441,52 +510,52 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.35)',
-    backgroundColor: 'rgba(30,41,59,0.6)',
+    borderColor: "rgba(148,163,184,0.35)",
+    backgroundColor: "rgba(30,41,59,0.6)",
   },
   colorChipSelected: {
-    borderColor: '#38bdf8',
-    backgroundColor: 'rgba(56,189,248,0.2)',
+    borderColor: "#38bdf8",
+    backgroundColor: "rgba(56,189,248,0.2)",
   },
   colorChipDisabled: {
     opacity: 0.4,
   },
   colorChipLabel: {
-    color: 'rgba(203,213,225,0.95)',
+    color: "rgba(203,213,225,0.95)",
     fontSize: 13,
   },
   colorChipLabelSelected: {
-    color: '#38bdf8',
-    fontWeight: '600',
+    color: "#38bdf8",
+    fontWeight: "600",
   },
   colorChipLabelDisabled: {
-    color: 'rgba(148,163,184,0.6)',
+    color: "rgba(148,163,184,0.6)",
   },
   descriptionInput: {
     height: 90,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   photoSection: {
     gap: spacing.sm,
   },
   photoPreview: {
     gap: spacing.sm,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   photo: {
     width: 140,
     height: 140,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
+    borderColor: "rgba(148,163,184,0.2)",
   },
   error: {
     color: colors.destructive,
     fontSize: 14,
   },
   formCtaRow: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
+    flexDirection: "column",
+    alignItems: "stretch",
     gap: spacing.sm,
   },
 });

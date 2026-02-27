@@ -13,9 +13,10 @@ import { ConventionStep } from '../../src/features/onboarding/components/Convent
 import { FursuitStep } from '../../src/features/onboarding/components/FursuitStep';
 import { TutorialCatchStep } from '../../src/features/onboarding/components/TutorialCatchStep';
 import { AchievementStep } from '../../src/features/onboarding/components/AchievementStep';
+import { NotificationsStep } from '../../src/features/onboarding/components/NotificationsStep';
 import { colors, spacing } from '../../src/theme';
 
-const STEPS = ['welcome', 'convention', 'fursuit', 'tutorial', 'achievement'] as const;
+const STEPS = ['welcome', 'convention', 'fursuit', 'tutorial', 'notifications', 'achievement'] as const;
 type StepId = (typeof STEPS)[number];
 
 const stepIndex = (step: StepId) => STEPS.indexOf(step);
@@ -128,6 +129,8 @@ export default function OnboardingScreen() {
               goToNextStep();
             }}
           />
+        ) : currentStep === 'notifications' ? (
+          <NotificationsStep userId={userId} onComplete={goToNextStep} />
         ) : (
           <AchievementStep
             userId={userId}
