@@ -462,12 +462,11 @@ export default function HomeScreen() {
         <View style={[styles.heroBlock, contentWidthStyle]}>
           <Text style={styles.badge}>BETA</Text>
           <Text style={styles.title}>
-            Catch fursuits, grow your collection, and keep the con energy going.
+            Catch fursuits, grow your collection, and make new furry friends!
           </Text>
           <Text style={styles.subtitle}>
-            TailTag makes swapping bespoke suit codes effortless. Choose your
-            con, catch suit tags on the floor, and watch your collection grow
-            from your phone.
+            TailTag makes meeting fursuiters fun! Collect their codes, learn
+            about thier likes and interests, and start a conversation!
           </Text>
           <View style={styles.ctaRow}>
             <TailTagButton onPress={() => router.push("/catch")} size="lg">

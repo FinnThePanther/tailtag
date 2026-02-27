@@ -7,11 +7,13 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagProgressBar } from '../../src/components/ui/TailTagProgressBar';
+import { ScreenHeader } from '../../src/components/ui/ScreenHeader';
 import { useAuth } from '../../src/features/auth';
 import {
   CONVENTIONS_QUERY_KEY,
@@ -69,6 +71,7 @@ function getTaskStatusCopy(taskRequirement: number, currentCount: number, isComp
 }
 
 export default function DailyTasksScreen() {
+  const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
 
@@ -155,10 +158,12 @@ export default function DailyTasksScreen() {
   const isLoadingConventions = isConventionsLoading || isProfileConventionsLoading;
 
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.container}
-      refreshControl={
+    <View style={styles.screen}>
+      <ScreenHeader title="Daily Tasks" onBack={() => router.back()} />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        refreshControl={
         <RefreshControl
           refreshing={isRefreshing}
           onRefresh={() => {
@@ -295,14 +300,18 @@ export default function DailyTasksScreen() {
           </View>
         )}
       </TailTagCard>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
+  screen: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  scroll: {
+    flex: 1,
   },
   container: {
     paddingHorizontal: spacing.lg,

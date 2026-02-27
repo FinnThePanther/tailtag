@@ -138,10 +138,10 @@ function RootLayoutNav() {
       <Stack.Screen name="fursuits" options={{ headerShown: false }} />
 
       {/* Achievements */}
-      <Stack.Screen name="achievements/index" options={{ title: 'Achievements' }} />
+      <Stack.Screen name="achievements/index" options={{ headerShown: false }} />
 
       {/* Daily tasks */}
-      <Stack.Screen name="daily-tasks/index" options={{ title: 'Daily Tasks' }} />
+      <Stack.Screen name="daily-tasks/index" options={{ headerShown: false }} />
 
       {/* Show My QR */}
       <Stack.Screen name="show-qr" options={{ title: 'Show My QR', presentation: 'modal' }} />
