@@ -50,6 +50,8 @@ function RootLayoutNav() {
   const segments = useSegments();
   const inAuthGroup = segments.length > 0 && segments[0] === "(auth)";
   const inOnboardingFlow = segments.length > 0 && segments[0] === "onboarding";
+  const inResetPasswordFlow =
+    segments.length > 0 && segments[0] === "reset-password";
   const userId = session?.user.id ?? null;
 
   const {
@@ -84,7 +86,11 @@ function RootLayoutNav() {
     profile !== null && // Explicit null check - don't gate while loading
     (profile?.is_new === true || profile?.onboarding_completed !== true);
 
-  if (session && shouldGateOnboarding && !inOnboardingFlow) {
+  // Don't redirect mid-flow during password reset — the recovery session
+  // makes the user appear authenticated, but they need to stay on this screen.
+  if (inResetPasswordFlow) {
+    // Fall through to normal Stack rendering below
+  } else if (session && shouldGateOnboarding && !inOnboardingFlow) {
     if ((isProfileLoading || isProfileFetching) && !profile && !profileError) {
       return <LoadingScreen />;
     }
@@ -148,6 +154,9 @@ function RootLayoutNav() {
 
       {/* OAuth callback (deep link landing) */}
       <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+
+      {/* Password reset completion (deep link landing) */}
+      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
     </Stack>
   );
 }

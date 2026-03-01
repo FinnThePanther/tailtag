@@ -1,15 +1,23 @@
 import { useEffect, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagInput } from "../../src/components/ui/TailTagInput";
+import { PasswordInput } from "../../src/components/ui/PasswordInput";
 import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareFormWrapper";
+import { PasswordStrengthIndicator } from "../../src/features/auth/components/PasswordStrengthIndicator";
 import { useOAuthSignIn } from "../../src/features/auth/hooks/useOAuthSignIn";
 import { supabase } from "../../src/lib/supabase";
 import { colors, spacing } from "../../src/theme";
+import {
+  isValidEmail,
+  mapAuthError,
+  validatePassword,
+} from "../../src/utils/authValidation";
 
 const generateDefaultUsername = (rawEmail: string) => {
   const [localPart] = rawEmail.split("@");
@@ -21,25 +29,15 @@ const generateDefaultUsername = (rawEmail: string) => {
 
 type AuthMode = "sign_in" | "sign_up";
 
-const formatError = (input: unknown) => {
-  if (input && typeof input === "object") {
-    const maybeError = input as { message?: string };
-    if (maybeError.message) {
-      return maybeError.message;
-    }
-  }
-
-  return input instanceof Error
-    ? input.message
-    : "Something went wrong. Try again later.";
-};
-
 export default function AuthScreen() {
+  const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("sign_up");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const {
     signInWithProvider,
     activeProvider,
@@ -49,6 +47,8 @@ export default function AuthScreen() {
   const toggleMode = () => {
     setMode((current) => (current === "sign_in" ? "sign_up" : "sign_in"));
     setError(null);
+    setConfirmPassword("");
+    setEmailSent(false);
   };
 
   useEffect(() => {
@@ -58,12 +58,8 @@ export default function AuthScreen() {
   }, [oauthError]);
 
   const handleDiscordSignIn = async () => {
-    if (isSubmitting) {
-      return;
-    }
-
+    if (isSubmitting) return;
     setError(null);
-
     try {
       await signInWithProvider("discord");
     } catch {
@@ -76,12 +72,8 @@ export default function AuthScreen() {
   const isAppleLoading = activeProvider === "apple";
 
   const handleGoogleSignIn = async () => {
-    if (isSubmitting) {
-      return;
-    }
-
+    if (isSubmitting) return;
     setError(null);
-
     try {
       await signInWithProvider("google");
     } catch {
@@ -90,12 +82,8 @@ export default function AuthScreen() {
   };
 
   const handleAppleSignIn = async () => {
-    if (isSubmitting) {
-      return;
-    }
-
+    if (isSubmitting) return;
     setError(null);
-
     try {
       await signInWithProvider("apple");
     } catch {
@@ -104,16 +92,33 @@ export default function AuthScreen() {
   };
 
   const handleSubmit = async () => {
-    if (isSubmitting) {
+    if (isSubmitting) return;
+
+    const trimmedEmail = email.trim();
+
+    if (trimmedEmail.length === 0 || password.length === 0) {
+      setError("Enter your email and password to continue.");
       return;
     }
 
-    const trimmedEmail = email.trim();
-    const trimmedPassword = password.trim();
-
-    if (trimmedEmail.length === 0 || trimmedPassword.length === 0) {
-      setError("Enter your email and password to continue.");
+    if (!isValidEmail(trimmedEmail)) {
+      setError("Please enter a valid email address.");
       return;
+    }
+
+    if (mode === "sign_up") {
+      const validation = validatePassword(password);
+      if (!validation.isAcceptable) {
+        setError(
+          "Your password doesn't meet all the requirements shown below.",
+        );
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -123,7 +128,7 @@ export default function AuthScreen() {
       if (mode === "sign_up") {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: trimmedEmail,
-          password: trimmedPassword,
+          password,
           options: {
             data: {
               username: generateDefaultUsername(trimmedEmail),
@@ -136,16 +141,9 @@ export default function AuthScreen() {
         }
 
         if (!data.session) {
-          const { error: signInError } = await supabase.auth.signInWithPassword(
-            {
-              email: trimmedEmail,
-              password: trimmedPassword,
-            },
-          );
-
-          if (signInError) {
-            throw signInError;
-          }
+          // Email confirmation is enabled — show confirmation message
+          setEmailSent(true);
+          return;
         }
 
         return;
@@ -153,18 +151,47 @@ export default function AuthScreen() {
 
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
-        password: trimmedPassword,
+        password,
       });
 
       if (signInError) {
         throw signInError;
       }
     } catch (caught) {
-      setError(formatError(caught));
+      setError(mapAuthError(caught));
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (emailSent) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+        <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.eyebrow}>TailTag</Text>
+            <Text style={styles.title}>Check your email</Text>
+            <Text style={styles.subtitle}>
+              We sent a confirmation link to{" "}
+              <Text style={styles.emailHighlight}>{email}</Text>. Tap the link
+              to activate your account, then come back and sign in.
+            </Text>
+          </View>
+
+          <TailTagCard style={styles.formCard}>
+            <TailTagButton
+              onPress={() => {
+                setEmailSent(false);
+                setMode("sign_in");
+              }}
+            >
+              Back to sign in
+            </TailTagButton>
+          </TailTagCard>
+        </KeyboardAwareFormWrapper>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
@@ -198,17 +225,38 @@ export default function AuthScreen() {
 
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Password</Text>
-            <TailTagInput
+            <PasswordInput
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
               autoComplete={mode === "sign_in" ? "password" : "password-new"}
-              placeholder="Enter at least 6 characters"
+              placeholder={
+                mode === "sign_up"
+                  ? "8+ chars, mixed case, number, symbol"
+                  : "Enter your password"
+              }
               editable={!isSubmitting}
-              returnKeyType="done"
-              onSubmitEditing={handleSubmit}
+              returnKeyType={mode === "sign_up" ? "next" : "done"}
+              onSubmitEditing={mode === "sign_in" ? handleSubmit : undefined}
             />
+            {mode === "sign_up" && (
+              <PasswordStrengthIndicator password={password} />
+            )}
           </View>
+
+          {mode === "sign_up" && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Confirm password</Text>
+              <PasswordInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                autoComplete="password-new"
+                placeholder="Re-enter your password"
+                editable={!isSubmitting}
+                returnKeyType="done"
+                onSubmitEditing={handleSubmit}
+              />
+            </View>
+          )}
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -271,7 +319,10 @@ export default function AuthScreen() {
         <View style={styles.footerHelper}>
           <Text style={styles.helperText}>
             Having trouble logging in?{" "}
-            <Text style={styles.link} onPress={() => {}}>
+            <Text
+              style={styles.link}
+              onPress={() => router.push("/forgot-password")}
+            >
               Reset password
             </Text>
           </Text>
@@ -311,6 +362,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
+  emailHighlight: {
+    color: colors.primary,
+    fontWeight: "600",
+  },
   formCard: {
     gap: spacing.lg,
   },
@@ -321,10 +376,6 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     fontSize: 14,
     fontWeight: "600",
-  },
-  assistiveText: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 12,
   },
   errorText: {
     color: "#fca5a5",
