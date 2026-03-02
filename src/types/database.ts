@@ -59,6 +59,7 @@ export type Database = {
       achievements: {
         Row: {
           category: Database["public"]["Enums"]["achievement_category"]
+          convention_id: string | null
           created_at: string
           description: string
           id: string
@@ -75,6 +76,7 @@ export type Database = {
         }
         Insert: {
           category: Database["public"]["Enums"]["achievement_category"]
+          convention_id?: string | null
           created_at?: string
           description: string
           id?: string
@@ -91,6 +93,7 @@ export type Database = {
         }
         Update: {
           category?: Database["public"]["Enums"]["achievement_category"]
+          convention_id?: string | null
           created_at?: string
           description?: string
           id?: string
@@ -106,6 +109,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "achievements_convention_id_fkey"
+            columns: ["convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "achievements_rule_id_fkey"
             columns: ["rule_id"]
@@ -448,6 +458,7 @@ export type Database = {
       }
       daily_tasks: {
         Row: {
+          convention_id: string | null
           created_at: string
           description: string
           id: string
@@ -460,6 +471,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          convention_id?: string | null
           created_at?: string
           description: string
           id?: string
@@ -472,6 +484,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          convention_id?: string | null
           created_at?: string
           description?: string
           id?: string
@@ -484,6 +497,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "daily_tasks_convention_id_fkey"
+            columns: ["convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "daily_tasks_rule_id_fkey"
             columns: ["rule_id"]
@@ -1175,7 +1195,6 @@ export type Database = {
       }
       profiles: {
         Row: {
-          avatar_url: string | null
           bio: string | null
           created_at: string | null
           default_catch_mode: string
@@ -1196,7 +1215,6 @@ export type Database = {
           username: string | null
         }
         Insert: {
-          avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
           default_catch_mode?: string
@@ -1217,7 +1235,6 @@ export type Database = {
           username?: string | null
         }
         Update: {
-          avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
           default_catch_mode?: string
@@ -2082,7 +2099,6 @@ export type Database = {
       }
       mv_convention_leaderboard: {
         Row: {
-          avatar_url: string | null
           catch_count: number | null
           catcher_id: string | null
           convention_id: string | null
@@ -3481,7 +3497,6 @@ export const Constants = {
     },
   },
 } as const
-
 
 // Type aliases for application use
 export type FursuitSocialLink = {

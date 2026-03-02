@@ -16,6 +16,7 @@ export type DailyTaskRecord = {
   kind: DailyTaskKind;
   requirement: number;
   metadata: Json;
+  conventionId: string | null;
 };
 
 export type DailyTaskProgress = DailyTaskRecord & {
@@ -261,7 +262,7 @@ export async function fetchDailyTasks({
   const assignmentsPromise = supabase
     .from('daily_assignments')
     .select(
-      'id, day, position, convention_id, task:daily_tasks(id, name, description, kind, requirement, metadata, is_active)'
+      'id, day, position, convention_id, task:daily_tasks(id, name, description, kind, requirement, metadata, is_active, convention_id)'
     )
     .eq('day', localDay)
     .eq('convention_id', conventionId)
@@ -325,6 +326,7 @@ export async function fetchDailyTasks({
       kind: resolvedTask.kind,
       requirement,
       metadata: resolvedTask.metadata ?? ({} as Json),
+      conventionId: (resolvedTask as any).convention_id ?? null,
       position: row.position,
       currentCount,
       isCompleted: progress?.is_completed ?? false,

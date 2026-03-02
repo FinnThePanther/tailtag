@@ -18,6 +18,8 @@ export type AchievementRecord = {
   recipientRole: AchievementRecipientRole;
   triggerEvent: AchievementTriggerEvent;
   isActive: boolean;
+  conventionId: string | null;
+  conventionName: string | null;
 };
 
 export type AchievementWithStatus = AchievementRecord & {
@@ -37,7 +39,7 @@ export async function fetchAchievementCatalog(): Promise<AchievementRecord[]> {
   const client = supabase as any;
   const { data, error } = await client
     .from('achievements')
-    .select('id, key, name, description, category, recipient_role, trigger_event, is_active')
+    .select('id, key, name, description, category, recipient_role, trigger_event, is_active, convention_id, convention:conventions(name)')
     .order('category', { ascending: true })
     .order('name', { ascending: true });
 
@@ -45,7 +47,7 @@ export async function fetchAchievementCatalog(): Promise<AchievementRecord[]> {
     throw new Error(`We couldn't load achievements: ${error.message}`);
   }
 
-  return (data ?? []).map((row: AchievementsRow) => ({
+  return (data ?? []).map((row: AchievementsRow & { convention: { name: string } | null }) => ({
     id: row.id,
     key: row.key,
     name: row.name,
@@ -54,6 +56,8 @@ export async function fetchAchievementCatalog(): Promise<AchievementRecord[]> {
     recipientRole: row.recipient_role,
     triggerEvent: row.trigger_event,
     isActive: row.is_active,
+    conventionId: (row as any).convention_id ?? null,
+    conventionName: row.convention?.name ?? null,
   }));
 }
 
@@ -72,10 +76,25 @@ export async function fetchUserAchievements(userId: string): Promise<UserAchieve
   return (data ?? []) as UserAchievementsRow[];
 }
 
+async function fetchOptedInConventionIds(userId: string): Promise<string[]> {
+  const client = supabase as any;
+  const { data, error } = await client
+    .from('profile_conventions')
+    .select('convention_id')
+    .eq('profile_id', userId);
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? []).map((row: { convention_id: string }) => row.convention_id);
+}
+
 export async function fetchAchievementStatus(userId: string): Promise<AchievementWithStatus[]> {
-  const [achievements, userAchievements] = await Promise.all([
+  const [achievements, userAchievements, optedInConventionIds] = await Promise.all([
     fetchAchievementCatalog(),
     fetchUserAchievements(userId),
+    fetchOptedInConventionIds(userId),
   ]);
 
   const unlockedMap = new Map<string, UserAchievementsRow>();
@@ -85,6 +104,7 @@ export async function fetchAchievementStatus(userId: string): Promise<Achievemen
 
   return achievements
     .filter((achievement) => achievement.isActive)
+    .filter((achievement) => achievement.conventionId === null || optedInConventionIds.includes(achievement.conventionId))
     .map((achievement) => {
       const unlocked = unlockedMap.get(achievement.id) ?? null;
       return {
