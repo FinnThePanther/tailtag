@@ -4,11 +4,17 @@ import { Users, MapPin, CalendarRange, SlidersHorizontal, ArrowUpRight } from 'l
 
 import { Card } from '@/components/card';
 import { Table } from '@/components/table';
-import { fetchConvention } from '@/lib/data';
+import { fetchConvention, fetchConventionTasks, fetchConventionAchievements } from '@/lib/data';
 import { ConventionConfigForm } from '@/components/convention-config-form';
+import { ConventionTasksCard } from '@/components/convention-tasks-card';
+import { ConventionAchievementsCard } from '@/components/convention-achievements-card';
 
 export default async function ConventionDetail({ params }: { params: { id: string } }) {
-  const { convention, staff } = await fetchConvention(params.id);
+  const [{ convention, staff }, tasks, achievements] = await Promise.all([
+    fetchConvention(params.id),
+    fetchConventionTasks(params.id),
+    fetchConventionAchievements(params.id),
+  ]);
 
   if (!convention) {
     notFound();
@@ -104,6 +110,10 @@ export default async function ConventionDetail({ params }: { params: { id: strin
           ) : null}
         </Table>
       </Card>
+
+      <ConventionTasksCard conventionId={convention.id} tasks={tasks} />
+
+      <ConventionAchievementsCard conventionId={convention.id} achievements={achievements} />
     </div>
   );
 }

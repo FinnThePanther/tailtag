@@ -451,6 +451,76 @@ export async function fetchAchievements() {
   return data ?? [];
 }
 
+export type ConventionTaskRow = {
+  id: string;
+  name: string;
+  description: string;
+  kind: string;
+  requirement: number;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type ConventionAchievementRow = {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+  recipient_role: string;
+  trigger_event: string;
+  is_active: boolean;
+  created_at: string;
+  rule_kind: string | null;
+  rule: Record<string, unknown> | null;
+};
+
+export async function fetchConventionTasks(conventionId: string): Promise<ConventionTaskRow[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from('daily_tasks')
+    .select('id, name, description, kind, requirement, is_active, created_at')
+    .eq('convention_id', conventionId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+  return (data ?? []) as ConventionTaskRow[];
+}
+
+export async function fetchConventionAchievements(conventionId: string): Promise<ConventionAchievementRow[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from('achievements')
+    .select('id, key, name, description, category, recipient_role, trigger_event, is_active, created_at, achievement_rules(kind, rule)')
+    .eq('convention_id', conventionId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []) as any[]).map((row) => {
+    const ruleRow = Array.isArray(row.achievement_rules)
+      ? row.achievement_rules[0]
+      : row.achievement_rules;
+    return {
+      id: row.id,
+      key: row.key,
+      name: row.name,
+      description: row.description,
+      category: row.category,
+      recipient_role: row.recipient_role,
+      trigger_event: row.trigger_event,
+      is_active: row.is_active,
+      created_at: row.created_at,
+      rule_kind: ruleRow?.kind ?? null,
+      rule: ruleRow?.rule ?? null,
+    } satisfies ConventionAchievementRow;
+  });
+}
+
 export async function fetchAdminErrors(limit = 50) {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
