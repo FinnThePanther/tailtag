@@ -54,16 +54,50 @@ const formatUnlockedAt = (iso: string | null) => {
   }).format(date);
 };
 
-const groupByCategory = (achievements: AchievementWithStatus[]) => {
-  return achievements.reduce<Record<string, AchievementWithStatus[]>>((acc, achievement) => {
-    const category = achievement.category;
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(achievement);
-    return acc;
-  }, {});
+type AchievementGroup = {
+  key: string;
+  label: string;
+  isConvention: boolean;
+  byCategory: Record<string, AchievementWithStatus[]>;
 };
+
+function groupByConventionAndCategory(achievements: AchievementWithStatus[]): AchievementGroup[] {
+  const globalGroup: AchievementGroup = { key: 'global', label: 'Global', isConvention: false, byCategory: {} };
+  const conventionGroups = new Map<string, AchievementGroup>();
+
+  for (const achievement of achievements) {
+    if (achievement.conventionId === null) {
+      if (!globalGroup.byCategory[achievement.category]) {
+        globalGroup.byCategory[achievement.category] = [];
+      }
+      globalGroup.byCategory[achievement.category].push(achievement);
+    } else {
+      if (!conventionGroups.has(achievement.conventionId)) {
+        conventionGroups.set(achievement.conventionId, {
+          key: achievement.conventionId,
+          label: achievement.conventionName ?? 'Convention',
+          isConvention: true,
+          byCategory: {},
+        });
+      }
+      const group = conventionGroups.get(achievement.conventionId)!;
+      if (!group.byCategory[achievement.category]) {
+        group.byCategory[achievement.category] = [];
+      }
+      group.byCategory[achievement.category].push(achievement);
+    }
+  }
+
+  const groups: AchievementGroup[] = [];
+  if (Object.keys(globalGroup.byCategory).length > 0) {
+    groups.push(globalGroup);
+  }
+  const sortedConventions = [...conventionGroups.values()].sort((a, b) =>
+    a.label.localeCompare(b.label)
+  );
+  groups.push(...sortedConventions);
+  return groups;
+}
 
 export default function AchievementsScreen() {
   const router = useRouter();
@@ -115,8 +149,8 @@ export default function AchievementsScreen() {
     })[0];
   }, [unlocked]);
 
-  const groupedLocked = useMemo(() => groupByCategory(locked), [locked]);
-  const groupedUnlocked = useMemo(() => groupByCategory(unlocked), [unlocked]);
+  const groupedUnlocked = useMemo(() => groupByConventionAndCategory(unlocked), [unlocked]);
+  const groupedLocked = useMemo(() => groupByConventionAndCategory(locked), [locked]);
 
   const isRefreshing = isFetching && !isLoading;
 
@@ -195,13 +229,8 @@ export default function AchievementsScreen() {
             {unlocked.length === 0 ? (
               <Text style={styles.message}>Start catching suits to earn your first badge.</Text>
             ) : (
-              Object.entries(groupedUnlocked).map(([category, items]) => (
-                <View key={category} style={styles.categoryBlock}>
-                  <Text style={styles.categoryLabel}>{CATEGORY_LABELS[category] ?? category}</Text>
-                  {items.map((achievement) => (
-                    <AchievementRow key={achievement.id} achievement={achievement} unlocked />
-                  ))}
-                </View>
+              groupedUnlocked.map((group) => (
+                <AchievementGroupSection key={group.key} group={group} unlocked />
               ))
             )}
           </View>
@@ -213,13 +242,8 @@ export default function AchievementsScreen() {
             {locked.length === 0 ? (
               <Text style={styles.message}>You've unlocked every achievement available today. 🎉</Text>
             ) : (
-              Object.entries(groupedLocked).map(([category, items]) => (
-                <View key={category} style={styles.categoryBlock}>
-                  <Text style={styles.categoryLabel}>{CATEGORY_LABELS[category] ?? category}</Text>
-                  {items.map((achievement) => (
-                    <AchievementRow key={achievement.id} achievement={achievement} unlocked={false} />
-                  ))}
-                </View>
+              groupedLocked.map((group) => (
+                <AchievementGroupSection key={group.key} group={group} unlocked={false} />
               ))
             )}
           </View>
@@ -230,12 +254,40 @@ export default function AchievementsScreen() {
   );
 }
 
+function AchievementGroupSection({
+  group,
+  unlocked,
+}: {
+  group: AchievementGroup;
+  unlocked: boolean;
+}) {
+  return (
+    <View style={styles.groupBlock}>
+      {group.isConvention ? (
+        <View style={styles.conventionHeader}>
+          <Text style={styles.conventionBadge}>{group.label}</Text>
+        </View>
+      ) : null}
+      {Object.entries(group.byCategory).map(([category, items]) => (
+        <View key={category} style={styles.categoryBlock}>
+          <Text style={styles.categoryLabel}>{CATEGORY_LABELS[category] ?? category}</Text>
+          {items.map((achievement) => (
+            <AchievementRow key={achievement.id} achievement={achievement} unlocked={unlocked} isConvention={group.isConvention} />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function AchievementRow({
   achievement,
   unlocked,
+  isConvention,
 }: {
   achievement: AchievementWithStatus;
   unlocked: boolean;
+  isConvention: boolean;
 }) {
   const unlockedAt = formatUnlockedAt(achievement.unlockedAt ?? null);
 
@@ -245,8 +297,8 @@ function AchievementRow({
         <Text style={styles.achievementName}>{achievement.name}</Text>
         <Text style={styles.achievementDescription}>{achievement.description}</Text>
         <Text style={styles.achievementMeta}>
-          {RECIPIENT_LABELS[achievement.recipientRole] ?? 'General'} ·{' '}
-          {CATEGORY_LABELS[achievement.category] ?? achievement.category}
+          {RECIPIENT_LABELS[achievement.recipientRole] ?? 'General'}
+          {isConvention ? ` · ${CATEGORY_LABELS[achievement.category] ?? achievement.category}` : ''}
         </Text>
         {unlocked && unlockedAt ? (
           <Text style={styles.achievementUnlockedAt}>Unlocked on {unlockedAt}</Text>
@@ -337,6 +389,26 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(148,163,184,0.18)',
     marginVertical: spacing.md,
+  },
+  groupBlock: {
+    gap: spacing.md,
+  },
+  conventionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  conventionBadge: {
+    color: '#f59e0b',
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.4)',
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(245,158,11,0.08)',
   },
   categoryBlock: {
     gap: spacing.sm,

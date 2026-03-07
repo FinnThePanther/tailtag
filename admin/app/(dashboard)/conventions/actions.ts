@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service';
 import { logAudit } from '@/lib/audit';
 
 const CONFIG_ROLES = ['owner', 'organizer'] as const;
+const CONTENT_ROLES = ['owner', 'organizer'] as const;
 
 type ConventionConfig = {
   cooldowns?: { catch_seconds?: number | null };
@@ -141,4 +142,337 @@ export async function updateConventionGeofenceAction(input: {
   revalidatePath('/conventions');
   revalidatePath(`/conventions/${input.conventionId}`);
   revalidatePath(`/conventions/${input.conventionId}/location`);
+}
+
+// ─── Convention-scoped daily tasks ───────────────────────────────────────────
+
+export async function createConventionTaskAction(input: {
+  conventionId: string;
+  name: string;
+  description: string;
+  kind: string;
+  requirement: number;
+  metadata?: Record<string, unknown> | null;
+}) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  if (!input.name.trim()) throw new Error('Task name is required.');
+  if (!input.kind.trim()) throw new Error('Task kind is required.');
+  if (input.requirement < 1) throw new Error('Requirement must be at least 1.');
+
+  const { data, error } = await supabase
+    .from('daily_tasks')
+    .insert({
+      convention_id: input.conventionId,
+      name: input.name.trim(),
+      description: input.description.trim(),
+      kind: input.kind,
+      requirement: input.requirement,
+      is_active: true,
+      metadata: input.metadata ?? null,
+    } as any)
+    .select('id')
+    .single();
+
+  if (error) throw error;
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'create_convention_task',
+    entityType: 'daily_tasks',
+    entityId: data.id,
+    context: { convention_id: input.conventionId, name: input.name },
+  });
+
+  revalidatePath(`/conventions/${input.conventionId}`);
+}
+
+export async function toggleConventionTaskAction(input: {
+  taskId: string;
+  isActive: boolean;
+  conventionId: string;
+}) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  const { error } = await supabase
+    .from('daily_tasks')
+    .update({ is_active: input.isActive })
+    .eq('id', input.taskId);
+
+  if (error) throw error;
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'toggle_convention_task',
+    entityType: 'daily_tasks',
+    entityId: input.taskId,
+    context: { convention_id: input.conventionId, is_active: input.isActive },
+  });
+
+  revalidatePath(`/conventions/${input.conventionId}`);
+}
+
+export async function updateConventionTaskAction(input: {
+  taskId: string;
+  conventionId: string;
+  name: string;
+  description: string;
+  kind: string;
+  requirement: number;
+  metadata?: Record<string, unknown> | null;
+}) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  if (!input.name.trim()) throw new Error('Task name is required.');
+  if (!input.kind.trim()) throw new Error('Task kind is required.');
+  if (input.requirement < 1) throw new Error('Requirement must be at least 1.');
+
+  const { error } = await supabase
+    .from('daily_tasks')
+    .update({
+      name: input.name.trim(),
+      description: input.description.trim(),
+      kind: input.kind,
+      requirement: input.requirement,
+      metadata: input.metadata ?? null,
+    } as any)
+    .eq('id', input.taskId);
+
+  if (error) throw error;
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'update_convention_task',
+    entityType: 'daily_tasks',
+    entityId: input.taskId,
+    context: { convention_id: input.conventionId, name: input.name },
+  });
+
+  revalidatePath(`/conventions/${input.conventionId}`);
+}
+
+export async function deleteConventionTaskAction(input: {
+  taskId: string;
+  conventionId: string;
+}) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  const { error } = await supabase
+    .from('daily_tasks')
+    .delete()
+    .eq('id', input.taskId);
+
+  if (error) throw error;
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'delete_convention_task',
+    entityType: 'daily_tasks',
+    entityId: input.taskId,
+    context: { convention_id: input.conventionId },
+  });
+
+  revalidatePath(`/conventions/${input.conventionId}`);
+}
+
+// ─── Convention-scoped achievements ──────────────────────────────────────────
+
+const KIND_META: Record<
+  string,
+  { triggerEvent: string; recipientRole: string }
+> = {
+  fursuit_caught_count_at_convention: {
+    triggerEvent: 'catch_performed',
+    recipientRole: 'fursuit_owner',
+  },
+  convention_joined: {
+    triggerEvent: 'convention_joined',
+    recipientRole: 'any',
+  },
+};
+
+export async function createConventionAchievementAction(input: {
+  conventionId: string;
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+  kind: string;
+  rule?: Record<string, unknown>;
+}) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  if (!input.key.trim()) throw new Error('Achievement key is required.');
+  if (!input.name.trim()) throw new Error('Achievement name is required.');
+  if (!input.kind) throw new Error('Rule kind is required.');
+
+  const meta = KIND_META[input.kind];
+  if (!meta) throw new Error(`Unsupported rule kind: ${input.kind}`);
+
+  const rule = input.rule ?? {};
+
+  const slug = `convention-${input.conventionId.slice(0, 8)}-${input.key.toLowerCase()}`;
+
+  // Insert rule first
+  const { data: ruleData, error: ruleError } = await supabase
+    .from('achievement_rules')
+    .insert({
+      kind: input.kind,
+      name: input.name.trim(),
+      slug,
+      rule: rule as any,
+      is_active: true,
+    })
+    .select('rule_id')
+    .single();
+
+  if (ruleError) throw ruleError;
+
+  // Insert achievement
+  const { data: achData, error: achError } = await supabase
+    .from('achievements')
+    .insert({
+      convention_id: input.conventionId,
+      key: input.key.trim(),
+      name: input.name.trim(),
+      description: input.description.trim(),
+      category: input.category as any,
+      recipient_role: meta.recipientRole as any,
+      trigger_event: meta.triggerEvent as any,
+      is_active: true,
+      rule_id: ruleData.rule_id,
+    } as any)
+    .select('id')
+    .single();
+
+  if (achError) {
+    // Best-effort cleanup of orphaned rule
+    await supabase.from('achievement_rules').delete().eq('rule_id', ruleData.rule_id);
+    throw achError;
+  }
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'create_convention_achievement',
+    entityType: 'achievements',
+    entityId: achData.id,
+    context: { convention_id: input.conventionId, key: input.key, kind: input.kind },
+  });
+
+  revalidatePath(`/conventions/${input.conventionId}`);
+}
+
+export async function toggleConventionAchievementAction(input: {
+  achievementId: string;
+  isActive: boolean;
+  conventionId: string;
+}) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  const { error } = await supabase
+    .from('achievements')
+    .update({ is_active: input.isActive })
+    .eq('id', input.achievementId);
+
+  if (error) throw error;
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'toggle_convention_achievement',
+    entityType: 'achievements',
+    entityId: input.achievementId,
+    context: { convention_id: input.conventionId, is_active: input.isActive },
+  });
+
+  revalidatePath(`/conventions/${input.conventionId}`);
+}
+
+export async function updateConventionAchievementAction(input: {
+  achievementId: string;
+  conventionId: string;
+  name: string;
+  description: string;
+  category: string;
+  kind: string;
+  rule?: Record<string, unknown>;
+  ruleId: string | null;
+}) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  if (!input.name.trim()) throw new Error('Achievement name is required.');
+  if (!input.kind) throw new Error('Rule kind is required.');
+
+  const meta = KIND_META[input.kind];
+  if (!meta) throw new Error(`Unsupported rule kind: ${input.kind}`);
+
+  const rule = input.rule ?? {};
+
+  const { error: achError } = await supabase
+    .from('achievements')
+    .update({
+      name: input.name.trim(),
+      description: input.description.trim(),
+      category: input.category as any,
+      recipient_role: meta.recipientRole as any,
+      trigger_event: meta.triggerEvent as any,
+    } as any)
+    .eq('id', input.achievementId);
+
+  if (achError) throw achError;
+
+  if (input.ruleId) {
+    const { error: ruleError } = await supabase
+      .from('achievement_rules')
+      .update({ kind: input.kind, rule: rule as any })
+      .eq('rule_id', input.ruleId);
+
+    if (ruleError) throw ruleError;
+  }
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'update_convention_achievement',
+    entityType: 'achievements',
+    entityId: input.achievementId,
+    context: { convention_id: input.conventionId, name: input.name, kind: input.kind },
+  });
+
+  revalidatePath(`/conventions/${input.conventionId}`);
+}
+
+export async function deleteConventionAchievementAction(input: {
+  achievementId: string;
+  conventionId: string;
+  ruleId: string | null;
+}) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  const { error: achError } = await supabase
+    .from('achievements')
+    .delete()
+    .eq('id', input.achievementId);
+
+  if (achError) throw achError;
+
+  if (input.ruleId) {
+    await supabase.from('achievement_rules').delete().eq('rule_id', input.ruleId);
+  }
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'delete_convention_achievement',
+    entityType: 'achievements',
+    entityId: input.achievementId,
+    context: { convention_id: input.conventionId },
+  });
+
+  revalidatePath(`/conventions/${input.conventionId}`);
 }

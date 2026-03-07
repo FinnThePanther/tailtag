@@ -37,22 +37,28 @@ function LoginForm() {
     setPersistentError(null);
     sessionStorage.removeItem('admin_login_error');
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (signInError) {
-      setError(signInError.message);
-      setPersistentError(signInError.message);
-      sessionStorage.setItem('admin_login_error', signInError.message);
-      sessionStorage.setItem('admin_login_email', email);
+      if (signInError) {
+        setError(signInError.message);
+        setPersistentError(signInError.message);
+        sessionStorage.setItem('admin_login_error', signInError.message);
+        sessionStorage.setItem('admin_login_email', email);
+        setIsSubmitting(false);
+        return;
+      }
+
+      sessionStorage.removeItem('admin_login_email');
+      router.replace('/dashboard');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(message);
       setIsSubmitting(false);
-      return;
     }
-
-    sessionStorage.removeItem('admin_login_email');
-    router.replace('/dashboard');
   };
 
   return (

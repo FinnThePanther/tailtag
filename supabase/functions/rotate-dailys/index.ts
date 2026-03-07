@@ -264,39 +264,61 @@ async function fetchAssignments(
   return assignments;
 }
 
-async function selectAssignments(
-  conventionId: string,
-  day: string,
-  requestedCount?: number,
-) {
-  const { data: activeTasks, error } = await supabaseAdmin
+async function fetchTaskPool(conventionId: string | null): Promise<DailyTaskRow[]> {
+  let query = supabaseAdmin
     .from("daily_tasks")
     .select("id, name, description, kind, requirement")
     .eq("is_active", true)
     .order("name", { ascending: true });
 
-  if (error) {
-    throw new Error(`Unable to fetch active daily tasks: ${error.message}`);
+  if (conventionId === null) {
+    query = (query as any).is("convention_id", null);
+  } else {
+    query = query.eq("convention_id", conventionId);
   }
 
-  const tasks = (activeTasks ?? []) as DailyTaskRow[];
-  if (tasks.length < MIN_TASKS) {
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`Unable to fetch daily tasks: ${error.message}`);
+  }
+  return (data ?? []) as DailyTaskRow[];
+}
+
+async function selectAssignments(
+  conventionId: string,
+  day: string,
+  requestedCount?: number,
+) {
+  const [globalTasks, conventionTasks] = await Promise.all([
+    fetchTaskPool(null),
+    fetchTaskPool(conventionId),
+  ]);
+
+  const totalPool = globalTasks.length + conventionTasks.length;
+  if (totalPool < MIN_TASKS) {
     throw new Error(
-      `Insufficient active daily tasks (${tasks.length}); need at least ${MIN_TASKS} to rotate`,
+      `Insufficient active daily tasks (${totalPool}); need at least ${MIN_TASKS} to rotate`,
     );
   }
 
   const { seed, hashHex } = await deriveSeed(conventionId, day);
   const rng = mulberry32(seed);
 
-  const maxAllowed = Math.min(MAX_TASKS, tasks.length);
+  const maxAllowed = Math.min(MAX_TASKS, totalPool);
   const desiredCount = requestedCount
     ? Math.min(maxAllowed, Math.max(MIN_TASKS, requestedCount))
     : MIN_TASKS + Math.floor(rng() * (maxAllowed - MIN_TASKS + 1));
 
-  const tasksCopy = [...tasks];
-  shuffleInPlace(tasksCopy, rng);
-  const selected = tasksCopy.slice(0, desiredCount);
+  let selected: DailyTaskRow[];
+  if (conventionTasks.length > 0) {
+    const pickedConventionTask = conventionTasks[Math.floor(rng() * conventionTasks.length)];
+    const remaining = globalTasks.filter((t) => t.id !== pickedConventionTask.id);
+    shuffleInPlace(remaining, rng);
+    selected = [pickedConventionTask, ...remaining.slice(0, desiredCount - 1)];
+  } else {
+    shuffleInPlace(globalTasks, rng);
+    selected = globalTasks.slice(0, desiredCount);
+  }
 
   return { selected, desiredCount, hashHex };
 }
