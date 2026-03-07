@@ -59,6 +59,7 @@ export type Database = {
       achievements: {
         Row: {
           category: Database["public"]["Enums"]["achievement_category"]
+          convention_id: string | null
           created_at: string
           description: string
           id: string
@@ -75,6 +76,7 @@ export type Database = {
         }
         Insert: {
           category: Database["public"]["Enums"]["achievement_category"]
+          convention_id?: string | null
           created_at?: string
           description: string
           id?: string
@@ -91,6 +93,7 @@ export type Database = {
         }
         Update: {
           category?: Database["public"]["Enums"]["achievement_category"]
+          convention_id?: string | null
           created_at?: string
           description?: string
           id?: string
@@ -378,6 +381,7 @@ export type Database = {
       }
       daily_tasks: {
         Row: {
+          convention_id: string | null
           created_at: string
           description: string
           id: string
@@ -390,6 +394,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          convention_id?: string | null
           created_at?: string
           description: string
           id?: string
@@ -402,6 +407,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          convention_id?: string | null
           created_at?: string
           description?: string
           id?: string
@@ -1866,6 +1872,8 @@ export type Database = {
         | "profile.updated"
         | "convention.checkin"
         | "leaderboard.refreshed"
+        | "catch_performed"
+        | "convention_joined"
       catch_mode: "AUTO_ACCEPT" | "MANUAL_APPROVAL"
       catch_status: "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED"
       user_role: "player" | "staff" | "moderator" | "organizer" | "owner"

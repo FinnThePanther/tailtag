@@ -238,10 +238,14 @@ async function processCatchEvent(
 
   const awards = evaluateCatchAchievements(catchContext);
 
+  const conventionAwards = primaryConventionId
+    ? await evaluateConventionAchievements(supabaseAdmin, primaryConventionId, "catch_performed", catchContext)
+    : [];
+
   // Skip daily task processing if requested (e.g., for catch_confirmed events)
   // Daily tasks should only count for immediately accepted catches
   if (options.skipDailyTasks) {
-    return await applyAwards(supabaseAdmin, awards, event);
+    return await applyAwards(supabaseAdmin, [...awards, ...conventionAwards], event);
   }
 
   // Process daily tasks for the catcher
@@ -266,7 +270,7 @@ async function processCatchEvent(
     });
   }
 
-  const combinedAwards = [...awards, ...catcherDailyAwards, ...ownerDailyAwards];
+  const combinedAwards = [...awards, ...conventionAwards, ...catcherDailyAwards, ...ownerDailyAwards];
   return await applyAwards(supabaseAdmin, combinedAwards, event);
 }
 
@@ -318,6 +322,10 @@ async function processCatchConfirmedEvent(
       fursuit_owner_id: catchRow.fursuit?.owner_id ?? null,
       is_tutorial: false,
       source: "catch_confirmed", // Track that this originated from a confirmation
+      species: catchRow.fursuit?.species?.name ?? null,
+      colors: (catchRow.fursuit?.color_assignments ?? [])
+        .map((a: { color: { name: string } | null }) => a.color?.name)
+        .filter((n: string | undefined): n is string => !!n),
     },
     occurred_at: event.occurred_at, // Use confirmation timestamp
   };
@@ -379,7 +387,12 @@ async function processSimpleEvent(
   };
 
   const awards = evaluateSimpleEventAchievements(eventType, context);
-  return await applyAwards(supabaseAdmin, awards, event);
+
+  const conventionAwards = eventType === "convention_joined" && context.conventionId
+    ? await evaluateConventionAchievements(supabaseAdmin, context.conventionId, "convention_joined", context)
+    : [];
+
+  return await applyAwards(supabaseAdmin, [...awards, ...conventionAwards], event);
 }
 
 async function processDailyTaskOnlyEvent(
@@ -481,6 +494,68 @@ function resolveConventionIdFromEvent(event: InsertableEventRow): string | null 
     }
   }
   return null;
+}
+
+async function evaluateConventionAchievements(
+  supabaseAdmin: SupabaseClient<any, "public", any>,
+  conventionId: string,
+  triggerEvent: string,
+  context: CatchEventContext | SimpleEventContext,
+): Promise<AwardCandidate[]> {
+  const { data, error } = await supabaseAdmin
+    .from("achievements")
+    .select("key, achievement_rules(kind, rule)")
+    .eq("convention_id", conventionId)
+    .eq("trigger_event", triggerEvent)
+    .eq("is_active", true);
+
+  if (error) {
+    console.error("[events-ingress] Failed fetching convention achievements", {
+      conventionId,
+      triggerEvent,
+      error,
+    });
+    return [];
+  }
+
+  const candidates: AwardCandidate[] = [];
+
+  for (const row of data ?? []) {
+    const ruleRow = (row.achievement_rules as { kind: string; rule: Record<string, unknown> } | null);
+    if (!ruleRow) continue;
+
+    const { kind, rule } = ruleRow;
+
+    if (triggerEvent === "catch_performed") {
+      const catchCtx = context as CatchEventContext;
+
+      if (kind === "fursuit_caught_count_at_convention") {
+        const threshold = typeof rule?.threshold === "number" ? rule.threshold : 0;
+        if (
+          catchCtx.fursuitOwnerId &&
+          catchCtx.stats.uniqueCatchersAtConvention >= threshold
+        ) {
+          candidates.push({
+            achievementKey: row.key,
+            userId: catchCtx.fursuitOwnerId,
+            context: { convention_id: conventionId },
+          });
+        }
+      }
+    } else if (triggerEvent === "convention_joined") {
+      const simpleCtx = context as SimpleEventContext;
+
+      if (kind === "convention_joined") {
+        candidates.push({
+          achievementKey: row.key,
+          userId: simpleCtx.userId,
+          context: { convention_id: conventionId },
+        });
+      }
+    }
+  }
+
+  return candidates;
 }
 
 async function applyAwards(
@@ -594,7 +669,7 @@ async function fetchCatchWithRelations(
 ) {
   const { data, error } = await supabaseAdmin
     .from("catches")
-    .select("id,catcher_id,fursuit_id,convention_id,is_tutorial,caught_at,fursuit:fursuits(id,owner_id,species_id)")
+    .select("id,catcher_id,fursuit_id,convention_id,is_tutorial,caught_at,fursuit:fursuits(id,owner_id,species_id,species:fursuit_species(name),color_assignments:fursuit_color_assignments(color:fursuit_colors(name)))")
     .eq("id", catchId)
     .limit(1)
     .maybeSingle();

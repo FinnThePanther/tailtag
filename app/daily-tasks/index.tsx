@@ -286,6 +286,11 @@ export default function DailyTasksScreen() {
                       {getTaskStatusCopy(task.requirement, task.currentCount, task.isCompleted)}
                     </Text>
                   </View>
+                  {task.conventionId !== null ? (
+                    <View style={styles.conventionBadgeRow}>
+                      <Text style={styles.conventionBadge}>Con exclusive</Text>
+                    </View>
+                  ) : null}
                   <Text style={styles.taskDescription}>{task.description}</Text>
                   <TailTagProgressBar value={progressFraction} style={styles.taskProgress} />
                   <View style={styles.taskFooter}>
@@ -455,6 +460,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     flexShrink: 0,
+  },
+  conventionBadgeRow: {
+    flexDirection: 'row',
+  },
+  conventionBadge: {
+    color: '#f59e0b',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.4)',
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    alignSelf: 'flex-start',
   },
   taskDescription: {
     color: colors.slate200,

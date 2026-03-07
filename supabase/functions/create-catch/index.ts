@@ -116,43 +116,64 @@ async function handlePost(req: Request): Promise<Response> {
 
     const result = data as CreateCatchResponse;
 
-    // If the catch requires approval, send notification to fursuit owner
-    // This is done in a try/catch to ensure notification failures don't fail the catch
-    if (result.requires_approval) {
-      try {
-        // Get fursuit and catcher details for notification
-        const [fursuitData, catcherData] = await Promise.all([
-          supabaseAdmin
-            .from('fursuits')
-            .select('name')
-            .eq('id', body.fursuit_id)
-            .single(),
+    // Fetch fursuit metadata (species + colors) for enriching the event payload.
+    // Also fetch fursuit name + catcher username for notifications if approval is needed.
+    // These run in parallel so we don't add latency.
+    let speciesName: string | null = null;
+    let colorNames: string[] = [];
+
+    try {
+      const metadataPromises: Promise<unknown>[] = [
+        supabaseAdmin
+          .from('fursuits')
+          .select('name, species:fursuit_species(name)')
+          .eq('id', body.fursuit_id)
+          .single(),
+        supabaseAdmin
+          .from('fursuit_color_assignments')
+          .select('color:fursuit_colors(name)')
+          .eq('fursuit_id', body.fursuit_id)
+          .order('position', { ascending: true }),
+      ];
+
+      if (result.requires_approval) {
+        metadataPromises.push(
           supabaseAdmin
             .from('profiles')
             .select('username')
             .eq('id', userId)
             .single(),
-        ]);
-
-        if (fursuitData.data && catcherData.data) {
-          // Send notification to fursuit owner
-          const { error: notifError } = await supabaseAdmin.rpc('notify_catch_pending', {
-            p_catch_id: result.catch_id,
-            p_fursuit_owner_id: result.fursuit_owner_id,
-            p_catcher_id: userId,
-            p_fursuit_name: fursuitData.data.name,
-            p_catcher_username: catcherData.data.username || 'Someone',
-          });
-
-          if (notifError) {
-            console.error("[create-catch] Failed to send notification:", notifError);
-            // Don't fail the catch creation if notification fails
-          }
-        }
-      } catch (notifError) {
-        console.error("[create-catch] Notification error:", notifError);
-        // Don't fail the catch creation if notification fails
+        );
       }
+
+      const results = await Promise.all(metadataPromises);
+
+      const fursuitResult = results[0] as { data: { name: string; species: { name: string } | null } | null };
+      const colorsResult = results[1] as { data: { color: { name: string } | null }[] | null };
+      const catcherResult = results[2] as { data: { username: string } | null } | undefined;
+
+      speciesName = fursuitResult.data?.species?.name ?? null;
+      colorNames = (colorsResult.data ?? [])
+        .map((row) => row.color?.name)
+        .filter((name): name is string => !!name);
+
+      // Send approval notification if needed
+      if (result.requires_approval && fursuitResult.data && catcherResult?.data) {
+        const { error: notifError } = await supabaseAdmin.rpc('notify_catch_pending', {
+          p_catch_id: result.catch_id,
+          p_fursuit_owner_id: result.fursuit_owner_id,
+          p_catcher_id: userId,
+          p_fursuit_name: fursuitResult.data.name,
+          p_catcher_username: catcherResult.data.username || 'Someone',
+        });
+
+        if (notifError) {
+          console.error("[create-catch] Failed to send notification:", notifError);
+        }
+      }
+    } catch (metadataError) {
+      console.error("[create-catch] Metadata/notification error:", metadataError);
+      // Don't fail the catch creation if metadata fetch fails
     }
 
     // Fire the catch_performed event if accepted, or catch_pending if requires approval
@@ -175,6 +196,8 @@ async function handlePost(req: Request): Promise<Response> {
           convention_id: body.convention_id,
           is_tutorial: body.is_tutorial,
           status: result.status,
+          species: speciesName,
+          colors: colorNames,
         },
       }),
     }).catch((eventError) => {
