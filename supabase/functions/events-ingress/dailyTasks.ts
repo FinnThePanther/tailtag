@@ -253,11 +253,24 @@ function applyFilters(events: NormalizedEvent[], filters: DailyTaskMetadataFilte
       if (filter.notEquals !== undefined && value === filter.notEquals) {
         return false;
       }
-      if (filter.in && !filter.in.includes(value)) {
-        return false;
+      if (filter.in) {
+        if (Array.isArray(value)) {
+          // Value is an array (e.g. colors) — pass if any element is in the filter list
+          if (!value.some((v) => filter.in!.includes(v))) {
+            return false;
+          }
+        } else if (!filter.in.includes(value)) {
+          return false;
+        }
       }
-      if (filter.notIn && filter.notIn.includes(value)) {
-        return false;
+      if (filter.notIn) {
+        if (Array.isArray(value)) {
+          if (value.some((v) => filter.notIn!.includes(v))) {
+            return false;
+          }
+        } else if (filter.notIn.includes(value)) {
+          return false;
+        }
       }
       if (filter.exists === true && value === undefined) {
         return false;

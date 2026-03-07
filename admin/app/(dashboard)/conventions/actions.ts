@@ -152,6 +152,7 @@ export async function createConventionTaskAction(input: {
   description: string;
   kind: string;
   requirement: number;
+  metadata?: Record<string, unknown> | null;
 }) {
   const { profile } = await assertAdminAction([...CONTENT_ROLES]);
   const supabase = createServiceRoleClient();
@@ -169,6 +170,7 @@ export async function createConventionTaskAction(input: {
       kind: input.kind,
       requirement: input.requirement,
       is_active: true,
+      metadata: input.metadata ?? null,
     } as any)
     .select('id')
     .single();
@@ -212,6 +214,71 @@ export async function toggleConventionTaskAction(input: {
   revalidatePath(`/conventions/${input.conventionId}`);
 }
 
+export async function updateConventionTaskAction(input: {
+  taskId: string;
+  conventionId: string;
+  name: string;
+  description: string;
+  kind: string;
+  requirement: number;
+  metadata?: Record<string, unknown> | null;
+}) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  if (!input.name.trim()) throw new Error('Task name is required.');
+  if (!input.kind.trim()) throw new Error('Task kind is required.');
+  if (input.requirement < 1) throw new Error('Requirement must be at least 1.');
+
+  const { error } = await supabase
+    .from('daily_tasks')
+    .update({
+      name: input.name.trim(),
+      description: input.description.trim(),
+      kind: input.kind,
+      requirement: input.requirement,
+      metadata: input.metadata ?? null,
+    } as any)
+    .eq('id', input.taskId);
+
+  if (error) throw error;
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'update_convention_task',
+    entityType: 'daily_tasks',
+    entityId: input.taskId,
+    context: { convention_id: input.conventionId, name: input.name },
+  });
+
+  revalidatePath(`/conventions/${input.conventionId}`);
+}
+
+export async function deleteConventionTaskAction(input: {
+  taskId: string;
+  conventionId: string;
+}) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  const { error } = await supabase
+    .from('daily_tasks')
+    .delete()
+    .eq('id', input.taskId);
+
+  if (error) throw error;
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'delete_convention_task',
+    entityType: 'daily_tasks',
+    entityId: input.taskId,
+    context: { convention_id: input.conventionId },
+  });
+
+  revalidatePath(`/conventions/${input.conventionId}`);
+}
+
 // ─── Convention-scoped achievements ──────────────────────────────────────────
 
 const KIND_META: Record<
@@ -235,7 +302,7 @@ export async function createConventionAchievementAction(input: {
   description: string;
   category: string;
   kind: string;
-  threshold?: number | null;
+  rule?: Record<string, unknown>;
 }) {
   const { profile } = await assertAdminAction([...CONTENT_ROLES]);
   const supabase = createServiceRoleClient();
@@ -247,10 +314,7 @@ export async function createConventionAchievementAction(input: {
   const meta = KIND_META[input.kind];
   if (!meta) throw new Error(`Unsupported rule kind: ${input.kind}`);
 
-  const rule =
-    input.kind === 'fursuit_caught_count_at_convention'
-      ? { threshold: input.threshold ?? 1 }
-      : {};
+  const rule = input.rule ?? {};
 
   const slug = `convention-${input.conventionId.slice(0, 8)}-${input.key.toLowerCase()}`;
 
@@ -261,7 +325,7 @@ export async function createConventionAchievementAction(input: {
       kind: input.kind,
       name: input.name.trim(),
       slug,
-      rule,
+      rule: rule as any,
       is_active: true,
     })
     .select('rule_id')
@@ -324,6 +388,90 @@ export async function toggleConventionAchievementAction(input: {
     entityType: 'achievements',
     entityId: input.achievementId,
     context: { convention_id: input.conventionId, is_active: input.isActive },
+  });
+
+  revalidatePath(`/conventions/${input.conventionId}`);
+}
+
+export async function updateConventionAchievementAction(input: {
+  achievementId: string;
+  conventionId: string;
+  name: string;
+  description: string;
+  category: string;
+  kind: string;
+  rule?: Record<string, unknown>;
+  ruleId: string | null;
+}) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  if (!input.name.trim()) throw new Error('Achievement name is required.');
+  if (!input.kind) throw new Error('Rule kind is required.');
+
+  const meta = KIND_META[input.kind];
+  if (!meta) throw new Error(`Unsupported rule kind: ${input.kind}`);
+
+  const rule = input.rule ?? {};
+
+  const { error: achError } = await supabase
+    .from('achievements')
+    .update({
+      name: input.name.trim(),
+      description: input.description.trim(),
+      category: input.category as any,
+      recipient_role: meta.recipientRole as any,
+      trigger_event: meta.triggerEvent as any,
+    } as any)
+    .eq('id', input.achievementId);
+
+  if (achError) throw achError;
+
+  if (input.ruleId) {
+    const { error: ruleError } = await supabase
+      .from('achievement_rules')
+      .update({ kind: input.kind, rule: rule as any })
+      .eq('rule_id', input.ruleId);
+
+    if (ruleError) throw ruleError;
+  }
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'update_convention_achievement',
+    entityType: 'achievements',
+    entityId: input.achievementId,
+    context: { convention_id: input.conventionId, name: input.name, kind: input.kind },
+  });
+
+  revalidatePath(`/conventions/${input.conventionId}`);
+}
+
+export async function deleteConventionAchievementAction(input: {
+  achievementId: string;
+  conventionId: string;
+  ruleId: string | null;
+}) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  const { error: achError } = await supabase
+    .from('achievements')
+    .delete()
+    .eq('id', input.achievementId);
+
+  if (achError) throw achError;
+
+  if (input.ruleId) {
+    await supabase.from('achievement_rules').delete().eq('rule_id', input.ruleId);
+  }
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'delete_convention_achievement',
+    entityType: 'achievements',
+    entityId: input.achievementId,
+    context: { convention_id: input.conventionId },
   });
 
   revalidatePath(`/conventions/${input.conventionId}`);

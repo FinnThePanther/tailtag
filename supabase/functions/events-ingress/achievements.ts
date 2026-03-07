@@ -322,6 +322,10 @@ async function processCatchConfirmedEvent(
       fursuit_owner_id: catchRow.fursuit?.owner_id ?? null,
       is_tutorial: false,
       source: "catch_confirmed", // Track that this originated from a confirmation
+      species: catchRow.fursuit?.species?.name ?? null,
+      colors: (catchRow.fursuit?.color_assignments ?? [])
+        .map((a: { color: { name: string } | null }) => a.color?.name)
+        .filter((n: string | undefined): n is string => !!n),
     },
     occurred_at: event.occurred_at, // Use confirmation timestamp
   };
@@ -665,7 +669,7 @@ async function fetchCatchWithRelations(
 ) {
   const { data, error } = await supabaseAdmin
     .from("catches")
-    .select("id,catcher_id,fursuit_id,convention_id,is_tutorial,caught_at,fursuit:fursuits(id,owner_id,species_id)")
+    .select("id,catcher_id,fursuit_id,convention_id,is_tutorial,caught_at,fursuit:fursuits(id,owner_id,species_id,species:fursuit_species(name),color_assignments:fursuit_color_assignments(color:fursuit_colors(name)))")
     .eq("id", catchId)
     .limit(1)
     .maybeSingle();

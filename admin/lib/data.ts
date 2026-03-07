@@ -459,6 +459,7 @@ export type ConventionTaskRow = {
   requirement: number;
   is_active: boolean;
   created_at: string;
+  metadata: Record<string, unknown> | null;
 };
 
 export type ConventionAchievementRow = {
@@ -471,6 +472,7 @@ export type ConventionAchievementRow = {
   trigger_event: string;
   is_active: boolean;
   created_at: string;
+  rule_id: string | null;
   rule_kind: string | null;
   rule: Record<string, unknown> | null;
 };
@@ -479,7 +481,7 @@ export async function fetchConventionTasks(conventionId: string): Promise<Conven
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from('daily_tasks')
-    .select('id, name, description, kind, requirement, is_active, created_at')
+    .select('id, name, description, kind, requirement, is_active, created_at, metadata')
     .eq('convention_id', conventionId)
     .order('created_at', { ascending: false });
 
@@ -493,7 +495,7 @@ export async function fetchConventionAchievements(conventionId: string): Promise
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from('achievements')
-    .select('id, key, name, description, category, recipient_role, trigger_event, is_active, created_at, achievement_rules(kind, rule)')
+    .select('id, key, name, description, category, recipient_role, trigger_event, is_active, created_at, rule_id, achievement_rules(kind, rule)')
     .eq('convention_id', conventionId)
     .order('created_at', { ascending: false });
 
@@ -515,6 +517,7 @@ export async function fetchConventionAchievements(conventionId: string): Promise
       trigger_event: row.trigger_event,
       is_active: row.is_active,
       created_at: row.created_at,
+      rule_id: row.rule_id ?? null,
       rule_kind: ruleRow?.kind ?? null,
       rule: ruleRow?.rule ?? null,
     } satisfies ConventionAchievementRow;

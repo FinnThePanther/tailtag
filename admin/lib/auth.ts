@@ -8,7 +8,7 @@ export const adminRoles: AdminRole[] = ['owner', 'organizer', 'staff', 'moderato
 
 export type AdminProfile = Pick<
   Database['public']['Tables']['profiles']['Row'],
-  'id' | 'username' | 'avatar_url' | 'role' | 'is_suspended' | 'suspended_until'
+  'id' | 'username' | 'role' | 'is_suspended' | 'suspended_until'
 > & { email?: string | null };
 
 export async function getSessionWithProfile(): Promise<{
@@ -27,11 +27,15 @@ export async function getSessionWithProfile(): Promise<{
     return { session: null, profile: null };
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('id, username, avatar_url, role, is_suspended, suspended_until')
+    .select('id, username, role, is_suspended, suspended_until')
     .eq('id', user.id)
     .single();
+
+  if (profileError) {
+    console.log('[auth] Profile query error:', profileError);
+  }
 
   const {
     data: { session },
@@ -45,9 +49,17 @@ export async function getSessionWithProfile(): Promise<{
 export async function requireAdminProfile(allowed: AdminRole[] = adminRoles) {
   const { session, profile } = await getSessionWithProfile();
   if (!session || !profile) {
+    console.log('[auth] No session or profile — redirecting to /login', {
+      hasSession: !!session,
+      hasProfile: !!profile,
+    });
     redirect('/login');
   }
   if (!allowed.includes(profile.role as AdminRole)) {
+    console.log('[auth] Role not allowed — redirecting to /login', {
+      role: profile.role,
+      allowed,
+    });
     redirect('/login?error=forbidden');
   }
   return { session, profile };
