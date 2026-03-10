@@ -46,6 +46,8 @@ export function AchievementStep({
         (current) => ({
           username: current?.username ?? null,
           bio: current?.bio ?? null,
+          avatar_url: current?.avatar_url ?? null,
+          social_links: current?.social_links ?? [],
           onboarding_completed: true,
           is_new: false,
           role: current?.role,

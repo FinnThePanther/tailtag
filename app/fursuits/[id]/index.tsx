@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
@@ -19,7 +20,7 @@ import {
   fetchProfileConventionIds,
 } from '../../../src/features/conventions';
 import { emitGameplayEvent } from '../../../src/features/events';
-import { colors, spacing } from '../../../src/theme';
+import { colors, radius, spacing } from '../../../src/theme';
 
 const formatDate = (isoTimestamp: string | null) => {
   if (!isoTimestamp) {
@@ -187,6 +188,22 @@ export default function FursuitDetailScreen() {
               timelineLabel={addedDate ? `Added on ${addedDate}` : null}
               onCodeCopied={handleCodeCopied}
             />
+            {!isOwner && detail.owner_id ? (
+              <Pressable
+                style={({ pressed }) => [styles.ownerRow, pressed && styles.ownerRowPressed]}
+                onPress={() =>
+                  router.push({ pathname: '/profile/[id]', params: { id: detail.owner_id } })
+                }
+              >
+                <Text style={styles.ownerLabel}>Owner</Text>
+                <View style={styles.ownerRight}>
+                  <Text style={styles.ownerName}>
+                    {detail.bio?.ownerName?.trim() || 'View owner profile'}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+                </View>
+              </Pressable>
+            ) : null}
             {detail.bio ? (
               <FursuitBioDetails bio={detail.bio} />
             ) : (
@@ -266,5 +283,34 @@ const styles = StyleSheet.create({
   headerButton: {
     color: colors.primary,
     fontSize: 17,
+  },
+  ownerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: 'rgba(30,41,59,0.6)',
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148,163,184,0.2)',
+  },
+  ownerRowPressed: {
+    opacity: 0.7,
+  },
+  ownerLabel: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  ownerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ownerName: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

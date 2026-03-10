@@ -143,6 +143,9 @@ function RootLayoutNav() {
       {/* Standalone fursuit flows - has its own _layout.tsx */}
       <Stack.Screen name="fursuits" options={{ headerShown: false }} />
 
+      {/* Public player profiles */}
+      <Stack.Screen name="profile" options={{ headerShown: false }} />
+
       {/* Achievements */}
       <Stack.Screen name="achievements/index" options={{ headerShown: false }} />
 

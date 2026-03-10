@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, StyleSheet, Switch, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from "react-native";
+import * as ImagePicker from "expo-image-picker";
 
 import * as Linking from "expo-linking";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -33,10 +43,23 @@ import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import {
   checkUsernameAvailability,
   fetchProfile,
+  uploadProfileAvatar,
+  updateProfileAvatar,
+  updateProfileSocialLinks,
   PROFILE_QUERY_KEY,
   PROFILE_STALE_TIME,
 } from "../../src/features/profile";
 import type { ProfileSummary } from "../../src/features/profile";
+import type { FursuitPhotoCandidate } from "../../src/features/onboarding/api/onboarding";
+import type { EditableSocialLink } from "../../src/features/suits/forms/socialLinks";
+import {
+  ALLOWED_SOCIAL_PLATFORMS,
+  CUSTOM_PLATFORM_ID,
+  SOCIAL_LINK_LIMIT,
+  createEmptySocialLink,
+  mapEditableSocialLinks,
+  socialLinksToSave,
+} from "../../src/features/suits/forms/socialLinks";
 import { canUseStaffMode } from "../../src/features/staff-mode/constants";
 import {
   CAUGHT_SUITS_QUERY_KEY,
@@ -156,6 +179,15 @@ export default function SettingsScreen() {
   const [optimisticPushEnabled, setOptimisticPushEnabled] = useState<
     boolean | null
   >(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+
+  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(() => [createEmptySocialLink()]);
+  const [isSavingSocialLinks, setIsSavingSocialLinks] = useState(false);
+  const [socialLinksError, setSocialLinksError] = useState<string | null>(null);
+  const [socialLinksMessage, setSocialLinksMessage] = useState<string | null>(null);
+  const [hasHydratedSocialLinks, setHasHydratedSocialLinks] = useState(false);
+
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -280,6 +312,14 @@ export default function SettingsScreen() {
 
     resetDraftFromProfile(profile, { resetMessages: false });
   }, [profile, resetDraftFromProfile, userId]);
+
+  // Hydrate social links from profile once on first load
+  useEffect(() => {
+    if (hasHydratedSocialLinks || !profile) return;
+    const existing = profile.social_links ?? [];
+    setSocialLinks(mapEditableSocialLinks(existing));
+    setHasHydratedSocialLinks(true);
+  }, [profile, hasHydratedSocialLinks]);
 
   useEffect(() => {
     if (!userId) {
@@ -425,6 +465,8 @@ export default function SettingsScreen() {
         (current) => ({
           username: normalizedUsername,
           bio: normalizedBio,
+          avatar_url: current?.avatar_url ?? null,
+          social_links: current?.social_links ?? [],
           is_new: current?.is_new ?? false,
           onboarding_completed: current?.onboarding_completed ?? false,
           role: current?.role,
@@ -465,6 +507,102 @@ export default function SettingsScreen() {
     profileQueryKey,
     queryClient,
   ]);
+
+  const handlePickAvatar = useCallback(async () => {
+    if (!userId || isUploadingAvatar) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    const asset = result.assets[0];
+    const photo: FursuitPhotoCandidate = {
+      uri: asset.uri,
+      mimeType: asset.mimeType ?? 'image/jpeg',
+      fileName: asset.fileName ?? `avatar-${Date.now()}.jpg`,
+      fileSize: asset.fileSize ?? 0,
+    };
+
+    setIsUploadingAvatar(true);
+    setAvatarError(null);
+
+    try {
+      const publicUrl = await uploadProfileAvatar(userId, photo);
+      await updateProfileAvatar(userId, publicUrl);
+      queryClient.setQueryData<ProfileSummary | null>(
+        profileQueryKey,
+        (current) =>
+          current ? { ...current, avatar_url: publicUrl } : current,
+      );
+    } catch (caught) {
+      const msg =
+        caught instanceof Error
+          ? caught.message
+          : "We couldn't upload your photo. Please try again.";
+      setAvatarError(msg);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }, [userId, isUploadingAvatar, profileQueryKey, queryClient]);
+
+  const socialLinksCanAddMore = socialLinks.length < SOCIAL_LINK_LIMIT;
+
+  const handleSocialLinkChange = (
+    id: string,
+    field: "platformId" | "handle" | "label" | "url",
+    value: string,
+  ) => {
+    setSocialLinks((current) =>
+      current.map((entry) =>
+        entry.id === id ? { ...entry, [field]: value } : entry,
+      ),
+    );
+  };
+
+  const handleAddSocialLink = () => {
+    if (!socialLinksCanAddMore) return;
+    setSocialLinks((current) => [...current, createEmptySocialLink()]);
+  };
+
+  const handleRemoveSocialLink = (id: string) => {
+    setSocialLinks((current) => {
+      const next = current.filter((entry) => entry.id !== id);
+      return next.length > 0 ? next : [createEmptySocialLink()];
+    });
+  };
+
+  const handleSaveSocialLinks = useCallback(async () => {
+    if (!userId || isSavingSocialLinks) return;
+
+    const normalized = socialLinksToSave(socialLinks);
+
+    setIsSavingSocialLinks(true);
+    setSocialLinksError(null);
+    setSocialLinksMessage(null);
+
+    try {
+      await updateProfileSocialLinks(userId, normalized);
+      queryClient.setQueryData<ProfileSummary | null>(
+        profileQueryKey,
+        (current) =>
+          current ? { ...current, social_links: normalized } : current,
+      );
+      setSocialLinksMessage("Social links saved");
+    } catch (caught) {
+      setSocialLinksError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not save social links. Try again.",
+      );
+    } finally {
+      setIsSavingSocialLinks(false);
+    }
+  }, [userId, isSavingSocialLinks, socialLinks, profileQueryKey, queryClient]);
 
   const handleToggleProfileConvention = useCallback(
     async (
@@ -693,6 +831,32 @@ export default function SettingsScreen() {
           <Text style={styles.error}>{profileError.message}</Text>
         ) : (
           <View style={styles.fieldGroup}>
+            <View style={styles.avatarSection}>
+              <Pressable
+                onPress={handlePickAvatar}
+                disabled={isUploadingAvatar}
+                style={({ pressed }) => [
+                  styles.avatarButton,
+                  pressed && styles.avatarButtonPressed,
+                ]}
+              >
+                {profile?.avatar_url ? (
+                  <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarPlaceholderText}>Add photo</Text>
+                  </View>
+                )}
+                {isUploadingAvatar ? (
+                  <View style={styles.avatarOverlay}>
+                    <ActivityIndicator color={colors.foreground} />
+                  </View>
+                ) : null}
+              </Pressable>
+              {avatarError ? (
+                <Text style={styles.error}>{avatarError}</Text>
+              ) : null}
+            </View>
             <View style={styles.fieldGroup}>
               <Text style={styles.sectionTitle}>Username</Text>
               <TailTagInput
@@ -754,6 +918,184 @@ export default function SettingsScreen() {
             </TailTagButton>
           </View>
         )}
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.sectionTitle}>Social links</Text>
+          <Text style={styles.sectionDescription}>
+            Add links so players can follow you on social media.
+          </Text>
+          <View style={styles.socialList}>
+            {socialLinks.map((entry, index) => {
+              const usedPlatformIds = socialLinks
+                .filter(
+                  (e) =>
+                    e.id !== entry.id &&
+                    e.platformId &&
+                    e.platformId !== CUSTOM_PLATFORM_ID,
+                )
+                .map((e) => e.platformId);
+              const isCustom = entry.platformId === CUSTOM_PLATFORM_ID;
+              return (
+                <View key={entry.id} style={styles.socialRow}>
+                  <View style={styles.socialPlatformChips}>
+                    {ALLOWED_SOCIAL_PLATFORMS.map((platform) => {
+                      const isSelected = entry.platformId === platform.id;
+                      const isUsedElsewhere = usedPlatformIds.includes(
+                        platform.id,
+                      );
+                      return (
+                        <Pressable
+                          key={platform.id}
+                          onPress={() =>
+                            !isUsedElsewhere &&
+                            handleSocialLinkChange(
+                              entry.id,
+                              "platformId",
+                              platform.id,
+                            )
+                          }
+                          disabled={isSavingSocialLinks || isUsedElsewhere}
+                          style={[
+                            styles.socialPlatformChip,
+                            isSelected && styles.socialPlatformChipSelected,
+                            isUsedElsewhere &&
+                              styles.socialPlatformChipDisabled,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.socialPlatformChipText,
+                              isSelected &&
+                                styles.socialPlatformChipTextSelected,
+                              isUsedElsewhere &&
+                                styles.socialPlatformChipTextDisabled,
+                            ]}
+                          >
+                            {platform.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                    <Pressable
+                      onPress={() =>
+                        handleSocialLinkChange(
+                          entry.id,
+                          "platformId",
+                          CUSTOM_PLATFORM_ID,
+                        )
+                      }
+                      disabled={isSavingSocialLinks}
+                      style={[
+                        styles.socialPlatformChip,
+                        isCustom && styles.socialPlatformChipSelected,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.socialPlatformChipText,
+                          isCustom && styles.socialPlatformChipTextSelected,
+                        ]}
+                      >
+                        Custom
+                      </Text>
+                    </Pressable>
+                  </View>
+                  {isCustom ? (
+                    <View style={styles.socialCustomInputs}>
+                      <TailTagInput
+                        value={entry.label ?? ""}
+                        onChangeText={(value) =>
+                          handleSocialLinkChange(entry.id, "label", value)
+                        }
+                        placeholder="Label (e.g. Mastodon, Website)"
+                        editable={!isSavingSocialLinks}
+                        returnKeyType="next"
+                        style={styles.socialInput}
+                      />
+                      <View style={styles.socialInputRow}>
+                        <TailTagInput
+                          value={entry.url ?? ""}
+                          onChangeText={(value) =>
+                            handleSocialLinkChange(entry.id, "url", value)
+                          }
+                          placeholder="https://example.com/you"
+                          editable={!isSavingSocialLinks}
+                          autoCapitalize="none"
+                          keyboardType="url"
+                          returnKeyType={
+                            index === socialLinks.length - 1 ? "done" : "next"
+                          }
+                          style={styles.socialInput}
+                        />
+                        <TailTagButton
+                          variant="ghost"
+                          size="sm"
+                          onPress={() => handleRemoveSocialLink(entry.id)}
+                          disabled={isSavingSocialLinks}
+                          style={styles.socialRemoveButton}
+                        >
+                          Remove
+                        </TailTagButton>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.socialInputRow}>
+                      <TailTagInput
+                        value={entry.handle}
+                        onChangeText={(value) =>
+                          handleSocialLinkChange(entry.id, "handle", value)
+                        }
+                        placeholder="Username"
+                        editable={!isSavingSocialLinks}
+                        autoCapitalize="none"
+                        returnKeyType={
+                          index === socialLinks.length - 1 ? "done" : "next"
+                        }
+                        style={styles.socialInput}
+                      />
+                      <TailTagButton
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => handleRemoveSocialLink(entry.id)}
+                        disabled={isSavingSocialLinks}
+                        style={styles.socialRemoveButton}
+                      >
+                        Remove
+                      </TailTagButton>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+          {socialLinksCanAddMore ? (
+            <TailTagButton
+              variant="outline"
+              size="sm"
+              onPress={handleAddSocialLink}
+              disabled={isSavingSocialLinks}
+            >
+              Add a link
+            </TailTagButton>
+          ) : (
+            <Text style={styles.helperLabel}>
+              You can add up to {SOCIAL_LINK_LIMIT} links.
+            </Text>
+          )}
+          {socialLinksError ? (
+            <Text style={styles.error}>{socialLinksError}</Text>
+          ) : null}
+          {socialLinksMessage ? (
+            <Text style={styles.success}>{socialLinksMessage}</Text>
+          ) : null}
+          <TailTagButton
+            onPress={handleSaveSocialLinks}
+            disabled={isSavingSocialLinks}
+            loading={isSavingSocialLinks}
+          >
+            Save links
+          </TailTagButton>
+        </View>
       </TailTagCard>
 
       <TailTagCard>
@@ -1052,5 +1394,106 @@ const styles = StyleSheet.create({
     color: "#fca5a5",
     fontSize: 12,
     marginTop: spacing.xs,
+  },
+  avatarSection: {
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  avatarButton: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    overflow: "hidden",
+  },
+  avatarButtonPressed: {
+    opacity: 0.7,
+  },
+  avatarImage: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+  },
+  avatarPlaceholder: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "rgba(30,41,59,0.8)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarPlaceholderText: {
+    color: "rgba(148,163,184,0.8)",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  socialList: {
+    gap: spacing.md,
+  },
+  socialRow: {
+    gap: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(148,163,184,0.2)",
+    backgroundColor: "rgba(15,23,42,0.4)",
+    padding: spacing.md,
+  },
+  socialPlatformChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  socialPlatformChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.3)",
+    backgroundColor: "rgba(30,41,59,0.6)",
+  },
+  socialPlatformChipSelected: {
+    borderColor: colors.primary,
+    backgroundColor: "rgba(56,189,248,0.15)",
+  },
+  socialPlatformChipDisabled: {
+    opacity: 0.4,
+  },
+  socialPlatformChipText: {
+    color: "rgba(148,163,184,0.9)",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  socialPlatformChipTextSelected: {
+    color: colors.primary,
+  },
+  socialPlatformChipTextDisabled: {
+    color: "rgba(148,163,184,0.5)",
+  },
+  socialInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  socialCustomInputs: {
+    gap: spacing.sm,
+  },
+  socialInput: {
+    flex: 1,
+  },
+  socialRemoveButton: {
+    flexShrink: 0,
+  },
+  helperLabel: {
+    color: "rgba(148,163,184,0.7)",
+    fontSize: 13,
   },
 });
