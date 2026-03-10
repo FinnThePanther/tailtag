@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -689,12 +690,19 @@ export default function HomeScreen() {
                             const isSelf = entry.profileId === userId;
 
                             return (
-                              <View
+                              <Pressable
                                 key={`${entry.profileId}-${rank}`}
-                                style={[
+                                style={({ pressed }) => [
                                   styles.leaderboardRow,
                                   isSelf && styles.leaderboardRowHighlight,
+                                  pressed && styles.leaderboardRowPressed,
                                 ]}
+                                onPress={() =>
+                                  router.push({
+                                    pathname: '/profile/[id]',
+                                    params: { id: entry.profileId },
+                                  })
+                                }
                               >
                                 <Text style={styles.leaderboardRank}>
                                   #{rank}
@@ -714,7 +722,7 @@ export default function HomeScreen() {
                                     {isSelf ? " · You" : ""}
                                   </Text>
                                 </View>
-                              </View>
+                              </Pressable>
                             );
                           })}
                         </View>
@@ -1092,6 +1100,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
     backgroundColor: "rgba(56,189,248,0.12)",
+  },
+  leaderboardRowPressed: {
+    opacity: 0.7,
   },
   leaderboardRank: {
     width: 36,
