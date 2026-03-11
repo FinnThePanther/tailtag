@@ -24,6 +24,7 @@ import {
 } from "../../conventions";
 import { captureNonCriticalError } from "../../../lib/sentry";
 import { colors, radius, spacing } from "../../../theme";
+import { buildImageUploadCandidate } from "../../../utils/images";
 import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
@@ -141,12 +142,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
         return;
       }
 
-      setSelectedPhoto({
-        uri: asset.uri,
-        mimeType: asset.mimeType ?? "image/jpeg",
-        fileName: asset.fileName ?? `fursuit-${Date.now()}.jpg`,
-        fileSize: asset.fileSize ?? 0,
-      });
+      setSelectedPhoto(buildImageUploadCandidate(asset, `fursuit-${Date.now()}`));
       setPhotoError(null);
     } catch (caught) {
       const message =

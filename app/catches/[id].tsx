@@ -16,8 +16,9 @@ import {
 } from "../../src/features/suits";
 import type { CaughtRecord } from "../../src/features/suits";
 import { useAuth } from "../../src/features/auth";
-import { colors, radius, spacing } from "../../src/theme";
+import { colors, spacing } from "../../src/theme";
 import { toDisplayDateTime } from "../../src/utils/dates";
+import { inferImageExtension, inferImageMimeType } from "../../src/utils/images";
 
 export default function CatchDetailScreen() {
   const router = useRouter();
@@ -56,9 +57,11 @@ export default function CatchDetailScreen() {
         Alert.alert("Not supported", "Sharing is not available on this device.");
         return;
       }
-      const dest = new File(Paths.cache, `catch-${Date.now()}.jpg`);
+      const extension = inferImageExtension({ uri: url }) || "jpg";
+      const mimeType = inferImageMimeType({ uri: url });
+      const dest = new File(Paths.cache, `catch-${Date.now()}.${extension}`);
       const file = await File.downloadFileAsync(url, dest);
-      await Sharing.shareAsync(file.uri, { mimeType: "image/jpeg", dialogTitle: "Save catch photo" });
+      await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: "Save catch photo" });
     } catch {
       Alert.alert("Download failed", "Could not download the photo. Please try again.");
     } finally {
@@ -90,22 +93,29 @@ export default function CatchDetailScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader title={details.name} onBack={() => router.back()} />
+      <ScreenHeader title={`Caught: ${details.name}`} onBack={() => router.back()} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.container}
       >
         <TailTagCard>
           <View style={styles.detailStack}>
-            <FursuitCard
-              name={details.name}
-              species={details.species}
-              colors={details.colors}
-              avatarUrl={details.avatar_url}
-              uniqueCode={details.unique_code}
-              timelineLabel={timelineLabel}
-              codeLabel={undefined}
-            />
+            <Pressable
+              onPress={() => router.push({ pathname: "/fursuits/[id]", params: { id: details.id } })}
+              style={({ pressed }) => pressed && styles.pressed}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${details.name}'s fursuit profile`}
+            >
+              <FursuitCard
+                name={details.name}
+                species={details.species}
+                colors={details.colors}
+                avatarUrl={details.avatar_url}
+                uniqueCode={details.unique_code}
+                timelineLabel={timelineLabel}
+                codeLabel={undefined}
+              />
+            </Pressable>
             {record.catchPhotoUrl ? (
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Catch photo</Text>
@@ -131,21 +141,6 @@ export default function CatchDetailScreen() {
           </View>
         </TailTagCard>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.profileLink,
-            pressed && styles.profileLinkPressed,
-          ]}
-          onPress={() =>
-            router.push({
-              pathname: "/fursuits/[id]",
-              params: { id: details.id },
-            })
-          }
-        >
-          <Text style={styles.profileLinkLabel}>View fursuit profile</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-        </Pressable>
       </ScrollView>
 
       {record.catchPhotoUrl ? (
@@ -219,24 +214,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "rgba(30,41,59,0.8)",
   },
-  profileLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: "rgba(30,41,59,0.6)",
-    borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(148,163,184,0.2)",
-  },
-  profileLinkPressed: {
+  pressed: {
     opacity: 0.7,
-  },
-  profileLinkLabel: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: "600",
   },
   fullscreenBackdrop: {
     flex: 1,

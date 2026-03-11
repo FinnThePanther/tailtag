@@ -58,6 +58,10 @@ import {
 import { supabase } from '../../../src/lib/supabase';
 import { FURSUIT_BUCKET, MAX_IMAGE_SIZE } from '../../../src/constants/storage';
 import { loadUriAsUint8Array } from '../../../src/utils/files';
+import {
+  buildImageUploadCandidate,
+  inferImageExtension,
+} from '../../../src/utils/images';
 import { colors, spacing, radius } from '../../../src/theme';
 import type { Json } from '../../../src/types/database';
 
@@ -350,12 +354,7 @@ export default function EditFursuitScreen() {
         return;
       }
 
-      setSelectedPhoto({
-        uri: asset.uri,
-        mimeType: asset.mimeType ?? 'image/jpeg',
-        fileName: asset.fileName ?? `fursuit-${Date.now()}.jpg`,
-        fileSize: asset.fileSize ?? 0,
-      });
+      setSelectedPhoto(buildImageUploadCandidate(asset, `fursuit-${Date.now()}`));
       setPhotoError(null);
     } catch (caught) {
       setPhotoError(
@@ -475,7 +474,7 @@ export default function EditFursuitScreen() {
       let newAvatarUrl: string | undefined;
 
       if (selectedPhoto) {
-        const extension = selectedPhoto.fileName.split('.').pop()?.toLowerCase() ?? 'jpg';
+        const extension = inferImageExtension(selectedPhoto);
         const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const storagePath = `${userId}/${uniqueSuffix}.${extension}`;
 

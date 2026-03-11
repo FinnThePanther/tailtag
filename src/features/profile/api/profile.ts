@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import { PROFILE_AVATAR_BUCKET, MAX_IMAGE_SIZE } from '../../../constants/storage';
 import { loadUriAsUint8Array } from '../../../utils/files';
+import { inferImageExtension } from '../../../utils/images';
 import type { FursuitPhotoCandidate } from '../../onboarding/api/onboarding';
 import type { FursuitSocialLink } from '../../../types/database';
 
@@ -84,7 +85,7 @@ export async function uploadProfileAvatar(
     throw new Error('Profile photos must be 5MB or smaller.');
   }
 
-  const extension = photo.fileName.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const extension = inferImageExtension(photo);
   const storagePath = `${userId}/avatar.${extension}`;
 
   const fileBytes = await loadUriAsUint8Array(photo.uri);

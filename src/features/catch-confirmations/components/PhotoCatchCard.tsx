@@ -8,14 +8,16 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { File } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { colors, radius, spacing } from '../../../theme';
 import { supabase } from '../../../lib/supabase';
-import { MAX_IMAGE_SIZE, CATCH_PHOTO_BUCKET } from '../../../constants/storage';
+import { CATCH_PHOTO_BUCKET } from '../../../constants/storage';
 import { loadUriAsUint8Array } from '../../../utils/files';
+import { buildImageUploadCandidate, inferImageExtension } from '../../../utils/images';
 import { fetchConventionFursuits } from '../api/confirmations';
 import { FursuitPicker } from './FursuitPicker';
 import type { FursuitPickerItem } from '../api';
@@ -91,7 +93,7 @@ export function PhotoCatchCard({
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: 'images',
       allowsEditing: false,
-      quality: 0.85,
+      quality: 1.0,
     });
 
     if (result.canceled || !result.assets[0]) {
@@ -99,17 +101,11 @@ export function PhotoCatchCard({
     }
 
     const asset = result.assets[0];
-
-    if (asset.fileSize && asset.fileSize > MAX_IMAGE_SIZE) {
-      setLocalError('Photo must be 5MB or smaller. Please try again.');
-      return;
-    }
+    const assetFile = new File(asset.uri);
 
     setPhoto({
-      uri: asset.uri,
-      mimeType: asset.mimeType ?? 'image/jpeg',
-      fileName: asset.fileName ?? `catch-${Date.now()}.jpg`,
-      fileSize: asset.fileSize ?? 0,
+      ...buildImageUploadCandidate(asset, `catch-${Date.now()}`),
+      fileSize: assetFile.exists ? assetFile.size : 0,
     });
     setStep('photo_taken');
     setSelectedFursuit(null);
@@ -134,7 +130,7 @@ export function PhotoCatchCard({
     let photoUrl: string;
     try {
       // Upload photo to Supabase storage
-      const extension = photo.fileName.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const extension = inferImageExtension(photo);
       const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const storagePath = `${userId}/${uniqueSuffix}.${extension}`;
 
@@ -392,4 +388,3 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
 });
-

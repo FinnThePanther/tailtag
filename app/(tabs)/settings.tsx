@@ -38,6 +38,7 @@ import { ConventionToggle } from "../../src/components/conventions/ConventionTog
 import { supabase } from "../../src/lib/supabase";
 import { captureHandledException } from "../../src/lib/sentry";
 import { colors, spacing, radius } from "../../src/theme";
+import { buildImageUploadCandidate } from "../../src/utils/images";
 import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import {
@@ -521,12 +522,10 @@ export default function SettingsScreen() {
     if (result.canceled || !result.assets[0]) return;
 
     const asset = result.assets[0];
-    const photo: FursuitPhotoCandidate = {
-      uri: asset.uri,
-      mimeType: asset.mimeType ?? 'image/jpeg',
-      fileName: asset.fileName ?? `avatar-${Date.now()}.jpg`,
-      fileSize: asset.fileSize ?? 0,
-    };
+    const photo: FursuitPhotoCandidate = buildImageUploadCandidate(
+      asset,
+      `avatar-${Date.now()}`,
+    );
 
     setIsUploadingAvatar(true);
     setAvatarError(null);

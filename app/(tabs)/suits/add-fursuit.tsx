@@ -19,6 +19,10 @@ import { supabase } from "../../../src/lib/supabase";
 import { captureNonCriticalError } from "../../../src/lib/sentry";
 import { generateUniqueCodeCandidate } from "../../../src/utils/code";
 import { loadUriAsUint8Array } from "../../../src/utils/files";
+import {
+  buildImageUploadCandidate,
+  inferImageExtension,
+} from "../../../src/utils/images";
 import { colors, spacing, radius } from "../../../src/theme";
 import {
   MY_SUITS_QUERY_KEY,
@@ -369,12 +373,10 @@ export default function AddFursuitScreen() {
         return;
       }
 
-      const candidate: UploadCandidate = {
-        uri: asset.uri,
-        mimeType: asset.mimeType ?? "image/jpeg",
-        fileName: asset.fileName ?? `fursuit-${Date.now()}.jpg`,
-        fileSize: asset.fileSize ?? 0,
-      };
+      const candidate: UploadCandidate = buildImageUploadCandidate(
+        asset,
+        `fursuit-${Date.now()}`,
+      );
 
       setSelectedPhoto(candidate);
       setPhotoError(null);
@@ -495,8 +497,7 @@ export default function AddFursuitScreen() {
       let avatarUrl: string | null = null;
 
       if (selectedPhoto) {
-        const extension =
-          selectedPhoto.fileName.split(".").pop()?.toLowerCase() ?? "png";
+        const extension = inferImageExtension(selectedPhoto);
         const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const storagePath = `${userId}/${uniqueSuffix}.${extension}`;
         uploadedStoragePath = storagePath;

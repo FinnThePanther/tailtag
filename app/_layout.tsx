@@ -9,6 +9,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryCache, QueryClient, QueryClientProvider, MutationCache, useQuery } from "@tanstack/react-query";
 
 import { AuthProvider, useAuth, usePrimeUserData } from "../src/features/auth";
+import { NavigationReadyProvider, useSetNavigationReady } from "../src/hooks/useNavigationReady";
 import { createProfileQueryOptions } from "../src/features/profile";
 import { colors } from "../src/theme";
 import { ToastProvider } from "../src/hooks/useToast";
@@ -53,6 +54,7 @@ function RootLayoutNav() {
   const inResetPasswordFlow =
     segments.length > 0 && segments[0] === "reset-password";
   const userId = session?.user.id ?? null;
+  const setNavigationReady = useSetNavigationReady();
 
   const {
     data: profile,
@@ -118,6 +120,9 @@ function RootLayoutNav() {
   if (session && inOnboardingFlow && (isProfileLoading || isProfileFetching) && !profileError) {
     return <LoadingScreen />;
   }
+
+  // Signal that the navigation tree is ready for deep link navigation.
+  setNavigationReady();
 
   // Normal app stack. Android back will "go back" automatically if there's history.
   return (
@@ -265,13 +270,15 @@ function Layout() {
           <StatusBar style="light" />
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
-              <ToastProvider>
-                <PushNotificationManager />
-                <AchievementToastManager />
-                <DailyTaskToastManager />
-                <CatchConfirmationToastManager />
-                <RootLayoutNav />
-              </ToastProvider>
+              <NavigationReadyProvider>
+                <ToastProvider>
+                  <PushNotificationManager />
+                  <AchievementToastManager />
+                  <DailyTaskToastManager />
+                  <CatchConfirmationToastManager />
+                  <RootLayoutNav />
+                </ToastProvider>
+              </NavigationReadyProvider>
             </AuthProvider>
           </QueryClientProvider>
         </SafeAreaProvider>
