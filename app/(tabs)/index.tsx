@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -391,28 +392,6 @@ export default function HomeScreen() {
   const suitErrorMessage = suitLeaderboardError?.message ?? null;
   const hasSuitEntries = topSuitEntries.length > 0;
 
-  const describeSuitEntry = (entry: SuitLeaderboardEntry) => {
-    const pieces = [formatCatchCount(entry.catchCount)];
-
-    if (entry.species) {
-      pieces.push(`Species: ${entry.species}`);
-    }
-
-    const colorNames = entry.colors
-      .map((option) => option.name.trim())
-      .filter((name) => name.length > 0);
-
-    if (colorNames.length > 0) {
-      pieces.push(`Colors: ${colorNames.join(", ")}`);
-    }
-
-    if (entry.ownerUsername) {
-      pieces.push(`Owner: ${entry.ownerUsername}`);
-    }
-
-    return pieces.join(" · ");
-  };
-
   const handleReloadStandings = useCallback(() => {
     void refetchLeaderboard({ throwOnError: false });
     void refetchSuitLeaderboard({ throwOnError: false });
@@ -784,6 +763,14 @@ export default function HomeScreen() {
                             <Text style={styles.leaderboardRank}>
                               #{index + 1}
                             </Text>
+                            {entry.avatarUrl ? (
+                              <Image
+                                source={{ uri: entry.avatarUrl }}
+                                style={styles.suitLeaderboardAvatar}
+                              />
+                            ) : (
+                              <View style={styles.suitLeaderboardAvatarPlaceholder} />
+                            )}
                             <View style={styles.leaderboardDetails}>
                               <Text
                                 style={styles.leaderboardName}
@@ -795,7 +782,7 @@ export default function HomeScreen() {
                                 style={styles.leaderboardCatchLabel}
                                 numberOfLines={1}
                               >
-                                {describeSuitEntry(entry)}
+                                {formatCatchCount(entry.catchCount)}
                               </Text>
                             </View>
                           </Pressable>
@@ -1124,6 +1111,19 @@ const styles = StyleSheet.create({
   leaderboardDetails: {
     flex: 1,
     gap: 4,
+  },
+  suitLeaderboardAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: spacing.md,
+  },
+  suitLeaderboardAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: spacing.md,
+    backgroundColor: "rgba(148,163,184,0.2)",
   },
   leaderboardName: {
     color: colors.foreground,
