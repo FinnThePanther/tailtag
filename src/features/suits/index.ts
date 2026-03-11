@@ -1,6 +1,23 @@
 export { FursuitCard } from './components/FursuitCard';
 export { FursuitBioDetails } from './components/FursuitBioDetails';
 export { CaughtSuitRow } from './components/CaughtSuitRow';
+export { CatchOfFursuitRow } from './components/CatchOfFursuitRow';
+export { CatchPhotosList } from './components/CatchPhotosList';
+export {
+  fetchCatchesByFursuit,
+  CATCHES_BY_FURSUIT_QUERY_KEY,
+  CATCHES_BY_FURSUIT_STALE_TIME,
+  catchesByFursuitQueryKey,
+  createCatchesByFursuitQueryOptions,
+} from './api/catchesByFursuit';
+export type { CatchOfFursuitItem } from './api/catchesByFursuit';
+export {
+  fetchCatchById,
+  CATCH_BY_ID_QUERY_KEY,
+  CATCH_BY_ID_STALE_TIME,
+  catchByIdQueryKey,
+  createCatchByIdQueryOptions,
+} from './api/catchById';
 export {
   fetchMySuits,
   fetchMySuitsCount,

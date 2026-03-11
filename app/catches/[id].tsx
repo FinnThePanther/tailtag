@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Alert, Image, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
@@ -12,7 +12,9 @@ import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import {
   FursuitCard,
   FursuitBioDetails,
+  catchByIdQueryKey,
   caughtSuitsQueryKey,
+  fetchCatchById,
 } from "../../src/features/suits";
 import type { CaughtRecord } from "../../src/features/suits";
 import { useAuth } from "../../src/features/auth";
@@ -29,7 +31,7 @@ export default function CatchDetailScreen() {
 
   const queryClient = useQueryClient();
 
-  const record = useMemo<CaughtRecord | null>(() => {
+  const recordFromCache = useMemo<CaughtRecord | null>(() => {
     if (!userId || !catchId) return null;
     const records = queryClient.getQueryData<CaughtRecord[]>(
       caughtSuitsQueryKey(userId),
@@ -37,6 +39,15 @@ export default function CatchDetailScreen() {
     return records?.find((r) => r.id === catchId) ?? null;
   }, [queryClient, userId, catchId]);
 
+  const shouldFetchById = Boolean(catchId && !recordFromCache);
+  const { data: recordFromApi, isLoading: isFetchingCatch } = useQuery({
+    queryKey: catchByIdQueryKey(catchId ?? ''),
+    queryFn: () => fetchCatchById(catchId!),
+    enabled: shouldFetchById,
+    staleTime: 2 * 60_000,
+  });
+
+  const record = recordFromCache ?? recordFromApi ?? null;
   const details = record?.fursuit ?? null;
 
   const caughtLabel = toDisplayDateTime(record?.caught_at) ?? "Caught just now";
@@ -70,21 +81,26 @@ export default function CatchDetailScreen() {
   }, []);
 
   if (!record || !details) {
+    const isLoading = shouldFetchById && isFetchingCatch;
     return (
       <View style={styles.screen}>
         <ScreenHeader title="Catch" onBack={() => router.back()} />
         <View style={styles.centeredContent}>
           <TailTagCard>
             <Text style={styles.message}>
-              This catch could not be found. Go back and try again.
+              {isLoading
+                ? 'Loading catch…'
+                : 'This catch could not be found. Go back and try again.'}
             </Text>
-            <TailTagButton
-              variant="outline"
-              size="sm"
-              onPress={() => router.back()}
-            >
-              Go back
-            </TailTagButton>
+            {!isLoading ? (
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => router.back()}
+              >
+                Go back
+              </TailTagButton>
+            ) : null}
           </TailTagCard>
         </View>
       </View>

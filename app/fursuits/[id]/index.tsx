@@ -17,7 +17,10 @@ import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
 import {
+  CatchPhotosList,
   FursuitBioDetails,
+  catchesByFursuitQueryKey,
+  fetchCatchesByFursuit,
   fetchFursuitDetail,
   fursuitDetailQueryKey,
 } from '../../../src/features/suits';
@@ -86,6 +89,18 @@ export default function FursuitDetailScreen() {
 
     return detail.owner_id === userId;
   }, [detail, userId]);
+
+  const shouldFetchCatchesOfFursuit = Boolean(
+    isOwner && fursuitId && detail && typeof detail.catchCount === 'number' && detail.catchCount > 0,
+  );
+  const { data: catchesOfFursuit = [] } = useQuery({
+    queryKey: catchesByFursuitQueryKey(fursuitId ?? ''),
+    queryFn: () => fetchCatchesByFursuit(fursuitId!),
+    enabled: shouldFetchCatchesOfFursuit,
+    staleTime: 2 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
 
   const { data: profileConventionIds = [] } = useQuery<string[], Error>({
     queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
@@ -260,6 +275,13 @@ export default function FursuitDetailScreen() {
                   {isOwner ? 'Catch stats' : 'Catch history'}
                 </Text>
                 <Text style={styles.sectionItem}>{catchSummary}</Text>
+              </View>
+            ) : null}
+            {isOwner &&
+            catchesOfFursuit.some((c) => c.catch_photo_url?.trim()) ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Catch photos</Text>
+                <CatchPhotosList items={catchesOfFursuit} />
               </View>
             ) : null}
             {detail.conventions.length > 0 ? (

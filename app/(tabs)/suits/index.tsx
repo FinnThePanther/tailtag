@@ -231,22 +231,6 @@ export default function MySuitsScreen() {
       ) : null}
 
       <TailTagCard style={styles.cardSpacing}>
-        <View style={styles.helperRow}>
-          <Text style={styles.helperText}>
-            {isAtFursuitLimit
-              ? `You have ${MAX_FURSUITS_PER_USER}/${MAX_FURSUITS_PER_USER} suits. Delete one to add another.`
-              : `Add a new suit before you head to the floor. (${suitCount}/${MAX_FURSUITS_PER_USER})`}
-          </Text>
-          <TailTagButton
-            onPress={() => router.push("/suits/add-fursuit")}
-            disabled={isAtFursuitLimit}
-          >
-            Add a fursuit
-          </TailTagButton>
-        </View>
-      </TailTagCard>
-
-      <TailTagCard>
         {isLoading ? (
           <Text style={styles.message}>Loading your suits…</Text>
         ) : combinedError ? (
@@ -313,10 +297,26 @@ export default function MySuitsScreen() {
           </View>
         ) : (
           <Text style={styles.message}>
-            You haven&apos;t added any suits yet. Tap “Add a fursuit” to get
+            You haven&apos;t added any suits yet. Tap “Add a fursuit” below to get
             started.
           </Text>
         )}
+      </TailTagCard>
+
+      <TailTagCard style={styles.cardSpacing}>
+        <View style={styles.helperRow}>
+          <Text style={styles.helperText}>
+            {isAtFursuitLimit
+              ? `You have ${MAX_FURSUITS_PER_USER}/${MAX_FURSUITS_PER_USER} suits. Delete one to add another.`
+              : `Add a new suit before you head to the floor. (${suitCount}/${MAX_FURSUITS_PER_USER})`}
+          </Text>
+          <TailTagButton
+            onPress={() => router.push("/suits/add-fursuit")}
+            disabled={isAtFursuitLimit}
+          >
+            Add a fursuit
+          </TailTagButton>
+        </View>
       </TailTagCard>
     </ScrollView>
   );
