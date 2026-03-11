@@ -583,6 +583,15 @@ export default function CatchScreen() {
         </Text>
       </View>
 
+        {!caughtFursuit && userId ? (
+          <PhotoCatchCard
+            userId={userId}
+            onCatchSubmit={handlePhotoCatch}
+            isSubmitting={isPhotoSubmitting}
+            submitError={photoSubmitError}
+          />
+        ) : null}
+
         <TailTagCard style={styles.cardSpacing}>
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Catch code</Text>
@@ -623,15 +632,6 @@ export default function CatchScreen() {
             Record catch
           </TailTagButton>
         </TailTagCard>
-
-        {!caughtFursuit && userId ? (
-          <PhotoCatchCard
-            userId={userId}
-            onCatchSubmit={handlePhotoCatch}
-            isSubmitting={isPhotoSubmitting}
-            submitError={photoSubmitError}
-          />
-        ) : null}
 
         <Text style={styles.comingSoon}>NFC tap and QR scanning coming soon.</Text>
 

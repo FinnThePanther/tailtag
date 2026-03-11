@@ -68,6 +68,64 @@ function RootLayoutNav() {
 
   usePrimeUserData(session?.user.id ?? null);
 
+  const shouldGateOnboarding =
+    Boolean(session) &&
+    !profileError &&
+    profile !== null && // Explicit null check - don't gate while loading
+    (profile?.is_new === true || profile?.onboarding_completed !== true);
+
+  const shouldShowOnboardingRedirectLoading =
+    !inResetPasswordFlow &&
+    Boolean(session) &&
+    shouldGateOnboarding &&
+    !inOnboardingFlow &&
+    (isProfileLoading || isProfileFetching) &&
+    !profile &&
+    !profileError;
+
+  const shouldShowOnboardingFlowLoading =
+    Boolean(session) &&
+    inOnboardingFlow &&
+    (isProfileLoading || isProfileFetching) &&
+    !profileError;
+
+  let redirectHref: "/" | "/auth" | "/onboarding" | null = null;
+
+  if (!session && !inAuthGroup) {
+    redirectHref = "/auth";
+  } else if (session && inAuthGroup) {
+    redirectHref = "/";
+  } else if (
+    !inResetPasswordFlow &&
+    session &&
+    shouldGateOnboarding &&
+    !inOnboardingFlow &&
+    !shouldShowOnboardingRedirectLoading
+  ) {
+    redirectHref = "/onboarding";
+  } else if (
+    session &&
+    inOnboardingFlow &&
+    !shouldGateOnboarding &&
+    !isProfileLoading &&
+    !isProfileFetching
+  ) {
+    redirectHref = "/";
+  }
+
+  const shouldShowLoadingScreen =
+    status === "loading" ||
+    shouldShowOnboardingRedirectLoading ||
+    shouldShowOnboardingFlowLoading;
+
+  useEffect(() => {
+    if (shouldShowLoadingScreen || redirectHref) {
+      return;
+    }
+
+    setNavigationReady();
+  }, [redirectHref, setNavigationReady, shouldShowLoadingScreen]);
+
   if (status === "loading") {
     return <LoadingScreen />;
   }
@@ -82,18 +140,12 @@ function RootLayoutNav() {
     return <Redirect href="/" />;
   }
 
-  const shouldGateOnboarding =
-    Boolean(session) &&
-    !profileError &&
-    profile !== null && // Explicit null check - don't gate while loading
-    (profile?.is_new === true || profile?.onboarding_completed !== true);
-
   // Don't redirect mid-flow during password reset — the recovery session
   // makes the user appear authenticated, but they need to stay on this screen.
   if (inResetPasswordFlow) {
     // Fall through to normal Stack rendering below
   } else if (session && shouldGateOnboarding && !inOnboardingFlow) {
-    if ((isProfileLoading || isProfileFetching) && !profile && !profileError) {
+    if (shouldShowOnboardingRedirectLoading) {
       return <LoadingScreen />;
     }
 
@@ -117,12 +169,9 @@ function RootLayoutNav() {
     return <Redirect href="/" />;
   }
 
-  if (session && inOnboardingFlow && (isProfileLoading || isProfileFetching) && !profileError) {
+  if (shouldShowOnboardingFlowLoading) {
     return <LoadingScreen />;
   }
-
-  // Signal that the navigation tree is ready for deep link navigation.
-  setNavigationReady();
 
   // Normal app stack. Android back will "go back" automatically if there's history.
   return (
