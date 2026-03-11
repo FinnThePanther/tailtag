@@ -15,6 +15,7 @@ export type PendingCatch = {
   caughtAt: string;
   expiresAt: string;
   timeRemaining: string;
+  catchPhotoUrl: string | null;
 };
 
 export type ConfirmCatchResult = {
@@ -37,4 +38,5 @@ export type CreateCatchParams = {
   fursuitId: string;
   conventionId: string | null;
   isTutorial?: boolean;
+  photoUrl?: string | null;
 };

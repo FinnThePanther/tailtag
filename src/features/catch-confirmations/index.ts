@@ -2,7 +2,7 @@
 export type { CatchMode, CatchStatus, PendingCatch, ConfirmCatchResult, CreateCatchResult, CreateCatchParams } from './types';
 
 // Components
-export { CatchModeSwitch, PendingCatchCard, PendingCatchesList, CatchConfirmationToastManager } from './components';
+export { CatchModeSwitch, PendingCatchCard, PendingCatchesList, CatchConfirmationToastManager, PhotoCatchCard } from './components';
 
 // Hooks
 export { usePendingCatches, useConfirmCatch } from './hooks';
@@ -16,4 +16,6 @@ export {
   confirmCatch,
   updateFursuitCatchMode,
   createCatch,
+  fetchConventionFursuits,
 } from './api';
+export type { FursuitPickerItem } from './api';

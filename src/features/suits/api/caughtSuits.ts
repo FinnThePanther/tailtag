@@ -7,6 +7,7 @@ export type CaughtRecord = {
   id: string;
   caught_at: string | null;
   catchNumber: number | null;
+  catchPhotoUrl: string | null;
   fursuit: FursuitSummary | null;
 };
 
@@ -24,6 +25,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       id,
       caught_at,
       catch_number,
+      catch_photo_url,
       fursuit:fursuits (
         id,
         name,
@@ -104,6 +106,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
         caught_at: record.caught_at ?? null,
         catchNumber:
           typeof record.catch_number === 'number' ? record.catch_number : null,
+        catchPhotoUrl: record.catch_photo_url ?? null,
         fursuit,
       } satisfies CaughtRecord;
     })

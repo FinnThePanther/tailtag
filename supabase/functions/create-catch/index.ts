@@ -33,6 +33,7 @@ interface CreateCatchRequest {
   fursuit_id: string;
   convention_id?: string | null;
   is_tutorial?: boolean;
+  catch_photo_url?: string | null;
 }
 
 interface CreateCatchResponse {
@@ -96,6 +97,7 @@ async function handlePost(req: Request): Promise<Response> {
       p_catcher_id: userId,
       p_convention_id: body.convention_id || null,
       p_is_tutorial: body.is_tutorial || false,
+      p_catch_photo_url: body.catch_photo_url || null,
     });
 
     if (error) {

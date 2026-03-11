@@ -39,6 +39,7 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
     caughtAt: row.caught_at,
     expiresAt: row.expires_at,
     timeRemaining: String(row.time_remaining ?? ''),
+    catchPhotoUrl: row.catch_photo_url ?? null,
   }));
 }
 
@@ -145,6 +146,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         fursuit_id: params.fursuitId,
         convention_id: params.conventionId,
         is_tutorial: params.isTutorial ?? false,
+        catch_photo_url: params.photoUrl ?? null,
       }),
       signal: controller.signal,
     });
@@ -201,4 +203,67 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
     // Re-throw other errors
     throw error;
   }
+}
+
+export type FursuitPickerItem = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  species: string | null;
+};
+
+/**
+ * Fetch fursuits attending any of the given conventions, excluding the user's own fursuits.
+ * Used to populate the fursuit picker in the photo catch flow.
+ */
+export async function fetchConventionFursuits(
+  conventionIds: string[],
+  excludeOwnerId: string,
+): Promise<FursuitPickerItem[]> {
+  if (conventionIds.length === 0) {
+    return [];
+  }
+
+  const client = supabase as any;
+  const { data, error } = await client
+    .from('fursuit_conventions')
+    .select(
+      `
+      fursuit:fursuits (
+        id,
+        name,
+        avatar_url,
+        owner_id,
+        is_tutorial,
+        species_entry:fursuit_species (
+          name
+        )
+      )
+    `,
+    )
+    .in('convention_id', conventionIds);
+
+  if (error) {
+    throw new Error("We couldn't load fursuits for your conventions. Please try again.");
+  }
+
+  const seen = new Set<string>();
+  const results: FursuitPickerItem[] = [];
+
+  for (const row of data ?? []) {
+    const f = row.fursuit;
+    if (!f) continue;
+    if (f.is_tutorial) continue;
+    if (f.owner_id === excludeOwnerId) continue;
+    if (seen.has(f.id)) continue;
+    seen.add(f.id);
+    results.push({
+      id: f.id,
+      name: f.name,
+      avatarUrl: f.avatar_url ?? null,
+      species: f.species_entry?.name ?? null,
+    });
+  }
+
+  return results.sort((a, b) => a.name.localeCompare(b.name));
 }

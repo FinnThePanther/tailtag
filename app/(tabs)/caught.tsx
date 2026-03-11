@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlatList, Image, RefreshControl, StyleSheet, Text, View } from "react-native";
 
 import { useFocusEffect, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -73,6 +73,19 @@ function CaughtSuitItem({
         codeLabel={undefined}
         onPress={onPress}
       />
+      {record.catchPhotoUrl ? (
+        <View style={styles.bioSpacing}>
+          <TailTagCard>
+            <Text style={styles.catchPhotoLabel}>Catch photo</Text>
+            <Image
+              source={{ uri: record.catchPhotoUrl }}
+              style={styles.catchPhoto}
+              resizeMode="cover"
+              accessibilityLabel="Catch selfie photo"
+            />
+          </TailTagCard>
+        </View>
+      ) : null}
       {details.bio ? (
         <View style={styles.bioSpacing}>
           <TailTagCard>
@@ -295,5 +308,19 @@ const styles = StyleSheet.create({
   },
   bioSpacing: {
     marginTop: spacing.sm,
+  },
+  catchPhotoLabel: {
+    color: "rgba(148,163,184,0.7)",
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    fontWeight: "600",
+    marginBottom: spacing.sm,
+  },
+  catchPhoto: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 8,
+    backgroundColor: "rgba(30,41,59,0.8)",
   },
 });

@@ -6,4 +6,6 @@ export {
   confirmCatch,
   updateFursuitCatchMode,
   createCatch,
+  fetchConventionFursuits,
 } from './confirmations';
+export type { FursuitPickerItem } from './confirmations';

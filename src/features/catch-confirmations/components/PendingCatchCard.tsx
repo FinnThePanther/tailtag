@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -152,6 +152,15 @@ export function PendingCatchCard({
         </View>
       </View>
 
+      {pendingCatch.catchPhotoUrl ? (
+        <Image
+          source={{ uri: pendingCatch.catchPhotoUrl }}
+          style={styles.catchPhoto}
+          resizeMode="cover"
+          accessibilityLabel="Selfie taken by catcher"
+        />
+      ) : null}
+
       <View style={styles.contextContainer}>
         <View style={styles.contextRow}>
           <Ionicons name="paw-outline" size={14} color={colors.primary} />
@@ -289,6 +298,13 @@ const styles = StyleSheet.create({
   },
   expiredText: {
     color: '#f87171',
+  },
+  catchPhoto: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
+    backgroundColor: 'rgba(30,41,59,0.8)',
   },
   contextContainer: {
     gap: spacing.xs,
