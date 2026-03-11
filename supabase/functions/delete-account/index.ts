@@ -12,6 +12,7 @@ const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABAS
 const AVATAR_BUCKET = "avatars";
 const FURSUIT_BUCKET = "fursuit-avatars";
 const TAG_QR_BUCKET = "tag-qr-codes";
+const CATCH_PHOTO_BUCKET = "catch-photos";
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error("Missing environment variables");
@@ -226,6 +227,7 @@ Deno.serve(async (req) => {
     const cleanupSummaries = [
       await removeUserBucketFolder(AVATAR_BUCKET, userId, "profile avatars"),
       await removeUserBucketFolder(FURSUIT_BUCKET, userId, "fursuit photos"),
+      await removeUserBucketFolder(CATCH_PHOTO_BUCKET, userId, "catch photos"),
       await removeQrAssetsForUser(userId),
     ];
 

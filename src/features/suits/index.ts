@@ -1,5 +1,6 @@
 export { FursuitCard } from './components/FursuitCard';
 export { FursuitBioDetails } from './components/FursuitBioDetails';
+export { CaughtSuitRow } from './components/CaughtSuitRow';
 export {
   fetchMySuits,
   fetchMySuitsCount,

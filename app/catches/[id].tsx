@@ -1,0 +1,258 @@
+import { useCallback, useMemo, useState } from "react";
+import { Alert, Image, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
+
+import { ScreenHeader } from "../../src/components/ui/ScreenHeader";
+import { TailTagButton } from "../../src/components/ui/TailTagButton";
+import { TailTagCard } from "../../src/components/ui/TailTagCard";
+import {
+  FursuitCard,
+  FursuitBioDetails,
+  caughtSuitsQueryKey,
+} from "../../src/features/suits";
+import type { CaughtRecord } from "../../src/features/suits";
+import { useAuth } from "../../src/features/auth";
+import { colors, radius, spacing } from "../../src/theme";
+import { toDisplayDateTime } from "../../src/utils/dates";
+
+export default function CatchDetailScreen() {
+  const router = useRouter();
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+  const params = useLocalSearchParams<{ id?: string }>();
+  const catchId = typeof params.id === "string" ? params.id : null;
+
+  const queryClient = useQueryClient();
+
+  const record = useMemo<CaughtRecord | null>(() => {
+    if (!userId || !catchId) return null;
+    const records = queryClient.getQueryData<CaughtRecord[]>(
+      caughtSuitsQueryKey(userId),
+    );
+    return records?.find((r) => r.id === catchId) ?? null;
+  }, [queryClient, userId, catchId]);
+
+  const details = record?.fursuit ?? null;
+
+  const caughtLabel = toDisplayDateTime(record?.caught_at) ?? "Caught just now";
+  const pieces = [caughtLabel];
+  if (typeof record?.catchNumber === "number" && record.catchNumber > 0) {
+    pieces.push(`Catcher #${record.catchNumber}`);
+  }
+  const timelineLabel = pieces.join(" · ");
+
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [photoFullscreen, setPhotoFullscreen] = useState(false);
+
+  const handleDownloadPhoto = useCallback(async (url: string) => {
+    setIsDownloading(true);
+    try {
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert("Not supported", "Sharing is not available on this device.");
+        return;
+      }
+      const dest = new File(Paths.cache, `catch-${Date.now()}.jpg`);
+      const file = await File.downloadFileAsync(url, dest);
+      await Sharing.shareAsync(file.uri, { mimeType: "image/jpeg", dialogTitle: "Save catch photo" });
+    } catch {
+      Alert.alert("Download failed", "Could not download the photo. Please try again.");
+    } finally {
+      setIsDownloading(false);
+    }
+  }, []);
+
+  if (!record || !details) {
+    return (
+      <View style={styles.screen}>
+        <ScreenHeader title="Catch" onBack={() => router.back()} />
+        <View style={styles.centeredContent}>
+          <TailTagCard>
+            <Text style={styles.message}>
+              This catch could not be found. Go back and try again.
+            </Text>
+            <TailTagButton
+              variant="outline"
+              size="sm"
+              onPress={() => router.back()}
+            >
+              Go back
+            </TailTagButton>
+          </TailTagCard>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.screen}>
+      <ScreenHeader title={details.name} onBack={() => router.back()} />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+      >
+        <TailTagCard>
+          <View style={styles.detailStack}>
+            <FursuitCard
+              name={details.name}
+              species={details.species}
+              colors={details.colors}
+              avatarUrl={details.avatar_url}
+              uniqueCode={details.unique_code}
+              timelineLabel={timelineLabel}
+              codeLabel={undefined}
+            />
+            {record.catchPhotoUrl ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Catch photo</Text>
+                <Pressable onPress={() => setPhotoFullscreen(true)} accessibilityRole="button" accessibilityLabel="View catch photo fullscreen">
+                  <Image
+                    source={{ uri: record.catchPhotoUrl }}
+                    style={styles.catchPhoto}
+                    resizeMode="cover"
+                    accessibilityLabel="Catch selfie photo"
+                  />
+                </Pressable>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  loading={isDownloading}
+                  onPress={() => void handleDownloadPhoto(record.catchPhotoUrl!)}
+                >
+                  Save photo
+                </TailTagButton>
+              </View>
+            ) : null}
+            {details.bio ? <FursuitBioDetails bio={details.bio} /> : null}
+          </View>
+        </TailTagCard>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.profileLink,
+            pressed && styles.profileLinkPressed,
+          ]}
+          onPress={() =>
+            router.push({
+              pathname: "/fursuits/[id]",
+              params: { id: details.id },
+            })
+          }
+        >
+          <Text style={styles.profileLinkLabel}>View fursuit profile</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+        </Pressable>
+      </ScrollView>
+
+      {record.catchPhotoUrl ? (
+        <Modal
+          visible={photoFullscreen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPhotoFullscreen(false)}
+          statusBarTranslucent
+        >
+          <StatusBar hidden />
+          <View style={styles.fullscreenBackdrop}>
+            <Pressable style={styles.fullscreenClose} onPress={() => setPhotoFullscreen(false)} accessibilityRole="button" accessibilityLabel="Close fullscreen photo">
+              <Ionicons name="close" size={28} color="#fff" />
+            </Pressable>
+            <Image
+              source={{ uri: record.catchPhotoUrl }}
+              style={styles.fullscreenImage}
+              resizeMode="contain"
+              accessibilityLabel="Catch selfie photo fullscreen"
+            />
+          </View>
+        </Modal>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scroll: {
+    flex: 1,
+  },
+  container: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xxl,
+    gap: spacing.lg,
+  },
+  centeredContent: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    gap: spacing.md,
+  },
+  message: {
+    color: "rgba(203,213,225,0.9)",
+    fontSize: 14,
+    marginBottom: spacing.sm,
+  },
+  detailStack: {
+    gap: spacing.md,
+  },
+  section: {
+    gap: spacing.xs,
+  },
+  sectionLabel: {
+    color: "rgba(148,163,184,0.7)",
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    fontWeight: "600",
+    marginBottom: spacing.sm,
+  },
+  catchPhoto: {
+    width: "100%",
+    aspectRatio: 4 / 3,
+    borderRadius: 8,
+    backgroundColor: "rgba(30,41,59,0.8)",
+  },
+  profileLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: "rgba(30,41,59,0.6)",
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(148,163,184,0.2)",
+  },
+  profileLinkPressed: {
+    opacity: 0.7,
+  },
+  profileLinkLabel: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  fullscreenBackdrop: {
+    flex: 1,
+    backgroundColor: "#000",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fullscreenClose: {
+    position: "absolute",
+    top: 52,
+    right: spacing.lg,
+    zIndex: 10,
+    padding: spacing.sm,
+  },
+  fullscreenImage: {
+    width: "100%",
+    height: "100%",
+  },
+});

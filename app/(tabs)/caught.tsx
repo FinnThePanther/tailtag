@@ -1,12 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, Image, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 
 import { useFocusEffect, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-  FursuitCard,
-  FursuitBioDetails,
+  CaughtSuitRow,
   CAUGHT_SUITS_QUERY_KEY,
   CAUGHT_SUITS_STALE_TIME,
   fetchCaughtSuits,
@@ -21,7 +20,6 @@ import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { useAuth } from "../../src/features/auth";
 import { colors, spacing } from "../../src/theme";
-import { toDisplayDateTime } from "../../src/utils/dates";
 
 function ListHeader() {
   return (
@@ -39,63 +37,6 @@ function ItemSeparator() {
   return <View style={styles.separator} />;
 }
 
-function CaughtSuitItem({
-  record,
-  onPress,
-}: {
-  record: CaughtRecord;
-  onPress: () => void;
-}) {
-  const details = record.fursuit;
-
-  if (!details) {
-    return null;
-  }
-
-  const caughtLabel = toDisplayDateTime(record.caught_at) ?? "Caught just now";
-  const pieces = [caughtLabel];
-
-  if (typeof record.catchNumber === "number" && record.catchNumber > 0) {
-    pieces.push(`Catcher #${record.catchNumber}`);
-  }
-
-  const timelineLabel = pieces.join(" · ");
-
-  return (
-    <View>
-      <FursuitCard
-        name={details.name}
-        species={details.species}
-        colors={details.colors}
-        avatarUrl={details.avatar_url}
-        uniqueCode={details.unique_code}
-        timelineLabel={timelineLabel}
-        codeLabel={undefined}
-        onPress={onPress}
-      />
-      {record.catchPhotoUrl ? (
-        <View style={styles.bioSpacing}>
-          <TailTagCard>
-            <Text style={styles.catchPhotoLabel}>Catch photo</Text>
-            <Image
-              source={{ uri: record.catchPhotoUrl }}
-              style={styles.catchPhoto}
-              resizeMode="cover"
-              accessibilityLabel="Catch selfie photo"
-            />
-          </TailTagCard>
-        </View>
-      ) : null}
-      {details.bio ? (
-        <View style={styles.bioSpacing}>
-          <TailTagCard>
-            <FursuitBioDetails bio={details.bio} />
-          </TailTagCard>
-        </View>
-      ) : null}
-    </View>
-  );
-}
 
 export default function CaughtSuitsScreen() {
   const { session } = useAuth();
@@ -182,15 +123,16 @@ export default function CaughtSuitsScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: CaughtRecord }) => (
-      <CaughtSuitItem
-        record={item}
+      <CaughtSuitRow
+        name={item.fursuit?.name ?? "Unknown"}
+        species={item.fursuit?.species}
+        avatarUrl={item.fursuit?.avatar_url}
+        caughtAt={item.caught_at}
         onPress={() => {
-          if (item.fursuit?.id) {
-            router.push({
-              pathname: "/fursuits/[id]",
-              params: { id: item.fursuit.id },
-            });
-          }
+          router.push({
+            pathname: "/catches/[id]",
+            params: { id: item.id },
+          });
         }}
       />
     ),
@@ -304,23 +246,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   separator: {
-    height: spacing.md,
-  },
-  bioSpacing: {
-    marginTop: spacing.sm,
-  },
-  catchPhotoLabel: {
-    color: "rgba(148,163,184,0.7)",
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    fontWeight: "600",
-    marginBottom: spacing.sm,
-  },
-  catchPhoto: {
-    width: "100%",
-    aspectRatio: 1,
-    borderRadius: 8,
-    backgroundColor: "rgba(30,41,59,0.8)",
+    height: spacing.sm,
   },
 });
