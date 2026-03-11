@@ -24,6 +24,7 @@ import {
 } from "../../src/features/leaderboard";
 import {
   createCatch,
+  myPendingCatchesQueryKey,
   pendingCatchesQueryKey,
   PhotoCatchCard,
   type CatchStatus,
@@ -396,6 +397,13 @@ export default function CatchScreen() {
         });
       }
 
+      // Invalidate my pending catches so the Caught tab list updates
+      if (catchResult.status === "PENDING") {
+        queryClient.invalidateQueries({
+          queryKey: myPendingCatchesQueryKey(userId),
+        });
+      }
+
       setCodeInput("");
 
       // Events are now fired by the Edge Function, no need to emit here
@@ -554,6 +562,12 @@ export default function CatchScreen() {
       if (catchResult.requiresApproval && catchResult.fursuitOwnerId) {
         queryClient.invalidateQueries({
           queryKey: pendingCatchesQueryKey(catchResult.fursuitOwnerId),
+        });
+      }
+
+      if (catchResult.status === "PENDING") {
+        queryClient.invalidateQueries({
+          queryKey: myPendingCatchesQueryKey(userId),
         });
       }
     } catch (caught) {

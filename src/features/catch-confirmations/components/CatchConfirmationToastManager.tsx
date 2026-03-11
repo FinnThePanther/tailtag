@@ -6,6 +6,7 @@ import { useToast } from '../../../hooks/useToast';
 import { supabase } from '../../../lib/supabase';
 import { addMonitoringBreadcrumb, captureHandledException } from '../../../lib/sentry';
 import { pendingCatchesQueryKey } from '../api/confirmations';
+import { myPendingCatchesQueryKey } from '../api/myPendingCatches';
 import { CAUGHT_SUITS_QUERY_KEY } from '../../suits';
 import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks/hooks';
 
@@ -132,6 +133,11 @@ export function CatchConfirmationToastManager() {
         queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
       });
 
+      // Invalidate my pending catches so the list on Caught tab updates
+      void queryClient.invalidateQueries({
+        queryKey: myPendingCatchesQueryKey(userId),
+      });
+
       // Invalidate daily tasks to update catch-related task progress in real-time
       // Only catches confirmed today count toward today's tasks
       void queryClient.invalidateQueries({
@@ -156,6 +162,10 @@ export function CatchConfirmationToastManager() {
       void queryClient.invalidateQueries({
         queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
       });
+
+      void queryClient.invalidateQueries({
+        queryKey: myPendingCatchesQueryKey(userId),
+      });
     };
 
     const handleCatchExpired = (payload: Record<string, unknown> | null) => {
@@ -177,6 +187,9 @@ export function CatchConfirmationToastManager() {
       });
       void queryClient.invalidateQueries({
         queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: myPendingCatchesQueryKey(userId),
       });
     };
 
