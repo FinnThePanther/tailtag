@@ -36,33 +36,41 @@ const openSocialLink = async (url: string) => {
   }
 };
 
-const withFallback = (value: string, fallback: string) => {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : fallback;
-};
-
 type FursuitBioDetailsProps = {
   bio: FursuitBio;
 };
 
 export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
-  const pronounLine = withFallback(bio.pronouns, "None specified");
-  const likesAndInterests = withFallback(
-    bio.likesAndInterests,
-    "None specified",
-  );
+  const hasPronouns = Boolean(bio.pronouns?.trim());
+  const hasLikesAndInterests = Boolean(bio.likesAndInterests?.trim());
+  const hasAskMeAbout = Boolean(bio.askMeAbout?.trim());
+  const hasLikesSection = hasLikesAndInterests || hasAskMeAbout;
 
   return (
     <View style={styles.sections}>
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Pronouns</Text>
-        <Text style={styles.sectionBody}>{pronounLine}</Text>
-      </View>
+      {hasPronouns ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Pronouns</Text>
+          <Text style={styles.sectionBody}>{bio.pronouns!.trim()}</Text>
+        </View>
+      ) : null}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Likes & interests</Text>
-        <Text style={styles.sectionBody}>{likesAndInterests}</Text>
-      </View>
+      {hasLikesSection ? (
+        <View style={styles.section}>
+          {hasLikesAndInterests ? (
+            <>
+              <Text style={styles.sectionLabel}>Likes & interests</Text>
+              <Text style={styles.sectionBody}>{bio.likesAndInterests!.trim()}</Text>
+            </>
+          ) : null}
+          {hasAskMeAbout ? (
+            <>
+              <Text style={styles.sectionLabel}>Ask me about…</Text>
+              <Text style={styles.sectionBody}>{bio.askMeAbout!.trim()}</Text>
+            </>
+          ) : null}
+        </View>
+      ) : null}
 
       {bio.socialLinks.length > 0 ? (
         <View style={styles.section}>

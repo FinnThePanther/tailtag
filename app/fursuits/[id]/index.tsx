@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
@@ -8,7 +17,6 @@ import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
 import {
-  FursuitCard,
   FursuitBioDetails,
   fetchFursuitDetail,
   fursuitDetailQueryKey,
@@ -179,15 +187,52 @@ export default function FursuitDetailScreen() {
           <Text style={styles.message}>That fursuit could not be found.</Text>
         ) : (
           <View style={styles.detailStack}>
-            <FursuitCard
-              name={detail.name}
-              species={detail.species}
-              colors={detail.colors}
-              avatarUrl={detail.avatar_url}
-              uniqueCode={detail.unique_code}
-              timelineLabel={addedDate ? `Added on ${addedDate}` : null}
-              onCodeCopied={handleCodeCopied}
-            />
+            <View style={styles.avatarWrapper}>
+              {detail.avatar_url ? (
+                <Image
+                  source={{ uri: detail.avatar_url }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <Text style={styles.avatarFallback}>No avatar</Text>
+              )}
+            </View>
+            <View style={styles.leadDetails}>
+              <Text style={styles.leadName} numberOfLines={1}>
+                {detail.name}
+              </Text>
+              <Text style={styles.leadMeta} numberOfLines={1}>
+                {detail.species?.trim() || 'Species not set yet'}
+              </Text>
+              <Text style={styles.leadMeta} numberOfLines={1}>
+                {detail.colors?.length
+                  ? `Colors: ${detail.colors.map((c) => c.name).join(', ')}`
+                  : 'None specified'}
+              </Text>
+              {addedDate ? (
+                <Text style={styles.leadTimeline}>Added on {addedDate}</Text>
+              ) : null}
+            </View>
+            {detail.unique_code?.trim() ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Catch code</Text>
+                <Pressable
+                  onLongPress={() => {
+                    void Clipboard.setStringAsync(
+                      detail.unique_code!.trim().toUpperCase(),
+                    );
+                    Alert.alert('Code copied', 'The catch code is ready to paste.');
+                    handleCodeCopied();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityHint="Long press to copy the code"
+                >
+                  <Text style={styles.codeValue}>
+                    {detail.unique_code.trim().toUpperCase()}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
             {!isOwner && detail.owner_id ? (
               <Pressable
                 style={({ pressed }) => [styles.ownerRow, pressed && styles.ownerRowPressed]}
@@ -267,6 +312,59 @@ const styles = StyleSheet.create({
   },
   detailStack: {
     gap: spacing.md,
+  },
+  avatarWrapper: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(30,41,59,0.6)',
+    overflow: 'hidden',
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  avatarFallback: {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    color: 'rgba(148,163,184,0.7)',
+    textAlign: 'center',
+  },
+  leadDetails: {
+    flex: 1,
+    minWidth: 0,
+  },
+  leadName: {
+    color: colors.foreground,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  leadMeta: {
+    color: 'rgba(203,213,225,0.9)',
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  leadTimeline: {
+    color: 'rgba(148,163,184,0.9)',
+    fontSize: 12,
+  },
+  codeValue: {
+    fontFamily: 'Courier',
+    fontWeight: '600',
+    color: '#38bdf8',
+    fontSize: 16,
+    backgroundColor: 'rgba(30,41,59,0.8)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.md,
+    alignSelf: 'flex-start',
   },
   section: {
     gap: spacing.xs,

@@ -766,9 +766,20 @@ export default function HomeScreen() {
                     ) : hasSuitEntries ? (
                       <View style={styles.leaderboardList}>
                         {topSuitEntries.map((entry, index) => (
-                          <View
+                          <Pressable
                             key={entry.fursuitId}
-                            style={styles.leaderboardRow}
+                            style={({ pressed }) => [
+                              styles.leaderboardRow,
+                              pressed && styles.leaderboardRowPressed,
+                            ]}
+                            onPress={() =>
+                              router.push({
+                                pathname: "/fursuits/[id]",
+                                params: { id: entry.fursuitId },
+                              })
+                            }
+                            accessibilityRole="button"
+                            accessibilityLabel={`View ${entry.name}'s fursuit profile`}
                           >
                             <Text style={styles.leaderboardRank}>
                               #{index + 1}
@@ -787,7 +798,7 @@ export default function HomeScreen() {
                                 {describeSuitEntry(entry)}
                               </Text>
                             </View>
-                          </View>
+                          </Pressable>
                         ))}
                       </View>
                     ) : (

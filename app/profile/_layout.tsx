@@ -14,7 +14,7 @@ export default function ProfileLayout() {
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="[id]" />
+      <Stack.Screen name="[id]/index" />
     </Stack>
   );
 }
