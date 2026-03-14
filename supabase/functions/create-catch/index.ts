@@ -106,7 +106,7 @@ async function handlePost(req: Request): Promise<Response> {
         return jsonResponse(400, { error: "Cannot catch your own fursuit" });
       }
       if (error.message?.includes("already caught")) {
-        return jsonResponse(400, { error: "Fursuit already caught or pending" });
+        return jsonResponse(400, { error: "Fursuit already caught at this convention" });
       }
       if (error.message?.includes("not found")) {
         return jsonResponse(404, { error: "Fursuit not found" });

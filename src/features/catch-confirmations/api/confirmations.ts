@@ -171,7 +171,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         throw new Error('That tag belongs to one of your own suits. Trade codes with friends to grow your collection.');
       }
       if (errorMessage.includes('already caught') || errorMessage.includes('pending')) {
-        throw new Error('You already caught this suit. Swap codes with another fursuiter to keep hunting.');
+        throw new Error('You already caught this suit at this convention. Try catching them at another con!');
       }
       if (errorMessage.includes('not found')) {
         throw new Error("We couldn't find a fursuit with that code. Double-check the letters and try again.");
