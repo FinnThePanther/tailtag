@@ -222,7 +222,6 @@ export default function HomeScreen() {
   const showDailySkeleton = !dailyTasksData && isDailyTasksLoading;
   const showDailyError = !dailyTasksData && Boolean(dailyTasksErrorMessage);
   const dailyAllComplete = hasDailyAssignments && dailyRemainingTasks === 0;
-  const dailyCurrentStreak = dailyTasksData?.streak.current ?? 0;
   const dailyTimezone =
     dailyTasksData?.timezone ?? selectedConvention?.timezone ?? "UTC";
   const dailyResetAtLabel = useMemo(() => {
@@ -503,18 +502,13 @@ export default function HomeScreen() {
                 value={dailyProgressValue}
                 style={styles.dailyProgressBar}
               />
-              <View style={styles.dailySummaryFooter}>
-                <Text style={styles.dailySummaryText}>
-                  {dailyAllComplete
-                    ? "All tasks complete - bonus secured."
-                    : `${dailyRemainingTasks} task${
-                        dailyRemainingTasks === 1 ? "" : "s"
-                      } remaining`}
-                </Text>
-                <Text style={styles.dailyStreakLabel}>
-                  Streak: {dailyCurrentStreak}
-                </Text>
-              </View>
+              <Text style={styles.dailySummaryText}>
+                {dailyAllComplete
+                  ? "All tasks complete - bonus secured."
+                  : `${dailyRemainingTasks} task${
+                      dailyRemainingTasks === 1 ? "" : "s"
+                    } remaining`}
+              </Text>
               {dailyResetAtLabel ? (
                 <Text style={styles.dailyResetLabel}>
                   Next reset at {dailyResetAtLabel}
@@ -925,11 +919,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  dailySummaryFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
   dailySummaryText: {
     color: "rgba(203,213,225,0.9)",
     fontSize: 14,
@@ -939,11 +928,6 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   dailyCountdown: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  dailyStreakLabel: {
     color: colors.primary,
     fontSize: 13,
     fontWeight: "600",

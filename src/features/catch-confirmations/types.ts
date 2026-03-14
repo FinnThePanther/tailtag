@@ -7,6 +7,7 @@ export type PendingCatch = {
   catchId: string;
   catcherId: string;
   catcherUsername: string;
+  catcherAvatarUrl: string | null;
   fursuitId: string;
   fursuitName: string;
   fursuitAvatarUrl: string | null;
