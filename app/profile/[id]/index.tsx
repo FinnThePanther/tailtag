@@ -126,7 +126,7 @@ export default function PublicProfileScreen() {
   return (
     <View style={styles.screen}>
       <ScreenHeader
-        title="Player Profile"
+        title={profile?.username ?? 'Player Profile'}
         onBack={() => router.back()}
         right={
           isSelf ? (
@@ -165,7 +165,7 @@ export default function PublicProfileScreen() {
                 )}
               </View>
               <Text style={styles.username}>
-                {profile?.username ?? 'Unnamed player'}
+                {profile?.username}
               </Text>
               {profile?.bio ? (
                 <Text style={styles.bio}>{profile.bio}</Text>

@@ -258,7 +258,7 @@ export default function FursuitDetailScreen() {
                 <Text style={styles.ownerLabel}>Owner</Text>
                 <View style={styles.ownerRight}>
                   <Text style={styles.ownerName}>
-                    {detail.bio?.ownerName?.trim() || 'View owner profile'}
+                    {detail.bio?.ownerName?.trim()}
                   </Text>
                   <Ionicons name="chevron-forward" size={14} color={colors.primary} />
                 </View>
