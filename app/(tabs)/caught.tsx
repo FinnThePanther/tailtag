@@ -1,27 +1,24 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 
 import { useFocusEffect, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-  FursuitCard,
-  FursuitBioDetails,
+  CaughtSuitRow,
   CAUGHT_SUITS_QUERY_KEY,
   CAUGHT_SUITS_STALE_TIME,
   fetchCaughtSuits,
 } from "../../src/features/suits";
 import type { CaughtRecord } from "../../src/features/suits";
 import {
-  PendingCatchesList,
-  usePendingCatches,
-  useConfirmCatch,
+  PendingConfirmationsList,
+  useMyPendingCatches,
 } from "../../src/features/catch-confirmations";
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { useAuth } from "../../src/features/auth";
 import { colors, spacing } from "../../src/theme";
-import { toDisplayDateTime } from "../../src/utils/dates";
 
 function ListHeader() {
   return (
@@ -39,50 +36,6 @@ function ItemSeparator() {
   return <View style={styles.separator} />;
 }
 
-function CaughtSuitItem({
-  record,
-  onPress,
-}: {
-  record: CaughtRecord;
-  onPress: () => void;
-}) {
-  const details = record.fursuit;
-
-  if (!details) {
-    return null;
-  }
-
-  const caughtLabel = toDisplayDateTime(record.caught_at) ?? "Caught just now";
-  const pieces = [caughtLabel];
-
-  if (typeof record.catchNumber === "number" && record.catchNumber > 0) {
-    pieces.push(`Catcher #${record.catchNumber}`);
-  }
-
-  const timelineLabel = pieces.join(" · ");
-
-  return (
-    <View>
-      <FursuitCard
-        name={details.name}
-        species={details.species}
-        colors={details.colors}
-        avatarUrl={details.avatar_url}
-        uniqueCode={details.unique_code}
-        timelineLabel={timelineLabel}
-        codeLabel={undefined}
-        onPress={onPress}
-      />
-      {details.bio ? (
-        <View style={styles.bioSpacing}>
-          <TailTagCard>
-            <FursuitBioDetails bio={details.bio} />
-          </TailTagCard>
-        </View>
-      ) : null}
-    </View>
-  );
-}
 
 export default function CaughtSuitsScreen() {
   const { session } = useAuth();
@@ -95,34 +48,8 @@ export default function CaughtSuitsScreen() {
 
   const queryClient = useQueryClient();
 
-  const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
-
-  const { data: pendingCatches = [], refetch: refetchPendingCatches } =
-    usePendingCatches();
-
-  const confirmCatchMutation = useConfirmCatch();
-
-  const handleAcceptCatch = useCallback(
-    (catchId: string, conventionId?: string) => {
-      setProcessingCatchId(catchId);
-      confirmCatchMutation.mutate(
-        { catchId, decision: "accept", conventionId },
-        { onSettled: () => setProcessingCatchId(null) },
-      );
-    },
-    [confirmCatchMutation],
-  );
-
-  const handleRejectCatch = useCallback(
-    (catchId: string) => {
-      setProcessingCatchId(catchId);
-      confirmCatchMutation.mutate(
-        { catchId, decision: "reject" },
-        { onSettled: () => setProcessingCatchId(null) },
-      );
-    },
-    [confirmCatchMutation],
-  );
+  const { data: myPendingCatches = [], refetch: refetchMyPendingCatches } =
+    useMyPendingCatches();
 
   const {
     data: records = [],
@@ -161,23 +88,24 @@ export default function CaughtSuitsScreen() {
   const handleRefresh = useCallback(async () => {
     await Promise.all([
       refetch({ throwOnError: false }),
-      refetchPendingCatches(),
+      refetchMyPendingCatches(),
     ]);
-  }, [refetch, refetchPendingCatches]);
+  }, [refetch, refetchMyPendingCatches]);
 
   const errorMessage = error?.message ?? null;
 
   const renderItem = useCallback(
     ({ item }: { item: CaughtRecord }) => (
-      <CaughtSuitItem
-        record={item}
+      <CaughtSuitRow
+        name={item.fursuit?.name ?? "Unknown"}
+        species={item.fursuit?.species}
+        avatarUrl={item.fursuit?.avatar_url}
+        caughtAt={item.caught_at}
         onPress={() => {
-          if (item.fursuit?.id) {
-            router.push({
-              pathname: "/fursuits/[id]",
-              params: { id: item.fursuit.id },
-            });
-          }
+          router.push({
+            pathname: "/catches/[id]",
+            params: { id: item.id },
+          });
         }}
       />
     ),
@@ -229,12 +157,7 @@ export default function CaughtSuitsScreen() {
       ListHeaderComponent={
         <View>
           <ListHeader />
-          <PendingCatchesList
-            pendingCatches={pendingCatches}
-            processingCatchId={processingCatchId}
-            onAccept={handleAcceptCatch}
-            onReject={handleRejectCatch}
-          />
+          <PendingConfirmationsList pendingCatches={myPendingCatches} />
         </View>
       }
       ListEmptyComponent={ListEmptyComponent}
@@ -291,9 +214,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   separator: {
-    height: spacing.md,
-  },
-  bioSpacing: {
-    marginTop: spacing.sm,
+    height: spacing.sm,
   },
 });

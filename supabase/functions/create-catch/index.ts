@@ -33,6 +33,12 @@ interface CreateCatchRequest {
   fursuit_id: string;
   convention_id?: string | null;
   is_tutorial?: boolean;
+  force_pending?: boolean;
+}
+
+interface UpdateCatchPhotoRequest {
+  catch_id: string;
+  catch_photo_url: string;
 }
 
 interface CreateCatchResponse {
@@ -96,6 +102,7 @@ async function handlePost(req: Request): Promise<Response> {
       p_catcher_id: userId,
       p_convention_id: body.convention_id || null,
       p_is_tutorial: body.is_tutorial || false,
+      p_force_pending: body.force_pending || false,
     });
 
     if (error) {
@@ -104,7 +111,7 @@ async function handlePost(req: Request): Promise<Response> {
         return jsonResponse(400, { error: "Cannot catch your own fursuit" });
       }
       if (error.message?.includes("already caught")) {
-        return jsonResponse(400, { error: "Fursuit already caught or pending" });
+        return jsonResponse(400, { error: "Fursuit already caught at this convention" });
       }
       if (error.message?.includes("not found")) {
         return jsonResponse(404, { error: "Fursuit not found" });
@@ -212,14 +219,63 @@ async function handlePost(req: Request): Promise<Response> {
   }
 }
 
+async function handlePatch(req: Request): Promise<Response> {
+  const userId = await getUserIdFromRequest(req);
+  if (!userId) {
+    return jsonResponse(401, { error: "Unauthorized" });
+  }
+
+  let body: UpdateCatchPhotoRequest;
+  try {
+    body = await req.json() as UpdateCatchPhotoRequest;
+  } catch {
+    return jsonResponse(400, { error: "Invalid JSON payload" });
+  }
+
+  if (!body.catch_id || !body.catch_photo_url) {
+    return jsonResponse(400, { error: "Missing catch_id or catch_photo_url" });
+  }
+
+  // Verify the catch belongs to this user
+  const { data: catchRow, error: fetchError } = await supabaseAdmin
+    .from('catches')
+    .select('id, catcher_id')
+    .eq('id', body.catch_id)
+    .single();
+
+  if (fetchError || !catchRow) {
+    return jsonResponse(404, { error: "Catch not found" });
+  }
+
+  if ((catchRow as { catcher_id: string }).catcher_id !== userId) {
+    return jsonResponse(403, { error: "Forbidden" });
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('catches')
+    .update({ catch_photo_url: body.catch_photo_url })
+    .eq('id', body.catch_id);
+
+  if (updateError) {
+    console.error("[create-catch] Failed to update catch photo:", updateError);
+    return jsonResponse(500, { error: "Failed to update catch photo" });
+  }
+
+  return jsonResponse(200, { success: true });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  if (req.method !== "POST") {
-    return jsonResponse(405, { error: "Method not allowed" });
+  if (req.method === "POST") {
+    return handlePost(req);
   }
 
-  return handlePost(req);
+  if (req.method === "PATCH") {
+    return handlePatch(req);
+  }
+
+  return jsonResponse(405, { error: "Method not allowed" });
 });

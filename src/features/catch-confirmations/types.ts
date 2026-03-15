@@ -7,6 +7,7 @@ export type PendingCatch = {
   catchId: string;
   catcherId: string;
   catcherUsername: string;
+  catcherAvatarUrl: string | null;
   fursuitId: string;
   fursuitName: string;
   fursuitAvatarUrl: string | null;
@@ -15,6 +16,19 @@ export type PendingCatch = {
   caughtAt: string;
   expiresAt: string;
   timeRemaining: string;
+  catchPhotoUrl: string | null;
+};
+
+/** Catches the current user made that are awaiting owner approval (catcher's view). */
+export type MyPendingCatch = {
+  catchId: string;
+  fursuitId: string;
+  fursuitName: string;
+  fursuitAvatarUrl: string | null;
+  conventionId: string | null;
+  conventionName: string;
+  caughtAt: string;
+  expiresAt: string | null;
 };
 
 export type ConfirmCatchResult = {
@@ -37,4 +51,5 @@ export type CreateCatchParams = {
   fursuitId: string;
   conventionId: string | null;
   isTutorial?: boolean;
+  forcePending?: boolean;
 };

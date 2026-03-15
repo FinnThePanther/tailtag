@@ -5,6 +5,7 @@ import * as Device from 'expo-device';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../auth';
+import { useNavigationReady } from '../../../hooks/useNavigationReady';
 import { captureNonCriticalError } from '../../../lib/sentry';
 import {
   clearPushToken,
@@ -36,6 +37,7 @@ export function PushNotificationManager() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const router = useRouter();
+  const isNavigationReady = useNavigationReady();
   const pendingRouteRef = useRef<string | null>(null);
   const previousUserIdRef = useRef<string | null>(null);
   const lastPermissionStatusRef = useRef<PermissionStatus>('undetermined');
@@ -116,14 +118,14 @@ export function PushNotificationManager() {
         return;
       }
 
-      if (session?.user) {
+      if (session?.user && isNavigationReady) {
         router.push(route);
         return;
       }
 
       pendingRouteRef.current = route;
     },
-    [router, session]
+    [router, session, isNavigationReady]
   );
 
   useEffect(() => {
@@ -193,14 +195,14 @@ export function PushNotificationManager() {
   }, [handleNavigation, addHandledNotificationId]);
 
   useEffect(() => {
-    if (!session?.user || !pendingRouteRef.current) {
+    if (!session?.user || !pendingRouteRef.current || !isNavigationReady) {
       return;
     }
 
     const route = pendingRouteRef.current;
     pendingRouteRef.current = null;
     router.push(route);
-  }, [router, session]);
+  }, [router, session, isNavigationReady]);
 
   const syncPushState = useCallback(
     async (reason: string) => {

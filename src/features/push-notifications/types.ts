@@ -9,10 +9,10 @@ export type PushNotificationType =
 export const NOTIFICATION_DEEP_LINKS: Record<PushNotificationType, string> = {
   achievement_awarded: '/achievements',
   daily_all_complete: '/daily-tasks',
-  catch_pending: '/catch',
-  catch_confirmed: '/catch',
-  catch_rejected: '/catch',
-  catch_expired: '/catch',
+  catch_pending: '/suits',
+  catch_confirmed: '/caught',
+  catch_rejected: '/caught',
+  catch_expired: '/suits',
 };
 
 export const isPushNotificationType = (

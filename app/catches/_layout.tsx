@@ -2,11 +2,7 @@ import { Stack } from 'expo-router';
 
 import { colors } from '../../src/theme';
 
-/**
- * Layout for /profile/* routes.
- * Passes through to nested layouts without adding its own header.
- */
-export default function ProfileLayout() {
+export default function CatchesLayout() {
   return (
     <Stack
       screenOptions={{
@@ -14,7 +10,7 @@ export default function ProfileLayout() {
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="[id]/index" />
+      <Stack.Screen name="[id]" />
     </Stack>
   );
 }

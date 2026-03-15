@@ -31,6 +31,7 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
     catchId: row.catch_id,
     catcherId: row.catcher_id,
     catcherUsername: row.catcher_username ?? 'Unknown',
+    catcherAvatarUrl: row.catcher_avatar_url ?? null,
     fursuitId: row.fursuit_id,
     fursuitName: row.fursuit_name ?? 'Unknown Fursuit',
     fursuitAvatarUrl: row.fursuit_avatar_url ?? null,
@@ -39,6 +40,7 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
     caughtAt: row.caught_at,
     expiresAt: row.expires_at,
     timeRemaining: String(row.time_remaining ?? ''),
+    catchPhotoUrl: row.catch_photo_url ?? null,
   }));
 }
 
@@ -145,6 +147,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         fursuit_id: params.fursuitId,
         convention_id: params.conventionId,
         is_tutorial: params.isTutorial ?? false,
+        force_pending: params.forcePending ?? false,
       }),
       signal: controller.signal,
     });
@@ -168,7 +171,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         throw new Error('That tag belongs to one of your own suits. Trade codes with friends to grow your collection.');
       }
       if (errorMessage.includes('already caught') || errorMessage.includes('pending')) {
-        throw new Error('You already caught this suit. Swap codes with another fursuiter to keep hunting.');
+        throw new Error('You already caught this suit at this convention. Try catching them at another con!');
       }
       if (errorMessage.includes('not found')) {
         throw new Error("We couldn't find a fursuit with that code. Double-check the letters and try again.");
@@ -201,4 +204,114 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
     // Re-throw other errors
     throw error;
   }
+}
+
+/**
+ * Attach a photo URL to an existing catch via the Edge Function (uses service role).
+ * Called after the photo has been successfully uploaded to storage.
+ */
+export async function updateCatchPhoto(catchId: string, photoUrl: string): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error('You must be signed in to update a catch.');
+  }
+
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error('Supabase URL not configured.');
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ catch_id: catchId, catch_photo_url: photoUrl }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error('Failed to attach photo to catch.');
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('The request took too long. Please check your connection and try again.');
+    }
+
+    throw error;
+  }
+}
+
+export type FursuitPickerItem = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  species: string | null;
+};
+
+/**
+ * Fetch fursuits attending any of the given conventions, excluding the user's own fursuits.
+ * Used to populate the fursuit picker in the photo catch flow.
+ */
+export async function fetchConventionFursuits(
+  conventionIds: string[],
+  excludeOwnerId: string,
+): Promise<FursuitPickerItem[]> {
+  if (conventionIds.length === 0) {
+    return [];
+  }
+
+  const client = supabase as any;
+  const { data, error } = await client
+    .from('fursuit_conventions')
+    .select(
+      `
+      fursuit:fursuits (
+        id,
+        name,
+        avatar_url,
+        owner_id,
+        is_tutorial,
+        species_entry:fursuit_species (
+          name
+        )
+      )
+    `,
+    )
+    .in('convention_id', conventionIds);
+
+  if (error) {
+    throw new Error("We couldn't load fursuits for your conventions. Please try again.");
+  }
+
+  const seen = new Set<string>();
+  const results: FursuitPickerItem[] = [];
+
+  for (const row of data ?? []) {
+    const f = row.fursuit;
+    if (!f) continue;
+    if (f.is_tutorial) continue;
+    if (f.owner_id === excludeOwnerId) continue;
+    if (seen.has(f.id)) continue;
+    seen.add(f.id);
+    results.push({
+      id: f.id,
+      name: f.name,
+      avatarUrl: f.avatar_url ?? null,
+      species: f.species_entry?.name ?? null,
+    });
+  }
+
+  return results.sort((a, b) => a.name.localeCompare(b.name));
 }

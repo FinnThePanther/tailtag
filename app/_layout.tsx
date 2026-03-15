@@ -9,6 +9,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryCache, QueryClient, QueryClientProvider, MutationCache, useQuery } from "@tanstack/react-query";
 
 import { AuthProvider, useAuth, usePrimeUserData } from "../src/features/auth";
+import { NavigationReadyProvider, useSetNavigationReady } from "../src/hooks/useNavigationReady";
 import { createProfileQueryOptions } from "../src/features/profile";
 import { colors } from "../src/theme";
 import { ToastProvider } from "../src/hooks/useToast";
@@ -53,6 +54,7 @@ function RootLayoutNav() {
   const inResetPasswordFlow =
     segments.length > 0 && segments[0] === "reset-password";
   const userId = session?.user.id ?? null;
+  const setNavigationReady = useSetNavigationReady();
 
   const {
     data: profile,
@@ -65,6 +67,64 @@ function RootLayoutNav() {
   });
 
   usePrimeUserData(session?.user.id ?? null);
+
+  const shouldGateOnboarding =
+    Boolean(session) &&
+    !profileError &&
+    profile !== null && // Explicit null check - don't gate while loading
+    (profile?.is_new === true || profile?.onboarding_completed !== true);
+
+  const shouldShowOnboardingRedirectLoading =
+    !inResetPasswordFlow &&
+    Boolean(session) &&
+    shouldGateOnboarding &&
+    !inOnboardingFlow &&
+    (isProfileLoading || isProfileFetching) &&
+    !profile &&
+    !profileError;
+
+  const shouldShowOnboardingFlowLoading =
+    Boolean(session) &&
+    inOnboardingFlow &&
+    (isProfileLoading || isProfileFetching) &&
+    !profileError;
+
+  let redirectHref: "/" | "/auth" | "/onboarding" | null = null;
+
+  if (!session && !inAuthGroup) {
+    redirectHref = "/auth";
+  } else if (session && inAuthGroup) {
+    redirectHref = "/";
+  } else if (
+    !inResetPasswordFlow &&
+    session &&
+    shouldGateOnboarding &&
+    !inOnboardingFlow &&
+    !shouldShowOnboardingRedirectLoading
+  ) {
+    redirectHref = "/onboarding";
+  } else if (
+    session &&
+    inOnboardingFlow &&
+    !shouldGateOnboarding &&
+    !isProfileLoading &&
+    !isProfileFetching
+  ) {
+    redirectHref = "/";
+  }
+
+  const shouldShowLoadingScreen =
+    status === "loading" ||
+    shouldShowOnboardingRedirectLoading ||
+    shouldShowOnboardingFlowLoading;
+
+  useEffect(() => {
+    if (shouldShowLoadingScreen || redirectHref) {
+      return;
+    }
+
+    setNavigationReady();
+  }, [redirectHref, setNavigationReady, shouldShowLoadingScreen]);
 
   if (status === "loading") {
     return <LoadingScreen />;
@@ -80,18 +140,12 @@ function RootLayoutNav() {
     return <Redirect href="/" />;
   }
 
-  const shouldGateOnboarding =
-    Boolean(session) &&
-    !profileError &&
-    profile !== null && // Explicit null check - don't gate while loading
-    (profile?.is_new === true || profile?.onboarding_completed !== true);
-
   // Don't redirect mid-flow during password reset — the recovery session
   // makes the user appear authenticated, but they need to stay on this screen.
   if (inResetPasswordFlow) {
     // Fall through to normal Stack rendering below
   } else if (session && shouldGateOnboarding && !inOnboardingFlow) {
-    if ((isProfileLoading || isProfileFetching) && !profile && !profileError) {
+    if (shouldShowOnboardingRedirectLoading) {
       return <LoadingScreen />;
     }
 
@@ -115,7 +169,7 @@ function RootLayoutNav() {
     return <Redirect href="/" />;
   }
 
-  if (session && inOnboardingFlow && (isProfileLoading || isProfileFetching) && !profileError) {
+  if (shouldShowOnboardingFlowLoading) {
     return <LoadingScreen />;
   }
 
@@ -142,6 +196,9 @@ function RootLayoutNav() {
 
       {/* Standalone fursuit flows - has its own _layout.tsx */}
       <Stack.Screen name="fursuits" options={{ headerShown: false }} />
+
+      {/* Catch detail screens */}
+      <Stack.Screen name="catches" options={{ headerShown: false }} />
 
       {/* Public player profiles */}
       <Stack.Screen name="profile" options={{ headerShown: false }} />
@@ -262,13 +319,15 @@ function Layout() {
           <StatusBar style="light" />
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
-              <ToastProvider>
-                <PushNotificationManager />
-                <AchievementToastManager />
-                <DailyTaskToastManager />
-                <CatchConfirmationToastManager />
-                <RootLayoutNav />
-              </ToastProvider>
+              <NavigationReadyProvider>
+                <ToastProvider>
+                  <PushNotificationManager />
+                  <AchievementToastManager />
+                  <DailyTaskToastManager />
+                  <CatchConfirmationToastManager />
+                  <RootLayoutNav />
+                </ToastProvider>
+              </NavigationReadyProvider>
             </AuthProvider>
           </QueryClientProvider>
         </SafeAreaProvider>
