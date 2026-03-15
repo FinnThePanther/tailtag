@@ -1091,6 +1091,7 @@ export default function SettingsScreen() {
             onPress={handleSaveSocialLinks}
             disabled={isSavingSocialLinks}
             loading={isSavingSocialLinks}
+            style={styles.saveSocialLinksButton}
           >
             Save links
           </TailTagButton>
@@ -1490,6 +1491,9 @@ const styles = StyleSheet.create({
   },
   socialRemoveButton: {
     flexShrink: 0,
+  },
+  saveSocialLinksButton: {
+    marginTop: spacing.sm,
   },
   helperLabel: {
     color: "rgba(148,163,184,0.7)",
