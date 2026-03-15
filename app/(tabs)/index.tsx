@@ -9,6 +9,8 @@ import {
   useWindowDimensions,
 } from "react-native";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +19,7 @@ import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagProgressBar } from "../../src/components/ui/TailTagProgressBar";
 import { useAuth } from "../../src/features/auth";
+import { fetchProfile, profileQueryKey } from "../../src/features/profile";
 import { supabase } from "../../src/lib/supabase";
 import { captureHandledException } from "../../src/lib/sentry";
 import {
@@ -49,6 +52,7 @@ import { useAutoRequestPushPermission } from "../../src/features/push-notificati
 import { colors, spacing, radius } from "../../src/theme";
 
 const MAX_LEADERBOARD_ENTRIES = 5;
+const USERNAME_NUDGE_DISMISSED_KEY = "tailtag:username-nudge-dismissed";
 
 const formatCatchCount = (count: number) =>
   count === 1 ? "1 catch" : `${count} catches`;
@@ -62,6 +66,36 @@ export default function HomeScreen() {
 
   // Auto-request push notification permissions on first visit
   useAutoRequestPushPermission();
+
+  // Username change nudge
+  const [nudgeDismissed, setNudgeDismissed] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    AsyncStorage.getItem(USERNAME_NUDGE_DISMISSED_KEY)
+      .then((value) => {
+        if (mounted && value !== "true") {
+          setNudgeDismissed(false);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleDismissNudge = useCallback(() => {
+    setNudgeDismissed(true);
+    AsyncStorage.setItem(USERNAME_NUDGE_DISMISSED_KEY, "true").catch(
+      () => undefined,
+    );
+  }, []);
+
+  const { data: profile } = useQuery({
+    queryKey: userId ? profileQueryKey(userId) : ["profile", "guest"],
+    enabled: Boolean(userId) && !nudgeDismissed,
+    queryFn: () => fetchProfile(userId!),
+  });
 
   const maxContentWidth = useMemo(() => {
     const safeWidth = Number.isFinite(windowWidth) ? windowWidth : 0;
@@ -461,6 +495,43 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {!nudgeDismissed && session && (
+          <TailTagCard style={[styles.nudgeCard, contentWidthStyle]}>
+            <View style={styles.nudgeContent}>
+              <View style={styles.nudgeTextBlock}>
+                <Text style={styles.nudgeText}>
+                  Your current username is{" "}
+                  <Text style={styles.nudgeUsername}>
+                    {profile?.username ?? "..."}
+                  </Text>
+                  . Want to pick something better?
+                </Text>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    handleDismissNudge();
+                    router.push("/settings");
+                  }}
+                >
+                  Change username
+                </TailTagButton>
+              </View>
+              <Pressable
+                onPress={handleDismissNudge}
+                hitSlop={12}
+                style={styles.nudgeDismiss}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={22}
+                  color="rgba(148,163,184,0.6)"
+                />
+              </Pressable>
+            </View>
+          </TailTagCard>
+        )}
+
         <TailTagCard style={[styles.dailyCard, contentWidthStyle]}>
           <Text style={styles.sectionEyebrow}>Daily tasks</Text>
           <Text style={styles.sectionTitle}>Today's objectives</Text>
@@ -672,7 +743,7 @@ export default function HomeScreen() {
                                 ]}
                                 onPress={() =>
                                   router.push({
-                                    pathname: '/profile/[id]',
+                                    pathname: "/profile/[id]",
                                     params: { id: entry.profileId },
                                   })
                                 }
@@ -713,10 +784,10 @@ export default function HomeScreen() {
                           ]}
                           onPress={() =>
                             router.push({
-                              pathname: '/leaderboard/[conventionId]',
+                              pathname: "/leaderboard/[conventionId]",
                               params: {
                                 conventionId: selectedConventionId!,
-                                conventionName: selectedConvention?.name ?? '',
+                                conventionName: selectedConvention?.name ?? "",
                               },
                             })
                           }
@@ -784,7 +855,11 @@ export default function HomeScreen() {
                                   style={styles.suitLeaderboardAvatar}
                                 />
                               ) : (
-                                <View style={styles.suitLeaderboardAvatarPlaceholder} />
+                                <View
+                                  style={
+                                    styles.suitLeaderboardAvatarPlaceholder
+                                  }
+                                />
                               )}
                               <View style={styles.leaderboardDetails}>
                                 <Text
@@ -810,10 +885,10 @@ export default function HomeScreen() {
                           ]}
                           onPress={() =>
                             router.push({
-                              pathname: '/leaderboard/[conventionId]',
+                              pathname: "/leaderboard/[conventionId]",
                               params: {
                                 conventionId: selectedConventionId!,
-                                conventionName: selectedConvention?.name ?? '',
+                                conventionName: selectedConvention?.name ?? "",
                               },
                             })
                           }
@@ -946,6 +1021,30 @@ const styles = StyleSheet.create({
   },
   heroBlock: {
     marginBottom: spacing.xl,
+  },
+  nudgeCard: {
+    marginBottom: spacing.xl,
+  },
+  nudgeContent: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  nudgeTextBlock: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  nudgeText: {
+    color: "rgba(203,213,225,0.9)",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  nudgeUsername: {
+    fontWeight: "700",
+    color: colors.foreground,
+  },
+  nudgeDismiss: {
+    paddingTop: 2,
   },
   dailyCard: {
     marginBottom: spacing.xl,
