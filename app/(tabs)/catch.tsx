@@ -24,8 +24,11 @@ import {
 } from "../../src/features/leaderboard";
 import {
   createCatch,
+  myPendingCatchesQueryKey,
   pendingCatchesQueryKey,
+  PhotoCatchCard,
   type CatchStatus,
+  type CreateCatchResult,
 } from "../../src/features/catch-confirmations";
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
@@ -71,6 +74,8 @@ export default function CatchScreen() {
   const [codeInput, setCodeInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
+  const [photoSubmitError, setPhotoSubmitError] = useState<string | null>(null);
   const [caughtFursuit, setCaughtFursuit] = useState<FursuitDetails | null>(
     null
   );
@@ -393,6 +398,13 @@ export default function CatchScreen() {
         });
       }
 
+      // Invalidate my pending catches so the Caught tab list updates
+      if (catchResult.status === "PENDING") {
+        queryClient.invalidateQueries({
+          queryKey: myPendingCatchesQueryKey(userId),
+        });
+      }
+
       setCodeInput("");
 
       // Events are now fired by the Edge Function, no need to emit here
@@ -423,6 +435,156 @@ export default function CatchScreen() {
     setCodeInput("");
   };
 
+  const handlePhotoCatch = async (params: {
+    fursuitId: string;
+    conventionId: string | null;
+    photoUrl: string;
+    catchResult: CreateCatchResult;
+  }) => {
+    if (!userId) return;
+
+    setIsPhotoSubmitting(true);
+    setPhotoSubmitError(null);
+    resetCatchState();
+
+    try {
+      const client = supabase as any;
+
+      // Fetch fursuit details for the result card
+      const { data: fursuit, error: fursuitError } = await client
+        .from("fursuits")
+        .select(
+          `
+          id,
+          name,
+          species_id,
+          avatar_url,
+          is_tutorial,
+          unique_code,
+          catch_count,
+          owner_id,
+          created_at,
+          species_entry:fursuit_species (
+            id,
+            name,
+            normalized_name
+          ),
+          color_assignments:fursuit_color_assignments (
+            position,
+            color:fursuit_colors (
+              id,
+              name,
+              normalized_name
+            )
+          ),
+          fursuit_bios (
+            version,
+            owner_name,
+            pronouns,
+            likes_and_interests,
+            ask_me_about,
+            social_links,
+            created_at,
+            updated_at
+          )
+        `
+        )
+        .eq("id", params.fursuitId)
+        .eq("is_tutorial", false)
+        .maybeSingle();
+
+      if (fursuitError) throw fursuitError;
+      if (!fursuit) {
+        setPhotoSubmitError("Couldn't load fursuit details. Please try again.");
+        return;
+      }
+
+      const normalizedFursuit: FursuitDetails = {
+        id: fursuit.id,
+        name: fursuit.name,
+        species: (fursuit as any)?.species_entry?.name ?? null,
+        species_id: (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
+        avatar_url: fursuit.avatar_url ?? null,
+        unique_code: fursuit.unique_code ?? null,
+        catch_count: typeof (fursuit as any)?.catch_count === "number" ? (fursuit as any).catch_count : 0,
+        owner_id: fursuit.owner_id,
+        created_at: fursuit.created_at ?? null,
+        bio: mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
+        colors: mapFursuitColors((fursuit as any)?.color_assignments ?? null),
+        is_tutorial: false,
+      };
+
+      addMonitoringBreadcrumb({
+        category: "catch",
+        message: "Photo catch completed",
+        data: { fursuitId: params.fursuitId, conventionId: params.conventionId, method: "photo" },
+      });
+
+      // catchResult already created by PhotoCatchCard before the upload
+      const { catchResult } = params;
+
+      const promptCandidate = normalizedFursuit.bio
+        ? [normalizedFursuit.bio.askMeAbout, normalizedFursuit.bio.likesAndInterests]
+            .map((v) => v?.trim())
+            .find((v) => v)
+        : null;
+
+      setCaughtFursuit({ ...normalizedFursuit, catch_count: normalizedFursuit.catch_count + 1 });
+      setCatchRecord({
+        id: catchResult.catchId,
+        caught_at: new Date().toISOString(),
+        catch_number: catchResult.catchNumber,
+        status: catchResult.status,
+      });
+      setLastCatchConventionId(params.conventionId);
+      setLastCatchConventionIds(params.conventionId ? [params.conventionId] : []);
+      setCatchNumber(catchResult.catchNumber);
+      setConversationPrompt(promptCandidate ?? null);
+
+      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      queryClient.invalidateQueries({
+        queryKey: fursuitDetailQueryKey(params.fursuitId),
+      });
+      if (params.conventionId) {
+        queryClient.invalidateQueries({
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, params.conventionId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, params.conventionId],
+        });
+      }
+      queryClient.invalidateQueries({
+        queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
+      });
+
+      if (catchResult.requiresApproval && catchResult.fursuitOwnerId) {
+        queryClient.invalidateQueries({
+          queryKey: pendingCatchesQueryKey(catchResult.fursuitOwnerId),
+        });
+      }
+
+      if (catchResult.status === "PENDING") {
+        queryClient.invalidateQueries({
+          queryKey: myPendingCatchesQueryKey(userId),
+        });
+      }
+    } catch (caught) {
+      const fallbackMessage =
+        caught instanceof Error
+          ? caught.message
+          : "We couldn't save that catch. Please try again.";
+      setPhotoSubmitError(fallbackMessage);
+      resetCatchState();
+
+      captureHandledException(caught, {
+        scope: "catch.performPhotoCatch",
+        userId,
+      });
+    } finally {
+      setIsPhotoSubmitting(false);
+    }
+  };
+
   return (
     <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -432,6 +594,17 @@ export default function CatchScreen() {
           Enter a fursuit's catch code to add them to your collection.
         </Text>
       </View>
+
+        {!caughtFursuit && userId ? (
+          <View style={styles.photoCatchSpacing}>
+            <PhotoCatchCard
+              userId={userId}
+              onCatchSubmit={handlePhotoCatch}
+              isSubmitting={isPhotoSubmitting}
+              submitError={photoSubmitError}
+            />
+          </View>
+        ) : null}
 
         <TailTagCard style={styles.cardSpacing}>
           <View style={styles.fieldGroup}>
@@ -482,9 +655,14 @@ export default function CatchScreen() {
               {isPending ? "Catch pending approval" : "Nice catch!"}
             </Text>
             {isPending ? (
-              <Text style={[styles.sectionBody, styles.pendingHighlight]}>
-                The owner of {caughtFursuit.name} will be notified. Your catch will count once they approve it.
-              </Text>
+              <>
+                <Text style={[styles.sectionBody, styles.pendingHighlight]}>
+                  The owner of {caughtFursuit.name} will be notified.
+                </Text>
+                <Text style={[styles.sectionBody, styles.pendingHighlight]}>
+                  Your catch will count once they approve it.
+                </Text>
+              </>
             ) : catchNumber !== null ? (
               <Text style={[styles.sectionBody, styles.sectionHighlight]}>
                 You were catcher #{catchNumber} for this suit!
@@ -581,7 +759,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   pendingCardBorder: {
-    borderRadius: 12,
+    borderRadius: radius.xl,
     borderWidth: 2,
     borderColor: "#fbbf24",
     overflow: "hidden",
@@ -627,6 +805,7 @@ const styles = StyleSheet.create({
     color: "rgba(203,213,225,0.9)",
     fontSize: 14,
     marginBottom: spacing.md,
+    flexShrink: 1,
   },
   sectionHighlight: {
     color: colors.primary,
@@ -685,6 +864,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.foreground,
     lineHeight: 22,
+  },
+  photoCatchSpacing: {
+    marginBottom: spacing.lg,
   },
   comingSoon: {
     color: "rgba(148,163,184,0.6)",

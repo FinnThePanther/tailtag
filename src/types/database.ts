@@ -279,6 +279,7 @@ export type Database = {
       catches: {
         Row: {
           catch_number: number | null
+          catch_photo_url: string | null
           catcher_id: string
           caught_at: string | null
           convention_id: string | null
@@ -293,6 +294,7 @@ export type Database = {
         }
         Insert: {
           catch_number?: number | null
+          catch_photo_url?: string | null
           catcher_id: string
           caught_at?: string | null
           convention_id?: string | null
@@ -307,6 +309,7 @@ export type Database = {
         }
         Update: {
           catch_number?: number | null
+          catch_photo_url?: string | null
           catcher_id?: string
           caught_at?: string | null
           convention_id?: string | null
@@ -1195,6 +1198,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           bio: string | null
           created_at: string | null
           default_catch_mode: string
@@ -1209,12 +1213,14 @@ export type Database = {
           push_notifications_enabled: boolean
           push_notifications_prompted: boolean | null
           role: Database["public"]["Enums"]["user_role"]
+          social_links: Json | null
           suspended_until: string | null
           suspension_reason: string | null
           updated_at: string | null
           username: string | null
         }
         Insert: {
+          avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
           default_catch_mode?: string
@@ -1229,12 +1235,14 @@ export type Database = {
           push_notifications_enabled?: boolean
           push_notifications_prompted?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
+          social_links?: Json | null
           suspended_until?: string | null
           suspension_reason?: string | null
           updated_at?: string | null
           username?: string | null
         }
         Update: {
+          avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
           default_catch_mode?: string
@@ -1249,6 +1257,7 @@ export type Database = {
           push_notifications_enabled?: boolean
           push_notifications_prompted?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
+          social_links?: Json | null
           suspended_until?: string | null
           suspension_reason?: string | null
           updated_at?: string | null
@@ -2339,15 +2348,26 @@ export type Database = {
         Returns: number
       }
       count_user_fursuits: { Args: { p_user_id: string }; Returns: number }
-      create_catch_with_approval: {
-        Args: {
-          p_catcher_id: string
-          p_convention_id?: string
-          p_fursuit_id: string
-          p_is_tutorial?: boolean
-        }
-        Returns: Json
-      }
+      create_catch_with_approval:
+        | {
+            Args: {
+              p_catcher_id: string
+              p_convention_id?: string
+              p_fursuit_id: string
+              p_is_tutorial?: boolean
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_catch_photo_url?: string
+              p_catcher_id: string
+              p_convention_id?: string
+              p_fursuit_id: string
+              p_is_tutorial?: boolean
+            }
+            Returns: Json
+          }
       detect_duplicate_tag_users: {
         Args: { p_hours_ago?: number; p_tag_uid: string }
         Returns: {
@@ -2548,6 +2568,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: {
           catch_id: string
+          catch_photo_url: string
           catcher_avatar_url: string
           catcher_id: string
           catcher_username: string
@@ -2558,7 +2579,7 @@ export type Database = {
           fursuit_avatar_url: string
           fursuit_id: string
           fursuit_name: string
-          time_remaining: unknown
+          time_remaining: string
         }[]
       }
       get_user_moderation_summary: {
@@ -3338,6 +3359,8 @@ export type Database = {
         | "profile.updated"
         | "convention.checkin"
         | "leaderboard.refreshed"
+        | "catch_performed"
+        | "convention_joined"
       catch_mode: "AUTO_ACCEPT" | "MANUAL_APPROVAL"
       catch_status: "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED"
       user_role: "player" | "staff" | "moderator" | "organizer" | "owner"
@@ -3490,6 +3513,8 @@ export const Constants = {
         "profile.updated",
         "convention.checkin",
         "leaderboard.refreshed",
+        "catch_performed",
+        "convention_joined",
       ],
       catch_mode: ["AUTO_ACCEPT", "MANUAL_APPROVAL"],
       catch_status: ["PENDING", "ACCEPTED", "REJECTED", "EXPIRED"],

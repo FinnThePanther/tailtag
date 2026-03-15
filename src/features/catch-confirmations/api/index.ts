@@ -6,4 +6,13 @@ export {
   confirmCatch,
   updateFursuitCatchMode,
   createCatch,
+  updateCatchPhoto,
+  fetchConventionFursuits,
 } from './confirmations';
+export {
+  MY_PENDING_CATCHES_QUERY_KEY,
+  MY_PENDING_CATCHES_STALE_TIME,
+  myPendingCatchesQueryKey,
+  fetchMyPendingCatches,
+} from './myPendingCatches';
+export type { FursuitPickerItem } from './confirmations';

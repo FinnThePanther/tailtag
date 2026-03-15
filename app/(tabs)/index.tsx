@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -47,7 +48,7 @@ import {
 import { useAutoRequestPushPermission } from "../../src/features/push-notifications";
 import { colors, spacing, radius } from "../../src/theme";
 
-const MAX_LEADERBOARD_ENTRIES = 10;
+const MAX_LEADERBOARD_ENTRIES = 5;
 
 const formatCatchCount = (count: number) =>
   count === 1 ? "1 catch" : `${count} catches`;
@@ -221,7 +222,6 @@ export default function HomeScreen() {
   const showDailySkeleton = !dailyTasksData && isDailyTasksLoading;
   const showDailyError = !dailyTasksData && Boolean(dailyTasksErrorMessage);
   const dailyAllComplete = hasDailyAssignments && dailyRemainingTasks === 0;
-  const dailyCurrentStreak = dailyTasksData?.streak.current ?? 0;
   const dailyTimezone =
     dailyTasksData?.timezone ?? selectedConvention?.timezone ?? "UTC";
   const dailyResetAtLabel = useMemo(() => {
@@ -391,28 +391,6 @@ export default function HomeScreen() {
   const suitErrorMessage = suitLeaderboardError?.message ?? null;
   const hasSuitEntries = topSuitEntries.length > 0;
 
-  const describeSuitEntry = (entry: SuitLeaderboardEntry) => {
-    const pieces = [formatCatchCount(entry.catchCount)];
-
-    if (entry.species) {
-      pieces.push(`Species: ${entry.species}`);
-    }
-
-    const colorNames = entry.colors
-      .map((option) => option.name.trim())
-      .filter((name) => name.length > 0);
-
-    if (colorNames.length > 0) {
-      pieces.push(`Colors: ${colorNames.join(", ")}`);
-    }
-
-    if (entry.ownerUsername) {
-      pieces.push(`Owner: ${entry.ownerUsername}`);
-    }
-
-    return pieces.join(" · ");
-  };
-
   const handleReloadStandings = useCallback(() => {
     void refetchLeaderboard({ throwOnError: false });
     void refetchSuitLeaderboard({ throwOnError: false });
@@ -524,18 +502,13 @@ export default function HomeScreen() {
                 value={dailyProgressValue}
                 style={styles.dailyProgressBar}
               />
-              <View style={styles.dailySummaryFooter}>
-                <Text style={styles.dailySummaryText}>
-                  {dailyAllComplete
-                    ? "All tasks complete - bonus secured."
-                    : `${dailyRemainingTasks} task${
-                        dailyRemainingTasks === 1 ? "" : "s"
-                      } remaining`}
-                </Text>
-                <Text style={styles.dailyStreakLabel}>
-                  Streak: {dailyCurrentStreak}
-                </Text>
-              </View>
+              <Text style={styles.dailySummaryText}>
+                {dailyAllComplete
+                  ? "All tasks complete - bonus secured."
+                  : `${dailyRemainingTasks} task${
+                      dailyRemainingTasks === 1 ? "" : "s"
+                    } remaining`}
+              </Text>
               {dailyResetAtLabel ? (
                 <Text style={styles.dailyResetLabel}>
                   Next reset at {dailyResetAtLabel}
@@ -733,6 +706,26 @@ export default function HomeScreen() {
                             hunting to climb the board.
                           </Text>
                         ) : null}
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.seeAllLink,
+                            pressed && styles.seeAllLinkPressed,
+                          ]}
+                          onPress={() =>
+                            router.push({
+                              pathname: '/leaderboard/[conventionId]',
+                              params: {
+                                conventionId: selectedConventionId!,
+                                conventionName: selectedConvention?.name ?? '',
+                              },
+                            })
+                          }
+                        >
+                          <Text style={styles.seeAllText}>
+                            See all catchers
+                          </Text>
+                          <Text style={styles.seeAllArrow}>→</Text>
+                        </Pressable>
                       </View>
                     ) : (
                       <Text style={styles.message}>
@@ -764,31 +757,70 @@ export default function HomeScreen() {
                         </TailTagButton>
                       </View>
                     ) : hasSuitEntries ? (
-                      <View style={styles.leaderboardList}>
-                        {topSuitEntries.map((entry, index) => (
-                          <View
-                            key={entry.fursuitId}
-                            style={styles.leaderboardRow}
-                          >
-                            <Text style={styles.leaderboardRank}>
-                              #{index + 1}
-                            </Text>
-                            <View style={styles.leaderboardDetails}>
-                              <Text
-                                style={styles.leaderboardName}
-                                numberOfLines={1}
-                              >
-                                {entry.name}
+                      <View style={styles.leaderboardSection}>
+                        <View style={styles.leaderboardList}>
+                          {topSuitEntries.map((entry, index) => (
+                            <Pressable
+                              key={entry.fursuitId}
+                              style={({ pressed }) => [
+                                styles.leaderboardRow,
+                                pressed && styles.leaderboardRowPressed,
+                              ]}
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/fursuits/[id]",
+                                  params: { id: entry.fursuitId },
+                                })
+                              }
+                              accessibilityRole="button"
+                              accessibilityLabel={`View ${entry.name}'s fursuit profile`}
+                            >
+                              <Text style={styles.leaderboardRank}>
+                                #{index + 1}
                               </Text>
-                              <Text
-                                style={styles.leaderboardCatchLabel}
-                                numberOfLines={1}
-                              >
-                                {describeSuitEntry(entry)}
-                              </Text>
-                            </View>
-                          </View>
-                        ))}
+                              {entry.avatarUrl ? (
+                                <Image
+                                  source={{ uri: entry.avatarUrl }}
+                                  style={styles.suitLeaderboardAvatar}
+                                />
+                              ) : (
+                                <View style={styles.suitLeaderboardAvatarPlaceholder} />
+                              )}
+                              <View style={styles.leaderboardDetails}>
+                                <Text
+                                  style={styles.leaderboardName}
+                                  numberOfLines={1}
+                                >
+                                  {entry.name}
+                                </Text>
+                                <Text
+                                  style={styles.leaderboardCatchLabel}
+                                  numberOfLines={1}
+                                >
+                                  {formatCatchCount(entry.catchCount)}
+                                </Text>
+                              </View>
+                            </Pressable>
+                          ))}
+                        </View>
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.seeAllLink,
+                            pressed && styles.seeAllLinkPressed,
+                          ]}
+                          onPress={() =>
+                            router.push({
+                              pathname: '/leaderboard/[conventionId]',
+                              params: {
+                                conventionId: selectedConventionId!,
+                                conventionName: selectedConvention?.name ?? '',
+                              },
+                            })
+                          }
+                        >
+                          <Text style={styles.seeAllText}>See all suits</Text>
+                          <Text style={styles.seeAllArrow}>→</Text>
+                        </Pressable>
                       </View>
                     ) : (
                       <Text style={styles.message}>
@@ -927,11 +959,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  dailySummaryFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
   dailySummaryText: {
     color: "rgba(203,213,225,0.9)",
     fontSize: 14,
@@ -941,11 +968,6 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   dailyCountdown: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  dailyStreakLabel: {
     color: colors.primary,
     fontSize: 13,
     fontWeight: "600",
@@ -1114,6 +1136,19 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  suitLeaderboardAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: spacing.md,
+  },
+  suitLeaderboardAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: spacing.md,
+    backgroundColor: "rgba(148,163,184,0.2)",
+  },
   leaderboardName: {
     color: colors.foreground,
     fontSize: 16,
@@ -1126,6 +1161,25 @@ const styles = StyleSheet.create({
   leaderboardFootnote: {
     color: "rgba(203,213,225,0.7)",
     fontSize: 12,
+  },
+  seeAllLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: spacing.xs,
+    paddingTop: spacing.sm,
+  },
+  seeAllLinkPressed: {
+    opacity: 0.6,
+  },
+  seeAllText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  seeAllArrow: {
+    color: colors.primary,
+    fontSize: 13,
   },
   stepRow: {
     flexDirection: "row",

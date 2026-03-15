@@ -19,6 +19,11 @@ import {
   MY_SUITS_COUNT_QUERY_KEY,
   MY_SUITS_STALE_TIME,
 } from "../../../src/features/suits";
+import {
+  PendingCatchesList,
+  useConfirmCatch,
+  usePendingCatches,
+} from "../../../src/features/catch-confirmations";
 import { MAX_FURSUITS_PER_USER } from "../../../src/constants/fursuits";
 import type { FursuitSummary } from "../../../src/features/suits";
 import { TailTagButton } from "../../../src/components/ui/TailTagButton";
@@ -60,6 +65,33 @@ export default function MySuitsScreen() {
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
+
+  const { data: pendingCatches = [], refetch: refetchPendingCatches } =
+    usePendingCatches();
+  const confirmCatchMutation = useConfirmCatch();
+
+  const handleAcceptCatch = useCallback(
+    (catchId: string, conventionId?: string) => {
+      setProcessingCatchId(catchId);
+      confirmCatchMutation.mutate(
+        { catchId, decision: "accept", conventionId },
+        { onSettled: () => setProcessingCatchId(null) },
+      );
+    },
+    [confirmCatchMutation],
+  );
+
+  const handleRejectCatch = useCallback(
+    (catchId: string) => {
+      setProcessingCatchId(catchId);
+      confirmCatchMutation.mutate(
+        { catchId, decision: "reject" },
+        { onSettled: () => setProcessingCatchId(null) },
+      );
+    },
+    [confirmCatchMutation],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -84,8 +116,11 @@ export default function MySuitsScreen() {
 
   const handleRefresh = useCallback(async () => {
     setActionError(null);
-    await refetch({ throwOnError: false });
-  }, [refetch]);
+    await Promise.all([
+      refetch({ throwOnError: false }),
+      refetchPendingCatches(),
+    ]);
+  }, [refetch, refetchPendingCatches]);
 
   const handleDelete = useCallback(
     (suit: FursuitSummary) => {
@@ -186,23 +221,16 @@ export default function MySuitsScreen() {
         </Text>
       </View>
 
-      <TailTagCard style={styles.cardSpacing}>
-        <View style={styles.helperRow}>
-          <Text style={styles.helperText}>
-            {isAtFursuitLimit
-              ? `You have ${MAX_FURSUITS_PER_USER}/${MAX_FURSUITS_PER_USER} suits. Delete one to add another.`
-              : `Add a new suit before you head to the floor. (${suitCount}/${MAX_FURSUITS_PER_USER})`}
-          </Text>
-          <TailTagButton
-            onPress={() => router.push("/suits/add-fursuit")}
-            disabled={isAtFursuitLimit}
-          >
-            Add a fursuit
-          </TailTagButton>
-        </View>
-      </TailTagCard>
+      {userId ? (
+        <PendingCatchesList
+          pendingCatches={pendingCatches}
+          processingCatchId={processingCatchId}
+          onAccept={handleAcceptCatch}
+          onReject={handleRejectCatch}
+        />
+      ) : null}
 
-      <TailTagCard>
+      <TailTagCard style={styles.cardSpacing}>
         {isLoading ? (
           <Text style={styles.message}>Loading your suits…</Text>
         ) : combinedError ? (
@@ -269,10 +297,26 @@ export default function MySuitsScreen() {
           </View>
         ) : (
           <Text style={styles.message}>
-            You haven&apos;t added any suits yet. Tap “Add a fursuit” to get
+            You haven&apos;t added any suits yet. Tap “Add a fursuit” below to get
             started.
           </Text>
         )}
+      </TailTagCard>
+
+      <TailTagCard style={styles.cardSpacing}>
+        <View style={styles.helperRow}>
+          <Text style={styles.helperText}>
+            {isAtFursuitLimit
+              ? `You have ${MAX_FURSUITS_PER_USER}/${MAX_FURSUITS_PER_USER} suits. Delete one to add another.`
+              : `Add a new suit before you head to the floor. (${suitCount}/${MAX_FURSUITS_PER_USER})`}
+          </Text>
+          <TailTagButton
+            onPress={() => router.push("/suits/add-fursuit")}
+            disabled={isAtFursuitLimit}
+          >
+            Add a fursuit
+          </TailTagButton>
+        </View>
       </TailTagCard>
     </ScrollView>
   );

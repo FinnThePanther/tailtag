@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -51,6 +51,7 @@ export function PendingCatchCard({
   const fadeAnimRef = useRef(new Animated.Value(1));
   const scaleAnimRef = useRef(new Animated.Value(1));
   const [animatingSuccess, setAnimatingSuccess] = useState(false);
+  const [photoFullscreen, setPhotoFullscreen] = useState(false);
 
   // Trigger success animation when processing completes
   useEffect(() => {
@@ -126,7 +127,15 @@ export function PendingCatchCard({
       <View style={styles.header}>
         <View style={styles.catcherInfo}>
           <Pressable onPress={handleViewProfile} style={styles.avatarWrapper}>
-            <Ionicons name="person" size={20} color="rgba(148,163,184,0.7)" />
+            {pendingCatch.catcherAvatarUrl ? (
+              <Image
+                source={{ uri: pendingCatch.catcherAvatarUrl }}
+                style={styles.avatarImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Ionicons name="person" size={20} color="rgba(148,163,184,0.7)" />
+            )}
           </Pressable>
           <View style={styles.textInfo}>
             <Pressable onPress={handleViewProfile}>
@@ -151,6 +160,49 @@ export function PendingCatchCard({
           </Text>
         </View>
       </View>
+
+      {pendingCatch.catchPhotoUrl ? (
+        <>
+          <Pressable
+            onPress={() => setPhotoFullscreen(true)}
+            accessibilityLabel="Tap to view catch photo fullscreen"
+            accessibilityRole="button"
+          >
+            <Image
+              source={{ uri: pendingCatch.catchPhotoUrl }}
+              style={styles.catchPhoto}
+              resizeMode="cover"
+              accessibilityLabel="Selfie taken by catcher"
+            />
+          </Pressable>
+          <Modal
+            visible={photoFullscreen}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setPhotoFullscreen(false)}
+          >
+            <Pressable
+              style={styles.fullscreenBackdrop}
+              onPress={() => setPhotoFullscreen(false)}
+            >
+              <Image
+                source={{ uri: pendingCatch.catchPhotoUrl }}
+                style={styles.fullscreenPhoto}
+                resizeMode="contain"
+                accessibilityLabel="Catch photo fullscreen view"
+              />
+              <Pressable
+                style={styles.closeButton}
+                onPress={() => setPhotoFullscreen(false)}
+                accessibilityLabel="Close fullscreen photo"
+                accessibilityRole="button"
+              >
+                <Ionicons name="close" size={28} color="#fff" />
+              </Pressable>
+            </Pressable>
+          </Modal>
+        </>
+      ) : null}
 
       <View style={styles.contextContainer}>
         <View style={styles.contextRow}>
@@ -255,6 +307,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30,41,59,0.8)',
     overflow: 'hidden',
   },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+  },
   textInfo: {
     flex: 1,
     marginLeft: spacing.sm,
@@ -290,6 +347,13 @@ const styles = StyleSheet.create({
   expiredText: {
     color: '#f87171',
   },
+  catchPhoto: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
+    backgroundColor: 'rgba(30,41,59,0.8)',
+  },
   contextContainer: {
     gap: spacing.xs,
     marginBottom: spacing.md,
@@ -315,5 +379,26 @@ const styles = StyleSheet.create({
   },
   rejectButton: {
     borderColor: 'rgba(148,163,184,0.3)',
+  },
+  fullscreenBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
