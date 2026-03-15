@@ -13,7 +13,7 @@ import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
 import { TailTagButton } from "../../../components/ui/TailTagButton";
-import { colors, radius, spacing } from "../../../theme";
+import { radius, spacing } from "../../../theme";
 import { inferImageExtension, inferImageMimeType } from "../../../utils/images";
 import type { CatchOfFursuitItem } from "../api/catchesByFursuit";
 

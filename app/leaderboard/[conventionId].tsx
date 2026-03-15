@@ -8,8 +8,6 @@ import { useAuth } from '../../src/features/auth';
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import {
-  CONVENTION_LEADERBOARD_QUERY_KEY,
-  CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
   createConventionLeaderboardQueryOptions,
   createConventionSuitLeaderboardQueryOptions,
   type LeaderboardEntry,
