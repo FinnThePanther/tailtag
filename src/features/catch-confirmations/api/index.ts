@@ -6,6 +6,7 @@ export {
   confirmCatch,
   updateFursuitCatchMode,
   createCatch,
+  updateCatchPhoto,
   fetchConventionFursuits,
 } from './confirmations';
 export {

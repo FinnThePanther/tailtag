@@ -18,9 +18,10 @@ import { supabase } from '../../../lib/supabase';
 import { CATCH_PHOTO_BUCKET } from '../../../constants/storage';
 import { loadUriAsUint8Array } from '../../../utils/files';
 import { buildImageUploadCandidate, inferImageExtension } from '../../../utils/images';
-import { fetchConventionFursuits } from '../api/confirmations';
+import { createCatch, updateCatchPhoto, fetchConventionFursuits } from '../api/confirmations';
 import { FursuitPicker } from './FursuitPicker';
 import type { FursuitPickerItem } from '../api';
+import type { CreateCatchResult } from '../types';
 
 type PhotoCandidate = {
   uri: string;
@@ -35,6 +36,7 @@ type PhotoCatchCardProps = {
     fursuitId: string;
     conventionId: string | null;
     photoUrl: string;
+    catchResult: CreateCatchResult;
   }) => Promise<void>;
   isSubmitting?: boolean;
   submitError?: string | null;
@@ -127,38 +129,7 @@ export function PhotoCatchCard({
     setLocalError(null);
     setIsUploadingPhoto(true);
 
-    let photoUrl: string;
-    try {
-      // Upload photo to Supabase storage
-      const extension = inferImageExtension(photo);
-      const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const storagePath = `${userId}/${uniqueSuffix}.${extension}`;
-
-      const fileBytes = await loadUriAsUint8Array(photo.uri);
-
-      const { error: uploadError } = await supabase.storage
-        .from(CATCH_PHOTO_BUCKET)
-        .upload(storagePath, fileBytes, {
-          contentType: photo.mimeType,
-          upsert: true,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(CATCH_PHOTO_BUCKET).getPublicUrl(storagePath);
-
-      photoUrl = publicUrl;
-    } catch {
-      setLocalError("Couldn't upload your photo. Please check your connection and try again.");
-      setIsUploadingPhoto(false);
-      return;
-    }
-
-    setIsUploadingPhoto(false);
-
-    // Resolve shared convention between catcher and selected fursuit
+    // Step 1: Validate shared convention before doing any uploads
     const client = supabase as any;
     let sharedConventionId: string | null = null;
 
@@ -172,24 +143,85 @@ export function PhotoCatchCard({
         (suitConventionRows ?? []).map((r: { convention_id: string }) => r.convention_id),
       );
 
-      sharedConventionId =
-        conventionIds.find((id) => suitConventionIds.has(id)) ?? null;
+      sharedConventionId = conventionIds.find((id) => suitConventionIds.has(id)) ?? null;
 
       if (!sharedConventionId) {
         setLocalError(
           'You and this suit need to be at the same convention. Make sure both of you have opted into the same convention in Settings.',
         );
+        setIsUploadingPhoto(false);
         return;
       }
     } catch {
       setLocalError("Couldn't verify convention. Please try again.");
+      setIsUploadingPhoto(false);
       return;
     }
+
+    // Step 2: Create the catch record first — before uploading the photo.
+    // This way, if the catch is invalid (duplicate, own fursuit, etc.) we fail
+    // fast without wasting a storage upload.
+    let catchResult: CreateCatchResult;
+    try {
+      catchResult = await createCatch({
+        fursuitId: selectedFursuit.id,
+        conventionId: sharedConventionId,
+        isTutorial: false,
+        forcePending: true,
+      });
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : "Couldn't create catch. Please try again.");
+      setIsUploadingPhoto(false);
+      return;
+    }
+
+    // Step 3: Upload the photo. On failure, roll back the catch.
+    let photoUrl: string;
+    let storagePath: string;
+    try {
+      const extension = inferImageExtension(photo);
+      const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      storagePath = `${userId}/${uniqueSuffix}.${extension}`;
+
+      const fileBytes = await loadUriAsUint8Array(photo.uri);
+
+      const { error: uploadError } = await supabase.storage
+        .from(CATCH_PHOTO_BUCKET)
+        .upload(storagePath, fileBytes, {
+          contentType: photo.mimeType,
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from(CATCH_PHOTO_BUCKET).getPublicUrl(storagePath);
+      photoUrl = publicUrl;
+    } catch {
+      // Roll back the catch so it doesn't sit in the owner's pending queue without a photo
+      await Promise.resolve((client as typeof supabase).from('catches').delete().eq('id', catchResult.catchId)).catch(() => {});
+      setLocalError("Couldn't upload your photo. Please check your connection and try again.");
+      setIsUploadingPhoto(false);
+      return;
+    }
+
+    // Step 4: Attach the photo URL to the catch. On failure, roll back both.
+    try {
+      await updateCatchPhoto(catchResult.catchId, photoUrl);
+    } catch {
+      await Promise.resolve((client as typeof supabase).from('catches').delete().eq('id', catchResult.catchId)).catch(() => {});
+      await supabase.storage.from(CATCH_PHOTO_BUCKET).remove([storagePath]).catch(() => {});
+      setLocalError("Couldn't save your photo. Please check your connection and try again.");
+      setIsUploadingPhoto(false);
+      return;
+    }
+
+    setIsUploadingPhoto(false);
 
     await onCatchSubmit({
       fursuitId: selectedFursuit.id,
       conventionId: sharedConventionId,
       photoUrl,
+      catchResult,
     });
   };
 

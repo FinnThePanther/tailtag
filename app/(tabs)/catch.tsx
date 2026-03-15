@@ -28,6 +28,7 @@ import {
   pendingCatchesQueryKey,
   PhotoCatchCard,
   type CatchStatus,
+  type CreateCatchResult,
 } from "../../src/features/catch-confirmations";
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
@@ -438,6 +439,7 @@ export default function CatchScreen() {
     fursuitId: string;
     conventionId: string | null;
     photoUrl: string;
+    catchResult: CreateCatchResult;
   }) => {
     if (!userId) return;
 
@@ -514,16 +516,12 @@ export default function CatchScreen() {
 
       addMonitoringBreadcrumb({
         category: "catch",
-        message: "Photo catch initiated",
+        message: "Photo catch completed",
         data: { fursuitId: params.fursuitId, conventionId: params.conventionId, method: "photo" },
       });
 
-      const catchResult = await createCatch({
-        fursuitId: params.fursuitId,
-        conventionId: params.conventionId,
-        isTutorial: false,
-        photoUrl: params.photoUrl,
-      });
+      // catchResult already created by PhotoCatchCard before the upload
+      const { catchResult } = params;
 
       const promptCandidate = normalizedFursuit.bio
         ? [normalizedFursuit.bio.askMeAbout, normalizedFursuit.bio.likesAndInterests]
@@ -598,12 +596,14 @@ export default function CatchScreen() {
       </View>
 
         {!caughtFursuit && userId ? (
-          <PhotoCatchCard
-            userId={userId}
-            onCatchSubmit={handlePhotoCatch}
-            isSubmitting={isPhotoSubmitting}
-            submitError={photoSubmitError}
-          />
+          <View style={styles.photoCatchSpacing}>
+            <PhotoCatchCard
+              userId={userId}
+              onCatchSubmit={handlePhotoCatch}
+              isSubmitting={isPhotoSubmitting}
+              submitError={photoSubmitError}
+            />
+          </View>
         ) : null}
 
         <TailTagCard style={styles.cardSpacing}>
@@ -655,9 +655,14 @@ export default function CatchScreen() {
               {isPending ? "Catch pending approval" : "Nice catch!"}
             </Text>
             {isPending ? (
-              <Text style={[styles.sectionBody, styles.pendingHighlight]}>
-                The owner of {caughtFursuit.name} will be notified. Your catch will count once they approve it.
-              </Text>
+              <>
+                <Text style={[styles.sectionBody, styles.pendingHighlight]}>
+                  The owner of {caughtFursuit.name} will be notified.
+                </Text>
+                <Text style={[styles.sectionBody, styles.pendingHighlight]}>
+                  Your catch will count once they approve it.
+                </Text>
+              </>
             ) : catchNumber !== null ? (
               <Text style={[styles.sectionBody, styles.sectionHighlight]}>
                 You were catcher #{catchNumber} for this suit!
@@ -754,7 +759,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   pendingCardBorder: {
-    borderRadius: 12,
+    borderRadius: radius.xl,
     borderWidth: 2,
     borderColor: "#fbbf24",
     overflow: "hidden",
@@ -800,6 +805,7 @@ const styles = StyleSheet.create({
     color: "rgba(203,213,225,0.9)",
     fontSize: 14,
     marginBottom: spacing.md,
+    flexShrink: 1,
   },
   sectionHighlight: {
     color: colors.primary,
@@ -858,6 +864,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.foreground,
     lineHeight: 22,
+  },
+  photoCatchSpacing: {
+    marginBottom: spacing.lg,
   },
   comingSoon: {
     color: "rgba(148,163,184,0.6)",

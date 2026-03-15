@@ -48,7 +48,7 @@ import {
 import { useAutoRequestPushPermission } from "../../src/features/push-notifications";
 import { colors, spacing, radius } from "../../src/theme";
 
-const MAX_LEADERBOARD_ENTRIES = 10;
+const MAX_LEADERBOARD_ENTRIES = 5;
 
 const formatCatchCount = (count: number) =>
   count === 1 ? "1 catch" : `${count} catches`;
@@ -706,6 +706,26 @@ export default function HomeScreen() {
                             hunting to climb the board.
                           </Text>
                         ) : null}
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.seeAllLink,
+                            pressed && styles.seeAllLinkPressed,
+                          ]}
+                          onPress={() =>
+                            router.push({
+                              pathname: '/leaderboard/[conventionId]',
+                              params: {
+                                conventionId: selectedConventionId!,
+                                conventionName: selectedConvention?.name ?? '',
+                              },
+                            })
+                          }
+                        >
+                          <Text style={styles.seeAllText}>
+                            See all catchers
+                          </Text>
+                          <Text style={styles.seeAllArrow}>→</Text>
+                        </Pressable>
                       </View>
                     ) : (
                       <Text style={styles.message}>
@@ -737,50 +757,70 @@ export default function HomeScreen() {
                         </TailTagButton>
                       </View>
                     ) : hasSuitEntries ? (
-                      <View style={styles.leaderboardList}>
-                        {topSuitEntries.map((entry, index) => (
-                          <Pressable
-                            key={entry.fursuitId}
-                            style={({ pressed }) => [
-                              styles.leaderboardRow,
-                              pressed && styles.leaderboardRowPressed,
-                            ]}
-                            onPress={() =>
-                              router.push({
-                                pathname: "/fursuits/[id]",
-                                params: { id: entry.fursuitId },
-                              })
-                            }
-                            accessibilityRole="button"
-                            accessibilityLabel={`View ${entry.name}'s fursuit profile`}
-                          >
-                            <Text style={styles.leaderboardRank}>
-                              #{index + 1}
-                            </Text>
-                            {entry.avatarUrl ? (
-                              <Image
-                                source={{ uri: entry.avatarUrl }}
-                                style={styles.suitLeaderboardAvatar}
-                              />
-                            ) : (
-                              <View style={styles.suitLeaderboardAvatarPlaceholder} />
-                            )}
-                            <View style={styles.leaderboardDetails}>
-                              <Text
-                                style={styles.leaderboardName}
-                                numberOfLines={1}
-                              >
-                                {entry.name}
+                      <View style={styles.leaderboardSection}>
+                        <View style={styles.leaderboardList}>
+                          {topSuitEntries.map((entry, index) => (
+                            <Pressable
+                              key={entry.fursuitId}
+                              style={({ pressed }) => [
+                                styles.leaderboardRow,
+                                pressed && styles.leaderboardRowPressed,
+                              ]}
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/fursuits/[id]",
+                                  params: { id: entry.fursuitId },
+                                })
+                              }
+                              accessibilityRole="button"
+                              accessibilityLabel={`View ${entry.name}'s fursuit profile`}
+                            >
+                              <Text style={styles.leaderboardRank}>
+                                #{index + 1}
                               </Text>
-                              <Text
-                                style={styles.leaderboardCatchLabel}
-                                numberOfLines={1}
-                              >
-                                {formatCatchCount(entry.catchCount)}
-                              </Text>
-                            </View>
-                          </Pressable>
-                        ))}
+                              {entry.avatarUrl ? (
+                                <Image
+                                  source={{ uri: entry.avatarUrl }}
+                                  style={styles.suitLeaderboardAvatar}
+                                />
+                              ) : (
+                                <View style={styles.suitLeaderboardAvatarPlaceholder} />
+                              )}
+                              <View style={styles.leaderboardDetails}>
+                                <Text
+                                  style={styles.leaderboardName}
+                                  numberOfLines={1}
+                                >
+                                  {entry.name}
+                                </Text>
+                                <Text
+                                  style={styles.leaderboardCatchLabel}
+                                  numberOfLines={1}
+                                >
+                                  {formatCatchCount(entry.catchCount)}
+                                </Text>
+                              </View>
+                            </Pressable>
+                          ))}
+                        </View>
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.seeAllLink,
+                            pressed && styles.seeAllLinkPressed,
+                          ]}
+                          onPress={() =>
+                            router.push({
+                              pathname: '/leaderboard/[conventionId]',
+                              params: {
+                                conventionId: selectedConventionId!,
+                                conventionName: selectedConvention?.name ?? '',
+                              },
+                            })
+                          }
+                        >
+                          <Text style={styles.seeAllText}>See all suits</Text>
+                          <Text style={styles.seeAllArrow}>→</Text>
+                        </Pressable>
                       </View>
                     ) : (
                       <Text style={styles.message}>
@@ -1121,6 +1161,25 @@ const styles = StyleSheet.create({
   leaderboardFootnote: {
     color: "rgba(203,213,225,0.7)",
     fontSize: 12,
+  },
+  seeAllLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: spacing.xs,
+    paddingTop: spacing.sm,
+  },
+  seeAllLinkPressed: {
+    opacity: 0.6,
+  },
+  seeAllText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  seeAllArrow: {
+    color: colors.primary,
+    fontSize: 13,
   },
   stepRow: {
     flexDirection: "row",

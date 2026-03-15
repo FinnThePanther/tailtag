@@ -51,5 +51,5 @@ export type CreateCatchParams = {
   fursuitId: string;
   conventionId: string | null;
   isTutorial?: boolean;
-  photoUrl?: string | null;
+  forcePending?: boolean;
 };

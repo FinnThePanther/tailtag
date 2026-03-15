@@ -147,7 +147,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         fursuit_id: params.fursuitId,
         convention_id: params.conventionId,
         is_tutorial: params.isTutorial ?? false,
-        catch_photo_url: params.photoUrl ?? null,
+        force_pending: params.forcePending ?? false,
       }),
       signal: controller.signal,
     });
@@ -202,6 +202,53 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
     }
 
     // Re-throw other errors
+    throw error;
+  }
+}
+
+/**
+ * Attach a photo URL to an existing catch via the Edge Function (uses service role).
+ * Called after the photo has been successfully uploaded to storage.
+ */
+export async function updateCatchPhoto(catchId: string, photoUrl: string): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error('You must be signed in to update a catch.');
+  }
+
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error('Supabase URL not configured.');
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ catch_id: catchId, catch_photo_url: photoUrl }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error('Failed to attach photo to catch.');
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('The request took too long. Please check your connection and try again.');
+    }
+
     throw error;
   }
 }
