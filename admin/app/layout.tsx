@@ -9,6 +9,8 @@ const font = Manrope({
   display: 'swap',
 });
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'TailTag Admin',
   description: 'Admin dashboard for TailTag operations',
