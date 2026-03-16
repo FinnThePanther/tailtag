@@ -158,47 +158,22 @@ function PlayerRow({ player }: { player: StaffPlayerResult }) {
     );
   };
 
-  const handleWarn = () => {
-    Alert.alert(
-      `Warn ${player.username ?? 'user'}?`,
-      'This will log a warning on their account.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Warn',
-          onPress: () => {
-            setIsActing(true);
-            staffModerate({ action: 'warn', userId: player.id, reason: 'Staff warning' })
-              .then(() => Alert.alert('Done', 'Warning issued.'))
-              .catch((e: Error) => {
-                captureHandledException(e, { scope: 'staffMode.warn' });
-                Alert.alert('Error', e.message);
-              })
-              .finally(() => setIsActing(false));
-          },
-        },
-      ],
-    );
-  };
-
   const showActions = () => {
-    const options = ['Ban', 'Warn', 'View profile', 'Cancel'];
+    const options = ['Ban', 'View profile', 'Cancel'];
     const destructiveButtonIndex = 0;
-    const cancelButtonIndex = 3;
+    const cancelButtonIndex = 2;
 
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         { options, destructiveButtonIndex, cancelButtonIndex },
         (index) => {
           if (index === 0) handleBan();
-          if (index === 1) handleWarn();
-          if (index === 2) router.push({ pathname: '/profile/[id]', params: { id: player.id } });
+          if (index === 1) router.push({ pathname: '/profile/[id]', params: { id: player.id } });
         },
       );
     } else {
       Alert.alert('Actions', undefined, [
         { text: 'Ban', style: 'destructive', onPress: handleBan },
-        { text: 'Warn', onPress: handleWarn },
         { text: 'View profile', onPress: () => router.push({ pathname: '/profile/[id]', params: { id: player.id } }) },
         { text: 'Cancel', style: 'cancel' },
       ]);

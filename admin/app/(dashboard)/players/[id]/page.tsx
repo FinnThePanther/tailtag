@@ -43,8 +43,6 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
         <Card title="Moderation summary" subtitle="Counts and flags">
           <div className="grid gap-3 sm:grid-cols-2">
             <SummaryMetric label="Active bans" value={(moderationSummary as any)?.active_bans ?? 0} />
-            <SummaryMetric label="Active mutes" value={(moderationSummary as any)?.active_mutes ?? 0} />
-            <SummaryMetric label="Warnings" value={(moderationSummary as any)?.warning_count ?? 0} />
             <SummaryMetric label="Reports" value={(moderationSummary as any)?.report_count ?? 0} />
             <SummaryMetric label="Pending reports" value={(moderationSummary as any)?.pending_reports ?? 0} />
             <SummaryMetric label="Flagged suits" value={(moderationSummary as any)?.flagged_fursuits ?? 0} />

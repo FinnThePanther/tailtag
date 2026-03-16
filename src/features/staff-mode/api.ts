@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
 
 type StaffModerateParams = {
-  action: 'ban' | 'warn' | 'mute';
+  action: 'ban';
   userId: string;
   reason: string;
   durationHours?: number | null;

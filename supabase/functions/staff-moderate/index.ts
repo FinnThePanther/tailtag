@@ -31,7 +31,7 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
 
 const ALLOWED_ROLES = ["staff", "moderator", "organizer", "owner"];
 
-type ModerateAction = "ban" | "warn" | "mute";
+type ModerateAction = "ban";
 
 interface ModerateRequest {
   action: ModerateAction;
@@ -103,8 +103,8 @@ Deno.serve(async (req) => {
     return jsonResponse(400, { error: "Missing required fields: action, userId, reason" });
   }
 
-  if (!["ban", "warn", "mute"].includes(body.action)) {
-    return jsonResponse(400, { error: "Invalid action. Must be ban, warn, or mute" });
+  if (body.action !== "ban") {
+    return jsonResponse(400, { error: "Invalid action" });
   }
 
   const scope = body.scope ?? "global";
@@ -115,18 +115,17 @@ Deno.serve(async (req) => {
 
   try {
     // Insert moderation action
-    const actionType = body.action === "warn" ? "warning" : body.action;
     const { error: insertError } = await supabaseAdmin
       .from("user_moderation_actions")
       .insert({
         user_id: body.userId,
-        action_type: actionType,
+        action_type: body.action,
         scope,
         convention_id: scope === "event" ? body.conventionId ?? null : null,
         reason: body.reason,
         duration_hours: body.durationHours ?? null,
         expires_at: expiresAt,
-        is_active: body.action !== "warn", // Warnings are not "active" in the same sense
+        is_active: true,
         applied_by_user_id: caller.id,
       });
 
