@@ -170,6 +170,54 @@ export async function fetchConvention(conventionId: string): Promise<{
   return { convention, staff };
 }
 
+type UserBlockRow = {
+  id: string;
+  direction: 'blocked' | 'blocked_by';
+  other_user_id: string;
+  other_username: string | null;
+  created_at: string;
+};
+
+export async function fetchUserBlocks(userId: string): Promise<UserBlockRow[]> {
+  const supabase = createServiceRoleClient();
+
+  const [{ data: blockedByUser }, { data: blockedByOthers }] = await Promise.all([
+    supabase
+      .from('user_blocks')
+      .select('id, blocked_id, created_at, blocked:blocked_id(username)')
+      .eq('blocker_id', userId),
+    supabase
+      .from('user_blocks')
+      .select('id, blocker_id, created_at, blocker:blocker_id(username)')
+      .eq('blocked_id', userId),
+  ]);
+
+  const results: UserBlockRow[] = [];
+
+  for (const row of (blockedByUser ?? []) as any[]) {
+    results.push({
+      id: row.id,
+      direction: 'blocked',
+      other_user_id: row.blocked_id,
+      other_username: row.blocked?.username ?? null,
+      created_at: row.created_at,
+    });
+  }
+
+  for (const row of (blockedByOthers ?? []) as any[]) {
+    results.push({
+      id: row.id,
+      direction: 'blocked_by',
+      other_user_id: row.blocker_id,
+      other_username: row.blocker?.username ?? null,
+      created_at: row.created_at,
+    });
+  }
+
+  results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return results;
+}
+
 export async function fetchAuditLogs(limit = 50) {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase

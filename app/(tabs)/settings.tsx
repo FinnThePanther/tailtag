@@ -1234,6 +1234,9 @@ export default function SettingsScreen() {
           <Text style={styles.sectionDescription}>
             Log out of TailTag or delete your account entirely.
           </Text>
+          <TailTagButton variant="outline" onPress={() => router.push("/blocked-users")}>
+            Blocked users
+          </TailTagButton>
           {signOutError ? (
             <Text style={styles.error}>{signOutError}</Text>
           ) : null}

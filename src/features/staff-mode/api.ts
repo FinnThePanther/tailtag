@@ -1,5 +1,15 @@
 import { supabase } from '../../lib/supabase';
+
 type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
+
+type StaffModerateParams = {
+  action: 'ban' | 'warn' | 'mute';
+  userId: string;
+  reason: string;
+  durationHours?: number | null;
+  scope?: 'global' | 'event';
+  conventionId?: string | null;
+};
 
 export type StaffPlayerResult = {
   id: string;
@@ -40,4 +50,31 @@ export async function searchPlayersForStaff(term: string): Promise<StaffPlayerRe
     fursuit_count: Number(row.fursuit_count ?? 0),
     catch_count: Number(row.catch_count ?? 0),
   }));
+}
+
+export async function staffModerate(params: StaffModerateParams): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase configuration');
+  }
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/staff-moderate`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: supabaseKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || `Moderation action failed (${response.status})`);
+  }
 }

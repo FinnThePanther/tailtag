@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
@@ -9,8 +10,9 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { STAFF_MODE_ENABLED } from '../../src/constants/features';
 import { useAuth } from '../../src/features/auth';
 import { profileQueryKey, fetchProfile } from '../../src/features/profile';
-import { searchPlayersForStaff, type StaffPlayerResult } from '../../src/features/staff-mode/api';
+import { searchPlayersForStaff, staffModerate, type StaffPlayerResult } from '../../src/features/staff-mode/api';
 import { canUseStaffMode } from '../../src/features/staff-mode/constants';
+import { captureHandledException } from '../../src/lib/sentry';
 import { colors, spacing, radius } from '../../src/theme';
 
 export default function StaffModeScreen() {
@@ -127,6 +129,82 @@ export default function StaffModeScreen() {
 }
 
 function PlayerRow({ player }: { player: StaffPlayerResult }) {
+  const router = useRouter();
+  const [isActing, setIsActing] = useState(false);
+
+  const handleBan = () => {
+    Alert.prompt(
+      `Ban ${player.username ?? 'user'}`,
+      'Enter a reason for the ban:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Ban',
+          style: 'destructive',
+          onPress: (reason?: string) => {
+            if (!reason?.trim()) return;
+            setIsActing(true);
+            staffModerate({ action: 'ban', userId: player.id, reason: reason.trim() })
+              .then(() => Alert.alert('Done', 'Ban applied.'))
+              .catch((e: Error) => {
+                captureHandledException(e, { scope: 'staffMode.ban' });
+                Alert.alert('Error', e.message);
+              })
+              .finally(() => setIsActing(false));
+          },
+        },
+      ],
+      'plain-text',
+    );
+  };
+
+  const handleWarn = () => {
+    Alert.alert(
+      `Warn ${player.username ?? 'user'}?`,
+      'This will log a warning on their account.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Warn',
+          onPress: () => {
+            setIsActing(true);
+            staffModerate({ action: 'warn', userId: player.id, reason: 'Staff warning' })
+              .then(() => Alert.alert('Done', 'Warning issued.'))
+              .catch((e: Error) => {
+                captureHandledException(e, { scope: 'staffMode.warn' });
+                Alert.alert('Error', e.message);
+              })
+              .finally(() => setIsActing(false));
+          },
+        },
+      ],
+    );
+  };
+
+  const showActions = () => {
+    const options = ['Ban', 'Warn', 'View profile', 'Cancel'];
+    const destructiveButtonIndex = 0;
+    const cancelButtonIndex = 3;
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, destructiveButtonIndex, cancelButtonIndex },
+        (index) => {
+          if (index === 0) handleBan();
+          if (index === 1) handleWarn();
+          if (index === 2) router.push({ pathname: '/profile/[id]', params: { id: player.id } });
+        },
+      );
+    } else {
+      Alert.alert('Actions', undefined, [
+        { text: 'Ban', style: 'destructive', onPress: handleBan },
+        { text: 'Warn', onPress: handleWarn },
+        { text: 'View profile', onPress: () => router.push({ pathname: '/profile/[id]', params: { id: player.id } }) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  };
+
   return (
     <View style={styles.resultRow}>
       <View style={styles.avatarPlaceholder}>
@@ -142,6 +220,14 @@ function PlayerRow({ player }: { player: StaffPlayerResult }) {
       <View style={[styles.statusPill, player.is_suspended ? styles.statusBad : styles.statusGood]}>
         <Text style={styles.statusText}>{player.is_suspended ? 'Suspended' : 'Active'}</Text>
       </View>
+      <Pressable
+        onPress={showActions}
+        hitSlop={8}
+        disabled={isActing}
+        style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.5 }]}
+      >
+        <Ionicons name="ellipsis-vertical" size={18} color={colors.foreground} />
+      </Pressable>
     </View>
   );
 }
@@ -266,5 +352,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  actionButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.xs,
   },
 });

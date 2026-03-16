@@ -25,6 +25,7 @@ import {
   routingInstrumentation,
 } from "../src/lib/sentry";
 import { handleAuthError } from "../src/lib/authErrorHandler";
+import { SuspensionGate } from "../src/features/moderation";
 
 function LoadingScreen() {
   return (
@@ -64,6 +65,7 @@ function RootLayoutNav() {
   } = useQuery({
     ...createProfileQueryOptions(userId ?? ""),
     enabled: Boolean(userId),
+    refetchInterval: 5 * 60_000,
   });
 
   usePrimeUserData(session?.user.id ?? null);
@@ -173,6 +175,21 @@ function RootLayoutNav() {
     return <LoadingScreen />;
   }
 
+  // Suspension gate: if user is suspended, show full-screen overlay
+  if (
+    session &&
+    profile?.is_suspended === true &&
+    // Allow temporary suspensions that have already expired
+    (!profile.suspended_until || new Date(profile.suspended_until) > new Date())
+  ) {
+    return (
+      <SuspensionGate
+        reason={profile.suspension_reason ?? null}
+        suspendedUntil={profile.suspended_until ?? null}
+      />
+    );
+  }
+
   // Normal app stack. Android back will "go back" automatically if there's history.
   return (
     <Stack
@@ -211,6 +228,9 @@ function RootLayoutNav() {
 
       {/* Show My QR */}
       <Stack.Screen name="show-qr" options={{ title: 'Show My QR', presentation: 'modal' }} />
+
+      {/* Blocked users management */}
+      <Stack.Screen name="blocked-users" options={{ headerShown: false }} />
 
       {/* OAuth callback (deep link landing) */}
       <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
