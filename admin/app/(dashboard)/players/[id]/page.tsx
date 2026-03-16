@@ -45,9 +45,7 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
             <SummaryMetric label="Active bans" value={(moderationSummary as any)?.active_bans ?? 0} />
             <SummaryMetric label="Reports" value={(moderationSummary as any)?.report_count ?? 0} />
             <SummaryMetric label="Pending reports" value={(moderationSummary as any)?.pending_reports ?? 0} />
-            <SummaryMetric label="Flagged suits" value={(moderationSummary as any)?.flagged_fursuits ?? 0} />
-            <SummaryMetric label="Users blocked" value={(moderationSummary as any)?.block_count ?? 0} />
-            <SummaryMetric label="Blocked by others" value={(moderationSummary as any)?.blocked_by_count ?? 0} />
+            <SummaryMetric label="Blocked by others" value={(moderationSummary as any)?.users_blocked ?? 0} />
           </div>
         </Card>
         <ModerationPanel userId={profile.id} isSuspended={profile.is_suspended} conventions={conventions} />

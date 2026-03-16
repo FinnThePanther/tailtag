@@ -455,36 +455,6 @@ export async function fetchReports(params: {
   return (data ?? []) as any;
 }
 
-export async function fetchFursuitQueue(limit = 50) {
-  const supabase = createServiceRoleClient();
-  const { data, error } = await supabase
-    .from('fursuit_moderation_queue')
-    .select(
-      [
-        'id',
-        'fursuit_id',
-        'flag_reason',
-        'status',
-        'flagged_content',
-        'moderator_notes',
-        'action_taken',
-        'flagged_by_user_id',
-        'reviewed_by_user_id',
-        'reviewed_at',
-        'created_at',
-        'fursuits(name, owner_id)',
-        'flagger:flagged_by_user_id(username)',
-        'reviewer:reviewed_by_user_id(username)',
-      ].join(', ')
-    )
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    throw error;
-  }
-  return (data ?? []) as any;
-}
 
 export async function fetchAchievements() {
   const supabase = createServiceRoleClient();
