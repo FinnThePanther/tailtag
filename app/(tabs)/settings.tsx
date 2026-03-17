@@ -1219,18 +1219,6 @@ export default function SettingsScreen() {
         </View>
       </TailTagCard>
 
-      <TailTagCard>
-        <View style={styles.accountSection}>
-          <Text style={styles.sectionTitle}>Beta Feedback</Text>
-          <Text style={styles.sectionDescription}>
-            Found a bug or have a suggestion? Let us know!
-          </Text>
-          <TailTagButton variant="outline" onPress={handleOpenFeedbackForm}>
-            Report a Bug or Give Feedback
-          </TailTagButton>
-        </View>
-      </TailTagCard>
-
       {staffModeAllowed ? (
         <TailTagCard>
           <View style={styles.accountSection}>
@@ -1250,13 +1238,34 @@ export default function SettingsScreen() {
 
       <TailTagCard>
         <View style={styles.accountSection}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionTitle}>Moderation</Text>
           <Text style={styles.sectionDescription}>
-            Log out of TailTag or delete your account entirely.
+            Manage users you have blocked.
           </Text>
           <TailTagButton variant="outline" onPress={() => router.push("/blocked-users")}>
             Blocked users
           </TailTagButton>
+        </View>
+      </TailTagCard>
+
+      <TailTagCard>
+        <View style={styles.accountSection}>
+          <Text style={styles.sectionTitle}>Beta Feedback</Text>
+          <Text style={styles.sectionDescription}>
+            Found a bug or have a suggestion? Let us know!
+          </Text>
+          <TailTagButton variant="outline" onPress={handleOpenFeedbackForm}>
+            Report a Bug or Give Feedback
+          </TailTagButton>
+        </View>
+      </TailTagCard>
+
+      <TailTagCard>
+        <View style={styles.accountSection}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionDescription}>
+            Log out of TailTag or delete your account entirely.
+          </Text>
           {signOutError ? (
             <Text style={styles.error}>{signOutError}</Text>
           ) : null}
