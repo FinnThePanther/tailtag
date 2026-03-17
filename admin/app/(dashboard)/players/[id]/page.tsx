@@ -3,13 +3,14 @@ import { ShieldAlert, Activity } from 'lucide-react';
 
 import { Card } from '@/components/card';
 import { Table } from '@/components/table';
-import { fetchConventions, fetchPlayerProfile } from '@/lib/data';
+import { fetchConventions, fetchPlayerProfile, fetchUserBlocks } from '@/lib/data';
 import { ModerationPanel } from '@/components/moderation-panel';
 
 export default async function PlayerDetail({ params }: { params: { id: string } }) {
-  const [{ profile, moderationSummary, actions }, conventions] = await Promise.all([
+  const [{ profile, moderationSummary, actions }, conventions, blocks] = await Promise.all([
     fetchPlayerProfile(params.id),
     fetchConventions(),
+    fetchUserBlocks(params.id),
   ]);
 
   if (!profile) {
@@ -42,15 +43,38 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
         <Card title="Moderation summary" subtitle="Counts and flags">
           <div className="grid gap-3 sm:grid-cols-2">
             <SummaryMetric label="Active bans" value={(moderationSummary as any)?.active_bans ?? 0} />
-            <SummaryMetric label="Active mutes" value={(moderationSummary as any)?.active_mutes ?? 0} />
-            <SummaryMetric label="Warnings" value={(moderationSummary as any)?.warning_count ?? 0} />
             <SummaryMetric label="Reports" value={(moderationSummary as any)?.report_count ?? 0} />
             <SummaryMetric label="Pending reports" value={(moderationSummary as any)?.pending_reports ?? 0} />
-            <SummaryMetric label="Flagged suits" value={(moderationSummary as any)?.flagged_fursuits ?? 0} />
+            <SummaryMetric label="Blocked by others" value={(moderationSummary as any)?.users_blocked ?? 0} />
           </div>
         </Card>
         <ModerationPanel userId={profile.id} isSuspended={profile.is_suspended} conventions={conventions} />
       </div>
+
+      <Card title="User blocks" subtitle="Block relationships">
+        <Table headers={['Direction', 'Username', 'Date']}>
+          {blocks.map((block) => (
+            <tr key={block.id}>
+              <td className="px-4 py-3 text-slate-200">
+                {block.direction === 'blocked' ? 'Blocked' : 'Blocked by'}
+              </td>
+              <td className="px-4 py-3 text-slate-200">
+                {block.other_username ?? block.other_user_id}
+              </td>
+              <td className="px-4 py-3 text-slate-200">
+                {new Date(block.created_at).toLocaleString()}
+              </td>
+            </tr>
+          ))}
+          {blocks.length === 0 ? (
+            <tr>
+              <td className="px-4 py-3 text-sm text-muted" colSpan={3}>
+                No block relationships.
+              </td>
+            </tr>
+          ) : null}
+        </Table>
+      </Card>
 
       <Card title="Recent moderation actions" subtitle="Latest 10 actions">
         <Table headers={['Type', 'Scope', 'Reason', 'Duration', 'Status', 'Created']}>

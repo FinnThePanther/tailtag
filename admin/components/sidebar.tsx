@@ -10,7 +10,6 @@ import {
   FileClock,
   Tag,
   Flag,
-  Shield,
   Check,
 } from "lucide-react";
 import clsx from "clsx";
@@ -28,7 +27,6 @@ const navItems = [
   { href: "/errors", label: "Errors", icon: ShieldCheck },
   { href: "/checklist", label: "Pre-Event Checklist", icon: Check },
   { href: "/reports", label: "Reports", icon: Flag },
-  { href: "/fursuits", label: "Fursuit Queue", icon: Shield },
   { href: "/audit", label: "Audit Log", icon: FileClock },
 ];
 

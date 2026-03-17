@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
@@ -9,8 +10,9 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { STAFF_MODE_ENABLED } from '../../src/constants/features';
 import { useAuth } from '../../src/features/auth';
 import { profileQueryKey, fetchProfile } from '../../src/features/profile';
-import { searchPlayersForStaff, type StaffPlayerResult } from '../../src/features/staff-mode/api';
+import { searchPlayersForStaff, staffModerate, type StaffPlayerResult } from '../../src/features/staff-mode/api';
 import { canUseStaffMode } from '../../src/features/staff-mode/constants';
+import { captureHandledException } from '../../src/lib/sentry';
 import { colors, spacing, radius } from '../../src/theme';
 
 export default function StaffModeScreen() {
@@ -127,6 +129,87 @@ export default function StaffModeScreen() {
 }
 
 function PlayerRow({ player }: { player: StaffPlayerResult }) {
+  const router = useRouter();
+  const [isActing, setIsActing] = useState(false);
+
+  const handleBan = () => {
+    Alert.prompt(
+      `Ban ${player.username ?? 'user'}`,
+      'Enter a reason for the ban:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Ban',
+          style: 'destructive',
+          onPress: (reason?: string) => {
+            if (!reason?.trim()) return;
+            setIsActing(true);
+            staffModerate({ action: 'ban', userId: player.id, reason: reason.trim() })
+              .then(() => Alert.alert('Done', 'Ban applied.'))
+              .catch((e: Error) => {
+                captureHandledException(e, { scope: 'staffMode.ban' });
+                Alert.alert('Error', e.message);
+              })
+              .finally(() => setIsActing(false));
+          },
+        },
+      ],
+      'plain-text',
+    );
+  };
+
+  const handleUnban = () => {
+    Alert.prompt(
+      `Unban ${player.username ?? 'user'}`,
+      'Enter a reason for lifting the ban:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unban',
+          onPress: (reason?: string) => {
+            if (!reason?.trim()) return;
+            setIsActing(true);
+            staffModerate({ action: 'unban', userId: player.id, reason: reason.trim() })
+              .then(() => Alert.alert('Done', 'Ban lifted.'))
+              .catch((e: Error) => {
+                captureHandledException(e, { scope: 'staffMode.unban' });
+                Alert.alert('Error', e.message);
+              })
+              .finally(() => setIsActing(false));
+          },
+        },
+      ],
+      'plain-text',
+    );
+  };
+
+  const showActions = () => {
+    const isSuspended = player.is_suspended;
+    const options = isSuspended
+      ? ['Unban', 'View profile', 'Cancel']
+      : ['Ban', 'View profile', 'Cancel'];
+    const destructiveButtonIndex = isSuspended ? -1 : 0;
+    const cancelButtonIndex = 2;
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, destructiveButtonIndex, cancelButtonIndex },
+        (index) => {
+          if (index === 0) { if (isSuspended) { handleUnban(); } else { handleBan(); } }
+          if (index === 1) router.push({ pathname: '/profile/[id]', params: { id: player.id } });
+        },
+      );
+    } else {
+      Alert.alert('Actions', undefined, [
+        isSuspended
+          ? { text: 'Unban', onPress: handleUnban }
+          : { text: 'Ban', style: 'destructive' as const, onPress: handleBan },
+        { text: 'View profile', onPress: () => router.push({ pathname: '/profile/[id]', params: { id: player.id } }) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  };
+
   return (
     <View style={styles.resultRow}>
       <View style={styles.avatarPlaceholder}>
@@ -142,6 +225,14 @@ function PlayerRow({ player }: { player: StaffPlayerResult }) {
       <View style={[styles.statusPill, player.is_suspended ? styles.statusBad : styles.statusGood]}>
         <Text style={styles.statusText}>{player.is_suspended ? 'Suspended' : 'Active'}</Text>
       </View>
+      <Pressable
+        onPress={showActions}
+        hitSlop={8}
+        disabled={isActing}
+        style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.5 }]}
+      >
+        <Ionicons name="ellipsis-vertical" size={18} color={colors.foreground} />
+      </Pressable>
     </View>
   );
 }
@@ -266,5 +357,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  actionButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.xs,
   },
 });

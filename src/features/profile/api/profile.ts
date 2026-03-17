@@ -17,6 +17,9 @@ export type ProfileSummary = {
   role?: UserRole;
   push_notifications_enabled?: boolean;
   push_notifications_prompted?: boolean;
+  is_suspended?: boolean;
+  suspended_until?: string | null;
+  suspension_reason?: string | null;
 };
 
 export const PROFILE_QUERY_KEY = 'profile';
@@ -26,7 +29,7 @@ export const profileQueryKey = (userId: string) => [PROFILE_QUERY_KEY, userId] a
 
 // Stable columns that have always existed — used as fallback when new columns aren't migrated yet.
 const STABLE_COLUMNS = 'username, bio, is_new, onboarding_completed, role, push_notifications_enabled, push_notifications_prompted';
-const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, social_links`;
+const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, social_links, is_suspended, suspended_until, suspension_reason`;
 
 function mapProfileData(data: any, overrides: Partial<ProfileSummary> = {}): ProfileSummary {
   return {
@@ -39,6 +42,9 @@ function mapProfileData(data: any, overrides: Partial<ProfileSummary> = {}): Pro
     role: data.role ?? undefined,
     push_notifications_enabled: data.push_notifications_enabled ?? false,
     push_notifications_prompted: data.push_notifications_prompted ?? false,
+    is_suspended: data.is_suspended ?? false,
+    suspended_until: data.suspended_until ?? null,
+    suspension_reason: data.suspension_reason ?? null,
     ...overrides,
   };
 }

@@ -96,6 +96,24 @@ async function handlePost(req: Request): Promise<Response> {
   }
 
   try {
+    // Check if catcher and fursuit owner have blocked each other
+    const { data: fursuitRow } = await supabaseAdmin
+      .from('fursuits')
+      .select('owner_id')
+      .eq('id', body.fursuit_id)
+      .single();
+
+    if (fursuitRow?.owner_id) {
+      const { data: blocked } = await supabaseAdmin.rpc('is_blocked', {
+        p_user_a: userId,
+        p_user_b: fursuitRow.owner_id,
+      });
+
+      if (blocked === true) {
+        return jsonResponse(403, { error: "Cannot catch this fursuit" });
+      }
+    }
+
     // Call the create_catch_with_approval function
     const { data, error } = await supabaseAdmin.rpc('create_catch_with_approval', {
       p_fursuit_id: body.fursuit_id,

@@ -18,6 +18,7 @@ import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
 import { FursuitCard } from '../../../src/features/suits';
 import { useAuth } from '../../../src/features/auth';
 import { createProfileQueryOptions } from '../../../src/features/profile';
+import { ProfileActionMenu, checkIsBlocked } from '../../../src/features/moderation';
 import {
   fetchMySuits,
   mySuitsQueryKey,
@@ -104,6 +105,13 @@ export default function PublicProfileScreen() {
     enabled: Boolean(profileId),
   });
 
+  const { data: isBlocked = false } = useQuery({
+    queryKey: ['is-blocked', currentUserId, profileId],
+    queryFn: () => checkIsBlocked(profileId!),
+    enabled: Boolean(profileId) && Boolean(currentUserId) && !isSelf,
+    staleTime: 2 * 60_000,
+  });
+
   const avatarUrl = profile?.avatar_url ?? (fursuits.length > 0 ? fursuits[0].avatar_url : null);
   const socialLinks = aggregateSocialLinks(fursuits, profile?.social_links ?? []);
   const unlockedAchievements = achievementStatus.filter(
@@ -137,10 +145,18 @@ export default function PublicProfileScreen() {
             >
               <Text style={styles.headerButton}>Edit</Text>
             </Pressable>
+          ) : profileId ? (
+            <ProfileActionMenu profileId={profileId} profileUsername={profile?.username} />
           ) : undefined
         }
       />
 
+      {isBlocked ? (
+        <View style={styles.centeredMessage}>
+          <Ionicons name="ban-outline" size={48} color="rgba(148,163,184,0.5)" />
+          <Text style={styles.message}>Profile unavailable</Text>
+        </View>
+      ) : (
       <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
         {/* Profile header */}
         <TailTagCard>
@@ -275,6 +291,7 @@ export default function PublicProfileScreen() {
           )}
         </TailTagCard>
       </ScrollView>
+      )}
     </View>
   );
 }
