@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as WebBrowser from "expo-web-browser";
 
 import * as Linking from "expo-linking";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -71,6 +72,9 @@ import {
 import type { CaughtRecord } from "../../src/features/suits/api/caughtSuits";
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from "../../src/features/leaderboard/api/leaderboard";
 import { usePushNotifications } from "../../src/features/push-notifications";
+
+const FEEDBACK_FORM_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLSf_placeholder/viewform";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -421,6 +425,10 @@ export default function SettingsScreen() {
     },
     [disablePushNotifications, isPushDenied, requestPermissionAndRegister],
   );
+
+  const handleOpenFeedbackForm = useCallback(async () => {
+    await WebBrowser.openBrowserAsync(FEEDBACK_FORM_URL);
+  }, []);
 
   const isDirty = (() => {
     const usernameChanged = (profile?.username ?? "") !== usernameInput.trim();
@@ -1208,6 +1216,18 @@ export default function SettingsScreen() {
             </Text>
           ) : null}
           {pushError ? <Text style={styles.error}>{pushError}</Text> : null}
+        </View>
+      </TailTagCard>
+
+      <TailTagCard>
+        <View style={styles.accountSection}>
+          <Text style={styles.sectionTitle}>Beta Feedback</Text>
+          <Text style={styles.sectionDescription}>
+            Found a bug or have a suggestion? Let us know!
+          </Text>
+          <TailTagButton variant="outline" onPress={handleOpenFeedbackForm}>
+            Report a Bug or Give Feedback
+          </TailTagButton>
         </View>
       </TailTagCard>
 
