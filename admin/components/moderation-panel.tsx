@@ -4,9 +4,7 @@ import { useState, useTransition } from 'react';
 
 import {
   banUserAction,
-  muteUserAction,
   unbanUserAction,
-  unmuteUserAction,
 } from '@/app/(dashboard)/players/actions';
 
 type Scope = 'global' | 'event';
@@ -25,11 +23,6 @@ export function ModerationPanel({
   const [banScope, setBanScope] = useState<Scope>('global');
   const [banConventionId, setBanConventionId] = useState<string>('');
 
-  const [muteReason, setMuteReason] = useState('');
-  const [muteDuration, setMuteDuration] = useState<number | ''>('');
-  const [muteScope, setMuteScope] = useState<Scope>('global');
-  const [muteConventionId, setMuteConventionId] = useState<string>('');
-
   const [status, setStatus] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -47,33 +40,11 @@ export function ModerationPanel({
     });
   };
 
-  const submitMute = () => {
-    setStatus(null);
-    startTransition(async () => {
-      await muteUserAction({
-        userId,
-        reason: muteReason || 'Admin mute',
-        durationHours: muteDuration === '' ? null : Number(muteDuration),
-        scope: muteScope,
-        conventionId: muteScope === 'event' ? muteConventionId : null,
-      });
-      setStatus('Mute applied');
-    });
-  };
-
   const liftBan = () => {
     setStatus(null);
     startTransition(async () => {
       await unbanUserAction({ userId, reason: 'Lifted via admin' });
       setStatus('Ban lifted');
-    });
-  };
-
-  const liftMute = () => {
-    setStatus(null);
-    startTransition(async () => {
-      await unmuteUserAction({ userId, reason: 'Lifted via admin' });
-      setStatus('Mute lifted');
     });
   };
 
@@ -150,67 +121,6 @@ export function ModerationPanel({
           </div>
         </ActionBlock>
 
-        <ActionBlock
-          title="Mute"
-          description="Restrict chat/interaction."
-          primaryLabel="Apply mute"
-          onPrimary={submitMute}
-          secondaryLabel="Lift mute"
-          onSecondary={liftMute}
-          isPending={isPending}
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="text-xs text-slate-200">Reason</label>
-              <input
-                value={muteReason}
-                onChange={(e) => setMuteReason(e.target.value)}
-                placeholder="Reason for mute"
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-200">Duration (hours)</label>
-              <input
-                value={muteDuration}
-                onChange={(e) => setMuteDuration(e.target.value ? Number(e.target.value) : '')}
-                type="number"
-                min={0}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
-              />
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="text-xs text-slate-200">Scope</label>
-              <select
-                value={muteScope}
-                onChange={(e) => setMuteScope(e.target.value as Scope)}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
-              >
-                <option value="global">Global</option>
-                <option value="event">Event only</option>
-              </select>
-            </div>
-            {muteScope === 'event' ? (
-              <div>
-                <label className="text-xs text-slate-200">Convention</label>
-                <select
-                  value={muteConventionId}
-                  onChange={(e) => setMuteConventionId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
-                >
-                  <option value="">Select convention</option>
-                  {conventions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-          </div>
-        </ActionBlock>
       </div>
     </div>
   );

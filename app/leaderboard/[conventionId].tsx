@@ -13,6 +13,7 @@ import {
   type LeaderboardEntry,
   type SuitLeaderboardEntry,
 } from '../../src/features/leaderboard';
+import { useBlockedIds } from '../../src/features/moderation';
 import { colors, radius, spacing } from '../../src/theme';
 
 const formatCatchCount = (count: number) =>
@@ -47,7 +48,14 @@ export default function FullLeaderboardScreen() {
     createConventionSuitLeaderboardQueryOptions(conventionId),
   );
 
-  const entriesWithCatches = leaderboardEntries.filter((e) => e.catchCount > 0);
+  const blockedIds = useBlockedIds(userId);
+
+  const entriesWithCatches = leaderboardEntries.filter(
+    (e) => e.catchCount > 0 && !blockedIds.has(e.profileId),
+  );
+  const filteredSuitEntries = suitEntries.filter(
+    (e) => !e.ownerProfileId || !blockedIds.has(e.ownerProfileId),
+  );
 
   return (
     <View style={styles.wrapper}>
@@ -116,11 +124,11 @@ export default function FullLeaderboardScreen() {
               Try again
             </TailTagButton>
           </View>
-        ) : suitEntries.length === 0 ? (
+        ) : filteredSuitEntries.length === 0 ? (
           <Text style={styles.message}>No suit catches recorded yet.</Text>
         ) : (
           <View style={styles.list}>
-            {suitEntries.map((entry, index) => (
+            {filteredSuitEntries.map((entry, index) => (
               <Pressable
                 key={entry.fursuitId}
                 style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}

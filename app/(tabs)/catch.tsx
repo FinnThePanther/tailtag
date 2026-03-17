@@ -40,6 +40,7 @@ import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import { supabase } from "../../src/lib/supabase";
 import { captureHandledException, addMonitoringBreadcrumb } from "../../src/lib/sentry";
 import { colors, radius, spacing } from "../../src/theme";
+import { useBlockedIds } from "../../src/features/moderation";
 import { normalizeUniqueCodeInput } from "../../src/utils/code";
 import { toDisplayDateTime } from "../../src/utils/dates";
 
@@ -70,6 +71,8 @@ export default function CatchScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
+
+  const blockedIds = useBlockedIds(userId);
 
   const [codeInput, setCodeInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -242,6 +245,12 @@ export default function CatchScreen() {
       if (normalizedFursuit.is_tutorial) {
         resetCatchState();
         setSubmitError("Tutorial suits cannot be caught by scanning codes.");
+        return;
+      }
+
+      if (blockedIds.has(normalizedFursuit.owner_id)) {
+        resetCatchState();
+        setSubmitError("You cannot catch this fursuit.");
         return;
       }
 
