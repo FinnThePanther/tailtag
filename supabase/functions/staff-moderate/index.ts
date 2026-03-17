@@ -31,7 +31,7 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
 
 const ALLOWED_ROLES = ["staff", "moderator", "organizer", "owner"];
 
-type ModerateAction = "ban";
+type ModerateAction = "ban" | "unban";
 
 interface ModerateRequest {
   action: ModerateAction;
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
     return jsonResponse(400, { error: "Missing required fields: action, userId, reason" });
   }
 
-  if (body.action !== "ban") {
+  if (!["ban", "unban"].includes(body.action)) {
     return jsonResponse(400, { error: "Invalid action" });
   }
 
@@ -114,24 +114,26 @@ Deno.serve(async (req) => {
       : null;
 
   try {
-    // Insert moderation action
-    const { error: insertError } = await supabaseAdmin
-      .from("user_moderation_actions")
-      .insert({
-        user_id: body.userId,
-        action_type: body.action,
-        scope,
-        convention_id: scope === "event" ? body.conventionId ?? null : null,
-        reason: body.reason,
-        duration_hours: body.durationHours ?? null,
-        expires_at: expiresAt,
-        is_active: true,
-        applied_by_user_id: caller.id,
-      });
+    // For bans, insert a new moderation action record
+    if (body.action === "ban") {
+      const { error: insertError } = await supabaseAdmin
+        .from("user_moderation_actions")
+        .insert({
+          user_id: body.userId,
+          action_type: body.action,
+          scope,
+          convention_id: scope === "event" ? body.conventionId ?? null : null,
+          reason: body.reason,
+          duration_hours: body.durationHours ?? null,
+          expires_at: expiresAt,
+          is_active: true,
+          applied_by_user_id: caller.id,
+        });
 
-    if (insertError) {
-      console.error("[staff-moderate] Insert error:", insertError);
-      return jsonResponse(500, { error: "Failed to apply moderation action" });
+      if (insertError) {
+        console.error("[staff-moderate] Insert error:", insertError);
+        return jsonResponse(500, { error: "Failed to apply moderation action" });
+      }
     }
 
     // For bans, also update the profile suspension status
@@ -147,6 +149,39 @@ Deno.serve(async (req) => {
 
       if (updateError) {
         console.error("[staff-moderate] Profile update error:", updateError);
+      }
+    }
+
+    // For unbans, revoke active ban actions and clear profile suspension
+    if (body.action === "unban") {
+      const { error: revokeError } = await supabaseAdmin
+        .from("user_moderation_actions")
+        .update({
+          is_active: false,
+          revoked_at: new Date().toISOString(),
+          revoked_by_user_id: caller.id,
+          revoke_reason: body.reason || "Unbanned via staff mode",
+        })
+        .eq("user_id", body.userId)
+        .eq("action_type", "ban")
+        .eq("is_active", true);
+
+      if (revokeError) {
+        console.error("[staff-moderate] Revoke error:", revokeError);
+        return jsonResponse(500, { error: "Failed to revoke ban" });
+      }
+
+      const { error: clearError } = await supabaseAdmin
+        .from("profiles")
+        .update({
+          is_suspended: false,
+          suspended_until: null,
+          suspension_reason: null,
+        })
+        .eq("id", body.userId);
+
+      if (clearError) {
+        console.error("[staff-moderate] Profile clear error:", clearError);
       }
     }
 

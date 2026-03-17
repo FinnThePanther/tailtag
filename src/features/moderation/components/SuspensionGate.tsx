@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { useAuth } from '../../auth';
 import { colors, spacing } from '../../../theme';
@@ -54,9 +54,12 @@ export function SuspensionGate({ reason, suspendedUntil }: SuspensionGateProps) 
           </Text>
         )}
 
-        <Text style={styles.contact}>
-          If you believe this is an error, please contact our support team.
-        </Text>
+        <Pressable onPress={() => void Linking.openURL('mailto:support@tailtag.app?subject=Account%20Suspension%20Appeal')}>
+          <Text style={styles.contact}>
+            If you believe this is an error, contact{' '}
+            <Text style={styles.contactLink}>support@tailtag.app</Text>
+          </Text>
+        </Pressable>
 
         <TailTagButton
           variant="outline"
@@ -111,6 +114,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     marginTop: spacing.sm,
+  },
+  contactLink: {
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
   signOutButton: {
     marginTop: spacing.lg,

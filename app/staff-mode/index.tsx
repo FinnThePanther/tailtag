@@ -158,22 +158,52 @@ function PlayerRow({ player }: { player: StaffPlayerResult }) {
     );
   };
 
+  const handleUnban = () => {
+    Alert.prompt(
+      `Unban ${player.username ?? 'user'}`,
+      'Enter a reason for lifting the ban:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unban',
+          onPress: (reason?: string) => {
+            if (!reason?.trim()) return;
+            setIsActing(true);
+            staffModerate({ action: 'unban', userId: player.id, reason: reason.trim() })
+              .then(() => Alert.alert('Done', 'Ban lifted.'))
+              .catch((e: Error) => {
+                captureHandledException(e, { scope: 'staffMode.unban' });
+                Alert.alert('Error', e.message);
+              })
+              .finally(() => setIsActing(false));
+          },
+        },
+      ],
+      'plain-text',
+    );
+  };
+
   const showActions = () => {
-    const options = ['Ban', 'View profile', 'Cancel'];
-    const destructiveButtonIndex = 0;
+    const isSuspended = player.is_suspended;
+    const options = isSuspended
+      ? ['Unban', 'View profile', 'Cancel']
+      : ['Ban', 'View profile', 'Cancel'];
+    const destructiveButtonIndex = isSuspended ? -1 : 0;
     const cancelButtonIndex = 2;
 
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         { options, destructiveButtonIndex, cancelButtonIndex },
         (index) => {
-          if (index === 0) handleBan();
+          if (index === 0) { if (isSuspended) { handleUnban(); } else { handleBan(); } }
           if (index === 1) router.push({ pathname: '/profile/[id]', params: { id: player.id } });
         },
       );
     } else {
       Alert.alert('Actions', undefined, [
-        { text: 'Ban', style: 'destructive', onPress: handleBan },
+        isSuspended
+          ? { text: 'Unban', onPress: handleUnban }
+          : { text: 'Ban', style: 'destructive' as const, onPress: handleBan },
         { text: 'View profile', onPress: () => router.push({ pathname: '/profile/[id]', params: { id: player.id } }) },
         { text: 'Cancel', style: 'cancel' },
       ]);

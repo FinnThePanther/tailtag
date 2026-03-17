@@ -167,6 +167,9 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       });
 
       // Return user-friendly messages for known errors
+      if (response.status === 403) {
+        throw new Error('You cannot catch this fursuit.');
+      }
       if (errorMessage.includes('Cannot catch your own')) {
         throw new Error('That tag belongs to one of your own suits. Trade codes with friends to grow your collection.');
       }
