@@ -1,8 +1,8 @@
 /// <reference lib="deno.unstable" />
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote esm.sh imports.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
-import { processAchievementsForEvent } from "../events-ingress/achievements.ts";
-import type { InsertableEventRow } from "../events-ingress/types.ts";
+import { processAchievementsForEvent } from "../_shared/achievements.ts";
+import type { InsertableEventRow } from "../_shared/types.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -29,6 +29,7 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
 });
 
 const BATCH_SIZE = 50;
+const STUCK_EVENT_THRESHOLD_MINUTES = 2;
 
 type UnprocessedEvent = {
   event_id: string;
@@ -49,15 +50,6 @@ function jsonResponse(status: number, payload: unknown) {
       "Content-Type": "application/json",
     },
   });
-}
-
-function isServiceRoleAuth(req: Request): boolean {
-  const header =
-    req.headers.get("Authorization") ?? req.headers.get("authorization");
-  if (!header) return false;
-  const parts = header.trim().split(" ");
-  if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") return false;
-  return parts[1] === serviceRoleKey;
 }
 
 function toInsertableEventRow(event: UnprocessedEvent): InsertableEventRow {
@@ -98,6 +90,23 @@ async function processQueue(): Promise<{
     `[process-achievements] Processing batch of ${rows.length} events`,
   );
 
+  // Warn about events stuck longer than the threshold — indicates inline processing
+  // and at least one previous cron/webhook pass failed for these events.
+  const stuckThreshold = new Date(
+    Date.now() - STUCK_EVENT_THRESHOLD_MINUTES * 60 * 1000,
+  ).toISOString();
+  const stuckEvents = rows.filter((e) => e.received_at < stuckThreshold);
+  if (stuckEvents.length > 0) {
+    console.error(
+      `[process-achievements] STUCK_EVENTS: ${stuckEvents.length} event(s) unprocessed for >${STUCK_EVENT_THRESHOLD_MINUTES}min`,
+      {
+        event_ids: stuckEvents.map((e) => e.event_id),
+        types: stuckEvents.map((e) => e.type),
+        retry_counts: stuckEvents.map((e) => e.retry_count),
+      },
+    );
+  }
+
   let processed = 0;
   let failed = 0;
 
@@ -121,8 +130,6 @@ async function processQueue(): Promise<{
         processed++;
       }
     } catch (error) {
-      // retry_count was already incremented atomically by fetch_unprocessed_events,
-      // so we only need to record the error message here.
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       console.error("[process-achievements] Failed to process event", {
@@ -164,10 +171,6 @@ Deno.serve(async (req) => {
 
   if (req.method !== "POST") {
     return jsonResponse(405, { error: "Method not allowed" });
-  }
-
-  if (!isServiceRoleAuth(req)) {
-    return jsonResponse(401, { error: "Unauthorized" });
   }
 
   try {

@@ -70,6 +70,16 @@ export async function processAchievementsForEvent(
   supabaseAdmin: SupabaseClient<any, "public", any>,
   event: InsertableEventRow,
 ): Promise<ProcessedAchievementResult> {
+  // Idempotency guard: skip if already processed by a concurrent caller.
+  const { data: existing } = await supabaseAdmin
+    .from("events")
+    .select("processed_at")
+    .eq("event_id", event.event_id)
+    .single();
+  if (existing?.processed_at) {
+    return { awards: [] };
+  }
+
   switch (event.type) {
     case "catch_performed":
       return await processCatchEvent(supabaseAdmin, event);

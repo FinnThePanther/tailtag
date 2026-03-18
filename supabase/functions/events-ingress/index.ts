@@ -9,8 +9,8 @@
  */
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote esm.sh imports.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
-import { processAchievementsForEvent } from "./achievements.ts";
-import type { EventRequestBody, InsertableEventRow, Json } from "./types.ts";
+import { processAchievementsForEvent } from "../_shared/achievements.ts";
+import type { EventRequestBody, InsertableEventRow, Json } from "../_shared/types.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -245,13 +245,10 @@ async function handlePost(req: Request): Promise<Response> {
   const insertDuration = Date.now() - insertStart;
   console.log(`[events-ingress] Event inserted in ${insertDuration}ms`, { event_id: eventId, type });
 
-  // Process achievements asynchronously (don't await)
-  // On success, stamp processed_at so the queue worker skips this event.
-  // On failure (or if the runtime is reclaimed), processed_at stays NULL
-  // and the queue worker will pick it up within ~10 seconds.
+  // Process achievements inline (fire-and-forget) for near-instant delivery.
+  // Stamps processed_at on success so the DB webhook / cron fallbacks skip it.
   processAchievementsForEvent(supabaseAdmin, eventRow)
     .then(async () => {
-      console.log(`[events-ingress] Achievement processing completed for ${eventId}`);
       const { error: stampError } = await supabaseAdmin
         .from("events")
         .update({ processed_at: new Date().toISOString() })
@@ -263,8 +260,8 @@ async function handlePost(req: Request): Promise<Response> {
         });
       }
     })
-    .catch((error) => {
-      console.error("[events-ingress] async achievement processing failed", {
+    .catch((error: unknown) => {
+      console.error("[events-ingress] Inline achievement processing failed", {
         event_id: eventId,
         error,
       });
