@@ -17,6 +17,14 @@ import type { DailyTasksSummary } from '../../daily-tasks';
 import type { AchievementWithStatus } from '../api/achievements';
 import type { Json } from '../../../types/database';
 
+type NotificationRow = {
+  id: string;
+  created_at: string;
+  type: string;
+  payload: Json;
+  user_id: string;
+};
+
 /**
  * Mount once inside the app shell so achievement unlocks raise toasts in real time.
  */
@@ -32,6 +40,8 @@ export function AchievementToastManager() {
   const hasPrimedChannelRef = useRef<boolean>(false);
   const routeRef = useRef<string>('');
   const processedNotificationIdsRef = useRef<Set<string>>(new Set());
+  const sessionStartedAtRef = useRef<string>(new Date().toISOString());
+  const notificationCatchupCursorRef = useRef<string>(sessionStartedAtRef.current);
 
   const segments = useSegments();
 
@@ -87,6 +97,14 @@ export function AchievementToastManager() {
 
   const unlockedSnapshotRef = useRef<Set<string>>(new Set());
   const hasPrimedSnapshotRef = useRef<boolean>(false);
+  const snapshotUserRef = useRef<string | null>(null);
+
+  const markAchievementAsSurfaced = useCallback((achievementId: string | null) => {
+    if (!achievementId) {
+      return;
+    }
+    unlockedSnapshotRef.current.add(achievementId);
+  }, []);
 
   const applyImmediateAwardToCache = useCallback(
     (award: ImmediateAchievementAward): AchievementWithStatus | null => {
@@ -124,9 +142,19 @@ export function AchievementToastManager() {
   );
 
   useEffect(() => {
-    if (!userId || !achievementStatus) {
+    if (snapshotUserRef.current !== userId) {
       unlockedSnapshotRef.current.clear();
       hasPrimedSnapshotRef.current = false;
+      snapshotUserRef.current = userId;
+      sessionStartedAtRef.current = new Date().toISOString();
+      notificationCatchupCursorRef.current = sessionStartedAtRef.current;
+    }
+
+    if (!userId) {
+      return;
+    }
+
+    if (!achievementStatus) {
       return;
     }
 
@@ -169,6 +197,7 @@ export function AchievementToastManager() {
       const receivedAt = Date.now();
 
       for (const award of awards) {
+        markAchievementAsSurfaced(award.achievementId);
         const resolved = applyImmediateAwardToCache(award);
 
         if (resolved) {
@@ -200,7 +229,7 @@ export function AchievementToastManager() {
     });
 
     return unsubscribe;
-  }, [applyImmediateAwardToCache, handleToast, showToast, userId]);
+  }, [applyImmediateAwardToCache, handleToast, markAchievementAsSurfaced, showToast, userId]);
 
   useEffect(() => {
     const teardown = () => {
@@ -238,6 +267,8 @@ export function AchievementToastManager() {
       activeUserRef.current = null;
       channelInstanceRef.current = null;
       hasPrimedChannelRef.current = false;
+      sessionStartedAtRef.current = new Date().toISOString();
+      notificationCatchupCursorRef.current = sessionStartedAtRef.current;
       return;
     }
 
@@ -292,6 +323,8 @@ export function AchievementToastManager() {
       const contextRaw = payload?.context ?? null;
       const context: Json | null =
         typeof contextRaw === 'object' && contextRaw !== null ? (contextRaw as Json) : null;
+
+      markAchievementAsSurfaced(achievementId);
 
       addMonitoringBreadcrumb({
         category: 'achievements',
@@ -408,6 +441,62 @@ export function AchievementToastManager() {
         });
         return;
       })();
+    };
+
+    const catchUpAchievementNotifications = async () => {
+      const catchupStartedAt = new Date().toISOString();
+      const since = notificationCatchupCursorRef.current;
+
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('id, created_at, type, payload, user_id')
+          .eq('user_id', userId)
+          .eq('type', 'achievement_awarded')
+          .gte('created_at', since)
+          .order('created_at', { ascending: true })
+          .limit(20);
+
+        if (error) {
+          throw error;
+        }
+
+        const rows = (data ?? []) as NotificationRow[];
+        for (const row of rows) {
+          if (!row?.id) {
+            continue;
+          }
+
+          const processedIds = processedNotificationIdsRef.current;
+          if (processedIds.has(row.id)) {
+            continue;
+          }
+
+          processedIds.add(row.id);
+          if (processedIds.size > 200) {
+            const iterator = processedIds.values().next();
+            if (!iterator.done && iterator.value) {
+              processedIds.delete(iterator.value);
+            }
+          }
+
+          const notificationPayload =
+            typeof row.payload === 'object' && row.payload !== null
+              ? (row.payload as Record<string, unknown>)
+              : null;
+
+          handleAchievementAwarded(notificationPayload, row.created_at);
+        }
+
+        notificationCatchupCursorRef.current = catchupStartedAt;
+      } catch (catchupError) {
+        captureHandledException(catchupError, {
+          scope: 'notifications.realtime',
+          action: 'catchup',
+          userId,
+          type: 'achievement_awarded',
+        });
+      }
     };
 
     const updateDailyTasksSummary = (
@@ -696,6 +785,7 @@ export function AchievementToastManager() {
             route: routeRef.current,
           },
         });
+        void catchUpAchievementNotifications();
       } else if (status === 'CHANNEL_ERROR' && error) {
         captureHandledException(error, {
           scope: 'notifications.realtime',
@@ -740,7 +830,7 @@ export function AchievementToastManager() {
     // Note: hasLoadedAchievements is intentionally NOT in the dependency array
     // The subscription needs to be active immediately when user logs in
     // so it can catch notifications that arrive during onboarding/navigation
-  }, [userId, queryClient, statusQueryKey, handleToast, showToast]);
+  }, [userId, queryClient, statusQueryKey, handleToast, showToast, markAchievementAsSurfaced]);
 
   return null;
 }

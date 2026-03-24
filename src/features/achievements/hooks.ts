@@ -19,7 +19,7 @@ export function useAchievementUnlockToast(userId: string | null) {
         return;
       }
 
-      const key = `${achievement.id}:${achievement.unlockedAt ?? 'pending'}`;
+      const key = achievement.id;
       if (seenUnlocksRef.current.has(key)) {
         return;
       }
