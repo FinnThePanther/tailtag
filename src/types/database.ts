@@ -519,6 +519,7 @@ export type Database = {
       edge_function_config: {
         Row: {
           allowed_roles: string[] | null
+          config: Json
           deprecation_date: string | null
           description: string
           function_name: string
@@ -534,6 +535,7 @@ export type Database = {
         }
         Insert: {
           allowed_roles?: string[] | null
+          config?: Json
           deprecation_date?: string | null
           description: string
           function_name: string
@@ -549,6 +551,7 @@ export type Database = {
         }
         Update: {
           allowed_roles?: string[] | null
+          config?: Json
           deprecation_date?: string | null
           description?: string
           function_name?: string
@@ -628,11 +631,18 @@ export type Database = {
       events: {
         Row: {
           convention_id: string | null
+          dead_letter_reason: string | null
+          dead_lettered_at: string | null
+          enqueued_at: string | null
           event_id: string
+          idempotency_key: string | null
           last_error: string | null
+          last_attempted_at: string | null
           occurred_at: string
           payload: Json
           processed_at: string | null
+          queue_message_id: number | null
+          queue_name: string | null
           received_at: string
           retry_count: number
           type: string
@@ -640,11 +650,18 @@ export type Database = {
         }
         Insert: {
           convention_id?: string | null
+          dead_letter_reason?: string | null
+          dead_lettered_at?: string | null
+          enqueued_at?: string | null
           event_id?: string
+          idempotency_key?: string | null
           last_error?: string | null
+          last_attempted_at?: string | null
           occurred_at?: string
           payload?: Json
           processed_at?: string | null
+          queue_message_id?: number | null
+          queue_name?: string | null
           received_at?: string
           retry_count?: number
           type: string
@@ -652,11 +669,18 @@ export type Database = {
         }
         Update: {
           convention_id?: string | null
+          dead_letter_reason?: string | null
+          dead_lettered_at?: string | null
+          enqueued_at?: string | null
           event_id?: string
+          idempotency_key?: string | null
           last_error?: string | null
+          last_attempted_at?: string | null
           occurred_at?: string
           payload?: Json
           processed_at?: string | null
+          queue_message_id?: number | null
+          queue_name?: string | null
           received_at?: string
           retry_count?: number
           type?: string
@@ -2307,6 +2331,10 @@ export type Database = {
             Returns: string
           }
       archive_old_events: { Args: never; Returns: undefined }
+      archive_gameplay_event_queue_message: {
+        Args: { p_message_id: number }
+        Returns: boolean
+      }
       calculate_catch_expiration:
         | { Args: never; Returns: string }
         | { Args: { convention_id_param: string }; Returns: string }
@@ -2368,6 +2396,10 @@ export type Database = {
             }
             Returns: Json
           }
+      delete_gameplay_event_queue_message: {
+        Args: { p_message_id: number }
+        Returns: boolean
+      }
       detect_duplicate_tag_users: {
         Args: { p_hours_ago?: number; p_tag_uid: string }
         Returns: {
@@ -2423,6 +2455,21 @@ export type Database = {
           retry_count: number
           type: string
           user_id: string
+        }[]
+      }
+      ingest_gameplay_event: {
+        Args: {
+          p_convention_id: string | null
+          p_idempotency_key?: string | null
+          p_occurred_at: string
+          p_payload: Json
+          p_type: string
+          p_user_id: string
+        }
+        Returns: {
+          duplicate: boolean
+          enqueued: boolean
+          event_id: string
         }[]
       }
       finish_onboarding: { Args: { target_user_id?: string }; Returns: Json }
@@ -2690,6 +2737,7 @@ export type Database = {
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
       process_achievement_queue_if_active: { Args: never; Returns: undefined }
+      process_gameplay_queue_if_active: { Args: never; Returns: undefined }
       process_qr_asset_cleanup: {
         Args: { batch_size?: number }
         Returns: {
@@ -2708,6 +2756,19 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      read_gameplay_event_queue: {
+        Args: {
+          p_batch_size?: number
+          p_visibility_timeout_seconds?: number
+        }
+        Returns: {
+          enqueued_at: string
+          message: Json
+          msg_id: number
+          read_ct: number
+          vt: string
+        }[]
       }
       purge_geo_verification_data: { Args: never; Returns: Json }
       refresh_analytics_views: { Args: never; Returns: undefined }

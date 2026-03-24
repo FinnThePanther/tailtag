@@ -6,11 +6,14 @@ if (!supabaseUrl || !serviceRoleKey) {
   throw new Error("Missing Supabase configuration for REST fetch");
 }
 
+const resolvedSupabaseUrl = supabaseUrl;
+const resolvedServiceRoleKey = serviceRoleKey;
+
 export async function supabaseRestFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const url = `${supabaseUrl}${path}`;
+  const url = `${resolvedSupabaseUrl}${path}`;
   const headers = new Headers(init.headers);
-  headers.set("apikey", serviceRoleKey);
-  headers.set("Authorization", `Bearer ${serviceRoleKey}`);
+  headers.set("apikey", resolvedServiceRoleKey);
+  headers.set("Authorization", `Bearer ${resolvedServiceRoleKey}`);
   if (!headers.has("Content-Type") && init.body) {
     headers.set("Content-Type", "application/json");
   }

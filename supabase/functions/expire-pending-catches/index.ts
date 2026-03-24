@@ -10,6 +10,7 @@
 
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
+import { ingestGameplayEvent } from "../_shared/gameplayQueue.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -67,10 +68,10 @@ async function batchInsertNotifications(
     return 0;
   }
 
-  const { error, count } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("notifications")
     .insert(notifications)
-    .select('*', { count: 'exact', head: true });
+    .select("id");
 
   if (error) {
     console.error(
@@ -80,36 +81,7 @@ async function batchInsertNotifications(
     return 0;
   }
 
-  return count ?? notifications.length;
-}
-
-/**
- * Emit catch_expired event to events-ingress for tracking
- */
-async function emitExpiredEvent(catchData: ExpiredCatch): Promise<void> {
-  try {
-    await fetch(`${supabaseUrl}/functions/v1/events-ingress`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serviceRoleKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        type: "catch_expired",
-        payload: {
-          catch_id: catchData.id,
-          fursuit_id: catchData.fursuit_id,
-          catcher_id: catchData.catcher_id,
-          owner_id: catchData.owner_id,
-        },
-      }),
-    });
-  } catch (error) {
-    console.error(
-      `[expire-pending-catches] Failed to emit event for catch ${catchData.id}:`,
-      error
-    );
-  }
+  return data?.length ?? notifications.length;
 }
 
 /**
@@ -140,16 +112,18 @@ function buildNotificationsForExpiredCatch(catchData: ExpiredCatch) {
   ];
 }
 
-/**
- * Emit event for a single expired catch (fire-and-forget, non-blocking)
- */
-function emitExpiredEventAsync(catchData: ExpiredCatch): void {
-  // Fire and forget - don't block on event emission
-  void emitExpiredEvent(catchData).catch((error) => {
-    console.error(
-      `[expire-pending-catches] Failed to emit event for catch ${catchData.id}:`,
-      error
-    );
+async function recordExpiredEvent(catchData: ExpiredCatch): Promise<void> {
+  await ingestGameplayEvent(supabaseAdmin, {
+    type: "catch_expired",
+    userId: catchData.catcher_id,
+    payload: {
+      catch_id: catchData.id,
+      fursuit_id: catchData.fursuit_id,
+      catcher_id: catchData.catcher_id,
+      owner_id: catchData.owner_id,
+    },
+    occurredAt: new Date().toISOString(),
+    idempotencyKey: `catch:${catchData.id}:expired`,
   });
 }
 
@@ -179,12 +153,23 @@ async function handleRequest(): Promise<Response> {
     // Batch insert all notifications at once
     const notificationsSent = await batchInsertNotifications(allNotifications);
 
-    // Emit events asynchronously (fire-and-forget, non-blocking)
-    expiredCatches.forEach((catchData) => {
-      emitExpiredEventAsync(catchData);
-      console.log(
-        `[expire-pending-catches] Processed expired catch ${catchData.id}: ${catchData.catcher_username || "Someone"} -> ${catchData.fursuit_name || "a fursuit"}`
-      );
+    const ingestResults = await Promise.allSettled(
+      expiredCatches.map(async (catchData) => {
+        await recordExpiredEvent(catchData);
+        console.log(
+          `[expire-pending-catches] Processed expired catch ${catchData.id}: ${catchData.catcher_username || "Someone"} -> ${catchData.fursuit_name || "a fursuit"}`
+        );
+      }),
+    );
+
+    ingestResults.forEach((result, index) => {
+      if (result.status === "rejected") {
+        const catchData = expiredCatches[index];
+        console.error(
+          `[expire-pending-catches] Failed to record event for catch ${catchData?.id}:`,
+          result.reason,
+        );
+      }
     });
 
     console.log(
