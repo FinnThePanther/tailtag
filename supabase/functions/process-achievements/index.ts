@@ -30,6 +30,7 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
 
 const BATCH_SIZE = 50;
 const STUCK_EVENT_THRESHOLD_MINUTES = 2;
+const LEGACY_PROCESSOR_CONFIG_NAME = "legacy_event_processor_enabled";
 
 type UnprocessedEvent = {
   event_id: string;
@@ -50,6 +51,45 @@ function jsonResponse(status: number, payload: unknown) {
       "Content-Type": "application/json",
     },
   });
+}
+
+function extractBearerAuthorization(req: Request): string | null {
+  const header = req.headers.get("Authorization") ?? req.headers.get("authorization");
+  if (!header) {
+    return null;
+  }
+  const parts = header.trim().split(" ");
+  if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
+    return null;
+  }
+  return parts[1];
+}
+
+function isServiceRoleAuth(req: Request): boolean {
+  return extractBearerAuthorization(req) === serviceRoleKey;
+}
+
+async function isLegacyProcessorEnabled(): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("edge_function_config")
+    .select("config")
+    .eq("function_name", LEGACY_PROCESSOR_CONFIG_NAME)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[process-achievements] Failed to load legacy processor config", {
+      error,
+    });
+    return false;
+  }
+
+  const value = data?.config;
+  if (typeof value === "object" && value !== null && "value" in value) {
+    const configuredValue = (value as { value?: unknown }).value;
+    return configuredValue === true || configuredValue === "true";
+  }
+
+  return false;
 }
 
 function toInsertableEventRow(event: UnprocessedEvent): InsertableEventRow {
@@ -171,6 +211,17 @@ Deno.serve(async (req) => {
 
   if (req.method !== "POST") {
     return jsonResponse(405, { error: "Method not allowed" });
+  }
+
+  if (!isServiceRoleAuth(req)) {
+    return jsonResponse(401, { error: "Unauthorized" });
+  }
+
+  if (!(await isLegacyProcessorEnabled())) {
+    return jsonResponse(409, {
+      error: "Legacy event processor is disabled",
+      disabled: true,
+    });
   }
 
   try {
