@@ -1,5 +1,6 @@
 'use server';
 
+import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
 import { assertAdminAction } from '@/lib/auth';
@@ -8,6 +9,103 @@ import { logAudit } from '@/lib/audit';
 
 const CONFIG_ROLES = ['owner', 'organizer'] as const;
 const CONTENT_ROLES = ['owner', 'organizer'] as const;
+
+const DEFAULT_CONFIG = {
+  cooldowns: { catch_seconds: 0 },
+  points: { catch: 1 },
+  feature_flags: { tag_scan: true, staff_mode: true },
+};
+
+function validateSlug(slug: string) {
+  if (!slug.trim()) throw new Error('Slug is required.');
+  if (!/^[a-z0-9-]+$/.test(slug)) throw new Error('Slug must only contain lowercase letters, numbers, and hyphens.');
+}
+
+export async function createConventionAction(input: {
+  name: string;
+  slug: string;
+  startDate: string | null;
+  endDate: string | null;
+  location: string | null;
+  timezone: string;
+}) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  if (!input.name.trim()) throw new Error('Convention name is required.');
+  validateSlug(input.slug);
+
+  const { data, error } = await supabase
+    .from('conventions')
+    .insert({
+      name: input.name.trim(),
+      slug: input.slug.trim(),
+      start_date: input.startDate || null,
+      end_date: input.endDate || null,
+      location: input.location?.trim() || null,
+      timezone: input.timezone || 'UTC',
+      config: DEFAULT_CONFIG,
+    })
+    .select('id')
+    .single();
+
+  if (error) throw error;
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'create_convention',
+    entityType: 'convention',
+    entityId: data.id,
+    context: { name: input.name, slug: input.slug },
+  });
+
+  redirect(`/conventions/${data.id}`);
+}
+
+export async function updateConventionDetailsAction(input: {
+  conventionId: string;
+  name: string;
+  slug: string;
+  startDate: string | null;
+  endDate: string | null;
+  location: string | null;
+  timezone: string;
+}) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  if (!input.name.trim()) throw new Error('Convention name is required.');
+  validateSlug(input.slug);
+
+  const { data: current } = await supabase
+    .from('conventions')
+    .select('name, slug, start_date, end_date, location, timezone')
+    .eq('id', input.conventionId)
+    .single();
+
+  const payload = {
+    name: input.name.trim(),
+    slug: input.slug.trim(),
+    start_date: input.startDate || null,
+    end_date: input.endDate || null,
+    location: input.location?.trim() || null,
+    timezone: input.timezone || 'UTC',
+  };
+
+  const { error } = await supabase.from('conventions').update(payload).eq('id', input.conventionId);
+  if (error) throw error;
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'update_convention_details',
+    entityType: 'convention',
+    entityId: input.conventionId,
+    diff: { before: current, after: payload },
+  });
+
+  revalidatePath('/conventions');
+  revalidatePath(`/conventions/${input.conventionId}`);
+}
 
 type ConventionConfig = {
   cooldowns?: { catch_seconds?: number | null };
