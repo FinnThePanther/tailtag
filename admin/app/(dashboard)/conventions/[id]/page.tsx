@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Users, MapPin, CalendarRange, SlidersHorizontal, ArrowUpRight } from 'lucide-react';
+import { Users, MapPin, SlidersHorizontal, ArrowUpRight } from 'lucide-react';
 
 import { Card } from '@/components/card';
 import { Table } from '@/components/table';
 import { fetchConvention, fetchConventionTasks, fetchConventionAchievements } from '@/lib/data';
 import { ConventionConfigForm } from '@/components/convention-config-form';
+import { ConventionDetailsForm } from '@/components/convention-details-form';
 import { ConventionTasksCard } from '@/components/convention-tasks-card';
 import { ConventionAchievementsCard } from '@/components/convention-achievements-card';
 
@@ -24,20 +25,30 @@ export default async function ConventionDetail({ params }: { params: { id: strin
 
   return (
     <div className="space-y-4">
-      <Card title={convention.name} subtitle={convention.slug}>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Info icon={<CalendarRange size={14} />} label="Dates">
-            {convention.start_date
-              ? `${convention.start_date} → ${convention.end_date ?? 'TBD'}`
-              : 'Dates TBD'}
-          </Info>
-          <Info icon={<MapPin size={14} />} label="Location">
-            {convention.location ?? 'TBD'}
-          </Info>
-          <Info icon={<Users size={14} />} label="Staff assigned">
-            {staff?.length ?? 0}
-          </Info>
-        </div>
+      <Card
+        title="Convention Details"
+        subtitle="Basic information about this event"
+        actions={
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-background/50 px-3 py-2 text-sm text-slate-200">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-primary">
+              <Users size={14} />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted">Staff assigned</p>
+              <p className="font-semibold text-white">{staff?.length ?? 0}</p>
+            </div>
+          </div>
+        }
+      >
+        <ConventionDetailsForm
+          conventionId={convention.id}
+          name={convention.name}
+          slug={convention.slug}
+          startDate={convention.start_date ?? null}
+          endDate={convention.end_date ?? null}
+          location={convention.location ?? null}
+          timezone={convention.timezone ?? 'UTC'}
+        />
       </Card>
 
       <Card
