@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowUpRight, MapPin } from 'lucide-react';
+import { ArrowUpRight, MapPin, Plus } from 'lucide-react';
 
 import { Card } from '@/components/card';
 import { fetchConventions } from '@/lib/data';
@@ -8,7 +8,18 @@ export default async function ConventionsPage() {
   const conventions = await fetchConventions();
 
   return (
-    <Card title="Conventions" subtitle="Event list">
+    <Card
+      title="Conventions"
+      subtitle="Event list"
+      actions={
+        <Link
+          href="/conventions/new"
+          className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-primary"
+        >
+          <Plus size={14} /> Create convention
+        </Link>
+      }
+    >
       <div className="divide-y divide-border/80">
         {conventions.map((convention) => (
           <div key={convention.id} className="flex items-center justify-between gap-3 py-3">
