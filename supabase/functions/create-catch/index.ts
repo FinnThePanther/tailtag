@@ -299,11 +299,17 @@ async function handlePatch(req: Request): Promise<Response> {
   // Now that the photo URL is attached, notify the fursuit owner.
   // We do this here (not in POST) so the owner sees the photo immediately on their card.
   try {
-    const { data: catchCtx } = await supabaseAdmin
+    const { data: catchCtx, error: catchCtxError } = await supabaseAdmin
       .from('catches')
-      .select('catcher_id, fursuit_id, fursuits(owner_id, name), profiles(username)')
+      .select(
+        'catcher_id, fursuit_id, fursuits!catches_fursuit_id_fkey(owner_id, name), profiles!catches_catcher_id_fkey(username)',
+      )
       .eq('id', body.catch_id)
       .single();
+
+    if (catchCtxError) {
+      throw catchCtxError;
+    }
 
     if (catchCtx) {
       const fursuit = Array.isArray(catchCtx.fursuits) ? catchCtx.fursuits[0] : catchCtx.fursuits;
