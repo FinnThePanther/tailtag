@@ -11,12 +11,11 @@ import { ProgressDots } from '../../src/features/onboarding/components/ProgressD
 import { WelcomeStep } from '../../src/features/onboarding/components/WelcomeStep';
 import { ConventionStep } from '../../src/features/onboarding/components/ConventionStep';
 import { FursuitStep } from '../../src/features/onboarding/components/FursuitStep';
-import { TutorialCatchStep } from '../../src/features/onboarding/components/TutorialCatchStep';
 import { AchievementStep } from '../../src/features/onboarding/components/AchievementStep';
 import { NotificationsStep } from '../../src/features/onboarding/components/NotificationsStep';
 import { colors, spacing } from '../../src/theme';
 
-const STEPS = ['welcome', 'convention', 'fursuit', 'tutorial', 'notifications', 'achievement'] as const;
+const STEPS = ['welcome', 'convention', 'fursuit', 'notifications', 'achievement'] as const;
 type StepId = (typeof STEPS)[number];
 
 const stepIndex = (step: StepId) => STEPS.indexOf(step);
@@ -34,7 +33,6 @@ export default function OnboardingScreen() {
 
   const [currentStep, setCurrentStep] = useState<StepId>('welcome');
   const [hasRegisteredFursuit, setHasRegisteredFursuit] = useState(false);
-  const [hasTutorialCatch, setHasTutorialCatch] = useState(false);
 
   const profileQueryOptions = useMemo(
     () => (userId ? createProfileQueryOptions(userId) : null),
@@ -117,24 +115,11 @@ export default function OnboardingScreen() {
               goToNextStep();
             }}
           />
-        ) : currentStep === 'tutorial' ? (
-          <TutorialCatchStep
-            userId={userId}
-            onSkip={() => {
-              setHasTutorialCatch(false);
-              goToNextStep();
-            }}
-            onComplete={({ recorded }) => {
-              setHasTutorialCatch(recorded);
-              goToNextStep();
-            }}
-          />
         ) : currentStep === 'notifications' ? (
           <NotificationsStep userId={userId} onComplete={goToNextStep} />
         ) : (
           <AchievementStep
             userId={userId}
-            hasTutorialCatch={hasTutorialCatch}
             hasFursuit={hasRegisteredFursuit}
             onFinish={handleFinish}
           />

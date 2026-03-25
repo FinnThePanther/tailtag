@@ -265,7 +265,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
               <TailTagInput
                 value={nameInput}
                 onChangeText={setNameInput}
-                placeholder="e.g. Trainer Fox"
+                placeholder="e.g. Maple"
                 editable={!isSubmitting}
               />
             </View>
