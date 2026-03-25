@@ -23,8 +23,8 @@ export function WelcomeStep({ onContinue }: WelcomeStepProps) {
         <View style={styles.captionBlock}>
           <Text style={styles.captionTitle}>How onboarding works</Text>
           <Text style={styles.captionBody}>
-            Pick a convention, register a suit if you have one, try a tutorial
-            catch, then claim your first achievements.
+            Pick a convention, register a suit if you have one, enable
+            notifications, then claim your first achievement.
           </Text>
         </View>
 

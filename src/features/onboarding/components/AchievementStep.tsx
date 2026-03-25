@@ -15,14 +15,12 @@ import { colors, spacing } from "../../../theme";
 
 type AchievementStepProps = {
   userId: string;
-  hasTutorialCatch: boolean;
   hasFursuit: boolean;
   onFinish: () => void;
 };
 
 export function AchievementStep({
   userId,
-  hasTutorialCatch,
   hasFursuit,
   onFinish,
 }: AchievementStepProps) {
@@ -81,7 +79,7 @@ export function AchievementStep({
   return (
     <View style={styles.container}>
       <TailTagCard>
-        <Text style={styles.eyebrow}>Step 6</Text>
+        <Text style={styles.eyebrow}>Step 5</Text>
         <Text style={styles.title}>Achievement unlocked!</Text>
         <Text style={styles.body}>
           You&apos;re ready to play TailTag! The Getting Started achievement is
@@ -106,19 +104,6 @@ export function AchievementStep({
               {hasFursuit
                 ? "Registered a fursuit"
                 : "You can add a fursuit anytime"}
-            </Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <View
-              style={[
-                styles.dot,
-                hasTutorialCatch ? styles.dotPrimary : styles.dotMuted,
-              ]}
-            />
-            <Text style={styles.summaryText}>
-              {hasTutorialCatch
-                ? "Completed the tutorial catch"
-                : "Tutorial catch skipped"}
             </Text>
           </View>
         </View>
