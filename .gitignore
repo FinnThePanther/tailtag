@@ -55,6 +55,7 @@ admin/.env.local
 /docs
 CLAUDE.md
 .mcp.json
+AGENTS.md
 
 # Firebase / credentials
 google-services.json

@@ -9,7 +9,7 @@ const corsHeaders: Record<string, string> = {
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const AVATAR_BUCKET = "avatars";
+const AVATAR_BUCKET = "profile-avatars";
 const FURSUIT_BUCKET = "fursuit-avatars";
 const TAG_QR_BUCKET = "tag-qr-codes";
 const CATCH_PHOTO_BUCKET = "catch-photos";

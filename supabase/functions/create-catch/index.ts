@@ -8,6 +8,11 @@
 
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
+import {
+  ingestGameplayEvent,
+  loadGameplayQueueConfig,
+  scheduleGameplayQueueDrain,
+} from "../_shared/gameplayQueue.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +27,11 @@ if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
   throw new Error("Missing Supabase configuration");
 }
 
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+const resolvedSupabaseUrl = supabaseUrl;
+const resolvedSupabaseAnonKey = supabaseAnonKey;
+const resolvedServiceRoleKey = serviceRoleKey;
+
+const supabaseAdmin = createClient(resolvedSupabaseUrl, resolvedServiceRoleKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
@@ -64,7 +73,7 @@ async function getUserIdFromRequest(req: Request): Promise<string | null> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return null;
 
-  const supabaseUserClient = createClient(supabaseUrl!, supabaseAnonKey!, {
+  const supabaseUserClient = createClient(resolvedSupabaseUrl, resolvedSupabaseAnonKey, {
     global: {
       headers: {
         Authorization: authHeader,
@@ -148,42 +157,48 @@ async function handlePost(req: Request): Promise<Response> {
     let colorNames: string[] = [];
 
     try {
-      const metadataPromises: Promise<unknown>[] = [
-        supabaseAdmin
-          .from('fursuits')
-          .select('name, species:fursuit_species(name)')
-          .eq('id', body.fursuit_id)
-          .single(),
-        supabaseAdmin
-          .from('fursuit_color_assignments')
-          .select('color:fursuit_colors(name)')
-          .eq('fursuit_id', body.fursuit_id)
-          .order('position', { ascending: true }),
-      ];
-
-      if (result.requires_approval) {
-        metadataPromises.push(
-          supabaseAdmin
+      const fursuitPromise = (async () => await supabaseAdmin
+        .from('fursuits')
+        .select('name, species:fursuit_species(name)')
+        .eq('id', body.fursuit_id)
+        .single())();
+      const colorsPromise = (async () => await supabaseAdmin
+        .from('fursuit_color_assignments')
+        .select('color:fursuit_colors(name)')
+        .eq('fursuit_id', body.fursuit_id)
+        .order('position', { ascending: true }))();
+      // For photo catches (force_pending = true), the notification is sent after the
+      // photo URL is attached (PATCH handler), so we skip fetching catcher here.
+      const catcherPromise = (result.requires_approval && !body.force_pending)
+        ? (async () => await supabaseAdmin
             .from('profiles')
             .select('username')
             .eq('id', userId)
-            .single(),
-        );
-      }
+            .single())()
+        : Promise.resolve(undefined);
 
-      const results = await Promise.all(metadataPromises);
+      const [fursuitResult, colorsResult, catcherResult] = await Promise.all([
+        fursuitPromise,
+        colorsPromise,
+        catcherPromise,
+      ]);
 
-      const fursuitResult = results[0] as { data: { name: string; species: { name: string } | null } | null };
-      const colorsResult = results[1] as { data: { color: { name: string } | null }[] | null };
-      const catcherResult = results[2] as { data: { username: string } | null } | undefined;
+      const speciesRow = Array.isArray(fursuitResult.data?.species)
+        ? fursuitResult.data?.species[0]
+        : fursuitResult.data?.species;
 
-      speciesName = fursuitResult.data?.species?.name ?? null;
+      speciesName = speciesRow?.name ?? null;
       colorNames = (colorsResult.data ?? [])
-        .map((row) => row.color?.name)
+        .map((row) => {
+          const colorRow = Array.isArray(row.color) ? row.color[0] : row.color;
+          return colorRow?.name;
+        })
         .filter((name): name is string => !!name);
 
-      // Send approval notification if needed
-      if (result.requires_approval && fursuitResult.data && catcherResult?.data) {
+      // Send approval notification for non-photo catches only.
+      // Photo catches (force_pending = true) delay notification until after the photo URL
+      // is attached in the PATCH handler, so the owner sees the photo immediately.
+      if (result.requires_approval && !body.force_pending && fursuitResult.data && catcherResult?.data) {
         const { error: notifError } = await supabaseAdmin.rpc('notify_catch_pending', {
           p_catch_id: result.catch_id,
           p_fursuit_owner_id: result.fursuit_owner_id,
@@ -201,34 +216,36 @@ async function handlePost(req: Request): Promise<Response> {
       // Don't fail the catch creation if metadata fetch fails
     }
 
-    // Fire the catch_performed event if accepted, or catch_pending if requires approval
+    // Persist the canonical gameplay event before returning.
     const eventType = result.requires_approval ? 'catch_pending' : 'catch_performed';
-
-    // Fire event asynchronously (don't await)
-    fetch(`${supabaseUrl}/functions/v1/events-ingress`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${serviceRoleKey}`,
-        'Content-Type': 'application/json',
+    const ingestResult = await ingestGameplayEvent(supabaseAdmin, {
+      type: eventType,
+      userId,
+      conventionId: body.convention_id ?? null,
+      payload: {
+        catch_id: result.catch_id,
+        fursuit_id: body.fursuit_id,
+        convention_id: body.convention_id ?? null,
+        is_tutorial: body.is_tutorial ?? false,
+        status: result.status,
+        species: speciesName,
+        colors: colorNames,
       },
-      body: JSON.stringify({
-        type: eventType,
-        user_id: userId, // Required for service role requests
-        convention_id: body.convention_id,
-        payload: {
-          catch_id: result.catch_id,
-          fursuit_id: body.fursuit_id,
-          convention_id: body.convention_id,
-          is_tutorial: body.is_tutorial,
-          status: result.status,
-          species: speciesName,
-          colors: colorNames,
-        },
-      }),
-    }).catch((eventError) => {
-      console.error("[create-catch] Failed to emit event:", eventError);
-      // Don't fail the catch creation if event emission fails
+      occurredAt: new Date().toISOString(),
+      idempotencyKey: `catch:${result.catch_id}:${eventType}`,
     });
+
+    if (ingestResult.enqueued && !ingestResult.duplicate) {
+      const queueConfig = await loadGameplayQueueConfig(supabaseAdmin);
+      if (queueConfig.queueEnabled && queueConfig.wakeupEnabled) {
+        scheduleGameplayQueueDrain({
+          supabaseUrl: resolvedSupabaseUrl,
+          serviceRoleKey: resolvedServiceRoleKey,
+          maxMessages: queueConfig.wakeupMaxMessages,
+          maxDurationMs: queueConfig.wakeupMaxDurationMs,
+        });
+      }
+    }
 
     return jsonResponse(201, result);
   } catch (error) {
@@ -277,6 +294,42 @@ async function handlePatch(req: Request): Promise<Response> {
   if (updateError) {
     console.error("[create-catch] Failed to update catch photo:", updateError);
     return jsonResponse(500, { error: "Failed to update catch photo" });
+  }
+
+  // Now that the photo URL is attached, notify the fursuit owner.
+  // We do this here (not in POST) so the owner sees the photo immediately on their card.
+  try {
+    const { data: catchCtx, error: catchCtxError } = await supabaseAdmin
+      .from('catches')
+      .select(
+        'catcher_id, fursuit_id, fursuits!catches_fursuit_id_fkey(owner_id, name), profiles!catches_catcher_id_fkey(username)',
+      )
+      .eq('id', body.catch_id)
+      .single();
+
+    if (catchCtxError) {
+      throw catchCtxError;
+    }
+
+    if (catchCtx) {
+      const fursuit = Array.isArray(catchCtx.fursuits) ? catchCtx.fursuits[0] : catchCtx.fursuits;
+      const profile = Array.isArray(catchCtx.profiles) ? catchCtx.profiles[0] : catchCtx.profiles;
+
+      const { error: notifError } = await supabaseAdmin.rpc('notify_catch_pending', {
+        p_catch_id: body.catch_id,
+        p_fursuit_owner_id: (fursuit as { owner_id: string } | null)?.owner_id,
+        p_catcher_id: catchCtx.catcher_id,
+        p_fursuit_name: (fursuit as { name: string } | null)?.name ?? 'Unknown Fursuit',
+        p_catcher_username: (profile as { username: string } | null)?.username ?? 'Someone',
+      });
+
+      if (notifError) {
+        console.error("[create-catch] Failed to send photo catch notification:", notifError);
+      }
+    }
+  } catch (notifError) {
+    console.error("[create-catch] Error sending photo catch notification:", notifError);
+    // Don't fail the response — the photo was attached successfully
   }
 
   return jsonResponse(200, { success: true });

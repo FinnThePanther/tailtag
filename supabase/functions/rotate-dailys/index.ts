@@ -1,6 +1,7 @@
 /// <reference lib="deno.unstable" />
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
+import { ingestGameplayEvent } from "../_shared/gameplayQueue.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,37 +34,6 @@ const textEncoder = new TextEncoder();
 const systemEventUserId = Deno.env.get("SYSTEM_EVENT_USER_ID");
 let missingSystemUserWarned = false;
 
-function generateUuidV7(): string {
-  const now = BigInt(Date.now());
-  const random = crypto.getRandomValues(new Uint8Array(10));
-  const bytes = new Uint8Array(16);
-
-  bytes[0] = Number((now >> 40n) & 0xffn);
-  bytes[1] = Number((now >> 32n) & 0xffn);
-  bytes[2] = Number((now >> 24n) & 0xffn);
-  bytes[3] = Number((now >> 16n) & 0xffn);
-  bytes[4] = Number((now >> 8n) & 0xffn);
-  bytes[5] = Number(now & 0xffn);
-
-  bytes.set(random, 6);
-
-  bytes[6] = (bytes[6] & 0x0f) | 0x70; // Version 7
-  bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant RFC 4122
-
-  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
-type EventRow = {
-  event_id: string;
-  user_id: string;
-  type: string;
-  convention_id: string | null;
-  payload: Record<string, unknown>;
-  occurred_at: string;
-};
-
 async function emitDailyResetEvent(
   conventionId: string,
   day: string,
@@ -77,35 +47,32 @@ async function emitDailyResetEvent(
     return;
   }
 
-  const eventRow: EventRow = {
-    event_id: generateUuidV7(),
-    user_id: systemEventUserId,
-    type: "daily_reset",
-    convention_id: conventionId,
-    payload: {
+  try {
+    const occurredAt = new Date().toISOString();
+    const ingestResult = await ingestGameplayEvent(supabaseAdmin, {
+      type: "daily_reset",
+      userId: systemEventUserId,
+      conventionId,
+      payload: {
+        convention_id: conventionId,
+        day,
+        seed_hash: seedHash,
+      },
+      occurredAt,
+      idempotencyKey: `daily_reset:${conventionId}:${day}`,
+    });
+
+    console.log("[rotate-dailys] daily_reset event stored", {
       convention_id: conventionId,
       day,
+      event_id: ingestResult.eventId,
       seed_hash: seedHash,
-    },
-    occurred_at: new Date().toISOString(),
-  };
-
-  const { error } = await supabaseAdmin
-    .from("events")
-    .insert([eventRow]);
-
-  if (error) {
+    });
+  } catch (error) {
     console.error("[rotate-dailys] Failed to persist daily_reset event", {
       convention_id: conventionId,
       day,
       error,
-    });
-  } else {
-    console.log("[rotate-dailys] daily_reset event stored", {
-      convention_id: conventionId,
-      day,
-      event_id: eventRow.event_id,
-      seed_hash: seedHash,
     });
   }
 }
@@ -253,7 +220,7 @@ async function fetchAssignments(
 
   const assignments: AssignmentWithTask[] = [];
   for (const row of data ?? []) {
-    const task = row.task as DailyTaskRow | null;
+    const task = row.task as unknown as DailyTaskRow | null;
     if (!task) continue;
     assignments.push({
       position: row.position as number,
