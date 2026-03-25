@@ -5,6 +5,7 @@ import {
   emitImmediateAchievementAwards,
   type ImmediateAchievementAward,
 } from "../../achievements/immediateAwardsBus";
+import { emitLocalGameplayEvent } from "../localGameplayEventsBus";
 import type { Json } from "../../../types/database";
 
 export type GameplayEventInput = {
@@ -194,6 +195,16 @@ export async function emitGameplayEvent(
     if (!data || typeof data.event_id !== "string") {
       throw new Error("events-ingress response missing event_id");
     }
+
+    emitLocalGameplayEvent({
+      eventId: data.event_id,
+      idempotencyKey,
+      type,
+      conventionId: input.conventionId ?? null,
+      occurredAt: body.occurred_at,
+      payload: body.payload,
+      emittedAt: Date.now(),
+    });
 
     const awards = normalizeAwards(data.awards);
 

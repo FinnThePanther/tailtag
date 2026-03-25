@@ -9,8 +9,12 @@
  */
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote esm.sh imports.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
-import { processAchievementsForEvent } from "./achievements.ts";
-import type { EventRequestBody, InsertableEventRow, Json } from "./types.ts";
+import {
+  ingestGameplayEvent,
+  loadGameplayQueueConfig,
+  scheduleGameplayQueueDrain,
+} from "../_shared/gameplayQueue.ts";
+import type { EventRequestBody, Json } from "../_shared/types.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +29,11 @@ if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
   throw new Error("Missing Supabase configuration (SUPABASE_URL / SUPABASE_ANON_KEY / SERVICE_ROLE_KEY)");
 }
 
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+const resolvedSupabaseUrl = supabaseUrl;
+const resolvedSupabaseAnonKey = supabaseAnonKey;
+const resolvedServiceRoleKey = serviceRoleKey;
+
+const supabaseAdmin = createClient(resolvedSupabaseUrl, resolvedServiceRoleKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
@@ -116,28 +124,6 @@ function extractBearerAuthorization(req: Request): string | null {
   return `Bearer ${parts[1]}`;
 }
 
-function generateUuidV7(): string {
-  const now = BigInt(Date.now());
-  const random = crypto.getRandomValues(new Uint8Array(10));
-  const bytes = new Uint8Array(16);
-
-  bytes[0] = Number((now >> 40n) & 0xffn);
-  bytes[1] = Number((now >> 32n) & 0xffn);
-  bytes[2] = Number((now >> 24n) & 0xffn);
-  bytes[3] = Number((now >> 16n) & 0xffn);
-  bytes[4] = Number((now >> 8n) & 0xffn);
-  bytes[5] = Number(now & 0xffn);
-
-  bytes.set(random, 6);
-
-  bytes[6] = (bytes[6] & 0x0f) | 0x70; // Version 7
-  bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant RFC 4122
-
-  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
 /**
  * Check if request is authenticated with service role key
  */
@@ -161,7 +147,7 @@ async function getUserIdFromRequest(req: Request): Promise<string | null> {
     return null;
   }
 
-  const supabaseUserClient = createClient(supabaseUrl, supabaseAnonKey, {
+  const supabaseUserClient = createClient(resolvedSupabaseUrl, resolvedSupabaseAnonKey, {
     global: {
       headers: {
         Authorization: token,
@@ -221,62 +207,69 @@ async function handlePost(req: Request): Promise<Response> {
   }
 
   const payload = coercePayload(parsed.payload);
-  const eventId = generateUuidV7();
+  const idempotencyKey =
+    typeof parsed.idempotency_key === "string" && parsed.idempotency_key.trim().length > 0
+      ? parsed.idempotency_key.trim()
+      : null;
 
-  const eventRow: InsertableEventRow = {
-    event_id: eventId,
-    user_id: userId,
-    type,
-    convention_id: conventionId,
-    payload,
-    occurred_at: occurredAt,
-  };
+  let ingestResult: { eventId: string; duplicate: boolean; enqueued: boolean };
+  const ingestStart = Date.now();
 
-  const insertStart = Date.now();
-  const { error: insertError } = await supabaseAdmin
-    .from("events")
-    .insert([eventRow]);
-
-  if (insertError) {
-    console.error("[events-ingress] Failed inserting event", insertError);
-    return jsonResponse(500, { error: "Failed to persist event" });
-  }
-
-  const insertDuration = Date.now() - insertStart;
-  console.log(`[events-ingress] Event inserted in ${insertDuration}ms`, { event_id: eventId, type });
-
-  // Process achievements asynchronously (don't await)
-  // On success, stamp processed_at so the queue worker skips this event.
-  // On failure (or if the runtime is reclaimed), processed_at stays NULL
-  // and the queue worker will pick it up within ~10 seconds.
-  processAchievementsForEvent(supabaseAdmin, eventRow)
-    .then(async () => {
-      console.log(`[events-ingress] Achievement processing completed for ${eventId}`);
-      const { error: stampError } = await supabaseAdmin
-        .from("events")
-        .update({ processed_at: new Date().toISOString() })
-        .eq("event_id", eventId);
-      if (stampError) {
-        console.error("[events-ingress] Failed to stamp processed_at", {
-          event_id: eventId,
-          error: stampError,
-        });
-      }
-    })
-    .catch((error) => {
-      console.error("[events-ingress] async achievement processing failed", {
-        event_id: eventId,
-        error,
-      });
+  try {
+    ingestResult = await ingestGameplayEvent(supabaseAdmin, {
+      type,
+      userId,
+      conventionId,
+      payload,
+      occurredAt,
+      idempotencyKey,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[events-ingress] Failed ingest_gameplay_event RPC", {
+      type,
+      userId,
+      conventionId,
+      error: message,
     });
 
-  console.log(`[events-ingress] Returning response for event ${eventId}`);
+    const isClientError =
+      message.includes("Unsupported event type") ||
+      message.includes("Missing event type") ||
+      message.includes("Missing user_id");
+
+    return jsonResponse(isClientError ? 400 : 500, {
+      error: isClientError ? message : "Failed to persist event",
+    });
+  }
+
+  const ingestDuration = Date.now() - ingestStart;
+  console.log(`[events-ingress] Event ingested in ${ingestDuration}ms`, {
+    event_id: ingestResult.eventId,
+    type,
+    duplicate: ingestResult.duplicate,
+    enqueued: ingestResult.enqueued,
+  });
+
+  if (ingestResult.enqueued && !ingestResult.duplicate) {
+    const queueConfig = await loadGameplayQueueConfig(supabaseAdmin);
+    if (queueConfig.queueEnabled && queueConfig.wakeupEnabled) {
+      scheduleGameplayQueueDrain({
+        supabaseUrl: resolvedSupabaseUrl,
+        serviceRoleKey: resolvedServiceRoleKey,
+        maxMessages: queueConfig.wakeupMaxMessages,
+        maxDurationMs: queueConfig.wakeupMaxDurationMs,
+      });
+    }
+  }
+
+  console.log(`[events-ingress] Returning response for event ${ingestResult.eventId}`);
 
   // Return immediately with event_id
   // Achievements will be delivered via Realtime subscriptions
   return jsonResponse(201, {
-    event_id: eventId,
-    awards: [], // Empty array since processing is async
+    event_id: ingestResult.eventId,
+    awards: [],
   });
 }
 
