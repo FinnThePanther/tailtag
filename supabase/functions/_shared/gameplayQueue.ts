@@ -60,8 +60,8 @@ const DEFAULT_GAMEPLAY_QUEUE_CONFIG: GameplayQueueConfig = {
   batchSize: 25,
   visibilityTimeoutSeconds: 30,
   maxAttempts: 8,
-  wakeupMaxMessages: 10,
-  wakeupMaxDurationMs: 1000,
+  wakeupMaxMessages: 6,
+  wakeupMaxDurationMs: 2500,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {

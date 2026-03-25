@@ -321,7 +321,9 @@ async function processQueue(req: Request): Promise<WorkerResult> {
     }
 
     const remaining = maxMessages - result.fetched;
-    const batchSize = Math.min(config.batchSize, remaining);
+    const batchSize = maxDurationMs !== null
+      ? 1
+      : Math.min(config.batchSize, remaining);
     const rows = await readQueueBatch(config.visibilityTimeoutSeconds, batchSize);
 
     if (rows.length === 0) {

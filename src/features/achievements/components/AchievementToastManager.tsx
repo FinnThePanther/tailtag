@@ -12,9 +12,11 @@ import {
 import { supabase } from '../../../lib/supabase';
 import { addMonitoringBreadcrumb, captureHandledException } from '../../../lib/sentry';
 import { useToast } from '../../../hooks/useToast';
+import { subscribeToLocalGameplayEvents, type LocalGameplayEvent } from '../../events/localGameplayEventsBus';
 import { DAILY_TASKS_QUERY_KEY, dailyTasksQueryKey } from '../../daily-tasks';
 import type { DailyTasksSummary } from '../../daily-tasks';
 import type { AchievementWithStatus } from '../api/achievements';
+import { profileQueryKey, type ProfileSummary } from '../../profile';
 import type { Json } from '../../../types/database';
 
 type NotificationRow = {
@@ -24,6 +26,109 @@ type NotificationRow = {
   payload: Json;
   user_id: string;
 };
+
+type DailyTaskMetadataFilter = {
+  path: string;
+  equals?: unknown;
+  notEquals?: unknown;
+  in?: unknown[];
+  notIn?: unknown[];
+  exists?: boolean;
+  notEqualsUserId?: boolean;
+};
+
+type DailyTaskMetadata = {
+  eventType: string;
+  metric: 'total' | 'unique';
+  uniqueBy?: string;
+  includeTutorialCatches: boolean;
+  filters: DailyTaskMetadataFilter[];
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getValueAtPath(root: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce<unknown>((current, segment) => {
+    if (!isRecord(current)) {
+      return undefined;
+    }
+    return current[segment];
+  }, root);
+}
+
+function normalizeDailyTaskMetadata(raw: unknown): DailyTaskMetadata | null {
+  if (!isRecord(raw)) {
+    return null;
+  }
+
+  const eventType = typeof raw.eventType === 'string'
+    ? raw.eventType
+    : typeof raw.event_type === 'string'
+      ? raw.event_type
+      : typeof raw.trigger === 'string'
+        ? raw.trigger
+        : null;
+
+  if (!eventType) {
+    return null;
+  }
+
+  return {
+    eventType,
+    metric: raw.metric === 'unique' ? 'unique' : 'total',
+    uniqueBy: typeof raw.uniqueBy === 'string'
+      ? raw.uniqueBy
+      : typeof raw.unique_by === 'string'
+        ? raw.unique_by
+        : undefined,
+    includeTutorialCatches: raw.includeTutorialCatches === true || raw.include_tutorial_catches === true,
+    filters: Array.isArray(raw.filters)
+      ? raw.filters.filter((entry): entry is DailyTaskMetadataFilter => isRecord(entry) && typeof entry.path === 'string')
+      : [],
+  };
+}
+
+function matchesLocalDailyTaskFilters(
+  metadata: DailyTaskMetadata,
+  eventPayload: Record<string, unknown>,
+  userId: string,
+) {
+  return metadata.filters.every((filter) => {
+    const candidate = getValueAtPath(eventPayload, filter.path);
+
+    if (filter.exists === true && candidate === undefined) {
+      return false;
+    }
+
+    if (filter.exists === false && candidate !== undefined) {
+      return false;
+    }
+
+    if (filter.notEqualsUserId === true && candidate === userId) {
+      return false;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(filter, 'equals') && candidate !== filter.equals) {
+      return false;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(filter, 'notEquals') && candidate === filter.notEquals) {
+      return false;
+    }
+
+    if (Array.isArray(filter.in) && !filter.in.includes(candidate)) {
+      return false;
+    }
+
+    if (Array.isArray(filter.notIn) && filter.notIn.includes(candidate)) {
+      return false;
+    }
+
+    return true;
+  });
+}
 
 /**
  * Mount once inside the app shell so achievement unlocks raise toasts in real time.
@@ -40,6 +145,9 @@ export function AchievementToastManager() {
   const hasPrimedChannelRef = useRef<boolean>(false);
   const routeRef = useRef<string>('');
   const processedNotificationIdsRef = useRef<Set<string>>(new Set());
+  const optimisticEventKeysRef = useRef<Set<string>>(new Set());
+  const surfacedDailyTaskKeysRef = useRef<Set<string>>(new Set());
+  const surfacedDailyAllCompleteKeysRef = useRef<Set<string>>(new Set());
   const sessionStartedAtRef = useRef<string>(new Date().toISOString());
   const notificationCatchupCursorRef = useRef<string>(sessionStartedAtRef.current);
 
@@ -146,6 +254,9 @@ export function AchievementToastManager() {
       unlockedSnapshotRef.current.clear();
       hasPrimedSnapshotRef.current = false;
       snapshotUserRef.current = userId;
+      optimisticEventKeysRef.current.clear();
+      surfacedDailyTaskKeysRef.current.clear();
+      surfacedDailyAllCompleteKeysRef.current.clear();
       sessionStartedAtRef.current = new Date().toISOString();
       notificationCatchupCursorRef.current = sessionStartedAtRef.current;
     }
@@ -230,6 +341,194 @@ export function AchievementToastManager() {
 
     return unsubscribe;
   }, [applyImmediateAwardToCache, handleToast, markAchievementAsSurfaced, showToast, userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const unsubscribe = subscribeToLocalGameplayEvents((event: LocalGameplayEvent) => {
+      const status = queryClient.getQueryData<AchievementWithStatus[] | undefined>(statusQueryKey);
+      const profile = queryClient.getQueryData<ProfileSummary | null | undefined>(profileQueryKey(userId));
+      const eventPayload = isRecord(event.payload) ? event.payload : {};
+
+      const predictedAchievementKeys: string[] = [];
+
+      if (event.type === 'onboarding_completed') {
+        predictedAchievementKeys.push('getting_started');
+      } else if (event.type === 'convention_joined' && event.conventionId) {
+        predictedAchievementKeys.push('EXPLORER');
+      } else if (
+        event.type === 'profile_updated' &&
+        profile &&
+        typeof profile.username === 'string' &&
+        profile.username.trim().length > 0 &&
+        typeof profile.bio === 'string' &&
+        profile.bio.trim().length > 0
+      ) {
+        predictedAchievementKeys.push('PROFILE_COMPLETE');
+      }
+
+      for (const achievementKey of predictedAchievementKeys) {
+        const matchingAchievement = status?.find((entry) => entry.key === achievementKey && !entry.unlocked);
+        if (!matchingAchievement) {
+          continue;
+        }
+
+        const optimisticKey = `${event.idempotencyKey}:achievement:${matchingAchievement.id}`;
+        if (optimisticEventKeysRef.current.has(optimisticKey)) {
+          continue;
+        }
+        optimisticEventKeysRef.current.add(optimisticKey);
+
+        const optimisticAchievement: AchievementWithStatus = {
+          ...matchingAchievement,
+          unlocked: true,
+          unlockedAt: event.occurredAt,
+          context: matchingAchievement.context,
+        };
+
+        markAchievementAsSurfaced(matchingAchievement.id);
+        queryClient.setQueryData<AchievementWithStatus[] | undefined>(
+          statusQueryKey,
+          (current) => current?.map((entry) => (
+            entry.id === matchingAchievement.id ? optimisticAchievement : entry
+          )) ?? current,
+        );
+        handleToast(optimisticAchievement);
+
+        addMonitoringBreadcrumb({
+          category: 'achievements',
+          message: 'Achievement unlocked (optimistic)',
+          data: {
+            userId,
+            eventId: event.eventId,
+            achievementId: matchingAchievement.id,
+            latencyMs: Date.now() - event.emittedAt,
+          },
+        });
+      }
+
+      if (!event.conventionId) {
+        return;
+      }
+
+      const summaryKey = dailyTasksQueryKey(userId, event.conventionId);
+      const currentSummary = queryClient.getQueryData<DailyTasksSummary | undefined>(summaryKey);
+      if (!currentSummary) {
+        return;
+      }
+
+      let allCompleteAlready = currentSummary.tasks.length > 0 &&
+        currentSummary.tasks.every((task) => task.isCompleted);
+      const completedTaskToasts: string[] = [];
+      let shouldToastAllComplete = false;
+
+      queryClient.setQueryData<DailyTasksSummary | undefined>(summaryKey, (summary) => {
+        if (!summary) {
+          return summary;
+        }
+
+        let changed = false;
+        let completedCount = 0;
+        const tasks = summary.tasks.map((task) => {
+          const metadata = normalizeDailyTaskMetadata(task.metadata);
+          if (!metadata || metadata.eventType !== event.type || metadata.metric !== 'total') {
+            if (task.isCompleted) {
+              completedCount += 1;
+            }
+            return task;
+          }
+
+          if (!matchesLocalDailyTaskFilters(metadata, eventPayload, userId)) {
+            if (task.isCompleted) {
+              completedCount += 1;
+            }
+            return task;
+          }
+
+          const nextCount = Math.min(Math.max(task.currentCount, 0) + 1, task.requirement);
+          const nextIsCompleted = nextCount >= task.requirement;
+          const completionKey = `${summary.conventionId}:${summary.day}:${task.id}`;
+          const shouldToastTask = !task.isCompleted && nextIsCompleted &&
+            !surfacedDailyTaskKeysRef.current.has(completionKey);
+
+          if (nextCount !== task.currentCount || nextIsCompleted !== task.isCompleted) {
+            changed = true;
+          }
+
+          if (nextIsCompleted) {
+            completedCount += 1;
+          }
+
+          if (shouldToastTask) {
+            surfacedDailyTaskKeysRef.current.add(completionKey);
+            completedTaskToasts.push(task.name);
+          }
+
+          return {
+            ...task,
+            currentCount: nextCount,
+            isCompleted: nextIsCompleted,
+            completedAt: nextIsCompleted ? task.completedAt ?? event.occurredAt : task.completedAt,
+          };
+        });
+
+        const nowAllComplete = tasks.length > 0 && tasks.every((task) => task.isCompleted);
+        const allCompleteKey = `${summary.conventionId}:${summary.day}`;
+        if (
+          nowAllComplete &&
+          !allCompleteAlready &&
+          !surfacedDailyAllCompleteKeysRef.current.has(allCompleteKey)
+        ) {
+          surfacedDailyAllCompleteKeysRef.current.add(allCompleteKey);
+          shouldToastAllComplete = true;
+        }
+
+        if (!changed) {
+          return summary;
+        }
+
+        return {
+          ...summary,
+          tasks,
+          completedCount,
+          remainingCount: Math.max(summary.totalCount - completedCount, 0),
+        };
+      });
+
+      for (const taskName of completedTaskToasts) {
+        showToast(`Daily task complete: ${taskName}`);
+        addMonitoringBreadcrumb({
+          category: 'daily-tasks',
+          message: 'Daily task completion toast shown (optimistic)',
+          data: {
+            userId,
+            eventId: event.eventId,
+            conventionId: event.conventionId,
+            taskName,
+            latencyMs: Date.now() - event.emittedAt,
+          },
+        });
+      }
+
+      if (shouldToastAllComplete) {
+        showToast('All daily tasks complete!');
+        addMonitoringBreadcrumb({
+          category: 'daily-tasks',
+          message: 'All daily tasks complete toast shown (optimistic)',
+          data: {
+            userId,
+            eventId: event.eventId,
+            conventionId: event.conventionId,
+            latencyMs: Date.now() - event.emittedAt,
+          },
+        });
+      }
+    });
+
+    return unsubscribe;
+  }, [handleToast, markAchievementAsSurfaced, queryClient, showToast, statusQueryKey, userId]);
 
   useEffect(() => {
     const teardown = () => {
@@ -564,18 +863,27 @@ export function AchievementToastManager() {
       const incrementCount = typeof incrementRaw === 'number' && Number.isFinite(incrementRaw)
         ? incrementRaw
         : 1;
+      const completionKey =
+        conventionId && day && taskId ? `${conventionId}:${day}:${taskId}` : null;
 
-      const message = taskName ? `Daily task complete: ${taskName}` : 'Daily task complete!';
-      showToast(message);
-      addMonitoringBreadcrumb({
-        category: 'daily-tasks',
-        message: 'Daily task completion notification received',
-        data: {
-          userId,
-          taskName,
-          taskId: payload?.task_id ?? payload?.taskId ?? null,
-        },
-      });
+      if (!completionKey || !surfacedDailyTaskKeysRef.current.has(completionKey)) {
+        if (completionKey) {
+          surfacedDailyTaskKeysRef.current.add(completionKey);
+        }
+
+        const message = taskName ? `Daily task complete: ${taskName}` : 'Daily task complete!';
+        showToast(message);
+        addMonitoringBreadcrumb({
+          category: 'daily-tasks',
+          message: 'Daily task completion notification received',
+          data: {
+            userId,
+            taskName,
+            taskId: payload?.task_id ?? payload?.taskId ?? null,
+          },
+        });
+      }
+
       updateDailyTasksSummary(conventionId, (summary) => {
         if (!taskId || (day && summary.day !== day)) {
           return summary;
@@ -588,13 +896,16 @@ export function AchievementToastManager() {
           }
 
           const baseCount = Math.max(task.currentCount ?? 0, 0);
+          if (task.isCompleted && baseCount >= task.requirement) {
+            return task;
+          }
           const candidateCount = Math.min(
             baseCount + incrementCount,
             task.requirement,
           );
           const becameComplete = candidateCount >= task.requirement;
 
-          if (!becameComplete && candidateCount === baseCount) {
+          if (candidateCount === baseCount && task.completedAt === completionTimestamp) {
             return task;
           }
 
@@ -635,18 +946,26 @@ export function AchievementToastManager() {
         currentStreak && currentStreak > 1
           ? `All daily tasks complete! Streak: ${currentStreak}`
           : 'All daily tasks complete!';
-
-      showToast(message);
-      addMonitoringBreadcrumb({
-        category: 'daily-tasks',
-        message: 'All daily tasks complete notification received',
-        data: {
-          userId,
-          currentStreak,
-        },
-      });
       const conventionId = typeof payload?.convention_id === 'string' ? payload.convention_id : null;
       const day = typeof payload?.day === 'string' ? payload.day : null;
+      const allCompleteKey = conventionId && day ? `${conventionId}:${day}` : null;
+
+      if (!allCompleteKey || !surfacedDailyAllCompleteKeysRef.current.has(allCompleteKey)) {
+        if (allCompleteKey) {
+          surfacedDailyAllCompleteKeysRef.current.add(allCompleteKey);
+        }
+
+        showToast(message);
+        addMonitoringBreadcrumb({
+          category: 'daily-tasks',
+          message: 'All daily tasks complete notification received',
+          data: {
+            userId,
+            currentStreak,
+          },
+        });
+      }
+
       updateDailyTasksSummary(conventionId, (summary) => {
         if (day && summary.day !== day) {
           return summary;
