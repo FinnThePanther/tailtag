@@ -3,7 +3,6 @@ import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { UNIQUE_CODE_ATTEMPTS, UNIQUE_INSERT_ATTEMPTS } from '../../../constants/codes';
 import { generateUniqueCodeCandidate } from '../../../utils/code';
 import { loadUriAsUint8Array } from '../../../utils/files';
-import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import {
   addMonitoringBreadcrumb,
   captureHandledMessage,
@@ -52,12 +51,10 @@ const generateAvailableFursuitCode = async (): Promise<string> => {
 };
 
 const uploadFursuitPhoto = async (userId: string, photo: FursuitPhotoCandidate) => {
-  const processed = await processImageForUpload(photo.uri, IMAGE_UPLOAD_PRESETS.fursuitAvatar);
-
   const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const storagePath = `${userId}/${uniqueSuffix}.jpg`;
 
-  const fileBytes = await loadUriAsUint8Array(processed.uri);
+  const fileBytes = await loadUriAsUint8Array(photo.uri);
 
   const { error: uploadError } = await supabase.storage.from(FURSUIT_BUCKET).upload(storagePath, fileBytes, {
     contentType: 'image/jpeg',

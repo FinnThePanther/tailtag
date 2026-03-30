@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,7 +9,6 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 
 import { TailTagButton } from '../../../components/ui/TailTagButton';
@@ -18,7 +18,6 @@ import { supabase } from '../../../lib/supabase';
 import { CATCH_PHOTO_BUCKET } from '../../../constants/storage';
 import { loadUriAsUint8Array } from '../../../utils/files';
 import {
-  buildImageUploadCandidate,
   processImageForUpload,
   IMAGE_UPLOAD_PRESETS,
 } from '../../../utils/images';
@@ -61,6 +60,7 @@ export function PhotoCatchCard({
   const [conventionIds, setConventionIds] = useState<string[]>([]);
   const [isLoadingFursuits, setIsLoadingFursuits] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Load user's conventions once mounted
@@ -107,14 +107,24 @@ export function PhotoCatchCard({
     }
 
     const asset = result.assets[0];
-    const assetFile = new File(asset.uri);
 
-    setPhoto({
-      ...buildImageUploadCandidate(asset, `catch-${Date.now()}`),
-      fileSize: assetFile.exists ? assetFile.size : 0,
-    });
-    setStep('photo_taken');
-    setSelectedFursuit(null);
+    setIsProcessingPhoto(true);
+    setLocalError(null);
+    try {
+      const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.catchPhoto);
+      setPhoto({
+        uri: processed.uri,
+        mimeType: 'image/jpeg',
+        fileName: `catch-${Date.now()}.jpg`,
+        fileSize: 0,
+      });
+      setStep('photo_taken');
+      setSelectedFursuit(null);
+    } catch {
+      setLocalError("We couldn't process your photo. Please try again.");
+    } finally {
+      setIsProcessingPhoto(false);
+    }
   };
 
   const handleRetakePhoto = () => {
@@ -183,11 +193,10 @@ export function PhotoCatchCard({
     let photoUrl: string;
     let storagePath: string;
     try {
-      const processed = await processImageForUpload(photo.uri, IMAGE_UPLOAD_PRESETS.catchPhoto);
       const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       storagePath = `${userId}/${uniqueSuffix}.jpg`;
 
-      const fileBytes = await loadUriAsUint8Array(processed.uri);
+      const fileBytes = await loadUriAsUint8Array(photo.uri);
 
       const { error: uploadError } = await supabase.storage
         .from(CATCH_PHOTO_BUCKET)
@@ -243,16 +252,23 @@ export function PhotoCatchCard({
       </Text>
 
       {step === 'idle' ? (
-        <TailTagButton
-          variant="outline"
-          onPress={handleTakePhoto}
-          style={styles.cameraButton}
-        >
-          <View style={styles.buttonContent}>
-            <Ionicons name="camera-outline" size={18} color={colors.primary} />
-            <Text style={styles.cameraButtonText}>Open Camera</Text>
+        isProcessingPhoto ? (
+          <View style={styles.processingContainer}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={styles.processingText}>Processing photo…</Text>
           </View>
-        </TailTagButton>
+        ) : (
+          <TailTagButton
+            variant="outline"
+            onPress={handleTakePhoto}
+            style={styles.cameraButton}
+          >
+            <View style={styles.buttonContent}>
+              <Ionicons name="camera-outline" size={18} color={colors.primary} />
+              <Text style={styles.cameraButtonText}>Open Camera</Text>
+            </View>
+          </TailTagButton>
+        )
       ) : (
         <>
           {/* Photo preview */}
@@ -347,6 +363,17 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
     fontSize: 15,
+  },
+  processingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  processingText: {
+    color: 'rgba(148,163,184,0.8)',
+    fontSize: 14,
   },
   previewRow: {
     flexDirection: 'row',

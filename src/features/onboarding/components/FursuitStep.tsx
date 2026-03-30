@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import * as ImagePicker from "expo-image-picker";
@@ -25,7 +25,10 @@ import {
 } from "../../conventions";
 import { captureNonCriticalError } from "../../../lib/sentry";
 import { colors, radius, spacing } from "../../../theme";
-import { buildImageUploadCandidate } from "../../../utils/images";
+import {
+  processImageForUpload,
+  IMAGE_UPLOAD_PRESETS,
+} from "../../../utils/images";
 import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
@@ -59,6 +62,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
   const [descriptionInput, setDescriptionInput] = useState("");
   const [selectedPhoto, setSelectedPhoto] =
     useState<FursuitPhotoCandidate | null>(null);
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -143,8 +147,21 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
         return;
       }
 
-      setSelectedPhoto(buildImageUploadCandidate(asset, `fursuit-${Date.now()}`));
+      setIsProcessingPhoto(true);
       setPhotoError(null);
+      try {
+        const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.fursuitAvatar);
+        setSelectedPhoto({
+          uri: processed.uri,
+          mimeType: "image/jpeg",
+          fileName: `fursuit-${Date.now()}.jpg`,
+          fileSize: 0,
+        });
+      } catch {
+        setPhotoError("We could not process that photo. Please try another.");
+      } finally {
+        setIsProcessingPhoto(false);
+      }
     } catch (caught) {
       const message =
         caught instanceof Error
@@ -365,7 +382,11 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
 
             <View style={styles.photoSection}>
               <Text style={styles.label}>Suit photo (optional)</Text>
-              {selectedPhoto ? (
+              {isProcessingPhoto ? (
+                <View style={[styles.photo, styles.photoProcessing]}>
+                  <ActivityIndicator color={colors.primary} />
+                </View>
+              ) : selectedPhoto ? (
                 <View style={styles.photoPreview}>
                   <Image
                     source={selectedPhoto.uri}
@@ -386,7 +407,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
                   variant="outline"
                   size="sm"
                   onPress={handlePickPhoto}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isProcessingPhoto}
                 >
                   Choose photo
                 </TailTagButton>
@@ -546,6 +567,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: "rgba(148,163,184,0.2)",
+  },
+  photoProcessing: {
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(30,41,59,0.8)",
   },
   error: {
     color: colors.destructive,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -61,7 +61,6 @@ import { supabase } from '../../../src/lib/supabase';
 import { FURSUIT_BUCKET } from '../../../src/constants/storage';
 import { loadUriAsUint8Array } from '../../../src/utils/files';
 import {
-  buildImageUploadCandidate,
   processImageForUpload,
   IMAGE_UPLOAD_PRESETS,
   extractStoragePath,
@@ -180,6 +179,7 @@ export default function EditFursuitScreen() {
   const [catchMode, setCatchMode] = useState<CatchMode>('AUTO_ACCEPT');
   const [initialCatchMode, setInitialCatchMode] = useState<CatchMode>('AUTO_ACCEPT');
   const [selectedPhoto, setSelectedPhoto] = useState<UploadCandidate>(null);
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
   const speciesLoadError = speciesError?.message ?? null;
@@ -353,8 +353,21 @@ export default function EditFursuitScreen() {
         return;
       }
 
-      setSelectedPhoto(buildImageUploadCandidate(asset, `fursuit-${Date.now()}`));
+      setIsProcessingPhoto(true);
       setPhotoError(null);
+      try {
+        const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.fursuitAvatar);
+        setSelectedPhoto({
+          uri: processed.uri,
+          mimeType: 'image/jpeg',
+          fileName: `fursuit-${Date.now()}.jpg`,
+          fileSize: 0,
+        });
+      } catch {
+        setPhotoError('We could not process that photo. Please try another.');
+      } finally {
+        setIsProcessingPhoto(false);
+      }
     } catch (caught) {
       setPhotoError(
         caught instanceof Error
@@ -468,11 +481,10 @@ export default function EditFursuitScreen() {
       let newAvatarUrl: string | undefined;
 
       if (selectedPhoto) {
-        const processed = await processImageForUpload(selectedPhoto.uri, IMAGE_UPLOAD_PRESETS.fursuitAvatar);
         const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const storagePath = `${userId}/${uniqueSuffix}.jpg`;
 
-        const fileBytes = await loadUriAsUint8Array(processed.uri);
+        const fileBytes = await loadUriAsUint8Array(selectedPhoto.uri);
 
         const { error: uploadError } = await supabase.storage
           .from(FURSUIT_BUCKET)
@@ -719,7 +731,11 @@ export default function EditFursuitScreen() {
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Suit photo</Text>
                 <View style={styles.photoRow}>
-                  {selectedPhoto ? (
+                  {isProcessingPhoto ? (
+                    <View style={[styles.photoPreview, styles.photoProcessing]}>
+                      <ActivityIndicator color={colors.primary} />
+                    </View>
+                  ) : selectedPhoto ? (
                     <Image source={selectedPhoto.uri} style={styles.photoPreview} contentFit="cover" />
                   ) : detail?.avatar_url ? (
                     <AppImage url={detail.avatar_url} style={styles.photoPreview} />
@@ -733,7 +749,7 @@ export default function EditFursuitScreen() {
                   <TailTagButton
                     variant="outline"
                     onPress={() => { void handlePickPhoto(); }}
-                    disabled={disableForm}
+                    disabled={disableForm || isProcessingPhoto}
                   >
                     {detail?.avatar_url || selectedPhoto ? 'Change photo' : 'Choose photo'}
                   </TailTagButton>
@@ -1411,6 +1427,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: 'rgba(148,163,184,0.3)',
+  },
+  photoProcessing: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30,41,59,0.8)',
   },
   photoPlaceholder: {
     width: '50%',
