@@ -17,7 +17,11 @@ import { colors, radius, spacing } from '../../../theme';
 import { supabase } from '../../../lib/supabase';
 import { CATCH_PHOTO_BUCKET } from '../../../constants/storage';
 import { loadUriAsUint8Array } from '../../../utils/files';
-import { buildImageUploadCandidate, inferImageExtension } from '../../../utils/images';
+import {
+  buildImageUploadCandidate,
+  processImageForUpload,
+  IMAGE_UPLOAD_PRESETS,
+} from '../../../utils/images';
 import { createCatch, updateCatchPhoto, fetchConventionFursuits } from '../api/confirmations';
 import { FursuitPicker } from './FursuitPicker';
 import type { FursuitPickerItem } from '../api';
@@ -179,17 +183,17 @@ export function PhotoCatchCard({
     let photoUrl: string;
     let storagePath: string;
     try {
-      const extension = inferImageExtension(photo);
+      const processed = await processImageForUpload(photo.uri, IMAGE_UPLOAD_PRESETS.catchPhoto);
       const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      storagePath = `${userId}/${uniqueSuffix}.${extension}`;
+      storagePath = `${userId}/${uniqueSuffix}.jpg`;
 
-      const fileBytes = await loadUriAsUint8Array(photo.uri);
+      const fileBytes = await loadUriAsUint8Array(processed.uri);
 
       const { error: uploadError } = await supabase.storage
         .from(CATCH_PHOTO_BUCKET)
         .upload(storagePath, fileBytes, {
-          contentType: photo.mimeType,
-          upsert: true,
+          contentType: 'image/jpeg',
+          upsert: false,
         });
 
       if (uploadError) throw uploadError;

@@ -1,7 +1,7 @@
 import { supabase } from '../../../lib/supabase';
-import { PROFILE_AVATAR_BUCKET, MAX_IMAGE_SIZE } from '../../../constants/storage';
+import { PROFILE_AVATAR_BUCKET } from '../../../constants/storage';
 import { loadUriAsUint8Array } from '../../../utils/files';
-import { inferImageExtension } from '../../../utils/images';
+import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import type { FursuitPhotoCandidate } from '../../onboarding/api/onboarding';
 import type { FursuitSocialLink } from '../../../types/database';
 
@@ -87,20 +87,18 @@ export async function uploadProfileAvatar(
   userId: string,
   photo: FursuitPhotoCandidate,
 ): Promise<string> {
-  if (photo.fileSize > MAX_IMAGE_SIZE) {
-    throw new Error('Profile photos must be 5MB or smaller.');
-  }
+  const processed = await processImageForUpload(photo.uri, IMAGE_UPLOAD_PRESETS.profileAvatar);
 
-  const extension = inferImageExtension(photo);
-  const storagePath = `${userId}/avatar.${extension}`;
+  const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const storagePath = `${userId}/${uniqueSuffix}.jpg`;
 
-  const fileBytes = await loadUriAsUint8Array(photo.uri);
+  const fileBytes = await loadUriAsUint8Array(processed.uri);
 
   const { error: uploadError } = await supabase.storage
     .from(PROFILE_AVATAR_BUCKET)
     .upload(storagePath, fileBytes, {
-      contentType: photo.mimeType,
-      upsert: true,
+      contentType: 'image/jpeg',
+      upsert: false,
     });
 
   if (uploadError) {

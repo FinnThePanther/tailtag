@@ -10,7 +10,7 @@ import { TailTagButton } from "../../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../../src/components/ui/TailTagCard";
 import { TailTagInput } from "../../../src/components/ui/TailTagInput";
 import { KeyboardAwareFormWrapper } from "../../../src/components/ui/KeyboardAwareFormWrapper";
-import { FURSUIT_BUCKET, MAX_IMAGE_SIZE } from "../../../src/constants/storage";
+import { FURSUIT_BUCKET } from "../../../src/constants/storage";
 import {
   UNIQUE_CODE_ATTEMPTS,
   UNIQUE_INSERT_ATTEMPTS,
@@ -22,7 +22,8 @@ import { generateUniqueCodeCandidate } from "../../../src/utils/code";
 import { loadUriAsUint8Array } from "../../../src/utils/files";
 import {
   buildImageUploadCandidate,
-  inferImageExtension,
+  processImageForUpload,
+  IMAGE_UPLOAD_PRESETS,
 } from "../../../src/utils/images";
 import { colors, spacing, radius } from "../../../src/theme";
 import {
@@ -369,11 +370,6 @@ export default function AddFursuitScreen() {
         return;
       }
 
-      if (asset.fileSize && asset.fileSize > MAX_IMAGE_SIZE) {
-        setPhotoError("Suit photos must be 5MB or smaller.");
-        return;
-      }
-
       const candidate: UploadCandidate = buildImageUploadCandidate(
         asset,
         `fursuit-${Date.now()}`,
@@ -451,11 +447,6 @@ export default function AddFursuitScreen() {
       }
     }
 
-    if (selectedPhoto && selectedPhoto.fileSize > MAX_IMAGE_SIZE) {
-      setSubmitError("Suit photos must be 5MB or smaller.");
-      return;
-    }
-
     const allowedConventionIds = Array.from(selectedConventionIds).filter(
       (id) => profileConventionIdSet.has(id),
     );
@@ -498,18 +489,18 @@ export default function AddFursuitScreen() {
       let avatarUrl: string | null = null;
 
       if (selectedPhoto) {
-        const extension = inferImageExtension(selectedPhoto);
+        const processed = await processImageForUpload(selectedPhoto.uri, IMAGE_UPLOAD_PRESETS.fursuitAvatar);
         const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const storagePath = `${userId}/${uniqueSuffix}.${extension}`;
+        const storagePath = `${userId}/${uniqueSuffix}.jpg`;
         uploadedStoragePath = storagePath;
 
-        const fileBytes = await loadUriAsUint8Array(selectedPhoto.uri);
+        const fileBytes = await loadUriAsUint8Array(processed.uri);
 
         const { error: uploadError } = await supabase.storage
           .from(FURSUIT_BUCKET)
           .upload(storagePath, fileBytes, {
-            contentType: selectedPhoto.mimeType,
-            upsert: true,
+            contentType: 'image/jpeg',
+            upsert: false,
           });
 
         if (uploadError) {

@@ -39,7 +39,11 @@ import { ConventionToggle } from "../../src/components/conventions/ConventionTog
 import { supabase } from "../../src/lib/supabase";
 import { captureHandledException } from "../../src/lib/sentry";
 import { colors, spacing, radius } from "../../src/theme";
-import { buildImageUploadCandidate } from "../../src/utils/images";
+import {
+  buildImageUploadCandidate,
+  extractStoragePath,
+} from "../../src/utils/images";
+import { PROFILE_AVATAR_BUCKET } from "../../src/constants/storage";
 import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import {
@@ -539,6 +543,7 @@ export default function SettingsScreen() {
     setAvatarError(null);
 
     try {
+      const oldAvatarUrl = queryClient.getQueryData<ProfileSummary | null>(profileQueryKey)?.avatar_url ?? null;
       const publicUrl = await uploadProfileAvatar(userId, photo);
       await updateProfileAvatar(userId, publicUrl);
       queryClient.setQueryData<ProfileSummary | null>(
@@ -546,6 +551,10 @@ export default function SettingsScreen() {
         (current) =>
           current ? { ...current, avatar_url: publicUrl } : current,
       );
+      const oldPath = extractStoragePath(oldAvatarUrl, PROFILE_AVATAR_BUCKET);
+      if (oldPath) {
+        void supabase.storage.from(PROFILE_AVATAR_BUCKET).remove([oldPath]).catch(() => {});
+      }
     } catch (caught) {
       const msg =
         caught instanceof Error

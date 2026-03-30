@@ -58,11 +58,13 @@ import {
   type CatchMode,
 } from '../../../src/features/catch-confirmations';
 import { supabase } from '../../../src/lib/supabase';
-import { FURSUIT_BUCKET, MAX_IMAGE_SIZE } from '../../../src/constants/storage';
+import { FURSUIT_BUCKET } from '../../../src/constants/storage';
 import { loadUriAsUint8Array } from '../../../src/utils/files';
 import {
   buildImageUploadCandidate,
-  inferImageExtension,
+  processImageForUpload,
+  IMAGE_UPLOAD_PRESETS,
+  extractStoragePath,
 } from '../../../src/utils/images';
 import { colors, spacing, radius } from '../../../src/theme';
 import type { Json } from '../../../src/types/database';
@@ -351,11 +353,6 @@ export default function EditFursuitScreen() {
         return;
       }
 
-      if (asset.fileSize && asset.fileSize > MAX_IMAGE_SIZE) {
-        setPhotoError('Suit photos must be 5MB or smaller.');
-        return;
-      }
-
       setSelectedPhoto(buildImageUploadCandidate(asset, `fursuit-${Date.now()}`));
       setPhotoError(null);
     } catch (caught) {
@@ -426,11 +423,6 @@ export default function EditFursuitScreen() {
       }
     }
 
-    if (selectedPhoto && selectedPhoto.fileSize > MAX_IMAGE_SIZE) {
-      setSubmitError('Suit photos must be 5MB or smaller.');
-      return;
-    }
-
     const toAdd = Array.from(selectedConventionIds).filter(
       (id) => !initialConventionIds.has(id) && profileConventionIdSet.has(id)
     );
@@ -476,17 +468,17 @@ export default function EditFursuitScreen() {
       let newAvatarUrl: string | undefined;
 
       if (selectedPhoto) {
-        const extension = inferImageExtension(selectedPhoto);
+        const processed = await processImageForUpload(selectedPhoto.uri, IMAGE_UPLOAD_PRESETS.fursuitAvatar);
         const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const storagePath = `${userId}/${uniqueSuffix}.${extension}`;
+        const storagePath = `${userId}/${uniqueSuffix}.jpg`;
 
-        const fileBytes = await loadUriAsUint8Array(selectedPhoto.uri);
+        const fileBytes = await loadUriAsUint8Array(processed.uri);
 
         const { error: uploadError } = await supabase.storage
           .from(FURSUIT_BUCKET)
           .upload(storagePath, fileBytes, {
-            contentType: selectedPhoto.mimeType,
-            upsert: true,
+            contentType: 'image/jpeg',
+            upsert: false,
           });
 
         if (uploadError) {
@@ -510,6 +502,16 @@ export default function EditFursuitScreen() {
 
       if (updateError) {
         throw updateError;
+      }
+
+      // Orphan cleanup: delete the old avatar after the DB update succeeds
+      if (newAvatarUrl !== undefined) {
+        const oldPath = extractStoragePath(detail.avatar_url ?? null, FURSUIT_BUCKET);
+        if (oldPath) {
+          void supabase.storage.from(FURSUIT_BUCKET).remove([oldPath]).catch((err) => {
+            console.warn('Failed to clean up old fursuit avatar', err);
+          });
+        }
       }
 
       updatedCoreRecord = true;
