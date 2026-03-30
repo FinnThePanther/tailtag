@@ -1,5 +1,7 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useEffect } from 'react';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +18,7 @@ import {
 } from '../../src/features/leaderboard';
 import { useBlockedIds } from '../../src/features/moderation';
 import { colors, radius, spacing } from '../../src/theme';
+import { getTransformedImageUrl } from '../../src/utils/supabase-image';
 
 const formatCatchCount = (count: number) =>
   count === 1 ? '1 catch' : `${count} catches`;
@@ -57,6 +60,18 @@ export default function FullLeaderboardScreen() {
   const filteredSuitEntries = suitEntries.filter(
     (e) => !e.ownerProfileId || !blockedIds.has(e.ownerProfileId),
   );
+
+  useEffect(() => {
+    if (!filteredSuitEntries.length) return;
+    const pixelSize = Math.round(40 * Math.min(PixelRatio.get(), 3));
+    const urls = filteredSuitEntries
+      .slice(0, 15)
+      .map((e) => getTransformedImageUrl(e.avatarUrl, { width: pixelSize, height: pixelSize }))
+      .filter((url): url is string => url !== null);
+    if (urls.length > 0) {
+      void Image.prefetch(urls);
+    }
+  }, [filteredSuitEntries]);
 
   return (
     <View style={styles.wrapper}>

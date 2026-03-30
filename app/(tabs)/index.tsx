@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  PixelRatio,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { Image } from "expo-image";
 import { AppAvatar } from "../../src/components/ui/AppAvatar";
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
@@ -50,6 +52,7 @@ import {
 } from "../../src/features/daily-tasks";
 import { useAutoRequestPushPermission } from "../../src/features/push-notifications";
 import { colors, spacing, radius } from "../../src/theme";
+import { getTransformedImageUrl } from "../../src/utils/supabase-image";
 
 const MAX_LEADERBOARD_ENTRIES = 5;
 const USERNAME_NUDGE_DISMISSED_KEY = "tailtag:username-nudge-dismissed";
@@ -424,6 +427,18 @@ export default function HomeScreen() {
     isSuitLeaderboardLoading || isSuitLeaderboardFetching;
   const suitErrorMessage = suitLeaderboardError?.message ?? null;
   const hasSuitEntries = topSuitEntries.length > 0;
+
+  useEffect(() => {
+    if (!suitLeaderboardEntries.length) return;
+    const pixelSize = Math.round(40 * Math.min(PixelRatio.get(), 3));
+    const urls = suitLeaderboardEntries
+      .slice(0, MAX_LEADERBOARD_ENTRIES)
+      .map((e) => getTransformedImageUrl(e.avatarUrl, { width: pixelSize, height: pixelSize }))
+      .filter((url): url is string => url !== null);
+    if (urls.length > 0) {
+      void Image.prefetch(urls);
+    }
+  }, [suitLeaderboardEntries]);
 
   const handleReloadStandings = useCallback(() => {
     void refetchLeaderboard({ throwOnError: false });
