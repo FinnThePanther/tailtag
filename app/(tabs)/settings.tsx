@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Pressable,
   StyleSheet,
   Switch,
@@ -16,6 +15,7 @@ import * as Linking from "expo-linking";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { AppAvatar } from "../../src/components/ui/AppAvatar";
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagInput } from "../../src/components/ui/TailTagInput";
@@ -848,7 +848,7 @@ export default function SettingsScreen() {
                 ]}
               >
                 {profile?.avatar_url ? (
-                  <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+                  <AppAvatar url={profile.avatar_url} size="xl" fallback="user" />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
                     <Text style={styles.avatarPlaceholderText}>Add photo</Text>
@@ -1440,11 +1440,6 @@ const styles = StyleSheet.create({
   },
   avatarButtonPressed: {
     opacity: 0.7,
-  },
-  avatarImage: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
   },
   avatarPlaceholder: {
     width: 88,

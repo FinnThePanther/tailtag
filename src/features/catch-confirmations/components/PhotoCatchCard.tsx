@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import {
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { File } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
@@ -254,9 +254,9 @@ export function PhotoCatchCard({
           {/* Photo preview */}
           <View style={styles.previewRow}>
             <Image
-              source={{ uri: photo!.uri }}
+              source={photo!.uri}
               style={styles.photoPreview}
-              resizeMode="cover"
+              contentFit="cover"
             />
             <View style={styles.previewActions}>
               <Text style={styles.previewLabel}>Selfie taken</Text>

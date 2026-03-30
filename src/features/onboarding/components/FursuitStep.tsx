@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 
 import * as ImagePicker from "expo-image-picker";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -367,8 +368,9 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
               {selectedPhoto ? (
                 <View style={styles.photoPreview}>
                   <Image
-                    source={{ uri: selectedPhoto.uri }}
+                    source={selectedPhoto.uri}
                     style={styles.photo}
+                    contentFit="cover"
                   />
                   <TailTagButton
                     variant="outline"

@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
+import { AppImage } from '../../../src/components/ui/AppImage';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
@@ -64,6 +65,7 @@ const formatCatchSummary = (count: number) => {
 };
 
 export default function FursuitDetailScreen() {
+  const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
@@ -204,8 +206,10 @@ export default function FursuitDetailScreen() {
           <View style={styles.detailStack}>
             <View style={styles.avatarWrapper}>
               {detail.avatar_url ? (
-                <Image
-                  source={{ uri: detail.avatar_url }}
+                <AppImage
+                  url={detail.avatar_url}
+                  width={screenWidth}
+                  height={screenWidth}
                   style={styles.avatar}
                 />
               ) : (
@@ -349,7 +353,6 @@ const styles = StyleSheet.create({
   avatar: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   avatarFallback: {
     fontSize: 10,

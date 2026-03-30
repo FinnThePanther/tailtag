@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import {
   Alert,
   Dimensions,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 
+import { AppImage } from "../../../components/ui/AppImage";
 import { colors, radius, spacing } from "../../../theme";
 import type { FursuitColorOption } from "../../colors";
 
@@ -107,7 +107,12 @@ export function FursuitCard({
       <View style={styles.leadRow}>
         <View style={styles.avatarWrapper}>
           {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            <AppImage
+              url={avatarUrl}
+              width={SCREEN_WIDTH * 0.5}
+              height={SCREEN_WIDTH * 0.5}
+              style={styles.avatar}
+            />
           ) : (
             <Text style={styles.avatarFallback}>No avatar</Text>
           )}
@@ -177,7 +182,6 @@ const styles = StyleSheet.create({
   avatar: {
     width: "100%",
     height: "100%",
-    resizeMode: "cover",
   },
   avatarFallback: {
     fontSize: 10,

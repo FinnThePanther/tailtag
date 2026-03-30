@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
+import { AppAvatar } from '../../../components/ui/AppAvatar';
+import { AppImage } from '../../../components/ui/AppImage';
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { colors, radius, spacing } from '../../../theme';
 import type { PendingCatch } from '../types';
@@ -45,6 +48,7 @@ export function PendingCatchCard({
   isProcessing = false,
 }: PendingCatchCardProps) {
   const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
   const [timeDisplay, setTimeDisplay] = useState(() =>
     formatTimeRemaining(pendingCatch.expiresAt)
   );
@@ -126,16 +130,8 @@ export function PendingCatchCard({
       )}
       <View style={styles.header}>
         <View style={styles.catcherInfo}>
-          <Pressable onPress={handleViewProfile} style={styles.avatarWrapper}>
-            {pendingCatch.catcherAvatarUrl ? (
-              <Image
-                source={{ uri: pendingCatch.catcherAvatarUrl }}
-                style={styles.avatarImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <Ionicons name="person" size={20} color="rgba(148,163,184,0.7)" />
-            )}
+          <Pressable onPress={handleViewProfile}>
+            <AppAvatar url={pendingCatch.catcherAvatarUrl} size="xs" fallback="user" />
           </Pressable>
           <View style={styles.textInfo}>
             <Pressable onPress={handleViewProfile}>
@@ -168,10 +164,11 @@ export function PendingCatchCard({
             accessibilityLabel="Tap to view catch photo fullscreen"
             accessibilityRole="button"
           >
-            <Image
-              source={{ uri: pendingCatch.catchPhotoUrl }}
+            <AppImage
+              url={pendingCatch.catchPhotoUrl}
+              width={screenWidth}
+              height={screenWidth}
               style={styles.catchPhoto}
-              resizeMode="cover"
               accessibilityLabel="Selfie taken by catcher"
             />
           </Pressable>
@@ -186,9 +183,9 @@ export function PendingCatchCard({
               onPress={() => setPhotoFullscreen(false)}
             >
               <Image
-                source={{ uri: pendingCatch.catchPhotoUrl }}
+                source={pendingCatch.catchPhotoUrl}
                 style={styles.fullscreenPhoto}
-                resizeMode="contain"
+                contentFit="contain"
                 accessibilityLabel="Catch photo fullscreen view"
               />
               <Pressable
@@ -295,22 +292,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     marginRight: spacing.sm,
-  },
-  avatarWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(30,41,59,0.8)',
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 20,
   },
   textInfo: {
     flex: 1,

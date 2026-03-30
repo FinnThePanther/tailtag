@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { AppImage } from '../../../src/components/ui/AppImage';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
@@ -716,9 +718,9 @@ export default function EditFursuitScreen() {
                 <Text style={styles.label}>Suit photo</Text>
                 <View style={styles.photoRow}>
                   {selectedPhoto ? (
-                    <Image source={{ uri: selectedPhoto.uri }} style={styles.photoPreview} />
+                    <Image source={selectedPhoto.uri} style={styles.photoPreview} contentFit="cover" />
                   ) : detail?.avatar_url ? (
-                    <Image source={{ uri: detail.avatar_url }} style={styles.photoPreview} />
+                    <AppImage url={detail.avatar_url} style={styles.photoPreview} />
                   ) : (
                     <View style={styles.photoPlaceholder}>
                       <Text style={styles.photoPlaceholderText}>No photo</Text>

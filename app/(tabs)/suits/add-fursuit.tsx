@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -726,8 +727,9 @@ export default function AddFursuitScreen() {
           <View style={styles.photoRow}>
             {selectedPhoto ? (
               <Image
-                source={{ uri: selectedPhoto.uri }}
+                source={selectedPhoto.uri}
                 style={styles.photoPreview}
+                contentFit="cover"
               />
             ) : (
               <View style={styles.photoPlaceholder}>

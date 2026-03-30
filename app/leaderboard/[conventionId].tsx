@@ -1,10 +1,11 @@
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../../src/features/auth';
+import { AppAvatar } from '../../src/components/ui/AppAvatar';
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import {
@@ -139,11 +140,7 @@ export default function FullLeaderboardScreen() {
                 accessibilityLabel={`View ${entry.name}'s fursuit profile`}
               >
                 <Text style={styles.rank}>#{index + 1}</Text>
-                {entry.avatarUrl ? (
-                  <Image source={{ uri: entry.avatarUrl }} style={styles.avatar} />
-                ) : (
-                  <View style={styles.avatarPlaceholder} />
-                )}
+                <AppAvatar url={entry.avatarUrl} size="xs" fallback="fursuit" style={styles.avatarMargin} />
                 <View style={styles.details}>
                   <Text style={styles.name} numberOfLines={1}>{entry.name}</Text>
                   <Text style={styles.catchLabel} numberOfLines={1}>
@@ -213,18 +210,8 @@ const styles = StyleSheet.create({
     color: 'rgba(203,213,225,0.8)',
     fontSize: 13,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  avatarMargin: {
     marginRight: spacing.md,
-  },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: spacing.md,
-    backgroundColor: 'rgba(148,163,184,0.2)',
   },
   divider: {
     height: 1,
