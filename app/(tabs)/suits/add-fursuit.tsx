@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -9,7 +10,7 @@ import { TailTagButton } from "../../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../../src/components/ui/TailTagCard";
 import { TailTagInput } from "../../../src/components/ui/TailTagInput";
 import { KeyboardAwareFormWrapper } from "../../../src/components/ui/KeyboardAwareFormWrapper";
-import { FURSUIT_BUCKET, MAX_IMAGE_SIZE } from "../../../src/constants/storage";
+import { FURSUIT_BUCKET } from "../../../src/constants/storage";
 import {
   UNIQUE_CODE_ATTEMPTS,
   UNIQUE_INSERT_ATTEMPTS,
@@ -20,8 +21,8 @@ import { captureNonCriticalError } from "../../../src/lib/sentry";
 import { generateUniqueCodeCandidate } from "../../../src/utils/code";
 import { loadUriAsUint8Array } from "../../../src/utils/files";
 import {
-  buildImageUploadCandidate,
-  inferImageExtension,
+  processImageForUpload,
+  IMAGE_UPLOAD_PRESETS,
 } from "../../../src/utils/images";
 import { colors, spacing, radius } from "../../../src/theme";
 import {
@@ -144,6 +145,7 @@ export default function AddFursuitScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [selectedPhoto, setSelectedPhoto] = useState<UploadCandidate>(null);
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
   const speciesLoadError = speciesError?.message ?? null;
@@ -368,18 +370,21 @@ export default function AddFursuitScreen() {
         return;
       }
 
-      if (asset.fileSize && asset.fileSize > MAX_IMAGE_SIZE) {
-        setPhotoError("Suit photos must be 5MB or smaller.");
-        return;
-      }
-
-      const candidate: UploadCandidate = buildImageUploadCandidate(
-        asset,
-        `fursuit-${Date.now()}`,
-      );
-
-      setSelectedPhoto(candidate);
+      setIsProcessingPhoto(true);
       setPhotoError(null);
+      try {
+        const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.fursuitAvatar);
+        setSelectedPhoto({
+          uri: processed.uri,
+          mimeType: "image/jpeg",
+          fileName: `fursuit-${Date.now()}.jpg`,
+          fileSize: 0,
+        });
+      } catch {
+        setPhotoError("We could not process that photo. Please try another.");
+      } finally {
+        setIsProcessingPhoto(false);
+      }
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error
@@ -450,11 +455,6 @@ export default function AddFursuitScreen() {
       }
     }
 
-    if (selectedPhoto && selectedPhoto.fileSize > MAX_IMAGE_SIZE) {
-      setSubmitError("Suit photos must be 5MB or smaller.");
-      return;
-    }
-
     const allowedConventionIds = Array.from(selectedConventionIds).filter(
       (id) => profileConventionIdSet.has(id),
     );
@@ -497,9 +497,8 @@ export default function AddFursuitScreen() {
       let avatarUrl: string | null = null;
 
       if (selectedPhoto) {
-        const extension = inferImageExtension(selectedPhoto);
         const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const storagePath = `${userId}/${uniqueSuffix}.${extension}`;
+        const storagePath = `${userId}/${uniqueSuffix}.jpg`;
         uploadedStoragePath = storagePath;
 
         const fileBytes = await loadUriAsUint8Array(selectedPhoto.uri);
@@ -507,8 +506,8 @@ export default function AddFursuitScreen() {
         const { error: uploadError } = await supabase.storage
           .from(FURSUIT_BUCKET)
           .upload(storagePath, fileBytes, {
-            contentType: selectedPhoto.mimeType,
-            upsert: true,
+            contentType: 'image/jpeg',
+            upsert: false,
           });
 
         if (uploadError) {
@@ -724,10 +723,15 @@ export default function AddFursuitScreen() {
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Suit photo</Text>
           <View style={styles.photoRow}>
-            {selectedPhoto ? (
+            {isProcessingPhoto ? (
+              <View style={[styles.photoPreview, styles.photoProcessing]}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : selectedPhoto ? (
               <Image
-                source={{ uri: selectedPhoto.uri }}
+                source={selectedPhoto.uri}
                 style={styles.photoPreview}
+                contentFit="cover"
               />
             ) : (
               <View style={styles.photoPlaceholder}>
@@ -739,7 +743,7 @@ export default function AddFursuitScreen() {
             <TailTagButton
               variant="outline"
               onPress={handlePickPhoto}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isProcessingPhoto}
             >
               Choose photo
             </TailTagButton>
@@ -1250,6 +1254,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: "rgba(148,163,184,0.3)",
+  },
+  photoProcessing: {
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(30,41,59,0.8)",
   },
   photoPlaceholder: {
     width: "50%",

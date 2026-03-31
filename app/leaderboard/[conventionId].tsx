@@ -1,10 +1,13 @@
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useEffect } from 'react';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../../src/features/auth';
+import { AppAvatar } from '../../src/components/ui/AppAvatar';
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import {
@@ -15,6 +18,7 @@ import {
 } from '../../src/features/leaderboard';
 import { useBlockedIds } from '../../src/features/moderation';
 import { colors, radius, spacing } from '../../src/theme';
+import { getTransformedImageUrl } from '../../src/utils/supabase-image';
 
 const formatCatchCount = (count: number) =>
   count === 1 ? '1 catch' : `${count} catches`;
@@ -56,6 +60,18 @@ export default function FullLeaderboardScreen() {
   const filteredSuitEntries = suitEntries.filter(
     (e) => !e.ownerProfileId || !blockedIds.has(e.ownerProfileId),
   );
+
+  useEffect(() => {
+    if (!filteredSuitEntries.length) return;
+    const pixelSize = Math.round(40 * Math.min(PixelRatio.get(), 3));
+    const urls = filteredSuitEntries
+      .slice(0, 15)
+      .map((e) => getTransformedImageUrl(e.avatarUrl, { width: pixelSize, height: pixelSize }))
+      .filter((url): url is string => url !== null);
+    if (urls.length > 0) {
+      void Image.prefetch(urls);
+    }
+  }, [filteredSuitEntries]);
 
   return (
     <View style={styles.wrapper}>
@@ -139,11 +155,7 @@ export default function FullLeaderboardScreen() {
                 accessibilityLabel={`View ${entry.name}'s fursuit profile`}
               >
                 <Text style={styles.rank}>#{index + 1}</Text>
-                {entry.avatarUrl ? (
-                  <Image source={{ uri: entry.avatarUrl }} style={styles.avatar} />
-                ) : (
-                  <View style={styles.avatarPlaceholder} />
-                )}
+                <AppAvatar url={entry.avatarUrl} size="xs" fallback="fursuit" style={styles.avatarMargin} />
                 <View style={styles.details}>
                   <Text style={styles.name} numberOfLines={1}>{entry.name}</Text>
                   <Text style={styles.catchLabel} numberOfLines={1}>
@@ -213,18 +225,8 @@ const styles = StyleSheet.create({
     color: 'rgba(203,213,225,0.8)',
     fontSize: 13,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  avatarMargin: {
     marginRight: spacing.md,
-  },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: spacing.md,
-    backgroundColor: 'rgba(148,163,184,0.2)',
   },
   divider: {
     height: 1,

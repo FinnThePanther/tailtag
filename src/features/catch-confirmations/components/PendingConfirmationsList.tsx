@@ -1,6 +1,7 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { AppAvatar } from '../../../components/ui/AppAvatar';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { colors, radius, spacing } from '../../../theme';
 import { toDisplayDate } from '../../../utils/dates';
@@ -15,15 +16,7 @@ function PendingConfirmationRow({ item }: { item: MyPendingCatch }) {
 
   return (
     <View style={styles.row}>
-      <View style={styles.thumbnail}>
-        {item.fursuitAvatarUrl ? (
-          <Image source={{ uri: item.fursuitAvatarUrl }} style={styles.thumbnailImage} />
-        ) : (
-          <View style={styles.thumbnailFallback}>
-            <Ionicons name="paw" size={20} color="rgba(148,163,184,0.4)" />
-          </View>
-        )}
-      </View>
+      <AppAvatar url={item.fursuitAvatarUrl} size="md" fallback="fursuit" />
       <View style={styles.textCol}>
         <Text style={styles.name} numberOfLines={1}>
           {item.fursuitName}
@@ -147,25 +140,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(148,163,184,0.25)',
     padding: spacing.md,
-  },
-  thumbnail: {
-    width: 52,
-    height: 52,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(30,41,59,0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
-  },
-  thumbnailImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  thumbnailFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   textCol: {
     flex: 1,

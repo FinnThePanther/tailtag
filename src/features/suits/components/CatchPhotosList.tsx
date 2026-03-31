@@ -1,21 +1,25 @@
 import { useCallback, useState } from "react";
 import {
   Alert,
-  Image,
+  Dimensions,
   Modal,
   Pressable,
   StatusBar,
   StyleSheet,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
+import { AppImage } from "../../../components/ui/AppImage";
 import { TailTagButton } from "../../../components/ui/TailTagButton";
 import { radius, spacing } from "../../../theme";
 import { inferImageExtension, inferImageMimeType } from "../../../utils/images";
 import type { CatchOfFursuitItem } from "../api/catchesByFursuit";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 type CatchPhotosListProps = {
   items: CatchOfFursuitItem[];
@@ -74,10 +78,11 @@ export function CatchPhotosList({ items }: CatchPhotosListProps) {
             accessibilityRole="button"
             accessibilityLabel="View catch photo fullscreen"
           >
-            <Image
-              source={{ uri: item.catch_photo_url }}
+            <AppImage
+              url={item.catch_photo_url}
+              width={SCREEN_WIDTH * 0.31}
+              height={SCREEN_WIDTH * 0.31}
               style={styles.thumbnail}
-              resizeMode="cover"
               accessibilityLabel="Catch photo thumbnail"
             />
           </Pressable>
@@ -103,9 +108,9 @@ export function CatchPhotosList({ items }: CatchPhotosListProps) {
               <Ionicons name="close" size={28} color="#fff" />
             </Pressable>
             <Image
-              source={{ uri: fullscreenUrl }}
+              source={fullscreenUrl}
               style={styles.fullscreenImage}
-              resizeMode="contain"
+              contentFit="contain"
               accessibilityLabel="Catch photo fullscreen"
             />
             <View style={styles.fullscreenActions}>
