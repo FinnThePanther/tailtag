@@ -3,7 +3,6 @@ import {
   Linking,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -35,7 +34,8 @@ import {
   aggregateSocialLinks,
 } from '../../../src/features/public-profile';
 import { captureNonCriticalError } from '../../../src/lib/sentry';
-import { colors, radius, spacing } from '../../../src/theme';
+import { colors } from '../../../src/theme';
+import { styles } from './index.styles';
 
 const openSocialLink = async (url: string) => {
   try {
@@ -289,146 +289,3 @@ export default function PublicProfileScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-    gap: spacing.lg,
-  },
-  centeredMessage: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerButton: {
-    color: colors.primary,
-    fontSize: 17,
-  },
-  profileHeader: {
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  avatarContainer: {
-    marginBottom: spacing.xs,
-  },
-  username: {
-    color: colors.foreground,
-    fontSize: 22,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  bio: {
-    color: 'rgba(203,213,225,0.9)',
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  sectionTitle: {
-    color: colors.primary,
-    fontSize: 13,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-    flexWrap: 'wrap',
-  },
-  statCard: {
-    flexGrow: 1,
-    flexBasis: 120,
-    backgroundColor: 'rgba(30,41,59,0.6)',
-    borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148,163,184,0.2)',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.xs,
-  },
-  statValue: {
-    color: colors.foreground,
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  statLabel: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 13,
-  },
-  socialList: {
-    gap: spacing.sm,
-  },
-  socialLink: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.35)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: 'rgba(30,41,59,0.6)',
-  },
-  socialLabel: {
-    color: colors.foreground,
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  socialUrl: {
-    color: '#38bdf8',
-    fontSize: 13,
-  },
-  suitsList: {
-    gap: spacing.md,
-  },
-  achievementList: {
-    gap: spacing.sm,
-  },
-  achievementRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  achievementIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(30,41,59,0.8)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  achievementText: {
-    flex: 1,
-    gap: 2,
-  },
-  achievementName: {
-    color: colors.foreground,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  achievementDescription: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  message: {
-    color: 'rgba(203,213,225,0.9)',
-    fontSize: 14,
-  },
-  errorBlock: {
-    gap: spacing.sm,
-  },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
-  },
-});

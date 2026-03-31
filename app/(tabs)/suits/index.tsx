@@ -1,11 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
-  Dimensions,
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -31,12 +29,10 @@ import { TailTagCard } from "../../../src/components/ui/TailTagCard";
 import { FURSUIT_BUCKET } from "../../../src/constants/storage";
 import { useAuth } from "../../../src/features/auth";
 import { supabase } from "../../../src/lib/supabase";
-import { colors, spacing } from "../../../src/theme";
+import { colors } from "../../../src/theme";
 import { toDisplayDate } from "../../../src/utils/dates";
 import { deriveStoragePathFromPublicUrl } from "../../../src/utils/storage";
-
-const SCREEN_WIDTH = Dimensions.get("window").width;
-const IS_SMALL_SCREEN = SCREEN_WIDTH <= 375;
+import { styles } from "./index.styles";
 
 export default function MySuitsScreen() {
   const router = useRouter();
@@ -321,72 +317,3 @@ export default function MySuitsScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    paddingHorizontal: IS_SMALL_SCREEN ? spacing.md : spacing.lg,
-    paddingTop: IS_SMALL_SCREEN ? spacing.lg : spacing.xl,
-    paddingBottom: spacing.xxl,
-    gap: IS_SMALL_SCREEN ? spacing.md : spacing.lg,
-  },
-  header: {
-    gap: spacing.xs,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: "uppercase",
-    color: colors.primary,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: colors.foreground,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: "rgba(203,213,225,0.9)",
-  },
-  helperRow: {
-    flexDirection: IS_SMALL_SCREEN ? "column" : "row",
-    alignItems: IS_SMALL_SCREEN ? "flex-start" : "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-  helperText: {
-    color: "rgba(203,213,225,0.9)",
-    flex: IS_SMALL_SCREEN ? 0 : 1,
-    fontSize: 14,
-  },
-  cardSpacing: {
-    marginBottom: spacing.lg,
-  },
-  message: {
-    color: "rgba(203,213,225,0.9)",
-    fontSize: 14,
-  },
-  helperColumn: {
-    gap: spacing.sm,
-  },
-  error: {
-    color: "#fca5a5",
-    fontSize: 14,
-  },
-  list: {
-    marginTop: spacing.md,
-  },
-  listItemSpacing: {
-    marginBottom: spacing.md,
-  },
-  deleteLink: {
-    fontSize: IS_SMALL_SCREEN ? 10 : 11,
-    textTransform: "uppercase",
-    letterSpacing: IS_SMALL_SCREEN ? 2 : 3,
-    color: colors.destructive,
-    fontWeight: "600",
-  },
-});

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,12 +12,12 @@ import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareF
 import { PasswordStrengthIndicator } from "../../src/features/auth/components/PasswordStrengthIndicator";
 import { useOAuthSignIn } from "../../src/features/auth/hooks/useOAuthSignIn";
 import { supabase } from "../../src/lib/supabase";
-import { colors, spacing } from "../../src/theme";
 import {
   isValidEmail,
   mapAuthError,
   validatePassword,
 } from "../../src/utils/authValidation";
+import { styles } from "./auth.styles";
 
 const generateDefaultUsername = (rawEmail: string) => {
   const [localPart] = rawEmail.split("@");
@@ -331,85 +331,3 @@ export default function AuthScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-  },
-  header: {
-    marginBottom: spacing.lg,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: "uppercase",
-    color: colors.primary,
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: 26,
-    fontWeight: "700",
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    color: "rgba(203,213,225,0.9)",
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  emailHighlight: {
-    color: colors.primary,
-    fontWeight: "600",
-  },
-  formCard: {
-    gap: spacing.lg,
-  },
-  fieldGroup: {
-    gap: spacing.sm,
-  },
-  label: {
-    color: colors.foreground,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  errorText: {
-    color: "#fca5a5",
-    fontSize: 14,
-  },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "rgba(148,163,184,0.4)",
-  },
-  dividerLabel: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  footerHelper: {
-    marginTop: spacing.lg,
-    alignItems: "center",
-  },
-  helperText: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 13,
-    lineHeight: 20,
-    textAlign: "center",
-  },
-  link: {
-    color: colors.primary,
-    textDecorationLine: "underline",
-    fontWeight: "600",
-  },
-});
