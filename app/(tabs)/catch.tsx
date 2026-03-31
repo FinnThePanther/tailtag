@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import {
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -39,10 +38,11 @@ import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import { supabase } from "../../src/lib/supabase";
 import { captureHandledException, addMonitoringBreadcrumb } from "../../src/lib/sentry";
-import { colors, radius, spacing } from "../../src/theme";
+import { spacing } from "../../src/theme";
 import { useBlockedIds } from "../../src/features/moderation";
 import { normalizeUniqueCodeInput } from "../../src/utils/code";
 import { toDisplayDateTime } from "../../src/utils/dates";
+import { styles } from "./catch.styles";
 
 import type { FursuitsRow } from "../../src/types/database";
 import type { FursuitColorOption } from "../../src/features/colors";
@@ -733,154 +733,3 @@ export default function CatchScreen() {
     </KeyboardAwareFormWrapper>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-  },
-  header: {
-    marginBottom: spacing.lg,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: "uppercase",
-    color: colors.primary,
-    marginBottom: spacing.xs,
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: 26,
-    fontWeight: "700",
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    color: "rgba(203,213,225,0.9)",
-    fontSize: 15,
-  },
-  cardSpacing: {
-    marginBottom: spacing.lg,
-  },
-  pendingCard: {
-    borderColor: "#fbbf24",
-    borderWidth: 2,
-  },
-  pendingCardBorder: {
-    borderRadius: radius.xl,
-    borderWidth: 2,
-    borderColor: "#fbbf24",
-    overflow: "hidden",
-  },
-  fieldGroup: {
-    marginBottom: spacing.lg,
-  },
-  label: {
-    color: colors.foreground,
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: spacing.xs,
-  },
-  helpText: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 12,
-    marginTop: spacing.xs,
-  },
-  errorContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    backgroundColor: "rgba(248,113,113,0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(248,113,113,0.4)",
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  errorText: {
-    color: "#f87171",
-    fontSize: 14,
-    flex: 1,
-    lineHeight: 20,
-  },
-  sectionTitle: {
-    color: colors.foreground,
-    fontSize: 20,
-    fontWeight: "600",
-    marginBottom: spacing.sm,
-  },
-  sectionBody: {
-    color: "rgba(203,213,225,0.9)",
-    fontSize: 14,
-    marginBottom: spacing.md,
-    flexShrink: 1,
-  },
-  sectionHighlight: {
-    color: colors.primary,
-    fontWeight: "600",
-  },
-  pendingHighlight: {
-    color: "#fbbf24",
-    fontWeight: "600",
-  },
-  bioSpacing: {
-    marginTop: spacing.md,
-  },
-  buttonRow: {
-    flexDirection: "column",
-    marginTop: spacing.md,
-    alignItems: "stretch",
-  },
-  stackedButtonSpacing: {
-    marginBottom: spacing.sm,
-  },
-  codeInput: {
-    textTransform: "uppercase",
-    letterSpacing: 4,
-    fontSize: 20,
-  },
-  fullWidthButton: {
-    width: "100%",
-  },
-  promptCard: {
-    marginBottom: spacing.md,
-    backgroundColor: colors.primaryMuted,
-    borderColor: colors.primaryDark,
-  },
-  pendingPromptCard: {
-    marginBottom: spacing.md,
-    backgroundColor: "rgba(251, 191, 36, 0.1)",
-    borderColor: "rgba(251, 191, 36, 0.3)",
-  },
-  promptLabel: {
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: colors.primary,
-    marginBottom: spacing.xs,
-    fontWeight: "600",
-  },
-  pendingPromptLabel: {
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: "#fbbf24",
-    marginBottom: spacing.xs,
-    fontWeight: "600",
-  },
-  promptBody: {
-    fontSize: 16,
-    color: colors.foreground,
-    lineHeight: 22,
-  },
-  photoCatchSpacing: {
-    marginBottom: spacing.lg,
-  },
-  comingSoon: {
-    color: "rgba(148,163,184,0.6)",
-    fontSize: 13,
-    textAlign: "center",
-    marginBottom: spacing.lg,
-  },
-});
