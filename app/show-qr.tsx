@@ -4,7 +4,6 @@ import {
   Alert,
   Dimensions,
   FlatList,
-  Image,
   LayoutChangeEvent,
   StyleSheet,
   Text,
@@ -20,6 +19,7 @@ import { Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import QRCode from 'react-native-qrcode-svg';
 
+import { AppAvatar } from '../src/components/ui/AppAvatar';
 import { TailTagCard } from '../src/components/ui/TailTagCard';
 import { TailTagButton } from '../src/components/ui/TailTagButton';
 import { colors, spacing, radius } from '../src/theme';
@@ -59,7 +59,7 @@ function QrPagerItem({ item, width, downloadingTagId, onDownload }: RenderItemPr
             <QRCode value={payload} size={Math.min(width - spacing.xl * 2, 320)} color="#0f172a" backgroundColor="#ffffff" ecl="H" />
           </View>
           {item.fursuitAvatarUrl ? (
-            <Image source={{ uri: item.fursuitAvatarUrl }} style={styles.avatar} />
+            <AppAvatar url={item.fursuitAvatarUrl} size="lg" fallback="fursuit" style={styles.avatarMargin} />
           ) : null}
           <TailTagButton
             variant="outline"
@@ -359,12 +359,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(148,163,184,0.2)',
   },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
-    borderColor: 'rgba(148,163,184,0.3)',
+  avatarMargin: {
+    marginVertical: spacing.sm,
   },
   pageDots: {
     flexDirection: 'row',

@@ -1,7 +1,7 @@
-import { Alert, FlatList, Image, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { Ionicons } from '@expo/vector-icons';
 
+import { AppAvatar } from '../../../components/ui/AppAvatar';
 import { useAuth } from '../../auth';
 import { fetchBlockedUsers, blockedUsersQueryKey } from '../api/blocks';
 import { useUnblockUser } from '../hooks/useUnblockUser';
@@ -43,15 +43,7 @@ export function BlockedUsersScreen() {
 
   const renderItem = ({ item }: { item: UserBlock }) => (
     <View style={styles.row}>
-      <View style={styles.avatarContainer}>
-        {item.blockedAvatarUrl ? (
-          <Image source={{ uri: item.blockedAvatarUrl }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person-circle-outline" size={36} color="rgba(148,163,184,0.5)" />
-          </View>
-        )}
-      </View>
+      <AppAvatar url={item.blockedAvatarUrl} size="xs" fallback="user" />
       <View style={styles.info}>
         <Text style={styles.username} numberOfLines={1}>
           {item.blockedUsername ?? 'Unknown user'}
@@ -123,24 +115,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     backgroundColor: 'rgba(15,23,42,0.6)',
-  },
-  avatarContainer: {
-    width: 40,
-    height: 40,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(30,41,59,0.8)',
-  },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(30,41,59,0.8)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   info: {
     flex: 1,

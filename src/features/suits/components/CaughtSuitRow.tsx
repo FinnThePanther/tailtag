@@ -1,6 +1,7 @@
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { AppAvatar } from "../../../components/ui/AppAvatar";
 import { colors, radius, spacing } from "../../../theme";
 import { toDisplayDate } from "../../../utils/dates";
 
@@ -29,15 +30,7 @@ export function CaughtSuitRow({
       onPress={onPress}
       style={({ pressed }) => [styles.container, pressed && styles.pressed]}
     >
-      <View style={styles.thumbnail}>
-        {avatarUrl ? (
-          <Image source={{ uri: avatarUrl }} style={styles.thumbnailImage} />
-        ) : (
-          <View style={styles.thumbnailFallback}>
-            <Ionicons name="paw" size={20} color="rgba(148,163,184,0.4)" />
-          </View>
-        )}
-      </View>
+      <AppAvatar url={avatarUrl} size="md" fallback="fursuit" />
       <View style={styles.textCol}>
         <Text style={styles.name} numberOfLines={1}>
           {name}
@@ -73,25 +66,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.75,
-  },
-  thumbnail: {
-    width: 52,
-    height: 52,
-    borderRadius: radius.lg,
-    overflow: "hidden",
-    backgroundColor: "rgba(30,41,59,0.8)",
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.2)",
-  },
-  thumbnailImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  thumbnailFallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
   },
   textCol: {
     flex: 1,

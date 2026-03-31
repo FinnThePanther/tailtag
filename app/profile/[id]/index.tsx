@@ -1,6 +1,5 @@
 import {
   Alert,
-  Image,
   Linking,
   Pressable,
   ScrollView,
@@ -12,6 +11,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
+import { AppAvatar } from '../../../src/components/ui/AppAvatar';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
@@ -172,13 +172,7 @@ export default function PublicProfileScreen() {
           ) : (
             <View style={styles.profileHeader}>
               <View style={styles.avatarContainer}>
-                {avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Ionicons name="person-circle-outline" size={72} color="rgba(148,163,184,0.5)" />
-                  </View>
-                )}
+                <AppAvatar url={avatarUrl} size="2xl" fallback="user" />
               </View>
               <Text style={styles.username}>
                 {profile?.username}
@@ -325,20 +319,6 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     marginBottom: spacing.xs,
-  },
-  avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: 'rgba(30,41,59,0.8)',
-  },
-  avatarPlaceholder: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: 'rgba(30,41,59,0.8)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   username: {
     color: colors.foreground,

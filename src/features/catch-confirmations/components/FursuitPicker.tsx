@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -10,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { AppAvatar } from '../../../components/ui/AppAvatar';
 import { TailTagInput } from '../../../components/ui/TailTagInput';
 import { colors, radius, spacing } from '../../../theme';
 import type { FursuitPickerItem } from '../api';
@@ -102,17 +102,7 @@ function FursuitPickerRow({ item, isSelected, onPress }: RowProps) {
       accessibilityState={{ checked: isSelected }}
       accessibilityLabel={`${item.name}${item.species ? `, ${item.species}` : ''}`}
     >
-      <View style={styles.avatar}>
-        {item.avatarUrl ? (
-          <Image
-            source={{ uri: item.avatarUrl }}
-            style={styles.avatarImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <Ionicons name="paw" size={20} color="rgba(148,163,184,0.5)" />
-        )}
-      </View>
+      <AppAvatar url={item.avatarUrl} size="sm" fallback="fursuit" style={styles.avatarFlexShrink} />
       <View style={styles.rowText}>
         <Text style={styles.rowName} numberOfLines={1}>
           {item.name}
@@ -171,21 +161,8 @@ const styles = StyleSheet.create({
   rowSelected: {
     backgroundColor: 'rgba(99,102,241,0.12)',
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(30,41,59,0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+  avatarFlexShrink: {
     flexShrink: 0,
-  },
-  avatarImage: {
-    width: 44,
-    height: 44,
   },
   rowText: {
     flex: 1,

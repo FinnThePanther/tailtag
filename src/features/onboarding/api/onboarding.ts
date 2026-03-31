@@ -1,9 +1,8 @@
 import { supabase } from '../../../lib/supabase';
-import { FURSUIT_BUCKET, MAX_IMAGE_SIZE } from '../../../constants/storage';
+import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { UNIQUE_CODE_ATTEMPTS, UNIQUE_INSERT_ATTEMPTS } from '../../../constants/codes';
 import { generateUniqueCodeCandidate } from '../../../utils/code';
 import { loadUriAsUint8Array } from '../../../utils/files';
-import { inferImageExtension } from '../../../utils/images';
 import {
   addMonitoringBreadcrumb,
   captureHandledMessage,
@@ -52,19 +51,14 @@ const generateAvailableFursuitCode = async (): Promise<string> => {
 };
 
 const uploadFursuitPhoto = async (userId: string, photo: FursuitPhotoCandidate) => {
-  if (photo.fileSize > MAX_IMAGE_SIZE) {
-    throw new Error('Suit photos must be 5MB or smaller.');
-  }
-
-  const extension = inferImageExtension(photo);
   const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const storagePath = `${userId}/${uniqueSuffix}.${extension}`;
+  const storagePath = `${userId}/${uniqueSuffix}.jpg`;
 
   const fileBytes = await loadUriAsUint8Array(photo.uri);
 
   const { error: uploadError } = await supabase.storage.from(FURSUIT_BUCKET).upload(storagePath, fileBytes, {
-    contentType: photo.mimeType,
-    upsert: true,
+    contentType: 'image/jpeg',
+    upsert: false,
   });
 
   if (uploadError) {

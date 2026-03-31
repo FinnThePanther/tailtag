@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Image, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from "react-native";
+import { Alert, Dimensions, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
+import { AppImage } from "../../src/components/ui/AppImage";
 import { ScreenHeader } from "../../src/components/ui/ScreenHeader";
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
@@ -21,6 +23,8 @@ import { useAuth } from "../../src/features/auth";
 import { colors, spacing } from "../../src/theme";
 import { toDisplayDateTime } from "../../src/utils/dates";
 import { inferImageExtension, inferImageMimeType } from "../../src/utils/images";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 export default function CatchDetailScreen() {
   const router = useRouter();
@@ -136,10 +140,11 @@ export default function CatchDetailScreen() {
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Catch photo</Text>
                 <Pressable onPress={() => setPhotoFullscreen(true)} accessibilityRole="button" accessibilityLabel="View catch photo fullscreen">
-                  <Image
-                    source={{ uri: record.catchPhotoUrl }}
+                  <AppImage
+                    url={record.catchPhotoUrl}
+                    width={SCREEN_WIDTH}
+                    height={SCREEN_WIDTH * 0.75}
                     style={styles.catchPhoto}
-                    resizeMode="cover"
                     accessibilityLabel="Catch selfie photo"
                   />
                 </Pressable>
@@ -173,9 +178,9 @@ export default function CatchDetailScreen() {
               <Ionicons name="close" size={28} color="#fff" />
             </Pressable>
             <Image
-              source={{ uri: record.catchPhotoUrl }}
+              source={record.catchPhotoUrl}
               style={styles.fullscreenImage}
-              resizeMode="contain"
+              contentFit="contain"
               accessibilityLabel="Catch selfie photo fullscreen"
             />
           </View>

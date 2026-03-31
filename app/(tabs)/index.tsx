@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Image,
+  PixelRatio,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +15,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { Image } from "expo-image";
+import { AppAvatar } from "../../src/components/ui/AppAvatar";
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagProgressBar } from "../../src/components/ui/TailTagProgressBar";
@@ -50,6 +52,7 @@ import {
 } from "../../src/features/daily-tasks";
 import { useAutoRequestPushPermission } from "../../src/features/push-notifications";
 import { colors, spacing, radius } from "../../src/theme";
+import { getTransformedImageUrl } from "../../src/utils/supabase-image";
 
 const MAX_LEADERBOARD_ENTRIES = 5;
 const USERNAME_NUDGE_DISMISSED_KEY = "tailtag:username-nudge-dismissed";
@@ -424,6 +427,18 @@ export default function HomeScreen() {
     isSuitLeaderboardLoading || isSuitLeaderboardFetching;
   const suitErrorMessage = suitLeaderboardError?.message ?? null;
   const hasSuitEntries = topSuitEntries.length > 0;
+
+  useEffect(() => {
+    if (!suitLeaderboardEntries.length) return;
+    const pixelSize = Math.round(40 * Math.min(PixelRatio.get(), 3));
+    const urls = suitLeaderboardEntries
+      .slice(0, MAX_LEADERBOARD_ENTRIES)
+      .map((e) => getTransformedImageUrl(e.avatarUrl, { width: pixelSize, height: pixelSize }))
+      .filter((url): url is string => url !== null);
+    if (urls.length > 0) {
+      void Image.prefetch(urls);
+    }
+  }, [suitLeaderboardEntries]);
 
   const handleReloadStandings = useCallback(() => {
     void refetchLeaderboard({ throwOnError: false });
@@ -849,18 +864,7 @@ export default function HomeScreen() {
                               <Text style={styles.leaderboardRank}>
                                 #{index + 1}
                               </Text>
-                              {entry.avatarUrl ? (
-                                <Image
-                                  source={{ uri: entry.avatarUrl }}
-                                  style={styles.suitLeaderboardAvatar}
-                                />
-                              ) : (
-                                <View
-                                  style={
-                                    styles.suitLeaderboardAvatarPlaceholder
-                                  }
-                                />
-                              )}
+                              <AppAvatar url={entry.avatarUrl} size="xs" fallback="fursuit" style={styles.avatarMargin} />
                               <View style={styles.leaderboardDetails}>
                                 <Text
                                   style={styles.leaderboardName}
@@ -1235,18 +1239,8 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
-  suitLeaderboardAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  avatarMargin: {
     marginRight: spacing.md,
-  },
-  suitLeaderboardAvatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: spacing.md,
-    backgroundColor: "rgba(148,163,184,0.2)",
   },
   leaderboardName: {
     color: colors.foreground,
