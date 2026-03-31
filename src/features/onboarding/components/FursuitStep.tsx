@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import * as ImagePicker from "expo-image-picker";
@@ -24,17 +24,18 @@ import {
   PROFILE_CONVENTIONS_QUERY_KEY,
 } from "../../conventions";
 import { captureNonCriticalError } from "../../../lib/sentry";
-import { colors, radius, spacing } from "../../../theme";
 import {
   processImageForUpload,
   IMAGE_UPLOAD_PRESETS,
 } from "../../../utils/images";
+import { colors } from "../../../theme";
 import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
   type FursuitColorOption,
 } from "../../colors";
+import { styles } from "./FursuitStep.styles";
 
 type FursuitStepProps = {
   userId: string;
@@ -442,144 +443,3 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
     </KeyboardAwareFormWrapper>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.md,
-  },
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 13,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    marginBottom: spacing.xs,
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: spacing.xs,
-  },
-  body: {
-    color: "rgba(226,232,240,0.85)",
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: spacing.lg,
-  },
-  ctaRow: {
-    flexDirection: "column",
-    gap: spacing.sm,
-  },
-  fullWidthCta: {
-    alignSelf: "stretch",
-  },
-  form: {
-    gap: spacing.md,
-  },
-  fieldGroup: {
-    gap: spacing.xs,
-  },
-  label: {
-    color: colors.foreground,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  helperLabel: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 12,
-  },
-  helperColumn: {
-    gap: spacing.sm,
-  },
-  colorSelectedList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  colorSelectedChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(59,130,246,0.3)",
-    backgroundColor: "rgba(37,99,235,0.18)",
-  },
-  colorSelectedText: {
-    color: colors.foreground,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  colorSelectedRemove: {
-    marginLeft: spacing.xs,
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  colorOptionList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-  },
-  colorChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 8,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.35)",
-    backgroundColor: "rgba(30,41,59,0.6)",
-  },
-  colorChipSelected: {
-    borderColor: "#38bdf8",
-    backgroundColor: "rgba(56,189,248,0.2)",
-  },
-  colorChipDisabled: {
-    opacity: 0.4,
-  },
-  colorChipLabel: {
-    color: "rgba(203,213,225,0.95)",
-    fontSize: 13,
-  },
-  colorChipLabelSelected: {
-    color: "#38bdf8",
-    fontWeight: "600",
-  },
-  colorChipLabelDisabled: {
-    color: "rgba(148,163,184,0.6)",
-  },
-  descriptionInput: {
-    height: 90,
-    textAlignVertical: "top",
-  },
-  photoSection: {
-    gap: spacing.sm,
-  },
-  photoPreview: {
-    gap: spacing.sm,
-    alignItems: "flex-start",
-  },
-  photo: {
-    width: 140,
-    height: 140,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.2)",
-  },
-  photoProcessing: {
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(30,41,59,0.8)",
-  },
-  error: {
-    color: colors.destructive,
-    fontSize: 14,
-  },
-  formCtaRow: {
-    flexDirection: "column",
-    alignItems: "stretch",
-    gap: spacing.sm,
-  },
-});
