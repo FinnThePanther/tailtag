@@ -69,7 +69,7 @@ export function AppAvatar({
           source={transformedUrl}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
-          transition={200}
+          transition={150}
           recyclingKey={transformedUrl}
           accessibilityLabel={accessibilityLabel}
         />

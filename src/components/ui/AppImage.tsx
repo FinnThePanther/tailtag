@@ -22,7 +22,7 @@ export function AppImage({
   width,
   height,
   contentFit = 'cover',
-  transition = 300,
+  transition = 200,
   style,
   accessibilityLabel,
 }: AppImageProps) {
@@ -49,7 +49,7 @@ export function AppImage({
   return (
     <Image
       source={source}
-      style={style as StyleProp<ImageStyle>}
+      style={[styles.imageBase, style] as StyleProp<ImageStyle>}
       contentFit={contentFit}
       transition={transition}
       recyclingKey={source}
@@ -61,6 +61,9 @@ export function AppImage({
 
 const styles = StyleSheet.create({
   placeholder: {
+    backgroundColor: 'rgba(30,41,59,0.8)',
+  },
+  imageBase: {
     backgroundColor: 'rgba(30,41,59,0.8)',
   },
 });
