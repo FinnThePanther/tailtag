@@ -32,7 +32,7 @@ import { supabase } from "../../../src/lib/supabase";
 import { colors } from "../../../src/theme";
 import { toDisplayDate } from "../../../src/utils/dates";
 import { deriveStoragePathFromPublicUrl } from "../../../src/utils/storage";
-import { styles } from "./index.styles";
+import { styles } from "../../../src/app-styles/(tabs)/suits/index.styles";
 
 export default function MySuitsScreen() {
   const router = useRouter();

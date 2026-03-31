@@ -1,38 +1,24 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, radius, spacing } from '../../../src/theme';
+import { colors, radius, spacing } from '../../../theme';
 
 export const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
   },
-  header: {
-    gap: spacing.xs,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: 'uppercase',
-    color: colors.primary,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.foreground,
-  },
-  subtitle: {
-    color: colors.textMuted,
-    fontSize: 15,
-  },
-  formStack: {
+  limitBanner: {
     gap: spacing.md,
+  },
+  limitBannerText: {
+    fontSize: 14,
+    color: '#fca5a5',
+    lineHeight: 20,
+  },
+  formCard: {
+    gap: spacing.lg,
   },
   fieldGroup: {
     gap: spacing.sm,
@@ -42,12 +28,42 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  textArea: {
-    minHeight: 96,
+  photoRow: {
+    alignItems: 'center',
   },
-  helperLabel: {
+  photoPreview: {
+    width: '50%',
+    aspectRatio: 1,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.borderInteractive,
+  },
+  photoProcessing: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMuted,
+  },
+  photoPlaceholder: {
+    width: '50%',
+    aspectRatio: 1,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.borderInteractive,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceMutedSoft,
+  },
+  photoPlaceholderText: {
     color: colors.textSubtle,
     fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+  },
+  photoButtons: {
+    gap: spacing.sm,
+  },
+  textArea: {
+    minHeight: 96,
   },
   helperColumn: {
     gap: spacing.sm,
@@ -119,11 +135,20 @@ export const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
   },
-  speciesChip: {
-    minHeight: 36,
-  },
   conventionList: {
     gap: spacing.sm,
+  },
+  message: {
+    color: colors.textMuted,
+    fontSize: 14,
+  },
+  errorText: {
+    color: '#fca5a5',
+    fontSize: 14,
+  },
+  helperLabel: {
+    color: colors.textSubtle,
+    fontSize: 12,
   },
   socialList: {
     gap: spacing.md,
@@ -168,65 +193,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  socialInput: {
-    flex: 1,
-  },
-  socialRemoveButton: {},
   socialCustomInputs: {
     flexDirection: 'column',
     gap: spacing.sm,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+  socialInput: {
+    flex: 1,
   },
-  inlineButtonSpacing: {
-    marginRight: spacing.md,
-  },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
-  },
-  message: {
-    color: colors.textMuted,
-    fontSize: 14,
-  },
-  errorBlock: {
-    gap: spacing.sm,
-  },
-  photoRow: {
-    alignItems: 'center',
-  },
-  photoPreview: {
-    width: '50%',
-    aspectRatio: 1,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.borderInteractive,
-  },
-  photoProcessing: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
-  },
-  photoPlaceholder: {
-    width: '50%',
-    aspectRatio: 1,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.borderInteractive,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surfaceMutedSoft,
-  },
-  photoPlaceholderText: {
-    color: colors.textSubtle,
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  },
-  photoButtons: {
-    gap: spacing.sm,
-  },
+  socialRemoveButton: {},
 });

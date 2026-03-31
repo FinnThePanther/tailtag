@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+
+import { styles } from './TabBadge.styles';
 
 type TabBadgeProps = {
   count: number;
@@ -18,25 +20,3 @@ export function TabBadge({ count, maxCount = 99 }: TabBadgeProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -10,
-    backgroundColor: '#ef4444',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: '#0f172a',
-  },
-  text: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-});

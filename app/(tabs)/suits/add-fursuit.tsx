@@ -75,7 +75,7 @@ import {
   socialLinksToSave,
 } from "../../../src/features/suits/forms/socialLinks";
 import type { EditableSocialLink } from "../../../src/features/suits/forms/socialLinks";
-import { styles } from "./add-fursuit.styles";
+import { styles } from "../../../src/app-styles/(tabs)/suits/add-fursuit.styles";
 
 type UploadCandidate = {
   uri: string;

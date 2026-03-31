@@ -75,7 +75,7 @@ import {
 import type { CaughtRecord } from "../../src/features/suits/api/caughtSuits";
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from "../../src/features/leaderboard/api/leaderboard";
 import { usePushNotifications } from "../../src/features/push-notifications";
-import { styles } from "./settings.styles";
+import { styles } from "../../src/app-styles/(tabs)/settings.styles";
 
 const FEEDBACK_FORM_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSf_placeholder/viewform";

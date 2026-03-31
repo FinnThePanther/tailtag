@@ -19,7 +19,7 @@ import {
   type AchievementWithStatus,
 } from '../../src/features/achievements';
 import { colors } from '../../src/theme';
-import { styles } from './index.styles';
+import { styles } from '../../src/app-styles/achievements/index.styles';
 
 const CATEGORY_LABELS: Record<string, string> = {
   catching: 'Catching loop',

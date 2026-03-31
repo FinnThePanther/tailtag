@@ -1,10 +1,10 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { TailTagCard } from '../../../components/ui/TailTagCard';
-import { colors, spacing } from '../../../theme';
 import type { PendingCatch } from '../types';
 import { PendingCatchCard } from './PendingCatchCard';
+import { styles } from './PendingCatchesList.styles';
 
 type PendingCatchesListProps = {
   pendingCatches: PendingCatch[];
@@ -67,51 +67,3 @@ export function PendingCatchesList({
     </TailTagCard>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.lg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  badge: {
-    backgroundColor: '#ef4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    flexShrink: 0,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  description: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 13,
-    marginBottom: spacing.md,
-  },
-  list: {
-    gap: 0,
-  },
-  listItemSpacing: {
-    marginBottom: spacing.md,
-  },
-});

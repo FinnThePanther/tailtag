@@ -1,6 +1,6 @@
 import { Dimensions, StyleSheet } from 'react-native';
 
-import { colors, spacing } from '../../../src/theme';
+import { colors, spacing } from '../../../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const IS_SMALL_SCREEN = SCREEN_WIDTH <= 375;

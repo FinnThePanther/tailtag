@@ -52,7 +52,7 @@ import {
 import { useAutoRequestPushPermission } from "../../src/features/push-notifications";
 import { spacing } from "../../src/theme";
 import { getTransformedImageUrl } from "../../src/utils/supabase-image";
-import { styles } from "./index.styles";
+import { styles } from "../../src/app-styles/(tabs)/index.styles";
 
 const MAX_LEADERBOARD_ENTRIES = 5;
 const USERNAME_NUDGE_DISMISSED_KEY = "tailtag:username-nudge-dismissed";

@@ -1,9 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { AppAvatar } from "../../../components/ui/AppAvatar";
-import { colors, radius, spacing } from "../../../theme";
 import { toDisplayDate } from "../../../utils/dates";
+import { styles } from "./CaughtSuitRow.styles";
 
 type CaughtSuitRowProps = {
   name: string;
@@ -52,36 +52,3 @@ export function CaughtSuitRow({
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    backgroundColor: "rgba(15,23,42,0.85)",
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.25)",
-    padding: spacing.md,
-  },
-  pressed: {
-    opacity: 0.75,
-  },
-  textCol: {
-    flex: 1,
-    gap: 2,
-  },
-  name: {
-    color: colors.foreground,
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  species: {
-    color: "rgba(203,213,225,0.9)",
-    fontSize: 13,
-  },
-  date: {
-    color: "rgba(148,163,184,0.7)",
-    fontSize: 12,
-  },
-});

@@ -67,7 +67,7 @@ import {
 } from '../../../src/utils/images';
 import { colors } from '../../../src/theme';
 import type { Json } from '../../../src/types/database';
-import { styles } from './edit.styles';
+import { styles } from '../../../src/app-styles/fursuits/[id]/edit.styles';
 
 type UploadCandidate = {
   uri: string;

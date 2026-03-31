@@ -24,7 +24,7 @@ import {
 } from '../../src/features/conventions';
 import { useDailyTasks } from '../../src/features/daily-tasks';
 import { colors } from '../../src/theme';
-import { styles } from './index.styles';
+import { styles } from '../../src/app-styles/daily-tasks/index.styles';
 
 function formatDayLabel(day: string, timezone: string): string {
   try {

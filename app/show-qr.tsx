@@ -30,7 +30,7 @@ import {
   qrReadySuitsQueryKey,
 } from '../src/features/nfc';
 import type { QrReadyFursuit } from '../src/features/nfc';
-import { styles } from './show-qr.styles';
+import { styles } from '../src/app-styles/show-qr.styles';
 
 const STORAGE_KEY = 'tailtag:last-qr-fursuit';
 const WINDOW_WIDTH = Dimensions.get('window').width;

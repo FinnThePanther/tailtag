@@ -1,8 +1,8 @@
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenHeader } from '../src/components/ui/ScreenHeader';
 import { BlockedUsersScreen } from '../src/features/moderation';
-import { colors } from '../src/theme';
+import { styles } from '../src/app-styles/blocked-users.styles';
 
 export default function BlockedUsersRoute() {
   const router = useRouter();
@@ -14,10 +14,3 @@ export default function BlockedUsersRoute() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-});

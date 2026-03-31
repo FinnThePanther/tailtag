@@ -35,7 +35,7 @@ import {
 } from '../../../src/features/public-profile';
 import { captureNonCriticalError } from '../../../src/lib/sentry';
 import { colors } from '../../../src/theme';
-import { styles } from './index.styles';
+import { styles } from '../../../src/app-styles/profile/[id]/index.styles';
 
 const openSocialLink = async (url: string) => {
   try {

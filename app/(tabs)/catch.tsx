@@ -42,7 +42,7 @@ import { spacing } from "../../src/theme";
 import { useBlockedIds } from "../../src/features/moderation";
 import { normalizeUniqueCodeInput } from "../../src/utils/code";
 import { toDisplayDateTime } from "../../src/utils/dates";
-import { styles } from "./catch.styles";
+import { styles } from "../../src/app-styles/(tabs)/catch.styles";
 
 import type { FursuitsRow } from "../../src/types/database";
 import type { FursuitColorOption } from "../../src/features/colors";

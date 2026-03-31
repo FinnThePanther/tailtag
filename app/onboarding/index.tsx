@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -13,7 +13,8 @@ import { ConventionStep } from '../../src/features/onboarding/components/Convent
 import { FursuitStep } from '../../src/features/onboarding/components/FursuitStep';
 import { AchievementStep } from '../../src/features/onboarding/components/AchievementStep';
 import { NotificationsStep } from '../../src/features/onboarding/components/NotificationsStep';
-import { colors, spacing } from '../../src/theme';
+import { colors } from '../../src/theme';
+import { styles } from '../../src/app-styles/onboarding/index.styles';
 
 const STEPS = ['welcome', 'convention', 'fursuit', 'notifications', 'achievement'] as const;
 type StepId = (typeof STEPS)[number];
@@ -128,32 +129,3 @@ export default function OnboardingScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-    gap: spacing.lg,
-  },
-  header: {
-    color: colors.foreground,
-    fontSize: 28,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-  },
-});

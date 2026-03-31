@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, radius, spacing } from '../src/theme';
+import { colors, radius, spacing } from '../theme';
 
 export const styles = StyleSheet.create({
   screen: {

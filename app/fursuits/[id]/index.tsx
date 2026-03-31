@@ -32,7 +32,7 @@ import {
 } from '../../../src/features/conventions';
 import { emitGameplayEvent } from '../../../src/features/events';
 import { colors } from '../../../src/theme';
-import { styles } from './index.styles';
+import { styles } from '../../../src/app-styles/fursuits/[id]/index.styles';
 
 const formatDate = (isoTimestamp: string | null) => {
   if (!isoTimestamp) {

@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { styles } from './useToast.styles';
 
 const TOAST_DURATION = 5000;
 const TAB_BAR_HEIGHT = 64;
@@ -43,7 +45,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <View pointerEvents="none" style={[styles.container, { bottom: containerBottom }] }>
+      <View pointerEvents="none" style={[styles.container, { bottom: containerBottom }]}>
         {toasts.map((toast) => (
           <ToastItem
             key={toast.id}
@@ -102,32 +104,8 @@ function ToastItem({ message, onFinish }: ToastItemProps) {
   }, [opacity, translateY]);
 
   return (
-    <Animated.View style={[styles.toast, { opacity, transform: [{ translateY }] }]}> 
+    <Animated.View style={[styles.toast, { opacity, transform: [{ translateY }] }]}>
       <Text style={styles.text}>{message}</Text>
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 999,
-  },
-  toast: {
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    maxWidth: '90%',
-  },
-  text: {
-    color: '#fff',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-});

@@ -17,7 +17,7 @@ import {
   mapAuthError,
   validatePassword,
 } from "../../src/utils/authValidation";
-import { styles } from "./auth.styles";
+import { styles } from "../../src/app-styles/(auth)/auth.styles";
 
 const generateDefaultUsername = (rawEmail: string) => {
   const [localPart] = rawEmail.split("@");

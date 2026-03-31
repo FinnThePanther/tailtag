@@ -31,7 +31,7 @@ import {
   ensureQrBackupForFursuit,
   createSignedQrDownloadUrl,
 } from '../../../src/features/nfc';
-import { styles } from './tags.styles';
+import { styles } from '../../../src/app-styles/fursuits/[id]/tags.styles';
 
 export default function ManageTagsScreen() {
   const router = useRouter();
