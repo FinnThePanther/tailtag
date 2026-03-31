@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, Text, ViewStyle } from 'react-native';
 import type { TextStyle } from 'react-native';
 import type { GestureResponderEvent } from 'react-native';
 
-import { colors, radius, spacing } from '../../theme';
+import { colors, spacing } from '../../theme';
+import { styles } from './TailTagButton.styles';
 
 type ButtonVariant = 'primary' | 'outline' | 'ghost' | 'destructive';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -128,19 +129,3 @@ export function TailTagButton({
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-    alignSelf: 'stretch',
-  },
-  text: {
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.6,
-  },
-});

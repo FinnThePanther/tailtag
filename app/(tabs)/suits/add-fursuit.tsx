@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import * as ImagePicker from "expo-image-picker";
@@ -24,7 +24,7 @@ import {
   processImageForUpload,
   IMAGE_UPLOAD_PRESETS,
 } from "../../../src/utils/images";
-import { colors, spacing, radius } from "../../../src/theme";
+import { colors } from "../../../src/theme";
 import {
   MY_SUITS_QUERY_KEY,
   MY_SUITS_COUNT_QUERY_KEY,
@@ -75,6 +75,7 @@ import {
   socialLinksToSave,
 } from "../../../src/features/suits/forms/socialLinks";
 import type { EditableSocialLink } from "../../../src/features/suits/forms/socialLinks";
+import { styles } from "./add-fursuit.styles";
 
 type UploadCandidate = {
   uri: string;
@@ -1218,204 +1219,3 @@ export default function AddFursuitScreen() {
     </KeyboardAwareFormWrapper>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xxl,
-    gap: spacing.lg,
-  },
-  limitBanner: {
-    gap: spacing.md,
-  },
-  limitBannerText: {
-    fontSize: 14,
-    color: "#fca5a5",
-    lineHeight: 20,
-  },
-  formCard: {
-    gap: spacing.lg,
-  },
-  fieldGroup: {
-    gap: spacing.sm,
-  },
-  label: {
-    color: colors.foreground,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  photoRow: {
-    alignItems: "center",
-  },
-  photoPreview: {
-    width: "50%",
-    aspectRatio: 1,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.3)",
-  },
-  photoProcessing: {
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(30,41,59,0.8)",
-  },
-  photoPlaceholder: {
-    width: "50%",
-    aspectRatio: 1,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.3)",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(30,41,59,0.6)",
-  },
-  photoPlaceholderText: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-  },
-  photoButtons: {
-    gap: spacing.sm,
-  },
-  textArea: {
-    minHeight: 96,
-  },
-  helperColumn: {
-    gap: spacing.sm,
-  },
-  colorSelectedList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  colorSelectedChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(59,130,246,0.3)",
-    backgroundColor: "rgba(37,99,235,0.18)",
-  },
-  colorSelectedText: {
-    color: colors.foreground,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  colorSelectedRemove: {
-    marginLeft: spacing.xs,
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  colorOptionList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-  },
-  colorChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 8,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.35)",
-    backgroundColor: "rgba(30,41,59,0.6)",
-  },
-  colorChipSelected: {
-    borderColor: "#38bdf8",
-    backgroundColor: "rgba(56,189,248,0.2)",
-  },
-  colorChipDisabled: {
-    opacity: 0.4,
-  },
-  colorChipLabel: {
-    color: "rgba(203,213,225,0.95)",
-    fontSize: 13,
-  },
-  colorChipLabelSelected: {
-    color: "#38bdf8",
-    fontWeight: "600",
-  },
-  colorChipLabelDisabled: {
-    color: "rgba(148,163,184,0.6)",
-  },
-  speciesSuggestionSection: {
-    gap: spacing.xs,
-  },
-  speciesSuggestionList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-  },
-  conventionList: {
-    gap: spacing.sm,
-  },
-  message: {
-    color: "rgba(203,213,225,0.9)",
-    fontSize: 14,
-  },
-  errorText: {
-    color: "#fca5a5",
-    fontSize: 14,
-  },
-  helperLabel: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 12,
-  },
-  socialList: {
-    gap: spacing.md,
-  },
-  socialRow: {
-    flexDirection: "column",
-    gap: spacing.sm,
-  },
-  socialPlatformChips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-  },
-  socialPlatformChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.35)",
-    backgroundColor: "rgba(30,41,59,0.6)",
-  },
-  socialPlatformChipSelected: {
-    borderColor: colors.primary,
-    backgroundColor: "rgba(99,102,241,0.2)",
-  },
-  socialPlatformChipDisabled: {
-    opacity: 0.5,
-  },
-  socialPlatformChipText: {
-    color: colors.foreground,
-    fontSize: 12,
-  },
-  socialPlatformChipTextSelected: {
-    color: colors.primary,
-    fontWeight: "600",
-  },
-  socialPlatformChipTextDisabled: {
-    color: "rgba(148,163,184,0.7)",
-  },
-  socialInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  socialCustomInputs: {
-    flexDirection: "column",
-    gap: spacing.sm,
-  },
-  socialInput: {
-    flex: 1,
-  },
-  socialRemoveButton: {},
-});

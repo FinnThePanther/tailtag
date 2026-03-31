@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useState } from 'react';
 
 import type { ConventionSummary, VerifiedLocation } from '../../features/conventions';
@@ -7,7 +7,8 @@ import { useLocationPermission } from '@/features/conventions/hooks/useLocationP
 import { useGeoVerification } from '@/features/conventions/hooks/useGeoVerification';
 import { LocationPermissionModal } from '@/features/conventions/components/LocationPermissionModal';
 import { VerificationErrorModal } from '@/features/conventions/components/VerificationErrorModal';
-import { colors, spacing, radius } from '../../theme';
+import { colors } from '../../theme';
+import { styles } from './ConventionToggle.styles';
 
 export type ConventionToggleProps = {
   convention: ConventionSummary;
@@ -139,85 +140,3 @@ export function ConventionToggle({
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  conventionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.25)',
-    backgroundColor: 'rgba(15,23,42,0.7)',
-    gap: spacing.md,
-  },
-  conventionRowSelected: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(56,189,248,0.12)',
-  },
-  conventionRowDisabled: {
-    opacity: 0.6,
-  },
-  conventionRowPressed: {
-    opacity: 0.9,
-  },
-  conventionInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  conventionNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  conventionName: {
-    color: colors.foreground,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  endedBadge: {
-    color: 'rgba(148,163,184,0.8)',
-    fontSize: 13,
-    fontWeight: '500',
-    fontStyle: 'italic',
-  },
-  conventionMetaText: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 13,
-  },
-  verificationText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  conventionBadge: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.3)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(30,41,59,0.8)',
-    minWidth: 90,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  conventionBadgeActive: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(56,189,248,0.15)',
-  },
-  conventionBadgeDisabled: {
-    borderColor: 'rgba(148,163,184,0.4)',
-    backgroundColor: 'rgba(15,23,42,0.5)',
-  },
-  conventionBadgeText: {
-    color: colors.foreground,
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-});
