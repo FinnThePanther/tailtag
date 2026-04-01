@@ -3,9 +3,8 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/theme';
-import { fetchFursuitTag, nfcTagQueryKey, fetchFursuitQrTag, fursuitQrQueryKey } from '../api/nfcTags';
+import { fetchFursuitTag, nfcTagQueryKey } from '../api/nfcTags';
 import { TagStatusBadge } from './TagStatusBadge';
-import { TailTagButton } from '@/components/ui/TailTagButton';
 import { styles } from './FursuitTagSection.styles';
 
 type FursuitTagSectionProps = {
@@ -25,23 +24,10 @@ export function FursuitTagSection({ fursuitId }: FursuitTagSectionProps) {
     staleTime: 2 * 60_000,
   });
 
-  const { data: qrTag } = useQuery({
-    queryKey: fursuitQrQueryKey(fursuitId),
-    queryFn: () => fetchFursuitQrTag(fursuitId),
-    staleTime: 2 * 60_000,
-  });
-
   const handleManageTags = () => {
     router.push({
       pathname: '/fursuits/[id]/tags',
       params: { id: fursuitId },
-    });
-  };
-
-  const handleShowQr = () => {
-    router.push({
-      pathname: '/show-qr',
-      params: { initialFursuitId: fursuitId },
     });
   };
 
@@ -97,48 +83,6 @@ export function FursuitTagSection({ fursuitId }: FursuitTagSectionProps) {
         )}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>QR Tag</Text>
-        {qrTag?.qrToken ? (
-          <>
-            <Pressable style={styles.qrCard} onPress={handleManageTags}>
-              <View style={styles.tagInfo}>
-                <View style={styles.tagHeader}>
-                  <Ionicons name="qr-code-outline" size={20} color={colors.primary} />
-                  <Text style={styles.qrLabel}>Ready to scan</Text>
-                  <TagStatusBadge status={qrTag.status} />
-                </View>
-                {qrTag.qrTokenCreatedAt ? (
-                  <Text style={styles.tagDate}>
-                    Generated {new Date(qrTag.qrTokenCreatedAt).toLocaleDateString()}
-                  </Text>
-                ) : null}
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={colors.textFaint}
-              />
-            </Pressable>
-            <View style={styles.qrActions}>
-              <TailTagButton variant="outline" size="sm" style={styles.showQrButton} onPress={handleShowQr}>
-                Show My QR
-              </TailTagButton>
-              <TailTagButton variant="ghost" size="sm" onPress={handleManageTags}>
-                Manage QR
-              </TailTagButton>
-            </View>
-          </>
-        ) : (
-          <Pressable style={[styles.emptyCard, styles.qrEmptyCard]} onPress={handleManageTags}>
-            <View style={styles.emptyContent}>
-              <Ionicons name="qr-code-outline" size={24} color={colors.primary} />
-              <Text style={styles.emptyText}>Register a QR tag</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
-          </Pressable>
-        )}
-      </View>
     </View>
   );
 }

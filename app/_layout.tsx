@@ -226,9 +226,6 @@ function RootLayoutNav() {
       {/* Daily tasks */}
       <Stack.Screen name="daily-tasks/index" options={{ headerShown: false }} />
 
-      {/* Show My QR */}
-      <Stack.Screen name="show-qr" options={{ title: 'Show My QR', presentation: 'modal' }} />
-
       {/* Blocked users management */}
       <Stack.Screen name="blocked-users" options={{ headerShown: false }} />
 

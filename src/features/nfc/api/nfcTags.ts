@@ -1,6 +1,5 @@
 import { supabase } from '@/lib/supabase';
 import { captureHandledException } from '@/lib/sentry';
-import { TAG_QR_BUCKET } from '@/constants/storage';
 import type {
   NfcTag,
   NfcTagStatus,
@@ -8,22 +7,12 @@ import type {
   TagRegistrationResult,
   TagRegistrationError,
   TagLookupResult,
-  TagQrActionResult,
-  QrReadyFursuit,
 } from '../types';
 
 // Query keys
 export const NFC_TAG_QUERY_KEY = 'nfc-tag';
 export const nfcTagQueryKey = (fursuitId: string) =>
   [NFC_TAG_QUERY_KEY, fursuitId] as const;
-export const FURSUIT_QR_TAG_QUERY_KEY = 'fursuit-qr-tag';
-export const fursuitQrQueryKey = (fursuitId: string) =>
-  [FURSUIT_QR_TAG_QUERY_KEY, fursuitId] as const;
-export const QR_READY_SUITS_QUERY_KEY = 'qr-ready-suits';
-export const qrReadySuitsQueryKey = (userId: string) =>
-  [QR_READY_SUITS_QUERY_KEY, userId] as const;
-
-const DEFAULT_QR_SIGNED_URL_TTL = 5 * 60; // 5 minutes
 
 // API Response types from edge functions
 interface RegisterTagApiResponse {
@@ -33,9 +22,6 @@ interface RegisterTagApiResponse {
   nfc_uid?: string | null;
   status?: NfcTagStatus;
   fursuit_id?: string | null;
-  qr_token?: string | null;
-  qr_download_url?: string | null;
-  qr_asset_path?: string | null;
   exists?: boolean;
   is_mine?: boolean;
   error?: string;
@@ -59,9 +45,6 @@ interface TagRow {
   registered_at: string;
   linked_at: string | null;
   updated_at: string;
-  qr_token: string | null;
-  qr_token_created_at: string | null;
-  qr_asset_path: string | null;
 }
 
 function getTagTelemetry(options: {
@@ -70,35 +53,26 @@ function getTagTelemetry(options: {
   tagId?: string | null;
   fursuitId?: string | null;
   userId?: string | null;
-  assetPath?: string | null;
-  hasQrToken?: boolean;
 }) {
   return {
     scope: options.scope,
     fursuitId: options.fursuitId ?? undefined,
     userId: options.userId ?? undefined,
-    assetPath: options.assetPath ?? undefined,
     hasTagUid: Boolean(options.uid),
     hasTagId: Boolean(options.tagId),
-    hasQrToken: options.hasQrToken ?? false,
   };
 }
 
 function mapTagRowToTag(row: TagRow): NfcTag {
-  const kind: NfcTag['kind'] = row.nfc_uid ? 'nfc' : 'qr';
   return {
     id: row.id,
-    kind,
-    uid: row.nfc_uid ?? 'QR-ONLY',
+    uid: row.nfc_uid ?? '',
     fursuitId: row.fursuit_id,
     registeredByUserId: row.registered_by_user_id,
     status: row.status,
     registeredAt: row.registered_at,
     linkedAt: row.linked_at,
     updatedAt: row.updated_at,
-    qrToken: row.qr_token,
-    qrTokenCreatedAt: row.qr_token_created_at,
-    qrAssetPath: row.qr_asset_path,
   };
 }
 
@@ -114,7 +88,7 @@ function createApiError(
 function resolveTagUidFromApi(
   response: RegisterTagApiResponse
 ): string {
-  return response.nfc_uid ?? response.tag_uid ?? 'QR-ONLY';
+  return response.nfc_uid ?? response.tag_uid ?? '';
 }
 
 function mapRegistrationResponse(
@@ -130,8 +104,6 @@ function mapRegistrationResponse(
     tagUid: resolveTagUidFromApi(data),
     status: data.status ?? 'pending_link',
     fursuitId: data.fursuit_id,
-    qrToken: data.qr_token ?? null,
-    qrDownloadUrl: data.qr_download_url ?? null,
   };
 }
 
@@ -395,185 +367,6 @@ export async function markTagFound(
   }
 }
 
-async function handleQrActionResponse(
-  data: RegisterTagApiResponse | null | undefined,
-  fallbackTagId: string
-): Promise<TagQrActionResult> {
-  if (!data) {
-    throw new Error('No data returned from QR action');
-  }
-  if (data.error) {
-    throw createApiError(data);
-  }
-
-  return {
-    success: true,
-    tagId: data.tag_id ?? fallbackTagId,
-    qrToken: data.qr_token ?? null,
-    qrDownloadUrl: data.qr_download_url ?? null,
-  };
-}
-
-export async function generateQrForTag(
-  tagId: string
-): Promise<TagQrActionResult | TagRegistrationError> {
-  try {
-    const { data, error } = await supabase.functions.invoke<RegisterTagApiResponse>('register-tag', {
-      body: { action: 'generate_qr', tag_id: tagId },
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    return await handleQrActionResponse(data, tagId);
-  } catch (error) {
-    captureHandledException(error, getTagTelemetry({ scope: 'nfc.generateQrForTag', tagId }));
-
-    if (typeof error === 'object' && error !== null && 'code' in (error as any)) {
-      return error as TagRegistrationError;
-    }
-
-    return {
-      code: 'UNKNOWN_ERROR',
-      message: 'We could not generate a QR code. Please try again.',
-    };
-  }
-}
-
-export async function rotateQrForTag(
-  tagId: string
-): Promise<TagQrActionResult | TagRegistrationError> {
-  try {
-    const { data, error } = await supabase.functions.invoke<RegisterTagApiResponse>('register-tag', {
-      body: { action: 'rotate_qr', tag_id: tagId },
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    return await handleQrActionResponse(data, tagId);
-  } catch (error) {
-    captureHandledException(error, getTagTelemetry({ scope: 'nfc.rotateQrForTag', tagId }));
-
-    if (typeof error === 'object' && error !== null && 'code' in (error as any)) {
-      return error as TagRegistrationError;
-    }
-
-    return {
-      code: 'UNKNOWN_ERROR',
-      message: 'We could not rotate that QR code. Please try again.',
-    };
-  }
-}
-
-export async function revokeQrForTag(
-  tagId: string
-): Promise<TagQrActionResult | TagRegistrationError> {
-  try {
-    const { data, error } = await supabase.functions.invoke<RegisterTagApiResponse>('register-tag', {
-      body: { action: 'revoke_qr', tag_id: tagId },
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    return await handleQrActionResponse(data, tagId);
-  } catch (error) {
-    captureHandledException(error, getTagTelemetry({ scope: 'nfc.revokeQrForTag', tagId }));
-
-    if (typeof error === 'object' && error !== null && 'code' in (error as any)) {
-      return error as TagRegistrationError;
-    }
-
-    return {
-      code: 'UNKNOWN_ERROR',
-      message: 'We could not revoke that QR code. Please try again.',
-    };
-  }
-}
-
-export async function createSignedQrDownloadUrl(
-  assetPath: string,
-  expiresInSeconds = DEFAULT_QR_SIGNED_URL_TTL
-): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from(TAG_QR_BUCKET)
-    .createSignedUrl(assetPath, expiresInSeconds);
-
-  if (error || !data?.signedUrl) {
-    captureHandledException(
-      error ?? new Error('Failed to create signed QR URL'),
-      getTagTelemetry({ scope: 'nfc.createSignedQrDownloadUrl', assetPath })
-    );
-    throw new Error('We could not generate a download link. Please try again.');
-  }
-
-  return data.signedUrl;
-}
-
-export async function fetchQrReadySuits(userId: string): Promise<QrReadyFursuit[]> {
-  try {
-    const client = supabase as any;
-    const { data, error } = await client
-      .from('tags')
-      .select(`
-        id,
-        status,
-        qr_token,
-        qr_token_created_at,
-        qr_asset_path,
-        fursuit_id,
-        linked_at,
-        fursuit:fursuits (
-          id,
-          name,
-          avatar_url,
-          owner_id,
-          catch_mode
-        )
-      `)
-      .eq('registered_by_user_id', userId)
-      .in('status', ['active', 'lost'])
-      .not('qr_token', 'is', null)
-      .not('fursuit_id', 'is', null)
-      .order('linked_at', { ascending: false });
-
-    if (error) {
-      captureHandledException(error, getTagTelemetry({ scope: 'nfc.fetchQrReadySuits', userId }));
-      throw new Error(`We couldn't load your QR codes: ${error.message}`);
-    }
-
-    return (data ?? [])
-      .map((row: any) => {
-        const fursuit = row.fursuit;
-        if (!row.qr_token || !fursuit || fursuit.owner_id !== userId) {
-          return null;
-        }
-
-        return {
-          tagId: row.id,
-          tagStatus: row.status ?? 'active',
-          qrToken: row.qr_token,
-          qrTokenCreatedAt: row.qr_token_created_at ?? null,
-          qrAssetPath: row.qr_asset_path ?? null,
-          fursuitId: fursuit.id,
-          fursuitName: fursuit.name ?? 'Fursuit',
-          fursuitAvatarUrl: fursuit.avatar_url ?? null,
-          fursuitCatchMode: fursuit.catch_mode ?? null,
-        } as QrReadyFursuit;
-      })
-      .filter(Boolean) as QrReadyFursuit[];
-  } catch (error) {
-    captureHandledException(error, getTagTelemetry({ scope: 'nfc.fetchQrReadySuits', userId }));
-    throw error instanceof Error
-      ? error
-      : new Error('We could not load your QR codes. Please try again.');
-  }
-}
-
 /**
  * Fetch the NFC tag for a specific fursuit.
  * Returns null if no active tag exists.
@@ -608,112 +401,19 @@ export async function fetchFursuitTag(
 }
 
 /**
- * Fetch the dedicated QR tag for a specific fursuit.
- * Returns null if no QR tag exists yet.
- */
-export async function fetchFursuitQrTag(fursuitId: string): Promise<NfcTag | null> {
-  try {
-    const client = supabase as any;
-    const { data, error } = await client
-      .from('tags')
-      .select('*')
-      .eq('fursuit_id', fursuitId)
-      .not('qr_token', 'is', null)
-      .order('linked_at', { ascending: false })
-      .maybeSingle();
-
-    if (error) {
-      throw error;
-    }
-
-    if (!data) {
-      return null;
-    }
-
-    return mapTagRowToTag(data as TagRow);
-  } catch (error) {
-    captureHandledException(error, getTagTelemetry({ scope: 'nfc.fetchFursuitQrTag', fursuitId }));
-    throw error;
-  }
-}
-
-export async function ensureQrBackupForFursuit(fursuitId: string): Promise<NfcTag> {
-  const existing = await fetchFursuitQrTag(fursuitId);
-  if (existing) {
-    return existing;
-  }
-
-  try {
-    const { data: registrationData, error: registrationError } =
-      await supabase.functions.invoke<RegisterTagApiResponse>('register-tag', {
-        body: { action: 'register', generate_qr: true },
-      });
-
-    if (registrationError) {
-      throw registrationError;
-    }
-
-    if (!registrationData) {
-      throw new Error('No data returned while creating QR tag');
-    }
-
-    if (registrationData.error) {
-      const apiError = createApiError(registrationData);
-      throw new Error(apiError.message);
-    }
-
-    const qrTagId = registrationData.tag_id;
-    if (!qrTagId) {
-      throw new Error('Missing tag_id while creating QR tag');
-    }
-
-    const linkResult = await linkTagByIdToFursuit(qrTagId, fursuitId);
-    if ('code' in linkResult) {
-      throw new Error(linkResult.message);
-    }
-
-    const linkedTag = await fetchFursuitQrTag(fursuitId);
-    if (!linkedTag) {
-      throw new Error('QR tag linked but could not be loaded');
-    }
-
-    return linkedTag;
-  } catch (error) {
-    captureHandledException(
-      error,
-      getTagTelemetry({ scope: 'nfc.ensureQrBackupForFursuit', fursuitId })
-    );
-
-    throw error instanceof Error
-      ? error
-      : new Error('We could not prepare your QR backup. Please try again.');
-  }
-}
-
-/**
  * Look up an NFC tag for catching purposes.
  * Returns the fursuit ID if the tag is active, or a reason why not.
  */
-type LookupTagInput = string | { nfcUid?: string | null; qrToken?: string | null };
-
-export async function lookupTagForCatch(input: LookupTagInput): Promise<TagLookupResult> {
-  const payload =
-    typeof input === 'string'
-      ? { nfc_uid: input, qr_token: undefined }
-      : {
-          nfc_uid: input.nfcUid ?? undefined,
-          qr_token: input.qrToken ?? undefined,
-        };
-
-  if (!payload.nfc_uid && !payload.qr_token) {
-    throw new Error('Lookup requires an NFC UID or QR token');
+export async function lookupTagForCatch(nfcUid: string): Promise<TagLookupResult> {
+  if (!nfcUid) {
+    throw new Error('Lookup requires an NFC UID');
   }
 
   try {
     const { data, error } = await supabase.functions.invoke<LookupTagApiResponse>(
       'lookup-tag',
       {
-        body: payload,
+        body: { nfc_uid: nfcUid },
       }
     );
 
@@ -743,8 +443,7 @@ export async function lookupTagForCatch(input: LookupTagInput): Promise<TagLooku
       error,
       getTagTelemetry({
         scope: 'nfc.lookupTagForCatch',
-        uid: payload.nfc_uid,
-        hasQrToken: Boolean(payload.qr_token),
+        uid: nfcUid,
       })
     );
 

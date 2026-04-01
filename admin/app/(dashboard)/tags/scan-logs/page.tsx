@@ -5,7 +5,7 @@ import { Table } from '@/components/table';
 import { fetchTagScanLogs, fetchTags } from '@/lib/data';
 
 const RESULTS = ['success', 'cooldown', 'invalid', 'not_found', 'lost', 'revoked'];
-const METHODS = ['qr', 'nfc'];
+const METHODS = ['nfc'];
 
 type SearchParams = {
   tagId?: string;
@@ -20,7 +20,7 @@ export default async function TagScanLogsPage({ searchParams }: { searchParams?:
   const resultParam = typeof searchParams?.result === 'string' ? searchParams.result : null;
   const identifier = typeof searchParams?.identifier === 'string' ? searchParams.identifier : null;
 
-  const method = methodParam && METHODS.includes(methodParam) ? (methodParam as 'qr' | 'nfc') : null;
+  const method = methodParam === 'nfc' ? 'nfc' : null;
   const result = resultParam && RESULTS.includes(resultParam) ? resultParam : null;
 
   const [logs, tags] = await Promise.all([
@@ -36,7 +36,7 @@ export default async function TagScanLogsPage({ searchParams }: { searchParams?:
 
   return (
     <div className="space-y-4">
-      <Card title="Tag scan logs" subtitle="Search by tag, method, or identifier">
+      <Card title="Tag scan logs" subtitle="Search by tag or NFC identifier">
         <form className="grid gap-4 md:grid-cols-4" method="get">
           <div>
             <label className="text-xs uppercase tracking-wider text-muted">Tag</label>
@@ -88,7 +88,7 @@ export default async function TagScanLogsPage({ searchParams }: { searchParams?:
             <input
               name="identifier"
               defaultValue={identifier ?? ''}
-              placeholder="tailtag://..."
+              placeholder="AA:BB:CC:DD"
               className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-white outline-none focus:border-primary"
             />
           </div>

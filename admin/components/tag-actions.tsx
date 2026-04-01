@@ -7,10 +7,6 @@ import {
   unlinkTagAction,
   markTagLostAction,
   markTagFoundAction,
-  generateQrForTagAction,
-  rotateQrForTagAction,
-  revokeQrForTagAction,
-  createQrDownloadUrlAction,
 } from '@/app/(dashboard)/tags/actions';
 
 type Props = {
@@ -18,11 +14,9 @@ type Props = {
   nfcUid?: string | null;
   status: string;
   fursuitName?: string | null;
-  qrToken?: string | null;
-  qrAssetPath?: string | null;
 };
 
-export function TagActions({ tagId, nfcUid, status, fursuitName, qrToken, qrAssetPath }: Props) {
+export function TagActions({ tagId, nfcUid, status, fursuitName }: Props) {
   const [fursuitId, setFursuitId] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -33,18 +27,6 @@ export function TagActions({ tagId, nfcUid, status, fursuitName, qrToken, qrAsse
       await fn();
       setMessage(success);
     });
-  };
-
-  const handleDownload = () => {
-    if (!qrAssetPath) return;
-    doAction(async () => {
-      const url = await createQrDownloadUrlAction({ assetPath: qrAssetPath });
-      if (url) {
-        window.open(url, '_blank');
-      } else {
-        throw new Error('Failed to create download link');
-      }
-    }, 'Download ready');
   };
 
   const nfcControlsDisabled = !nfcUid;
@@ -95,40 +77,6 @@ export function TagActions({ tagId, nfcUid, status, fursuitName, qrToken, qrAsse
           className="rounded-lg border border-emerald-500/60 px-2 py-1 font-semibold text-emerald-100 transition hover:bg-emerald-500/10 disabled:opacity-50"
         >
           Found
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={isPending || Boolean(qrToken)}
-          onClick={() => doAction(() => generateQrForTagAction({ tagId }), 'QR generated')}
-          className="rounded-lg border border-border px-2 py-1 font-semibold transition hover:border-primary disabled:opacity-50"
-        >
-          Generate QR
-        </button>
-        <button
-          type="button"
-          disabled={isPending || !qrToken}
-          onClick={() => doAction(() => rotateQrForTagAction({ tagId }), 'QR rotated')}
-          className="rounded-lg border border-border px-2 py-1 font-semibold transition hover:border-primary disabled:opacity-50"
-        >
-          Rotate QR
-        </button>
-        <button
-          type="button"
-          disabled={isPending || !qrToken}
-          onClick={() => doAction(() => revokeQrForTagAction({ tagId }), 'QR revoked')}
-          className="rounded-lg border border-red-500/60 px-2 py-1 font-semibold text-red-100 transition hover:bg-red-500/10 disabled:opacity-50"
-        >
-          Revoke QR
-        </button>
-        <button
-          type="button"
-          disabled={isPending || !qrAssetPath}
-          onClick={handleDownload}
-          className="rounded-lg border border-border px-2 py-1 font-semibold transition hover:border-primary disabled:opacity-50"
-        >
-          Download QR
         </button>
       </div>
       {fursuitName ? <p className="text-muted">Linked to: {fursuitName}</p> : null}

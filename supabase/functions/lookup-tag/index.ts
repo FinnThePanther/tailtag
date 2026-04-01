@@ -2,7 +2,7 @@
 /**
  * Supabase Edge Function: lookup-tag
  *
- * Looks up tags by NFC UID or QR token for the catch flow and logs scans.
+ * Looks up tags by NFC UID for the catch flow and logs scans.
  */
 
 // eslint-disable-next-line import/no-unresolved -- Deno Edge Functions load via remote URLs
@@ -41,11 +41,8 @@ type LookupFailureReason =
 
 type ScanResult = "success" | "cooldown" | "invalid" | "not_found" | "lost" | "revoked";
 
-type ScanMethod = "nfc" | "qr";
-
 interface LookupRequestBody {
   nfc_uid?: string;
-  qr_token?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -115,7 +112,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 async function logTagScan(params: {
   tagId?: string | null;
   identifier: string;
-  method: ScanMethod;
   result: ScanResult;
   userId: string;
   metadata?: Record<string, unknown>;
@@ -123,7 +119,7 @@ async function logTagScan(params: {
   const payload = {
     tag_id: params.tagId ?? null,
     scanned_identifier: params.identifier,
-    scan_method: params.method,
+    scan_method: "nfc",
     result: params.result,
     scanner_user_id: params.userId,
     metadata: params.metadata ?? {},
@@ -149,21 +145,17 @@ async function handlePost(req: Request): Promise<Response> {
   }
 
   const nfcUid = normalizeNfcUid(body.nfc_uid);
-  const qrToken = body.qr_token?.trim();
   const metadata = isPlainObject(body.metadata) ? body.metadata : undefined;
 
-  if ((nfcUid && qrToken) || (!nfcUid && !qrToken)) {
-    return jsonResponse(400, { error: "Provide either nfc_uid or qr_token" });
+  if (!nfcUid) {
+    return jsonResponse(400, { error: "Provide nfc_uid" });
   }
 
-  const method: ScanMethod = qrToken ? "qr" : "nfc";
-  const identifier = qrToken ?? nfcUid!;
-
-  const column = method === "qr" ? "qr_token" : "nfc_uid";
+  const identifier = nfcUid;
   const { data, error } = await supabaseAdmin
     .from("tags")
     .select("id, fursuit_id, status")
-    .eq(column, identifier)
+    .eq("nfc_uid", identifier)
     .maybeSingle();
 
   if (error) {
@@ -175,7 +167,6 @@ async function handlePost(req: Request): Promise<Response> {
     await logTagScan({
       tagId: null,
       identifier,
-      method,
       result: "not_found",
       userId,
       metadata,
@@ -193,7 +184,6 @@ async function handlePost(req: Request): Promise<Response> {
     await logTagScan({
       tagId: tag.id,
       identifier,
-      method,
       result: mapFailureReasonToScanResult("TAG_NOT_LINKED"),
       userId,
       metadata,
@@ -209,7 +199,6 @@ async function handlePost(req: Request): Promise<Response> {
     await logTagScan({
       tagId: tag.id,
       identifier,
-      method,
       result: mapFailureReasonToScanResult("TAG_REVOKED"),
       userId,
       metadata,
@@ -221,11 +210,10 @@ async function handlePost(req: Request): Promise<Response> {
     });
   }
 
-  if (tag.status === "lost" && method === "nfc") {
+  if (tag.status === "lost") {
     await logTagScan({
       tagId: tag.id,
       identifier,
-      method,
       result: mapFailureReasonToScanResult("TAG_LOST"),
       userId,
       metadata,
@@ -240,7 +228,6 @@ async function handlePost(req: Request): Promise<Response> {
   await logTagScan({
     tagId: tag.id,
     identifier,
-    method,
     result: "success",
     userId,
     metadata,
