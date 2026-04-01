@@ -34,6 +34,7 @@ export default function OnboardingScreen() {
 
   const [currentStep, setCurrentStep] = useState<StepId>('welcome');
   const [hasRegisteredFursuit, setHasRegisteredFursuit] = useState(false);
+  const [hasEnabledNotifications, setHasEnabledNotifications] = useState(false);
 
   const profileQueryOptions = useMemo(
     () => (userId ? createProfileQueryOptions(userId) : null),
@@ -117,11 +118,18 @@ export default function OnboardingScreen() {
             }}
           />
         ) : currentStep === 'notifications' ? (
-          <NotificationsStep userId={userId} onComplete={goToNextStep} />
+          <NotificationsStep
+            userId={userId}
+            onComplete={(enabled) => {
+              setHasEnabledNotifications(enabled);
+              goToNextStep();
+            }}
+          />
         ) : (
           <AchievementStep
             userId={userId}
             hasFursuit={hasRegisteredFursuit}
+            hasEnabledNotifications={hasEnabledNotifications}
             onFinish={handleFinish}
           />
         )}

@@ -12,7 +12,7 @@ import { styles } from "./NotificationsStep.styles";
 
 type NotificationsStepProps = {
   userId: string;
-  onComplete: () => void;
+  onComplete: (enabled: boolean) => void;
 };
 
 export function NotificationsStep({
@@ -36,8 +36,10 @@ export function NotificationsStep({
   const handleEnable = async () => {
     if (isBusy) return;
     setIsBusy(true);
+    let enabled = false;
     try {
-      await requestPermissionAndRegister();
+      const result = await requestPermissionAndRegister();
+      enabled = result !== false;
     } catch (error) {
       captureNonCriticalError(error, {
         scope: "onboarding.notifications.enable",
@@ -46,19 +48,19 @@ export function NotificationsStep({
     } finally {
       markPrompted();
       setIsBusy(false);
-      onComplete();
+      onComplete(enabled);
     }
   };
 
   const handleSkip = () => {
     markPrompted();
-    onComplete();
+    onComplete(false);
   };
 
   // If device doesn't support push notifications, skip this step silently
   if (!isSupported) {
     markPrompted();
-    onComplete();
+    onComplete(false);
     return null;
   }
 
