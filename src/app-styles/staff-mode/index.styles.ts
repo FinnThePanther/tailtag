@@ -53,10 +53,12 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
   },
   helperText: {
     color: 'rgba(148,163,184,0.9)',
     fontSize: 12,
+    flex: 1,
   },
   resultsSection: {
     marginTop: spacing.md,

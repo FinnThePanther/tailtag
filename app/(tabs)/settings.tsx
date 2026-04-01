@@ -1239,7 +1239,7 @@ export default function SettingsScreen() {
               Open Staff Mode
             </TailTagButton>
             <Text style={styles.sectionHint}>
-              You may be prompted to re-authenticate before using staff tools.
+              Use Staff Mode to look up players and open event tools quickly.
             </Text>
           </View>
         </TailTagCard>
