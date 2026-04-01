@@ -124,7 +124,11 @@ export function NfcScanCard({
 
     // Always emit the scan event for tracking
     void emitNfcScan({ tagUid, conventionId }).catch((err) => {
-      captureNonCriticalError(err, { scope: 'nfc.emitNfcScan', tagUid });
+      captureNonCriticalError(err, {
+        scope: 'nfc.emitNfcScan',
+        conventionId,
+        hasTagUid: true,
+      });
     });
 
     // If no createCatchFn is provided, just show the old Phase 1 behavior
@@ -173,8 +177,9 @@ export function NfcScanCard({
       setErrorMessage(message);
       captureNonCriticalError(catchError, {
         scope: 'nfc.createCatch',
-        tagUid,
         fursuitId: lookupResult.fursuitId,
+        conventionId,
+        hasTagUid: true,
       });
     }
   }, [startScan, conventionId, createCatchFn, onScanComplete, onCatchComplete, error]);

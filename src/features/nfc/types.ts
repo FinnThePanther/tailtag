@@ -8,7 +8,6 @@ export type NfcScanState = 'idle' | 'scanning' | 'success' | 'error';
 
 export type NfcScanResult = {
   tagUid: string; // Hex-normalized UID (uppercase)
-  rawId: string; // Raw ID string from tag
   techTypes: string[]; // Available technologies
   scannedAt: string; // ISO timestamp
 };
@@ -32,7 +31,6 @@ export type EmitNfcScanParams = {
 
 export type EmitNfcScanResult = {
   eventId: string;
-  tagUid: string;
 };
 
 // ============================================

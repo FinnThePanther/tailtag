@@ -139,7 +139,6 @@ export function useNfcScanner() {
       const tagUid = normalizeTagUid(tag.id);
       const result: NfcScanResult = {
         tagUid,
-        rawId: tag.id,
         techTypes: tag.techTypes ?? [],
         scannedAt: new Date().toISOString(),
       };
@@ -150,7 +149,10 @@ export function useNfcScanner() {
       addMonitoringBreadcrumb({
         category: 'nfc',
         message: 'NFC scan successful',
-        data: { tagUid, techTypes: result.techTypes },
+        data: {
+          hasTagUid: Boolean(tagUid),
+          techTypeCount: result.techTypes.length,
+        },
       });
 
       return result;

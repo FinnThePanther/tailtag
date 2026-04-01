@@ -2,6 +2,15 @@ import { supabase } from '@/lib/supabase';
 import { captureHandledException } from '@/lib/sentry';
 import type { EmitNfcScanParams, EmitNfcScanResult } from '../types';
 
+function getNfcEventTelemetry(params: EmitNfcScanParams, duration?: number) {
+  return {
+    scope: 'nfc.emitNfcScan',
+    conventionId: params.conventionId,
+    hasTagUid: Boolean(params.tagUid),
+    duration,
+  };
+}
+
 /**
  * Emit an NFC scan event to the backend.
  * For Phase 1, this simply records the scan in the events table.
@@ -25,11 +34,6 @@ export async function emitNfcScan(
       occurred_at: new Date().toISOString(),
     };
 
-    console.log(`[emitNfcScan] Starting NFC scan emission`, {
-      tagUid: params.tagUid,
-      conventionId: params.conventionId,
-    });
-
     const invokePromise = supabase.functions.invoke<{
       event_id: string;
     }>('events-ingress', { body });
@@ -49,10 +53,8 @@ export async function emitNfcScan(
     if (timeoutId) clearTimeout(timeoutId);
 
     const { data, error } = result;
-    const duration = Date.now() - startTime;
 
     if (error) {
-      console.error(`[emitNfcScan] Failed after ${duration}ms:`, error);
       throw error;
     }
 
@@ -60,26 +62,14 @@ export async function emitNfcScan(
       throw new Error('events-ingress response missing event_id');
     }
 
-    console.log(`[emitNfcScan] Completed in ${duration}ms`, {
-      eventId: data.event_id,
-    });
-
     return {
       eventId: data.event_id,
-      tagUid: params.tagUid,
     };
   } catch (error) {
     if (timeoutId) clearTimeout(timeoutId);
 
     const duration = Date.now() - startTime;
-    console.error(`[emitNfcScan] Failed after ${duration}ms:`, error);
-
-    captureHandledException(error, {
-      scope: 'nfc.emitNfcScan',
-      tagUid: params.tagUid,
-      conventionId: params.conventionId,
-      duration,
-    });
+    captureHandledException(error, getNfcEventTelemetry(params, duration));
 
     // Return null for graceful degradation (matches existing pattern)
     return null;

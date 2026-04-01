@@ -183,7 +183,8 @@ export function QrScanCard({ conventionId, onCatchComplete, createCatchFn }: QrS
         setIsProcessing(false);
         captureNonCriticalError(error, {
           scope: 'qrScan.createCatch',
-          qrToken: parsed.token,
+          conventionId,
+          hasQrToken: true,
         });
       }
     },
