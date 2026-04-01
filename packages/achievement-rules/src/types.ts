@@ -55,6 +55,7 @@ export interface CatchEventContext {
   timing: {
     isConventionDayOne: boolean;
     isLateNight: boolean;
+    isEarlyMorning: boolean;
   };
   stats: {
     totalCatches: number;
@@ -63,10 +64,15 @@ export interface CatchEventContext {
     distinctConventionsVisited: number;
     catchesAtConvention: number;
     uniqueCatchersAtConvention: number;
+    uniqueCatchersForFursuitLifetime: number;
+    distinctLocalDaysForFursuitAtConvention: number;
+    distinctConventionsForFursuit: number;
+    catchesByCatcherToday: number;
   };
   flags: {
     hybridFursuit: boolean;
     doubleCatchWithinMinute: boolean;
+    catchHasPhoto: boolean;
   };
 }
 
