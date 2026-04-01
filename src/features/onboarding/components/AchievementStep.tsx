@@ -16,12 +16,14 @@ import { styles } from "./AchievementStep.styles";
 type AchievementStepProps = {
   userId: string;
   hasFursuit: boolean;
+  hasEnabledNotifications: boolean;
   onFinish: () => void;
 };
 
 export function AchievementStep({
   userId,
   hasFursuit,
+  hasEnabledNotifications,
   onFinish,
 }: AchievementStepProps) {
   const queryClient = useQueryClient();
@@ -104,6 +106,19 @@ export function AchievementStep({
               {hasFursuit
                 ? "Registered a fursuit"
                 : "You can add a fursuit anytime"}
+            </Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <View
+              style={[
+                styles.dot,
+                hasEnabledNotifications ? styles.dotPrimary : styles.dotMuted,
+              ]}
+            />
+            <Text style={styles.summaryText}>
+              {hasEnabledNotifications
+                ? "Enabled notifications"
+                : "You can enable notifications anytime"}
             </Text>
           </View>
         </View>
