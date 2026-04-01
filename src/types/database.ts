@@ -636,8 +636,8 @@ export type Database = {
           enqueued_at: string | null
           event_id: string
           idempotency_key: string | null
-          last_error: string | null
           last_attempted_at: string | null
+          last_error: string | null
           occurred_at: string
           payload: Json
           processed_at: string | null
@@ -655,8 +655,8 @@ export type Database = {
           enqueued_at?: string | null
           event_id?: string
           idempotency_key?: string | null
-          last_error?: string | null
           last_attempted_at?: string | null
+          last_error?: string | null
           occurred_at?: string
           payload?: Json
           processed_at?: string | null
@@ -674,8 +674,8 @@ export type Database = {
           enqueued_at?: string | null
           event_id?: string
           idempotency_key?: string | null
-          last_error?: string | null
           last_attempted_at?: string | null
+          last_error?: string | null
           occurred_at?: string
           payload?: Json
           processed_at?: string | null
@@ -1676,6 +1676,42 @@ export type Database = {
           },
         ]
       }
+      user_blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id?: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_daily_progress: {
         Row: {
           completed_at: string | null
@@ -2330,11 +2366,11 @@ export type Database = {
             }
             Returns: string
           }
-      archive_old_events: { Args: never; Returns: undefined }
       archive_gameplay_event_queue_message: {
         Args: { p_message_id: number }
         Returns: boolean
       }
+      archive_old_events: { Args: never; Returns: undefined }
       calculate_catch_expiration:
         | { Args: never; Returns: string }
         | { Args: { convention_id_param: string }; Returns: string }
@@ -2342,11 +2378,18 @@ export type Database = {
         Args: { p_batch_size?: number; p_min_age_seconds?: number }
         Returns: {
           convention_id: string | null
+          dead_letter_reason: string | null
+          dead_lettered_at: string | null
+          enqueued_at: string | null
           event_id: string
+          idempotency_key: string | null
+          last_attempted_at: string | null
           last_error: string | null
           occurred_at: string
           payload: Json
           processed_at: string | null
+          queue_message_id: number | null
+          queue_name: string | null
           received_at: string
           retry_count: number
           type: string
@@ -2370,9 +2413,38 @@ export type Database = {
         }
         Returns: Json
       }
+      count_accepted_catches_by_catcher_on_date: {
+        Args: {
+          p_catcher_id: string
+          p_convention_id: string
+          p_date: string
+          p_timezone: string
+        }
+        Returns: number
+      }
       count_distinct_conventions: { Args: { user_id: string }; Returns: number }
+      count_distinct_conventions_for_fursuit: {
+        Args: { p_fursuit_id: string }
+        Returns: number
+      }
+      count_distinct_local_days_for_fursuit_at_convention: {
+        Args: {
+          p_convention_id: string
+          p_fursuit_id: string
+          p_timezone: string
+        }
+        Returns: number
+      }
       count_distinct_species_caught: {
         Args: { user_id: string }
+        Returns: number
+      }
+      count_real_achievements_for_user: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
+      count_unique_catchers_for_fursuit_lifetime: {
+        Args: { p_fursuit_id: string }
         Returns: number
       }
       count_user_fursuits: { Args: { p_user_id: string }; Returns: number }
@@ -2388,9 +2460,9 @@ export type Database = {
           }
         | {
             Args: {
-              p_catch_photo_url?: string
               p_catcher_id: string
               p_convention_id?: string
+              p_force_pending?: boolean
               p_fursuit_id: string
               p_is_tutorial?: boolean
             }
@@ -2442,6 +2514,7 @@ export type Database = {
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       execute_data_retention_cleanup: { Args: never; Returns: Json }
+      expire_bans: { Args: never; Returns: Json }
       expire_moderation_actions: { Args: never; Returns: undefined }
       expire_pending_catches: { Args: never; Returns: Json }
       fetch_unprocessed_events: {
@@ -2455,21 +2528,6 @@ export type Database = {
           retry_count: number
           type: string
           user_id: string
-        }[]
-      }
-      ingest_gameplay_event: {
-        Args: {
-          p_convention_id: string | null
-          p_idempotency_key?: string | null
-          p_occurred_at: string
-          p_payload: Json
-          p_type: string
-          p_user_id: string
-        }
-        Returns: {
-          duplicate: boolean
-          enqueued: boolean
-          event_id: string
         }[]
       }
       finish_onboarding: { Args: { target_user_id?: string }; Returns: Json }
@@ -2579,6 +2637,30 @@ export type Database = {
         Returns: boolean
       }
       geomfromewkt: { Args: { "": string }; Returns: unknown }
+      get_blocked_users: {
+        Args: { p_user_id: string }
+        Returns: {
+          blocked_avatar_url: string
+          blocked_id: string
+          blocked_username: string
+          blocker_id: string
+          created_at: string
+          id: string
+        }[]
+      }
+      get_convention_leaderboard: {
+        Args: { p_convention_id?: string }
+        Returns: {
+          catch_count: number
+          catcher_id: string
+          convention_id: string
+          first_catch_at: string
+          last_catch_at: string
+          unique_fursuits: number
+          unique_species: number
+          username: string
+        }[]
+      }
       get_event_dashboard_summary: {
         Args: { p_convention_id: string }
         Returns: {
@@ -2639,9 +2721,32 @@ export type Database = {
       }
       gettransactionid: { Args: never; Returns: unknown }
       grant_achievements_batch: { Args: { awards: Json }; Returns: Json }
+      has_visible_gameplay_event_queue_messages: {
+        Args: never
+        Returns: boolean
+      }
       hash_ip_address: { Args: { ip_addr: unknown }; Returns: string }
+      ingest_gameplay_event: {
+        Args: {
+          p_convention_id: string
+          p_idempotency_key?: string
+          p_occurred_at: string
+          p_payload: Json
+          p_type: string
+          p_user_id: string
+        }
+        Returns: {
+          duplicate: boolean
+          enqueued: boolean
+          event_id: string
+        }[]
+      }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean }
+      is_blocked: {
+        Args: { p_user_a: string; p_user_b: string }
+        Returns: boolean
+      }
       is_event_staff: {
         Args: { convention_id: string; user_id: string }
         Returns: boolean
@@ -2757,11 +2862,9 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      purge_geo_verification_data: { Args: never; Returns: Json }
       read_gameplay_event_queue: {
-        Args: {
-          p_batch_size?: number
-          p_visibility_timeout_seconds?: number
-        }
+        Args: { p_batch_size?: number; p_visibility_timeout_seconds?: number }
         Returns: {
           enqueued_at: string
           message: Json
@@ -2770,12 +2873,7 @@ export type Database = {
           vt: string
         }[]
       }
-      purge_geo_verification_data: { Args: never; Returns: Json }
       refresh_analytics_views: { Args: never; Returns: undefined }
-      refresh_convention_leaderboard: {
-        Args: { convention_uuid?: string }
-        Returns: undefined
-      }
       refresh_fursuit_popularity: {
         Args: { convention_uuid?: string }
         Returns: undefined
@@ -3383,6 +3481,17 @@ export type Database = {
       st_wrapx: {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
+      }
+      submit_user_report: {
+        Args: {
+          p_convention_id?: string
+          p_description?: string
+          p_report_type?: string
+          p_reported_fursuit_id?: string
+          p_reported_user_id?: string
+          p_severity?: string
+        }
+        Returns: string
       }
       unlockrows: { Args: { "": string }; Returns: number }
       updategeometrysrid: {

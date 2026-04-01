@@ -314,6 +314,196 @@ export const catchRules: CatchRuleDefinition[] = [
         : [];
     },
   },
+  // --- Expansion: owner achievements ---
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.FIRST_FAN,
+    achievementKey: "FIRST_FAN",
+    eventType: "catch_performed",
+    metadata: {
+      displayName: "First Fan",
+      description: "One of your suits has been caught by 3 unique people.",
+      category: "fursuiter",
+      recipientRole: "fursuit_owner",
+      canEvaluateClient: false,
+      resetMode: "none",
+    },
+    requiredStats: ["uniqueCatchersForFursuitLifetime"],
+    evaluate(context) {
+      if (context.isTutorial) return [];
+      if (!context.fursuitOwnerId) return [];
+      return context.stats.uniqueCatchersForFursuitLifetime >= 3
+        ? awardSingle(context, ACHIEVEMENT_RULE_IDS.FIRST_FAN, "FIRST_FAN", context.fursuitOwnerId, {
+            owner_id: context.fursuitOwnerId,
+            unique_catchers_lifetime: context.stats.uniqueCatchersForFursuitLifetime,
+          })
+        : [];
+    },
+  },
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.OPENING_NUMBER,
+    achievementKey: "OPENING_NUMBER",
+    eventType: "catch_performed",
+    metadata: {
+      displayName: "Opening Number",
+      description: "One of your suits was caught on day one of a convention.",
+      category: "fursuiter",
+      recipientRole: "fursuit_owner",
+      canEvaluateClient: false,
+      resetMode: "none",
+    },
+    requiredStats: ["isConventionDayOne"],
+    evaluate(context) {
+      if (context.isTutorial) return [];
+      if (!context.fursuitOwnerId) return [];
+      if (!context.conventionId) return [];
+      return context.timing.isConventionDayOne
+        ? awardSingle(context, ACHIEVEMENT_RULE_IDS.OPENING_NUMBER, "OPENING_NUMBER", context.fursuitOwnerId, {
+            owner_id: context.fursuitOwnerId,
+            convention_id: context.conventionId,
+          })
+        : [];
+    },
+  },
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.WEEKEND_WARRIOR,
+    achievementKey: "WEEKEND_WARRIOR",
+    eventType: "catch_performed",
+    metadata: {
+      displayName: "Weekend Warrior",
+      description: "One of your suits was caught on 2 different days at the same convention.",
+      category: "fursuiter",
+      recipientRole: "fursuit_owner",
+      canEvaluateClient: false,
+      resetMode: "none",
+    },
+    requiredStats: ["distinctLocalDaysForFursuitAtConvention"],
+    evaluate(context) {
+      if (context.isTutorial) return [];
+      if (!context.fursuitOwnerId) return [];
+      if (!context.conventionId) return [];
+      return context.stats.distinctLocalDaysForFursuitAtConvention >= 2
+        ? awardSingle(context, ACHIEVEMENT_RULE_IDS.WEEKEND_WARRIOR, "WEEKEND_WARRIOR", context.fursuitOwnerId, {
+            owner_id: context.fursuitOwnerId,
+            convention_id: context.conventionId,
+            distinct_days: context.stats.distinctLocalDaysForFursuitAtConvention,
+          })
+        : [];
+    },
+  },
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.ROAD_TRIP,
+    achievementKey: "ROAD_TRIP",
+    eventType: "catch_performed",
+    metadata: {
+      displayName: "Road Trip",
+      description: "One of your suits has been caught at 2 different conventions.",
+      category: "fursuiter",
+      recipientRole: "fursuit_owner",
+      canEvaluateClient: false,
+      resetMode: "none",
+    },
+    requiredStats: ["distinctConventionsForFursuit"],
+    evaluate(context) {
+      if (context.isTutorial) return [];
+      if (!context.fursuitOwnerId) return [];
+      return context.stats.distinctConventionsForFursuit >= 2
+        ? awardSingle(context, ACHIEVEMENT_RULE_IDS.ROAD_TRIP, "ROAD_TRIP", context.fursuitOwnerId, {
+            owner_id: context.fursuitOwnerId,
+            distinct_conventions: context.stats.distinctConventionsForFursuit,
+          })
+        : [];
+    },
+  },
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.PHOTO_OP,
+    achievementKey: "PHOTO_OP",
+    eventType: "catch_performed",
+    metadata: {
+      displayName: "Photo Op",
+      description: "One of your suits received a catch with a photo attached.",
+      category: "fursuiter",
+      recipientRole: "fursuit_owner",
+      canEvaluateClient: false,
+      resetMode: "none",
+    },
+    requiredStats: ["catchHasPhoto"],
+    evaluate(context) {
+      if (context.isTutorial) return [];
+      if (!context.fursuitOwnerId) return [];
+      return context.flags.catchHasPhoto
+        ? awardSingle(context, ACHIEVEMENT_RULE_IDS.PHOTO_OP, "PHOTO_OP", context.fursuitOwnerId, {
+            owner_id: context.fursuitOwnerId,
+          })
+        : [];
+    },
+  },
+  // --- Expansion: catcher achievements ---
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.EARLY_BIRD,
+    achievementKey: "EARLY_BIRD",
+    eventType: "catch_performed",
+    metadata: {
+      displayName: "Early Bird",
+      description: "Make a catch before 9 AM local convention time.",
+      category: "dedication",
+      recipientRole: "catcher",
+      canEvaluateClient: false,
+      resetMode: "none",
+    },
+    requiredStats: ["isEarlyMorning"],
+    evaluate(context) {
+      if (context.isTutorial) return [];
+      if (!context.conventionId) return [];
+      return context.timing.isEarlyMorning
+        ? awardSingle(context, ACHIEVEMENT_RULE_IDS.EARLY_BIRD, "EARLY_BIRD", context.catcherId)
+        : [];
+    },
+  },
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.SPECIES_SAFARI,
+    achievementKey: "SPECIES_SAFARI",
+    eventType: "catch_performed",
+    metadata: {
+      displayName: "Species Safari",
+      description: "Catch 10 distinct species.",
+      category: "variety",
+      recipientRole: "catcher",
+      canEvaluateClient: false,
+      resetMode: "none",
+    },
+    requiredStats: ["distinctSpeciesCaught"],
+    evaluate(context) {
+      if (context.isTutorial) return [];
+      return context.stats.distinctSpeciesCaught >= 10
+        ? awardSingle(context, ACHIEVEMENT_RULE_IDS.SPECIES_SAFARI, "SPECIES_SAFARI", context.catcherId, {
+            species_count: context.stats.distinctSpeciesCaught,
+          })
+        : [];
+    },
+  },
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.SOCIAL_BUTTERFLY,
+    achievementKey: "SOCIAL_BUTTERFLY",
+    eventType: "catch_performed",
+    metadata: {
+      displayName: "Social Butterfly",
+      description: "Make 5 accepted catches in a single local convention day.",
+      category: "fun",
+      recipientRole: "catcher",
+      canEvaluateClient: false,
+      resetMode: "none",
+    },
+    requiredStats: ["catchesByCatcherToday"],
+    evaluate(context) {
+      if (context.isTutorial) return [];
+      if (!context.conventionId) return [];
+      return context.stats.catchesByCatcherToday >= 5
+        ? awardSingle(context, ACHIEVEMENT_RULE_IDS.SOCIAL_BUTTERFLY, "SOCIAL_BUTTERFLY", context.catcherId, {
+            catches_today: context.stats.catchesByCatcherToday,
+          })
+        : [];
+    },
+  },
 ];
 
 export function evaluateCatchAchievements(context: CatchEventContext): AwardCandidate[] {
