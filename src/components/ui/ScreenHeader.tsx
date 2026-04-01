@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../theme';
+import { styles } from './ScreenHeader.styles';
 
 type ScreenHeaderProps = {
   title: string;
@@ -32,35 +33,3 @@ export function ScreenHeader({ title, onBack, right }: ScreenHeaderProps) {
     </View>
   );
 }
-
-const HEADER_HEIGHT = 44;
-const SIDE_SLOT_WIDTH = 56;
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#0f172a',
-  },
-  inner: {
-    height: HEADER_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  leftSlot: {
-    width: SIDE_SLOT_WIDTH,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  title: {
-    flex: 1,
-    color: colors.foreground,
-    fontSize: 17,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  rightSlot: {
-    width: SIDE_SLOT_WIDTH,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-});

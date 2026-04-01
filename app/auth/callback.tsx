@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 
 import { completeOAuthSessionFromUrl } from "../../src/features/auth/utils/oauth";
-import { colors, spacing } from "../../src/theme";
+import { colors } from "../../src/theme";
+import { styles } from "../../src/app-styles/auth/callback.styles";
 
 const formatErrorMessage = (input: unknown) =>
   input instanceof Error ? input.message : "Unable to finish signing in. Please try again.";
@@ -96,26 +97,3 @@ export default function OAuthCallbackScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
-  statusText: {
-    color: colors.foreground,
-    textAlign: "center",
-    fontSize: 16,
-    lineHeight: 22,
-  },
-  errorText: {
-    color: "#fca5a5",
-    textAlign: "center",
-    fontSize: 15,
-    lineHeight: 22,
-  },
-});

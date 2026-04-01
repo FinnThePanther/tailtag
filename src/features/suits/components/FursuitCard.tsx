@@ -1,20 +1,15 @@
 import type { ReactNode } from "react";
 import {
   Alert,
-  Dimensions,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 
 import { AppImage } from "../../../components/ui/AppImage";
-import { colors, radius, spacing } from "../../../theme";
 import type { FursuitColorOption } from "../../colors";
-
-const SCREEN_WIDTH = Dimensions.get("window").width;
-const IS_SMALL_SCREEN = SCREEN_WIDTH <= 375;
+import { FURSUIT_CARD_IMAGE_SIZE, styles } from "./FursuitCard.styles";
 
 const DEFAULT_SPECIES = "Species not set yet";
 const DEFAULT_CODE = "Pending code";
@@ -109,8 +104,8 @@ export function FursuitCard({
           {avatarUrl ? (
             <AppImage
               url={avatarUrl}
-              width={SCREEN_WIDTH * 0.5}
-              height={SCREEN_WIDTH * 0.5}
+              width={FURSUIT_CARD_IMAGE_SIZE}
+              height={FURSUIT_CARD_IMAGE_SIZE}
               style={styles.avatar}
             />
           ) : (
@@ -153,99 +148,3 @@ export function FursuitCard({
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: "rgba(15,23,42,0.85)",
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.25)",
-    padding: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
-  },
-  leadRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
-    marginBottom: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
-  },
-  avatarWrapper: {
-    width: "50%",
-    aspectRatio: 1,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(30,41,59,0.8)",
-    overflow: "hidden",
-  },
-  avatar: {
-    width: "100%",
-    height: "100%",
-  },
-  avatarFallback: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: "rgba(148,163,184,0.7)",
-    textAlign: "center",
-  },
-  details: {
-    flex: 1,
-  },
-  name: {
-    color: colors.foreground,
-    fontSize: IS_SMALL_SCREEN ? 16 : 18,
-    fontWeight: "600",
-    marginBottom: IS_SMALL_SCREEN ? 2 : 4,
-  },
-  species: {
-    color: "rgba(203,213,225,0.9)",
-    fontSize: IS_SMALL_SCREEN ? 13 : 14,
-    marginBottom: IS_SMALL_SCREEN ? 2 : 4,
-  },
-  colors: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: IS_SMALL_SCREEN ? 12 : 13,
-    marginBottom: IS_SMALL_SCREEN ? 2 : 4,
-  },
-  timeline: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: IS_SMALL_SCREEN ? 11 : 12,
-  },
-  metaRow: {
-    flexDirection: IS_SMALL_SCREEN ? "column" : "row",
-    alignItems: IS_SMALL_SCREEN ? "flex-start" : "center",
-    justifyContent: "space-between",
-    marginTop: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
-    gap: spacing.xs,
-  },
-  codeBlock: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: IS_SMALL_SCREEN ? 0 : 1,
-    minWidth: 0,
-  },
-  actionSlot: {
-    flexShrink: 0,
-    alignSelf: IS_SMALL_SCREEN ? "stretch" : "auto",
-    width: IS_SMALL_SCREEN ? "100%" : "auto",
-  },
-  codeLabel: {
-    fontSize: IS_SMALL_SCREEN ? 10 : 11,
-    textTransform: "uppercase",
-    letterSpacing: IS_SMALL_SCREEN ? 2 : 3,
-    color: "rgba(148,163,184,0.9)",
-    marginRight: spacing.xs,
-  },
-  codeValue: {
-    fontFamily: "Courier",
-    fontWeight: "600",
-    color: "#38bdf8",
-    fontSize: IS_SMALL_SCREEN ? 14 : 16,
-    backgroundColor: "rgba(30,41,59,0.8)",
-    paddingHorizontal: IS_SMALL_SCREEN ? spacing.xs : spacing.sm,
-    paddingVertical: IS_SMALL_SCREEN ? 2 : 4,
-    borderRadius: radius.md,
-  },
-});

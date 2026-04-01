@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,8 +9,8 @@ import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { TailTagInput } from "../../src/components/ui/TailTagInput";
 import { supabase } from "../../src/lib/supabase";
-import { colors, spacing } from "../../src/theme";
 import { isValidEmail, mapAuthError } from "../../src/utils/authValidation";
+import { styles } from "../../src/app-styles/(auth)/forgot-password.styles";
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -127,54 +127,3 @@ export default function ForgotPasswordScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-  },
-  header: {
-    marginBottom: spacing.lg,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: "uppercase",
-    color: colors.primary,
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: 26,
-    fontWeight: "700",
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    color: "rgba(203,213,225,0.9)",
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  emailHighlight: {
-    color: colors.primary,
-    fontWeight: "600",
-  },
-  formCard: {
-    gap: spacing.lg,
-  },
-  fieldGroup: {
-    gap: spacing.sm,
-  },
-  label: {
-    color: colors.foreground,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  errorText: {
-    color: "#fca5a5",
-    fontSize: 14,
-  },
-});

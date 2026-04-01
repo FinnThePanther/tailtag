@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
+import { ScrollView, Text, View, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import QRCode from 'react-native-qrcode-svg';
@@ -31,7 +31,7 @@ import {
   ensureQrBackupForFursuit,
   createSignedQrDownloadUrl,
 } from '../../../src/features/nfc';
-import { colors, spacing, radius } from '../../../src/theme';
+import { styles } from '../../../src/app-styles/fursuits/[id]/tags.styles';
 
 export default function ManageTagsScreen() {
   const router = useRouter();
@@ -494,123 +494,3 @@ export default function ManageTagsScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-    gap: spacing.lg,
-  },
-  message: {
-    color: 'rgba(203,213,225,0.9)',
-    fontSize: 14,
-  },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
-  },
-  tagSection: {
-    gap: spacing.md,
-  },
-  tagHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sectionTitle: {
-    color: colors.foreground,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  tagInfo: {
-    gap: spacing.xs / 2,
-  },
-  tagLabel: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: 'rgba(148,163,184,0.8)',
-  },
-  tagUid: {
-    fontFamily: 'monospace',
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.foreground,
-    letterSpacing: 1,
-  },
-  tagDate: {
-    fontSize: 14,
-    color: colors.foreground,
-  },
-  tagActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  warningBox: {
-    backgroundColor: 'rgba(239,68,68,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.3)',
-    borderRadius: radius.lg,
-    padding: spacing.md,
-  },
-  warningText: {
-    color: '#fca5a5',
-    fontSize: 14,
-  },
-  emptySection: {
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-    gap: spacing.md,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.foreground,
-  },
-  emptyBody: {
-    fontSize: 14,
-    color: 'rgba(203,213,225,0.9)',
-    textAlign: 'center',
-  },
-  registerButton: {
-    marginTop: spacing.sm,
-  },
-  registerNewSection: {
-    gap: spacing.sm,
-  },
-  qrSection: {
-    gap: spacing.md,
-  },
-  qrMeta: {
-    color: 'rgba(148,163,184,0.8)',
-    fontSize: 12,
-  },
-  qrPreview: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qrCanvas: {
-    backgroundColor: '#ffffff',
-    padding: spacing.md,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
-  },
-  qrDescription: {
-    color: 'rgba(203,213,225,0.9)',
-    fontSize: 14,
-  },
-  qrButtons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-});

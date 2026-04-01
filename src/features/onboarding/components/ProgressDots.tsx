@@ -1,6 +1,6 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { colors, spacing } from '../../../theme';
+import { styles } from './ProgressDots.styles';
 
 type ProgressDotsProps = {
   currentIndex: number;
@@ -17,22 +17,3 @@ export function ProgressDots({ currentIndex, total }: ProgressDotsProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.lg,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: 'rgba(148,163,184,0.35)',
-  },
-  dotActive: {
-    backgroundColor: colors.primary,
-  },
-});

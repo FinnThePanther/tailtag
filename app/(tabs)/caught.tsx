@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlatList, RefreshControl, Text, View } from "react-native";
 
 import { useFocusEffect, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,7 +18,8 @@ import {
 import { TailTagButton } from "../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../src/components/ui/TailTagCard";
 import { useAuth } from "../../src/features/auth";
-import { colors, spacing } from "../../src/theme";
+import { colors } from "../../src/theme";
+import { styles } from "../../src/app-styles/(tabs)/caught.styles";
 
 function ListHeader() {
   return (
@@ -171,49 +172,3 @@ export default function CaughtSuitsScreen() {
     />
   );
 }
-
-const styles = StyleSheet.create({
-  list: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-    gap: spacing.lg,
-  },
-  header: {
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: "uppercase",
-    color: colors.primary,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: colors.foreground,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: "rgba(203,213,225,0.9)",
-  },
-  message: {
-    color: "rgba(203,213,225,0.9)",
-    fontSize: 14,
-  },
-  helper: {
-    gap: spacing.sm,
-  },
-  error: {
-    color: "#fca5a5",
-    fontSize: 14,
-  },
-  separator: {
-    height: spacing.sm,
-  },
-});

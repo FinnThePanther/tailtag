@@ -1,12 +1,13 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors, spacing } from "../../../theme";
+import { colors } from "../../../theme";
 import {
   PasswordStrength,
   validatePassword,
 } from "../../../utils/authValidation";
+import { styles } from "./PasswordStrengthIndicator.styles";
 
 const STRENGTH_COLORS: Record<PasswordStrength, string> = {
   weak: colors.destructive,
@@ -81,40 +82,3 @@ export function PasswordStrengthIndicator({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.sm,
-  },
-  bar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  segment: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-  },
-  strengthLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginLeft: 4,
-    minWidth: 44,
-  },
-  checklist: {
-    gap: 5,
-  },
-  checkItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  checkLabel: {
-    fontSize: 12,
-    color: "rgba(148,163,184,0.6)",
-  },
-  checkLabelMet: {
-    color: "rgba(148,163,184,0.9)",
-  },
-});

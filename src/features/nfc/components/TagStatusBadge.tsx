@@ -1,6 +1,7 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, radius } from '@/theme';
+import { View, Text } from 'react-native';
+import { colors } from '@/theme';
 import type { NfcTagStatus } from '../types';
+import { styles } from './TagStatusBadge.styles';
 
 type TagStatusBadgeProps = {
   status: NfcTagStatus;
@@ -43,17 +44,3 @@ export function TagStatusBadge({ status }: TagStatusBadgeProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: radius.md,
-  },
-  text: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-});

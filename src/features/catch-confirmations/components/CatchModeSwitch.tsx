@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { Switch, Text, View } from 'react-native';
 
-import { colors, spacing } from '../../../theme';
+import { colors } from '../../../theme';
 import type { CatchMode } from '../types';
+import { styles } from './CatchModeSwitch.styles';
 
 type CatchModeSwitchProps = {
   value: CatchMode;
@@ -66,26 +67,3 @@ export function CatchModeSwitch({ value, onChange, disabled = false }: CatchMode
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  textContainer: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  label: {
-    color: colors.foreground,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  description: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 12,
-    lineHeight: 16,
-  },
-});

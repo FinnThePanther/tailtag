@@ -5,6 +5,7 @@ import type { ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { getTransformedImageUrl } from '../../utils/supabase-image';
+import { styles } from './AppAvatar.styles';
 
 type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 type FallbackType = 'fursuit' | 'user';
@@ -83,14 +84,3 @@ export function AppAvatar({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    overflow: 'hidden',
-    backgroundColor: 'rgba(30,41,59,0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

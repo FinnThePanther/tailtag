@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
@@ -12,8 +12,9 @@ import { TailTagButton } from "../src/components/ui/TailTagButton";
 import { TailTagCard } from "../src/components/ui/TailTagCard";
 import { PasswordStrengthIndicator } from "../src/features/auth/components/PasswordStrengthIndicator";
 import { supabase } from "../src/lib/supabase";
-import { colors, spacing } from "../src/theme";
+import { colors } from "../src/theme";
 import { mapAuthError, validatePassword } from "../src/utils/authValidation";
+import { styles } from "../src/app-styles/reset-password.styles";
 
 type SessionState = "loading" | "ready" | "error";
 
@@ -251,61 +252,3 @@ export default function ResetPasswordScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.background,
-    gap: spacing.md,
-  },
-  statusText: {
-    color: colors.foreground,
-    fontSize: 15,
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-  },
-  header: {
-    marginBottom: spacing.lg,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: "uppercase",
-    color: colors.primary,
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: 26,
-    fontWeight: "700",
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    color: "rgba(203,213,225,0.9)",
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  formCard: {
-    gap: spacing.lg,
-  },
-  fieldGroup: {
-    gap: spacing.sm,
-  },
-  label: {
-    color: colors.foreground,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  errorText: {
-    color: "#fca5a5",
-    fontSize: 14,
-  },
-});
