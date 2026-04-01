@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -11,8 +10,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { AppAvatar } from '../../../components/ui/AppAvatar';
 import { TailTagInput } from '../../../components/ui/TailTagInput';
-import { colors, radius, spacing } from '../../../theme';
+import { colors } from '../../../theme';
 import type { FursuitPickerItem } from '../api';
+import { styles } from './FursuitPicker.styles';
 
 type FursuitPickerProps = {
   items: FursuitPickerItem[];
@@ -119,62 +119,3 @@ function FursuitPickerRow({ item, isSelected, onPress }: RowProps) {
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.sm,
-  },
-  searchInput: {
-    marginBottom: spacing.xs,
-  },
-  center: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-    gap: spacing.sm,
-  },
-  loadingText: {
-    color: 'rgba(148,163,184,0.7)',
-    fontSize: 14,
-  },
-  emptyTitle: {
-    color: colors.foreground,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  emptySubtitle: {
-    color: 'rgba(148,163,184,0.7)',
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: 'rgba(148,163,184,0.1)',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.md,
-    gap: spacing.sm,
-  },
-  rowSelected: {
-    backgroundColor: 'rgba(99,102,241,0.12)',
-  },
-  avatarFlexShrink: {
-    flexShrink: 0,
-  },
-  rowText: {
-    flex: 1,
-  },
-  rowName: {
-    color: colors.foreground,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  rowSpecies: {
-    color: 'rgba(148,163,184,0.8)',
-    fontSize: 12,
-    marginTop: 2,
-  },
-});

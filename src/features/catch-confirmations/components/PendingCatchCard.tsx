@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Modal, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,8 +7,9 @@ import { useRouter } from 'expo-router';
 import { AppAvatar } from '../../../components/ui/AppAvatar';
 import { AppImage } from '../../../components/ui/AppImage';
 import { TailTagButton } from '../../../components/ui/TailTagButton';
-import { colors, radius, spacing } from '../../../theme';
+import { colors } from '../../../theme';
 import type { PendingCatch } from '../types';
+import { styles } from './PendingCatchCard.styles';
 
 type PendingCatchCardProps = {
   pendingCatch: PendingCatch;
@@ -242,144 +243,3 @@ export function PendingCatchCard({
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'rgba(15,23,42,0.85)',
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: '#fbbf24',
-    padding: spacing.md,
-    position: 'relative',
-  },
-  expiredContainer: {
-    borderColor: '#f87171',
-    opacity: 0.7,
-  },
-  expiredOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(15,23,42,0.95)',
-    borderRadius: radius.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.lg,
-    zIndex: 10,
-  },
-  expiredTitle: {
-    color: '#f87171',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  expiredSubtitle: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  catcherInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  textInfo: {
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  username: {
-    color: colors.foreground,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  subtitle: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 13,
-    marginTop: 2,
-  },
-  fursuitName: {
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(251,191,36,0.15)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.md,
-  },
-  timeText: {
-    color: '#fbbf24',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  expiredText: {
-    color: '#f87171',
-  },
-  catchPhoto: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: radius.md,
-    marginBottom: spacing.sm,
-    backgroundColor: 'rgba(30,41,59,0.8)',
-  },
-  contextContainer: {
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  contextRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  fursuitContextText: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  contextText: {
-    color: 'rgba(148,163,184,0.8)',
-    fontSize: 12,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-  },
-  rejectButton: {
-    borderColor: 'rgba(148,163,184,0.3)',
-  },
-  fullscreenBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullscreenPhoto: {
-    width: '100%',
-    height: '100%',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

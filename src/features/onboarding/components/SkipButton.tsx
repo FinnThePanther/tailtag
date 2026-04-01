@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, Text, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, spacing } from '../../../theme';
+import { styles } from './SkipButton.styles';
 
 type SkipButtonProps = {
   label?: string;
@@ -31,25 +31,3 @@ export function SkipButton({
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 999,
-    alignItems: 'center',
-    alignSelf: 'stretch',
-  },
-  buttonPressed: {
-    opacity: 0.85,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  text: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-});

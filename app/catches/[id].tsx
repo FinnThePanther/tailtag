@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Dimensions, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from "react-native";
+import { Alert, Dimensions, Modal, Pressable, ScrollView, StatusBar, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -20,9 +20,9 @@ import {
 } from "../../src/features/suits";
 import type { CaughtRecord } from "../../src/features/suits";
 import { useAuth } from "../../src/features/auth";
-import { colors, spacing } from "../../src/theme";
 import { toDisplayDateTime } from "../../src/utils/dates";
 import { inferImageExtension, inferImageMimeType } from "../../src/utils/images";
+import { styles } from "../../src/app-styles/catches/[id].styles";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -189,70 +189,3 @@ export default function CatchDetailScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-    gap: spacing.lg,
-  },
-  centeredContent: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    gap: spacing.md,
-  },
-  message: {
-    color: "rgba(203,213,225,0.9)",
-    fontSize: 14,
-    marginBottom: spacing.sm,
-  },
-  detailStack: {
-    gap: spacing.md,
-  },
-  section: {
-    gap: spacing.xs,
-  },
-  sectionLabel: {
-    color: "rgba(148,163,184,0.7)",
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    fontWeight: "600",
-    marginBottom: spacing.sm,
-  },
-  catchPhoto: {
-    width: "100%",
-    aspectRatio: 4 / 3,
-    borderRadius: 8,
-    backgroundColor: "rgba(30,41,59,0.8)",
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  fullscreenBackdrop: {
-    flex: 1,
-    backgroundColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  fullscreenClose: {
-    position: "absolute",
-    top: 52,
-    right: spacing.lg,
-    zIndex: 10,
-    padding: spacing.sm,
-  },
-  fullscreenImage: {
-    width: "100%",
-    height: "100%",
-  },
-});

@@ -1,11 +1,12 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius } from '@/theme';
+import { colors } from '@/theme';
 import { fetchFursuitTag, nfcTagQueryKey, fetchFursuitQrTag, fursuitQrQueryKey } from '../api/nfcTags';
 import { TagStatusBadge } from './TagStatusBadge';
 import { TailTagButton } from '@/components/ui/TailTagButton';
+import { styles } from './FursuitTagSection.styles';
 
 type FursuitTagSectionProps = {
   fursuitId: string;
@@ -74,7 +75,7 @@ export function FursuitTagSection({ fursuitId }: FursuitTagSectionProps) {
             <Ionicons
               name="chevron-forward"
               size={20}
-              color="rgba(148,163,184,0.6)"
+              color={colors.textFaint}
             />
           </Pressable>
         ) : (
@@ -90,7 +91,7 @@ export function FursuitTagSection({ fursuitId }: FursuitTagSectionProps) {
             <Ionicons
               name="chevron-forward"
               size={20}
-              color="rgba(148,163,184,0.6)"
+              color={colors.textFaint}
             />
           </Pressable>
         )}
@@ -116,7 +117,7 @@ export function FursuitTagSection({ fursuitId }: FursuitTagSectionProps) {
               <Ionicons
                 name="chevron-forward"
                 size={20}
-                color="rgba(148,163,184,0.6)"
+                color={colors.textFaint}
               />
             </Pressable>
             <View style={styles.qrActions}>
@@ -134,108 +135,10 @@ export function FursuitTagSection({ fursuitId }: FursuitTagSectionProps) {
               <Ionicons name="qr-code-outline" size={24} color={colors.primary} />
               <Text style={styles.emptyText}>Register a QR tag</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="rgba(148,163,184,0.6)" />
+            <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
           </Pressable>
         )}
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  sectionGroup: {
-    gap: spacing.xs,
-  },
-  section: {
-    gap: spacing.xs,
-  },
-  sectionTitle: {
-    color: colors.foreground,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loadingText: {
-    color: 'rgba(148,163,184,0.6)',
-    fontSize: 14,
-  },
-  tagCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(30,41,59,0.5)',
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
-  },
-  tagInfo: {
-    flex: 1,
-    gap: spacing.xs / 2,
-  },
-  tagHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  tagUid: {
-    fontFamily: 'monospace',
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.foreground,
-    flex: 1,
-  },
-  tagDate: {
-    fontSize: 12,
-    color: 'rgba(148,163,184,0.6)',
-    marginLeft: 28, // Align with text after icon
-  },
-  emptyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(30,41,59,0.3)',
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.15)',
-    borderStyle: 'dashed',
-  },
-  emptyContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  qrLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.foreground,
-    flex: 1,
-  },
-  qrCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(17,24,39,0.5)',
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(94,234,212,0.2)',
-  },
-  qrActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  qrEmptyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderColor: 'rgba(148,163,184,0.15)',
-    backgroundColor: 'rgba(30,41,59,0.3)',
-  },
-  showQrButton: {
-    marginTop: spacing.sm,
-  },
-});

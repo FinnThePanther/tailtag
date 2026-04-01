@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  StyleSheet,
   Switch,
   Text,
   View,
@@ -38,7 +37,7 @@ import type {
 import { ConventionToggle } from "../../src/components/conventions/ConventionToggle";
 import { supabase } from "../../src/lib/supabase";
 import { captureHandledException } from "../../src/lib/sentry";
-import { colors, spacing, radius } from "../../src/theme";
+import { colors } from "../../src/theme";
 import {
   buildImageUploadCandidate,
   extractStoragePath,
@@ -76,6 +75,7 @@ import {
 import type { CaughtRecord } from "../../src/features/suits/api/caughtSuits";
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from "../../src/features/leaderboard/api/leaderboard";
 import { usePushNotifications } from "../../src/features/push-notifications";
+import { styles } from "../../src/app-styles/(tabs)/settings.styles";
 
 const FEEDBACK_FORM_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSf_placeholder/viewform";
@@ -1302,237 +1302,3 @@ export default function SettingsScreen() {
     </KeyboardAwareFormWrapper>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-    gap: spacing.lg,
-  },
-  header: {
-    gap: spacing.xs,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: "uppercase",
-    color: colors.primary,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: colors.foreground,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: "rgba(203,213,225,0.9)",
-  },
-  message: {
-    color: "rgba(203,213,225,0.9)",
-    fontSize: 14,
-  },
-  statsSection: {
-    gap: spacing.md,
-  },
-  conventionSection: {
-    gap: spacing.md,
-  },
-  accountSection: {
-    gap: spacing.md,
-  },
-  toggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-  toggleText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  sectionTitle: {
-    color: colors.foreground,
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: spacing.xs,
-  },
-  sectionDescription: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  sectionSubtitle: {
-    color: colors.foreground,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  sectionHint: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 12,
-  },
-  warning: {
-    color: "#ef4444",
-    fontSize: 12,
-  },
-  fieldGroup: {
-    marginBottom: spacing.md,
-  },
-  bioInput: {
-    minHeight: 120,
-    textAlignVertical: "top",
-  },
-  helperColumn: {
-    gap: spacing.sm,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    gap: spacing.lg,
-    flexWrap: "wrap",
-  },
-  statCard: {
-    flexGrow: 1,
-    flexBasis: 140,
-    backgroundColor: "rgba(30,41,59,0.6)",
-    borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(148,163,184,0.2)",
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.xs,
-  },
-  statValue: {
-    color: colors.foreground,
-    fontSize: 28,
-    fontWeight: "700",
-  },
-  statLabel: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 13,
-  },
-  conventionList: {
-    gap: spacing.sm,
-  },
-  error: {
-    color: "#fca5a5",
-    fontSize: 14,
-  },
-  success: {
-    color: "#67e8f9",
-    fontSize: 14,
-  },
-  usernameChecking: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 12,
-    marginTop: spacing.xs,
-  },
-  usernameAvailable: {
-    color: "#4ade80",
-    fontSize: 12,
-    marginTop: spacing.xs,
-  },
-  usernameTaken: {
-    color: "#fca5a5",
-    fontSize: 12,
-    marginTop: spacing.xs,
-  },
-  avatarSection: {
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  avatarButton: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    overflow: "hidden",
-  },
-  avatarButtonPressed: {
-    opacity: 0.7,
-  },
-  avatarPlaceholder: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: "rgba(30,41,59,0.8)",
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.3)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarPlaceholderText: {
-    color: "rgba(148,163,184,0.8)",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  avatarOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  socialList: {
-    gap: spacing.md,
-  },
-  socialRow: {
-    gap: spacing.sm,
-    borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(148,163,184,0.2)",
-    backgroundColor: "rgba(15,23,42,0.4)",
-    padding: spacing.md,
-  },
-  socialPlatformChips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  socialPlatformChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.3)",
-    backgroundColor: "rgba(30,41,59,0.6)",
-  },
-  socialPlatformChipSelected: {
-    borderColor: colors.primary,
-    backgroundColor: "rgba(56,189,248,0.15)",
-  },
-  socialPlatformChipDisabled: {
-    opacity: 0.4,
-  },
-  socialPlatformChipText: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  socialPlatformChipTextSelected: {
-    color: colors.primary,
-  },
-  socialPlatformChipTextDisabled: {
-    color: "rgba(148,163,184,0.5)",
-  },
-  socialInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  socialCustomInputs: {
-    gap: spacing.sm,
-  },
-  socialInput: {
-    flex: 1,
-  },
-  socialRemoveButton: {
-    flexShrink: 0,
-  },
-  saveSocialLinksButton: {
-    marginTop: spacing.sm,
-  },
-  helperLabel: {
-    color: "rgba(148,163,184,0.7)",
-    fontSize: 13,
-  },
-});

@@ -5,7 +5,6 @@ import {
   Dimensions,
   FlatList,
   LayoutChangeEvent,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -22,7 +21,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { AppAvatar } from '../src/components/ui/AppAvatar';
 import { TailTagCard } from '../src/components/ui/TailTagCard';
 import { TailTagButton } from '../src/components/ui/TailTagButton';
-import { colors, spacing, radius } from '../src/theme';
+import { colors, spacing } from '../src/theme';
 import { useAuth } from '../src/features/auth';
 import {
   QR_READY_SUITS_QUERY_KEY,
@@ -31,6 +30,7 @@ import {
   qrReadySuitsQueryKey,
 } from '../src/features/nfc';
 import type { QrReadyFursuit } from '../src/features/nfc';
+import { styles } from '../src/app-styles/show-qr.styles';
 
 const STORAGE_KEY = 'tailtag:last-qr-fursuit';
 const WINDOW_WIDTH = Dimensions.get('window').width;
@@ -307,89 +307,3 @@ export default function ShowQrScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-    gap: spacing.lg,
-  },
-  loadingState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  loadingText: {
-    color: 'rgba(203,213,225,0.9)',
-    fontSize: 14,
-  },
-  carouselWrapper: {
-    flex: 1,
-  },
-  page: {
-    paddingHorizontal: spacing.sm,
-    alignItems: 'center',
-  },
-  pageContent: {
-    gap: spacing.md,
-    alignItems: 'center',
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.foreground,
-  },
-  pageSubtitle: {
-    color: 'rgba(203,213,225,0.9)',
-    fontSize: 16,
-  },
-  pageMeta: {
-    color: 'rgba(148,163,184,0.8)',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  largeQrCanvas: {
-    backgroundColor: '#ffffff',
-    padding: spacing.lg,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
-  },
-  avatarMargin: {
-    marginVertical: spacing.sm,
-  },
-  pageDots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.md,
-  },
-  pageDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(148,163,184,0.4)',
-  },
-  pageDotActive: {
-    backgroundColor: colors.primary,
-  },
-  footerActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.foreground,
-    marginBottom: spacing.sm,
-  },
-  emptyBody: {
-    color: 'rgba(203,213,225,0.9)',
-    fontSize: 14,
-    marginBottom: spacing.md,
-  },
-});

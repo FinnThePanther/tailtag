@@ -1,7 +1,8 @@
 import type { StyleProp, ViewStyle } from 'react-native';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { colors, radius } from '../../theme';
+import { colors } from '../../theme';
+import { styles } from './TailTagProgressBar.styles';
 
 type TailTagProgressBarProps = {
   value: number;
@@ -13,7 +14,7 @@ type TailTagProgressBarProps = {
 
 export function TailTagProgressBar({
   value,
-  trackColor = 'rgba(148,163,184,0.25)',
+  trackColor = colors.borderDefault,
   indicatorColor = colors.primary,
   style,
   fillStyle,
@@ -33,15 +34,3 @@ export function TailTagProgressBar({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  track: {
-    height: 8,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-    borderRadius: radius.md,
-  },
-});

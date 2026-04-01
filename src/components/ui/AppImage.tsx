@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Image } from 'expo-image';
 import type { ImageStyle } from 'expo-image';
-import { PixelRatio, StyleSheet, View } from 'react-native';
+import { PixelRatio, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 import { getTransformedImageUrl } from '../../utils/supabase-image';
+import { styles } from './AppImage.styles';
 
 type AppImageProps = {
   url: string | null | undefined;
@@ -58,12 +59,3 @@ export function AppImage({
     />
   );
 }
-
-const styles = StyleSheet.create({
-  placeholder: {
-    backgroundColor: 'rgba(30,41,59,0.8)',
-  },
-  imageBase: {
-    backgroundColor: 'rgba(30,41,59,0.8)',
-  },
-});

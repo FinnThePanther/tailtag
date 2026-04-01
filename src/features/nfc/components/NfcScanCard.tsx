@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { TailTagButton } from '@/components/ui/TailTagButton';
 import { TailTagCard } from '@/components/ui/TailTagCard';
-import { colors, spacing, radius } from '@/theme';
+import { colors } from '@/theme';
 import { captureNonCriticalError } from '@/lib/sentry';
 import {
   FursuitCard,
@@ -17,6 +17,7 @@ import { useNfcScanner } from '../hooks/useNfcScanner';
 import { emitNfcScan } from '../api/nfc';
 import { lookupTagForCatch } from '../api/nfcTags';
 import type { TagLookupFailReason } from '../types';
+import { styles } from './NfcScanCard.styles';
 
 type ScanStep =
   | 'idle'
@@ -448,132 +449,3 @@ export function NfcScanCard({
     </TailTagCard>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  pendingCard: {
-    borderColor: colors.amber,
-    borderWidth: 2,
-  },
-  successCard: {
-    alignItems: 'stretch',
-    width: '100%',
-  },
-  iconContainer: {
-    marginBottom: spacing.md,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.foreground,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  body: {
-    fontSize: 14,
-    color: 'rgba(203,213,225,0.9)',
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.md,
-  },
-  catchNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  button: {
-    width: '100%',
-  },
-  buttonRow: {
-    flexDirection: 'column',
-    marginTop: spacing.md,
-    gap: spacing.sm,
-    width: '100%',
-  },
-  promptCard: {
-    marginBottom: spacing.md,
-    backgroundColor: colors.primaryMuted,
-    borderColor: colors.primaryDark,
-    width: '100%',
-  },
-  pendingPromptCard: {
-    marginBottom: spacing.md,
-    backgroundColor: 'rgba(251, 191, 36, 0.1)',
-    borderColor: 'rgba(251, 191, 36, 0.3)',
-    width: '100%',
-  },
-  promptLabel: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    color: colors.primary,
-    marginBottom: spacing.xs,
-    fontWeight: '600',
-  },
-  pendingPromptLabel: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    color: '#fbbf24',
-    marginBottom: spacing.xs,
-    fontWeight: '600',
-  },
-  promptBody: {
-    fontSize: 16,
-    color: colors.foreground,
-    lineHeight: 22,
-  },
-  fursuitCardWrapper: {
-    width: '100%',
-  },
-  pendingFursuitBorder: {
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#fbbf24',
-    overflow: 'hidden',
-    width: '100%',
-  },
-  bioSpacing: {
-    marginTop: spacing.md,
-    width: '100%',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: 'rgba(203,213,225,0.9)',
-  },
-  debugContainer: {
-    backgroundColor: 'rgba(15,23,42,0.9)',
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    width: '100%',
-    alignItems: 'center',
-  },
-  debugLabel: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    color: colors.primary,
-    marginBottom: spacing.xs,
-  },
-  debugValue: {
-    fontSize: 18,
-    fontFamily: 'monospace',
-    fontWeight: '600',
-    color: colors.foreground,
-    letterSpacing: 2,
-  },
-});

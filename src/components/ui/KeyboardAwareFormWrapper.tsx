@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
-import { StyleSheet } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 import type { StyleProp, ViewStyle } from "react-native";
 
-import { colors, spacing } from "../../theme";
+import { spacing } from "../../theme";
+import { styles } from "./KeyboardAwareFormWrapper.styles";
 
 interface KeyboardAwareFormWrapperProps {
   children: ReactNode;
@@ -34,15 +34,3 @@ export function KeyboardAwareFormWrapper({
     </KeyboardAwareScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  defaultContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-  },
-});

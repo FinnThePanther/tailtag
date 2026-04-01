@@ -1,11 +1,11 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppAvatar } from '../../../components/ui/AppAvatar';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
-import { colors, radius, spacing } from '../../../theme';
 import { toDisplayDate } from '../../../utils/dates';
 import type { MyPendingCatch } from '../types';
+import { styles } from './PendingConfirmationsList.styles';
 
 type PendingConfirmationsListProps = {
   pendingCatches: MyPendingCatch[];
@@ -84,78 +84,3 @@ export function PendingConfirmationsList({ pendingCatches }: PendingConfirmation
     </TailTagCard>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.lg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  badge: {
-    backgroundColor: '#f59e0b',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    flexShrink: 0,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  description: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 13,
-    marginBottom: spacing.md,
-  },
-  list: {
-    gap: 0,
-  },
-  listItemSpacing: {
-    marginBottom: spacing.md,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: 'rgba(15,23,42,0.85)',
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.25)',
-    padding: spacing.md,
-  },
-  textCol: {
-    flex: 1,
-    gap: 2,
-  },
-  name: {
-    color: colors.foreground,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  subtitle: {
-    color: '#fbbf24',
-    fontSize: 13,
-  },
-  date: {
-    color: 'rgba(148,163,184,0.7)',
-    fontSize: 12,
-  },
-});
