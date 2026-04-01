@@ -49,7 +49,6 @@ import {
   useDailyTasks,
   DAILY_TASKS_QUERY_KEY,
 } from "../../src/features/daily-tasks";
-import { useAutoRequestPushPermission } from "../../src/features/push-notifications";
 import { spacing } from "../../src/theme";
 import { getTransformedImageUrl } from "../../src/utils/supabase-image";
 import { styles } from "../../src/app-styles/(tabs)/index.styles";
@@ -66,9 +65,6 @@ export default function HomeScreen() {
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
   const { width: windowWidth } = useWindowDimensions();
-
-  // Auto-request push notification permissions on first visit
-  useAutoRequestPushPermission();
 
   // Username change nudge
   const [nudgeDismissed, setNudgeDismissed] = useState(true);
