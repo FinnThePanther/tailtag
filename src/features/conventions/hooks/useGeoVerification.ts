@@ -30,19 +30,6 @@ export function useGeoVerification(): UseGeoVerificationReturn {
       const effectiveAccuracy = typeof accuracy === 'number' ? accuracy : 50;
       const roundedAccuracy = Math.max(1, Math.round(effectiveAccuracy));
 
-      captureHandledMessage('geo_verification_attempt', {
-        conventionId,
-        latitude,
-        longitude,
-        accuracy: roundedAccuracy,
-      });
-      console.log('[GeoVerification] attempt', {
-        conventionId,
-        latitude,
-        longitude,
-        accuracy: roundedAccuracy,
-      });
-
       const result = await verifyConventionLocation({
         profileId,
         conventionId,
@@ -57,14 +44,7 @@ export function useGeoVerification(): UseGeoVerificationReturn {
         distance_meters: result.distance_meters ?? null,
         radius_meters: result.geofence_radius_meters,
         effective_radius_meters: result.effective_radius_meters ?? null,
-        error: result.error ?? null,
-      });
-      console.log('[GeoVerification] result', {
-        conventionId,
-        verified: result.verified,
-        distance_meters: result.distance_meters ?? null,
-        radius_meters: result.geofence_radius_meters,
-        effective_radius_meters: result.effective_radius_meters ?? null,
+        accuracy_meters: roundedAccuracy,
         error: result.error ?? null,
       });
 

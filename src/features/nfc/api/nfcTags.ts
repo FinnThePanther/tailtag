@@ -64,6 +64,26 @@ interface TagRow {
   qr_asset_path: string | null;
 }
 
+function getTagTelemetry(options: {
+  scope: string;
+  uid?: string | null;
+  tagId?: string | null;
+  fursuitId?: string | null;
+  userId?: string | null;
+  assetPath?: string | null;
+  hasQrToken?: boolean;
+}) {
+  return {
+    scope: options.scope,
+    fursuitId: options.fursuitId ?? undefined,
+    userId: options.userId ?? undefined,
+    assetPath: options.assetPath ?? undefined,
+    hasTagUid: Boolean(options.uid),
+    hasTagId: Boolean(options.tagId),
+    hasQrToken: options.hasQrToken ?? false,
+  };
+}
+
 function mapTagRowToTag(row: TagRow): NfcTag {
   const kind: NfcTag['kind'] = row.nfc_uid ? 'nfc' : 'qr';
   return {
@@ -128,7 +148,6 @@ export async function checkTagStatus(uid: string): Promise<TagCheckResult> {
     );
 
     if (error) {
-      console.error('[checkTagStatus] Error:', error);
       throw error;
     }
 
@@ -144,10 +163,7 @@ export async function checkTagStatus(uid: string): Promise<TagCheckResult> {
       isMine: data.is_mine,
     };
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.checkTagStatus',
-      tagUid: uid,
-    });
+    captureHandledException(error, getTagTelemetry({ scope: 'nfc.checkTagStatus', uid }));
     throw error;
   }
 }
@@ -167,7 +183,6 @@ export async function registerTag(
     );
 
     if (error) {
-      console.error('[registerTag] Invoke error:', error);
       throw error;
     }
 
@@ -181,10 +196,7 @@ export async function registerTag(
 
     return mapRegistrationResponse(data);
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.registerTag',
-      tagUid: uid,
-    });
+    captureHandledException(error, getTagTelemetry({ scope: 'nfc.registerTag', uid }));
 
     return {
       code: 'NETWORK_ERROR',
@@ -209,7 +221,6 @@ export async function linkTagToFursuit(
     );
 
     if (error) {
-      console.error('[linkTagToFursuit] Invoke error:', error);
       throw error;
     }
 
@@ -223,11 +234,10 @@ export async function linkTagToFursuit(
 
     return mapRegistrationResponse(data);
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.linkTagToFursuit',
-      tagUid: uid,
-      fursuitId,
-    });
+    captureHandledException(
+      error,
+      getTagTelemetry({ scope: 'nfc.linkTagToFursuit', uid, fursuitId })
+    );
 
     return {
       code: 'NETWORK_ERROR',
@@ -249,7 +259,6 @@ export async function linkTagByIdToFursuit(
     );
 
     if (error) {
-      console.error('[linkTagByIdToFursuit] Invoke error:', error);
       throw error;
     }
 
@@ -263,11 +272,10 @@ export async function linkTagByIdToFursuit(
 
     return mapRegistrationResponse(data);
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.linkTagByIdToFursuit',
-      tagId,
-      fursuitId,
-    });
+    captureHandledException(
+      error,
+      getTagTelemetry({ scope: 'nfc.linkTagByIdToFursuit', tagId, fursuitId })
+    );
 
     return {
       code: 'NETWORK_ERROR',
@@ -291,7 +299,6 @@ export async function unlinkTag(
     );
 
     if (error) {
-      console.error('[unlinkTag] Invoke error:', error);
       throw error;
     }
 
@@ -305,10 +312,7 @@ export async function unlinkTag(
 
     return mapRegistrationResponse(data);
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.unlinkTag',
-      tagUid: uid,
-    });
+    captureHandledException(error, getTagTelemetry({ scope: 'nfc.unlinkTag', uid }));
 
     return {
       code: 'NETWORK_ERROR',
@@ -332,7 +336,6 @@ export async function markTagLost(
     );
 
     if (error) {
-      console.error('[markTagLost] Invoke error:', error);
       throw error;
     }
 
@@ -346,10 +349,7 @@ export async function markTagLost(
 
     return mapRegistrationResponse(data);
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.markTagLost',
-      tagUid: uid,
-    });
+    captureHandledException(error, getTagTelemetry({ scope: 'nfc.markTagLost', uid }));
 
     return {
       code: 'NETWORK_ERROR',
@@ -373,7 +373,6 @@ export async function markTagFound(
     );
 
     if (error) {
-      console.error('[markTagFound] Invoke error:', error);
       throw error;
     }
 
@@ -387,10 +386,7 @@ export async function markTagFound(
 
     return mapRegistrationResponse(data);
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.markTagFound',
-      tagUid: uid,
-    });
+    captureHandledException(error, getTagTelemetry({ scope: 'nfc.markTagFound', uid }));
 
     return {
       code: 'NETWORK_ERROR',
@@ -427,16 +423,12 @@ export async function generateQrForTag(
     });
 
     if (error) {
-      console.error('[generateQrForTag] Invoke error:', error);
       throw error;
     }
 
     return await handleQrActionResponse(data, tagId);
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.generateQrForTag',
-      tagId,
-    });
+    captureHandledException(error, getTagTelemetry({ scope: 'nfc.generateQrForTag', tagId }));
 
     if (typeof error === 'object' && error !== null && 'code' in (error as any)) {
       return error as TagRegistrationError;
@@ -458,16 +450,12 @@ export async function rotateQrForTag(
     });
 
     if (error) {
-      console.error('[rotateQrForTag] Invoke error:', error);
       throw error;
     }
 
     return await handleQrActionResponse(data, tagId);
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.rotateQrForTag',
-      tagId,
-    });
+    captureHandledException(error, getTagTelemetry({ scope: 'nfc.rotateQrForTag', tagId }));
 
     if (typeof error === 'object' && error !== null && 'code' in (error as any)) {
       return error as TagRegistrationError;
@@ -489,16 +477,12 @@ export async function revokeQrForTag(
     });
 
     if (error) {
-      console.error('[revokeQrForTag] Invoke error:', error);
       throw error;
     }
 
     return await handleQrActionResponse(data, tagId);
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.revokeQrForTag',
-      tagId,
-    });
+    captureHandledException(error, getTagTelemetry({ scope: 'nfc.revokeQrForTag', tagId }));
 
     if (typeof error === 'object' && error !== null && 'code' in (error as any)) {
       return error as TagRegistrationError;
@@ -520,10 +504,10 @@ export async function createSignedQrDownloadUrl(
     .createSignedUrl(assetPath, expiresInSeconds);
 
   if (error || !data?.signedUrl) {
-    captureHandledException(error ?? new Error('Failed to create signed QR URL'), {
-      scope: 'nfc.createSignedQrDownloadUrl',
-      assetPath,
-    });
+    captureHandledException(
+      error ?? new Error('Failed to create signed QR URL'),
+      getTagTelemetry({ scope: 'nfc.createSignedQrDownloadUrl', assetPath })
+    );
     throw new Error('We could not generate a download link. Please try again.');
   }
 
@@ -558,10 +542,7 @@ export async function fetchQrReadySuits(userId: string): Promise<QrReadyFursuit[
       .order('linked_at', { ascending: false });
 
     if (error) {
-      captureHandledException(error, {
-        scope: 'nfc.fetchQrReadySuits',
-        userId,
-      });
+      captureHandledException(error, getTagTelemetry({ scope: 'nfc.fetchQrReadySuits', userId }));
       throw new Error(`We couldn't load your QR codes: ${error.message}`);
     }
 
@@ -586,10 +567,7 @@ export async function fetchQrReadySuits(userId: string): Promise<QrReadyFursuit[
       })
       .filter(Boolean) as QrReadyFursuit[];
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.fetchQrReadySuits',
-      userId,
-    });
+    captureHandledException(error, getTagTelemetry({ scope: 'nfc.fetchQrReadySuits', userId }));
     throw error instanceof Error
       ? error
       : new Error('We could not load your QR codes. Please try again.');
@@ -615,7 +593,6 @@ export async function fetchFursuitTag(
       .maybeSingle();
 
     if (error) {
-      console.error('[fetchFursuitTag] Error:', error);
       throw error;
     }
 
@@ -625,10 +602,7 @@ export async function fetchFursuitTag(
 
     return mapTagRowToTag(data as TagRow);
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.fetchFursuitTag',
-      fursuitId,
-    });
+    captureHandledException(error, getTagTelemetry({ scope: 'nfc.fetchFursuitTag', fursuitId }));
     throw error;
   }
 }
@@ -649,7 +623,6 @@ export async function fetchFursuitQrTag(fursuitId: string): Promise<NfcTag | nul
       .maybeSingle();
 
     if (error) {
-      console.error('[fetchFursuitQrTag] Error:', error);
       throw error;
     }
 
@@ -659,10 +632,7 @@ export async function fetchFursuitQrTag(fursuitId: string): Promise<NfcTag | nul
 
     return mapTagRowToTag(data as TagRow);
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.fetchFursuitQrTag',
-      fursuitId,
-    });
+    captureHandledException(error, getTagTelemetry({ scope: 'nfc.fetchFursuitQrTag', fursuitId }));
     throw error;
   }
 }
@@ -680,7 +650,6 @@ export async function ensureQrBackupForFursuit(fursuitId: string): Promise<NfcTa
       });
 
     if (registrationError) {
-      console.error('[ensureQrBackupForFursuit] Register invoke error:', registrationError);
       throw registrationError;
     }
 
@@ -710,10 +679,10 @@ export async function ensureQrBackupForFursuit(fursuitId: string): Promise<NfcTa
 
     return linkedTag;
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.ensureQrBackupForFursuit',
-      fursuitId,
-    });
+    captureHandledException(
+      error,
+      getTagTelemetry({ scope: 'nfc.ensureQrBackupForFursuit', fursuitId })
+    );
 
     throw error instanceof Error
       ? error
@@ -749,7 +718,6 @@ export async function lookupTagForCatch(input: LookupTagInput): Promise<TagLooku
     );
 
     if (error) {
-      console.error('[lookupTagForCatch] Invoke error:', error);
       throw error;
     }
 
@@ -771,10 +739,14 @@ export async function lookupTagForCatch(input: LookupTagInput): Promise<TagLooku
         : never) ?? 'TAG_NOT_REGISTERED',
     };
   } catch (error) {
-    captureHandledException(error, {
-      scope: 'nfc.lookupTagForCatch',
-      tagUid: payload.nfc_uid ?? payload.qr_token ?? 'unknown',
-    });
+    captureHandledException(
+      error,
+      getTagTelemetry({
+        scope: 'nfc.lookupTagForCatch',
+        uid: payload.nfc_uid,
+        hasQrToken: Boolean(payload.qr_token),
+      })
+    );
 
     // Return not registered on error for graceful degradation
     return {

@@ -180,7 +180,7 @@ export function useTagRegistration(fursuitId: string) {
     addMonitoringBreadcrumb({
       category: 'nfc',
       message: 'Tag registration complete',
-      data: { tagUid, fursuitId },
+      data: { fursuitId, hasTagUid: Boolean(tagUid) },
     });
   }, [fursuitId, scanner, setStep, setError]);
 
