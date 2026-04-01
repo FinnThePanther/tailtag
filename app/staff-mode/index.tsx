@@ -12,6 +12,7 @@ import { useAuth } from '../../src/features/auth';
 import { profileQueryKey, fetchProfile } from '../../src/features/profile';
 import { searchPlayersForStaff, staffModerate, type StaffPlayerResult } from '../../src/features/staff-mode/api';
 import { canUseStaffMode } from '../../src/features/staff-mode/constants';
+import { StaffModerationModal } from '../../src/features/staff-mode/components/StaffModerationModal';
 import { captureHandledException } from '../../src/lib/sentry';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/staff-mode/index.styles';
@@ -36,6 +37,11 @@ export default function StaffModeScreen() {
 
   const [search, setSearch] = useState('');
   const [lastResult, setLastResult] = useState<StaffPlayerResult | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<StaffPlayerResult | null>(null);
+  const [pendingAction, setPendingAction] = useState<'ban' | 'unban' | null>(null);
+  const [reason, setReason] = useState('');
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [isSubmittingModeration, setIsSubmittingModeration] = useState(false);
   const { data: results = [], isFetching, error: searchError, refetch } = useQuery({
     queryKey: ['staff-mode-search', search],
     enabled: staffAllowed && search.trim().length > 2,
@@ -58,6 +64,76 @@ export default function StaffModeScreen() {
     return null;
   }, [isProfileLoading, staffAllowed]);
 
+  const resetModerationModal = () => {
+    setSelectedPlayer(null);
+    setPendingAction(null);
+    setReason('');
+    setModalError(null);
+  };
+
+  const closeModerationModal = () => {
+    if (isSubmittingModeration) {
+      return;
+    }
+
+    resetModerationModal();
+  };
+
+  const openModerationModal = (player: StaffPlayerResult, action: 'ban' | 'unban') => {
+    setSelectedPlayer(player);
+    setPendingAction(action);
+    setReason('');
+    setModalError(null);
+  };
+
+  const handleViewProfile = (playerId: string) => {
+    router.push({ pathname: '/profile/[id]', params: { id: playerId } });
+  };
+
+  const handleModerationSubmit = async () => {
+    if (!selectedPlayer || !pendingAction) {
+      return;
+    }
+
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      return;
+    }
+
+    setIsSubmittingModeration(true);
+    setModalError(null);
+
+    try {
+      await staffModerate({
+        action: pendingAction,
+        userId: selectedPlayer.id,
+        reason: trimmedReason,
+      });
+
+      const nextSuspended = pendingAction === 'ban';
+      const successMessage = nextSuspended ? 'Ban applied.' : 'Ban lifted.';
+
+      setLastResult((current) =>
+        current?.id === selectedPlayer.id
+          ? { ...current, is_suspended: nextSuspended }
+          : current
+      );
+
+      resetModerationModal();
+      await refetch();
+      Alert.alert('Done', successMessage);
+    } catch (error) {
+      const typedError = error instanceof Error ? error : new Error('Moderation action failed');
+      setModalError(typedError.message);
+      captureHandledException(typedError, {
+        scope: pendingAction === 'ban' ? 'staffMode.ban' : 'staffMode.unban',
+        moderatedUserId: selectedPlayer.id,
+      });
+    } finally {
+      setIsSubmittingModeration(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <TailTagCard>
@@ -66,7 +142,7 @@ export default function StaffModeScreen() {
             <Text style={styles.eyebrow}>Staff Mode</Text>
             <Text style={styles.title}>On-site tools</Text>
             <Text style={styles.subtitle}>
-              Search players fast. NFC/QR scan routes here once hardware is ready.
+              Look up players, review status, and open profiles quickly during the event.
             </Text>
           </View>
           <TailTagButton variant="ghost" size="sm" onPress={() => router.back()}>
@@ -107,7 +183,15 @@ export default function StaffModeScreen() {
                 keyExtractor={(item) => item.id}
                 scrollEnabled={false}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
-                renderItem={({ item }) => <PlayerRow player={item} />}
+                renderItem={({ item }) => (
+                  <PlayerRow
+                    player={item}
+                    disabled={isSubmittingModeration}
+                    onBan={() => openModerationModal(item, 'ban')}
+                    onUnban={() => openModerationModal(item, 'unban')}
+                    onViewProfile={() => handleViewProfile(item.id)}
+                  />
+                )}
               />
             )}
           </View>
@@ -121,69 +205,41 @@ export default function StaffModeScreen() {
                 Search again
               </TailTagButton>
             </View>
-            <PlayerRow player={lastResult} />
+            <PlayerRow
+              player={lastResult}
+              disabled={isSubmittingModeration}
+              onBan={() => openModerationModal(lastResult, 'ban')}
+              onUnban={() => openModerationModal(lastResult, 'unban')}
+              onViewProfile={() => handleViewProfile(lastResult.id)}
+            />
           </View>
         ) : null}
       </TailTagCard>
+
+      <StaffModerationModal
+        visible={Boolean(selectedPlayer && pendingAction)}
+        action={pendingAction}
+        username={selectedPlayer?.username ?? null}
+        reason={reason}
+        error={modalError}
+        isSubmitting={isSubmittingModeration}
+        onChangeReason={setReason}
+        onClose={closeModerationModal}
+        onSubmit={() => void handleModerationSubmit()}
+      />
     </View>
   );
 }
 
-function PlayerRow({ player }: { player: StaffPlayerResult }) {
-  const router = useRouter();
-  const [isActing, setIsActing] = useState(false);
+type PlayerRowProps = {
+  player: StaffPlayerResult;
+  disabled?: boolean;
+  onBan: () => void;
+  onUnban: () => void;
+  onViewProfile: () => void;
+};
 
-  const handleBan = () => {
-    Alert.prompt(
-      `Ban ${player.username ?? 'user'}`,
-      'Enter a reason for the ban:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Ban',
-          style: 'destructive',
-          onPress: (reason?: string) => {
-            if (!reason?.trim()) return;
-            setIsActing(true);
-            staffModerate({ action: 'ban', userId: player.id, reason: reason.trim() })
-              .then(() => Alert.alert('Done', 'Ban applied.'))
-              .catch((e: Error) => {
-                captureHandledException(e, { scope: 'staffMode.ban' });
-                Alert.alert('Error', e.message);
-              })
-              .finally(() => setIsActing(false));
-          },
-        },
-      ],
-      'plain-text',
-    );
-  };
-
-  const handleUnban = () => {
-    Alert.prompt(
-      `Unban ${player.username ?? 'user'}`,
-      'Enter a reason for lifting the ban:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unban',
-          onPress: (reason?: string) => {
-            if (!reason?.trim()) return;
-            setIsActing(true);
-            staffModerate({ action: 'unban', userId: player.id, reason: reason.trim() })
-              .then(() => Alert.alert('Done', 'Ban lifted.'))
-              .catch((e: Error) => {
-                captureHandledException(e, { scope: 'staffMode.unban' });
-                Alert.alert('Error', e.message);
-              })
-              .finally(() => setIsActing(false));
-          },
-        },
-      ],
-      'plain-text',
-    );
-  };
-
+function PlayerRow({ player, disabled = false, onBan, onUnban, onViewProfile }: PlayerRowProps) {
   const showActions = () => {
     const isSuspended = player.is_suspended;
     const options = isSuspended
@@ -196,16 +252,22 @@ function PlayerRow({ player }: { player: StaffPlayerResult }) {
       ActionSheetIOS.showActionSheetWithOptions(
         { options, destructiveButtonIndex, cancelButtonIndex },
         (index) => {
-          if (index === 0) { if (isSuspended) { handleUnban(); } else { handleBan(); } }
-          if (index === 1) router.push({ pathname: '/profile/[id]', params: { id: player.id } });
+          if (index === 0) {
+            if (isSuspended) {
+              onUnban();
+            } else {
+              onBan();
+            }
+          }
+          if (index === 1) {
+            onViewProfile();
+          }
         },
       );
     } else {
       Alert.alert('Actions', undefined, [
-        isSuspended
-          ? { text: 'Unban', onPress: handleUnban }
-          : { text: 'Ban', style: 'destructive' as const, onPress: handleBan },
-        { text: 'View profile', onPress: () => router.push({ pathname: '/profile/[id]', params: { id: player.id } }) },
+        isSuspended ? { text: 'Unban', onPress: onUnban } : { text: 'Ban', style: 'destructive' as const, onPress: onBan },
+        { text: 'View profile', onPress: onViewProfile },
         { text: 'Cancel', style: 'cancel' },
       ]);
     }
@@ -229,7 +291,7 @@ function PlayerRow({ player }: { player: StaffPlayerResult }) {
       <Pressable
         onPress={showActions}
         hitSlop={8}
-        disabled={isActing}
+        disabled={disabled}
         style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.5 }]}
       >
         <Ionicons name="ellipsis-vertical" size={18} color={colors.foreground} />
