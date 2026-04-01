@@ -8,7 +8,6 @@ import { createServiceRoleClient } from '@/lib/supabase/service';
 import { logAudit } from '@/lib/audit';
 
 const TAG_ROLES = ['owner', 'organizer', 'staff'] as const;
-const QR_BUCKET = 'tag-qr-codes';
 
 const normalizeUid = (uid: string) => uid.trim().toUpperCase().replace(/[:\s-]/g, '');
 
@@ -159,98 +158,4 @@ export async function markTagFoundAction(input: { tagId: string }) {
   });
 
   revalidatePath('/tags');
-}
-
-export async function generateQrForTagAction(input: { tagId: string }) {
-  const { session, profile } = await assertAdminAction([...TAG_ROLES]);
-  if (!input.tagId) throw new Error('Tag ID is required.');
-
-  if (!session.access_token) {
-    throw new Error('Unable to authenticate with Supabase.');
-  }
-  await invokeTagFunction(
-    {
-      action: 'generate_qr',
-      tag_id: input.tagId,
-    },
-    session.access_token,
-  );
-
-  await logAudit({
-    actorId: profile.id,
-    action: 'generate_qr',
-    entityType: 'tag',
-    entityId: input.tagId,
-    context: { tag_id: input.tagId },
-  });
-
-  revalidatePath('/tags');
-}
-
-export async function rotateQrForTagAction(input: { tagId: string }) {
-  const { session, profile } = await assertAdminAction([...TAG_ROLES]);
-  if (!input.tagId) throw new Error('Tag ID is required.');
-
-  if (!session.access_token) {
-    throw new Error('Unable to authenticate with Supabase.');
-  }
-  await invokeTagFunction(
-    {
-      action: 'rotate_qr',
-      tag_id: input.tagId,
-    },
-    session.access_token,
-  );
-
-  await logAudit({
-    actorId: profile.id,
-    action: 'rotate_qr',
-    entityType: 'tag',
-    entityId: input.tagId,
-    context: { tag_id: input.tagId },
-  });
-
-  revalidatePath('/tags');
-}
-
-export async function revokeQrForTagAction(input: { tagId: string }) {
-  const { session, profile } = await assertAdminAction([...TAG_ROLES]);
-  if (!input.tagId) throw new Error('Tag ID is required.');
-
-  if (!session.access_token) {
-    throw new Error('Unable to authenticate with Supabase.');
-  }
-  await invokeTagFunction(
-    {
-      action: 'revoke_qr',
-      tag_id: input.tagId,
-    },
-    session.access_token,
-  );
-
-  await logAudit({
-    actorId: profile.id,
-    action: 'revoke_qr',
-    entityType: 'tag',
-    entityId: input.tagId,
-    context: { tag_id: input.tagId },
-  });
-
-  revalidatePath('/tags');
-}
-
-export async function createQrDownloadUrlAction(input: { assetPath: string }) {
-  await assertAdminAction([...TAG_ROLES]);
-  if (!input.assetPath) throw new Error('QR asset not available.');
-
-  const supabase = createServiceRoleClient();
-  const { data, error } = await supabase.storage
-    .from(QR_BUCKET)
-    .createSignedUrl(input.assetPath, 60);
-
-  if (error) {
-    throw error;
-  }
-
-  return data?.signedUrl ?? null;
 }
