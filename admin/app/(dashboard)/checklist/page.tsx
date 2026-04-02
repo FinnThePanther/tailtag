@@ -13,7 +13,7 @@ const DEFAULT_ITEMS: Item[] = [
   {
     id: 'config',
     label: 'Review convention config',
-    description: 'Verify cooldowns, points, feature flags, and Staff Mode toggle.',
+    description: 'Verify cooldowns, points, and Staff Mode settings.',
   },
   {
     id: 'staff',
@@ -21,14 +21,9 @@ const DEFAULT_ITEMS: Item[] = [
     description: 'Ensure organizers/staff are assigned to the correct convention.',
   },
   {
-    id: 'tags',
-    label: 'Check tag inventory',
-    description: 'Register tags and link samples; verify duplicate detection.',
-  },
-  {
     id: 'catch',
     label: 'Run test catches',
-    description: 'Simulate/perform catches to confirm pipelines and analytics.',
+    description: 'Verify manual code and photo catches still confirm pipelines and analytics.',
   },
   {
     id: 'alerts',

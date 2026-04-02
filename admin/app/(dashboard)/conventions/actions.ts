@@ -13,7 +13,7 @@ const CONTENT_ROLES = ['owner', 'organizer'] as const;
 const DEFAULT_CONFIG = {
   cooldowns: { catch_seconds: 0 },
   points: { catch: 1 },
-  feature_flags: { tag_scan: true, staff_mode: true },
+  feature_flags: { staff_mode: true },
 };
 
 function validateSlug(slug: string) {
@@ -110,14 +110,13 @@ export async function updateConventionDetailsAction(input: {
 type ConventionConfig = {
   cooldowns?: { catch_seconds?: number | null };
   points?: { catch?: number | null };
-  feature_flags?: { tag_scan?: boolean; staff_mode?: boolean };
+  feature_flags?: { staff_mode?: boolean };
 };
 
 export async function updateConventionConfigAction(input: {
   conventionId: string;
   catchCooldownSeconds: number | null;
   catchPoints: number | null;
-  featureTagScan: boolean;
   featureStaffMode: boolean;
 }) {
   const { profile } = await assertAdminAction([...CONFIG_ROLES]);
@@ -141,7 +140,6 @@ export async function updateConventionConfigAction(input: {
     },
     feature_flags: {
       ...existing.feature_flags,
-      tag_scan: input.featureTagScan,
       staff_mode: input.featureStaffMode,
     },
   };
