@@ -50,7 +50,9 @@ export function FursuitPicker({
         <Ionicons name="paw-outline" size={32} color="rgba(148,163,184,0.4)" />
         <Text style={styles.emptyTitle}>No fursuits found</Text>
         <Text style={styles.emptySubtitle}>
-          No fursuits are registered at your conventions yet.
+          No other fursuits are registered at your conventions yet. Ask the
+          fursuiter to join TailTag and opt into the same convention, then try
+          again!
         </Text>
       </View>
     );
