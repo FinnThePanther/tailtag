@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
+
+import { Ionicons } from "@expo/vector-icons";
 
 import { TailTagButton } from "../../../components/ui/TailTagButton";
 import { TailTagCard } from "../../../components/ui/TailTagCard";
@@ -57,11 +59,32 @@ export function NotificationsStep({
     onComplete(false);
   };
 
-  // If device doesn't support push notifications, skip this step silently
-  if (!isSupported) {
+  // If device doesn't support push notifications, show a brief message then advance
+  useEffect(() => {
+    if (isSupported) return;
+
     markPrompted();
-    onComplete(false);
-    return null;
+    const timer = setTimeout(() => onComplete(false), 2000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSupported]);
+
+  if (!isSupported) {
+    return (
+      <View style={styles.container}>
+        <TailTagCard>
+          <Text style={styles.eyebrow}>Step 5</Text>
+          <Text style={styles.title}>Notifications unavailable</Text>
+          <View style={styles.unsupportedRow}>
+            <Ionicons name="information-circle-outline" size={20} color="rgba(148,163,184,0.7)" />
+            <Text style={styles.body}>
+              Push notifications aren't supported on this device. You can still
+              use TailTag — you just won't receive live alerts.
+            </Text>
+          </View>
+        </TailTagCard>
+      </View>
+    );
   }
 
   return (
