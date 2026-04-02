@@ -78,7 +78,7 @@ import { usePushNotifications } from "../../src/features/push-notifications";
 import { styles } from "../../src/app-styles/(tabs)/settings.styles";
 
 const FEEDBACK_FORM_URL =
-  "https://docs.google.com/forms/d/e/1FAIpQLSf_placeholder/viewform";
+  "https://docs.google.com/forms/d/e/1FAIpQLSd832FEeheiqd0sa/viewform";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -191,10 +191,14 @@ export default function SettingsScreen() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
-  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(() => [createEmptySocialLink()]);
+  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(() => [
+    createEmptySocialLink(),
+  ]);
   const [isSavingSocialLinks, setIsSavingSocialLinks] = useState(false);
   const [socialLinksError, setSocialLinksError] = useState<string | null>(null);
-  const [socialLinksMessage, setSocialLinksMessage] = useState<string | null>(null);
+  const [socialLinksMessage, setSocialLinksMessage] = useState<string | null>(
+    null,
+  );
   const [hasHydratedSocialLinks, setHasHydratedSocialLinks] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -525,7 +529,7 @@ export default function SettingsScreen() {
     if (!userId || isUploadingAvatar) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.85,
@@ -543,7 +547,9 @@ export default function SettingsScreen() {
     setAvatarError(null);
 
     try {
-      const oldAvatarUrl = queryClient.getQueryData<ProfileSummary | null>(profileQueryKey)?.avatar_url ?? null;
+      const oldAvatarUrl =
+        queryClient.getQueryData<ProfileSummary | null>(profileQueryKey)
+          ?.avatar_url ?? null;
       const publicUrl = await uploadProfileAvatar(userId, photo);
       await updateProfileAvatar(userId, publicUrl);
       queryClient.setQueryData<ProfileSummary | null>(
@@ -553,7 +559,10 @@ export default function SettingsScreen() {
       );
       const oldPath = extractStoragePath(oldAvatarUrl, PROFILE_AVATAR_BUCKET);
       if (oldPath) {
-        void supabase.storage.from(PROFILE_AVATAR_BUCKET).remove([oldPath]).catch(() => {});
+        void supabase.storage
+          .from(PROFILE_AVATAR_BUCKET)
+          .remove([oldPath])
+          .catch(() => {});
       }
     } catch (caught) {
       const msg =
@@ -857,7 +866,11 @@ export default function SettingsScreen() {
                 ]}
               >
                 {profile?.avatar_url ? (
-                  <AppAvatar url={profile.avatar_url} size="xl" fallback="user" />
+                  <AppAvatar
+                    url={profile.avatar_url}
+                    size="xl"
+                    fallback="user"
+                  />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
                     <Text style={styles.avatarPlaceholderText}>Add photo</Text>
@@ -1251,7 +1264,10 @@ export default function SettingsScreen() {
           <Text style={styles.sectionDescription}>
             Manage users you have blocked.
           </Text>
-          <TailTagButton variant="outline" onPress={() => router.push("/blocked-users")}>
+          <TailTagButton
+            variant="outline"
+            onPress={() => router.push("/blocked-users")}
+          >
             Blocked users
           </TailTagButton>
         </View>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Text, View } from "react-native";
 
 import { useRouter } from "expo-router";
@@ -38,11 +38,50 @@ export default function AuthScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendError, setResendError] = useState<string | null>(null);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const {
     signInWithProvider,
     activeProvider,
     error: oauthError,
   } = useOAuthSignIn();
+
+  useEffect(() => {
+    return () => {
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
+    };
+  }, []);
+
+  const startCooldown = useCallback(() => {
+    setResendCooldown(60);
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          if (cooldownRef.current) clearInterval(cooldownRef.current);
+          cooldownRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  const handleResendEmail = useCallback(async () => {
+    if (resendCooldown > 0) return;
+    setResendError(null);
+    try {
+      const { error: resendErr } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim(),
+      });
+      if (resendErr) throw resendErr;
+      startCooldown();
+    } catch (caught) {
+      setResendError(mapAuthError(caught));
+    }
+  }, [email, resendCooldown, startCooldown]);
 
   const toggleMode = () => {
     setMode((current) => (current === "sign_in" ? "sign_up" : "sign_in"));
@@ -143,6 +182,7 @@ export default function AuthScreen() {
         if (!data.session) {
           // Email confirmation is enabled — show confirmation message
           setEmailSent(true);
+          startCooldown();
           return;
         }
 
@@ -180,8 +220,24 @@ export default function AuthScreen() {
 
           <TailTagCard style={styles.formCard}>
             <TailTagButton
+              variant="outline"
+              onPress={handleResendEmail}
+              disabled={resendCooldown > 0}
+            >
+              {resendCooldown > 0
+                ? `Resend email (${resendCooldown}s)`
+                : "Resend confirmation email"}
+            </TailTagButton>
+
+            {resendError ? (
+              <Text style={styles.errorText}>{resendError}</Text>
+            ) : null}
+
+            <TailTagButton
+              variant="ghost"
               onPress={() => {
                 setEmailSent(false);
+                setResendError(null);
                 setMode("sign_in");
               }}
             >
