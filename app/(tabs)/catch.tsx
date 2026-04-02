@@ -289,7 +289,7 @@ export default function CatchScreen() {
       if (playerConventionIds.size === 0) {
         resetCatchState();
         setSubmitError(
-          "Opt into at least one convention in Settings before logging catches."
+          "You haven't joined a convention yet. Go to Settings → Conventions to opt in, then try again."
         );
         return;
       }
@@ -297,7 +297,7 @@ export default function CatchScreen() {
       if (suitConventionIds.size === 0) {
         resetCatchState();
         setSubmitError(
-          "This suit has not opted into any conventions yet. Ask the owner to update their settings before logging the catch."
+          "This fursuit hasn't opted into any conventions yet. Ask the owner to join a convention in their Settings so you can log the catch."
         );
         return;
       }
@@ -310,7 +310,7 @@ export default function CatchScreen() {
       if (sharedConventions.length === 0) {
         resetCatchState();
         setSubmitError(
-          "You and this suit need to opt into the same convention before logging the catch."
+          "You and this fursuit aren't at the same convention. Check Settings → Conventions to make sure you're both opted into the same one."
         );
         return;
       }
@@ -626,13 +626,14 @@ export default function CatchScreen() {
               }}
               placeholder="ABCDEFGH"
               autoCapitalize="characters"
+              maxLength={8}
               editable={!isSubmitting}
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
               style={styles.codeInput}
             />
             <Text style={styles.helpText}>
-              Letters only, up to 8 characters.
+              Letters only, {codeInput.length}/8 characters.
             </Text>
             <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
               Some fursuits require manual approval. If so, the owner will be notified and your catch will count once approved.
