@@ -50,4 +50,9 @@ export const styles = StyleSheet.create({
   skipButton: {
     marginTop: spacing.sm,
   },
+  unsupportedRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
 });
