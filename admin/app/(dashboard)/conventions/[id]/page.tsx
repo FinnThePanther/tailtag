@@ -60,7 +60,6 @@ export default async function ConventionDetail({ params }: { params: { id: strin
           conventionId={convention.id}
           catchCooldownSeconds={config.catchCooldownSeconds}
           catchPoints={config.catchPoints}
-          featureTagScan={config.featureTagScan}
           featureStaffMode={config.featureStaffMode}
         />
       </Card>
@@ -144,7 +143,6 @@ function Info({ icon, label, children }: { icon: React.ReactNode; label: string;
 function normalizeConfig(raw: any) {
   const catchCooldownSeconds = Number(raw?.cooldowns?.catch_seconds ?? 0);
   const catchPoints = Number(raw?.points?.catch ?? 1);
-  const featureTagScan = Boolean(raw?.feature_flags?.tag_scan ?? true);
   const featureStaffMode = Boolean(raw?.feature_flags?.staff_mode ?? true);
-  return { catchCooldownSeconds, catchPoints, featureTagScan, featureStaffMode };
+  return { catchCooldownSeconds, catchPoints, featureStaffMode };
 }

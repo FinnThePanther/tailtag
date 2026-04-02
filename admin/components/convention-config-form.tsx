@@ -8,7 +8,6 @@ type Props = {
   conventionId: string;
   catchCooldownSeconds: number;
   catchPoints: number;
-  featureTagScan: boolean;
   featureStaffMode: boolean;
 };
 
@@ -16,12 +15,10 @@ export function ConventionConfigForm({
   conventionId,
   catchCooldownSeconds,
   catchPoints,
-  featureTagScan,
   featureStaffMode,
 }: Props) {
   const [cooldown, setCooldown] = useState(catchCooldownSeconds);
   const [points, setPoints] = useState(catchPoints);
-  const [tagScan, setTagScan] = useState(featureTagScan);
   const [staffMode, setStaffMode] = useState(featureStaffMode);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -34,7 +31,6 @@ export function ConventionConfigForm({
         conventionId,
         catchCooldownSeconds: Number.isFinite(cooldown) ? cooldown : null,
         catchPoints: Number.isFinite(points) ? points : null,
-        featureTagScan: tagScan,
         featureStaffMode: staffMode,
       });
       setMessage('Configuration saved.');
@@ -65,16 +61,7 @@ export function ConventionConfigForm({
           />
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="flex items-center gap-2 text-sm text-slate-200">
-          <input
-            type="checkbox"
-            checked={tagScan}
-            onChange={(e) => setTagScan(e.target.checked)}
-            className="h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary"
-          />
-          Enable tag scanning
-        </label>
+      <div>
         <label className="flex items-center gap-2 text-sm text-slate-200">
           <input
             type="checkbox"

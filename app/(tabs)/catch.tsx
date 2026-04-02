@@ -656,7 +656,7 @@ export default function CatchScreen() {
           </TailTagButton>
         </TailTagCard>
 
-        <Text style={styles.comingSoon}>QR code catching is coming soon.</Text>
+        <Text style={styles.comingSoon}>NFC scan based catching is coming soon.</Text>
 
         {caughtFursuit ? (
           <TailTagCard style={isPending ? [styles.cardSpacing, styles.pendingCard] : styles.cardSpacing}>

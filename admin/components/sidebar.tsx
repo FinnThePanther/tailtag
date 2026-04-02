@@ -8,7 +8,6 @@ import {
   CalendarDays,
   UserCog,
   FileClock,
-  Tag,
   Flag,
   Check,
 } from "lucide-react";
@@ -20,7 +19,6 @@ const navItems = [
   { href: "/dashboard", label: "Overview", icon: ShieldCheck },
   { href: "/players", label: "Players", icon: Users },
   { href: "/conventions", label: "Conventions", icon: CalendarDays },
-  { href: "/tags", label: "Tags", icon: Tag },
   { href: "/staff", label: "Staff", icon: UserCog },
   { href: "/analytics", label: "Analytics", icon: ShieldCheck },
   { href: "/achievements", label: "Achievements", icon: ShieldCheck },
