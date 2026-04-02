@@ -241,7 +241,7 @@ export default function DailyTasksScreen() {
                 : `${remainingCount} task${remainingCount === 1 ? '' : 's'} remaining`}
             </Text>
             <Text style={styles.countdownLabel}>
-              Resets in {selectedConventionId ? countdown : '--:--:--'}
+              {selectedConventionId ? `Resets in ${countdown}` : 'Select a convention to start'}
             </Text>
           </View>
         </View>
