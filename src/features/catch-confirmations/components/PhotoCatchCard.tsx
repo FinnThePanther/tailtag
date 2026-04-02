@@ -78,7 +78,10 @@ export function PhotoCatchCard({
   // Load convention fursuits when photo is taken
   useEffect(() => {
     if (step !== 'photo_taken') return;
-    if (conventionIds.length === 0) return;
+    if (conventionIds.length === 0) {
+      setIsLoadingFursuits(false);
+      return;
+    }
 
     setIsLoadingFursuits(true);
     fetchConventionFursuits(conventionIds, userId)
@@ -118,6 +121,7 @@ export function PhotoCatchCard({
         fileName: `catch-${Date.now()}.jpg`,
         fileSize: 0,
       });
+      setIsLoadingFursuits(true);
       setStep('photo_taken');
       setSelectedFursuit(null);
     } catch {
