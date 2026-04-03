@@ -55,7 +55,7 @@ ON CONFLICT (id) DO NOTHING;
 -- =============================================================================
 -- 2. Test User Accounts
 -- =============================================================================
--- Insert into auth.users — triggers auto-create profiles via create_profile_for_new_user
+-- Insert auth users and profiles directly (auth triggers may not exist on fresh projects)
 
 INSERT INTO auth.users (
   id, instance_id, aud, role,
@@ -105,7 +105,7 @@ INSERT INTO auth.users (
   )
 ON CONFLICT (id) DO NOTHING;
 
--- Also insert into auth.identities (required for email login to work)
+-- Insert identities (required for email login to work)
 INSERT INTO auth.identities (
   id, user_id, provider_id, provider,
   identity_data, last_sign_in_at, created_at, updated_at
@@ -126,18 +126,20 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- =============================================================================
--- 3. Configure Profiles (set roles, usernames, mark onboarded)
+-- 3. Profiles (inserted directly — auth trigger may not exist on fresh projects)
 -- =============================================================================
-UPDATE profiles SET username = 'TestPlayer',      role = 'player',    onboarding_completed = true, is_new = false WHERE id = 'bbbbbbbb-0000-4000-8000-000000000001';
-UPDATE profiles SET username = 'TestSuiter',      role = 'player',    onboarding_completed = true, is_new = false WHERE id = 'bbbbbbbb-0000-4000-8000-000000000002';
-UPDATE profiles SET username = 'TestStaff',       role = 'staff',     onboarding_completed = true, is_new = false WHERE id = 'bbbbbbbb-0000-4000-8000-000000000003';
-UPDATE profiles SET username = 'TestAdmin',       role = 'owner',     onboarding_completed = true, is_new = false WHERE id = 'bbbbbbbb-0000-4000-8000-000000000004';
+INSERT INTO profiles (id, username, role, onboarding_completed, is_new) VALUES
+  ('bbbbbbbb-0000-4000-8000-000000000001', 'TestPlayer', 'player', true, false),
+  ('bbbbbbbb-0000-4000-8000-000000000002', 'TestSuiter', 'player', true, false),
+  ('bbbbbbbb-0000-4000-8000-000000000003', 'TestStaff',  'staff',  true, false),
+  ('bbbbbbbb-0000-4000-8000-000000000004', 'TestAdmin',  'owner',  true, false)
+ON CONFLICT (id) DO NOTHING;
 
 
 -- =============================================================================
 -- 4. Convention Registrations
 -- =============================================================================
-INSERT INTO profile_conventions (user_id, convention_id) VALUES
+INSERT INTO profile_conventions (profile_id, convention_id) VALUES
   ('bbbbbbbb-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001'),
   ('bbbbbbbb-0000-4000-8000-000000000002', 'aaaaaaaa-0000-4000-8000-000000000001'),
   ('bbbbbbbb-0000-4000-8000-000000000003', 'aaaaaaaa-0000-4000-8000-000000000001'),
@@ -150,27 +152,33 @@ ON CONFLICT DO NOTHING;
 -- =============================================================================
 -- 5. Test Fursuits (owned by fursuit-owner account)
 -- =============================================================================
+-- Temporarily disable the set_fursuit_owner trigger which overrides owner_id with auth.uid()
+-- (auth.uid() is null in a seed/migration context)
+ALTER TABLE fursuits DISABLE TRIGGER before_insert_fursuit_owner;
+
 INSERT INTO fursuits (id, owner_id, name, unique_code, species_id, description, catch_mode) VALUES
   ('cccccccc-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002', 'Blaze',    'TESTBLAZ', '3dd8af2c-26ec-4466-81e2-72eeed903a05', 'A fiery orange fox with a big bushy tail.',            'AUTO_ACCEPT'),
   ('cccccccc-0000-4000-8000-000000000002', 'bbbbbbbb-0000-4000-8000-000000000002', 'Midnight', 'TESTMIDN', '7fad011a-2c8c-47b6-996a-6452f88d9767', 'A sleek black and silver wolf who loves the night.',   'AUTO_ACCEPT'),
-  ('cccccccc-0000-4000-8000-000000000003', 'bbbbbbbb-0000-4000-8000-000000000002', 'Patches',  'TESTPTCH', '0b15b671-e8c4-4450-8d3c-1eb035923a80', 'A colorful hybrid with spots of every color.',         'REQUIRE_APPROVAL')
+  ('cccccccc-0000-4000-8000-000000000003', 'bbbbbbbb-0000-4000-8000-000000000002', 'Patches',  'TESTPTCH', '0b15b671-e8c4-4450-8d3c-1eb035923a80', 'A colorful hybrid with spots of every color.',         'MANUAL_APPROVAL')
 ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE fursuits ENABLE TRIGGER before_insert_fursuit_owner;
 
 
 -- =============================================================================
 -- 6. Fursuit Color Assignments
 -- =============================================================================
-INSERT INTO fursuit_color_assignments (fursuit_id, color_id) VALUES
+INSERT INTO fursuit_color_assignments (fursuit_id, color_id, position) VALUES
   -- Blaze: Orange, Red
-  ('cccccccc-0000-4000-8000-000000000001', 'baa0390f-6654-49a3-939d-86d13eab78a3'),
-  ('cccccccc-0000-4000-8000-000000000001', '15e575d8-ae9f-4885-8a3e-37ac9cf7912e'),
+  ('cccccccc-0000-4000-8000-000000000001', 'baa0390f-6654-49a3-939d-86d13eab78a3', 1),
+  ('cccccccc-0000-4000-8000-000000000001', '15e575d8-ae9f-4885-8a3e-37ac9cf7912e', 2),
   -- Midnight: Black, White
-  ('cccccccc-0000-4000-8000-000000000002', '147a5a17-6019-4385-956c-340da1ce90e1'),
-  ('cccccccc-0000-4000-8000-000000000002', 'a084df70-7eb1-4ffa-9a40-39164b9ba393'),
+  ('cccccccc-0000-4000-8000-000000000002', '147a5a17-6019-4385-956c-340da1ce90e1', 1),
+  ('cccccccc-0000-4000-8000-000000000002', 'a084df70-7eb1-4ffa-9a40-39164b9ba393', 2),
   -- Patches: Purple, Teal, Yellow
-  ('cccccccc-0000-4000-8000-000000000003', 'f0e2ff9e-ef05-4d59-85e9-de9c3d655cdb'),
-  ('cccccccc-0000-4000-8000-000000000003', '14505527-583d-4848-ba57-7f8307a586fc'),
-  ('cccccccc-0000-4000-8000-000000000003', '6cb79681-1a80-448f-b193-ce392c7a1d93')
+  ('cccccccc-0000-4000-8000-000000000003', 'f0e2ff9e-ef05-4d59-85e9-de9c3d655cdb', 1),
+  ('cccccccc-0000-4000-8000-000000000003', '14505527-583d-4848-ba57-7f8307a586fc', 2),
+  ('cccccccc-0000-4000-8000-000000000003', '6cb79681-1a80-448f-b193-ce392c7a1d93', 3)
 ON CONFLICT DO NOTHING;
 
 
@@ -189,6 +197,10 @@ ON CONFLICT DO NOTHING;
 -- =============================================================================
 -- 8. Tags (NFC/QR linked to fursuits)
 -- =============================================================================
+-- Drop conflicting legacy constraint (nfc_tags_status_check) if it exists
+-- The newer tags_status_check uses: registered, linked, unlinked, disabled
+ALTER TABLE tags DROP CONSTRAINT IF EXISTS nfc_tags_status_check;
+
 INSERT INTO tags (id, nfc_uid, fursuit_id, registered_by_user_id, status, qr_token, linked_at) VALUES
   ('dddddddd-0000-4000-8000-000000000001', 'TEST-NFC-BLAZE-001',    'cccccccc-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002', 'linked', 'test-qr-blaze-001',    now()),
   ('dddddddd-0000-4000-8000-000000000002', 'TEST-NFC-MIDNIGHT-001', 'cccccccc-0000-4000-8000-000000000002', 'bbbbbbbb-0000-4000-8000-000000000002', 'linked', 'test-qr-midnight-001', now())

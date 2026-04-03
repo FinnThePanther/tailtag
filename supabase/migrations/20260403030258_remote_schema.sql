@@ -1124,9 +1124,7 @@ alter table "public"."tags" add constraint "nfc_tags_fursuit_id_fkey" FOREIGN KE
 
 alter table "public"."tags" validate constraint "nfc_tags_fursuit_id_fkey";
 
-alter table "public"."tags" add constraint "nfc_tags_status_check" CHECK ((status = ANY (ARRAY['pending_link'::text, 'active'::text, 'lost'::text, 'revoked'::text]))) not valid;
-
-alter table "public"."tags" validate constraint "nfc_tags_status_check";
+-- nfc_tags_status_check removed: conflicted with tags_status_check (legacy constraint from earlier iteration)
 
 alter table "public"."tags" add constraint "tags_identifier_present" CHECK (((nfc_uid IS NOT NULL) OR (qr_token IS NOT NULL))) not valid;
 
