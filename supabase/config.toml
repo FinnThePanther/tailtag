@@ -59,8 +59,12 @@ schema_paths = []
 # If enabled, seeds the database after migrations during a db reset.
 enabled = true
 # Specifies an ordered list of seed files to load during db reset.
+# Reference data is safe in every environment; staging fixtures are for dev/staging resets only.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
-sql_paths = ["./seed.sql"]
+# NOTE: This config is used for local dev and staging resets. Production environments
+# should only seed reference.sql — staging-fixtures.sql must never run in production.
+# Each Supabase project will have its own config; this file only governs local dev.
+sql_paths = ["./seeds/reference.sql", "./seeds/staging-fixtures.sql"]
 
 [db.network_restrictions]
 # Enable management of network restrictions.
