@@ -2370,7 +2370,7 @@ end;
 $function$
 ;
 
-create type "public"."geometry_dump" as ("path" integer[], "geom" public.geometry);
+-- geometry_dump type removed: managed by PostGIS extension
 
 CREATE OR REPLACE FUNCTION public.get_blocked_users(p_user_id uuid)
  RETURNS TABLE(id uuid, blocker_id uuid, blocked_id uuid, blocked_username text, blocked_avatar_url text, created_at timestamp with time zone)
@@ -3706,7 +3706,7 @@ AS $function$BEGIN
 END;$function$
 ;
 
-create type "public"."valid_detail" as ("valid" boolean, "reason" character varying, "location" public.geometry);
+-- valid_detail type removed: managed by PostGIS extension
 
 CREATE OR REPLACE FUNCTION public.verify_convention_location(p_profile_id uuid, p_convention_id uuid, p_user_lat double precision, p_user_lng double precision, p_accuracy integer)
  RETURNS jsonb
@@ -4759,61 +4759,7 @@ grant truncate on table "public"."push_notification_retry_queue" to "service_rol
 
 grant update on table "public"."push_notification_retry_queue" to "service_role";
 
-grant delete on table "public"."spatial_ref_sys" to "anon";
-
-grant insert on table "public"."spatial_ref_sys" to "anon";
-
-grant references on table "public"."spatial_ref_sys" to "anon";
-
-grant select on table "public"."spatial_ref_sys" to "anon";
-
-grant trigger on table "public"."spatial_ref_sys" to "anon";
-
-grant truncate on table "public"."spatial_ref_sys" to "anon";
-
-grant update on table "public"."spatial_ref_sys" to "anon";
-
-grant delete on table "public"."spatial_ref_sys" to "authenticated";
-
-grant insert on table "public"."spatial_ref_sys" to "authenticated";
-
-grant references on table "public"."spatial_ref_sys" to "authenticated";
-
-grant select on table "public"."spatial_ref_sys" to "authenticated";
-
-grant trigger on table "public"."spatial_ref_sys" to "authenticated";
-
-grant truncate on table "public"."spatial_ref_sys" to "authenticated";
-
-grant update on table "public"."spatial_ref_sys" to "authenticated";
-
-grant delete on table "public"."spatial_ref_sys" to "postgres";
-
-grant insert on table "public"."spatial_ref_sys" to "postgres";
-
-grant references on table "public"."spatial_ref_sys" to "postgres";
-
-grant select on table "public"."spatial_ref_sys" to "postgres";
-
-grant trigger on table "public"."spatial_ref_sys" to "postgres";
-
-grant truncate on table "public"."spatial_ref_sys" to "postgres";
-
-grant update on table "public"."spatial_ref_sys" to "postgres";
-
-grant delete on table "public"."spatial_ref_sys" to "service_role";
-
-grant insert on table "public"."spatial_ref_sys" to "service_role";
-
-grant references on table "public"."spatial_ref_sys" to "service_role";
-
-grant select on table "public"."spatial_ref_sys" to "service_role";
-
-grant trigger on table "public"."spatial_ref_sys" to "service_role";
-
-grant truncate on table "public"."spatial_ref_sys" to "service_role";
-
-grant update on table "public"."spatial_ref_sys" to "service_role";
+-- spatial_ref_sys grants removed: table owned by PostGIS extension, API access intentionally revoked
 
 grant delete on table "public"."tag_scans" to "anon";
 
