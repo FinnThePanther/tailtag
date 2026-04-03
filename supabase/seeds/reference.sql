@@ -19,55 +19,55 @@ BEGIN;
 -- -----------------------------------------------------------------------------
 -- 1. Fursuit Colors (12 rows)
 -- -----------------------------------------------------------------------------
-INSERT INTO fursuit_colors (id, name, normalized_name, is_active) VALUES
-  ('147a5a17-6019-4385-956c-340da1ce90e1', 'Black',  'black',  true),
-  ('afbd263b-47d9-49d6-9494-61689bf45f88', 'Blue',   'blue',   true),
-  ('aad2e595-7475-43eb-b00b-18795865037f', 'Brown',  'brown',  true),
-  ('edd6f22b-b317-4fa2-af62-4d38fad4d9de', 'Gray',   'gray',   true),
-  ('ef2d9596-f8bc-489e-8c3f-f71baadc2267', 'Green',  'green',  true),
-  ('baa0390f-6654-49a3-939d-86d13eab78a3', 'Orange', 'orange', true),
-  ('a0ee46b5-110b-464e-9ca2-999190bff178', 'Pink',   'pink',   true),
-  ('f0e2ff9e-ef05-4d59-85e9-de9c3d655cdb', 'Purple', 'purple', true),
-  ('15e575d8-ae9f-4885-8a3e-37ac9cf7912e', 'Red',    'red',    true),
-  ('14505527-583d-4848-ba57-7f8307a586fc', 'Teal',   'teal',   true),
-  ('a084df70-7eb1-4ffa-9a40-39164b9ba393', 'White',  'white',  true),
-  ('6cb79681-1a80-448f-b193-ce392c7a1d93', 'Yellow', 'yellow', true)
+INSERT INTO fursuit_colors (id, name, is_active) VALUES
+  ('147a5a17-6019-4385-956c-340da1ce90e1', 'Black',  true),
+  ('afbd263b-47d9-49d6-9494-61689bf45f88', 'Blue',   true),
+  ('aad2e595-7475-43eb-b00b-18795865037f', 'Brown',  true),
+  ('edd6f22b-b317-4fa2-af62-4d38fad4d9de', 'Gray',   true),
+  ('ef2d9596-f8bc-489e-8c3f-f71baadc2267', 'Green',  true),
+  ('baa0390f-6654-49a3-939d-86d13eab78a3', 'Orange', true),
+  ('a0ee46b5-110b-464e-9ca2-999190bff178', 'Pink',   true),
+  ('f0e2ff9e-ef05-4d59-85e9-de9c3d655cdb', 'Purple', true),
+  ('15e575d8-ae9f-4885-8a3e-37ac9cf7912e', 'Red',    true),
+  ('14505527-583d-4848-ba57-7f8307a586fc', 'Teal',   true),
+  ('a084df70-7eb1-4ffa-9a40-39164b9ba393', 'White',  true),
+  ('6cb79681-1a80-448f-b193-ce392c7a1d93', 'Yellow', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
 -- 2. Fursuit Species (30 rows — excludes test entries: Test, Text, Ott, Sea)
 -- -----------------------------------------------------------------------------
-INSERT INTO fursuit_species (id, name, normalized_name) VALUES
-  ('4dbecede-be06-4d48-927e-2bc23490b263', 'Bat',                'bat'),
-  ('33445257-e85b-476a-aa60-9af95f1b509a', 'Bear',               'bear'),
-  ('736eb7d0-e546-4a6b-a63f-6a9e946df47f', 'Bird',               'bird'),
-  ('9253db2b-22c1-4f44-bbb0-1d668da31f27', 'Cat',                'cat'),
-  ('0f7ea224-f6e7-4faf-98f1-b016da7b08b0', 'Cow',                'cow'),
-  ('69e58d2a-0175-4679-b1b9-d990d4ca9188', 'Coyote',             'coyote'),
-  ('e5ce63e6-80cc-4794-ab54-3cdf960d98de', 'Deer',               'deer'),
-  ('060e4d9e-cd65-4aa2-adb5-aa9008f7b547', 'Dog',                'dog'),
-  ('e4de7e0e-a2e3-460d-9677-9ec1155bccee', 'Dragon',             'dragon'),
-  ('73eec3fb-34e6-42d8-8bc1-5b95d969e3c9', 'Dutch Angel Dragon', 'dutch angel dragon'),
-  ('ad5f6093-8957-4e18-8b86-0b354c2e4b0d', 'Elk',                'elk'),
-  ('3dd8af2c-26ec-4466-81e2-72eeed903a05', 'Fox',                'fox'),
-  ('d76934a9-a5e5-48f7-9b38-b6ac7958a14b', 'Goat',               'goat'),
-  ('5dd41cca-40e2-4c5f-a739-51cda1c8e520', 'Horse',              'horse'),
-  ('e6719110-8c58-4a95-a804-6b8a10a4782b', 'Husky',              'husky'),
-  ('0b15b671-e8c4-4450-8d3c-1eb035923a80', 'Hybrid',             'hybrid'),
-  ('e392ed02-806b-4f77-b216-56e2f615a94b', 'Hyena',              'hyena'),
-  ('1e78208e-4b76-480e-8ecd-3db05b48c51d', 'Kangaroo',           'kangaroo'),
-  ('2e88a104-4485-4430-97d7-54709ce9d112', 'Lion',               'lion'),
-  ('c4826258-9b29-4fe4-a894-52e2e40877f9', 'Mouse',              'mouse'),
-  ('eaf47f73-e6ad-491d-947a-532411727225', 'Otter',              'otter'),
-  ('987634a0-475c-4a1c-9870-38dbcb459efb', 'Panther',            'panther'),
-  ('e54b2512-9ed6-45f1-9725-5cb7ddf96456', 'Protogen',           'protogen'),
-  ('1fda03d5-7e04-45b8-84cf-0db6dbb0a5b7', 'Rabbit',             'rabbit'),
-  ('3cf4eb8e-6f11-4a20-85f0-fc5bdddf42fa', 'Raccoon',            'raccoon'),
-  ('7cae9cfa-6634-4fc9-b27e-0537f0183d59', 'Sergal',             'sergal'),
-  ('934d8933-e050-4b7c-9d1f-7156ad573be3', 'Shark',              'shark'),
-  ('8a711256-7192-4f2d-adc8-1b76573d9cc1', 'Snow Leopard',       'snow leopard'),
-  ('929e31cc-7540-4874-bfcb-4a625335b1de', 'Tiger',              'tiger'),
-  ('7fad011a-2c8c-47b6-996a-6452f88d9767', 'Wolf',               'wolf')
+INSERT INTO fursuit_species (id, name) VALUES
+  ('4dbecede-be06-4d48-927e-2bc23490b263', 'Bat'),
+  ('33445257-e85b-476a-aa60-9af95f1b509a', 'Bear'),
+  ('736eb7d0-e546-4a6b-a63f-6a9e946df47f', 'Bird'),
+  ('9253db2b-22c1-4f44-bbb0-1d668da31f27', 'Cat'),
+  ('0f7ea224-f6e7-4faf-98f1-b016da7b08b0', 'Cow'),
+  ('69e58d2a-0175-4679-b1b9-d990d4ca9188', 'Coyote'),
+  ('e5ce63e6-80cc-4794-ab54-3cdf960d98de', 'Deer'),
+  ('060e4d9e-cd65-4aa2-adb5-aa9008f7b547', 'Dog'),
+  ('e4de7e0e-a2e3-460d-9677-9ec1155bccee', 'Dragon'),
+  ('73eec3fb-34e6-42d8-8bc1-5b95d969e3c9', 'Dutch Angel Dragon'),
+  ('ad5f6093-8957-4e18-8b86-0b354c2e4b0d', 'Elk'),
+  ('3dd8af2c-26ec-4466-81e2-72eeed903a05', 'Fox'),
+  ('d76934a9-a5e5-48f7-9b38-b6ac7958a14b', 'Goat'),
+  ('5dd41cca-40e2-4c5f-a739-51cda1c8e520', 'Horse'),
+  ('e6719110-8c58-4a95-a804-6b8a10a4782b', 'Husky'),
+  ('0b15b671-e8c4-4450-8d3c-1eb035923a80', 'Hybrid'),
+  ('e392ed02-806b-4f77-b216-56e2f615a94b', 'Hyena'),
+  ('1e78208e-4b76-480e-8ecd-3db05b48c51d', 'Kangaroo'),
+  ('2e88a104-4485-4430-97d7-54709ce9d112', 'Lion'),
+  ('c4826258-9b29-4fe4-a894-52e2e40877f9', 'Mouse'),
+  ('eaf47f73-e6ad-491d-947a-532411727225', 'Otter'),
+  ('987634a0-475c-4a1c-9870-38dbcb459efb', 'Panther'),
+  ('e54b2512-9ed6-45f1-9725-5cb7ddf96456', 'Protogen'),
+  ('1fda03d5-7e04-45b8-84cf-0db6dbb0a5b7', 'Rabbit'),
+  ('3cf4eb8e-6f11-4a20-85f0-fc5bdddf42fa', 'Raccoon'),
+  ('7cae9cfa-6634-4fc9-b27e-0537f0183d59', 'Sergal'),
+  ('934d8933-e050-4b7c-9d1f-7156ad573be3', 'Shark'),
+  ('8a711256-7192-4f2d-adc8-1b76573d9cc1', 'Snow Leopard'),
+  ('929e31cc-7540-4874-bfcb-4a625335b1de', 'Tiger'),
+  ('7fad011a-2c8c-47b6-996a-6452f88d9767', 'Wolf')
 ON CONFLICT (id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
