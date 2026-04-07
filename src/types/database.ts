@@ -237,45 +237,6 @@ export type Database = {
           },
         ]
       }
-      auth_security_checklist: {
-        Row: {
-          category: string
-          configuration_method: string
-          configured_at: string | null
-          configured_by: string | null
-          description: string
-          is_configured: boolean
-          notes: string | null
-          priority: string
-          remediation_url: string | null
-          setting_name: string
-        }
-        Insert: {
-          category: string
-          configuration_method: string
-          configured_at?: string | null
-          configured_by?: string | null
-          description: string
-          is_configured?: boolean
-          notes?: string | null
-          priority: string
-          remediation_url?: string | null
-          setting_name: string
-        }
-        Update: {
-          category?: string
-          configuration_method?: string
-          configured_at?: string | null
-          configured_by?: string | null
-          description?: string
-          is_configured?: boolean
-          notes?: string | null
-          priority?: string
-          remediation_url?: string | null
-          setting_name?: string
-        }
-        Relationships: []
-      }
       catches: {
         Row: {
           catch_number: number | null
@@ -696,42 +657,6 @@ export type Database = {
           },
         ]
       }
-      extension_migration_status: {
-        Row: {
-          blocking_reason: string | null
-          completed_migration_date: string | null
-          dependencies: string[] | null
-          extension_name: string
-          migration_status: string
-          notes: string | null
-          planned_migration_date: string | null
-          source_schema: string
-          target_schema: string
-        }
-        Insert: {
-          blocking_reason?: string | null
-          completed_migration_date?: string | null
-          dependencies?: string[] | null
-          extension_name: string
-          migration_status: string
-          notes?: string | null
-          planned_migration_date?: string | null
-          source_schema: string
-          target_schema: string
-        }
-        Update: {
-          blocking_reason?: string | null
-          completed_migration_date?: string | null
-          dependencies?: string[] | null
-          extension_name?: string
-          migration_status?: string
-          notes?: string | null
-          planned_migration_date?: string | null
-          source_schema?: string
-          target_schema?: string
-        }
-        Relationships: []
-      }
       fursuit_bios: {
         Row: {
           ask_me_about: string
@@ -896,77 +821,6 @@ export type Database = {
           },
         ]
       }
-      fursuit_moderation_queue: {
-        Row: {
-          action_taken: string | null
-          created_at: string
-          flag_reason: string
-          flagged_by_user_id: string | null
-          flagged_content: Json
-          fursuit_id: string
-          id: string
-          moderator_notes: string | null
-          reviewed_at: string | null
-          reviewed_by_user_id: string | null
-          status: string
-        }
-        Insert: {
-          action_taken?: string | null
-          created_at?: string
-          flag_reason: string
-          flagged_by_user_id?: string | null
-          flagged_content: Json
-          fursuit_id: string
-          id?: string
-          moderator_notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by_user_id?: string | null
-          status?: string
-        }
-        Update: {
-          action_taken?: string | null
-          created_at?: string
-          flag_reason?: string
-          flagged_by_user_id?: string | null
-          flagged_content?: Json
-          fursuit_id?: string
-          id?: string
-          moderator_notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by_user_id?: string | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fursuit_moderation_queue_flagged_by_user_id_fkey"
-            columns: ["flagged_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fursuit_moderation_queue_fursuit_id_fkey"
-            columns: ["fursuit_id"]
-            isOneToOne: false
-            referencedRelation: "fursuits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fursuit_moderation_queue_fursuit_id_fkey"
-            columns: ["fursuit_id"]
-            isOneToOne: false
-            referencedRelation: "fursuits_moderation"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fursuit_moderation_queue_reviewed_by_user_id_fkey"
-            columns: ["reviewed_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       fursuit_species: {
         Row: {
           created_at: string
@@ -1053,87 +907,6 @@ export type Database = {
             columns: ["species_id"]
             isOneToOne: false
             referencedRelation: "fursuit_species"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      materialized_view_config: {
-        Row: {
-          access_justification: string | null
-          approximate_size: string | null
-          description: string
-          is_public_api_accessible: boolean
-          last_refreshed_at: string | null
-          next_refresh_at: string | null
-          notes: string | null
-          refresh_function_name: string | null
-          refresh_strategy: string
-          view_name: string
-        }
-        Insert: {
-          access_justification?: string | null
-          approximate_size?: string | null
-          description: string
-          is_public_api_accessible?: boolean
-          last_refreshed_at?: string | null
-          next_refresh_at?: string | null
-          notes?: string | null
-          refresh_function_name?: string | null
-          refresh_strategy: string
-          view_name: string
-        }
-        Update: {
-          access_justification?: string | null
-          approximate_size?: string | null
-          description?: string
-          is_public_api_accessible?: boolean
-          last_refreshed_at?: string | null
-          next_refresh_at?: string | null
-          notes?: string | null
-          refresh_function_name?: string | null
-          refresh_strategy?: string
-          view_name?: string
-        }
-        Relationships: []
-      }
-      moderation_notes: {
-        Row: {
-          author_id: string
-          created_at: string
-          id: string
-          is_flagged: boolean
-          note: string
-          user_id: string
-        }
-        Insert: {
-          author_id: string
-          created_at?: string
-          id?: string
-          is_flagged?: boolean
-          note: string
-          user_id: string
-        }
-        Update: {
-          author_id?: string
-          created_at?: string
-          id?: string
-          is_flagged?: boolean
-          note?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "moderation_notes_author_id_fkey"
-            columns: ["author_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "moderation_notes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1349,54 +1122,6 @@ export type Database = {
           },
         ]
       }
-      qr_asset_cleanup_config: {
-        Row: {
-          key: string
-          value: string
-        }
-        Insert: {
-          key: string
-          value: string
-        }
-        Update: {
-          key?: string
-          value?: string
-        }
-        Relationships: []
-      }
-      qr_asset_cleanup_queue: {
-        Row: {
-          attempts: number
-          bucket: string
-          created_at: string
-          id: string
-          last_error: string | null
-          processed_at: string | null
-          qr_asset_path: string
-          tag_id: string
-        }
-        Insert: {
-          attempts?: number
-          bucket?: string
-          created_at?: string
-          id?: string
-          last_error?: string | null
-          processed_at?: string | null
-          qr_asset_path: string
-          tag_id: string
-        }
-        Update: {
-          attempts?: number
-          bucket?: string
-          created_at?: string
-          id?: string
-          last_error?: string | null
-          processed_at?: string | null
-          qr_asset_path?: string
-          tag_id?: string
-        }
-        Relationships: []
-      }
       spatial_ref_sys: {
         Row: {
           auth_name: string | null
@@ -1420,117 +1145,6 @@ export type Database = {
           srtext?: string | null
         }
         Relationships: []
-      }
-      suiting_sessions: {
-        Row: {
-          convention_id: string
-          ended_at: string | null
-          fursuit_id: string
-          id: string
-          owner_id: string
-          started_at: string
-        }
-        Insert: {
-          convention_id: string
-          ended_at?: string | null
-          fursuit_id: string
-          id?: string
-          owner_id: string
-          started_at?: string
-        }
-        Update: {
-          convention_id?: string
-          ended_at?: string | null
-          fursuit_id?: string
-          id?: string
-          owner_id?: string
-          started_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "suiting_sessions_convention_id_fkey"
-            columns: ["convention_id"]
-            isOneToOne: false
-            referencedRelation: "conventions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "suiting_sessions_fursuit_id_fkey"
-            columns: ["fursuit_id"]
-            isOneToOne: false
-            referencedRelation: "fursuits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "suiting_sessions_fursuit_id_fkey"
-            columns: ["fursuit_id"]
-            isOneToOne: false
-            referencedRelation: "fursuits_moderation"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "suiting_sessions_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      tag_activity: {
-        Row: {
-          catcher_id: string | null
-          convention_id: string | null
-          created_at: string
-          device_id: string | null
-          id: string
-          location: Json | null
-          seen_at: string
-          tag_uid: string
-        }
-        Insert: {
-          catcher_id?: string | null
-          convention_id?: string | null
-          created_at?: string
-          device_id?: string | null
-          id?: string
-          location?: Json | null
-          seen_at?: string
-          tag_uid: string
-        }
-        Update: {
-          catcher_id?: string | null
-          convention_id?: string | null
-          created_at?: string
-          device_id?: string | null
-          id?: string
-          location?: Json | null
-          seen_at?: string
-          tag_uid?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tag_activity_catcher_id_fkey"
-            columns: ["catcher_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tag_activity_convention_id_fkey"
-            columns: ["convention_id"]
-            isOneToOne: false
-            referencedRelation: "conventions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tag_activity_tag_uid_fkey"
-            columns: ["tag_uid"]
-            isOneToOne: false
-            referencedRelation: "tags"
-            referencedColumns: ["nfc_uid"]
-          },
-        ]
       }
       tag_scans: {
         Row: {
@@ -2843,25 +2457,6 @@ export type Database = {
       postgis_wagyu_version: { Args: never; Returns: string }
       process_achievement_queue_if_active: { Args: never; Returns: undefined }
       process_gameplay_queue_if_active: { Args: never; Returns: undefined }
-      process_qr_asset_cleanup: {
-        Args: { batch_size?: number }
-        Returns: {
-          attempts: number
-          bucket: string
-          created_at: string
-          id: string
-          last_error: string | null
-          processed_at: string | null
-          qr_asset_path: string
-          tag_id: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "qr_asset_cleanup_queue"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
       purge_geo_verification_data: { Args: never; Returns: Json }
       read_gameplay_event_queue: {
         Args: { p_batch_size?: number; p_visibility_timeout_seconds?: number }

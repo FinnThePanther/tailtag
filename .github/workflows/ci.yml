@@ -104,42 +104,16 @@ jobs:
         with:
           version: latest
 
-      - name: Generate types from production schema
+      - name: Generate types from dev schema
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase gen types typescript \
-            --project-ref dowtlhkzbxxmiflpswvd \
+            --project-id rtxbvjicfxgcouufumce \
             > /tmp/generated-types.ts
 
       - name: Compare generated types to committed file
-        run: |
-          COMMITTED="src/types/database.ts"
-          GENERATED="/tmp/generated-types.ts"
-
-          # The committed file has manually maintained type aliases appended
-          # after the generated section. Strip everything from the alias
-          # boundary onwards before comparing.
-          BOUNDARY="// Type aliases for application use"
-
-          committed_generated=$(sed "/$BOUNDARY/,\$d" "$COMMITTED")
-          fresh_generated=$(cat "$GENERATED")
-
-          if [ "$committed_generated" != "$fresh_generated" ]; then
-            echo ""
-            echo "ERROR: src/types/database.ts is out of sync with the production schema."
-            echo "Regenerate it by running:"
-            echo ""
-            echo "  npx supabase gen types typescript --project-ref dowtlhkzbxxmiflpswvd > src/types/database.ts"
-            echo ""
-            echo "Then re-append the manual type aliases from the bottom of the file"
-            echo "and commit the result."
-            echo ""
-            diff <(echo "$committed_generated") <(echo "$fresh_generated") || true
-            exit 1
-          fi
-
-          echo "Generated types match committed file."
+        run: python3 scripts/check-types.py /tmp/generated-types.ts
 
   shared-packages:
     name: Check shared packages build
