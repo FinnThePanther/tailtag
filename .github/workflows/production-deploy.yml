@@ -1,0 +1,55 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy migrations and functions
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Apply migrations to production
+        run: supabase db push --project-ref "$PROD_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
+
+      - name: Deploy edge functions to production
+        run: |
+          for fn in \
+            create-catch \
+            delete-account \
+            events-ingress \
+            expire-bans \
+            expire-pending-catches \
+            lookup-tag \
+            process-achievements \
+            process-gameplay-queue \
+            register-tag \
+            rotate-dailys \
+            send-push \
+            staff-moderate; do
+            echo "Deploying $fn..."
+            supabase functions deploy "$fn" --project-ref "$PROD_PROJECT_REF"
+          done
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
+
+      - name: Record deployment metadata
+        run: |
+          echo "Deployed commit: ${{ github.sha }}"
+          echo "Deployed at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Branch: ${{ github.ref_name }}"
