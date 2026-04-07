@@ -26,6 +26,7 @@ import {
 } from "../src/lib/sentry";
 import { handleAuthError } from "../src/lib/authErrorHandler";
 import { SuspensionGate } from "../src/features/moderation";
+import { EnvironmentBanner } from "../src/components/EnvironmentBanner";
 
 function LoadingScreen() {
   return (
@@ -334,6 +335,7 @@ function Layout() {
       <KeyboardProvider>
         <SafeAreaProvider>
           <StatusBar style="light" />
+          <EnvironmentBanner />
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
               <NavigationReadyProvider>
