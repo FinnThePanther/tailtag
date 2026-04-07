@@ -32,6 +32,11 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
+      - name: Apply reference seed data to production
+        run: supabase db query --linked -f supabase/seeds/reference.sql
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
       - name: Deploy edge functions to production
         run: |
           for fn in \
@@ -46,7 +51,11 @@ jobs:
             send-push \
             staff-moderate; do
             echo "Deploying $fn..."
-            supabase functions deploy "$fn"
+            if [ "$fn" = "delete-account" ] || [ "$fn" = "events-ingress" ]; then
+              supabase functions deploy "$fn" --no-verify-jwt
+            else
+              supabase functions deploy "$fn"
+            fi
           done
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

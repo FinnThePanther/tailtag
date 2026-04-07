@@ -30,6 +30,101 @@ export const profileQueryKey = (userId: string) => [PROFILE_QUERY_KEY, userId] a
 // Stable columns that have always existed — used as fallback when new columns aren't migrated yet.
 const STABLE_COLUMNS = 'username, bio, is_new, onboarding_completed, role, push_notifications_enabled, push_notifications_prompted';
 const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, social_links, is_suspended, suspended_until, suspension_reason`;
+const NEW_USER_PROFILE_RETRY_DELAYS_MS = [150, 500] as const;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function sanitizeUsernamePart(value: string | null | undefined): string {
+  return value?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') ?? '';
+}
+
+function buildBootstrapUsername(email: string | null | undefined): string | null {
+  const [localPart] = (email ?? '').split('@');
+  const cleaned = sanitizeUsernamePart(localPart);
+
+  if (!cleaned) {
+    return null;
+  }
+
+  const suffix = Math.random().toString(36).slice(-4);
+  return `${cleaned}-${suffix}`;
+}
+
+async function selectProfileRow(columns: string, userId: string) {
+  const client = supabase as any;
+  return client
+    .from('profiles')
+    .select(columns)
+    .eq('id', userId)
+    .maybeSingle();
+}
+
+async function selectProfileWithColumnFallback(userId: string) {
+  const { data, error } = await selectProfileRow(FULL_COLUMNS, userId);
+
+  if (error?.code === '42703') {
+    const { data: fallback, error: fallbackError } = await selectProfileRow(STABLE_COLUMNS, userId);
+
+    if (fallbackError) {
+      throw new Error(fallbackError.message);
+    }
+
+    return {
+      data: fallback,
+      usedFallbackColumns: true,
+    };
+  }
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    data,
+    usedFallbackColumns: false,
+  };
+}
+
+async function ensureOwnProfileExists(userId: string): Promise<void> {
+  const client = supabase as any;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (session?.user.id !== userId) {
+    return;
+  }
+
+  const username =
+    typeof session.user.user_metadata?.username === 'string'
+      ? sanitizeUsernamePart(session.user.user_metadata.username)
+      : '';
+
+  const payload: { id: string; username?: string } = {
+    id: userId,
+  };
+
+  if (username.length > 0) {
+    payload.username = username;
+  } else {
+    const generatedUsername = buildBootstrapUsername(session.user.email);
+    if (generatedUsername) {
+      payload.username = generatedUsername;
+    }
+  }
+
+  const { error } = await client
+    .from('profiles')
+    .upsert(payload, { onConflict: 'id', ignoreDuplicates: true });
+
+  if (error && error.code !== '23505') {
+    throw new Error(error.message);
+  }
+}
 
 function mapProfileData(data: any, overrides: Partial<ProfileSummary> = {}): ProfileSummary {
   return {
@@ -50,37 +145,40 @@ function mapProfileData(data: any, overrides: Partial<ProfileSummary> = {}): Pro
 }
 
 export async function fetchProfile(userId: string): Promise<ProfileSummary | null> {
-  const client = supabase as any;
-  const { data, error } = await client
-    .from('profiles')
-    .select(FULL_COLUMNS)
-    .eq('id', userId)
-    .maybeSingle();
+  let result = await selectProfileWithColumnFallback(userId);
 
-  // One or more new columns may not exist yet (migration pending).
-  // Fall back to only the stable columns so the app keeps working.
-  if (error?.code === '42703') {
-    const { data: fallback, error: fallbackError } = await client
-      .from('profiles')
-      .select(STABLE_COLUMNS)
-      .eq('id', userId)
-      .maybeSingle();
+  if (!result.data) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const isCurrentUser = session?.user.id === userId;
 
-    if (fallbackError) throw new Error(fallbackError.message);
-    if (!fallback) return null;
+    if (isCurrentUser) {
+      for (const delayMs of NEW_USER_PROFILE_RETRY_DELAYS_MS) {
+        await sleep(delayMs);
+        result = await selectProfileWithColumnFallback(userId);
 
-    return mapProfileData(fallback, { avatar_url: null, social_links: [] });
+        if (result.data) {
+          break;
+        }
+      }
+
+      if (!result.data) {
+        await ensureOwnProfileExists(userId);
+        result = await selectProfileWithColumnFallback(userId);
+      }
+    }
   }
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
+  if (!result.data) {
     return null;
   }
 
-  return mapProfileData(data);
+  if (result.usedFallbackColumns) {
+    return mapProfileData(result.data, { avatar_url: null, social_links: [] });
+  }
+
+  return mapProfileData(result.data);
 }
 
 export async function uploadProfileAvatar(

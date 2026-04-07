@@ -80,6 +80,22 @@ step "Applying migrations → $ENV"
 npx supabase db push --linked
 ok "Migrations applied."
 
+step "Ensuring gameplay event queue exists"
+npx supabase db query --linked "
+DO \$\$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pgmq.list_queues()
+    WHERE queue_name = 'gameplay_event_processing'
+  ) THEN
+    PERFORM pgmq.create('gameplay_event_processing');
+  END IF;
+END
+\$\$;
+"
+ok "Gameplay event queue ready."
+
 # ── 2. Reference seed data ───────────────────────────────────────────────────
 
 step "Applying reference seed data (supabase/seeds/reference.sql)"
@@ -119,7 +135,11 @@ for fn in "${FUNCTIONS[@]}"; do
     continue
   fi
   echo "  Deploying: $fn"
-  npx supabase functions deploy "$fn" --project-ref "$PROJECT_REF"
+  if [[ "$fn" == "delete-account" || "$fn" == "events-ingress" ]]; then
+    npx supabase functions deploy "$fn" --project-ref "$PROJECT_REF" --no-verify-jwt
+  else
+    npx supabase functions deploy "$fn" --project-ref "$PROJECT_REF"
+  fi
   DEPLOYED=$((DEPLOYED + 1))
 done
 ok "$DEPLOYED edge functions deployed."
