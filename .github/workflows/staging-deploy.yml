@@ -40,10 +40,8 @@ jobs:
             events-ingress \
             expire-bans \
             expire-pending-catches \
-            lookup-tag \
             process-achievements \
             process-gameplay-queue \
-            register-tag \
             rotate-dailys \
             send-push \
             staff-moderate; do
