@@ -135,7 +135,7 @@ for fn in "${FUNCTIONS[@]}"; do
     continue
   fi
   echo "  Deploying: $fn"
-  if [[ "$fn" == "delete-account" || "$fn" == "events-ingress" ]]; then
+  if [[ "$fn" == "create-catch" || "$fn" == "delete-account" || "$fn" == "events-ingress" ]]; then
     npx supabase functions deploy "$fn" --project-ref "$PROJECT_REF" --no-verify-jwt
   else
     npx supabase functions deploy "$fn" --project-ref "$PROJECT_REF"

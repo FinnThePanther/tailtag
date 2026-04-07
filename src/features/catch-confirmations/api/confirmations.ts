@@ -122,14 +122,15 @@ export async function updateFursuitCatchMode(
 export async function createCatch(params: CreateCatchParams): Promise<CreateCatchResult> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
+  const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!accessToken) {
     throw new Error('You must be signed in to catch fursuits.');
   }
 
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) {
-    throw new Error('Supabase URL not configured.');
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase configuration not set.');
   }
 
   // Create AbortController for 5-second timeout
@@ -141,6 +142,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
+        apikey: supabaseKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -216,14 +218,15 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
 export async function updateCatchPhoto(catchId: string, photoUrl: string): Promise<void> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
+  const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!accessToken) {
     throw new Error('You must be signed in to update a catch.');
   }
 
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) {
-    throw new Error('Supabase URL not configured.');
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase configuration not set.');
   }
 
   const controller = new AbortController();
@@ -234,6 +237,7 @@ export async function updateCatchPhoto(catchId: string, photoUrl: string): Promi
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
+        apikey: supabaseKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ catch_id: catchId, catch_photo_url: photoUrl }),
