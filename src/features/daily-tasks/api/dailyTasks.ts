@@ -73,6 +73,11 @@ type ConventionTimezoneRow = {
   timezone: string;
 };
 
+type AssignmentsQueryResult = {
+  data: AssignmentRow[] | null;
+  error: { message: string } | null;
+};
+
 const dateCache = new Map<string, Intl.DateTimeFormat>();
 
 function getDateFormatter(timezone: string) {
@@ -228,6 +233,97 @@ function computeResetMetadata(timezone: string, nowUtc: Date) {
   };
 }
 
+async function loadAssignments(conventionId: string, day: string): Promise<AssignmentsQueryResult> {
+  const result = await supabase
+    .from('daily_assignments')
+    .select(
+      'id, day, position, convention_id, task:daily_tasks(id, name, description, kind, requirement, metadata, is_active, convention_id)'
+    )
+    .eq('day', day)
+    .eq('convention_id', conventionId)
+    .order('position', { ascending: true });
+
+  return {
+    data: (result.data ?? null) as AssignmentRow[] | null,
+    error: result.error ? { message: result.error.message } : null,
+  };
+}
+
+async function ensureAssignmentsForDay(
+  userId: string,
+  conventionId: string,
+  day: string,
+  currentResult: AssignmentsQueryResult,
+): Promise<AssignmentsQueryResult> {
+  if ((currentResult.data?.length ?? 0) > 0) {
+    return currentResult;
+  }
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!accessToken || !supabaseUrl || !supabaseKey) {
+    captureHandledMessage('Missing credentials for daily task rotation fallback', {
+      scope: 'dailyTasks.ensureAssignmentsForDay',
+      userId,
+      conventionId,
+      day,
+      hasAccessToken: Boolean(accessToken),
+      hasSupabaseUrl: Boolean(supabaseUrl),
+      hasSupabaseKey: Boolean(supabaseKey),
+    }, 'warning');
+    return currentResult;
+  }
+
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/rotate-dailys?convention_id=${encodeURIComponent(conventionId)}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          apikey: supabaseKey,
+          'Content-Type': 'application/json',
+        },
+        body: '{}',
+      }
+    );
+
+    if (!response.ok) {
+      const responseBody = await response.text().catch(() => null);
+      captureHandledMessage('Daily task rotation fallback failed', {
+        scope: 'dailyTasks.ensureAssignmentsForDay',
+        userId,
+        conventionId,
+        day,
+        status: response.status,
+        responseBody,
+      }, 'warning');
+      return currentResult;
+    }
+
+    captureHandledMessage('Daily task rotation fallback created missing assignments', {
+      scope: 'dailyTasks.ensureAssignmentsForDay',
+      userId,
+      conventionId,
+      day,
+    }, 'info');
+
+    return await loadAssignments(conventionId, day);
+  } catch (error) {
+    captureHandledMessage('Daily task rotation fallback threw', {
+      scope: 'dailyTasks.ensureAssignmentsForDay',
+      userId,
+      conventionId,
+      day,
+      error: error instanceof Error ? error.message : String(error),
+    }, 'warning');
+    return currentResult;
+  }
+}
+
 export async function fetchDailyTasks({
   userId,
   conventionId,
@@ -259,15 +355,6 @@ export async function fetchDailyTasks({
     nowUtc,
   );
 
-  const assignmentsPromise = supabase
-    .from('daily_assignments')
-    .select(
-      'id, day, position, convention_id, task:daily_tasks(id, name, description, kind, requirement, metadata, is_active, convention_id)'
-    )
-    .eq('day', localDay)
-    .eq('convention_id', conventionId)
-    .order('position', { ascending: true });
-
   const progressPromise = supabase
     .from('user_daily_progress')
     .select('task_id, current_count, is_completed, completed_at')
@@ -283,7 +370,7 @@ export async function fetchDailyTasks({
     .maybeSingle();
 
   const [assignmentsResult, progressResult, streakResult] = await Promise.all([
-    assignmentsPromise,
+    loadAssignments(conventionId, localDay),
     progressPromise,
     streakPromise,
   ]);
@@ -300,6 +387,17 @@ export async function fetchDailyTasks({
     throw new Error(`We couldn't load your streak: ${streakResult.error.message}`);
   }
 
+  const ensuredAssignmentsResult = await ensureAssignmentsForDay(
+    userId,
+    conventionId,
+    localDay,
+    assignmentsResult,
+  );
+
+  if (ensuredAssignmentsResult.error) {
+    throw new Error(`We couldn't load today's tasks: ${ensuredAssignmentsResult.error.message}`);
+  }
+
   const progressMap = new Map<string, ProgressRow>();
   for (const row of (progressResult.data ?? []) as ProgressRow[]) {
     progressMap.set(row.task_id, row);
@@ -307,7 +405,7 @@ export async function fetchDailyTasks({
 
   const tasks: DailyTaskProgress[] = [];
 
-  for (const row of (assignmentsResult.data ?? []) as AssignmentRow[]) {
+  for (const row of (ensuredAssignmentsResult.data ?? []) as AssignmentRow[]) {
     const relation = row.task;
     const resolvedTask = Array.isArray(relation) ? relation[0] : relation;
 

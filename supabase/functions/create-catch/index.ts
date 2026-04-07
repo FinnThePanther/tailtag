@@ -69,20 +69,33 @@ function jsonResponse(status: number, payload: unknown) {
   });
 }
 
-async function getUserIdFromRequest(req: Request): Promise<string | null> {
+function extractBearerToken(req: Request): string | null {
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return null;
+  if (!authHeader) {
+    return null;
+  }
 
-  const supabaseUserClient = createClient(resolvedSupabaseUrl, resolvedSupabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: authHeader,
-      },
-    },
-  });
+  const [scheme, token] = authHeader.split(" ");
+  if (scheme !== "Bearer" || !token) {
+    return null;
+  }
 
-  const { data, error } = await supabaseUserClient.auth.getUser();
-  if (error || !data.user) return null;
+  return token;
+}
+
+async function getUserIdFromRequest(req: Request): Promise<string | null> {
+  const token = extractBearerToken(req);
+  if (!token) {
+    return null;
+  }
+
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data.user) {
+    console.error("[create-catch] Failed to resolve user from bearer token", {
+      error: error?.message ?? "Unknown auth error",
+    });
+    return null;
+  }
 
   return data.user.id;
 }
