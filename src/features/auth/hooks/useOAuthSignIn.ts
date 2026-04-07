@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 import type { Provider } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -17,6 +18,13 @@ type OAuthErrorState = string | null;
 
 const formatErrorMessage = (input: unknown) =>
   input instanceof Error ? input.message : 'Unable to complete sign-in. Please try again.';
+
+const generateAppleNonce = () => {
+  const bytes = new Uint8Array(16);
+  Crypto.getRandomValues(bytes);
+
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+};
 
 const PROVIDER_OPTIONS: Partial<Record<SupportedProvider, { scopes?: string }>> = {
   google: {
@@ -83,12 +91,15 @@ export function useOAuthSignIn() {
     }
 
     try {
+      const nonce = generateAppleNonce();
+
       // Request Apple credential
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
+        nonce,
       });
 
       if (!credential.identityToken) {
@@ -100,6 +111,8 @@ export function useOAuthSignIn() {
       const { data, error: authError } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: credential.identityToken,
+        access_token: credential.authorizationCode ?? undefined,
+        nonce,
       });
 
       if (authError) {

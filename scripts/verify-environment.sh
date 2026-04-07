@@ -114,7 +114,20 @@ for job in "${CRON_JOBS[@]}"; do
     "SELECT count(*)::text FROM cron.job WHERE jobname='$job' AND active=true"
 done
 
-# ── 3. Vault secrets ─────────────────────────────────────────────────────────
+# ── 3. Queue infrastructure ──────────────────────────────────────────────────
+
+section "Queue infrastructure"
+
+check "gameplay_event_processing queue" \
+  "SELECT count(*)::text FROM pgmq.list_queues() WHERE queue_name='gameplay_event_processing'"
+
+check "app_private.ingest_gameplay_event" \
+  "SELECT count(*)::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname='app_private' AND p.proname='ingest_gameplay_event'"
+
+check "app_private.edge_function_config_value" \
+  "SELECT count(*)::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname='app_private' AND p.proname='edge_function_config_value'"
+
+# ── 4. Vault secrets ─────────────────────────────────────────────────────────
 
 section "Vault secrets"
 
@@ -134,7 +147,7 @@ for secret in "${SECRETS[@]}"; do
     "SELECT count(*)::text FROM vault.secrets WHERE name='$secret'"
 done
 
-# ── 4. Storage buckets ───────────────────────────────────────────────────────
+# ── 5. Storage buckets ───────────────────────────────────────────────────────
 
 section "Storage buckets"
 

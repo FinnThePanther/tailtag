@@ -4,7 +4,6 @@
  *
  * Environment variables:
  * - SUPABASE_URL: Supabase project URL
- * - SUPABASE_ANON_KEY: Anon key for validating the caller JWT
  * - SERVICE_ROLE_KEY: Service role key (or SUPABASE_SERVICE_ROLE_KEY) for privileged inserts
  */
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote esm.sh imports.
@@ -22,15 +21,13 @@ const corsHeaders: Record<string, string> = {
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
-const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("ANON_KEY");
 const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
-  throw new Error("Missing Supabase configuration (SUPABASE_URL / SUPABASE_ANON_KEY / SERVICE_ROLE_KEY)");
+if (!supabaseUrl || !serviceRoleKey) {
+  throw new Error("Missing Supabase configuration (SUPABASE_URL / SERVICE_ROLE_KEY)");
 }
 
 const resolvedSupabaseUrl = supabaseUrl;
-const resolvedSupabaseAnonKey = supabaseAnonKey;
 const resolvedServiceRoleKey = serviceRoleKey;
 
 const supabaseAdmin = createClient(resolvedSupabaseUrl, resolvedServiceRoleKey, {
@@ -147,17 +144,13 @@ async function getUserIdFromRequest(req: Request): Promise<string | null> {
     return null;
   }
 
-  const supabaseUserClient = createClient(resolvedSupabaseUrl, resolvedSupabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: token,
-      },
-    },
-  });
-
-  const { data, error } = await supabaseUserClient.auth.getUser();
+  const jwt = token.substring(7);
+  const { data, error } = await supabaseAdmin.auth.getUser(jwt);
 
   if (error || !data.user) {
+    console.error("[events-ingress] Failed to resolve user from bearer token", {
+      error: error?.message ?? "Unknown auth error",
+    });
     return null;
   }
 

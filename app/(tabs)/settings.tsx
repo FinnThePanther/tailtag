@@ -755,7 +755,16 @@ export default function SettingsScreen() {
       );
 
       if (!response.ok) {
-        throw new Error("Deletion failed");
+        let errorMessage = "Deletion failed";
+        try {
+          const payload = (await response.json()) as { error?: string };
+          if (typeof payload.error === "string" && payload.error.length > 0) {
+            errorMessage = payload.error;
+          }
+        } catch {
+          // Ignore parse failures and keep the generic message.
+        }
+        throw new Error(errorMessage);
       }
 
       // Clear local session and cache

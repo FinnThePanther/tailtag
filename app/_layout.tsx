@@ -71,11 +71,12 @@ function RootLayoutNav() {
 
   usePrimeUserData(session?.user.id ?? null);
 
+  const hasCompletedOnboarding = profile?.onboarding_completed === true;
   const shouldGateOnboarding =
     Boolean(session) &&
     !profileError &&
     profile !== null && // Explicit null check - don't gate while loading
-    (profile?.is_new === true || profile?.onboarding_completed !== true);
+    (profile?.is_new === true || !hasCompletedOnboarding);
 
   const shouldShowOnboardingRedirectLoading =
     !inResetPasswordFlow &&
@@ -90,6 +91,7 @@ function RootLayoutNav() {
     Boolean(session) &&
     inOnboardingFlow &&
     (isProfileLoading || isProfileFetching) &&
+    !profile &&
     !profileError;
 
   let redirectHref: "/" | "/auth" | "/onboarding" | null = null;
@@ -109,7 +111,7 @@ function RootLayoutNav() {
   } else if (
     session &&
     inOnboardingFlow &&
-    !shouldGateOnboarding &&
+    hasCompletedOnboarding &&
     !isProfileLoading &&
     !isProfileFetching
   ) {
@@ -168,7 +170,7 @@ function RootLayoutNav() {
     return <Redirect href="/onboarding" />;
   }
 
-  if (session && inOnboardingFlow && !shouldGateOnboarding && !isProfileLoading && !isProfileFetching) {
+  if (session && inOnboardingFlow && hasCompletedOnboarding && !isProfileLoading && !isProfileFetching) {
     return <Redirect href="/" />;
   }
 

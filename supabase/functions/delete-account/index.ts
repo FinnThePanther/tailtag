@@ -45,19 +45,19 @@ Deno.serve(async (req) => {
 
   const token = authHeader.substring(7);
 
-  // SECURITY FIX: Verify the token cryptographically using Supabase Auth
-  // This ensures the token is valid and not forged
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  // This function is deployed with JWT verification disabled at the platform
+  // layer because Supabase's legacy verify_jwt path is incompatible with the
+  // newer signing key flow. Verify the bearer token explicitly in user code.
+  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  const userId = authData.user?.id ?? null;
 
-  if (authError || !user) {
+  if (authError || !userId) {
     console.error("[delete-account] Token verification failed:", authError);
     return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-
-  const userId = user.id;
   console.log(`[delete-account] Deleting user ${userId}`);
 
   type CleanupSummary = {

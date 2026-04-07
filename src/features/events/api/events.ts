@@ -1,6 +1,5 @@
 import { supabase } from "../../../lib/supabase";
 import { captureCriticalError, addMonitoringBreadcrumb } from "../../../lib/sentry";
-import { handleAuthError } from "../../../lib/authErrorHandler";
 import {
   emitImmediateAchievementAwards,
   type ImmediateAchievementAward,
@@ -175,9 +174,16 @@ export async function emitGameplayEvent(
           const errorBody = await error.context.json();
           actualError = errorBody.error || errorBody.message || error.message;
 
-          // Handle 401 Unauthorized - force sign out
           if (statusCode === 401) {
-            void handleAuthError(new Error('Unauthorized'));
+            addMonitoringBreadcrumb({
+              category: "events",
+              message: "Event emission unauthorized",
+              data: {
+                type,
+                conventionId: input.conventionId ?? null,
+              },
+              level: "warning",
+            });
           }
         }
       } catch {
