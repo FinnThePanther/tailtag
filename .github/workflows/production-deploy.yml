@@ -20,11 +20,17 @@ jobs:
         with:
           version: latest
 
-      - name: Apply migrations to production
-        run: supabase db push --project-ref "$PROD_PROJECT_REF"
+      - name: Link to production project
+        run: supabase link --project-ref "$PROD_PROJECT_REF"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+
+      - name: Apply migrations to production
+        run: supabase db push --linked
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Deploy edge functions to production
         run: |
@@ -42,11 +48,10 @@ jobs:
             send-push \
             staff-moderate; do
             echo "Deploying $fn..."
-            supabase functions deploy "$fn" --project-ref "$PROD_PROJECT_REF"
+            supabase functions deploy "$fn"
           done
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
 
       - name: Record deployment metadata
         run: |
