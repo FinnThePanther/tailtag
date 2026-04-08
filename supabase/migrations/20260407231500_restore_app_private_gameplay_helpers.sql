@@ -2,6 +2,10 @@ create schema if not exists app_private;
 
 revoke all on schema app_private from public;
 
+-- Drop existing function first because parameter names changed
+-- (PostgreSQL doesn't allow renaming parameters via CREATE OR REPLACE)
+drop function if exists app_private.edge_function_config_value(text, jsonb);
+
 create or replace function app_private.edge_function_config_value(
   p_function_name text,
   p_fallback jsonb default null::jsonb
