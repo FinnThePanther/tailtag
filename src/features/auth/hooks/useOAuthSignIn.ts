@@ -26,6 +26,9 @@ const generateAppleNonce = () => {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 };
 
+const hashAppleNonce = async (nonce: string) =>
+  Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, nonce);
+
 const PROVIDER_OPTIONS: Partial<Record<SupportedProvider, { scopes?: string }>> = {
   google: {
     scopes: 'openid email profile',
@@ -91,7 +94,8 @@ export function useOAuthSignIn() {
     }
 
     try {
-      const nonce = generateAppleNonce();
+      const rawNonce = generateAppleNonce();
+      const hashedNonce = await hashAppleNonce(rawNonce);
 
       // Request Apple credential
       const credential = await AppleAuthentication.signInAsync({
@@ -99,7 +103,7 @@ export function useOAuthSignIn() {
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
-        nonce,
+        nonce: hashedNonce,
       });
 
       if (!credential.identityToken) {
@@ -112,7 +116,7 @@ export function useOAuthSignIn() {
         provider: 'apple',
         token: credential.identityToken,
         access_token: credential.authorizationCode ?? undefined,
-        nonce,
+        nonce: rawNonce,
       });
 
       if (authError) {

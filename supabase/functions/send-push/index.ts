@@ -366,6 +366,7 @@ async function handleRequest(req: Request): Promise<Response> {
     },
     sound: "default",
     priority: "default",
+    channelId: "default",
   };
 
   const headers: Record<string, string> = {
@@ -427,10 +428,22 @@ async function handleRequest(req: Request): Promise<Response> {
 
   if (responseJson) {
     const expoErrors = extractExpoErrors(responseJson);
+    if (expoErrors.length > 0) {
+      console.error("[send-push] Expo errors", { expoErrors, response: responseJson });
+      await recordPushFailure({
+        notificationId: record.id,
+        userId,
+        notificationType,
+        payload,
+        requestBody,
+        responseStatus: 200,
+        responseBody: responseJson,
+        errorMessage: `Expo ticket errors: ${expoErrors.join(", ")}`,
+      });
+    }
+
     if (expoErrors.includes("DeviceNotRegistered")) {
       await clearPushToken(userId);
-    } else if (expoErrors.length > 0) {
-      console.error("[send-push] Expo errors", { expoErrors, response: responseJson });
     }
   }
 

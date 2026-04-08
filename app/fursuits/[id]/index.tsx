@@ -126,6 +126,9 @@ export default function FursuitDetailScreen() {
     if (!viewedFursuitId || !userId || !primaryConventionId) {
       return;
     }
+    if (viewedFursuitOwnerId === userId) {
+      return;
+    }
     const key = `${viewedFursuitId}:${primaryConventionId}`;
     if (viewedFursuitRef.current === key) {
       return;
@@ -291,16 +294,11 @@ export default function FursuitDetailScreen() {
             {detail.conventions.length > 0 ? (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Convention appearances</Text>
-                {detail.conventions.map((convention) => {
-                  const dateRange = formatDate(convention.start_date);
-
-                  return (
-                    <Text key={convention.id} style={styles.sectionItem}>
-                      {convention.name}
-                      {dateRange ? ` – ${dateRange}` : ''}
-                    </Text>
-                  );
-                })}
+                {detail.conventions.map((convention) => (
+                  <Text key={convention.id} style={styles.sectionItem}>
+                    {convention.name}
+                  </Text>
+                ))}
               </View>
             ) : null}
           </View>

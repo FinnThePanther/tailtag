@@ -1,32 +1,31 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
+import fs from 'fs';
+import path from 'path';
 
-const APP_ENV = process.env.APP_ENV ?? 'development';
-
-type EnvName = 'development' | 'staging' | 'production';
-
-const envConfigs: Record<EnvName, { name: string; bundleId: string; androidPackage: string }> = {
-  development: {
-    name: 'TailTag (Dev)',
-    bundleId: 'com.finnthepanther.tailtag.dev',
-    androidPackage: 'com.finnthepanther.tailtag.dev',
-  },
-  staging: {
-    name: 'TailTag (Staging)',
-    bundleId: 'com.finnthepanther.tailtag.staging',
-    androidPackage: 'com.finnthepanther.tailtag.staging',
-  },
-  production: {
-    name: 'TailTag',
-    bundleId: 'com.finnthepanther.tailtag',
-    androidPackage: 'com.finnthepanther.tailtag',
-  },
+const { envConfigs, resolveAppEnv } = require('./scripts/native-env.config.cjs') as {
+  envConfigs: Record<
+    'development' | 'staging' | 'production',
+    {
+      appDisplayName: string;
+      iosBundleId: string;
+      androidApplicationId: string;
+      googleServicesFile: string;
+      iosGoogleServicesFile: string;
+    }
+  >;
+  resolveAppEnv: (input?: string) => 'development' | 'staging' | 'production';
 };
 
-const env = envConfigs[APP_ENV as EnvName] ?? envConfigs.development;
+const APP_ENV = resolveAppEnv(process.env.APP_ENV);
+const env = envConfigs[APP_ENV];
+const maybeResolveExistingFile = (relativePath: string) => {
+  const absolutePath = path.resolve(__dirname, relativePath);
+  return fs.existsSync(absolutePath) ? relativePath : undefined;
+};
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: env.name,
+  name: env.appDisplayName,
   slug: 'tailtag',
   version: '0.0.1',
   orientation: 'portrait',
@@ -40,7 +39,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: env.bundleId,
+    bundleIdentifier: env.iosBundleId,
+    googleServicesFile: maybeResolveExistingFile(env.iosGoogleServicesFile),
     usesAppleSignIn: true,
     infoPlist: {
       NSPhotoLibraryUsageDescription:
@@ -58,8 +58,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
-    package: env.androidPackage,
-    googleServicesFile: './google-services.json',
+    package: env.androidApplicationId,
+    googleServicesFile:
+      maybeResolveExistingFile(env.googleServicesFile) ?? './google-services.json',
+    blockedPermissions: [
+      'android.permission.RECORD_AUDIO',
+      'android.permission.READ_EXTERNAL_STORAGE',
+      'android.permission.WRITE_EXTERNAL_STORAGE',
+      'android.permission.SYSTEM_ALERT_WINDOW',
+      'android.permission.WRITE_SETTINGS',
+    ],
   },
   web: {
     favicon: './assets/favicon.png',

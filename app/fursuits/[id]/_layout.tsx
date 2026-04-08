@@ -12,7 +12,6 @@ export default function FursuitIdLayout() {
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="edit" />
-      <Stack.Screen name="tags" />
     </Stack>
   );
 }
