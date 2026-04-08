@@ -78,7 +78,7 @@ import { usePushNotifications } from "../../src/features/push-notifications";
 import { styles } from "../../src/app-styles/(tabs)/settings.styles";
 
 const FEEDBACK_FORM_URL =
-  "https://docs.google.com/forms/d/e/1FAIpQLSd832FEeheiqd0sa/viewform";
+  "https://forms.gle/e65DqKt1VsuvoFTx8";
 
 export default function SettingsScreen() {
   const router = useRouter();

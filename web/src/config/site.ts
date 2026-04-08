@@ -4,9 +4,9 @@ export const siteConfig = {
   description: 'Create a profile, register your fursuit, and collect catches, stats, and achievements at conventions.',
 
   links: {
-    ios: 'https://testflight.apple.com/join/PLACEHOLDER',
-    android: 'https://example.com/tailtag.apk',
-    discord: 'https://discord.gg/PLACEHOLDER',
+    ios: 'https://finnthepanther.com',
+    android: 'https://finnthepanther.com',
+    discord: 'https://discord.gg/Fv7NPJNTP2',
   },
 
   platforms: {

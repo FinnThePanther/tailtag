@@ -73,7 +73,7 @@ export function NotificationsStep({
     return (
       <View style={styles.container}>
         <TailTagCard>
-          <Text style={styles.eyebrow}>Step 5</Text>
+          <Text style={styles.eyebrow}>Step 4</Text>
           <Text style={styles.title}>Notifications unavailable</Text>
           <View style={styles.unsupportedRow}>
             <Ionicons name="information-circle-outline" size={20} color="rgba(148,163,184,0.7)" />
@@ -90,7 +90,7 @@ export function NotificationsStep({
   return (
     <View style={styles.container}>
       <TailTagCard>
-        <Text style={styles.eyebrow}>Step 5</Text>
+        <Text style={styles.eyebrow}>Step 4</Text>
         <Text style={styles.title}>Stay in the loop</Text>
         <Text style={styles.body}>
           Enable notifications so TailTag can let you know when something
