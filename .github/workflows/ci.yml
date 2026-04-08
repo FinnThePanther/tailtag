@@ -1,60 +1,49 @@
-name: CI
+name: Validate
 
 on:
-  push:
-    branches:
-      - dev
   pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 20
 
 jobs:
   validate:
-    name: Validate app
+    name: Validate repository
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Use Node.js 20
+      - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Expo doctor
-        run: npm run doctor
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type check
-        run: npm run typecheck
-
-  migrations:
-    name: Validate migrations
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
+      - name: Validate mobile app
+        run: npm run ci:validate
+
       - name: Check migration files are well-formed
         run: |
           MIGRATION_DIR="supabase/migrations"
           if [ ! -d "$MIGRATION_DIR" ]; then
-            echo "No migrations directory found — skipping"
+            echo "No migrations directory found - skipping"
             exit 0
           fi
 
-          # Verify all migration files follow the expected timestamp naming convention
           invalid=0
           for f in "$MIGRATION_DIR"/*.sql; do
             [ -e "$f" ] || continue
@@ -91,19 +80,6 @@ jobs:
 
           echo "No duplicate migration timestamps"
 
-  types:
-    name: Check generated types are up to date
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
       - name: Generate types from dev schema
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -114,23 +90,6 @@ jobs:
 
       - name: Compare generated types to committed file
         run: python3 scripts/check-types.py /tmp/generated-types.ts
-
-  shared-packages:
-    name: Check shared packages build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Use Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Type-check achievement-rules package
         run: |
