@@ -102,20 +102,7 @@ step "Applying reference seed data (supabase/seeds/reference.sql)"
 npx supabase db query --linked -f supabase/seeds/reference.sql
 ok "Reference seed applied."
 
-# ── 3. Staging fixtures (dev/staging only) ───────────────────────────────────
-
-if [[ "$ENV" == "development" || "$ENV" == "staging" ]]; then
-  FIXTURES="supabase/seeds/staging-fixtures.sql"
-  if [[ -f "$FIXTURES" ]]; then
-    step "Applying staging fixture accounts ($FIXTURES)"
-    npx supabase db query --linked -f "$FIXTURES"
-    ok "Staging fixtures applied."
-  else
-    warn "No staging-fixtures.sql found — skipping."
-  fi
-fi
-
-# ── 4. Edge functions ────────────────────────────────────────────────────────
+# ── 3. Edge functions ─────────────────────────────────────────────────────────
 
 # All deployable functions (directories directly under supabase/functions/, excluding _shared)
 FUNCTIONS=()
@@ -147,7 +134,7 @@ if [[ ${#SKIPPED[@]} -gt 0 ]]; then
   warn "Skipped (no index.ts): ${SKIPPED[*]}"
 fi
 
-# ── 5. Manual checklist ──────────────────────────────────────────────────────
+# ── 4. Manual checklist ──────────────────────────────────────────────────────
 
 echo ""
 echo "════════════════════════════════════════════════════════════"
@@ -185,9 +172,4 @@ if [[ "$ENV" == "production" ]]; then
   echo ""
 fi
 
-echo "  Fixture accounts (dev/staging only):"
-if [[ "$ENV" != "production" ]]; then
-  echo "    [ ] Verify fixture accounts are in the password manager"
-  echo "        (player, fursuit-owner, staff, admin)"
-fi
 echo ""
