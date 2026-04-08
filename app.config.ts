@@ -22,6 +22,16 @@ const maybeResolveExistingFile = (relativePath: string) => {
   const absolutePath = path.resolve(__dirname, relativePath);
   return fs.existsSync(absolutePath) ? relativePath : undefined;
 };
+const resolveRequiredExistingFile = (relativePath: string, label: string) => {
+  const absolutePath = path.resolve(__dirname, relativePath);
+  if (fs.existsSync(absolutePath)) {
+    return relativePath;
+  }
+
+  throw new Error(
+    `Missing ${label} for APP_ENV=${APP_ENV}. Expected file at ${relativePath}.`
+  );
+};
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -59,8 +69,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidApplicationId,
-    googleServicesFile:
-      maybeResolveExistingFile(env.googleServicesFile) ?? './google-services.json',
+    googleServicesFile: resolveRequiredExistingFile(
+      env.googleServicesFile,
+      'Android Firebase config'
+    ),
     blockedPermissions: [
       'android.permission.RECORD_AUDIO',
       'android.permission.READ_EXTERNAL_STORAGE',
