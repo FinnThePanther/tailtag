@@ -1,4 +1,4 @@
-import { toDisplayDate } from '../../utils/dates';
+import { parseDateOnlyAsLocal, toDisplayDate } from '../../utils/dates';
 
 export const formatConventionDateRange = (start: string | null, end: string | null) => {
   const startLabel = toDisplayDate(start);
@@ -21,8 +21,10 @@ export const isConventionEnded = (endDate: string | null): boolean => {
     return false; // No end date means we can't determine if it ended
   }
 
-  // Parse the end date and set to end of day (23:59:59) to be inclusive
-  const end = new Date(endDate);
+  // Parse as local midnight so end-of-day is in the device's timezone, not UTC.
+  const end = /^\d{4}-\d{2}-\d{2}$/.test(endDate)
+    ? parseDateOnlyAsLocal(endDate)
+    : new Date(endDate);
   end.setHours(23, 59, 59, 999);
 
   const now = new Date();
@@ -41,7 +43,9 @@ export const isConventionActive = (convention: {
   if (isConventionEnded(convention.end_date)) return false;
 
   if (convention.start_date) {
-    const start = new Date(convention.start_date);
+    const start = /^\d{4}-\d{2}-\d{2}$/.test(convention.start_date)
+      ? parseDateOnlyAsLocal(convention.start_date)
+      : new Date(convention.start_date);
     start.setHours(0, 0, 0, 0);
     if (start > new Date()) return false;
   }
