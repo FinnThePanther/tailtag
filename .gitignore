@@ -59,9 +59,9 @@ AGENTS.md
 
 # Firebase / credentials
 google-services.json
-google-services.development.json
-google-services.staging.json
-google-services.production.json
+# google-services.development.json
+# google-services.staging.json
+# google-services.production.json
 GoogleService-Info.plist
 GoogleService-Info.development.plist
 GoogleService-Info.staging.plist
