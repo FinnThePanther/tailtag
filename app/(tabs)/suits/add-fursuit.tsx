@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Keyboard, Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import * as ImagePicker from "expo-image-picker";
@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TailTagButton } from "../../../src/components/ui/TailTagButton";
 import { TailTagCard } from "../../../src/components/ui/TailTagCard";
 import { TailTagInput } from "../../../src/components/ui/TailTagInput";
+import { ScreenHeader } from "../../../src/components/ui/ScreenHeader";
 import { KeyboardAwareFormWrapper } from "../../../src/components/ui/KeyboardAwareFormWrapper";
 import { FURSUIT_BUCKET } from "../../../src/constants/storage";
 import {
@@ -84,6 +85,15 @@ type UploadCandidate = {
   fileSize: number;
 } | null;
 
+const PRONOUN_OPTIONS = [
+  "he/him",
+  "she/her",
+  "they/them",
+  "he/they",
+  "she/they",
+  "any pronouns",
+] as const;
+
 export default function AddFursuitScreen() {
   const router = useRouter();
   const { session } = useAuth();
@@ -135,7 +145,7 @@ export default function AddFursuitScreen() {
   const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>(
     [],
   );
-  const [pronounsInput, setPronounsInput] = useState("");
+  const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
   const [likesInput, setLikesInput] = useState("");
   const [askMeAboutInput, setAskMeAboutInput] = useState("");
   const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(
@@ -200,6 +210,7 @@ export default function AddFursuitScreen() {
   }, []);
 
   const handleToggleColor = useCallback((option: FursuitColorOption) => {
+    Keyboard.dismiss();
     setSelectedColors((current) => {
       const exists = current.some((entry) => entry.id === option.id);
 
@@ -209,6 +220,19 @@ export default function AddFursuitScreen() {
 
       if (current.length >= MAX_FURSUIT_COLORS) {
         return current;
+      }
+
+      return [...current, option];
+    });
+  }, []);
+
+  const handleTogglePronoun = useCallback((option: string) => {
+    Keyboard.dismiss();
+    setSelectedPronouns((current) => {
+      const exists = current.includes(option);
+
+      if (exists) {
+        return current.filter((value) => value !== option);
       }
 
       return [...current, option];
@@ -414,7 +438,10 @@ export default function AddFursuitScreen() {
 
     const trimmedName = nameInput.trim();
     const trimmedSpecies = speciesInput.trim();
-    const trimmedPronouns = pronounsInput.trim();
+    const pronounsValue = selectedPronouns
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0)
+      .join(", ");
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
     const normalizedSpeciesValue = normalizeSpeciesName(trimmedSpecies);
@@ -584,7 +611,7 @@ export default function AddFursuitScreen() {
         fursuit_id: createdFursuitId,
         version: 1,
         owner_name: profile?.username ?? "",
-        pronouns: trimmedPronouns,
+        pronouns: pronounsValue,
         likes_and_interests: trimmedLikes,
         ask_me_about: trimmedAskMeAbout,
         social_links: normalizedSocialLinks as unknown as Json,
@@ -602,7 +629,7 @@ export default function AddFursuitScreen() {
       setSpeciesInput("");
       setSelectedSpecies(null);
       setSelectedColors([]);
-      setPronounsInput("");
+      setSelectedPronouns([]);
       setLikesInput("");
       setAskMeAboutInput("");
       setSocialLinks(createInitialSocialLinks());
@@ -704,7 +731,9 @@ export default function AddFursuitScreen() {
   };
 
   return (
-    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+    <View style={styles.screen}>
+      <ScreenHeader title="Add a Fursuit" onBack={() => router.back()} />
+      <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
       {isAtFursuitLimit && (
         <TailTagCard style={styles.limitBanner}>
           <Text style={styles.limitBannerText}>
@@ -923,13 +952,35 @@ export default function AddFursuitScreen() {
 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Fursuit Pronouns</Text>
-          <TailTagInput
-            value={pronounsInput}
-            onChangeText={setPronounsInput}
-            placeholder="he/him, she/her, they/them, etc."
-            editable={!isSubmitting}
-            returnKeyType="next"
-          />
+          <Text style={styles.helperLabel}>
+            Select all pronouns that fit your fursuit.
+          </Text>
+          <View style={styles.pronounChipList}>
+            {PRONOUN_OPTIONS.map((option) => {
+              const isSelected = selectedPronouns.includes(option);
+              return (
+                <Pressable
+                  key={option}
+                  accessibilityRole="button"
+                  onPress={() => handleTogglePronoun(option)}
+                  style={[
+                    styles.colorChip,
+                    isSelected ? styles.colorChipSelected : null,
+                  ]}
+                  disabled={isSubmitting}
+                >
+                  <Text
+                    style={[
+                      styles.colorChipLabel,
+                      isSelected ? styles.colorChipLabelSelected : null,
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         <View style={styles.fieldGroup}>
@@ -1216,6 +1267,7 @@ export default function AddFursuitScreen() {
           Save fursuit
         </TailTagButton>
       </View>
-    </KeyboardAwareFormWrapper>
+      </KeyboardAwareFormWrapper>
+    </View>
   );
 }
