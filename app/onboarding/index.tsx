@@ -43,8 +43,6 @@ export default function OnboardingScreen() {
 
   const {
     data: profile,
-    isLoading,
-    isFetching,
   } = useQuery<ProfileSummary | null, Error>({
     ...(profileQueryOptions ?? {
       queryKey: ['profile', 'guest'],
@@ -79,10 +77,6 @@ export default function OnboardingScreen() {
   const currentIndex = stepIndex(currentStep);
 
   if (!userId) {
-    return <LoadingView />;
-  }
-
-  if ((isLoading || isFetching) && !profile) {
     return <LoadingView />;
   }
 

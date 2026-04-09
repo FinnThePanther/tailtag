@@ -1,7 +1,7 @@
 // app/_layout.tsx
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { useSegments, Stack, Redirect, useNavigationContainerRef } from "expo-router";
+import { useSegments, Stack, Redirect, useNavigationContainerRef, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -49,6 +49,7 @@ function LoadingScreen() {
  * - No BackHandler: rely on Expo Router's default Android back behavior.
  */
 function RootLayoutNav() {
+  const router = useRouter();
   const { status, session } = useAuth();
   const segments = useSegments();
   const inAuthGroup = segments.length > 0 && segments[0] === "(auth)";
@@ -87,19 +88,19 @@ function RootLayoutNav() {
     !profile &&
     !profileError;
 
-  const shouldShowOnboardingFlowLoading =
+  const shouldResolvePostAuthDestination =
     Boolean(session) &&
-    inOnboardingFlow &&
-    (isProfileLoading || isProfileFetching) &&
+    inAuthGroup &&
+    !profileError &&
     !profile &&
-    !profileError;
+    (isProfileLoading || isProfileFetching);
 
   let redirectHref: "/" | "/auth" | "/onboarding" | null = null;
 
   if (!session && !inAuthGroup) {
     redirectHref = "/auth";
-  } else if (session && inAuthGroup) {
-    redirectHref = "/";
+  } else if (session && inAuthGroup && !shouldResolvePostAuthDestination) {
+    redirectHref = shouldGateOnboarding ? "/onboarding" : "/";
   } else if (
     !inResetPasswordFlow &&
     session &&
@@ -120,8 +121,7 @@ function RootLayoutNav() {
 
   const shouldShowLoadingScreen =
     status === "loading" ||
-    shouldShowOnboardingRedirectLoading ||
-    shouldShowOnboardingFlowLoading;
+    shouldShowOnboardingRedirectLoading;
 
   useEffect(() => {
     if (shouldShowLoadingScreen || redirectHref) {
@@ -130,6 +130,14 @@ function RootLayoutNav() {
 
     setNavigationReady();
   }, [redirectHref, setNavigationReady, shouldShowLoadingScreen]);
+
+  useEffect(() => {
+    if (!session || !inAuthGroup || shouldResolvePostAuthDestination) {
+      return;
+    }
+
+    router.replace(shouldGateOnboarding ? "/onboarding" : "/");
+  }, [inAuthGroup, router, session, shouldGateOnboarding, shouldResolvePostAuthDestination]);
 
   if (status === "loading") {
     return <LoadingScreen />;
@@ -140,16 +148,11 @@ function RootLayoutNav() {
     return <Redirect href="/auth" />;
   }
 
-  // Signed in but currently inside the auth stack: send to app root.
-  if (session && inAuthGroup) {
-    return <Redirect href="/" />;
-  }
-
   // Don't redirect mid-flow during password reset — the recovery session
   // makes the user appear authenticated, but they need to stay on this screen.
   if (inResetPasswordFlow) {
     // Fall through to normal Stack rendering below
-  } else if (session && shouldGateOnboarding && !inOnboardingFlow) {
+  } else if (session && shouldGateOnboarding && !inOnboardingFlow && !inAuthGroup) {
     if (shouldShowOnboardingRedirectLoading) {
       return <LoadingScreen />;
     }
@@ -172,10 +175,6 @@ function RootLayoutNav() {
 
   if (session && inOnboardingFlow && hasCompletedOnboarding && !isProfileLoading && !isProfileFetching) {
     return <Redirect href="/" />;
-  }
-
-  if (shouldShowOnboardingFlowLoading) {
-    return <LoadingScreen />;
   }
 
   // Suspension gate: if user is suspended, show full-screen overlay
