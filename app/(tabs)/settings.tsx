@@ -36,6 +36,7 @@ import type {
 } from "../../src/features/conventions";
 import { ConventionToggle } from "../../src/components/conventions/ConventionToggle";
 import { supabase } from "../../src/lib/supabase";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../../src/lib/runtimeConfig";
 import { captureHandledException } from "../../src/lib/sentry";
 import { colors } from "../../src/theme";
 import {
@@ -735,8 +736,8 @@ export default function SettingsScreen() {
         throw new Error("No session found");
       }
 
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+      const supabaseUrl = SUPABASE_URL;
+      const supabaseKey = SUPABASE_ANON_KEY;
 
       if (!supabaseUrl || !supabaseKey) {
         throw new Error("Missing config");

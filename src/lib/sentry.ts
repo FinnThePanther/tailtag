@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/react-native";
 import Constants from "expo-constants";
+import { APP_ENV } from "./runtimeConfig";
 
 type Extras = Record<string, unknown>;
 
@@ -15,7 +16,7 @@ const SENTRY_DSN =
   "https://998a5618a19167d71ccbcc016706fbae@o4510151259455488.ingest.us.sentry.io/4510151295959040";
 
 const ENVIRONMENT =
-  process.env.EXPO_PUBLIC_APP_ENV ??
+  APP_ENV ??
   Constants.expoConfig?.extra?.environment ??
   (process.env.NODE_ENV ?? (__DEV__ ? "development" : "production"));
 

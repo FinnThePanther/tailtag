@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../../lib/runtimeConfig';
 import type {
   DailyAssignmentsRow,
   DailyTaskKind,
@@ -261,8 +262,8 @@ async function ensureAssignmentsForDay(
 
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = SUPABASE_URL;
+  const supabaseKey = SUPABASE_ANON_KEY;
 
   if (!accessToken || !supabaseUrl || !supabaseKey) {
     captureHandledMessage('Missing credentials for daily task rotation fallback', {

@@ -28,6 +28,17 @@ function writeFile(relativePath, contents) {
   fs.writeFileSync(filePath, contents);
 }
 
+function removeDirectoryIfExists(relativePath) {
+  const directoryPath = path.join(repoRoot, relativePath);
+
+  if (!fs.existsSync(directoryPath)) {
+    return false;
+  }
+
+  fs.rmSync(directoryPath, { recursive: true, force: true });
+  return true;
+}
+
 function replaceRequired(contents, relativePath, replacements) {
   let next = contents;
 
@@ -71,6 +82,12 @@ function syncOptionalCopy(sourceRelativePath, destinationRelativePath) {
   }
 
   const destinationPath = path.join(repoRoot, destinationRelativePath);
+  const destinationDirectory = path.dirname(destinationPath);
+
+  if (!fs.existsSync(destinationDirectory)) {
+    return false;
+  }
+
   const sourceContents = fs.readFileSync(sourcePath);
   const destinationContents = fs.existsSync(destinationPath)
     ? fs.readFileSync(destinationPath)
@@ -85,6 +102,14 @@ function syncOptionalCopy(sourceRelativePath, destinationRelativePath) {
 }
 
 const changedFiles = [];
+
+if (removeDirectoryIfExists('android/build/generated/autolinking')) {
+  changedFiles.push('android/build/generated/autolinking');
+}
+
+if (removeDirectoryIfExists('android/app/build/generated/autolinking')) {
+  changedFiles.push('android/app/build/generated/autolinking');
+}
 
 if (
   syncTextFile('android/app/build.gradle', [

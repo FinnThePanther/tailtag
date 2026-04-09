@@ -18,6 +18,24 @@ const { envConfigs, resolveAppEnv } = require('./scripts/native-env.config.cjs')
 
 const APP_ENV = resolveAppEnv(process.env.APP_ENV);
 const env = envConfigs[APP_ENV];
+const publicEnvConfig = {
+  development: {
+    supabaseUrl: 'https://rtxbvjicfxgcouufumce.supabase.co',
+    supabaseAnonKey:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0eGJ2amljZnhnY291dWZ1bWNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxOTA1MDgsImV4cCI6MjA3NDc2NjUwOH0.5YA3PLhJqbek_Z8cf8CaRXJNZjl2ZvCSnkVpNrtLGww',
+  },
+  staging: {
+    supabaseUrl: 'https://yjsadmswobafychfpoxe.supabase.co',
+    supabaseAnonKey:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlqc2FkbXN3b2JhZnljaGZwb3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMzczMjMsImV4cCI6MjA5MDgxMzMyM30.MDrOcAvO3fg1AOVZym-xXl3txtlkDnm4O8YNjTZihuI',
+  },
+  production: {
+    supabaseUrl: 'https://dowtlhkzbxxmiflpswvd.supabase.co',
+    supabaseAnonKey:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvd3RsaGt6Ynh4bWlmbHBzd3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMzc2MjIsImV4cCI6MjA5MDgxMzYyMn0.KIw5TF-tBq3NIKjpzkNGagLR0jwiYKP_s7RqchEhXHo',
+  },
+} as const;
+const publicEnv = publicEnvConfig[APP_ENV];
 const maybeResolveExistingFile = (relativePath: string) => {
   const absolutePath = path.resolve(__dirname, relativePath);
   return fs.existsSync(absolutePath) ? relativePath : undefined;
@@ -115,6 +133,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'tailtag',
   extra: {
     router: {},
+    environment: APP_ENV,
+    supabaseUrl: publicEnv.supabaseUrl,
+    supabaseAnonKey: publicEnv.supabaseAnonKey,
+    staffModeEnabled: process.env.EXPO_PUBLIC_STAFF_MODE_ENABLED === 'true',
     eas: {
       projectId: '3ae47a1a-6584-423d-b52d-90b5acd11048',
     },

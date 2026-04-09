@@ -79,19 +79,52 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      - name: Deploy edge functions
+      - name: Sync SERVICE_ROLE_KEY vault secret and edge function secret
+        # After a DB reset/resync the vault's SERVICE_ROLE_KEY may contain a stale
+        # key copied from another project, causing silent 401s in the queue worker.
+        # This step keeps the vault in sync on every backend deployment.
         run: |
-          for fn in \
-            create-catch \
-            delete-account \
-            events-ingress \
-            expire-bans \
-            expire-pending-catches \
-            process-achievements \
-            process-gameplay-queue \
-            rotate-dailys \
-            send-push \
-            staff-moderate; do
+          supabase db query --linked "
+          DO \$\$
+          DECLARE
+            v_id uuid;
+            v_key text := '$SERVICE_ROLE_KEY';
+          BEGIN
+            SELECT id INTO v_id FROM vault.secrets WHERE name = 'SERVICE_ROLE_KEY' LIMIT 1;
+            IF v_id IS NOT NULL THEN
+              PERFORM vault.update_secret(v_id, v_key);
+            ELSE
+              PERFORM vault.create_secret(v_key, 'SERVICE_ROLE_KEY', 'Service role key for edge function auth');
+            END IF;
+          END;
+          \$\$;
+          "
+          supabase secrets set SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" --project-ref "$PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ github.ref_name == 'dev' && secrets.STAGING_PROJECT_REF || secrets.PROD_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ github.ref_name == 'dev' && secrets.STAGING_DB_PASSWORD || secrets.PROD_DB_PASSWORD }}
+          SERVICE_ROLE_KEY: ${{ github.ref_name == 'dev' && secrets.STAGING_SERVICE_ROLE_KEY || secrets.PROD_SERVICE_ROLE_KEY }}
+
+      - name: Bootstrap derived vault secrets
+        # Idempotently seeds the rest of the vault secrets the application
+        # depends on (rotate_dailys_service_role_key, project_url, etc.)
+        # entirely from values already in the vault — no secret values cross
+        # the workflow boundary.
+        run: supabase db query --linked -f scripts/bootstrap-vault-secrets.sql
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ github.ref_name == 'dev' && secrets.STAGING_DB_PASSWORD || secrets.PROD_DB_PASSWORD }}
+
+      - name: Deploy edge functions
+        # Deploys every directory under supabase/functions/ that contains an
+        # index.ts. Adding a new function only requires creating its directory
+        # — no workflow edits needed.
+        run: |
+          for dir in supabase/functions/*/; do
+            fn="$(basename "$dir")"
+            [ "$fn" = "_shared" ] && continue
+            [ -f "$dir/index.ts" ] || continue
             echo "Deploying $fn..."
             case "$fn" in
               delete-account|events-ingress)
@@ -104,6 +137,13 @@ jobs:
           done
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Verify environment
+        # Smoke-test the deployment: realtime, cron, queue, vault, storage.
+        run: ./scripts/verify-environment.sh "${{ github.ref_name == 'dev' && 'staging' || 'production' }}"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ github.ref_name == 'dev' && secrets.STAGING_DB_PASSWORD || secrets.PROD_DB_PASSWORD }}
 
       - name: Record deployment metadata
         run: |
