@@ -1,4 +1,5 @@
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+import { SUPABASE_URL } from '../lib/runtimeConfig';
+
 const OBJECT_PATH = '/storage/v1/object/public/';
 const RENDER_PATH = '/storage/v1/render/image/public/';
 

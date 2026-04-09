@@ -1,1 +1,1 @@
-export const STAFF_MODE_ENABLED = process.env.EXPO_PUBLIC_STAFF_MODE_ENABLED === 'true';
+export { STAFF_MODE_ENABLED } from '../lib/runtimeConfig';

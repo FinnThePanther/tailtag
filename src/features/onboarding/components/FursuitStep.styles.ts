@@ -118,7 +118,8 @@ export const styles = StyleSheet.create({
   },
   photoPreview: {
     gap: spacing.sm,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    alignSelf: 'center',
   },
   photo: {
     width: 140,
@@ -126,11 +127,13 @@ export const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderMuted,
+    alignSelf: 'center',
   },
   photoProcessing: {
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.surfaceMuted,
+    alignSelf: 'center',
   },
   error: {
     color: colors.destructive,

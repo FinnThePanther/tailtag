@@ -1,7 +1,6 @@
 import { View, Text, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const APP_ENV = process.env.EXPO_PUBLIC_APP_ENV;
+import { APP_ENV } from "../lib/runtimeConfig";
 
 const ENV_CONFIG = {
   development: { label: "DEV", backgroundColor: "#b45309", textColor: "#fef3c7" },

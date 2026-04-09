@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../lib/runtimeConfig';
 
 type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
 
@@ -56,8 +57,8 @@ export async function staffModerate(params: StaffModerateParams): Promise<void> 
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = SUPABASE_URL;
+  const supabaseKey = SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     throw new Error('Missing Supabase configuration');

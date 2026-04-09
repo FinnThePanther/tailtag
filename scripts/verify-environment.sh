@@ -49,9 +49,16 @@ pass()    { echo "  ✓ $*"; }
 fail()    { echo "  ✗ $*"; FAILURES=$((FAILURES + 1)); }
 warn()    { echo "  ⚠ $*"; WARNINGS=$((WARNINGS + 1)); }
 
+# Use the globally installed supabase CLI in CI; fall back to npx locally.
+if command -v supabase >/dev/null 2>&1; then
+  SUPABASE_CLI="supabase"
+else
+  SUPABASE_CLI="npx supabase"
+fi
+
 # Run a SQL query and return the first data value (strips CSV header).
 sql() {
-  npx supabase db query --linked --output csv "$1" 2>/dev/null \
+  $SUPABASE_CLI db query --linked --output csv "$1" 2>/dev/null \
     | tail -n +2 \
     | head -1 \
     | tr -d '[:space:]'
@@ -74,7 +81,7 @@ check() {
 
 echo ""
 echo "Verifying environment: $ENV ($PROJECT_REF)"
-npx supabase link --project-ref "$PROJECT_REF" 2>/dev/null
+$SUPABASE_CLI link --project-ref "$PROJECT_REF" 2>/dev/null
 echo ""
 
 # ── 1. Realtime ──────────────────────────────────────────────────────────────
