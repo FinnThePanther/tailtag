@@ -70,7 +70,7 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
       existingConventionIds.length > 0 &&
       !hasInitializedSelectionsRef.current
     ) {
-      setSelectedConventionIds(new Set(existingConventionIds));
+      setSelectedConventionIds(new Set([existingConventionIds[0]]));
       hasInitializedSelectionsRef.current = true;
     }
   }, [isLoadingExisting, existingConventionIds]);
@@ -93,30 +93,30 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
     nextSelected: boolean,
     verifiedLocation?: VerifiedLocation | null,
   ) => {
-    setSelectedConventionIds((current) => {
-      const next = new Set(current);
-      if (nextSelected) {
-        next.add(conventionId);
-      } else {
-        next.delete(conventionId);
-      }
-      return next;
-    });
+    setSelectedConventionIds((current) =>
+      nextSelected
+        ? new Set([conventionId])
+        : (() => {
+            const next = new Set(current);
+            next.delete(conventionId);
+            return next;
+          })(),
+    );
 
     setVerifiedLocations((current) => {
-      const next = { ...current };
-      if (nextSelected && verifiedLocation) {
-        next[conventionId] = verifiedLocation;
-      } else if (!nextSelected && next[conventionId]) {
-        delete next[conventionId];
+      if (nextSelected) {
+        return verifiedLocation ? { [conventionId]: verifiedLocation } : {};
       }
+
+      const next = { ...current };
+      delete next[conventionId];
       return next;
     });
   };
 
   const handleSubmit = async () => {
     if (selectedConventionIds.size === 0 || isSubmitting) {
-      setSubmitError("Select at least one convention to continue.");
+      setSubmitError("Select a convention to continue.");
       return;
     }
 
@@ -171,7 +171,7 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
       const message =
         caught instanceof Error
           ? caught.message
-          : "We could not save your convention picks. Please try again.";
+          : "We could not save your convention selection. Please try again.";
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);
@@ -184,7 +184,7 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
         <Text style={styles.eyebrow}>Step 2</Text>
         <Text style={styles.title}>Choose your first convention</Text>
         <Text style={styles.body}>
-          Pick the current convention you're attending to find other fursuiters!
+          Pick the convention you're currently attending to find other fursuiters!
         </Text>
 
         <TailTagInput

@@ -654,6 +654,10 @@ export default function SettingsScreen() {
       });
 
       try {
+        const previouslySelectedConventionIds = (profileConventionIds ?? []).filter(
+          (id) => id !== conventionId,
+        );
+
         if (!nextSelected) {
           await optOutOfConvention(userId, conventionId);
           queryClient.setQueryData<string[]>(
@@ -670,11 +674,7 @@ export default function SettingsScreen() {
           });
           queryClient.setQueryData<string[]>(
             profileConventionQueryKey,
-            (current) => {
-              const next = new Set(current ?? []);
-              next.add(conventionId);
-              return Array.from(next);
-            },
+            [conventionId],
           );
         }
         void queryClient.invalidateQueries({
@@ -682,6 +682,11 @@ export default function SettingsScreen() {
         });
         void queryClient.invalidateQueries({
           queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
+        });
+        previouslySelectedConventionIds.forEach((id) => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, id],
+          });
         });
       } catch (caught) {
         const fallbackMessage =
@@ -697,7 +702,13 @@ export default function SettingsScreen() {
         });
       }
     },
-    [pendingMemberships, profileConventionQueryKey, queryClient, userId],
+    [
+      pendingMemberships,
+      profileConventionIds,
+      profileConventionQueryKey,
+      queryClient,
+      userId,
+    ],
   );
 
   const handleSignOut = useCallback(async () => {
@@ -1142,8 +1153,8 @@ export default function SettingsScreen() {
         <View style={styles.conventionSection}>
           <Text style={styles.sectionTitle}>Convention attendance</Text>
           <Text style={styles.sectionDescription}>
-            Opt into conventions you&apos;ll be at so catches only count when
-            everyone is on-site.
+            Assign your current convention so catches only count when everyone
+            is on-site.
           </Text>
 
           {isConventionsBusy ? (

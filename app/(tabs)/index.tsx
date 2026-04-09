@@ -200,37 +200,10 @@ export default function HomeScreen() {
       );
   }, [conventionMap, profileConventionIds]);
 
-  const [selectedConventionId, setSelectedConventionId] = useState<
-    string | null
-  >(null);
-
-  useEffect(() => {
-    setSelectedConventionId((current) => {
-      if (availableConventions.length === 0) {
-        return null;
-      }
-
-      if (
-        current &&
-        availableConventions.some((convention) => convention.id === current)
-      ) {
-        return current;
-      }
-
-      return availableConventions[0]?.id ?? null;
-    });
-  }, [availableConventions]);
-
   const selectedConvention = useMemo(() => {
-    if (!selectedConventionId) {
-      return null;
-    }
-    return (
-      availableConventions.find(
-        (convention) => convention.id === selectedConventionId,
-      ) ?? null
-    );
-  }, [availableConventions, selectedConventionId]);
+    return availableConventions[0] ?? null;
+  }, [availableConventions]);
+  const selectedConventionId = selectedConvention?.id ?? null;
 
   const {
     data: dailyTasksData,
@@ -429,7 +402,12 @@ export default function HomeScreen() {
     const pixelSize = Math.round(40 * Math.min(PixelRatio.get(), 3));
     const urls = suitLeaderboardEntries
       .slice(0, MAX_LEADERBOARD_ENTRIES)
-      .map((e) => getTransformedImageUrl(e.avatarUrl, { width: pixelSize, height: pixelSize }))
+      .map((e) =>
+        getTransformedImageUrl(e.avatarUrl, {
+          width: pixelSize,
+          height: pixelSize,
+        }),
+      )
       .filter((url): url is string => url !== null);
     if (urls.length > 0) {
       void Image.prefetch(urls);
@@ -507,18 +485,22 @@ export default function HomeScreen() {
         </View>
 
         {!nudgeDismissed && session && (
-          <TailTagCard style={[styles.nudgeCard, contentWidthStyle]}>
+          <TailTagCard
+            style={[styles.nudgeCard, styles.nudgeCardAlert, contentWidthStyle]}
+          >
             <View style={styles.nudgeContent}>
               <View style={styles.nudgeTextBlock}>
-                <Text style={styles.nudgeText}>
+                <Text style={[styles.nudgeText, styles.nudgeTextAlert]}>
                   Your current username is{" "}
-                  <Text style={styles.nudgeUsername}>
+                  <Text
+                    style={[styles.nudgeUsername, styles.nudgeUsernameAlert]}
+                  >
                     {profile?.username ?? "..."}
                   </Text>
                   . Want to pick something better?
                 </Text>
                 <TailTagButton
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
                   onPress={() => {
                     handleDismissNudge();
@@ -536,7 +518,7 @@ export default function HomeScreen() {
                 <Ionicons
                   name="close-circle"
                   size={22}
-                  color="rgba(148,163,184,0.6)"
+                  color="rgba(248,113,113,0.85)"
                 />
               </Pressable>
             </View>
@@ -696,25 +678,8 @@ export default function HomeScreen() {
           ) : hasConventionAccess ? (
             <View style={styles.leaderboardContent}>
               <Text style={styles.sectionBody}>
-                Pick a convention to see the top hunters.
+                Showing top taggers for {selectedConvention?.name ?? "your convention"}.
               </Text>
-              <View style={styles.selectorRow}>
-                {availableConventions.map((convention) => (
-                  <TailTagButton
-                    key={convention.id}
-                    size="sm"
-                    variant={
-                      selectedConventionId === convention.id
-                        ? "primary"
-                        : "outline"
-                    }
-                    onPress={() => setSelectedConventionId(convention.id)}
-                    style={styles.selectorButton}
-                  >
-                    {convention.name}
-                  </TailTagButton>
-                ))}
-              </View>
 
               {selectedConventionId ? (
                 <View style={styles.leaderboardStack}>
@@ -860,7 +825,12 @@ export default function HomeScreen() {
                               <Text style={styles.leaderboardRank}>
                                 #{index + 1}
                               </Text>
-                              <AppAvatar url={entry.avatarUrl} size="xs" fallback="fursuit" style={styles.avatarMargin} />
+                              <AppAvatar
+                                url={entry.avatarUrl}
+                                size="xs"
+                                fallback="fursuit"
+                                style={styles.avatarMargin}
+                              />
                               <View style={styles.leaderboardDetails}>
                                 <Text
                                   style={styles.leaderboardName}

@@ -423,11 +423,6 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
             ) : null}
 
             <View style={styles.formCtaRow}>
-              <SkipButton
-                onPress={onSkip}
-                disabled={isSubmitting}
-                style={styles.fullWidthCta}
-              />
               <TailTagButton
                 onPress={handleSubmit}
                 loading={isSubmitting}
@@ -436,6 +431,11 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
               >
                 Continue
               </TailTagButton>
+              <SkipButton
+                onPress={onSkip}
+                disabled={isSubmitting}
+                style={styles.fullWidthCta}
+              />
             </View>
           </View>
         )}
