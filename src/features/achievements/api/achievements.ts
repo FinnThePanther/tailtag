@@ -116,4 +116,43 @@ export async function fetchAchievementStatus(userId: string): Promise<Achievemen
     });
 }
 
+export const USER_UNLOCKED_ACHIEVEMENTS_QUERY_KEY = 'user-unlocked-achievements';
+export const userUnlockedAchievementsQueryKey = (userId: string) =>
+  [USER_UNLOCKED_ACHIEVEMENTS_QUERY_KEY, userId] as const;
+
+export async function fetchUserUnlockedAchievements(userId: string): Promise<AchievementWithStatus[]> {
+  const client = supabase as any;
+  const { data, error } = await client
+    .from('user_achievements')
+    .select(`
+      unlocked_at,
+      context,
+      achievement:achievements!inner(
+        id, key, name, description, category, recipient_role, trigger_event, is_active, convention_id
+      )
+    `)
+    .eq('user_id', userId)
+    .order('unlocked_at', { ascending: false });
+
+  if (error) {
+    throw new Error(`We couldn't load achievements: ${error.message}`);
+  }
+
+  return (data ?? []).map((row: any) => ({
+    id: row.achievement.id,
+    key: row.achievement.key,
+    name: row.achievement.name,
+    description: row.achievement.description,
+    category: row.achievement.category,
+    recipientRole: row.achievement.recipient_role,
+    triggerEvent: row.achievement.trigger_event,
+    isActive: row.achievement.is_active,
+    conventionId: row.achievement.convention_id ?? null,
+    conventionName: null,
+    unlocked: true,
+    unlockedAt: row.unlocked_at ?? null,
+    context: row.context ?? null,
+  }));
+}
+
 export type AchievementEventRecord = AchievementEventsRow;

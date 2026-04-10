@@ -1189,8 +1189,8 @@ export default function EditFursuitScreen() {
                           badgeText={
                             isAllowed
                               ? isSelected
-                                ? 'Assigned'
-                                : 'Tap to assign'
+                                ? 'Joined'
+                                : 'Tap to join'
                               : 'Opt in via Settings'
                           }
                           onToggle={(conventionId, nextSelected) =>

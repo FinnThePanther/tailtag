@@ -117,7 +117,7 @@ export function ConventionToggle({
             <ActivityIndicator size="small" color={colors.foreground} />
           ) : (
             <Text numberOfLines={1} style={styles.conventionBadgeText}>
-              {badgeText ?? (selected ? 'Assigned' : 'Tap to assign')}
+              {badgeText ?? (selected ? 'Joined' : 'Tap to join')}
             </Text>
           )}
         </View>

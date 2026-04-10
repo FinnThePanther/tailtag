@@ -22,9 +22,10 @@ import { styles } from "./ConventionStep.styles";
 type ConventionStepProps = {
   userId: string;
   onComplete: (conventionIds: string[]) => void;
+  onSkip: () => void;
 };
 
-export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
+export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepProps) {
   const queryClient = useQueryClient();
   const hasInitializedSelectionsRef = useRef(false);
   const [searchInput, setSearchInput] = useState("");
@@ -184,7 +185,7 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
         <Text style={styles.eyebrow}>Step 2</Text>
         <Text style={styles.title}>Choose your first convention</Text>
         <Text style={styles.body}>
-          Pick the convention you're currently attending to find other fursuiters!
+          Pick the convention you're currently attending to find other fursuiters! If there are no active cons right now, you can skip this and join one later.
         </Text>
 
         <TailTagInput
@@ -254,6 +255,13 @@ export function ConventionStep({ userId, onComplete }: ConventionStepProps) {
           disabled={isSubmitting}
         >
           Continue
+        </TailTagButton>
+        <TailTagButton
+          variant="ghost"
+          onPress={onSkip}
+          disabled={isSubmitting}
+        >
+          Skip for now
         </TailTagButton>
       </TailTagCard>
     </View>
