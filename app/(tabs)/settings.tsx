@@ -49,9 +49,12 @@ import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import {
   checkUsernameAvailability,
   fetchProfile,
+  normalizeUsernameInput,
+  USERNAME_MAX_LENGTH,
   uploadProfileAvatar,
   updateProfileAvatar,
   updateProfileSocialLinks,
+  validateUsername,
   PROFILE_QUERY_KEY,
   PROFILE_STALE_TIME,
 } from "../../src/features/profile";
@@ -222,6 +225,30 @@ export default function SettingsScreen() {
     [profileConventionIds],
   );
 
+  const normalizedUsernameInput = useMemo(
+    () => normalizeUsernameInput(usernameInput),
+    [usernameInput],
+  );
+  const normalizedProfileUsername = useMemo(
+    () => normalizeUsernameInput(profile?.username ?? ""),
+    [profile?.username],
+  );
+  const usernameValidation = useMemo(
+    () => validateUsername(normalizedUsernameInput, { allowEmpty: true }),
+    [normalizedUsernameInput],
+  );
+  const hasUsernameValidationError =
+    normalizedUsernameInput.length > 0 && !usernameValidation.isValid;
+  const usernameValidationMessage = hasUsernameValidationError
+    ? usernameValidation.message
+    : null;
+
+  const isDirty = useMemo(() => {
+    const usernameChanged = normalizedProfileUsername !== normalizedUsernameInput;
+    const bioChanged = (profile?.bio ?? "") !== bioInput.trim();
+    return usernameChanged || bioChanged;
+  }, [bioInput, normalizedProfileUsername, normalizedUsernameInput, profile?.bio]);
+
   const resetDraftFromProfile = useCallback(
     (
       summary: ProfileSummary | null,
@@ -247,7 +274,9 @@ export default function SettingsScreen() {
         return;
       }
 
-      resetDraftFromProfile(profile, { resetMessages: true });
+      if (!isDirty) {
+        resetDraftFromProfile(profile, { resetMessages: true });
+      }
       const profileState = queryClient.getQueryState<ProfileSummary | null>(
         profileQueryKey,
       );
@@ -302,6 +331,7 @@ export default function SettingsScreen() {
 
       void refreshPushState();
     }, [
+      isDirty,
       profile,
       profileQueryKey,
       queryClient,
@@ -324,8 +354,12 @@ export default function SettingsScreen() {
       return;
     }
 
+    if (isDirty || isSaving) {
+      return;
+    }
+
     resetDraftFromProfile(profile, { resetMessages: false });
-  }, [profile, resetDraftFromProfile, userId]);
+  }, [isDirty, isSaving, profile, resetDraftFromProfile, userId]);
 
   // Hydrate social links from profile once on first load
   useEffect(() => {
@@ -349,10 +383,12 @@ export default function SettingsScreen() {
       clearTimeout(usernameCheckRef.current);
     }
 
-    const trimmed = usernameInput.trim();
-
     // No check needed if empty or unchanged from saved profile
-    if (!trimmed || trimmed === (profile?.username ?? "")) {
+    if (
+      !normalizedUsernameInput ||
+      normalizedUsernameInput === normalizedProfileUsername ||
+      !usernameValidation.isValid
+    ) {
       setUsernameCheckStatus("idle");
       return;
     }
@@ -361,7 +397,7 @@ export default function SettingsScreen() {
 
     usernameCheckRef.current = setTimeout(() => {
       if (!userId) return;
-      checkUsernameAvailability(trimmed, userId)
+      checkUsernameAvailability(normalizedUsernameInput, userId)
         .then((available) => {
           setUsernameCheckStatus(available ? "available" : "taken");
         })
@@ -375,7 +411,12 @@ export default function SettingsScreen() {
         clearTimeout(usernameCheckRef.current);
       }
     };
-  }, [usernameInput, profile?.username, userId]);
+  }, [
+    normalizedProfileUsername,
+    normalizedUsernameInput,
+    userId,
+    usernameValidation.isValid,
+  ]);
 
   const conventionsLoadError =
     conventionsError?.message ?? profileConventionsError?.message ?? null;
@@ -439,12 +480,6 @@ export default function SettingsScreen() {
     await WebBrowser.openBrowserAsync(FEEDBACK_FORM_URL);
   }, []);
 
-  const isDirty = (() => {
-    const usernameChanged = (profile?.username ?? "") !== usernameInput.trim();
-    const bioChanged = (profile?.bio ?? "") !== bioInput.trim();
-    return usernameChanged || bioChanged;
-  })();
-
   const isUsernameTaken = usernameCheckStatus === "taken";
   const isUsernameChecking = usernameCheckStatus === "checking";
 
@@ -453,11 +488,19 @@ export default function SettingsScreen() {
       return;
     }
 
-    const trimmedUsername = usernameInput.trim();
+    const trimmedUsername = normalizedUsernameInput;
     const trimmedBio = bioInput.trim();
     const normalizedUsername =
       trimmedUsername.length > 0 ? trimmedUsername : null;
     const normalizedBio = trimmedBio.length > 0 ? trimmedBio : null;
+
+    if (normalizedUsername) {
+      const validation = validateUsername(normalizedUsername);
+      if (!validation.isValid) {
+        setSaveError(validation.message ?? "Please enter a valid username.");
+        return;
+      }
+    }
 
     setIsSaving(true);
     setSaveError(null);
@@ -480,15 +523,21 @@ export default function SettingsScreen() {
 
       queryClient.setQueryData<ProfileSummary | null>(
         profileQueryKey,
-        (current) => ({
-          username: normalizedUsername,
-          bio: normalizedBio,
-          avatar_url: current?.avatar_url ?? null,
-          social_links: current?.social_links ?? [],
-          is_new: current?.is_new ?? false,
-          onboarding_completed: current?.onboarding_completed ?? false,
-          role: current?.role,
-        }),
+        (current) =>
+          current
+            ? {
+                ...current,
+                username: normalizedUsername,
+                bio: normalizedBio,
+              }
+            : {
+                username: normalizedUsername,
+                bio: normalizedBio,
+                avatar_url: null,
+                social_links: [],
+                is_new: false,
+                onboarding_completed: false,
+              },
       );
       setUsernameInput(trimmedUsername);
       setBioInput(trimmedBio);
@@ -499,6 +548,8 @@ export default function SettingsScreen() {
         type: "profile_updated",
         payload: {
           username_present: trimmedUsername.length > 0,
+          bio_present: trimmedBio.length > 0,
+          avatar_present: Boolean(profile?.avatar_url),
         },
       }).catch((error) => {
         captureHandledException(error, {
@@ -520,8 +571,9 @@ export default function SettingsScreen() {
     userId,
     isSaving,
     isDirty,
-    usernameInput,
+    normalizedUsernameInput,
     bioInput,
+    profile?.avatar_url,
     profileQueryKey,
     queryClient,
   ]);
@@ -558,6 +610,19 @@ export default function SettingsScreen() {
         (current) =>
           current ? { ...current, avatar_url: publicUrl } : current,
       );
+      void emitGameplayEvent({
+        type: "profile_updated",
+        payload: {
+          username_present: Boolean(profile?.username?.trim()),
+          bio_present: Boolean(profile?.bio?.trim()),
+          avatar_present: true,
+        },
+      }).catch((error) => {
+        captureHandledException(error, {
+          scope: "settings.handlePickAvatar.profileUpdated",
+          userId,
+        });
+      });
       const oldPath = extractStoragePath(oldAvatarUrl, PROFILE_AVATAR_BUCKET);
       if (oldPath) {
         void supabase.storage
@@ -574,7 +639,14 @@ export default function SettingsScreen() {
     } finally {
       setIsUploadingAvatar(false);
     }
-  }, [userId, isUploadingAvatar, profileQueryKey, queryClient]);
+  }, [
+    userId,
+    isUploadingAvatar,
+    profile?.bio,
+    profile?.username,
+    profileQueryKey,
+    queryClient,
+  ]);
 
   const socialLinksCanAddMore = socialLinks.length < SOCIAL_LINK_LIMIT;
 
@@ -912,14 +984,21 @@ export default function SettingsScreen() {
               <TailTagInput
                 value={usernameInput}
                 onChangeText={(value) => {
-                  setUsernameInput(value);
+                  setUsernameInput(normalizeUsernameInput(value));
                   setSaveMessage(null);
                   setSaveError(null);
                 }}
                 editable={!isProfileLoading && !isSaving}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={USERNAME_MAX_LENGTH}
                 placeholder="Pick a handle tailtaggers will remember"
               />
-              {usernameCheckStatus === "checking" ? (
+              {usernameValidationMessage ? (
+                <Text style={styles.usernameInvalid}>
+                  {usernameValidationMessage}
+                </Text>
+              ) : usernameCheckStatus === "checking" ? (
                 <Text style={styles.usernameChecking}>
                   Checking availability…
                 </Text>
@@ -930,6 +1009,10 @@ export default function SettingsScreen() {
               ) : usernameCheckStatus === "taken" ? (
                 <Text style={styles.usernameTaken}>
                   Username is already taken
+                </Text>
+              ) : usernameCheckStatus === "error" ? (
+                <Text style={styles.usernameError}>
+                  Could not verify availability. Try again.
                 </Text>
               ) : null}
             </View>
@@ -959,6 +1042,7 @@ export default function SettingsScreen() {
                 !isDirty ||
                 isProfileLoading ||
                 isSaving ||
+                hasUsernameValidationError ||
                 isUsernameTaken ||
                 isUsernameChecking
               }

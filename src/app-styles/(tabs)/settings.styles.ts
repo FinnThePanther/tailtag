@@ -135,6 +135,16 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: spacing.xs,
   },
+  usernameInvalid: {
+    color: '#fca5a5',
+    fontSize: 12,
+    marginTop: spacing.xs,
+  },
+  usernameError: {
+    color: colors.textSubtle,
+    fontSize: 12,
+    marginTop: spacing.xs,
+  },
   avatarSection: {
     alignItems: 'center',
     gap: spacing.sm,

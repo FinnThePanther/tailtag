@@ -11,6 +11,7 @@ import { PasswordInput } from "../../src/components/ui/PasswordInput";
 import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareFormWrapper";
 import { PasswordStrengthIndicator } from "../../src/features/auth/components/PasswordStrengthIndicator";
 import { useOAuthSignIn } from "../../src/features/auth/hooks/useOAuthSignIn";
+import { buildGeneratedUsername } from "../../src/features/profile";
 import { supabase } from "../../src/lib/supabase";
 import {
   isValidEmail,
@@ -18,14 +19,6 @@ import {
   validatePassword,
 } from "../../src/utils/authValidation";
 import { styles } from "../../src/app-styles/(auth)/auth.styles";
-
-const generateDefaultUsername = (rawEmail: string) => {
-  const [localPart] = rawEmail.split("@");
-  const cleaned =
-    localPart?.toLowerCase().replace(/[^a-z0-9]+/g, "-") ?? "pilot";
-  const suffix = Math.random().toString(36).slice(-4);
-  return `${cleaned}-${suffix}`;
-};
 
 type AuthMode = "sign_in" | "sign_up";
 
@@ -170,7 +163,9 @@ export default function AuthScreen() {
           password,
           options: {
             data: {
-              username: generateDefaultUsername(trimmedEmail),
+              username: buildGeneratedUsername(trimmedEmail.split("@")[0], {
+                forceSuffix: true,
+              }),
             },
           },
         });

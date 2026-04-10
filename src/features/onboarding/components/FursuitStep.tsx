@@ -1,5 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Keyboard,
+  Pressable,
+  Text,
+  View,
+} from "react-native";
 import { Image } from "expo-image";
 
 import * as ImagePicker from "expo-image-picker";
@@ -105,6 +111,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
   };
 
   const handleToggleColor = useCallback((option: FursuitColorOption) => {
+    Keyboard.dismiss();
     setSelectedColors((current) => {
       const exists = current.some((entry) => entry.id === option.id);
 
@@ -286,6 +293,10 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
                 onChangeText={setNameInput}
                 placeholder="e.g. Maple"
                 editable={!isSubmitting}
+                keyboardType="default"
+                autoCapitalize="words"
+                autoCorrect
+                returnKeyType="next"
               />
             </View>
 
@@ -296,6 +307,10 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
                 onChangeText={setSpeciesInput}
                 placeholder="Fox, Dragon, Husky…"
                 editable={!isSubmitting}
+                keyboardType="default"
+                autoCapitalize="words"
+                autoCorrect
+                returnKeyType="done"
               />
             </View>
 

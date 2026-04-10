@@ -2036,6 +2036,10 @@ export type Database = {
         Args: { p_user_a: string; p_user_b: string }
         Returns: boolean
       }
+      is_username_available: {
+        Args: { p_current_user_id?: string; p_username: string }
+        Returns: boolean
+      }
       is_event_staff: {
         Args: { convention_id: string; user_id: string }
         Returns: boolean

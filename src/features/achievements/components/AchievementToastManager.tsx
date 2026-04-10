@@ -361,6 +361,8 @@ export function AchievementToastManager() {
       } else if (
         event.type === 'profile_updated' &&
         profile &&
+        typeof profile.avatar_url === 'string' &&
+        profile.avatar_url.trim().length > 0 &&
         typeof profile.username === 'string' &&
         profile.username.trim().length > 0 &&
         typeof profile.bio === 'string' &&

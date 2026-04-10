@@ -4,6 +4,12 @@ import { loadUriAsUint8Array } from '../../../utils/files';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import type { FursuitPhotoCandidate } from '../../onboarding/api/onboarding';
 import type { FursuitSocialLink } from '../../../types/database';
+import {
+  buildGeneratedUsername,
+  normalizeUsernameInput,
+  toValidUsernameOrNull,
+  validateUsername,
+} from '../usernameRules';
 
 type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
 
@@ -36,22 +42,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
-}
-
-function sanitizeUsernamePart(value: string | null | undefined): string {
-  return value?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') ?? '';
-}
-
-function buildBootstrapUsername(email: string | null | undefined): string | null {
-  const [localPart] = (email ?? '').split('@');
-  const cleaned = sanitizeUsernamePart(localPart);
-
-  if (!cleaned) {
-    return null;
-  }
-
-  const suffix = Math.random().toString(36).slice(-4);
-  return `${cleaned}-${suffix}`;
 }
 
 async function selectProfileRow(columns: string, userId: string) {
@@ -101,20 +91,20 @@ async function ensureOwnProfileExists(userId: string): Promise<void> {
 
   const username =
     typeof session.user.user_metadata?.username === 'string'
-      ? sanitizeUsernamePart(session.user.user_metadata.username)
-      : '';
+      ? toValidUsernameOrNull(session.user.user_metadata.username)
+      : null;
 
   const payload: { id: string; username?: string } = {
     id: userId,
   };
 
-  if (username.length > 0) {
+  if (username) {
     payload.username = username;
   } else {
-    const generatedUsername = buildBootstrapUsername(session.user.email);
-    if (generatedUsername) {
-      payload.username = generatedUsername;
-    }
+    const [emailLocalPart] = (session.user.email ?? '').split('@');
+    payload.username = buildGeneratedUsername(emailLocalPart, {
+      forceSuffix: true,
+    });
   }
 
   const { error } = await client
@@ -242,18 +232,39 @@ export async function checkUsernameAvailability(
   username: string,
   currentUserId: string
 ): Promise<boolean> {
-  const { data, error } = await (supabase as any)
-    .from('profiles')
-    .select('id')
-    .ilike('username', username)
-    .neq('id', currentUserId)
-    .maybeSingle();
+  const normalized = normalizeUsernameInput(username);
+  const validation = validateUsername(normalized);
+
+  if (!validation.isValid) {
+    return false;
+  }
+
+  const { data, error } = await (supabase as any).rpc('is_username_available', {
+    p_username: normalized,
+    p_current_user_id: currentUserId,
+  });
 
   if (error) {
+    if (error.code === '42883') {
+      // Fallback for environments that haven't applied the migration yet.
+      const { data: fallbackData, error: fallbackError } = await (supabase as any)
+        .from('profiles')
+        .select('id')
+        .eq('username', normalized)
+        .neq('id', currentUserId)
+        .maybeSingle();
+
+      if (fallbackError) {
+        throw new Error(fallbackError.message);
+      }
+
+      return fallbackData === null;
+    }
+
     throw new Error(error.message);
   }
 
-  return data === null;
+  return data === true;
 }
 
 export const createProfileQueryOptions = (userId: string) => ({
