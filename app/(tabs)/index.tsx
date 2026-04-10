@@ -467,12 +467,12 @@ export default function HomeScreen() {
             Catch fursuits, grow your collection, and make new furry friends!
           </Text>
           <Text style={styles.subtitle}>
-            TailTag makes meeting fursuiters fun! Collect their codes, learn
-            about thier likes and interests, and start a conversation!
+            TailTag makes meeting fursuiters fun! Catch thier fursuit, learn
+            about their likes and interests, and start a furry friendship!
           </Text>
           <View style={styles.ctaRow}>
             <TailTagButton onPress={() => router.push("/catch")} size="lg">
-              Catch a suit
+              Catch a fursuit
             </TailTagButton>
             <TailTagButton
               variant="outline"
@@ -678,7 +678,8 @@ export default function HomeScreen() {
           ) : hasConventionAccess ? (
             <View style={styles.leaderboardContent}>
               <Text style={styles.sectionBody}>
-                Showing top taggers for {selectedConvention?.name ?? "your convention"}.
+                Showing top taggers for{" "}
+                {selectedConvention?.name ?? "your convention"}.
               </Text>
 
               {selectedConventionId ? (
@@ -785,7 +786,7 @@ export default function HomeScreen() {
                   <View style={styles.leaderboardDivider} />
 
                   <View style={styles.suitLeaderboardSection}>
-                    <Text style={styles.sectionSubheading}>Top suits</Text>
+                    <Text style={styles.sectionSubheading}>Top fursuits</Text>
                     {isSuitLeaderboardBusy ? (
                       <Text style={styles.message}>Loading suit stats…</Text>
                     ) : suitErrorMessage ? (
@@ -869,7 +870,7 @@ export default function HomeScreen() {
                       </View>
                     ) : (
                       <Text style={styles.message}>
-                        No suit catches recorded yet.
+                        No fursuits have been caught yet.
                       </Text>
                     )}
                   </View>
@@ -909,13 +910,14 @@ export default function HomeScreen() {
               {
                 step: "1",
                 title: "Add your fursuit (if you have one)",
-                description: "Each gets an auto-generated catch code to share.",
+                description:
+                  "Each fursuit gets an auto-generated catch code to share.",
               },
               {
                 step: "2",
-                title: "Log catches",
+                title: "Start catching fursuiters",
                 description:
-                  "Catch fursuiters with their codes and watch your collection grow.",
+                  "Tag fursuits with a selfie or catch code and watch your collection grow.",
               },
               {
                 step: "3",
@@ -925,7 +927,7 @@ export default function HomeScreen() {
               },
               {
                 step: "4",
-                title: "Meet fursuiters",
+                title: "Meet new furry friends",
                 description: "Connect with cool new fursuiters while you play!",
               },
             ].map((item, index, array) => (

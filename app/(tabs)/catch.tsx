@@ -1,8 +1,5 @@
 import { useCallback, useState } from "react";
-import {
-  Text,
-  View,
-} from "react-native";
+import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useRouter, useFocusEffect } from "expo-router";
@@ -37,7 +34,10 @@ import { useAuth } from "../../src/features/auth";
 import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import { supabase } from "../../src/lib/supabase";
-import { captureHandledException, addMonitoringBreadcrumb } from "../../src/lib/sentry";
+import {
+  captureHandledException,
+  addMonitoringBreadcrumb,
+} from "../../src/lib/sentry";
 import { spacing } from "../../src/theme";
 import { useBlockedIds } from "../../src/features/moderation";
 import { normalizeUniqueCodeInput } from "../../src/utils/code";
@@ -57,7 +57,12 @@ type FursuitDetails = Pick<
   | "owner_id"
   | "is_tutorial"
   | "catch_count"
-> & { created_at: string | null; species: string | null; bio: FursuitBio | null; colors: FursuitColorOption[] };
+> & {
+  created_at: string | null;
+  species: string | null;
+  bio: FursuitBio | null;
+  colors: FursuitColorOption[];
+};
 
 type CatchRecord = {
   id: string;
@@ -80,15 +85,19 @@ export default function CatchScreen() {
   const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
   const [photoSubmitError, setPhotoSubmitError] = useState<string | null>(null);
   const [caughtFursuit, setCaughtFursuit] = useState<FursuitDetails | null>(
-    null
+    null,
   );
   const [catchRecord, setCatchRecord] = useState<CatchRecord | null>(null);
   const [catchNumber, setCatchNumber] = useState<number | null>(null);
   const [conversationPrompt, setConversationPrompt] = useState<string | null>(
-    null
+    null,
   );
-  const [lastCatchConventionId, setLastCatchConventionId] = useState<string | null>(null);
-  const [lastCatchConventionIds, setLastCatchConventionIds] = useState<string[]>([]);
+  const [lastCatchConventionId, setLastCatchConventionId] = useState<
+    string | null
+  >(null);
+  const [lastCatchConventionIds, setLastCatchConventionIds] = useState<
+    string[]
+  >([]);
 
   const resetCatchState = () => {
     setCaughtFursuit(null);
@@ -107,7 +116,7 @@ export default function CatchScreen() {
         resetCatchState();
         setSubmitError(null);
       };
-    }, [])
+    }, []),
   );
 
   const lastCaughtFursuitId = caughtFursuit?.id ?? null;
@@ -120,7 +129,7 @@ export default function CatchScreen() {
     }
     if (!lastCatchConventionId) {
       console.warn(
-        "Skipping catch_shared event because no convention was recorded for the latest catch"
+        "Skipping catch_shared event because no convention was recorded for the latest catch",
       );
       return;
     }
@@ -151,7 +160,7 @@ export default function CatchScreen() {
 
     if (!normalizedCode) {
       setSubmitError(
-        "Enter the code from the fursuit badge to record your catch."
+        "Enter the code from the fursuit badge to record your catch.",
       );
       return;
     }
@@ -200,7 +209,7 @@ export default function CatchScreen() {
             created_at,
             updated_at
           )
-        `
+        `,
         )
         .eq("unique_code", normalizedCode)
         .order("version", { ascending: false, foreignTable: "fursuit_bios" })
@@ -215,7 +224,7 @@ export default function CatchScreen() {
       if (!fursuit) {
         resetCatchState();
         setSubmitError(
-          "We couldn't find a fursuit with that code. Double-check the letters and try again."
+          "We couldn't find a fursuit with that code. Double-check the letters and try again.",
         );
         return;
       }
@@ -228,8 +237,7 @@ export default function CatchScreen() {
       const normalizedFursuit: FursuitDetails = {
         id: fursuit.id,
         name: fursuit.name,
-        species:
-          (fursuit as any)?.species_entry?.name ?? null,
+        species: (fursuit as any)?.species_entry?.name ?? null,
         species_id:
           (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
         avatar_url: fursuit.avatar_url ?? null,
@@ -277,19 +285,19 @@ export default function CatchScreen() {
 
       const suitConventionIds = new Set<string>(
         (suitConventionRows ?? []).map(
-          (row: { convention_id: string }) => row.convention_id
-        )
+          (row: { convention_id: string }) => row.convention_id,
+        ),
       );
       const playerConventionIds = new Set<string>(
         (playerConventionRows ?? []).map(
-          (row: { convention_id: string }) => row.convention_id
-        )
+          (row: { convention_id: string }) => row.convention_id,
+        ),
       );
 
       if (playerConventionIds.size === 0) {
         resetCatchState();
         setSubmitError(
-          "You haven't joined a convention yet. Go to Settings → Conventions to opt in, then try again."
+          "You haven't joined a convention yet. Go to Settings → Conventions to opt in, then try again.",
         );
         return;
       }
@@ -297,7 +305,7 @@ export default function CatchScreen() {
       if (suitConventionIds.size === 0) {
         resetCatchState();
         setSubmitError(
-          "This fursuit hasn't opted into any conventions yet. Ask the owner to join a convention in their Settings so you can log the catch."
+          "This fursuit hasn't opted into any conventions yet. Ask the owner to join a convention in their Settings so you can log the catch.",
         );
         return;
       }
@@ -310,7 +318,7 @@ export default function CatchScreen() {
       if (sharedConventions.length === 0) {
         resetCatchState();
         setSubmitError(
-          "You and this fursuit aren't at the same convention. Check Settings → Conventions to make sure you're both opted into the same one."
+          "You and this fursuit aren't at the same convention. Check Settings → Conventions to make sure you're both opted into the same one.",
         );
         return;
       }
@@ -320,7 +328,11 @@ export default function CatchScreen() {
       addMonitoringBreadcrumb({
         category: "catch",
         message: "Catch initiated",
-        data: { fursuitId: normalizedFursuit.id, conventionId: primaryConventionId, method: "manual" },
+        data: {
+          fursuitId: normalizedFursuit.id,
+          conventionId: primaryConventionId,
+          method: "manual",
+        },
       });
       const catchResult = await createCatch({
         fursuitId: normalizedFursuit.id,
@@ -356,7 +368,7 @@ export default function CatchScreen() {
           if (latestFursuit && typeof latestFursuit.catch_count === "number") {
             latestCatchCount = Math.max(
               latestFursuit.catch_count,
-              minimumCatchCount
+              minimumCatchCount,
             );
           }
         } catch (countError) {
@@ -378,9 +390,7 @@ export default function CatchScreen() {
       setCatchRecord(normalizedCatchRecord);
       setLastCatchConventionId(primaryConventionId);
       setLastCatchConventionIds(sharedConventions);
-      setCatchNumber(
-        normalizedCatchRecord.catch_number ?? latestCatchCount
-      );
+      setCatchNumber(normalizedCatchRecord.catch_number ?? latestCatchCount);
       setConversationPrompt(promptCandidate ?? null);
 
       // Invalidate queries
@@ -435,7 +445,7 @@ export default function CatchScreen() {
   };
 
   const caughtAtLabel = catchRecord
-    ? toDisplayDateTime(catchRecord.caught_at) ?? "Caught just now"
+    ? (toDisplayDateTime(catchRecord.caught_at) ?? "Caught just now")
     : null;
 
   const handleCatchAnother = () => {
@@ -496,7 +506,7 @@ export default function CatchScreen() {
             created_at,
             updated_at
           )
-        `
+        `,
         )
         .eq("id", params.fursuitId)
         .eq("is_tutorial", false)
@@ -512,10 +522,14 @@ export default function CatchScreen() {
         id: fursuit.id,
         name: fursuit.name,
         species: (fursuit as any)?.species_entry?.name ?? null,
-        species_id: (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
+        species_id:
+          (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
         avatar_url: fursuit.avatar_url ?? null,
         unique_code: fursuit.unique_code ?? null,
-        catch_count: typeof (fursuit as any)?.catch_count === "number" ? (fursuit as any).catch_count : 0,
+        catch_count:
+          typeof (fursuit as any)?.catch_count === "number"
+            ? (fursuit as any).catch_count
+            : 0,
         owner_id: fursuit.owner_id,
         created_at: fursuit.created_at ?? null,
         bio: mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
@@ -526,19 +540,29 @@ export default function CatchScreen() {
       addMonitoringBreadcrumb({
         category: "catch",
         message: "Photo catch completed",
-        data: { fursuitId: params.fursuitId, conventionId: params.conventionId, method: "photo" },
+        data: {
+          fursuitId: params.fursuitId,
+          conventionId: params.conventionId,
+          method: "photo",
+        },
       });
 
       // catchResult already created by PhotoCatchCard before the upload
       const { catchResult } = params;
 
       const promptCandidate = normalizedFursuit.bio
-        ? [normalizedFursuit.bio.askMeAbout, normalizedFursuit.bio.likesAndInterests]
+        ? [
+            normalizedFursuit.bio.askMeAbout,
+            normalizedFursuit.bio.likesAndInterests,
+          ]
             .map((v) => v?.trim())
             .find((v) => v)
         : null;
 
-      setCaughtFursuit({ ...normalizedFursuit, catch_count: normalizedFursuit.catch_count + 1 });
+      setCaughtFursuit({
+        ...normalizedFursuit,
+        catch_count: normalizedFursuit.catch_count + 1,
+      });
       setCatchRecord({
         id: catchResult.catchId,
         caught_at: new Date().toISOString(),
@@ -546,7 +570,9 @@ export default function CatchScreen() {
         status: catchResult.status,
       });
       setLastCatchConventionId(params.conventionId);
-      setLastCatchConventionIds(params.conventionId ? [params.conventionId] : []);
+      setLastCatchConventionIds(
+        params.conventionId ? [params.conventionId] : [],
+      );
       setCatchNumber(catchResult.catchNumber);
       setConversationPrompt(promptCandidate ?? null);
 
@@ -559,7 +585,10 @@ export default function CatchScreen() {
           queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, params.conventionId],
         });
         queryClient.invalidateQueries({
-          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, params.conventionId],
+          queryKey: [
+            CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
+            params.conventionId,
+          ],
         });
       }
       queryClient.invalidateQueries({
@@ -604,131 +633,146 @@ export default function CatchScreen() {
         </Text>
       </View>
 
-        {!caughtFursuit && userId ? (
-          <View style={styles.photoCatchSpacing}>
-            <PhotoCatchCard
-              userId={userId}
-              onCatchSubmit={handlePhotoCatch}
-              isSubmitting={isPhotoSubmitting}
-              submitError={photoSubmitError}
-            />
+      {!caughtFursuit && userId ? (
+        <View style={styles.photoCatchSpacing}>
+          <PhotoCatchCard
+            userId={userId}
+            onCatchSubmit={handlePhotoCatch}
+            isSubmitting={isPhotoSubmitting}
+            submitError={photoSubmitError}
+          />
+        </View>
+      ) : null}
+
+      <TailTagCard style={styles.cardSpacing}>
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Catch code</Text>
+          <TailTagInput
+            value={codeInput}
+            onChangeText={(value) => {
+              setCodeInput(normalizeUniqueCodeInput(value));
+              setSubmitError(null);
+            }}
+            placeholder="ABCDEFGH"
+            autoCapitalize="characters"
+            maxLength={8}
+            editable={!isSubmitting}
+            returnKeyType="done"
+            onSubmitEditing={handleSubmit}
+            style={styles.codeInput}
+          />
+          <Text style={styles.helpText}>
+            Letters only, {codeInput.length}/8 characters.
+          </Text>
+          <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
+            Some fursuits require manual approval. If so, the owner will be
+            notified and your catch will count once approved.
+          </Text>
+        </View>
+
+        {submitError ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={18} color="#f87171" />
+            <Text style={styles.errorText}>{submitError}</Text>
           </View>
         ) : null}
 
-        <TailTagCard style={styles.cardSpacing}>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Catch code</Text>
-            <TailTagInput
-              value={codeInput}
-              onChangeText={(value) => {
-                setCodeInput(normalizeUniqueCodeInput(value));
-                setSubmitError(null);
-              }}
-              placeholder="ABCDEFGH"
-              autoCapitalize="characters"
-              maxLength={8}
-              editable={!isSubmitting}
-              returnKeyType="done"
-              onSubmitEditing={handleSubmit}
-              style={styles.codeInput}
-            />
-            <Text style={styles.helpText}>
-              Letters only, {codeInput.length}/8 characters.
-            </Text>
-            <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
-              Some fursuits require manual approval. If so, the owner will be notified and your catch will count once approved.
-            </Text>
-          </View>
+        <TailTagButton
+          onPress={handleSubmit}
+          loading={isSubmitting}
+          disabled={!userId || isSubmitting}
+          style={styles.fullWidthButton}
+        >
+          Record catch
+        </TailTagButton>
+      </TailTagCard>
 
-          {submitError ? (
-            <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={18} color="#f87171" />
-              <Text style={styles.errorText}>{submitError}</Text>
+      {caughtFursuit ? (
+        <TailTagCard
+          style={
+            isPending
+              ? [styles.cardSpacing, styles.pendingCard]
+              : styles.cardSpacing
+          }
+        >
+          <Text style={styles.sectionTitle}>
+            {isPending ? "Catch pending approval" : "Nice catch!"}
+          </Text>
+          {isPending ? (
+            <>
+              <Text style={[styles.sectionBody, styles.pendingHighlight]}>
+                The owner of {caughtFursuit.name} will be notified.
+              </Text>
+              <Text style={[styles.sectionBody, styles.pendingHighlight]}>
+                Your catch will count once they approve it.
+              </Text>
+            </>
+          ) : catchNumber !== null ? (
+            <Text style={[styles.sectionBody, styles.sectionHighlight]}>
+              You were catcher #{catchNumber} for this suit!
+            </Text>
+          ) : null}
+          <Text style={styles.sectionBody}>
+            {isPending
+              ? "In the meantime, check out their bio below and start a conversation!"
+              : `You just tagged ${caughtFursuit.name}. Scroll through their bio below and start a conversation!`}
+          </Text>
+          {conversationPrompt ? (
+            <TailTagCard
+              style={isPending ? styles.pendingPromptCard : styles.promptCard}
+            >
+              <Text
+                style={
+                  isPending ? styles.pendingPromptLabel : styles.promptLabel
+                }
+              >
+                Ask them about…
+              </Text>
+              <Text style={styles.promptBody}>{conversationPrompt}</Text>
+            </TailTagCard>
+          ) : null}
+          <View style={isPending ? styles.pendingCardBorder : undefined}>
+            <FursuitCard
+              name={caughtFursuit.name}
+              species={caughtFursuit.species}
+              colors={caughtFursuit.colors}
+              avatarUrl={caughtFursuit.avatar_url}
+              uniqueCode={caughtFursuit.unique_code}
+              timelineLabel={caughtAtLabel ?? undefined}
+              onPress={() =>
+                router.push({
+                  pathname: "/fursuits/[id]",
+                  params: { id: caughtFursuit.id },
+                })
+              }
+              onCodeCopied={handleCatchCodeCopied}
+            />
+          </View>
+          {caughtFursuit.bio ? (
+            <View style={styles.bioSpacing}>
+              <TailTagCard>
+                <FursuitBioDetails bio={caughtFursuit.bio} />
+              </TailTagCard>
             </View>
           ) : null}
-
-          <TailTagButton
-            onPress={handleSubmit}
-            loading={isSubmitting}
-            disabled={!userId || isSubmitting}
-            style={styles.fullWidthButton}
-          >
-            Record catch
-          </TailTagButton>
+          <View style={styles.buttonRow}>
+            <TailTagButton
+              variant="outline"
+              onPress={() => router.push("/caught")}
+              style={[styles.fullWidthButton, styles.stackedButtonSpacing]}
+            >
+              View catches
+            </TailTagButton>
+            <TailTagButton
+              variant="ghost"
+              onPress={handleCatchAnother}
+              style={styles.fullWidthButton}
+            >
+              Catch another suit
+            </TailTagButton>
+          </View>
         </TailTagCard>
-
-        {caughtFursuit ? (
-          <TailTagCard style={isPending ? [styles.cardSpacing, styles.pendingCard] : styles.cardSpacing}>
-            <Text style={styles.sectionTitle}>
-              {isPending ? "Catch pending approval" : "Nice catch!"}
-            </Text>
-            {isPending ? (
-              <>
-                <Text style={[styles.sectionBody, styles.pendingHighlight]}>
-                  The owner of {caughtFursuit.name} will be notified.
-                </Text>
-                <Text style={[styles.sectionBody, styles.pendingHighlight]}>
-                  Your catch will count once they approve it.
-                </Text>
-              </>
-            ) : catchNumber !== null ? (
-              <Text style={[styles.sectionBody, styles.sectionHighlight]}>
-                You were catcher #{catchNumber} for this suit!
-              </Text>
-            ) : null}
-            <Text style={styles.sectionBody}>
-              {isPending
-                ? "In the meantime, check out their bio below and trade codes to keep your streak growing."
-                : `You just tagged ${caughtFursuit.name}. Scroll through their bio below and trade codes to keep your streak growing.`}
-            </Text>
-            {conversationPrompt ? (
-              <TailTagCard style={isPending ? styles.pendingPromptCard : styles.promptCard}>
-                <Text style={isPending ? styles.pendingPromptLabel : styles.promptLabel}>Ask them about…</Text>
-                <Text style={styles.promptBody}>{conversationPrompt}</Text>
-              </TailTagCard>
-            ) : null}
-            <View style={isPending ? styles.pendingCardBorder : undefined}>
-              <FursuitCard
-                name={caughtFursuit.name}
-                species={caughtFursuit.species}
-                colors={caughtFursuit.colors}
-                avatarUrl={caughtFursuit.avatar_url}
-                uniqueCode={caughtFursuit.unique_code}
-                timelineLabel={caughtAtLabel ?? undefined}
-                onPress={() =>
-                  router.push({
-                    pathname: "/fursuits/[id]",
-                    params: { id: caughtFursuit.id },
-                  })
-                }
-                onCodeCopied={handleCatchCodeCopied}
-              />
-            </View>
-            {caughtFursuit.bio ? (
-              <View style={styles.bioSpacing}>
-                <TailTagCard>
-                  <FursuitBioDetails bio={caughtFursuit.bio} />
-                </TailTagCard>
-              </View>
-            ) : null}
-            <View style={styles.buttonRow}>
-              <TailTagButton
-                variant="outline"
-                onPress={() => router.push("/caught")}
-                style={[styles.fullWidthButton, styles.stackedButtonSpacing]}
-              >
-                View catches
-              </TailTagButton>
-              <TailTagButton
-                variant="ghost"
-                onPress={handleCatchAnother}
-                style={styles.fullWidthButton}
-              >
-                Catch another suit
-              </TailTagButton>
-            </View>
-          </TailTagCard>
-        ) : null}
+      ) : null}
     </KeyboardAwareFormWrapper>
   );
 }
