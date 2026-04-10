@@ -8,7 +8,7 @@ const profileRules: ProfileRuleDefinition[] = [
     eventType: "profile_updated",
     metadata: {
       displayName: "Profile Complete",
-      description: "Add a username and bio.",
+      description: "Add a profile photo, username, and bio.",
       category: "meta",
       recipientRole: "any",
       canEvaluateClient: true,
@@ -17,7 +17,7 @@ const profileRules: ProfileRuleDefinition[] = [
     requiredStats: [],
     evaluate(context: ProfileEventContext): AwardCandidate[] {
       const { profile } = context;
-      if (!profile.hasUsername || !profile.hasBio) {
+      if (!profile.hasAvatar || !profile.hasUsername || !profile.hasBio) {
         return [];
       }
       return [

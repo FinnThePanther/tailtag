@@ -5,6 +5,9 @@ import { colors, radius, spacing } from '../../../theme';
 export const styles = StyleSheet.create({
   container: {
     gap: spacing.md,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   eyebrow: {
     color: colors.primary,
@@ -118,22 +121,19 @@ export const styles = StyleSheet.create({
   },
   photoPreview: {
     gap: spacing.sm,
-    alignItems: 'center',
-    alignSelf: 'center',
+    alignItems: 'stretch',
   },
   photo: {
-    width: 140,
-    height: 140,
+    width: '100%',
+    aspectRatio: 1,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderMuted,
-    alignSelf: 'center',
   },
   photoProcessing: {
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.surfaceMuted,
-    alignSelf: 'center',
   },
   error: {
     color: colors.destructive,

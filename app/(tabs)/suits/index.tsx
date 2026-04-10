@@ -227,6 +227,14 @@ export default function MySuitsScreen() {
       ) : null}
 
       <TailTagCard style={styles.cardSpacing}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Your fursuits</Text>
+          <Text style={styles.sectionMeta}>
+            {hasSuits
+              ? `${suitCount} ${suitCount === 1 ? "suit" : "suits"}`
+              : "No suits yet"}
+          </Text>
+        </View>
         {isLoading ? (
           <Text style={styles.message}>Loading your suits…</Text>
         ) : combinedError ? (

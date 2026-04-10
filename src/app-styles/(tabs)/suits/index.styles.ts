@@ -48,6 +48,20 @@ export const styles = StyleSheet.create({
   cardSpacing: {
     marginBottom: spacing.lg,
   },
+  sectionHeader: {
+    gap: spacing.xs,
+  },
+  sectionTitle: {
+    color: colors.foreground,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  sectionMeta: {
+    color: colors.textSubtle,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
   message: {
     color: colors.textMuted,
     fontSize: 14,

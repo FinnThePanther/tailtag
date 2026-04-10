@@ -8,6 +8,7 @@ import {
   captureHandledMessage,
   captureSupabaseError,
 } from '../../../lib/sentry';
+import { buildAuthenticatedStorageObjectUrl } from '../../../utils/supabase-image';
 import { emitGameplayEvent } from '../../events';
 
 import type { FursuitsInsert } from '../../../types/database';
@@ -65,11 +66,9 @@ const uploadFursuitPhoto = async (userId: string, photo: FursuitPhotoCandidate) 
     throw uploadError;
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(FURSUIT_BUCKET).getPublicUrl(storagePath);
+  const avatarUrl = buildAuthenticatedStorageObjectUrl(FURSUIT_BUCKET, storagePath);
 
-  return { storagePath, publicUrl };
+  return { storagePath, avatarUrl };
 };
 
 export async function createQuickFursuit(options: {
@@ -105,7 +104,7 @@ export async function createQuickFursuit(options: {
     if (photo) {
       const uploaded = await uploadFursuitPhoto(userId, photo);
       uploadedStoragePath = uploaded.storagePath;
-      avatarUrl = uploaded.publicUrl;
+      avatarUrl = uploaded.avatarUrl;
     }
 
     const normalizedName = name.trim();
@@ -141,10 +140,11 @@ export async function createQuickFursuit(options: {
       // Ensure species entry exists in database
       const speciesRecord = await ensureSpeciesEntry(normalizedSpecies);
 
-      const payload: FursuitsInsert = {
+      const payload: FursuitsInsert & { avatar_path?: string | null } = {
         owner_id: userId,
         name: normalizedName,
         species_id: speciesRecord.id,
+        avatar_path: uploadedStoragePath,
         avatar_url: avatarUrl,
         unique_code: uniqueCode,
         description: normalizedDescription,

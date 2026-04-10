@@ -240,6 +240,7 @@ export type Database = {
       catches: {
         Row: {
           catch_number: number | null
+          catch_photo_path: string | null
           catch_photo_url: string | null
           catcher_id: string
           caught_at: string | null
@@ -255,6 +256,7 @@ export type Database = {
         }
         Insert: {
           catch_number?: number | null
+          catch_photo_path?: string | null
           catch_photo_url?: string | null
           catcher_id: string
           caught_at?: string | null
@@ -270,6 +272,7 @@ export type Database = {
         }
         Update: {
           catch_number?: number | null
+          catch_photo_path?: string | null
           catch_photo_url?: string | null
           catcher_id?: string
           caught_at?: string | null
@@ -847,6 +850,7 @@ export type Database = {
       }
       fursuits: {
         Row: {
+          avatar_path: string | null
           avatar_url: string | null
           catch_count: number
           catch_mode: string
@@ -863,6 +867,7 @@ export type Database = {
           unique_code: string
         }
         Insert: {
+          avatar_path?: string | null
           avatar_url?: string | null
           catch_count?: number
           catch_mode?: string
@@ -879,6 +884,7 @@ export type Database = {
           unique_code: string
         }
         Update: {
+          avatar_path?: string | null
           avatar_url?: string | null
           catch_count?: number
           catch_mode?: string
@@ -995,6 +1001,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_path: string | null
           avatar_url: string | null
           bio: string | null
           created_at: string | null
@@ -1017,6 +1024,7 @@ export type Database = {
           username: string | null
         }
         Insert: {
+          avatar_path?: string | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
@@ -1039,6 +1047,7 @@ export type Database = {
           username?: string | null
         }
         Update: {
+          avatar_path?: string | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
@@ -2042,6 +2051,10 @@ export type Database = {
       }
       is_moderator_or_higher: {
         Args: { check_user_id: string }
+        Returns: boolean
+      }
+      is_username_available: {
+        Args: { p_current_user_id?: string; p_username: string }
         Returns: boolean
       }
       is_valid_event_type: { Args: { p_event_type: string }; Returns: boolean }

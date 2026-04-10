@@ -77,6 +77,7 @@ export interface CatchEventContext {
 }
 
 export interface ProfileSnapshot {
+  hasAvatar: boolean;
   hasUsername: boolean;
   hasBio: boolean;
 }

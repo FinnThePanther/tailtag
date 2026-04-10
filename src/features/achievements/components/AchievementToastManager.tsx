@@ -16,8 +16,16 @@ import { subscribeToLocalGameplayEvents, type LocalGameplayEvent } from '../../e
 import { DAILY_TASKS_QUERY_KEY, dailyTasksQueryKey } from '../../daily-tasks';
 import type { DailyTasksSummary } from '../../daily-tasks';
 import type { AchievementWithStatus } from '../api/achievements';
-import { profileQueryKey, type ProfileSummary } from '../../profile';
+import { caughtSuitsQueryKey, type CaughtRecord } from '../../suits';
+import {
+  hasUploadedProfileAvatar,
+  profileQueryKey,
+  type ProfileSummary,
+} from '../../profile';
 import type { Json } from '../../../types/database';
+
+const CATCH_RECONCILE_DEBOUNCE_MS = 800;
+const CATCH_RECONCILE_FOLLOW_UP_MS = 6_000;
 
 type NotificationRow = {
   id: string;
@@ -150,6 +158,9 @@ export function AchievementToastManager() {
   const surfacedDailyAllCompleteKeysRef = useRef<Set<string>>(new Set());
   const sessionStartedAtRef = useRef<string>(new Date().toISOString());
   const notificationCatchupCursorRef = useRef<string>(sessionStartedAtRef.current);
+  const catchReconcileTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const catchReconcileFollowUpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const catchReconcileInFlightRef = useRef<boolean>(false);
 
   const segments = useSegments();
 
@@ -161,6 +172,61 @@ export function AchievementToastManager() {
     () => (userId ? achievementsStatusQueryKey(userId) : ['achievements-status', 'guest'] as const),
     [userId],
   );
+
+  const clearCatchReconcileTimer = useCallback(() => {
+    if (catchReconcileTimeoutRef.current) {
+      clearTimeout(catchReconcileTimeoutRef.current);
+      catchReconcileTimeoutRef.current = null;
+    }
+    if (catchReconcileFollowUpTimeoutRef.current) {
+      clearTimeout(catchReconcileFollowUpTimeoutRef.current);
+      catchReconcileFollowUpTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleCatchReconcile = useCallback(() => {
+    if (!userId) {
+      return;
+    }
+
+    const runReconcile = async () => {
+      if (catchReconcileInFlightRef.current) {
+        return;
+      }
+      catchReconcileInFlightRef.current = true;
+      try {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: statusQueryKey }),
+          queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] }),
+        ]);
+      } finally {
+        catchReconcileInFlightRef.current = false;
+      }
+    };
+
+    if (catchReconcileTimeoutRef.current) {
+      clearTimeout(catchReconcileTimeoutRef.current);
+    }
+    catchReconcileTimeoutRef.current = setTimeout(() => {
+      catchReconcileTimeoutRef.current = null;
+      void runReconcile();
+    }, CATCH_RECONCILE_DEBOUNCE_MS);
+
+    if (catchReconcileFollowUpTimeoutRef.current) {
+      clearTimeout(catchReconcileFollowUpTimeoutRef.current);
+    }
+    catchReconcileFollowUpTimeoutRef.current = setTimeout(() => {
+      catchReconcileFollowUpTimeoutRef.current = null;
+      void runReconcile();
+    }, CATCH_RECONCILE_FOLLOW_UP_MS);
+  }, [queryClient, statusQueryKey, userId]);
+
+  useEffect(() => {
+    return () => {
+      clearCatchReconcileTimer();
+      catchReconcileInFlightRef.current = false;
+    };
+  }, [clearCatchReconcileTimer]);
 
   useEffect(() => {
     if (!userId) {
@@ -251,6 +317,8 @@ export function AchievementToastManager() {
 
   useEffect(() => {
     if (snapshotUserRef.current !== userId) {
+      clearCatchReconcileTimer();
+      catchReconcileInFlightRef.current = false;
       unlockedSnapshotRef.current.clear();
       hasPrimedSnapshotRef.current = false;
       snapshotUserRef.current = userId;
@@ -293,7 +361,7 @@ export function AchievementToastManager() {
     if (shouldPrime) {
       hasPrimedSnapshotRef.current = true;
     }
-  }, [achievementStatus, userId, handleToast]);
+  }, [achievementStatus, clearCatchReconcileTimer, userId, handleToast]);
 
   useEffect(() => {
     if (!userId) {
@@ -351,6 +419,10 @@ export function AchievementToastManager() {
       const status = queryClient.getQueryData<AchievementWithStatus[] | undefined>(statusQueryKey);
       const profile = queryClient.getQueryData<ProfileSummary | null | undefined>(profileQueryKey(userId));
       const eventPayload = isRecord(event.payload) ? event.payload : {};
+      const nestedEventPayload = isRecord(eventPayload.payload)
+        ? (eventPayload.payload as Record<string, unknown>)
+        : null;
+      const normalizedEventPayload = nestedEventPayload ?? eventPayload;
 
       const predictedAchievementKeys: string[] = [];
 
@@ -361,12 +433,35 @@ export function AchievementToastManager() {
       } else if (
         event.type === 'profile_updated' &&
         profile &&
+        hasUploadedProfileAvatar(profile.avatar_url, profile.avatar_path) &&
         typeof profile.username === 'string' &&
         profile.username.trim().length > 0 &&
         typeof profile.bio === 'string' &&
         profile.bio.trim().length > 0
       ) {
         predictedAchievementKeys.push('PROFILE_COMPLETE');
+      } else if (event.type === 'catch_performed') {
+        const tutorialValue = normalizedEventPayload.is_tutorial;
+        const isTutorialCatch = tutorialValue === true || tutorialValue === 'true';
+
+        if (!isTutorialCatch) {
+          const caughtSuits = queryClient.getQueryData<CaughtRecord[] | undefined>(
+            caughtSuitsQueryKey(userId),
+          );
+          const estimatedTotalCatches = Array.isArray(caughtSuits) ? caughtSuits.length + 1 : null;
+
+          if (estimatedTotalCatches === 1) {
+            predictedAchievementKeys.push('FIRST_CATCH');
+          }
+          if (estimatedTotalCatches === 10) {
+            predictedAchievementKeys.push('GETTING_THE_HANG_OF_IT');
+          }
+          if (estimatedTotalCatches === 25) {
+            predictedAchievementKeys.push('SUPER_CATCHER');
+          }
+        }
+
+        scheduleCatchReconcile();
       }
 
       for (const achievementKey of predictedAchievementKeys) {
@@ -440,7 +535,7 @@ export function AchievementToastManager() {
             return task;
           }
 
-          if (!matchesLocalDailyTaskFilters(metadata, eventPayload, userId)) {
+          if (!matchesLocalDailyTaskFilters(metadata, normalizedEventPayload, userId)) {
             if (task.isCompleted) {
               completedCount += 1;
             }
@@ -528,7 +623,15 @@ export function AchievementToastManager() {
     });
 
     return unsubscribe;
-  }, [handleToast, markAchievementAsSurfaced, queryClient, showToast, statusQueryKey, userId]);
+  }, [
+    handleToast,
+    markAchievementAsSurfaced,
+    queryClient,
+    scheduleCatchReconcile,
+    showToast,
+    statusQueryKey,
+    userId,
+  ]);
 
   useEffect(() => {
     const teardown = () => {

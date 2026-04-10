@@ -176,14 +176,17 @@ export const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: spacing.sm,
   },
+  pronounChipList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
   buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
   },
-  inlineButtonSpacing: {
-    marginRight: spacing.md,
-  },
+  inlineButtonSpacing: {},
   errorText: {
     color: '#fca5a5',
     fontSize: 14,

@@ -3,6 +3,10 @@ import { StyleSheet } from 'react-native';
 import { colors, radius, spacing } from '../../../theme';
 
 export const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -29,10 +33,10 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   photoRow: {
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   photoPreview: {
-    width: '50%',
+    width: '100%',
     aspectRatio: 1,
     borderRadius: radius.xl,
     borderWidth: 1,
@@ -44,7 +48,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
   },
   photoPlaceholder: {
-    width: '50%',
+    width: '100%',
     aspectRatio: 1,
     borderRadius: radius.xl,
     borderWidth: 1,
@@ -64,6 +68,11 @@ export const styles = StyleSheet.create({
   },
   textArea: {
     minHeight: 96,
+  },
+  pronounChipList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   helperColumn: {
     gap: spacing.sm,

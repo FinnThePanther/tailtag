@@ -26,23 +26,37 @@ export const styles = StyleSheet.create({
     fontSize: 17,
   },
   profileHeader: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
   },
-  avatarContainer: {
+  profileAvatarWrapper: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.borderMuted,
+    backgroundColor: colors.surfaceMutedSoft,
+    overflow: 'hidden',
     marginBottom: spacing.xs,
+  },
+  profileAvatar: {
+    width: '100%',
+    height: '100%',
+  },
+  profileAvatarFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   username: {
     color: colors.foreground,
     fontSize: 22,
     fontWeight: '700',
-    textAlign: 'center',
   },
   bio: {
     color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
-    textAlign: 'center',
   },
   sectionTitle: {
     color: colors.primary,

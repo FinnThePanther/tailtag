@@ -5,12 +5,13 @@ import {
   ScrollView,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
-import { AppAvatar } from '../../../src/components/ui/AppAvatar';
+import { AppImage } from '../../../src/components/ui/AppImage';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
@@ -24,9 +25,8 @@ import {
   MY_SUITS_STALE_TIME,
 } from '../../../src/features/suits';
 import {
-  fetchAchievementStatus,
-  achievementsStatusQueryKey,
-  type AchievementWithStatus,
+  fetchUserUnlockedAchievements,
+  userUnlockedAchievementsQueryKey,
 } from '../../../src/features/achievements';
 import {
   createUserCatchCountQueryOptions,
@@ -83,12 +83,14 @@ export default function PublicProfileScreen() {
     refetchOnReconnect: false,
   });
 
+  const { width: screenWidth } = useWindowDimensions();
+
   const {
-    data: achievementStatus = [],
+    data: unlockedAchievements = [],
     isLoading: isAchievementsLoading,
   } = useQuery({
-    queryKey: achievementsStatusQueryKey(profileId ?? ''),
-    queryFn: () => fetchAchievementStatus(profileId ?? ''),
+    queryKey: userUnlockedAchievementsQueryKey(profileId ?? ''),
+    queryFn: () => fetchUserUnlockedAchievements(profileId ?? ''),
     staleTime: 5 * 60_000,
     enabled: Boolean(profileId),
     refetchOnWindowFocus: false,
@@ -114,9 +116,6 @@ export default function PublicProfileScreen() {
 
   const avatarUrl = profile?.avatar_url ?? (fursuits.length > 0 ? fursuits[0].avatar_url : null);
   const socialLinks = aggregateSocialLinks(fursuits, profile?.social_links ?? []);
-  const unlockedAchievements = achievementStatus.filter(
-    (a: AchievementWithStatus) => a.unlocked,
-  );
 
   const isStatsLoading = isCatchCountLoading || isConventionCountLoading;
 
@@ -171,8 +170,19 @@ export default function PublicProfileScreen() {
             </View>
           ) : (
             <View style={styles.profileHeader}>
-              <View style={styles.avatarContainer}>
-                <AppAvatar url={avatarUrl} size="2xl" fallback="user" />
+              <View style={styles.profileAvatarWrapper}>
+                {avatarUrl ? (
+                  <AppImage
+                    url={avatarUrl}
+                    width={screenWidth}
+                    height={screenWidth}
+                    style={styles.profileAvatar}
+                  />
+                ) : (
+                  <View style={styles.profileAvatarFallback}>
+                    <Ionicons name="person" size={48} color="rgba(148,163,184,0.4)" />
+                  </View>
+                )}
               </View>
               <Text style={styles.username}>
                 {profile?.username}

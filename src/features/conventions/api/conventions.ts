@@ -90,7 +90,8 @@ export async function fetchProfileConventionIds(profileId: string): Promise<stri
   const { data, error } = await client
     .from('profile_conventions')
     .select('convention_id')
-    .eq('profile_id', profileId);
+    .eq('profile_id', profileId)
+    .order('created_at', { ascending: false });
 
   if (error) {
     throw new Error(`We couldn't load your convention opt-ins: ${error.message}`);

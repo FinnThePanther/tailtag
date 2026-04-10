@@ -7,15 +7,18 @@ export type PendingCatch = {
   catchId: string;
   catcherId: string;
   catcherUsername: string;
+  catcherAvatarPath?: string | null;
   catcherAvatarUrl: string | null;
   fursuitId: string;
   fursuitName: string;
+  fursuitAvatarPath?: string | null;
   fursuitAvatarUrl: string | null;
   conventionId: string;
   conventionName: string;
   caughtAt: string;
   expiresAt: string;
   timeRemaining: string;
+  catchPhotoPath?: string | null;
   catchPhotoUrl: string | null;
 };
 
@@ -24,6 +27,7 @@ export type MyPendingCatch = {
   catchId: string;
   fursuitId: string;
   fursuitName: string;
+  fursuitAvatarPath?: string | null;
   fursuitAvatarUrl: string | null;
   conventionId: string | null;
   conventionName: string;

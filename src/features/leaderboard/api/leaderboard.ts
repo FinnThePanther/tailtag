@@ -1,6 +1,8 @@
 import { supabase } from '../../../lib/supabase';
 import { mapFursuitColors } from '../../suits';
 import type { FursuitColorOption } from '../../colors';
+import { FURSUIT_BUCKET } from '../../../constants/storage';
+import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
 export type LeaderboardEntry = {
   profileId: string;
@@ -101,7 +103,11 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
         species: fursuit?.species_entry?.name ?? null,
         speciesId: fursuit?.species_entry?.id ?? null,
         colors: mapFursuitColors(fursuit?.color_assignments ?? null),
-        avatarUrl: row.fursuit_avatar_url,
+        avatarUrl: resolveStorageMediaUrl({
+          bucket: FURSUIT_BUCKET,
+          path: null,
+          legacyUrl: row.fursuit_avatar_url,
+        }),
         ownerProfileId: row.owner_id,
         ownerUsername: null, // Not in materialized view, but not displayed in UI
         catchCount: row.catch_count!,

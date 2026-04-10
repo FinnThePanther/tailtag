@@ -15,6 +15,7 @@ import { styles } from "./AchievementStep.styles";
 
 type AchievementStepProps = {
   userId: string;
+  hasJoinedConvention: boolean;
   hasFursuit: boolean;
   hasEnabledNotifications: boolean;
   onFinish: () => void;
@@ -22,6 +23,7 @@ type AchievementStepProps = {
 
 export function AchievementStep({
   userId,
+  hasJoinedConvention,
   hasFursuit,
   hasEnabledNotifications,
   onFinish,
@@ -92,8 +94,17 @@ export function AchievementStep({
         <View style={styles.summary}>
           <Text style={styles.summaryTitle}>What you accomplished</Text>
           <View style={styles.summaryItem}>
-            <View style={[styles.dot, styles.dotPrimary]} />
-            <Text style={styles.summaryText}>Joined your first convention</Text>
+            <View
+              style={[
+                styles.dot,
+                hasJoinedConvention ? styles.dotPrimary : styles.dotMuted,
+              ]}
+            />
+            <Text style={styles.summaryText}>
+              {hasJoinedConvention
+                ? "Joined your first convention"
+                : "You can join a convention anytime"}
+            </Text>
           </View>
           <View style={styles.summaryItem}>
             <View

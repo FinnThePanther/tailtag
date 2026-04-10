@@ -4,7 +4,8 @@ import type { ImageStyle } from 'expo-image';
 import { PixelRatio, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 
-import { getTransformedImageUrl } from '../../utils/supabase-image';
+import { useAuth } from '../../features/auth/providers/AuthProvider';
+import { getTransformedImageUrl, toExpoImageSource } from '../../utils/supabase-image';
 import { styles } from './AppImage.styles';
 
 type AppImageProps = {
@@ -27,9 +28,11 @@ export function AppImage({
   style,
   accessibilityLabel,
 }: AppImageProps) {
+  const { session } = useAuth();
   const [errored, setErrored] = useState(false);
+  const accessToken = session?.access_token ?? null;
 
-  const source = (() => {
+  const resolvedUrl = (() => {
     if (!url) return null;
     if (errored) return null;
     if (width != null && height != null) {
@@ -42,6 +45,7 @@ export function AppImage({
     }
     return url;
   })();
+  const source = toExpoImageSource(resolvedUrl, accessToken);
 
   if (!source) {
     return <View style={[styles.placeholder, style]} />;
@@ -53,7 +57,7 @@ export function AppImage({
       style={[styles.imageBase, style] as StyleProp<ImageStyle>}
       contentFit={contentFit}
       transition={transition}
-      recyclingKey={source}
+      recyclingKey={resolvedUrl ?? undefined}
       accessibilityLabel={accessibilityLabel}
       onError={() => setErrored(true)}
     />

@@ -33,6 +33,7 @@ export default function OnboardingScreen() {
   const userId = session?.user.id ?? null;
 
   const [currentStep, setCurrentStep] = useState<StepId>('welcome');
+  const [hasJoinedConvention, setHasJoinedConvention] = useState(false);
   const [hasRegisteredFursuit, setHasRegisteredFursuit] = useState(false);
   const [hasEnabledNotifications, setHasEnabledNotifications] = useState(false);
 
@@ -43,8 +44,6 @@ export default function OnboardingScreen() {
 
   const {
     data: profile,
-    isLoading,
-    isFetching,
   } = useQuery<ProfileSummary | null, Error>({
     ...(profileQueryOptions ?? {
       queryKey: ['profile', 'guest'],
@@ -82,10 +81,6 @@ export default function OnboardingScreen() {
     return <LoadingView />;
   }
 
-  if ((isLoading || isFetching) && !profile) {
-    return <LoadingView />;
-  }
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <ScrollView
@@ -102,8 +97,10 @@ export default function OnboardingScreen() {
           <ConventionStep
             userId={userId}
             onComplete={() => {
+              setHasJoinedConvention(true);
               goToNextStep();
             }}
+            onSkip={goToNextStep}
           />
         ) : currentStep === 'fursuit' ? (
           <FursuitStep
@@ -128,6 +125,7 @@ export default function OnboardingScreen() {
         ) : (
           <AchievementStep
             userId={userId}
+            hasJoinedConvention={hasJoinedConvention}
             hasFursuit={hasRegisteredFursuit}
             hasEnabledNotifications={hasEnabledNotifications}
             onFinish={handleFinish}
