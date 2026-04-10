@@ -129,6 +129,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     'expo-apple-authentication',
     '@sentry/react-native',
+    '@react-native-menu/menu',
   ],
   scheme: 'tailtag',
   extra: {

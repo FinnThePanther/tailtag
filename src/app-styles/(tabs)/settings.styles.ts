@@ -9,8 +9,18 @@ export const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
   header: {
+    flex: 1,
     gap: spacing.xs,
+  },
+  menuButton: {
+    padding: spacing.xs,
+    marginTop: 2,
   },
   eyebrow: {
     fontSize: 12,

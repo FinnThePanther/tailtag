@@ -7,6 +7,8 @@ import {
   Text,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { MenuView } from "@react-native-menu/menu";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 
@@ -205,7 +207,7 @@ export default function SettingsScreen() {
   );
   const [hasHydratedSocialLinks, setHasHydratedSocialLinks] = useState(false);
 
-  const [isSaving, setIsSaving] = useState(false);
+const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -896,12 +898,33 @@ export default function SettingsScreen() {
 
   return (
     <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>Settings</Text>
-        <Text style={styles.title}>Profile & account</Text>
-        <Text style={styles.subtitle}>
-          Update your settings, sign out, or delete your account.
-        </Text>
+      <View style={styles.headerRow}>
+        <View style={styles.header}>
+          <Text style={styles.eyebrow}>Settings</Text>
+          <Text style={styles.title}>Profile & account</Text>
+          <Text style={styles.subtitle}>
+            Update your settings, sign out, or delete your account.
+          </Text>
+        </View>
+        <MenuView
+          title="More options"
+          onPressAction={({ nativeEvent }) => {
+            if (nativeEvent.event === "blocked-users") {
+              router.push("/blocked-users");
+            }
+          }}
+          actions={[
+            {
+              id: "blocked-users",
+              title: "Blocked users",
+              image: "hand.raised",
+            },
+          ]}
+        >
+          <Pressable style={styles.menuButton} hitSlop={8}>
+            <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
+          </Pressable>
+        </MenuView>
       </View>
 
       <TailTagCard>
@@ -1363,20 +1386,6 @@ export default function SettingsScreen() {
         </TailTagCard>
       ) : null}
 
-      <TailTagCard>
-        <View style={styles.accountSection}>
-          <Text style={styles.sectionTitle}>Moderation</Text>
-          <Text style={styles.sectionDescription}>
-            Manage users you have blocked.
-          </Text>
-          <TailTagButton
-            variant="outline"
-            onPress={() => router.push("/blocked-users")}
-          >
-            Blocked users
-          </TailTagButton>
-        </View>
-      </TailTagCard>
 
       <TailTagCard>
         <View style={styles.accountSection}>
