@@ -54,7 +54,8 @@ import { getTransformedImageUrl } from "../../src/utils/supabase-image";
 import { styles } from "../../src/app-styles/(tabs)/index.styles";
 
 const MAX_LEADERBOARD_ENTRIES = 5;
-const USERNAME_NUDGE_DISMISSED_KEY = "tailtag:username-nudge-dismissed";
+const usernameNudgeDismissedKey = (userId: string) =>
+  `tailtag:username-nudge-dismissed:${userId}`;
 
 const formatCatchCount = (count: number) =>
   count === 1 ? "1 catch" : `${count} catches`;
@@ -67,32 +68,51 @@ export default function HomeScreen() {
   const { width: windowWidth } = useWindowDimensions();
 
   // Username change nudge
-  const [nudgeDismissed, setNudgeDismissed] = useState(true);
+  const [nudgeDismissed, setNudgeDismissed] = useState<boolean | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    AsyncStorage.getItem(USERNAME_NUDGE_DISMISSED_KEY)
+    let isActive = true;
+
+    if (!userId) {
+      setNudgeDismissed(true);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    setNudgeDismissed(null);
+
+    AsyncStorage.getItem(usernameNudgeDismissedKey(userId))
       .then((value) => {
-        if (mounted && value !== "true") {
-          setNudgeDismissed(false);
+        if (isActive) {
+          setNudgeDismissed(value === "true");
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (isActive) {
+          setNudgeDismissed(false);
+        }
+      });
+
     return () => {
-      mounted = false;
+      isActive = false;
     };
-  }, []);
+  }, [userId]);
 
   const handleDismissNudge = useCallback(() => {
+    if (!userId) {
+      return;
+    }
+
     setNudgeDismissed(true);
-    AsyncStorage.setItem(USERNAME_NUDGE_DISMISSED_KEY, "true").catch(
+    AsyncStorage.setItem(usernameNudgeDismissedKey(userId), "true").catch(
       () => undefined,
     );
-  }, []);
+  }, [userId]);
 
   const { data: profile } = useQuery({
     queryKey: userId ? profileQueryKey(userId) : ["profile", "guest"],
-    enabled: Boolean(userId) && !nudgeDismissed,
+    enabled: Boolean(userId) && nudgeDismissed === false,
     queryFn: () => fetchProfile(userId!),
   });
 
@@ -484,7 +504,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {!nudgeDismissed && session && (
+        {nudgeDismissed === false && session && (
           <TailTagCard
             style={[styles.nudgeCard, styles.nudgeCardAlert, contentWidthStyle]}
           >

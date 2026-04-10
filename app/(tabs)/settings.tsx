@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   Pressable,
   Switch,
   Text,
@@ -85,6 +86,7 @@ import { usePushNotifications } from "../../src/features/push-notifications";
 import { styles } from "../../src/app-styles/(tabs)/settings.styles";
 
 const FEEDBACK_FORM_URL = "https://forms.gle/e65DqKt1VsuvoFTx8";
+const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -210,6 +212,10 @@ export default function SettingsScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [hasEditedDraft, setHasEditedDraft] = useState(false);
+  const saveMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(
@@ -231,9 +237,22 @@ export default function SettingsScreen() {
     () => normalizeUsernameInput(usernameInput),
     [usernameInput],
   );
+  const normalizedSessionUsername = useMemo(() => {
+    const metadataUsername = session?.user.user_metadata?.username;
+    return typeof metadataUsername === "string"
+      ? normalizeUsernameInput(metadataUsername)
+      : "";
+  }, [session?.user.user_metadata?.username]);
   const normalizedProfileUsername = useMemo(
     () => normalizeUsernameInput(profile?.username ?? ""),
     [profile?.username],
+  );
+  const normalizedCurrentUsername = useMemo(
+    () =>
+      normalizedProfileUsername.length > 0
+        ? normalizedProfileUsername
+        : normalizedSessionUsername,
+    [normalizedProfileUsername, normalizedSessionUsername],
   );
   const usernameValidation = useMemo(
     () => validateUsername(normalizedUsernameInput, { allowEmpty: true }),
@@ -247,12 +266,12 @@ export default function SettingsScreen() {
 
   const isDirty = useMemo(() => {
     const usernameChanged =
-      normalizedProfileUsername !== normalizedUsernameInput;
+      normalizedCurrentUsername !== normalizedUsernameInput;
     const bioChanged = (profile?.bio ?? "") !== bioInput.trim();
     return usernameChanged || bioChanged;
   }, [
     bioInput,
-    normalizedProfileUsername,
+    normalizedCurrentUsername,
     normalizedUsernameInput,
     profile?.bio,
   ]);
@@ -264,7 +283,8 @@ export default function SettingsScreen() {
     ) => {
       const { resetMessages = true } = options;
 
-      setUsernameInput(summary?.username ?? "");
+      const summaryUsername = normalizeUsernameInput(summary?.username ?? "");
+      setUsernameInput(summaryUsername || normalizedSessionUsername);
       setBioInput(summary?.bio ?? "");
 
       if (resetMessages) {
@@ -272,7 +292,7 @@ export default function SettingsScreen() {
         setSaveError(null);
       }
     },
-    [],
+    [normalizedSessionUsername],
   );
 
   useFocusEffect(
@@ -282,7 +302,7 @@ export default function SettingsScreen() {
         return;
       }
 
-      if (!isDirty) {
+      if (!hasEditedDraft) {
         resetDraftFromProfile(profile, { resetMessages: true });
       }
       const profileState = queryClient.getQueryState<ProfileSummary | null>(
@@ -339,7 +359,7 @@ export default function SettingsScreen() {
 
       void refreshPushState();
     }, [
-      isDirty,
+      hasEditedDraft,
       profile,
       profileQueryKey,
       queryClient,
@@ -359,15 +379,22 @@ export default function SettingsScreen() {
   useEffect(() => {
     if (!userId) {
       resetDraftFromProfile(null);
+      setHasEditedDraft(false);
       return;
     }
 
-    if (isDirty || isSaving) {
+    if (hasEditedDraft || isSaving) {
       return;
     }
 
     resetDraftFromProfile(profile, { resetMessages: false });
-  }, [isDirty, isSaving, profile, resetDraftFromProfile, userId]);
+  }, [hasEditedDraft, isSaving, profile, resetDraftFromProfile, userId]);
+
+  useEffect(() => {
+    if (!isDirty && hasEditedDraft) {
+      setHasEditedDraft(false);
+    }
+  }, [hasEditedDraft, isDirty]);
 
   // Hydrate social links from profile once on first load
   useEffect(() => {
@@ -387,6 +414,28 @@ export default function SettingsScreen() {
   }, [userId]);
 
   useEffect(() => {
+    if (!saveMessage) {
+      return;
+    }
+
+    if (saveMessageTimeoutRef.current) {
+      clearTimeout(saveMessageTimeoutRef.current);
+    }
+
+    saveMessageTimeoutRef.current = setTimeout(() => {
+      setSaveMessage(null);
+      saveMessageTimeoutRef.current = null;
+    }, SAVE_PROFILE_FEEDBACK_DURATION_MS);
+
+    return () => {
+      if (saveMessageTimeoutRef.current) {
+        clearTimeout(saveMessageTimeoutRef.current);
+        saveMessageTimeoutRef.current = null;
+      }
+    };
+  }, [saveMessage]);
+
+  useEffect(() => {
     if (usernameCheckRef.current) {
       clearTimeout(usernameCheckRef.current);
     }
@@ -394,7 +443,7 @@ export default function SettingsScreen() {
     // No check needed if empty or unchanged from saved profile
     if (
       !normalizedUsernameInput ||
-      normalizedUsernameInput === normalizedProfileUsername ||
+      normalizedUsernameInput === normalizedCurrentUsername ||
       !usernameValidation.isValid
     ) {
       setUsernameCheckStatus("idle");
@@ -420,7 +469,7 @@ export default function SettingsScreen() {
       }
     };
   }, [
-    normalizedProfileUsername,
+    normalizedCurrentUsername,
     normalizedUsernameInput,
     userId,
     usernameValidation.isValid,
@@ -496,6 +545,8 @@ export default function SettingsScreen() {
       return;
     }
 
+    Keyboard.dismiss();
+
     const trimmedUsername = normalizedUsernameInput;
     const trimmedBio = bioInput.trim();
     const normalizedUsername =
@@ -549,7 +600,8 @@ export default function SettingsScreen() {
       );
       setUsernameInput(trimmedUsername);
       setBioInput(trimmedBio);
-      setSaveMessage("Profile updated");
+      setHasEditedDraft(false);
+      setSaveMessage("Profile saved");
 
       // Fire-and-forget: don't block UI on event emission
       void emitGameplayEvent({
@@ -685,6 +737,8 @@ export default function SettingsScreen() {
   const handleSaveSocialLinks = useCallback(async () => {
     if (!userId || isSavingSocialLinks) return;
 
+    Keyboard.dismiss();
+
     const normalized = socialLinksToSave(socialLinks);
 
     setIsSavingSocialLinks(true);
@@ -708,7 +762,13 @@ export default function SettingsScreen() {
     } finally {
       setIsSavingSocialLinks(false);
     }
-  }, [userId, isSavingSocialLinks, socialLinks, profileQueryKey, queryClient]);
+  }, [
+    userId,
+    isSavingSocialLinks,
+    socialLinks,
+    profileQueryKey,
+    queryClient,
+  ]);
 
   const handleToggleProfileConvention = useCallback(
     async (
@@ -1016,6 +1076,7 @@ export default function SettingsScreen() {
               <TailTagInput
                 value={usernameInput}
                 onChangeText={(value) => {
+                  setHasEditedDraft(true);
                   setUsernameInput(normalizeUsernameInput(value));
                   setSaveMessage(null);
                   setSaveError(null);
@@ -1053,11 +1114,13 @@ export default function SettingsScreen() {
               <TailTagInput
                 value={bioInput}
                 onChangeText={(value) => {
+                  setHasEditedDraft(true);
                   setBioInput(value);
                   setSaveMessage(null);
                   setSaveError(null);
                 }}
                 editable={!isProfileLoading && !isSaving}
+                autoCapitalize="sentences"
                 multiline
                 numberOfLines={4}
                 style={styles.bioInput}
@@ -1065,9 +1128,6 @@ export default function SettingsScreen() {
               />
             </View>
             {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
-            {saveMessage ? (
-              <Text style={styles.success}>{saveMessage}</Text>
-            ) : null}
             <TailTagButton
               onPress={handleSave}
               disabled={
@@ -1080,7 +1140,7 @@ export default function SettingsScreen() {
               }
               loading={isSaving}
             >
-              Save profile
+              {saveMessage ?? "Save profile"}
             </TailTagButton>
           </View>
         )}
