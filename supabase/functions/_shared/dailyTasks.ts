@@ -327,6 +327,23 @@ function evaluateMetric(events: NormalizedEvent[], metadata: DailyTaskMetadata, 
 
   const filtered = applyFilters(processedEvents, metadata.filters, userId);
   if (metadata.metric === "unique" && metadata.uniqueBy) {
+    if (metadata.eventType === "catch_performed") {
+      // For catches, duplicate attempts are prevented server-side at write time,
+      // so counting unique catches by stable IDs keeps progress intuitive and robust
+      // even if some payload fields are missing on legacy rows.
+      const seenCatchKeys = new Set<string>();
+      for (const event of filtered) {
+        const payload = event.payload ?? {};
+        const fursuitId = typeof payload["fursuit_id"] === "string" ? payload["fursuit_id"] : null;
+        const catchId = typeof payload["catch_id"] === "string" ? payload["catch_id"] : null;
+        const key = fursuitId ?? catchId ?? event.event_id;
+        if (typeof key === "string" && key.length > 0) {
+          seenCatchKeys.add(key);
+        }
+      }
+      return seenCatchKeys.size;
+    }
+
     const seen = new Set<string>();
     for (const event of filtered) {
       const target = metadata.uniqueBy.split(".").reduce<unknown>((acc, key) => {

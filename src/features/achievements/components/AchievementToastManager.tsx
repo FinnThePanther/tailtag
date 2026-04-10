@@ -546,7 +546,16 @@ export function AchievementToastManager() {
         let completedCount = 0;
         const tasks = summary.tasks.map((task) => {
           const metadata = normalizeDailyTaskMetadata(task.metadata);
-          if (!metadata || metadata.eventType !== event.type || metadata.metric !== 'total') {
+          const supportsOptimisticIncrement = Boolean(
+            metadata &&
+            metadata.eventType === event.type &&
+            (
+              metadata.metric === 'total' ||
+              (metadata.metric === 'unique' && event.type === 'catch_performed')
+            )
+          );
+
+          if (!metadata || !supportsOptimisticIncrement) {
             if (task.isCompleted) {
               completedCount += 1;
             }
