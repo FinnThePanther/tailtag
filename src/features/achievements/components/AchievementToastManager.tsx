@@ -423,6 +423,14 @@ export function AchievementToastManager() {
         ? (eventPayload.payload as Record<string, unknown>)
         : null;
       const normalizedEventPayload = nestedEventPayload ?? eventPayload;
+      const catcherIdRaw =
+        normalizedEventPayload.catcher_id ?? normalizedEventPayload.catcherId ?? null;
+      const catcherId = typeof catcherIdRaw === 'string' && catcherIdRaw.length > 0
+        ? catcherIdRaw
+        : null;
+      const isSelfCatchPerformedEvent = event.type !== 'catch_performed' ||
+        !catcherId ||
+        catcherId === userId;
 
       const predictedAchievementKeys: string[] = [];
 
@@ -441,27 +449,31 @@ export function AchievementToastManager() {
       ) {
         predictedAchievementKeys.push('PROFILE_COMPLETE');
       } else if (event.type === 'catch_performed') {
-        const tutorialValue = normalizedEventPayload.is_tutorial;
-        const isTutorialCatch = tutorialValue === true || tutorialValue === 'true';
+        if (!isSelfCatchPerformedEvent) {
+          scheduleCatchReconcile();
+        } else {
+          const tutorialValue = normalizedEventPayload.is_tutorial;
+          const isTutorialCatch = tutorialValue === true || tutorialValue === 'true';
 
-        if (!isTutorialCatch) {
-          const caughtSuits = queryClient.getQueryData<CaughtRecord[] | undefined>(
-            caughtSuitsQueryKey(userId),
-          );
-          const estimatedTotalCatches = Array.isArray(caughtSuits) ? caughtSuits.length + 1 : null;
+          if (!isTutorialCatch) {
+            const caughtSuits = queryClient.getQueryData<CaughtRecord[] | undefined>(
+              caughtSuitsQueryKey(userId),
+            );
+            const estimatedTotalCatches = Array.isArray(caughtSuits) ? caughtSuits.length + 1 : null;
 
-          if (estimatedTotalCatches === 1) {
-            predictedAchievementKeys.push('FIRST_CATCH');
+            if (estimatedTotalCatches === 1) {
+              predictedAchievementKeys.push('FIRST_CATCH');
+            }
+            if (estimatedTotalCatches === 10) {
+              predictedAchievementKeys.push('GETTING_THE_HANG_OF_IT');
+            }
+            if (estimatedTotalCatches === 25) {
+              predictedAchievementKeys.push('SUPER_CATCHER');
+            }
           }
-          if (estimatedTotalCatches === 10) {
-            predictedAchievementKeys.push('GETTING_THE_HANG_OF_IT');
-          }
-          if (estimatedTotalCatches === 25) {
-            predictedAchievementKeys.push('SUPER_CATCHER');
-          }
+
+          scheduleCatchReconcile();
         }
-
-        scheduleCatchReconcile();
       }
 
       for (const achievementKey of predictedAchievementKeys) {
@@ -505,6 +517,12 @@ export function AchievementToastManager() {
       }
 
       if (!event.conventionId) {
+        return;
+      }
+
+      if (event.type === 'catch_performed' && !isSelfCatchPerformedEvent) {
+        // Non-catcher local events (e.g. owner approving someone else's catch)
+        // should not optimistic-update catcher progress/toasts for the active user.
         return;
       }
 

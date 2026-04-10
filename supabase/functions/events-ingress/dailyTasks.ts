@@ -306,6 +306,25 @@ function evaluateMetric(events: NormalizedEvent[], metadata: DailyTaskMetadata, 
     });
   }
 
+  if (metadata.eventType === "catch_performed") {
+    // Only accepted catches should contribute to catch-based daily tasks.
+    // Synthetic fallback events from catch_confirmed may omit status and would double-count.
+    // Legacy events without status are kept unless they are catch_confirmed-sourced.
+    processedEvents = processedEvents.filter((event) => {
+      const rawStatus = event.payload["status"];
+      if (typeof rawStatus === "string" && rawStatus.length > 0) {
+        return rawStatus.toUpperCase() === "ACCEPTED";
+      }
+
+      const rawSource = event.payload["source"];
+      if (typeof rawSource === "string" && rawSource.toLowerCase() === "catch_confirmed") {
+        return false;
+      }
+
+      return true;
+    });
+  }
+
   const filtered = applyFilters(processedEvents, metadata.filters, userId);
   if (metadata.metric === "unique" && metadata.uniqueBy) {
     const seen = new Set<string>();
