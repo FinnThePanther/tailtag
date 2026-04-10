@@ -45,6 +45,11 @@ export const styles = StyleSheet.create({
   nudgeCard: {
     marginBottom: spacing.xl,
   },
+  nudgeCardAlert: {
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.5)',
+    backgroundColor: 'rgba(127,29,29,0.35)',
+  },
   nudgeContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -59,9 +64,15 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  nudgeTextAlert: {
+    color: '#fecaca',
+  },
   nudgeUsername: {
     fontWeight: '700',
     color: colors.foreground,
+  },
+  nudgeUsernameAlert: {
+    color: '#fca5a5',
   },
   nudgeDismiss: {
     paddingTop: 2,

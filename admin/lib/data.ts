@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from './supabase/service';
 import type { AdminProfile } from './auth';
 import type { Database } from '@/types/database';
+import { resolveAdminMediaUrl } from './storage';
 
 type PlayerSearchResult = {
   id: string;
@@ -60,7 +61,13 @@ export async function fetchPlayerSearch(params: {
     throw error;
   }
 
-  return data as PlayerSearchResult[];
+  return (data as PlayerSearchResult[]).map((row) => ({
+    ...row,
+    avatar_url: resolveAdminMediaUrl({
+      bucket: 'profile-avatars',
+      legacyUrl: row.avatar_url,
+    }),
+  }));
 }
 
 export async function fetchPlayerProfile(userId: string) {
@@ -81,7 +88,19 @@ export async function fetchPlayerProfile(userId: string) {
       .limit(10),
   ]);
 
-  return { profile, moderationSummary, actions };
+  return {
+    profile: profile
+      ? {
+          ...profile,
+          avatar_url: resolveAdminMediaUrl({
+            bucket: 'profile-avatars',
+            legacyUrl: profile.avatar_url,
+          }),
+        }
+      : null,
+    moderationSummary,
+    actions,
+  };
 }
 
 export async function fetchConventions(): Promise<ConventionRow[]> {
@@ -163,7 +182,23 @@ export async function fetchConvention(conventionId: string): Promise<{
     .eq('convention_id', conventionId)
     .order('assigned_at', { ascending: false });
 
-  const staff = (staffQuery.data ?? []) as EventStaffAssignment[];
+  const staff = ((staffQuery.data ?? []) as EventStaffAssignment[]).map((entry) => {
+    const profile = Array.isArray(entry.profiles) ? entry.profiles[0] : entry.profiles;
+    if (!profile) {
+      return entry;
+    }
+
+    return {
+      ...entry,
+      profiles: {
+        ...profile,
+        avatar_url: resolveAdminMediaUrl({
+          bucket: 'profile-avatars',
+          legacyUrl: profile.avatar_url ?? null,
+        }),
+      },
+    } satisfies EventStaffAssignment;
+  });
 
   const convention = (conventionData ?? null) as unknown as ConventionRow | null;
 

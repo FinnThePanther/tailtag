@@ -20,6 +20,7 @@ export type FursuitSummary = {
   species: string | null;
   speciesId: string | null;
   colors: FursuitColorOption[];
+  avatar_path?: string | null;
   avatar_url: string | null;
   description: string | null;
   unique_code: string | null;

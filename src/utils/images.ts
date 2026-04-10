@@ -1,4 +1,5 @@
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import { extractStoragePathFromUrl } from './supabase-image';
 
 export type ImageAssetMetadata = {
   fileName?: string | null;
@@ -129,14 +130,10 @@ export const IMAGE_UPLOAD_PRESETS = {
 };
 
 export function extractStoragePath(
-  publicUrl: string | null | undefined,
+  fileUrl: string | null | undefined,
   bucket: string,
 ): string | null {
-  if (!publicUrl) return null;
-  const prefix = `/storage/v1/object/public/${bucket}/`;
-  const idx = publicUrl.indexOf(prefix);
-  if (idx === -1) return null;
-  return publicUrl.slice(idx + prefix.length).split('?')[0] ?? null;
+  return extractStoragePathFromUrl(fileUrl, bucket);
 }
 
 export const buildImageUploadCandidate = <

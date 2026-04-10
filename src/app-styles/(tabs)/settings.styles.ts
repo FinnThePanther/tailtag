@@ -9,8 +9,18 @@ export const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
   header: {
+    flex: 1,
     gap: spacing.xs,
+  },
+  menuButton: {
+    padding: spacing.xs,
+    marginTop: 2,
   },
   eyebrow: {
     fontSize: 12,
@@ -132,6 +142,16 @@ export const styles = StyleSheet.create({
   },
   usernameTaken: {
     color: '#fca5a5',
+    fontSize: 12,
+    marginTop: spacing.xs,
+  },
+  usernameInvalid: {
+    color: '#fca5a5',
+    fontSize: 12,
+    marginTop: spacing.xs,
+  },
+  usernameError: {
+    color: colors.textSubtle,
     fontSize: 12,
     marginTop: spacing.xs,
   },

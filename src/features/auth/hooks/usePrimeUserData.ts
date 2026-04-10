@@ -2,12 +2,11 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { createProfileQueryOptions, PROFILE_QUERY_KEY } from '../../profile';
+import { createMySuitsQueryOptions, MY_SUITS_QUERY_KEY } from '../../suits/api/mySuits';
 import {
-  createMySuitsQueryOptions,
-  MY_SUITS_QUERY_KEY,
   createCaughtSuitsQueryOptions,
   CAUGHT_SUITS_QUERY_KEY,
-} from '../../suits';
+} from '../../suits/api/caughtSuits';
 import { addMonitoringBreadcrumb, captureHandledException } from '../../../lib/sentry';
 
 const QUERY_PREFIXES_TO_CLEAR = [

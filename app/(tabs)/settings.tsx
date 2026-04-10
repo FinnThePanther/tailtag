@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   Pressable,
   Switch,
   Text,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { MenuView } from "@react-native-menu/menu";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 
@@ -43,15 +46,20 @@ import {
   buildImageUploadCandidate,
   extractStoragePath,
 } from "../../src/utils/images";
+import { buildAuthenticatedStorageObjectUrl } from "../../src/utils/supabase-image";
 import { PROFILE_AVATAR_BUCKET } from "../../src/constants/storage";
 import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import {
   checkUsernameAvailability,
   fetchProfile,
+  hasUploadedProfileAvatar,
+  normalizeUsernameInput,
+  USERNAME_MAX_LENGTH,
   uploadProfileAvatar,
   updateProfileAvatar,
   updateProfileSocialLinks,
+  validateUsername,
   PROFILE_QUERY_KEY,
   PROFILE_STALE_TIME,
 } from "../../src/features/profile";
@@ -78,8 +86,8 @@ import { CONVENTION_LEADERBOARD_QUERY_KEY } from "../../src/features/leaderboard
 import { usePushNotifications } from "../../src/features/push-notifications";
 import { styles } from "../../src/app-styles/(tabs)/settings.styles";
 
-const FEEDBACK_FORM_URL =
-  "https://forms.gle/e65DqKt1VsuvoFTx8";
+const FEEDBACK_FORM_URL = "https://forms.gle/e65DqKt1VsuvoFTx8";
+const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -205,6 +213,10 @@ export default function SettingsScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [hasEditedDraft, setHasEditedDraft] = useState(false);
+  const saveMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(
@@ -222,6 +234,49 @@ export default function SettingsScreen() {
     [profileConventionIds],
   );
 
+  const normalizedUsernameInput = useMemo(
+    () => normalizeUsernameInput(usernameInput),
+    [usernameInput],
+  );
+  const normalizedSessionUsername = useMemo(() => {
+    const metadataUsername = session?.user.user_metadata?.username;
+    return typeof metadataUsername === "string"
+      ? normalizeUsernameInput(metadataUsername)
+      : "";
+  }, [session?.user.user_metadata?.username]);
+  const normalizedProfileUsername = useMemo(
+    () => normalizeUsernameInput(profile?.username ?? ""),
+    [profile?.username],
+  );
+  const normalizedCurrentUsername = useMemo(
+    () =>
+      normalizedProfileUsername.length > 0
+        ? normalizedProfileUsername
+        : normalizedSessionUsername,
+    [normalizedProfileUsername, normalizedSessionUsername],
+  );
+  const usernameValidation = useMemo(
+    () => validateUsername(normalizedUsernameInput, { allowEmpty: true }),
+    [normalizedUsernameInput],
+  );
+  const hasUsernameValidationError =
+    normalizedUsernameInput.length > 0 && !usernameValidation.isValid;
+  const usernameValidationMessage = hasUsernameValidationError
+    ? usernameValidation.message
+    : null;
+
+  const isDirty = useMemo(() => {
+    const usernameChanged =
+      normalizedCurrentUsername !== normalizedUsernameInput;
+    const bioChanged = (profile?.bio ?? "") !== bioInput.trim();
+    return usernameChanged || bioChanged;
+  }, [
+    bioInput,
+    normalizedCurrentUsername,
+    normalizedUsernameInput,
+    profile?.bio,
+  ]);
+
   const resetDraftFromProfile = useCallback(
     (
       summary: ProfileSummary | null,
@@ -229,7 +284,8 @@ export default function SettingsScreen() {
     ) => {
       const { resetMessages = true } = options;
 
-      setUsernameInput(summary?.username ?? "");
+      const summaryUsername = normalizeUsernameInput(summary?.username ?? "");
+      setUsernameInput(summaryUsername || normalizedSessionUsername);
       setBioInput(summary?.bio ?? "");
 
       if (resetMessages) {
@@ -237,7 +293,7 @@ export default function SettingsScreen() {
         setSaveError(null);
       }
     },
-    [],
+    [normalizedSessionUsername],
   );
 
   useFocusEffect(
@@ -247,7 +303,9 @@ export default function SettingsScreen() {
         return;
       }
 
-      resetDraftFromProfile(profile, { resetMessages: true });
+      if (!hasEditedDraft) {
+        resetDraftFromProfile(profile, { resetMessages: true });
+      }
       const profileState = queryClient.getQueryState<ProfileSummary | null>(
         profileQueryKey,
       );
@@ -302,6 +360,7 @@ export default function SettingsScreen() {
 
       void refreshPushState();
     }, [
+      hasEditedDraft,
       profile,
       profileQueryKey,
       queryClient,
@@ -321,11 +380,22 @@ export default function SettingsScreen() {
   useEffect(() => {
     if (!userId) {
       resetDraftFromProfile(null);
+      setHasEditedDraft(false);
+      return;
+    }
+
+    if (hasEditedDraft || isSaving) {
       return;
     }
 
     resetDraftFromProfile(profile, { resetMessages: false });
-  }, [profile, resetDraftFromProfile, userId]);
+  }, [hasEditedDraft, isSaving, profile, resetDraftFromProfile, userId]);
+
+  useEffect(() => {
+    if (!isDirty && hasEditedDraft) {
+      setHasEditedDraft(false);
+    }
+  }, [hasEditedDraft, isDirty]);
 
   // Hydrate social links from profile once on first load
   useEffect(() => {
@@ -345,14 +415,38 @@ export default function SettingsScreen() {
   }, [userId]);
 
   useEffect(() => {
+    if (!saveMessage) {
+      return;
+    }
+
+    if (saveMessageTimeoutRef.current) {
+      clearTimeout(saveMessageTimeoutRef.current);
+    }
+
+    saveMessageTimeoutRef.current = setTimeout(() => {
+      setSaveMessage(null);
+      saveMessageTimeoutRef.current = null;
+    }, SAVE_PROFILE_FEEDBACK_DURATION_MS);
+
+    return () => {
+      if (saveMessageTimeoutRef.current) {
+        clearTimeout(saveMessageTimeoutRef.current);
+        saveMessageTimeoutRef.current = null;
+      }
+    };
+  }, [saveMessage]);
+
+  useEffect(() => {
     if (usernameCheckRef.current) {
       clearTimeout(usernameCheckRef.current);
     }
 
-    const trimmed = usernameInput.trim();
-
     // No check needed if empty or unchanged from saved profile
-    if (!trimmed || trimmed === (profile?.username ?? "")) {
+    if (
+      !normalizedUsernameInput ||
+      normalizedUsernameInput === normalizedCurrentUsername ||
+      !usernameValidation.isValid
+    ) {
       setUsernameCheckStatus("idle");
       return;
     }
@@ -361,7 +455,7 @@ export default function SettingsScreen() {
 
     usernameCheckRef.current = setTimeout(() => {
       if (!userId) return;
-      checkUsernameAvailability(trimmed, userId)
+      checkUsernameAvailability(normalizedUsernameInput, userId)
         .then((available) => {
           setUsernameCheckStatus(available ? "available" : "taken");
         })
@@ -375,7 +469,12 @@ export default function SettingsScreen() {
         clearTimeout(usernameCheckRef.current);
       }
     };
-  }, [usernameInput, profile?.username, userId]);
+  }, [
+    normalizedCurrentUsername,
+    normalizedUsernameInput,
+    userId,
+    usernameValidation.isValid,
+  ]);
 
   const conventionsLoadError =
     conventionsError?.message ?? profileConventionsError?.message ?? null;
@@ -439,12 +538,6 @@ export default function SettingsScreen() {
     await WebBrowser.openBrowserAsync(FEEDBACK_FORM_URL);
   }, []);
 
-  const isDirty = (() => {
-    const usernameChanged = (profile?.username ?? "") !== usernameInput.trim();
-    const bioChanged = (profile?.bio ?? "") !== bioInput.trim();
-    return usernameChanged || bioChanged;
-  })();
-
   const isUsernameTaken = usernameCheckStatus === "taken";
   const isUsernameChecking = usernameCheckStatus === "checking";
 
@@ -453,11 +546,21 @@ export default function SettingsScreen() {
       return;
     }
 
-    const trimmedUsername = usernameInput.trim();
+    Keyboard.dismiss();
+
+    const trimmedUsername = normalizedUsernameInput;
     const trimmedBio = bioInput.trim();
     const normalizedUsername =
       trimmedUsername.length > 0 ? trimmedUsername : null;
     const normalizedBio = trimmedBio.length > 0 ? trimmedBio : null;
+
+    if (normalizedUsername) {
+      const validation = validateUsername(normalizedUsername);
+      if (!validation.isValid) {
+        setSaveError(validation.message ?? "Please enter a valid username.");
+        return;
+      }
+    }
 
     setIsSaving(true);
     setSaveError(null);
@@ -480,25 +583,38 @@ export default function SettingsScreen() {
 
       queryClient.setQueryData<ProfileSummary | null>(
         profileQueryKey,
-        (current) => ({
-          username: normalizedUsername,
-          bio: normalizedBio,
-          avatar_url: current?.avatar_url ?? null,
-          social_links: current?.social_links ?? [],
-          is_new: current?.is_new ?? false,
-          onboarding_completed: current?.onboarding_completed ?? false,
-          role: current?.role,
-        }),
+        (current) =>
+          current
+            ? {
+                ...current,
+                username: normalizedUsername,
+                bio: normalizedBio,
+              }
+            : {
+                username: normalizedUsername,
+                bio: normalizedBio,
+                avatar_path: null,
+                avatar_url: null,
+                social_links: [],
+                is_new: false,
+                onboarding_completed: false,
+              },
       );
       setUsernameInput(trimmedUsername);
       setBioInput(trimmedBio);
-      setSaveMessage("Profile updated");
+      setHasEditedDraft(false);
+      setSaveMessage("Profile saved");
 
       // Fire-and-forget: don't block UI on event emission
       void emitGameplayEvent({
         type: "profile_updated",
         payload: {
           username_present: trimmedUsername.length > 0,
+          bio_present: trimmedBio.length > 0,
+          avatar_present: hasUploadedProfileAvatar(
+            profile?.avatar_url,
+            profile?.avatar_path,
+          ),
         },
       }).catch((error) => {
         captureHandledException(error, {
@@ -520,8 +636,10 @@ export default function SettingsScreen() {
     userId,
     isSaving,
     isDirty,
-    usernameInput,
+    normalizedUsernameInput,
     bioInput,
+    profile?.avatar_path,
+    profile?.avatar_url,
     profileQueryKey,
     queryClient,
   ]);
@@ -551,14 +669,41 @@ export default function SettingsScreen() {
       const oldAvatarUrl =
         queryClient.getQueryData<ProfileSummary | null>(profileQueryKey)
           ?.avatar_url ?? null;
-      const publicUrl = await uploadProfileAvatar(userId, photo);
-      await updateProfileAvatar(userId, publicUrl);
+      const oldAvatarPath =
+        queryClient.getQueryData<ProfileSummary | null>(profileQueryKey)
+          ?.avatar_path ?? null;
+      const avatarPath = await uploadProfileAvatar(userId, photo);
+      await updateProfileAvatar(userId, avatarPath);
+      const avatarUrl = buildAuthenticatedStorageObjectUrl(
+        PROFILE_AVATAR_BUCKET,
+        avatarPath,
+      );
       queryClient.setQueryData<ProfileSummary | null>(
         profileQueryKey,
         (current) =>
-          current ? { ...current, avatar_url: publicUrl } : current,
+          current
+            ? {
+                ...current,
+                avatar_path: avatarPath,
+                avatar_url: avatarUrl,
+              }
+            : current,
       );
-      const oldPath = extractStoragePath(oldAvatarUrl, PROFILE_AVATAR_BUCKET);
+      void emitGameplayEvent({
+        type: "profile_updated",
+        payload: {
+          username_present: Boolean(profile?.username?.trim()),
+          bio_present: Boolean(profile?.bio?.trim()),
+          avatar_present: true,
+        },
+      }).catch((error) => {
+        captureHandledException(error, {
+          scope: "settings.handlePickAvatar.profileUpdated",
+          userId,
+        });
+      });
+      const oldPath =
+        oldAvatarPath ?? extractStoragePath(oldAvatarUrl, PROFILE_AVATAR_BUCKET);
       if (oldPath) {
         void supabase.storage
           .from(PROFILE_AVATAR_BUCKET)
@@ -574,7 +719,14 @@ export default function SettingsScreen() {
     } finally {
       setIsUploadingAvatar(false);
     }
-  }, [userId, isUploadingAvatar, profileQueryKey, queryClient]);
+  }, [
+    userId,
+    isUploadingAvatar,
+    profile?.bio,
+    profile?.username,
+    profileQueryKey,
+    queryClient,
+  ]);
 
   const socialLinksCanAddMore = socialLinks.length < SOCIAL_LINK_LIMIT;
 
@@ -605,6 +757,8 @@ export default function SettingsScreen() {
   const handleSaveSocialLinks = useCallback(async () => {
     if (!userId || isSavingSocialLinks) return;
 
+    Keyboard.dismiss();
+
     const normalized = socialLinksToSave(socialLinks);
 
     setIsSavingSocialLinks(true);
@@ -628,7 +782,13 @@ export default function SettingsScreen() {
     } finally {
       setIsSavingSocialLinks(false);
     }
-  }, [userId, isSavingSocialLinks, socialLinks, profileQueryKey, queryClient]);
+  }, [
+    userId,
+    isSavingSocialLinks,
+    socialLinks,
+    profileQueryKey,
+    queryClient,
+  ]);
 
   const handleToggleProfileConvention = useCallback(
     async (
@@ -654,6 +814,10 @@ export default function SettingsScreen() {
       });
 
       try {
+        const previouslySelectedConventionIds = (
+          profileConventionIds ?? []
+        ).filter((id) => id !== conventionId);
+
         if (!nextSelected) {
           await optOutOfConvention(userId, conventionId);
           queryClient.setQueryData<string[]>(
@@ -668,20 +832,20 @@ export default function SettingsScreen() {
             verifiedLocation: verifiedLocation ?? undefined,
             verificationMethod: verifiedLocation ? "gps" : "none",
           });
-          queryClient.setQueryData<string[]>(
-            profileConventionQueryKey,
-            (current) => {
-              const next = new Set(current ?? []);
-              next.add(conventionId);
-              return Array.from(next);
-            },
-          );
+          queryClient.setQueryData<string[]>(profileConventionQueryKey, [
+            conventionId,
+          ]);
         }
         void queryClient.invalidateQueries({
           queryKey: [DAILY_TASKS_QUERY_KEY],
         });
         void queryClient.invalidateQueries({
           queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
+        });
+        previouslySelectedConventionIds.forEach((id) => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, id],
+          });
         });
       } catch (caught) {
         const fallbackMessage =
@@ -697,7 +861,13 @@ export default function SettingsScreen() {
         });
       }
     },
-    [pendingMemberships, profileConventionQueryKey, queryClient, userId],
+    [
+      pendingMemberships,
+      profileConventionIds,
+      profileConventionQueryKey,
+      queryClient,
+      userId,
+    ],
   );
 
   const handleSignOut = useCallback(async () => {
@@ -813,12 +983,37 @@ export default function SettingsScreen() {
 
   return (
     <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>Settings</Text>
-        <Text style={styles.title}>Profile & account</Text>
-        <Text style={styles.subtitle}>
-          Update your settings, sign out, or delete your account.
-        </Text>
+      <View style={styles.headerRow}>
+        <View style={styles.header}>
+          <Text style={styles.eyebrow}>Settings</Text>
+          <Text style={styles.title}>Profile & account</Text>
+          <Text style={styles.subtitle}>
+            Update your settings, sign out, or delete your account.
+          </Text>
+        </View>
+        <MenuView
+          title="More options"
+          onPressAction={({ nativeEvent }) => {
+            if (nativeEvent.event === "blocked-users") {
+              router.push("/blocked-users");
+            }
+          }}
+          actions={[
+            {
+              id: "blocked-users",
+              title: "Blocked users",
+              image: "hand.raised",
+            },
+          ]}
+        >
+          <Pressable style={styles.menuButton} hitSlop={8}>
+            <Ionicons
+              name="ellipsis-vertical"
+              size={20}
+              color={colors.textMuted}
+            />
+          </Pressable>
+        </MenuView>
       </View>
 
       <TailTagCard>
@@ -901,14 +1096,22 @@ export default function SettingsScreen() {
               <TailTagInput
                 value={usernameInput}
                 onChangeText={(value) => {
-                  setUsernameInput(value);
+                  setHasEditedDraft(true);
+                  setUsernameInput(normalizeUsernameInput(value));
                   setSaveMessage(null);
                   setSaveError(null);
                 }}
                 editable={!isProfileLoading && !isSaving}
-                placeholder="Pick a handle tailtaggers will remember"
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={USERNAME_MAX_LENGTH}
+                placeholder="Choose a username that identifies you"
               />
-              {usernameCheckStatus === "checking" ? (
+              {usernameValidationMessage ? (
+                <Text style={styles.usernameInvalid}>
+                  {usernameValidationMessage}
+                </Text>
+              ) : usernameCheckStatus === "checking" ? (
                 <Text style={styles.usernameChecking}>
                   Checking availability…
                 </Text>
@@ -920,6 +1123,10 @@ export default function SettingsScreen() {
                 <Text style={styles.usernameTaken}>
                   Username is already taken
                 </Text>
+              ) : usernameCheckStatus === "error" ? (
+                <Text style={styles.usernameError}>
+                  Could not verify availability. Try again.
+                </Text>
               ) : null}
             </View>
             <View style={styles.fieldGroup}>
@@ -927,11 +1134,13 @@ export default function SettingsScreen() {
               <TailTagInput
                 value={bioInput}
                 onChangeText={(value) => {
+                  setHasEditedDraft(true);
                   setBioInput(value);
                   setSaveMessage(null);
                   setSaveError(null);
                 }}
                 editable={!isProfileLoading && !isSaving}
+                autoCapitalize="sentences"
                 multiline
                 numberOfLines={4}
                 style={styles.bioInput}
@@ -939,21 +1148,19 @@ export default function SettingsScreen() {
               />
             </View>
             {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
-            {saveMessage ? (
-              <Text style={styles.success}>{saveMessage}</Text>
-            ) : null}
             <TailTagButton
               onPress={handleSave}
               disabled={
                 !isDirty ||
                 isProfileLoading ||
                 isSaving ||
+                hasUsernameValidationError ||
                 isUsernameTaken ||
                 isUsernameChecking
               }
               loading={isSaving}
             >
-              Save profile
+              {saveMessage ?? "Save profile"}
             </TailTagButton>
           </View>
         )}
@@ -1142,8 +1349,8 @@ export default function SettingsScreen() {
         <View style={styles.conventionSection}>
           <Text style={styles.sectionTitle}>Convention attendance</Text>
           <Text style={styles.sectionDescription}>
-            Opt into conventions you&apos;ll be at so catches only count when
-            everyone is on-site.
+            Assign your current convention so catches only count when everyone
+            is on-site.
           </Text>
 
           {isConventionsBusy ? (
@@ -1267,21 +1474,6 @@ export default function SettingsScreen() {
           </View>
         </TailTagCard>
       ) : null}
-
-      <TailTagCard>
-        <View style={styles.accountSection}>
-          <Text style={styles.sectionTitle}>Moderation</Text>
-          <Text style={styles.sectionDescription}>
-            Manage users you have blocked.
-          </Text>
-          <TailTagButton
-            variant="outline"
-            onPress={() => router.push("/blocked-users")}
-          >
-            Blocked users
-          </TailTagButton>
-        </View>
-      </TailTagCard>
 
       <TailTagCard>
         <View style={styles.accountSection}>

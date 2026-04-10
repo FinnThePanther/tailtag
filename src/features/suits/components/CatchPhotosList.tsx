@@ -14,7 +14,9 @@ import * as Sharing from "expo-sharing";
 
 import { AppImage } from "../../../components/ui/AppImage";
 import { TailTagButton } from "../../../components/ui/TailTagButton";
+import { useAuth } from "../../auth/providers/AuthProvider";
 import { inferImageExtension, inferImageMimeType } from "../../../utils/images";
+import { getStorageAuthHeaders, toExpoImageSource } from "../../../utils/supabase-image";
 import type { CatchOfFursuitItem } from "../api/catchesByFursuit";
 import { styles } from "./CatchPhotosList.styles";
 
@@ -25,6 +27,7 @@ type CatchPhotosListProps = {
 };
 
 export function CatchPhotosList({ items }: CatchPhotosListProps) {
+  const { session } = useAuth();
   const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -44,7 +47,9 @@ export function CatchPhotosList({ items }: CatchPhotosListProps) {
       const extension = inferImageExtension({ uri: url }) || "jpg";
       const mimeType = inferImageMimeType({ uri: url });
       const dest = new File(Paths.cache, `catch-${Date.now()}.${extension}`);
-      const file = await File.downloadFileAsync(url, dest);
+      const file = await File.downloadFileAsync(url, dest, {
+        headers: getStorageAuthHeaders(url, session?.access_token),
+      });
       await Sharing.shareAsync(file.uri, {
         mimeType,
         dialogTitle: "Save catch photo",
@@ -57,7 +62,7 @@ export function CatchPhotosList({ items }: CatchPhotosListProps) {
     } finally {
       setIsDownloading(false);
     }
-  }, []);
+  }, [session?.access_token]);
 
   if (withPhoto.length === 0) {
     return null;
@@ -107,7 +112,7 @@ export function CatchPhotosList({ items }: CatchPhotosListProps) {
               <Ionicons name="close" size={28} color="#fff" />
             </Pressable>
             <Image
-              source={fullscreenUrl}
+              source={toExpoImageSource(fullscreenUrl, session?.access_token)}
               style={styles.fullscreenImage}
               contentFit="contain"
               accessibilityLabel="Catch photo fullscreen"

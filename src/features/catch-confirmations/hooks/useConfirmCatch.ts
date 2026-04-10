@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth';
 import { useToast } from '../../../hooks/useToast';
 import { captureHandledException } from '../../../lib/sentry';
+import { achievementsStatusQueryKey } from '../../achievements';
+import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks/hooks';
 import {
   confirmCatch,
   pendingCatchesQueryKey,
@@ -73,6 +75,16 @@ export function useConfirmCatch(options?: UseConfirmCatchOptions) {
           ? 'Catch approved! The catcher has been notified and it now counts in their collection.'
           : 'Catch request declined. The catcher has been notified.';
       showToast(message);
+
+      if (result.decision === 'accept' && userId) {
+        void queryClient.invalidateQueries({
+          queryKey: achievementsStatusQueryKey(userId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [DAILY_TASKS_QUERY_KEY],
+        });
+      }
+
       options?.onSuccess?.(result.decision);
     },
     onError: (error, _variables, context) => {

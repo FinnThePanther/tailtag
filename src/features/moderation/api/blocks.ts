@@ -1,5 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import type { UserBlock } from '../types';
+import { PROFILE_AVATAR_BUCKET } from '../../../constants/storage';
+import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
 export const BLOCKED_USERS_QUERY_KEY = 'blocked-users';
 export const BLOCKED_IDS_QUERY_KEY = 'blocked-ids';
@@ -24,7 +26,11 @@ export async function fetchBlockedUsers(userId: string): Promise<UserBlock[]> {
     blockerId: row.blocker_id,
     blockedId: row.blocked_id,
     blockedUsername: row.blocked_username ?? null,
-    blockedAvatarUrl: row.blocked_avatar_url ?? null,
+    blockedAvatarUrl: resolveStorageMediaUrl({
+      bucket: PROFILE_AVATAR_BUCKET,
+      path: null,
+      legacyUrl: row.blocked_avatar_url ?? null,
+    }),
     createdAt: row.created_at,
   }));
 }

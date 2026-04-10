@@ -13,6 +13,10 @@ import {
   loadGameplayQueueConfig,
   scheduleGameplayQueueDrain,
 } from "../_shared/gameplayQueue.ts";
+import {
+  processAchievementsForEvent,
+} from "../_shared/achievements.ts";
+import type { InsertableEventRow } from "../_shared/types.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +51,7 @@ interface CreateCatchRequest {
 
 interface UpdateCatchPhotoRequest {
   catch_id: string;
+  catch_photo_path?: string;
   catch_photo_url: string;
 }
 
@@ -57,6 +62,106 @@ interface CreateCatchResponse {
   catch_number: number | null;
   requires_approval: boolean;
   fursuit_owner_id: string;
+}
+
+type InlineEventRow = {
+  event_id: string;
+  user_id: string;
+  convention_id: string | null;
+  type: string;
+  payload: Record<string, unknown> | null;
+  occurred_at: string;
+  processed_at: string | null;
+  queue_message_id: number | string | null;
+};
+
+function parseQueueMessageId(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.trunc(value);
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+async function processEventInline(eventId: string): Promise<{
+  processed: boolean;
+  awards: unknown[];
+}> {
+  const { data, error } = await supabaseAdmin
+    .from("events")
+    .select("event_id,user_id,convention_id,type,payload,occurred_at,processed_at,queue_message_id")
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load event ${eventId}: ${error.message}`);
+  }
+
+  const row = (data ?? null) as InlineEventRow | null;
+
+  if (!row) {
+    return { processed: false, awards: [] };
+  }
+
+  if (row.processed_at) {
+    return { processed: false, awards: [] };
+  }
+
+  const eventRow: InsertableEventRow = {
+    event_id: row.event_id,
+    user_id: row.user_id,
+    convention_id: row.convention_id,
+    type: row.type,
+    payload: row.payload ?? {},
+    occurred_at: row.occurred_at,
+  };
+
+  const processResult = await processAchievementsForEvent(supabaseAdmin, eventRow);
+  const now = new Date().toISOString();
+
+  const { error: stampError } = await supabaseAdmin
+    .from("events")
+    .update({
+      retry_count: 0,
+      processed_at: now,
+      last_attempted_at: now,
+      last_error: null,
+    })
+    .eq("event_id", eventId)
+    .is("processed_at", null);
+
+  if (stampError) {
+    console.error("[create-catch] Failed to stamp processed event after inline processing", {
+      eventId,
+      error: stampError,
+    });
+  }
+
+  const queueMessageId = parseQueueMessageId(row.queue_message_id);
+  if (queueMessageId !== null) {
+    const { error: queueDeleteError } = await supabaseAdmin.rpc("delete_gameplay_event_queue_message", {
+      p_message_id: queueMessageId,
+    });
+    if (queueDeleteError) {
+      console.error("[create-catch] Failed deleting queue message after inline processing", {
+        eventId,
+        queueMessageId,
+        error: queueDeleteError,
+      });
+    }
+  }
+
+  return {
+    processed: true,
+    awards: processResult.awards,
+  };
 }
 
 function jsonResponse(status: number, payload: unknown) {
@@ -248,8 +353,28 @@ async function handlePost(req: Request): Promise<Response> {
       idempotencyKey: `catch:${result.catch_id}:${eventType}`,
     });
 
-    if (ingestResult.enqueued && !ingestResult.duplicate) {
-      const queueConfig = await loadGameplayQueueConfig(supabaseAdmin);
+    const queueConfig = await loadGameplayQueueConfig(supabaseAdmin);
+    let inlineAwards: unknown[] = [];
+    let processedInline = false;
+
+    if (
+      !ingestResult.duplicate &&
+      queueConfig.inlineProcessingEnabled &&
+      eventType === "catch_performed"
+    ) {
+      try {
+        const inlineResult = await processEventInline(ingestResult.eventId);
+        processedInline = inlineResult.processed;
+        inlineAwards = inlineResult.awards;
+      } catch (inlineError) {
+        console.error("[create-catch] Inline gameplay processing failed; falling back to queue wakeup", {
+          eventId: ingestResult.eventId,
+          error: inlineError,
+        });
+      }
+    }
+
+    if (ingestResult.enqueued && !ingestResult.duplicate && !processedInline) {
       if (queueConfig.queueEnabled && queueConfig.wakeupEnabled) {
         scheduleGameplayQueueDrain({
           supabaseUrl: resolvedSupabaseUrl,
@@ -260,7 +385,13 @@ async function handlePost(req: Request): Promise<Response> {
       }
     }
 
-    return jsonResponse(201, result);
+    return jsonResponse(201, {
+      ...result,
+      event_id: ingestResult.eventId,
+      awards: inlineAwards,
+      species: speciesName,
+      colors: colorNames,
+    });
   } catch (error) {
     console.error("[create-catch] Unexpected error:", error);
     return jsonResponse(500, { error: "Internal server error" });
@@ -301,7 +432,10 @@ async function handlePatch(req: Request): Promise<Response> {
 
   const { error: updateError } = await supabaseAdmin
     .from('catches')
-    .update({ catch_photo_url: body.catch_photo_url })
+    .update({
+      catch_photo_path: body.catch_photo_path ?? null,
+      catch_photo_url: body.catch_photo_url,
+    })
     .eq('id', body.catch_id);
 
   if (updateError) {

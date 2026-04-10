@@ -50,11 +50,12 @@ import {
   DAILY_TASKS_QUERY_KEY,
 } from "../../src/features/daily-tasks";
 import { spacing } from "../../src/theme";
-import { getTransformedImageUrl } from "../../src/utils/supabase-image";
+import { getStorageAuthHeaders, getTransformedImageUrl } from "../../src/utils/supabase-image";
 import { styles } from "../../src/app-styles/(tabs)/index.styles";
 
 const MAX_LEADERBOARD_ENTRIES = 5;
-const USERNAME_NUDGE_DISMISSED_KEY = "tailtag:username-nudge-dismissed";
+const usernameNudgeDismissedKey = (userId: string) =>
+  `tailtag:username-nudge-dismissed:${userId}`;
 
 const formatCatchCount = (count: number) =>
   count === 1 ? "1 catch" : `${count} catches`;
@@ -67,32 +68,51 @@ export default function HomeScreen() {
   const { width: windowWidth } = useWindowDimensions();
 
   // Username change nudge
-  const [nudgeDismissed, setNudgeDismissed] = useState(true);
+  const [nudgeDismissed, setNudgeDismissed] = useState<boolean | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    AsyncStorage.getItem(USERNAME_NUDGE_DISMISSED_KEY)
+    let isActive = true;
+
+    if (!userId) {
+      setNudgeDismissed(true);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    setNudgeDismissed(null);
+
+    AsyncStorage.getItem(usernameNudgeDismissedKey(userId))
       .then((value) => {
-        if (mounted && value !== "true") {
-          setNudgeDismissed(false);
+        if (isActive) {
+          setNudgeDismissed(value === "true");
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (isActive) {
+          setNudgeDismissed(false);
+        }
+      });
+
     return () => {
-      mounted = false;
+      isActive = false;
     };
-  }, []);
+  }, [userId]);
 
   const handleDismissNudge = useCallback(() => {
+    if (!userId) {
+      return;
+    }
+
     setNudgeDismissed(true);
-    AsyncStorage.setItem(USERNAME_NUDGE_DISMISSED_KEY, "true").catch(
+    AsyncStorage.setItem(usernameNudgeDismissedKey(userId), "true").catch(
       () => undefined,
     );
-  }, []);
+  }, [userId]);
 
   const { data: profile } = useQuery({
     queryKey: userId ? profileQueryKey(userId) : ["profile", "guest"],
-    enabled: Boolean(userId) && !nudgeDismissed,
+    enabled: Boolean(userId) && nudgeDismissed === false,
     queryFn: () => fetchProfile(userId!),
   });
 
@@ -148,7 +168,6 @@ export default function HomeScreen() {
     data: achievementStatuses = [],
     error: achievementsError,
     isLoading: isAchievementsLoading,
-    isFetching: isAchievementsFetching,
     refetch: refetchAchievements,
   } = useQuery<AchievementWithStatus[], Error>({
     queryKey: achievementsQueryKey,
@@ -184,7 +203,8 @@ export default function HomeScreen() {
   }, [unlockedAchievements]);
 
   const achievementsErrorMessage = achievementsError?.message ?? null;
-  const isAchievementsBusy = isAchievementsLoading || isAchievementsFetching;
+  const showAchievementsSkeleton =
+    achievementStatuses.length === 0 && isAchievementsLoading;
 
   const conventionMap = useMemo(() => {
     return new Map(
@@ -200,37 +220,10 @@ export default function HomeScreen() {
       );
   }, [conventionMap, profileConventionIds]);
 
-  const [selectedConventionId, setSelectedConventionId] = useState<
-    string | null
-  >(null);
-
-  useEffect(() => {
-    setSelectedConventionId((current) => {
-      if (availableConventions.length === 0) {
-        return null;
-      }
-
-      if (
-        current &&
-        availableConventions.some((convention) => convention.id === current)
-      ) {
-        return current;
-      }
-
-      return availableConventions[0]?.id ?? null;
-    });
-  }, [availableConventions]);
-
   const selectedConvention = useMemo(() => {
-    if (!selectedConventionId) {
-      return null;
-    }
-    return (
-      availableConventions.find(
-        (convention) => convention.id === selectedConventionId,
-      ) ?? null
-    );
-  }, [availableConventions, selectedConventionId]);
+    return availableConventions[0] ?? null;
+  }, [availableConventions]);
+  const selectedConventionId = selectedConvention?.id ?? null;
 
   const {
     data: dailyTasksData,
@@ -429,12 +422,35 @@ export default function HomeScreen() {
     const pixelSize = Math.round(40 * Math.min(PixelRatio.get(), 3));
     const urls = suitLeaderboardEntries
       .slice(0, MAX_LEADERBOARD_ENTRIES)
-      .map((e) => getTransformedImageUrl(e.avatarUrl, { width: pixelSize, height: pixelSize }))
+      .map((e) =>
+        getTransformedImageUrl(e.avatarUrl, {
+          width: pixelSize,
+          height: pixelSize,
+        }),
+      )
       .filter((url): url is string => url !== null);
-    if (urls.length > 0) {
-      void Image.prefetch(urls);
+    if (urls.length === 0) {
+      return;
     }
-  }, [suitLeaderboardEntries]);
+
+    const accessToken = session?.access_token ?? null;
+    const authenticatedUrls = urls.filter((url) =>
+      Boolean(getStorageAuthHeaders(url, accessToken)),
+    );
+    const publicUrls = urls.filter((url) => !authenticatedUrls.includes(url));
+
+    if (publicUrls.length > 0) {
+      void Image.prefetch(publicUrls);
+    }
+
+    if (authenticatedUrls.length > 0 && accessToken) {
+      void Image.prefetch(authenticatedUrls, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    }
+  }, [session?.access_token, suitLeaderboardEntries]);
 
   const handleReloadStandings = useCallback(() => {
     void refetchLeaderboard({ throwOnError: false });
@@ -489,12 +505,12 @@ export default function HomeScreen() {
             Catch fursuits, grow your collection, and make new furry friends!
           </Text>
           <Text style={styles.subtitle}>
-            TailTag makes meeting fursuiters fun! Collect their codes, learn
-            about thier likes and interests, and start a conversation!
+            TailTag makes meeting fursuiters fun! Catch thier fursuit, learn
+            about their likes and interests, and start a furry friendship!
           </Text>
           <View style={styles.ctaRow}>
             <TailTagButton onPress={() => router.push("/catch")} size="lg">
-              Catch a suit
+              Catch a fursuit
             </TailTagButton>
             <TailTagButton
               variant="outline"
@@ -506,19 +522,23 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {!nudgeDismissed && session && (
-          <TailTagCard style={[styles.nudgeCard, contentWidthStyle]}>
+        {nudgeDismissed === false && session && (
+          <TailTagCard
+            style={[styles.nudgeCard, styles.nudgeCardAlert, contentWidthStyle]}
+          >
             <View style={styles.nudgeContent}>
               <View style={styles.nudgeTextBlock}>
-                <Text style={styles.nudgeText}>
+                <Text style={[styles.nudgeText, styles.nudgeTextAlert]}>
                   Your current username is{" "}
-                  <Text style={styles.nudgeUsername}>
+                  <Text
+                    style={[styles.nudgeUsername, styles.nudgeUsernameAlert]}
+                  >
                     {profile?.username ?? "..."}
                   </Text>
                   . Want to pick something better?
                 </Text>
                 <TailTagButton
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
                   onPress={() => {
                     handleDismissNudge();
@@ -536,7 +556,7 @@ export default function HomeScreen() {
                 <Ionicons
                   name="close-circle"
                   size={22}
-                  color="rgba(148,163,184,0.6)"
+                  color="rgba(248,113,113,0.85)"
                 />
               </Pressable>
             </View>
@@ -613,7 +633,7 @@ export default function HomeScreen() {
           <Text style={styles.sectionEyebrow}>Achievements</Text>
           <Text style={styles.sectionTitle}>Track your progress</Text>
 
-          {isAchievementsBusy ? (
+          {showAchievementsSkeleton ? (
             <Text style={styles.message}>Checking your progress…</Text>
           ) : achievementsErrorMessage ? (
             <View style={styles.helper}>
@@ -696,25 +716,9 @@ export default function HomeScreen() {
           ) : hasConventionAccess ? (
             <View style={styles.leaderboardContent}>
               <Text style={styles.sectionBody}>
-                Pick a convention to see the top hunters.
+                Showing top taggers for{" "}
+                {selectedConvention?.name ?? "your convention"}.
               </Text>
-              <View style={styles.selectorRow}>
-                {availableConventions.map((convention) => (
-                  <TailTagButton
-                    key={convention.id}
-                    size="sm"
-                    variant={
-                      selectedConventionId === convention.id
-                        ? "primary"
-                        : "outline"
-                    }
-                    onPress={() => setSelectedConventionId(convention.id)}
-                    style={styles.selectorButton}
-                  >
-                    {convention.name}
-                  </TailTagButton>
-                ))}
-              </View>
 
               {selectedConventionId ? (
                 <View style={styles.leaderboardStack}>
@@ -799,6 +803,7 @@ export default function HomeScreen() {
                               params: {
                                 conventionId: selectedConventionId!,
                                 conventionName: selectedConvention?.name ?? "",
+                                section: "catchers",
                               },
                             })
                           }
@@ -820,7 +825,7 @@ export default function HomeScreen() {
                   <View style={styles.leaderboardDivider} />
 
                   <View style={styles.suitLeaderboardSection}>
-                    <Text style={styles.sectionSubheading}>Top suits</Text>
+                    <Text style={styles.sectionSubheading}>Top fursuits</Text>
                     {isSuitLeaderboardBusy ? (
                       <Text style={styles.message}>Loading suit stats…</Text>
                     ) : suitErrorMessage ? (
@@ -860,7 +865,12 @@ export default function HomeScreen() {
                               <Text style={styles.leaderboardRank}>
                                 #{index + 1}
                               </Text>
-                              <AppAvatar url={entry.avatarUrl} size="xs" fallback="fursuit" style={styles.avatarMargin} />
+                              <AppAvatar
+                                url={entry.avatarUrl}
+                                size="xs"
+                                fallback="fursuit"
+                                style={styles.avatarMargin}
+                              />
                               <View style={styles.leaderboardDetails}>
                                 <Text
                                   style={styles.leaderboardName}
@@ -889,6 +899,7 @@ export default function HomeScreen() {
                               params: {
                                 conventionId: selectedConventionId!,
                                 conventionName: selectedConvention?.name ?? "",
+                                section: "suits",
                               },
                             })
                           }
@@ -899,7 +910,7 @@ export default function HomeScreen() {
                       </View>
                     ) : (
                       <Text style={styles.message}>
-                        No suit catches recorded yet.
+                        No fursuits have been caught yet.
                       </Text>
                     )}
                   </View>
@@ -939,13 +950,14 @@ export default function HomeScreen() {
               {
                 step: "1",
                 title: "Add your fursuit (if you have one)",
-                description: "Each gets an auto-generated catch code to share.",
+                description:
+                  "Each fursuit gets an auto-generated catch code to share.",
               },
               {
                 step: "2",
-                title: "Log catches",
+                title: "Start catching fursuiters",
                 description:
-                  "Catch fursuiters with their codes and watch your collection grow.",
+                  "Tag fursuits with a selfie or catch code and watch your collection grow.",
               },
               {
                 step: "3",
@@ -955,7 +967,7 @@ export default function HomeScreen() {
               },
               {
                 step: "4",
-                title: "Meet fursuiters",
+                title: "Meet new furry friends",
                 description: "Connect with cool new fursuiters while you play!",
               },
             ].map((item, index, array) => (

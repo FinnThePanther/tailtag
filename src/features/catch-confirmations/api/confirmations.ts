@@ -1,6 +1,17 @@
 import { supabase } from '../../../lib/supabase';
 import { captureFeatureError } from '../../../lib/sentry';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../../lib/runtimeConfig';
+import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET, PROFILE_AVATAR_BUCKET } from '../../../constants/storage';
+import {
+  buildAuthenticatedStorageObjectUrl,
+  resolveStorageMediaUrl,
+} from '../../../utils/supabase-image';
+import {
+  emitImmediateAchievementAwards,
+  type ImmediateAchievementAward,
+} from '../../achievements/immediateAwardsBus';
+import { emitLocalGameplayEvent } from '../../events/localGameplayEventsBus';
+import type { Json } from '../../../types/database';
 import type { CatchMode, PendingCatch, ConfirmCatchResult, CreateCatchResult, CreateCatchParams } from '../types';
 
 // Query keys
@@ -11,6 +22,71 @@ export const pendingCatchesQueryKey = (userId: string) =>
 
 // Stale times
 export const PENDING_CATCHES_STALE_TIME = 15 * 1000; // 15 seconds
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeInlineAwards(raw: unknown): ImmediateAchievementAward[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const awards: ImmediateAchievementAward[] = [];
+
+  for (const entry of raw) {
+    if (!isRecord(entry)) {
+      continue;
+    }
+
+    if (entry.awarded === false) {
+      continue;
+    }
+
+    const achievementKey =
+      typeof entry.achievement_key === 'string' && entry.achievement_key.length > 0
+        ? entry.achievement_key
+        : null;
+
+    if (!achievementKey) {
+      continue;
+    }
+
+    awards.push({
+      achievementId:
+        typeof entry.achievement_id === 'string' && entry.achievement_id.length > 0
+          ? entry.achievement_id
+          : null,
+      achievementKey,
+      awardedAt:
+        typeof entry.awarded_at === 'string' && entry.awarded_at.length > 0
+          ? entry.awarded_at
+          : null,
+      context: isRecord(entry.context) ? (entry.context as Json) : null,
+      sourceEventId:
+        typeof entry.source_event_id === 'string' && entry.source_event_id.length > 0
+          ? entry.source_event_id
+          : null,
+    });
+  }
+
+  return awards;
+}
+
+function normalizeColorNames(raw: unknown): string[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw.filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+}
+
+async function wakeGameplayQueue(): Promise<void> {
+  const { error } = await supabase.rpc('process_gameplay_queue_if_active');
+  if (error) {
+    throw error;
+  }
+}
 
 /**
  * Fetch all pending catches for the user's fursuits
@@ -32,16 +108,31 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
     catchId: row.catch_id,
     catcherId: row.catcher_id,
     catcherUsername: row.catcher_username ?? 'Unknown',
-    catcherAvatarUrl: row.catcher_avatar_url ?? null,
+    catcherAvatarPath: null,
+    catcherAvatarUrl: resolveStorageMediaUrl({
+      bucket: PROFILE_AVATAR_BUCKET,
+      path: null,
+      legacyUrl: row.catcher_avatar_url ?? null,
+    }),
     fursuitId: row.fursuit_id,
     fursuitName: row.fursuit_name ?? 'Unknown Fursuit',
-    fursuitAvatarUrl: row.fursuit_avatar_url ?? null,
+    fursuitAvatarPath: null,
+    fursuitAvatarUrl: resolveStorageMediaUrl({
+      bucket: FURSUIT_BUCKET,
+      path: null,
+      legacyUrl: row.fursuit_avatar_url ?? null,
+    }),
     conventionId: row.convention_id,
     conventionName: row.convention_name ?? 'Unknown Convention',
     caughtAt: row.caught_at,
     expiresAt: row.expires_at,
     timeRemaining: String(row.time_remaining ?? ''),
-    catchPhotoUrl: row.catch_photo_url ?? null,
+    catchPhotoPath: null,
+    catchPhotoUrl: resolveStorageMediaUrl({
+      bucket: CATCH_PHOTO_BUCKET,
+      path: null,
+      legacyUrl: row.catch_photo_url ?? null,
+    }),
   }));
 }
 
@@ -61,7 +152,7 @@ export async function confirmCatch(
   userId: string,
   decision: 'accept' | 'reject',
   reason?: string,
-  _conventionId?: string // No longer needed - server-side emission handles this
+  conventionId?: string
 ): Promise<ConfirmCatchResult> {
   const { data, error } = await supabase.rpc('confirm_catch', {
     p_catch_id: catchId,
@@ -84,8 +175,44 @@ export async function confirmCatch(
     throw new Error(result?.message ?? 'Failed to process catch decision.');
   }
 
-  // Event emission now happens server-side in the confirm_catch RPC function
-  // This eliminates the 401 auth error that occurred with client-side emission
+  if (decision === 'accept' && conventionId) {
+    const occurredAt = new Date().toISOString();
+    const rpcRow = isRecord(data) ? data : null;
+    const optimisticPayload: Record<string, Json> = {
+      catch_id: catchId,
+      convention_id: conventionId,
+      source: 'catch_confirmed',
+      status: 'ACCEPTED',
+      fursuit_id:
+        typeof rpcRow?.fursuit_id === 'string' && rpcRow.fursuit_id.length > 0
+          ? rpcRow.fursuit_id
+          : null,
+      catcher_id:
+        typeof rpcRow?.catcher_id === 'string' && rpcRow.catcher_id.length > 0
+          ? rpcRow.catcher_id
+          : null,
+    };
+
+    emitLocalGameplayEvent({
+      eventId: `catch:${catchId}:confirmed:local`,
+      idempotencyKey: `catch:${catchId}:confirmed:${occurredAt}`,
+      type: 'catch_performed',
+      conventionId,
+      occurredAt,
+      payload: ({ ...optimisticPayload, payload: optimisticPayload } as Json),
+      emittedAt: Date.now(),
+    });
+  }
+
+  if (decision === 'accept') {
+    void wakeGameplayQueue().catch((queueWakeError) => {
+      captureFeatureError(queueWakeError, {
+        scope: 'catch-confirmations.confirmCatch',
+        action: 'wakeGameplayQueue',
+        catchId,
+      });
+    });
+  }
 
   return {
     success: true,
@@ -123,6 +250,7 @@ export async function updateFursuitCatchMode(
 export async function createCatch(params: CreateCatchParams): Promise<CreateCatchResult> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
+  const currentUserId = sessionData.session?.user.id ?? null;
   const supabaseKey = SUPABASE_ANON_KEY;
 
   if (!accessToken) {
@@ -186,7 +314,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       throw new Error("We couldn't save that catch. Please try again.");
     }
 
-    return {
+    const result: CreateCatchResult = {
       catchId: responseData.catch_id,
       status: responseData.status,
       expiresAt: responseData.expires_at ?? null,
@@ -194,6 +322,52 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       requiresApproval: responseData.requires_approval ?? false,
       fursuitOwnerId: responseData.fursuit_owner_id,
     };
+
+    const immediateAwards = normalizeInlineAwards(responseData?.awards);
+    if (currentUserId && immediateAwards.length > 0) {
+      emitImmediateAchievementAwards({
+        userId: currentUserId,
+        awards: immediateAwards,
+      });
+    }
+
+    if (!result.requiresApproval && params.conventionId) {
+      const occurredAt = new Date().toISOString();
+      const colorNames = normalizeColorNames(responseData?.colors);
+      const optimisticPayload: Record<string, Json> = {
+        catch_id: result.catchId,
+        catcher_id: currentUserId,
+        fursuit_id: params.fursuitId,
+        convention_id: params.conventionId,
+        status: result.status,
+        is_tutorial: params.isTutorial ?? false,
+        species: typeof responseData?.species === 'string' ? responseData.species : null,
+        colors: colorNames,
+      };
+
+      emitLocalGameplayEvent({
+        eventId:
+          typeof responseData?.event_id === 'string' && responseData.event_id.length > 0
+            ? responseData.event_id
+            : `catch:${result.catchId}:local`,
+        idempotencyKey: `catch:${result.catchId}:${occurredAt}`,
+        type: 'catch_performed',
+        conventionId: params.conventionId,
+        occurredAt,
+        payload: ({ ...optimisticPayload, payload: optimisticPayload } as Json),
+        emittedAt: Date.now(),
+      });
+
+      void wakeGameplayQueue().catch((queueWakeError) => {
+        captureFeatureError(queueWakeError, {
+          scope: 'catch-confirmations.createCatch',
+          action: 'wakeGameplayQueue',
+          catchId: result.catchId,
+        });
+      });
+    }
+
+    return result;
   } catch (error) {
     clearTimeout(timeoutId);
 
@@ -216,7 +390,10 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
  * Attach a photo URL to an existing catch via the Edge Function (uses service role).
  * Called after the photo has been successfully uploaded to storage.
  */
-export async function updateCatchPhoto(catchId: string, photoUrl: string): Promise<void> {
+export async function updateCatchPhoto(
+  catchId: string,
+  params: { photoPath: string; photoUrl?: string | null },
+): Promise<void> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   const supabaseKey = SUPABASE_ANON_KEY;
@@ -234,6 +411,10 @@ export async function updateCatchPhoto(catchId: string, photoUrl: string): Promi
   const timeoutId = setTimeout(() => controller.abort(), 5000);
 
   try {
+    const resolvedPhotoUrl =
+      params.photoUrl ??
+      buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, params.photoPath);
+
     const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
       method: 'PATCH',
       headers: {
@@ -241,7 +422,11 @@ export async function updateCatchPhoto(catchId: string, photoUrl: string): Promi
         apikey: supabaseKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ catch_id: catchId, catch_photo_url: photoUrl }),
+      body: JSON.stringify({
+        catch_id: catchId,
+        catch_photo_path: params.photoPath,
+        catch_photo_url: resolvedPhotoUrl,
+      }),
       signal: controller.signal,
     });
 
@@ -288,6 +473,7 @@ export async function fetchConventionFursuits(
       fursuit:fursuits (
         id,
         name,
+        avatar_path,
         avatar_url,
         owner_id,
         is_tutorial,
@@ -316,7 +502,11 @@ export async function fetchConventionFursuits(
     results.push({
       id: f.id,
       name: f.name,
-      avatarUrl: f.avatar_url ?? null,
+      avatarUrl: resolveStorageMediaUrl({
+        bucket: FURSUIT_BUCKET,
+        path: f.avatar_path ?? null,
+        legacyUrl: f.avatar_url ?? null,
+      }),
       species: f.species_entry?.name ?? null,
     });
   }
