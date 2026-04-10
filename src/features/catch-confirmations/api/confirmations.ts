@@ -27,7 +27,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function normalizeInlineAwards(raw: unknown): ImmediateAchievementAward[] {
+function normalizeInlineAwards(
+  raw: unknown,
+  currentUserId?: string | null,
+): ImmediateAchievementAward[] {
   if (!Array.isArray(raw)) {
     return [];
   }
@@ -50,6 +53,16 @@ function normalizeInlineAwards(raw: unknown): ImmediateAchievementAward[] {
 
     if (!achievementKey) {
       continue;
+    }
+
+    if (currentUserId) {
+      const awardUserId =
+        typeof entry.user_id === 'string' && entry.user_id.length > 0
+          ? entry.user_id
+          : null;
+      if (!awardUserId || awardUserId !== currentUserId) {
+        continue;
+      }
     }
 
     awards.push({
@@ -152,7 +165,7 @@ export async function confirmCatch(
   userId: string,
   decision: 'accept' | 'reject',
   reason?: string,
-  conventionId?: string
+  _conventionId?: string
 ): Promise<ConfirmCatchResult> {
   const { data, error } = await supabase.rpc('confirm_catch', {
     p_catch_id: catchId,
@@ -173,35 +186,6 @@ export async function confirmCatch(
 
   if (!result?.success) {
     throw new Error(result?.message ?? 'Failed to process catch decision.');
-  }
-
-  if (decision === 'accept' && conventionId) {
-    const occurredAt = new Date().toISOString();
-    const rpcRow = isRecord(data) ? data : null;
-    const optimisticPayload: Record<string, Json> = {
-      catch_id: catchId,
-      convention_id: conventionId,
-      source: 'catch_confirmed',
-      status: 'ACCEPTED',
-      fursuit_id:
-        typeof rpcRow?.fursuit_id === 'string' && rpcRow.fursuit_id.length > 0
-          ? rpcRow.fursuit_id
-          : null,
-      catcher_id:
-        typeof rpcRow?.catcher_id === 'string' && rpcRow.catcher_id.length > 0
-          ? rpcRow.catcher_id
-          : null,
-    };
-
-    emitLocalGameplayEvent({
-      eventId: `catch:${catchId}:confirmed:local`,
-      idempotencyKey: `catch:${catchId}:confirmed:${occurredAt}`,
-      type: 'catch_performed',
-      conventionId,
-      occurredAt,
-      payload: ({ ...optimisticPayload, payload: optimisticPayload } as Json),
-      emittedAt: Date.now(),
-    });
   }
 
   if (decision === 'accept') {
@@ -323,7 +307,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       fursuitOwnerId: responseData.fursuit_owner_id,
     };
 
-    const immediateAwards = normalizeInlineAwards(responseData?.awards);
+    const immediateAwards = normalizeInlineAwards(responseData?.awards, currentUserId);
     if (currentUserId && immediateAwards.length > 0) {
       emitImmediateAchievementAwards({
         userId: currentUserId,
