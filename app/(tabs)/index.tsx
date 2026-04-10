@@ -765,6 +765,7 @@ export default function HomeScreen() {
                               params: {
                                 conventionId: selectedConventionId!,
                                 conventionName: selectedConvention?.name ?? "",
+                                section: "catchers",
                               },
                             })
                           }
@@ -860,6 +861,7 @@ export default function HomeScreen() {
                               params: {
                                 conventionId: selectedConventionId!,
                                 conventionName: selectedConvention?.name ?? "",
+                                section: "suits",
                               },
                             })
                           }

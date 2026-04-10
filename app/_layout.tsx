@@ -228,6 +228,9 @@ function RootLayoutNav() {
       {/* Daily tasks */}
       <Stack.Screen name="daily-tasks/index" options={{ headerShown: false }} />
 
+      {/* Leaderboard */}
+      <Stack.Screen name="leaderboard" options={{ headerShown: false }} />
+
       {/* Blocked users management */}
       <Stack.Screen name="blocked-users" options={{ headerShown: false }} />
 
