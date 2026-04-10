@@ -356,6 +356,34 @@ async function processCatchConfirmedEvent(
     return { awards: [] };
   }
 
+  if (catchRow.status !== "ACCEPTED") {
+    console.warn("[events-ingress] catch_confirmed event ignored for non-accepted catch", {
+      catchId,
+      status: catchRow.status,
+    });
+    return { awards: [] };
+  }
+
+  const { data: existingCatchPerformed, error: existingCatchPerformedError } = await supabaseAdmin
+    .from("events")
+    .select("event_id")
+    .eq("type", "catch_performed")
+    .eq("user_id", event.user_id)
+    .contains("payload", { catch_id: catchId })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingCatchPerformedError) {
+    console.error("[events-ingress] Failed checking existing catch_performed event", {
+      catchId,
+      error: existingCatchPerformedError,
+    });
+  } else if (existingCatchPerformed?.event_id) {
+    // confirm_catch now emits catch_performed directly on accept.
+    // Skip synthetic insertion to avoid double-counting daily tasks and achievements.
+    return { awards: [] };
+  }
+
   // For daily tasks, always use the confirmation date (not the original catch date)
   // This means if a catch is made on Monday and approved on Tuesday,
   // it counts toward Tuesday's daily tasks
@@ -379,6 +407,7 @@ async function processCatchConfirmedEvent(
       catch_id: catchId,
       fursuit_id: catchRow.fursuit_id,
       fursuit_owner_id: catchFursuit?.owner_id ?? null,
+      status: "ACCEPTED",
       is_tutorial: false,
       source: "catch_confirmed",
       species: catchFursuit?.species?.name ?? null,
@@ -752,7 +781,7 @@ async function fetchCatchWithRelations(
 ) {
   const { data, error } = await supabaseAdmin
     .from("catches")
-    .select("id,catcher_id,fursuit_id,convention_id,is_tutorial,caught_at,catch_photo_url,fursuit:fursuits(id,owner_id,species_id,species:fursuit_species(name),color_assignments:fursuit_color_assignments(color:fursuit_colors(name)))")
+    .select("id,catcher_id,fursuit_id,convention_id,is_tutorial,status,caught_at,catch_photo_url,fursuit:fursuits(id,owner_id,species_id,species:fursuit_species(name),color_assignments:fursuit_color_assignments(color:fursuit_colors(name)))")
     .eq("id", catchId)
     .limit(1)
     .maybeSingle();
