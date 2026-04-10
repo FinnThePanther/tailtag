@@ -4,10 +4,12 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
+import { useAuth } from '../../auth';
 import { AppAvatar } from '../../../components/ui/AppAvatar';
 import { AppImage } from '../../../components/ui/AppImage';
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { colors } from '../../../theme';
+import { toExpoImageSource } from '../../../utils/supabase-image';
 import type { PendingCatch } from '../types';
 import { styles } from './PendingCatchCard.styles';
 
@@ -49,6 +51,7 @@ export function PendingCatchCard({
   isProcessing = false,
 }: PendingCatchCardProps) {
   const router = useRouter();
+  const { session } = useAuth();
   const { width: screenWidth } = useWindowDimensions();
   const [timeDisplay, setTimeDisplay] = useState(() =>
     formatTimeRemaining(pendingCatch.expiresAt)
@@ -184,7 +187,7 @@ export function PendingCatchCard({
               onPress={() => setPhotoFullscreen(false)}
             >
               <Image
-                source={pendingCatch.catchPhotoUrl}
+                source={toExpoImageSource(pendingCatch.catchPhotoUrl, session?.access_token)}
                 style={styles.fullscreenPhoto}
                 contentFit="contain"
                 accessibilityLabel="Catch photo fullscreen view"

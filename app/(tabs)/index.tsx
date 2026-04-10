@@ -50,7 +50,7 @@ import {
   DAILY_TASKS_QUERY_KEY,
 } from "../../src/features/daily-tasks";
 import { spacing } from "../../src/theme";
-import { getTransformedImageUrl } from "../../src/utils/supabase-image";
+import { getStorageAuthHeaders, getTransformedImageUrl } from "../../src/utils/supabase-image";
 import { styles } from "../../src/app-styles/(tabs)/index.styles";
 
 const MAX_LEADERBOARD_ENTRIES = 5;
@@ -429,10 +429,28 @@ export default function HomeScreen() {
         }),
       )
       .filter((url): url is string => url !== null);
-    if (urls.length > 0) {
-      void Image.prefetch(urls);
+    if (urls.length === 0) {
+      return;
     }
-  }, [suitLeaderboardEntries]);
+
+    const accessToken = session?.access_token ?? null;
+    const authenticatedUrls = urls.filter((url) =>
+      Boolean(getStorageAuthHeaders(url, accessToken)),
+    );
+    const publicUrls = urls.filter((url) => !authenticatedUrls.includes(url));
+
+    if (publicUrls.length > 0) {
+      void Image.prefetch(publicUrls);
+    }
+
+    if (authenticatedUrls.length > 0 && accessToken) {
+      void Image.prefetch(authenticatedUrls, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    }
+  }, [session?.access_token, suitLeaderboardEntries]);
 
   const handleReloadStandings = useCallback(() => {
     void refetchLeaderboard({ throwOnError: false });

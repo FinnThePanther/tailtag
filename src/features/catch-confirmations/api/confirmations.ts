@@ -1,6 +1,11 @@
 import { supabase } from '../../../lib/supabase';
 import { captureFeatureError } from '../../../lib/sentry';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../../lib/runtimeConfig';
+import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET, PROFILE_AVATAR_BUCKET } from '../../../constants/storage';
+import {
+  buildAuthenticatedStorageObjectUrl,
+  resolveStorageMediaUrl,
+} from '../../../utils/supabase-image';
 import {
   emitImmediateAchievementAwards,
   type ImmediateAchievementAward,
@@ -103,16 +108,31 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
     catchId: row.catch_id,
     catcherId: row.catcher_id,
     catcherUsername: row.catcher_username ?? 'Unknown',
-    catcherAvatarUrl: row.catcher_avatar_url ?? null,
+    catcherAvatarPath: null,
+    catcherAvatarUrl: resolveStorageMediaUrl({
+      bucket: PROFILE_AVATAR_BUCKET,
+      path: null,
+      legacyUrl: row.catcher_avatar_url ?? null,
+    }),
     fursuitId: row.fursuit_id,
     fursuitName: row.fursuit_name ?? 'Unknown Fursuit',
-    fursuitAvatarUrl: row.fursuit_avatar_url ?? null,
+    fursuitAvatarPath: null,
+    fursuitAvatarUrl: resolveStorageMediaUrl({
+      bucket: FURSUIT_BUCKET,
+      path: null,
+      legacyUrl: row.fursuit_avatar_url ?? null,
+    }),
     conventionId: row.convention_id,
     conventionName: row.convention_name ?? 'Unknown Convention',
     caughtAt: row.caught_at,
     expiresAt: row.expires_at,
     timeRemaining: String(row.time_remaining ?? ''),
-    catchPhotoUrl: row.catch_photo_url ?? null,
+    catchPhotoPath: null,
+    catchPhotoUrl: resolveStorageMediaUrl({
+      bucket: CATCH_PHOTO_BUCKET,
+      path: null,
+      legacyUrl: row.catch_photo_url ?? null,
+    }),
   }));
 }
 
@@ -370,7 +390,10 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
  * Attach a photo URL to an existing catch via the Edge Function (uses service role).
  * Called after the photo has been successfully uploaded to storage.
  */
-export async function updateCatchPhoto(catchId: string, photoUrl: string): Promise<void> {
+export async function updateCatchPhoto(
+  catchId: string,
+  params: { photoPath: string; photoUrl?: string | null },
+): Promise<void> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   const supabaseKey = SUPABASE_ANON_KEY;
@@ -388,6 +411,10 @@ export async function updateCatchPhoto(catchId: string, photoUrl: string): Promi
   const timeoutId = setTimeout(() => controller.abort(), 5000);
 
   try {
+    const resolvedPhotoUrl =
+      params.photoUrl ??
+      buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, params.photoPath);
+
     const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
       method: 'PATCH',
       headers: {
@@ -395,7 +422,11 @@ export async function updateCatchPhoto(catchId: string, photoUrl: string): Promi
         apikey: supabaseKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ catch_id: catchId, catch_photo_url: photoUrl }),
+      body: JSON.stringify({
+        catch_id: catchId,
+        catch_photo_path: params.photoPath,
+        catch_photo_url: resolvedPhotoUrl,
+      }),
       signal: controller.signal,
     });
 
@@ -442,6 +473,7 @@ export async function fetchConventionFursuits(
       fursuit:fursuits (
         id,
         name,
+        avatar_path,
         avatar_url,
         owner_id,
         is_tutorial,
@@ -470,7 +502,11 @@ export async function fetchConventionFursuits(
     results.push({
       id: f.id,
       name: f.name,
-      avatarUrl: f.avatar_url ?? null,
+      avatarUrl: resolveStorageMediaUrl({
+        bucket: FURSUIT_BUCKET,
+        path: f.avatar_path ?? null,
+        legacyUrl: f.avatar_url ?? null,
+      }),
       species: f.species_entry?.name ?? null,
     });
   }

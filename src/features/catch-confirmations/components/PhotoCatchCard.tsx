@@ -20,6 +20,7 @@ import {
   processImageForUpload,
   IMAGE_UPLOAD_PRESETS,
 } from '../../../utils/images';
+import { buildAuthenticatedStorageObjectUrl } from '../../../utils/supabase-image';
 import { createCatch, updateCatchPhoto, fetchConventionFursuits } from '../api/confirmations';
 import { FursuitPicker } from './FursuitPicker';
 import type { FursuitPickerItem } from '../api';
@@ -211,8 +212,7 @@ export function PhotoCatchCard({
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage.from(CATCH_PHOTO_BUCKET).getPublicUrl(storagePath);
-      photoUrl = publicUrl;
+      photoUrl = buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, storagePath);
     } catch {
       // Roll back the catch so it doesn't sit in the owner's pending queue without a photo
       await Promise.resolve((client as typeof supabase).from('catches').delete().eq('id', catchResult.catchId)).catch(() => {});
@@ -223,7 +223,10 @@ export function PhotoCatchCard({
 
     // Step 4: Attach the photo URL to the catch. On failure, roll back both.
     try {
-      await updateCatchPhoto(catchResult.catchId, photoUrl);
+      await updateCatchPhoto(catchResult.catchId, {
+        photoPath: storagePath,
+        photoUrl,
+      });
     } catch {
       await Promise.resolve((client as typeof supabase).from('catches').delete().eq('id', catchResult.catchId)).catch(() => {});
       await supabase.storage.from(CATCH_PHOTO_BUCKET).remove([storagePath]).catch(() => {});

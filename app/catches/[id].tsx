@@ -22,6 +22,7 @@ import type { CaughtRecord } from "../../src/features/suits";
 import { useAuth } from "../../src/features/auth";
 import { toDisplayDateTime } from "../../src/utils/dates";
 import { inferImageExtension, inferImageMimeType } from "../../src/utils/images";
+import { getStorageAuthHeaders, toExpoImageSource } from "../../src/utils/supabase-image";
 import { styles } from "../../src/app-styles/catches/[id].styles";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -75,14 +76,16 @@ export default function CatchDetailScreen() {
       const extension = inferImageExtension({ uri: url }) || "jpg";
       const mimeType = inferImageMimeType({ uri: url });
       const dest = new File(Paths.cache, `catch-${Date.now()}.${extension}`);
-      const file = await File.downloadFileAsync(url, dest);
+      const file = await File.downloadFileAsync(url, dest, {
+        headers: getStorageAuthHeaders(url, session?.access_token),
+      });
       await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: "Save catch photo" });
     } catch {
       Alert.alert("Download failed", "Could not download the photo. Please try again.");
     } finally {
       setIsDownloading(false);
     }
-  }, []);
+  }, [session?.access_token]);
 
   if (!record || !details) {
     const isLoading = shouldFetchById && isFetchingCatch;
@@ -178,7 +181,7 @@ export default function CatchDetailScreen() {
               <Ionicons name="close" size={28} color="#fff" />
             </Pressable>
             <Image
-              source={record.catchPhotoUrl}
+              source={toExpoImageSource(record.catchPhotoUrl, session?.access_token)}
               style={styles.fullscreenImage}
               contentFit="contain"
               accessibilityLabel="Catch selfie photo fullscreen"

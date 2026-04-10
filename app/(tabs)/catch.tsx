@@ -43,6 +43,8 @@ import { spacing } from "../../src/theme";
 import { useBlockedIds } from "../../src/features/moderation";
 import { normalizeUniqueCodeInput } from "../../src/utils/code";
 import { toDisplayDateTime } from "../../src/utils/dates";
+import { FURSUIT_BUCKET } from "../../src/constants/storage";
+import { resolveStorageMediaUrl } from "../../src/utils/supabase-image";
 import { styles } from "../../src/app-styles/(tabs)/catch.styles";
 
 import type { FursuitsRow } from "../../src/types/database";
@@ -59,6 +61,7 @@ type FursuitDetails = Pick<
   | "is_tutorial"
   | "catch_count"
 > & {
+  avatar_path?: string | null;
   created_at: string | null;
   species: string | null;
   bio: FursuitBio | null;
@@ -181,6 +184,7 @@ export default function CatchScreen() {
           id,
           name,
           species_id,
+          avatar_path,
           avatar_url,
           is_tutorial,
           unique_code,
@@ -241,7 +245,12 @@ export default function CatchScreen() {
         species: (fursuit as any)?.species_entry?.name ?? null,
         species_id:
           (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
-        avatar_url: fursuit.avatar_url ?? null,
+        avatar_path: (fursuit as any)?.avatar_path ?? null,
+        avatar_url: resolveStorageMediaUrl({
+          bucket: FURSUIT_BUCKET,
+          path: (fursuit as any)?.avatar_path ?? null,
+          legacyUrl: fursuit.avatar_url ?? null,
+        }),
         unique_code: fursuit.unique_code ?? null,
         catch_count: initialCatchCount,
         owner_id: fursuit.owner_id,
@@ -481,6 +490,7 @@ export default function CatchScreen() {
           id,
           name,
           species_id,
+          avatar_path,
           avatar_url,
           is_tutorial,
           unique_code,
@@ -528,7 +538,12 @@ export default function CatchScreen() {
         species: (fursuit as any)?.species_entry?.name ?? null,
         species_id:
           (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
-        avatar_url: fursuit.avatar_url ?? null,
+        avatar_path: (fursuit as any)?.avatar_path ?? null,
+        avatar_url: resolveStorageMediaUrl({
+          bucket: FURSUIT_BUCKET,
+          path: (fursuit as any)?.avatar_path ?? null,
+          legacyUrl: fursuit.avatar_url ?? null,
+        }),
         unique_code: fursuit.unique_code ?? null,
         catch_count:
           typeof (fursuit as any)?.catch_count === "number"

@@ -25,6 +25,7 @@ import {
   processImageForUpload,
   IMAGE_UPLOAD_PRESETS,
 } from "../../../src/utils/images";
+import { buildAuthenticatedStorageObjectUrl } from "../../../src/utils/supabase-image";
 import { colors } from "../../../src/theme";
 import {
   MY_SUITS_QUERY_KEY,
@@ -522,12 +523,14 @@ export default function AddFursuitScreen() {
         queryKey: [FURSUIT_SPECIES_QUERY_KEY],
       });
 
+      let avatarPath: string | null = null;
       let avatarUrl: string | null = null;
 
       if (selectedPhoto) {
         const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const storagePath = `${userId}/${uniqueSuffix}.jpg`;
         uploadedStoragePath = storagePath;
+        avatarPath = storagePath;
 
         const fileBytes = await loadUriAsUint8Array(selectedPhoto.uri);
 
@@ -542,19 +545,16 @@ export default function AddFursuitScreen() {
           throw uploadError;
         }
 
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(FURSUIT_BUCKET).getPublicUrl(storagePath);
-
-        avatarUrl = publicUrl;
+        avatarUrl = buildAuthenticatedStorageObjectUrl(FURSUIT_BUCKET, storagePath);
       }
 
       for (let attempt = 0; attempt < UNIQUE_INSERT_ATTEMPTS; attempt += 1) {
         const uniqueCode = await ensureUniqueCode();
-        const payload: FursuitsInsert = {
+        const payload: FursuitsInsert & { avatar_path?: string | null } = {
           owner_id: userId,
           name: trimmedName,
           species_id: speciesRecord.id,
+          avatar_path: avatarPath,
           avatar_url: avatarUrl,
           unique_code: uniqueCode,
           catch_mode: catchMode,

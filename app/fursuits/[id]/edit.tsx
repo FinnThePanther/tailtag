@@ -65,6 +65,7 @@ import {
   IMAGE_UPLOAD_PRESETS,
   extractStoragePath,
 } from '../../../src/utils/images';
+import { buildAuthenticatedStorageObjectUrl } from '../../../src/utils/supabase-image';
 import { colors } from '../../../src/theme';
 import type { Json } from '../../../src/types/database';
 import { styles } from '../../../src/app-styles/fursuits/[id]/edit.styles';
@@ -449,6 +450,7 @@ export default function EditFursuitScreen() {
     const previousName = detail.name;
     const previousSpeciesId = detail.speciesId ?? null;
     const previousCatchMode = initialCatchMode;
+    const previousAvatarPath = detail.avatar_path ?? null;
     const previousAvatarUrl = detail.avatar_url;
     let updatedCoreRecord = false;
     let replacedColors = false;
@@ -479,6 +481,7 @@ export default function EditFursuitScreen() {
       );
       void queryClient.invalidateQueries({ queryKey: [FURSUIT_SPECIES_QUERY_KEY] });
 
+      let newAvatarPath: string | undefined;
       let newAvatarUrl: string | undefined;
 
       if (selectedPhoto) {
@@ -498,8 +501,8 @@ export default function EditFursuitScreen() {
           throw uploadError;
         }
 
-        const { data: { publicUrl } } = supabase.storage.from(FURSUIT_BUCKET).getPublicUrl(storagePath);
-        newAvatarUrl = publicUrl;
+        newAvatarPath = storagePath;
+        newAvatarUrl = buildAuthenticatedStorageObjectUrl(FURSUIT_BUCKET, storagePath);
       }
 
       const { error: updateError } = await client
@@ -508,7 +511,9 @@ export default function EditFursuitScreen() {
           name: trimmedName,
           species_id: speciesRecord.id,
           catch_mode: catchMode,
-          ...(newAvatarUrl !== undefined ? { avatar_url: newAvatarUrl } : {}),
+          ...(newAvatarPath !== undefined
+            ? { avatar_path: newAvatarPath, avatar_url: newAvatarUrl }
+            : {}),
         })
         .eq('id', fursuitId)
         .eq('owner_id', userId);
@@ -519,7 +524,9 @@ export default function EditFursuitScreen() {
 
       // Orphan cleanup: delete the old avatar after the DB update succeeds
       if (newAvatarUrl !== undefined) {
-        const oldPath = extractStoragePath(detail.avatar_url ?? null, FURSUIT_BUCKET);
+        const oldPath =
+          detail.avatar_path ??
+          extractStoragePath(detail.avatar_url ?? null, FURSUIT_BUCKET);
         if (oldPath) {
           void supabase.storage.from(FURSUIT_BUCKET).remove([oldPath]).catch((err) => {
             console.warn('Failed to clean up old fursuit avatar', err);
@@ -659,6 +666,7 @@ export default function EditFursuitScreen() {
             name: previousName,
             species_id: previousSpeciesId,
             catch_mode: previousCatchMode,
+            avatar_path: previousAvatarPath,
             avatar_url: previousAvatarUrl,
           })
           .eq('id', fursuitId)

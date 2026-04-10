@@ -4,7 +4,8 @@ import type { ViewStyle } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 
-import { getTransformedImageUrl } from '../../utils/supabase-image';
+import { useAuth } from '../../features/auth/providers/AuthProvider';
+import { getTransformedImageUrl, toExpoImageSource } from '../../utils/supabase-image';
 import { styles } from './AppAvatar.styles';
 
 type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
@@ -53,9 +54,11 @@ export function AppAvatar({
   style,
   accessibilityLabel,
 }: AppAvatarProps) {
+  const { session } = useAuth();
   const logicalSize = SIZE_PX[size];
   const pixelSize = Math.round(logicalSize * Math.min(PixelRatio.get(), 3));
   const transformedUrl = getTransformedImageUrl(url, { width: pixelSize, height: pixelSize });
+  const source = toExpoImageSource(transformedUrl, session?.access_token ?? null);
 
   const containerStyle: ViewStyle = {
     width: logicalSize,
@@ -65,13 +68,13 @@ export function AppAvatar({
 
   return (
     <View style={[styles.container, containerStyle, style]}>
-      {transformedUrl ? (
+      {source ? (
         <Image
-          source={transformedUrl}
+          source={source}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           transition={150}
-          recyclingKey={transformedUrl}
+          recyclingKey={transformedUrl ?? undefined}
           accessibilityLabel={accessibilityLabel}
         />
       ) : (

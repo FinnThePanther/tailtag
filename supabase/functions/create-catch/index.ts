@@ -51,6 +51,7 @@ interface CreateCatchRequest {
 
 interface UpdateCatchPhotoRequest {
   catch_id: string;
+  catch_photo_path?: string;
   catch_photo_url: string;
 }
 
@@ -431,7 +432,10 @@ async function handlePatch(req: Request): Promise<Response> {
 
   const { error: updateError } = await supabaseAdmin
     .from('catches')
-    .update({ catch_photo_url: body.catch_photo_url })
+    .update({
+      catch_photo_path: body.catch_photo_path ?? null,
+      catch_photo_url: body.catch_photo_url,
+    })
     .eq('id', body.catch_id);
 
   if (updateError) {

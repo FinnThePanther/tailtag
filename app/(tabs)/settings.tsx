@@ -46,6 +46,7 @@ import {
   buildImageUploadCandidate,
   extractStoragePath,
 } from "../../src/utils/images";
+import { buildAuthenticatedStorageObjectUrl } from "../../src/utils/supabase-image";
 import { PROFILE_AVATAR_BUCKET } from "../../src/constants/storage";
 import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
@@ -592,6 +593,7 @@ export default function SettingsScreen() {
             : {
                 username: normalizedUsername,
                 bio: normalizedBio,
+                avatar_path: null,
                 avatar_url: null,
                 social_links: [],
                 is_new: false,
@@ -609,7 +611,10 @@ export default function SettingsScreen() {
         payload: {
           username_present: trimmedUsername.length > 0,
           bio_present: trimmedBio.length > 0,
-          avatar_present: hasUploadedProfileAvatar(profile?.avatar_url),
+          avatar_present: hasUploadedProfileAvatar(
+            profile?.avatar_url,
+            profile?.avatar_path,
+          ),
         },
       }).catch((error) => {
         captureHandledException(error, {
@@ -633,6 +638,7 @@ export default function SettingsScreen() {
     isDirty,
     normalizedUsernameInput,
     bioInput,
+    profile?.avatar_path,
     profile?.avatar_url,
     profileQueryKey,
     queryClient,
@@ -663,12 +669,25 @@ export default function SettingsScreen() {
       const oldAvatarUrl =
         queryClient.getQueryData<ProfileSummary | null>(profileQueryKey)
           ?.avatar_url ?? null;
-      const publicUrl = await uploadProfileAvatar(userId, photo);
-      await updateProfileAvatar(userId, publicUrl);
+      const oldAvatarPath =
+        queryClient.getQueryData<ProfileSummary | null>(profileQueryKey)
+          ?.avatar_path ?? null;
+      const avatarPath = await uploadProfileAvatar(userId, photo);
+      await updateProfileAvatar(userId, avatarPath);
+      const avatarUrl = buildAuthenticatedStorageObjectUrl(
+        PROFILE_AVATAR_BUCKET,
+        avatarPath,
+      );
       queryClient.setQueryData<ProfileSummary | null>(
         profileQueryKey,
         (current) =>
-          current ? { ...current, avatar_url: publicUrl } : current,
+          current
+            ? {
+                ...current,
+                avatar_path: avatarPath,
+                avatar_url: avatarUrl,
+              }
+            : current,
       );
       void emitGameplayEvent({
         type: "profile_updated",
@@ -683,7 +702,8 @@ export default function SettingsScreen() {
           userId,
         });
       });
-      const oldPath = extractStoragePath(oldAvatarUrl, PROFILE_AVATAR_BUCKET);
+      const oldPath =
+        oldAvatarPath ?? extractStoragePath(oldAvatarUrl, PROFILE_AVATAR_BUCKET);
       if (oldPath) {
         void supabase.storage
           .from(PROFILE_AVATAR_BUCKET)

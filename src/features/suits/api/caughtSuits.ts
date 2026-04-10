@@ -2,11 +2,14 @@ import { supabase } from '../../../lib/supabase';
 import type { FursuitSummary } from '../types';
 import type { CatchMode } from '../../catch-confirmations';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
+import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET } from '../../../constants/storage';
+import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
 export type CaughtRecord = {
   id: string;
   caught_at: string | null;
   catchNumber: number | null;
+  catchPhotoPath?: string | null;
   catchPhotoUrl: string | null;
   fursuit: FursuitSummary | null;
 };
@@ -25,11 +28,13 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       id,
       caught_at,
       catch_number,
+      catch_photo_path,
       catch_photo_url,
       fursuit:fursuits (
         id,
         name,
         species_id,
+        avatar_path,
         avatar_url,
         catch_count,
         catch_mode,
@@ -89,7 +94,12 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
             species: rawFursuit.species_entry?.name ?? null,
             speciesId: rawFursuit.species_entry?.id ?? rawFursuit.species_id ?? null,
             colors: mapFursuitColors(rawFursuit.color_assignments ?? null),
-            avatar_url: rawFursuit.avatar_url ?? null,
+            avatar_path: rawFursuit.avatar_path ?? null,
+            avatar_url: resolveStorageMediaUrl({
+              bucket: FURSUIT_BUCKET,
+              path: rawFursuit.avatar_path ?? null,
+              legacyUrl: rawFursuit.avatar_url ?? null,
+            }),
             description: rawFursuit.description ?? null,
             unique_code: rawFursuit.unique_code ?? null,
             catchCount:
@@ -106,7 +116,12 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
         caught_at: record.caught_at ?? null,
         catchNumber:
           typeof record.catch_number === 'number' ? record.catch_number : null,
-        catchPhotoUrl: record.catch_photo_url ?? null,
+        catchPhotoPath: record.catch_photo_path ?? null,
+        catchPhotoUrl: resolveStorageMediaUrl({
+          bucket: CATCH_PHOTO_BUCKET,
+          path: record.catch_photo_path ?? null,
+          legacyUrl: record.catch_photo_url ?? null,
+        }),
         fursuit,
       } satisfies CaughtRecord;
     })

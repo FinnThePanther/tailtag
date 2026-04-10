@@ -20,7 +20,7 @@ import { useBlockedIds } from '../../src/features/moderation';
 import { emitGameplayEvent } from '../../src/features/events';
 import { captureNonCriticalError } from '../../src/lib/sentry';
 import { colors } from '../../src/theme';
-import { getTransformedImageUrl } from '../../src/utils/supabase-image';
+import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/leaderboard/[conventionId].styles';
 
 const formatCatchCount = (count: number) =>
@@ -94,10 +94,26 @@ export default function FullLeaderboardScreen() {
       .slice(0, 15)
       .map((e) => getTransformedImageUrl(e.avatarUrl, { width: pixelSize, height: pixelSize }))
       .filter((url): url is string => url !== null);
-    if (urls.length > 0) {
-      void Image.prefetch(urls);
+    if (urls.length === 0) {
+      return;
     }
-  }, [filteredSuitEntries]);
+
+    const accessToken = session?.access_token ?? null;
+    const authenticatedUrls = urls.filter((url) => Boolean(getStorageAuthHeaders(url, accessToken)));
+    const publicUrls = urls.filter((url) => !authenticatedUrls.includes(url));
+
+    if (publicUrls.length > 0) {
+      void Image.prefetch(publicUrls);
+    }
+
+    if (authenticatedUrls.length > 0 && accessToken) {
+      void Image.prefetch(authenticatedUrls, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    }
+  }, [filteredSuitEntries, session?.access_token]);
 
   return (
     <View style={styles.wrapper}>

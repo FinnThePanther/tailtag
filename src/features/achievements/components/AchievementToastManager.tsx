@@ -445,7 +445,7 @@ export function AchievementToastManager() {
       } else if (
         event.type === 'profile_updated' &&
         profile &&
-        hasUploadedProfileAvatar(profile.avatar_url) &&
+        hasUploadedProfileAvatar(profile.avatar_url, profile.avatar_path) &&
         typeof profile.username === 'string' &&
         profile.username.trim().length > 0 &&
         typeof profile.bio === 'string' &&

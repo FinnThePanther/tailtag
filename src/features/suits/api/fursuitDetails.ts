@@ -3,6 +3,8 @@ import { mapFursuitColors, mapLatestFursuitBio } from './utils';
 import type { FursuitDetail } from '../types';
 import type { CatchMode } from '../../catch-confirmations';
 import { captureHandledMessage } from '../../../lib/sentry';
+import { FURSUIT_BUCKET } from '../../../constants/storage';
+import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
 export const FURSUIT_DETAIL_QUERY_KEY = 'fursuit-detail';
 export const fursuitDetailQueryKey = (fursuitId: string) =>
@@ -18,6 +20,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       owner_id,
       name,
       species_id,
+      avatar_path,
       avatar_url,
       is_tutorial,
       description,
@@ -120,7 +123,12 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     species: speciesName,
     speciesId: speciesId,
     colors,
-    avatar_url: data.avatar_url ?? null,
+    avatar_path: data.avatar_path ?? null,
+    avatar_url: resolveStorageMediaUrl({
+      bucket: FURSUIT_BUCKET,
+      path: data.avatar_path ?? null,
+      legacyUrl: data.avatar_url ?? null,
+    }),
     description: data.description ?? null,
     unique_code: data.unique_code ?? null,
     catchCount: resolvedCatchCount,

@@ -1,5 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import type { MyPendingCatch } from '../types';
+import { FURSUIT_BUCKET } from '../../../constants/storage';
+import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
 export const MY_PENDING_CATCHES_QUERY_KEY = 'my-pending-catches';
 
@@ -24,6 +26,7 @@ export async function fetchMyPendingCatches(userId: string): Promise<MyPendingCa
       fursuit:fursuits (
         id,
         name,
+        avatar_path,
         avatar_url
       ),
       convention:conventions (
@@ -47,7 +50,12 @@ export async function fetchMyPendingCatches(userId: string): Promise<MyPendingCa
       catchId: row.id,
       fursuitId: fursuit?.id ?? '',
       fursuitName: fursuit?.name ?? 'Unknown Fursuit',
-      fursuitAvatarUrl: fursuit?.avatar_url ?? null,
+      fursuitAvatarPath: fursuit?.avatar_path ?? null,
+      fursuitAvatarUrl: resolveStorageMediaUrl({
+        bucket: FURSUIT_BUCKET,
+        path: fursuit?.avatar_path ?? null,
+        legacyUrl: fursuit?.avatar_url ?? null,
+      }),
       conventionId: row.convention_id ?? null,
       conventionName: convention?.name ?? 'Unknown Convention',
       caughtAt: row.caught_at ?? '',

@@ -3,6 +3,8 @@ import type { ConventionSummary } from '../../conventions';
 import type { FursuitSummary } from '../types';
 import type { CatchMode } from '../../catch-confirmations';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
+import { FURSUIT_BUCKET } from '../../../constants/storage';
+import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
 export const MY_SUITS_QUERY_KEY = 'my-suits';
 export const MY_SUITS_COUNT_QUERY_KEY = 'my-suits-count';
@@ -20,6 +22,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       id,
       name,
       species_id,
+      avatar_path,
       avatar_url,
       description,
       unique_code,
@@ -109,7 +112,12 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       species: speciesName,
       speciesId: speciesId,
       colors,
-      avatar_url: item.avatar_url ?? null,
+      avatar_path: item.avatar_path ?? null,
+      avatar_url: resolveStorageMediaUrl({
+        bucket: FURSUIT_BUCKET,
+        path: item.avatar_path ?? null,
+        legacyUrl: item.avatar_url ?? null,
+      }),
       description: item.description ?? null,
       unique_code: item.unique_code ?? null,
       catchCount: typeof item.catch_count === 'number' ? item.catch_count : 0,
