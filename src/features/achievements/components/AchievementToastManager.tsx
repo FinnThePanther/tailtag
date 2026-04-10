@@ -16,7 +16,11 @@ import { subscribeToLocalGameplayEvents, type LocalGameplayEvent } from '../../e
 import { DAILY_TASKS_QUERY_KEY, dailyTasksQueryKey } from '../../daily-tasks';
 import type { DailyTasksSummary } from '../../daily-tasks';
 import type { AchievementWithStatus } from '../api/achievements';
-import { profileQueryKey, type ProfileSummary } from '../../profile';
+import {
+  hasUploadedProfileAvatar,
+  profileQueryKey,
+  type ProfileSummary,
+} from '../../profile';
 import type { Json } from '../../../types/database';
 
 type NotificationRow = {
@@ -361,8 +365,7 @@ export function AchievementToastManager() {
       } else if (
         event.type === 'profile_updated' &&
         profile &&
-        typeof profile.avatar_url === 'string' &&
-        profile.avatar_url.trim().length > 0 &&
+        hasUploadedProfileAvatar(profile.avatar_url) &&
         typeof profile.username === 'string' &&
         profile.username.trim().length > 0 &&
         typeof profile.bio === 'string' &&

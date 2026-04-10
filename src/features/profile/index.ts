@@ -3,6 +3,7 @@ export {
   uploadProfileAvatar,
   updateProfileAvatar,
   updateProfileSocialLinks,
+  hasUploadedProfileAvatar,
   checkUsernameAvailability,
   PROFILE_QUERY_KEY,
   PROFILE_STALE_TIME,

@@ -76,7 +76,6 @@ export function PushNotificationManager() {
         // Toasts are handled via Realtime subscriptions on notifications table
         if (appState === 'active') {
           return {
-            shouldShowAlert: false,
             shouldPlaySound: false,
             shouldSetBadge: false,
             shouldShowBanner: false,
@@ -86,7 +85,6 @@ export function PushNotificationManager() {
 
         // App is background/inactive - show system notification
         return {
-          shouldShowAlert: true,
           shouldPlaySound: true,
           shouldSetBadge: true,
           shouldShowBanner: true,

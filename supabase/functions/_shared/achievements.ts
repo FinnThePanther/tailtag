@@ -17,6 +17,8 @@ import {
 import type { InsertableEventRow, Json } from "./types.ts";
 
 const DAILY_TASK_ACHIEVEMENT_PREFIX = "DAILY_TASK_";
+const PROFILE_AVATAR_BUCKET = "profile-avatars";
+const PROFILE_AVATAR_PUBLIC_PATH = `/storage/v1/object/public/${PROFILE_AVATAR_BUCKET}/`;
 
 type RpcAwardResult = {
   achievement_key: string;
@@ -40,6 +42,15 @@ export type ProcessedAchievementResult = {
 };
 
 const MAX_QUERY_LIMIT = 20000;
+
+function hasUploadedProfileAvatar(avatarUrl: unknown): boolean {
+  if (typeof avatarUrl !== "string") {
+    return false;
+  }
+
+  const trimmed = avatarUrl.trim();
+  return trimmed.length > 0 && trimmed.includes(PROFILE_AVATAR_PUBLIC_PATH);
+}
 
 /**
  * Generate a UUID v7 (time-ordered UUID).
@@ -960,7 +971,7 @@ async function fetchProfileSnapshot(
     return null;
   }
   return {
-    hasAvatar: Boolean(data.avatar_url && String(data.avatar_url).trim().length > 0),
+    hasAvatar: hasUploadedProfileAvatar(data.avatar_url),
     hasUsername: Boolean(data.username && data.username.trim().length > 0),
     hasBio: Boolean(data.bio && data.bio.trim().length > 0),
   };

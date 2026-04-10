@@ -37,6 +37,7 @@ export const profileQueryKey = (userId: string) => [PROFILE_QUERY_KEY, userId] a
 const STABLE_COLUMNS = 'username, bio, is_new, onboarding_completed, role, push_notifications_enabled, push_notifications_prompted';
 const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, social_links, is_suspended, suspended_until, suspension_reason`;
 const NEW_USER_PROFILE_RETRY_DELAYS_MS = [150, 500] as const;
+const PROFILE_AVATAR_PUBLIC_PATH = `/storage/v1/object/public/${PROFILE_AVATAR_BUCKET}/`;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -212,6 +213,17 @@ export async function updateProfileAvatar(
   if (error) {
     throw new Error(`Could not save avatar: ${error.message}`);
   }
+}
+
+export function hasUploadedProfileAvatar(
+  avatarUrl: string | null | undefined,
+): boolean {
+  if (typeof avatarUrl !== 'string') {
+    return false;
+  }
+
+  const trimmed = avatarUrl.trim();
+  return trimmed.length > 0 && trimmed.includes(PROFILE_AVATAR_PUBLIC_PATH);
 }
 
 export async function updateProfileSocialLinks(

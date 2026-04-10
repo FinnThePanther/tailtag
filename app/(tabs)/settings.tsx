@@ -51,6 +51,7 @@ import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
 import {
   checkUsernameAvailability,
   fetchProfile,
+  hasUploadedProfileAvatar,
   normalizeUsernameInput,
   USERNAME_MAX_LENGTH,
   uploadProfileAvatar,
@@ -556,7 +557,7 @@ export default function SettingsScreen() {
         payload: {
           username_present: trimmedUsername.length > 0,
           bio_present: trimmedBio.length > 0,
-          avatar_present: Boolean(profile?.avatar_url),
+          avatar_present: hasUploadedProfileAvatar(profile?.avatar_url),
         },
       }).catch((error) => {
         captureHandledException(error, {
