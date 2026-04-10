@@ -1,24 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Keyboard, Pressable, Text, View } from "react-native";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { AppImage } from '../../../src/components/ui/AppImage';
-import { TailTagCard } from '../../../src/components/ui/TailTagCard';
-import { TailTagButton } from '../../../src/components/ui/TailTagButton';
-import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
-import { TailTagInput } from '../../../src/components/ui/TailTagInput';
-import { KeyboardAwareFormWrapper } from '../../../src/components/ui/KeyboardAwareFormWrapper';
+import { AppImage } from "../../../src/components/ui/AppImage";
+import { TailTagCard } from "../../../src/components/ui/TailTagCard";
+import { TailTagButton } from "../../../src/components/ui/TailTagButton";
+import { ScreenHeader } from "../../../src/components/ui/ScreenHeader";
+import { TailTagInput } from "../../../src/components/ui/TailTagInput";
+import { KeyboardAwareFormWrapper } from "../../../src/components/ui/KeyboardAwareFormWrapper";
 import {
   CAUGHT_SUITS_QUERY_KEY,
   FursuitBio,
   fetchFursuitDetail,
   fursuitDetailQueryKey,
   MY_SUITS_QUERY_KEY,
-} from '../../../src/features/suits';
-import type { EditableSocialLink } from '../../../src/features/suits/forms/socialLinks';
+} from "../../../src/features/suits";
+import type { EditableSocialLink } from "../../../src/features/suits/forms/socialLinks";
 import {
   ALLOWED_SOCIAL_PLATFORMS,
   CUSTOM_PLATFORM_ID,
@@ -27,7 +27,7 @@ import {
   mapEditableSocialLinks,
   SOCIAL_LINK_LIMIT,
   socialLinksToSave,
-} from '../../../src/features/suits/forms/socialLinks';
+} from "../../../src/features/suits/forms/socialLinks";
 import {
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
@@ -35,9 +35,9 @@ import {
   fetchProfileConventionIds,
   PROFILE_CONVENTIONS_QUERY_KEY,
   removeFursuitConvention,
-} from '../../../src/features/conventions';
-import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
-import { createProfileQueryOptions } from '../../../src/features/profile';
+} from "../../../src/features/conventions";
+import { ConventionToggle } from "../../../src/components/conventions/ConventionToggle";
+import { createProfileQueryOptions } from "../../../src/features/profile";
 import {
   ensureSpeciesEntry,
   fetchFursuitSpecies,
@@ -45,30 +45,39 @@ import {
   normalizeSpeciesName,
   sortSpeciesOptions,
   type FursuitSpeciesOption,
-} from '../../../src/features/species';
+} from "../../../src/features/species";
 import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
   type FursuitColorOption,
-} from '../../../src/features/colors';
-import { useAuth } from '../../../src/features/auth';
+} from "../../../src/features/colors";
+import { useAuth } from "../../../src/features/auth";
 import {
   CatchModeSwitch,
   type CatchMode,
-} from '../../../src/features/catch-confirmations';
-import { supabase } from '../../../src/lib/supabase';
-import { FURSUIT_BUCKET } from '../../../src/constants/storage';
-import { loadUriAsUint8Array } from '../../../src/utils/files';
+} from "../../../src/features/catch-confirmations";
+import { supabase } from "../../../src/lib/supabase";
+import { FURSUIT_BUCKET } from "../../../src/constants/storage";
+import { loadUriAsUint8Array } from "../../../src/utils/files";
 import {
   processImageForUpload,
   IMAGE_UPLOAD_PRESETS,
   extractStoragePath,
-} from '../../../src/utils/images';
-import { buildAuthenticatedStorageObjectUrl } from '../../../src/utils/supabase-image';
-import { colors } from '../../../src/theme';
-import type { Json } from '../../../src/types/database';
-import { styles } from '../../../src/app-styles/fursuits/[id]/edit.styles';
+} from "../../../src/utils/images";
+import { buildAuthenticatedStorageObjectUrl } from "../../../src/utils/supabase-image";
+import { colors } from "../../../src/theme";
+import type { Json } from "../../../src/types/database";
+import { styles } from "../../../src/app-styles/fursuits/[id]/edit.styles";
+
+const PRONOUN_OPTIONS = [
+  "he/him",
+  "she/her",
+  "they/them",
+  "he/they",
+  "she/they",
+  "any pronouns",
+] as const;
 
 type UploadCandidate = {
   uri: string;
@@ -83,7 +92,7 @@ export default function EditFursuitScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const params = useLocalSearchParams<{ id?: string }>();
-  const fursuitId = typeof params.id === 'string' ? params.id : null;
+  const fursuitId = typeof params.id === "string" ? params.id : null;
 
   const {
     data: speciesOptions = [],
@@ -118,12 +127,15 @@ export default function EditFursuitScreen() {
     refetch,
   } = useQuery({
     enabled: Boolean(fursuitId),
-    queryKey: fursuitDetailQueryKey(fursuitId ?? ''),
-    queryFn: () => fetchFursuitDetail(fursuitId ?? ''),
+    queryKey: fursuitDetailQueryKey(fursuitId ?? ""),
+    queryFn: () => fetchFursuitDetail(fursuitId ?? ""),
     staleTime: 0,
   });
 
-  const conventionsQueryOptions = useMemo(() => createConventionsQueryOptions(), []);
+  const conventionsQueryOptions = useMemo(
+    () => createConventionsQueryOptions(),
+    [],
+  );
   const {
     data: conventions = [],
     error: conventionsError,
@@ -153,33 +165,42 @@ export default function EditFursuitScreen() {
     queryFn: () => fetchProfileConventionIds(userId!),
   });
 
-  const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
-  const [initialConventionIds, setInitialConventionIds] = useState<Set<string>>(new Set());
+  const [selectedConventionIds, setSelectedConventionIds] = useState<
+    Set<string>
+  >(new Set());
+  const [initialConventionIds, setInitialConventionIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const profileConventionIdSet = useMemo(
     () => new Set(profileConventionIds),
-    [profileConventionIds]
+    [profileConventionIds],
   );
 
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
-  const conventionsLoadError = conventionsError?.message ?? profileConventionsError?.message ?? null;
+  const conventionsLoadError =
+    conventionsError?.message ?? profileConventionsError?.message ?? null;
 
   const [hasHydratedForm, setHasHydratedForm] = useState(false);
-  const [nameInput, setNameInput] = useState('');
-  const [speciesInput, setSpeciesInput] = useState('');
-  const [pronounsInput, setPronounsInput] = useState('');
-  const [likesInput, setLikesInput] = useState('');
-  const [askMeAboutInput, setAskMeAboutInput] = useState('');
-  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(
-    () => createInitialSocialLinks()
+  const [nameInput, setNameInput] = useState("");
+  const [speciesInput, setSpeciesInput] = useState("");
+  const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
+  const [likesInput, setLikesInput] = useState("");
+  const [askMeAboutInput, setAskMeAboutInput] = useState("");
+  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(() =>
+    createInitialSocialLinks(),
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption | null>(null);
-  const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
+  const [selectedSpecies, setSelectedSpecies] =
+    useState<FursuitSpeciesOption | null>(null);
+  const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>(
+    [],
+  );
   const [initialColors, setInitialColors] = useState<FursuitColorOption[]>([]);
-  const [catchMode, setCatchMode] = useState<CatchMode>('AUTO_ACCEPT');
-  const [initialCatchMode, setInitialCatchMode] = useState<CatchMode>('AUTO_ACCEPT');
+  const [catchMode, setCatchMode] = useState<CatchMode>("AUTO_ACCEPT");
+  const [initialCatchMode, setInitialCatchMode] =
+    useState<CatchMode>("AUTO_ACCEPT");
   const [selectedPhoto, setSelectedPhoto] = useState<UploadCandidate>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -191,7 +212,7 @@ export default function EditFursuitScreen() {
 
   const normalizedSpeciesInput = useMemo(
     () => normalizeSpeciesName(speciesInput),
-    [speciesInput]
+    [speciesInput],
   );
 
   const speciesSuggestions = useMemo(() => {
@@ -204,7 +225,9 @@ export default function EditFursuitScreen() {
     }
 
     return speciesOptions
-      .filter((option) => option.normalizedName.includes(normalizedSpeciesInput))
+      .filter((option) =>
+        option.normalizedName.includes(normalizedSpeciesInput),
+      )
       .slice(0, 12);
   }, [normalizedSpeciesInput, speciesOptions]);
 
@@ -219,15 +242,27 @@ export default function EditFursuitScreen() {
         return;
       }
 
-      const match = speciesOptions.find((option) => option.normalizedName === normalized) ?? null;
+      const match =
+        speciesOptions.find((option) => option.normalizedName === normalized) ??
+        null;
       setSelectedSpecies(match);
     },
-    [speciesOptions]
+    [speciesOptions],
   );
 
   const handleSpeciesSelect = useCallback((option: FursuitSpeciesOption) => {
     setSpeciesInput(option.name);
     setSelectedSpecies(option);
+  }, []);
+
+  const handleTogglePronoun = useCallback((option: string) => {
+    Keyboard.dismiss();
+    setSelectedPronouns((current) => {
+      if (current.includes(option)) {
+        return current.filter((p) => p !== option);
+      }
+      return [...current, option];
+    });
   }, []);
 
   const handleToggleColor = useCallback((option: FursuitColorOption) => {
@@ -251,8 +286,8 @@ export default function EditFursuitScreen() {
       return;
     }
 
-    setNameInput(detail.name ?? '');
-    setSpeciesInput(detail.species ?? '');
+    setNameInput(detail.name ?? "");
+    setSpeciesInput(detail.species ?? "");
 
     if (detail.species && detail.speciesId) {
       setSelectedSpecies({
@@ -266,24 +301,31 @@ export default function EditFursuitScreen() {
 
     const bio: FursuitBio | null = detail.bio;
 
-    setPronounsInput(bio?.pronouns ?? '');
-    setLikesInput(bio?.likesAndInterests ?? '');
-    setAskMeAboutInput(bio?.askMeAbout ?? '');
+    const savedPronouns = bio?.pronouns ?? "";
+    const parsedPronouns = savedPronouns
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => (PRONOUN_OPTIONS as readonly string[]).includes(p));
+    setSelectedPronouns(parsedPronouns);
+    setLikesInput(bio?.likesAndInterests ?? "");
+    setAskMeAboutInput(bio?.askMeAbout ?? "");
 
     const existingLinks = bio?.socialLinks ?? [];
     const linksToMap = existingLinks
-      .filter((e) => (e.label?.trim() ?? '') && (e.url?.trim() ?? ''))
+      .filter((e) => (e.label?.trim() ?? "") && (e.url?.trim() ?? ""))
       .map((e) => ({ label: e.label, url: e.url }));
     setSocialLinks(mapEditableSocialLinks(linksToMap));
 
-    const initialConventionSet = new Set((detail.conventions ?? []).map((entry) => entry.id));
+    const initialConventionSet = new Set(
+      (detail.conventions ?? []).map((entry) => entry.id),
+    );
     setSelectedConventionIds(new Set(initialConventionSet));
     setInitialConventionIds(initialConventionSet);
     const resolvedColors = detail.colors ?? [];
     setSelectedColors(resolvedColors);
     setInitialColors(resolvedColors);
 
-    const resolvedCatchMode = detail.catchMode ?? 'AUTO_ACCEPT';
+    const resolvedCatchMode = detail.catchMode ?? "AUTO_ACCEPT";
     setCatchMode(resolvedCatchMode);
     setInitialCatchMode(resolvedCatchMode);
 
@@ -300,18 +342,18 @@ export default function EditFursuitScreen() {
 
   const socialLinksCanAddMore = useMemo(
     () => socialLinks.length < SOCIAL_LINK_LIMIT,
-    [socialLinks.length]
+    [socialLinks.length],
   );
 
   const handleSocialLinkChange = (
     id: string,
-    field: 'platformId' | 'handle' | 'label' | 'url',
-    value: string
+    field: "platformId" | "handle" | "label" | "url",
+    value: string,
   ) => {
     setSocialLinks((current) =>
       current.map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      )
+        entry.id === id ? { ...entry, [field]: value } : entry,
+      ),
     );
   };
 
@@ -327,18 +369,18 @@ export default function EditFursuitScreen() {
     });
   };
 
-
   const handlePickPhoto = useCallback(async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (status !== 'granted') {
-        setPhotoError('We need media library access to select a photo.');
+      if (status !== "granted") {
+        setPhotoError("We need media library access to select a photo.");
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
+        mediaTypes: "images",
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.85,
@@ -351,22 +393,25 @@ export default function EditFursuitScreen() {
       const asset = result.assets[0];
 
       if (!asset) {
-        setPhotoError('No photo selected.');
+        setPhotoError("No photo selected.");
         return;
       }
 
       setIsProcessingPhoto(true);
       setPhotoError(null);
       try {
-        const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.fursuitAvatar);
+        const processed = await processImageForUpload(
+          asset.uri,
+          IMAGE_UPLOAD_PRESETS.fursuitAvatar,
+        );
         setSelectedPhoto({
           uri: processed.uri,
-          mimeType: 'image/jpeg',
+          mimeType: "image/jpeg",
           fileName: `fursuit-${Date.now()}.jpg`,
           fileSize: 0,
         });
       } catch {
-        setPhotoError('We could not process that photo. Please try another.');
+        setPhotoError("We could not process that photo. Please try another.");
       } finally {
         setIsProcessingPhoto(false);
       }
@@ -374,7 +419,7 @@ export default function EditFursuitScreen() {
       setPhotoError(
         caught instanceof Error
           ? caught.message
-          : 'We could not open your photo library. Please try again.'
+          : "We could not open your photo library. Please try again.",
       );
     }
   }, []);
@@ -395,7 +440,7 @@ export default function EditFursuitScreen() {
 
     const trimmedName = nameInput.trim();
     const trimmedSpecies = speciesInput.trim();
-    const trimmedPronouns = pronounsInput.trim();
+    const trimmedPronouns = selectedPronouns.join(", ");
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
     const normalizedSpeciesValue = normalizeSpeciesName(trimmedSpecies);
@@ -406,42 +451,46 @@ export default function EditFursuitScreen() {
     const previousColorIds = previousColors.map((color) => color.id);
 
     if (!trimmedName) {
-      setSubmitError('Give your fursuit a name before saving.');
+      setSubmitError("Give your fursuit a name before saving.");
       return;
     }
 
     if (!trimmedSpecies) {
-      setSubmitError('Add your fursuit species before saving.');
+      setSubmitError("Add your fursuit species before saving.");
       return;
     }
 
     if (selectedColorIds.length === 0) {
-      setSubmitError('Pick at least one color for your fursuit.');
+      setSubmitError("Pick at least one color for your fursuit.");
       return;
     }
 
     if (selectedColorIds.length > MAX_FURSUIT_COLORS) {
-      setSubmitError('You can choose up to three colors. Remove one to add another.');
+      setSubmitError(
+        "You can choose up to three colors. Remove one to add another.",
+      );
       return;
     }
 
     for (const entry of normalizedSocialLinks) {
       if (!entry.label || !entry.url) {
-        setSubmitError('Fill in both the label and URL for each social link.');
+        setSubmitError("Fill in both the label and URL for each social link.");
         return;
       }
       if (!/^https?:\/\//i.test(entry.url)) {
         setSubmitError(
-          'Links should include http:// or https:// so we can open them.'
+          "Links should include http:// or https:// so we can open them.",
         );
         return;
       }
     }
 
     const toAdd = Array.from(selectedConventionIds).filter(
-      (id) => !initialConventionIds.has(id) && profileConventionIdSet.has(id)
+      (id) => !initialConventionIds.has(id) && profileConventionIdSet.has(id),
     );
-    const toRemove = Array.from(initialConventionIds).filter((id) => !selectedConventionIds.has(id));
+    const toRemove = Array.from(initialConventionIds).filter(
+      (id) => !selectedConventionIds.has(id),
+    );
 
     setIsSubmitting(true);
     setSubmitError(null);
@@ -459,7 +508,8 @@ export default function EditFursuitScreen() {
 
     try {
       const speciesRecord =
-        selectedSpecies && selectedSpecies.normalizedName === normalizedSpeciesValue
+        selectedSpecies &&
+        selectedSpecies.normalizedName === normalizedSpeciesValue
           ? selectedSpecies
           : await ensureSpeciesEntry(trimmedSpecies);
 
@@ -468,7 +518,9 @@ export default function EditFursuitScreen() {
       queryClient.setQueryData<FursuitSpeciesOption[]>(
         [FURSUIT_SPECIES_QUERY_KEY],
         (current = []) => {
-          const existingIndex = current.findIndex((option) => option.id === speciesRecord.id);
+          const existingIndex = current.findIndex(
+            (option) => option.id === speciesRecord.id,
+          );
 
           if (existingIndex >= 0) {
             const next = [...current];
@@ -477,9 +529,11 @@ export default function EditFursuitScreen() {
           }
 
           return sortSpeciesOptions([...current, speciesRecord]);
-        }
+        },
       );
-      void queryClient.invalidateQueries({ queryKey: [FURSUIT_SPECIES_QUERY_KEY] });
+      void queryClient.invalidateQueries({
+        queryKey: [FURSUIT_SPECIES_QUERY_KEY],
+      });
 
       let newAvatarPath: string | undefined;
       let newAvatarUrl: string | undefined;
@@ -493,7 +547,7 @@ export default function EditFursuitScreen() {
         const { error: uploadError } = await supabase.storage
           .from(FURSUIT_BUCKET)
           .upload(storagePath, fileBytes, {
-            contentType: 'image/jpeg',
+            contentType: "image/jpeg",
             upsert: false,
           });
 
@@ -502,11 +556,14 @@ export default function EditFursuitScreen() {
         }
 
         newAvatarPath = storagePath;
-        newAvatarUrl = buildAuthenticatedStorageObjectUrl(FURSUIT_BUCKET, storagePath);
+        newAvatarUrl = buildAuthenticatedStorageObjectUrl(
+          FURSUIT_BUCKET,
+          storagePath,
+        );
       }
 
       const { error: updateError } = await client
-        .from('fursuits')
+        .from("fursuits")
         .update({
           name: trimmedName,
           species_id: speciesRecord.id,
@@ -515,8 +572,8 @@ export default function EditFursuitScreen() {
             ? { avatar_path: newAvatarPath, avatar_url: newAvatarUrl }
             : {}),
         })
-        .eq('id', fursuitId)
-        .eq('owner_id', userId);
+        .eq("id", fursuitId)
+        .eq("owner_id", userId);
 
       if (updateError) {
         throw updateError;
@@ -528,9 +585,12 @@ export default function EditFursuitScreen() {
           detail.avatar_path ??
           extractStoragePath(detail.avatar_url ?? null, FURSUIT_BUCKET);
         if (oldPath) {
-          void supabase.storage.from(FURSUIT_BUCKET).remove([oldPath]).catch((err) => {
-            console.warn('Failed to clean up old fursuit avatar', err);
-          });
+          void supabase.storage
+            .from(FURSUIT_BUCKET)
+            .remove([oldPath])
+            .catch((err) => {
+              console.warn("Failed to clean up old fursuit avatar", err);
+            });
         }
       }
 
@@ -538,13 +598,15 @@ export default function EditFursuitScreen() {
 
       const colorsChanged =
         previousColorIds.length !== selectedColorIds.length ||
-        previousColorIds.some((colorId, index) => colorId !== selectedColorIds[index]);
+        previousColorIds.some(
+          (colorId, index) => colorId !== selectedColorIds[index],
+        );
 
       if (colorsChanged) {
         const { error: clearColorsError } = await client
-          .from('fursuit_color_assignments')
+          .from("fursuit_color_assignments")
           .delete()
-          .eq('fursuit_id', fursuitId);
+          .eq("fursuit_id", fursuitId);
 
         if (clearColorsError) {
           throw clearColorsError;
@@ -560,7 +622,7 @@ export default function EditFursuitScreen() {
           }));
 
           const { error: insertColorsError } = await client
-            .from('fursuit_color_assignments')
+            .from("fursuit_color_assignments")
             .insert(colorAssignments);
 
           if (insertColorsError) {
@@ -571,10 +633,10 @@ export default function EditFursuitScreen() {
 
       const nextVersion = (detail.bio?.version ?? 0) + 1;
 
-      const { error: bioError } = await client.from('fursuit_bios').insert({
+      const { error: bioError } = await client.from("fursuit_bios").insert({
         fursuit_id: fursuitId,
         version: nextVersion,
-        owner_name: profile?.username ?? '',
+        owner_name: profile?.username ?? "",
         pronouns: trimmedPronouns,
         likes_and_interests: trimmedLikes,
         ask_me_about: trimmedAskMeAbout,
@@ -595,9 +657,13 @@ export default function EditFursuitScreen() {
         removedConventionIds.push(conventionId);
       }
 
-      queryClient.invalidateQueries({ queryKey: fursuitDetailQueryKey(fursuitId) });
+      queryClient.invalidateQueries({
+        queryKey: fursuitDetailQueryKey(fursuitId),
+      });
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
-      queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
+      queryClient.invalidateQueries({
+        queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
+      });
 
       setInitialConventionIds(new Set(selectedConventionIds));
       setInitialColors(selectedColors);
@@ -614,31 +680,44 @@ export default function EditFursuitScreen() {
       if (addedConventionIds.length > 0) {
         await Promise.all(
           addedConventionIds.map((conventionId) =>
-            removeFursuitConvention(fursuitId, conventionId).catch((revertError) => {
-              console.warn('Failed to revert convention assignment after error', revertError);
-            })
-          )
+            removeFursuitConvention(fursuitId, conventionId).catch(
+              (revertError) => {
+                console.warn(
+                  "Failed to revert convention assignment after error",
+                  revertError,
+                );
+              },
+            ),
+          ),
         );
       }
 
       if (removedConventionIds.length > 0) {
         await Promise.all(
           removedConventionIds.map((conventionId) =>
-            addFursuitConvention(fursuitId, conventionId).catch((revertError) => {
-              console.warn('Failed to restore convention assignment after error', revertError);
-            })
-          )
+            addFursuitConvention(fursuitId, conventionId).catch(
+              (revertError) => {
+                console.warn(
+                  "Failed to restore convention assignment after error",
+                  revertError,
+                );
+              },
+            ),
+          ),
         );
       }
 
       if (replacedColors) {
         const { error: revertClearError } = await client
-          .from('fursuit_color_assignments')
+          .from("fursuit_color_assignments")
           .delete()
-          .eq('fursuit_id', fursuitId);
+          .eq("fursuit_id", fursuitId);
 
         if (revertClearError) {
-          console.warn('Failed to clear color assignments after error', revertClearError);
+          console.warn(
+            "Failed to clear color assignments after error",
+            revertClearError,
+          );
         } else if (previousColors.length > 0) {
           const revertAssignments = previousColors.map((color, index) => ({
             fursuit_id: fursuitId,
@@ -647,11 +726,14 @@ export default function EditFursuitScreen() {
           }));
 
           const { error: revertInsertError } = await client
-            .from('fursuit_color_assignments')
+            .from("fursuit_color_assignments")
             .insert(revertAssignments);
 
           if (revertInsertError) {
-            console.warn('Failed to restore color assignments after error', revertInsertError);
+            console.warn(
+              "Failed to restore color assignments after error",
+              revertInsertError,
+            );
           }
         }
 
@@ -661,7 +743,7 @@ export default function EditFursuitScreen() {
 
       if (updatedCoreRecord) {
         const { error: revertError } = await client
-          .from('fursuits')
+          .from("fursuits")
           .update({
             name: previousName,
             species_id: previousSpeciesId,
@@ -669,11 +751,14 @@ export default function EditFursuitScreen() {
             avatar_path: previousAvatarPath,
             avatar_url: previousAvatarUrl,
           })
-          .eq('id', fursuitId)
-          .eq('owner_id', userId);
+          .eq("id", fursuitId)
+          .eq("owner_id", userId);
 
         if (revertError) {
-          console.warn('Failed to revert fursuit record after edit error', revertError);
+          console.warn(
+            "Failed to revert fursuit record after edit error",
+            revertError,
+          );
         }
 
         // Also revert local state for catch mode
@@ -704,14 +789,14 @@ export default function EditFursuitScreen() {
         return next;
       });
     },
-    [disableForm, profileConventionIdSet]
+    [disableForm, profileConventionIdSet],
   );
 
   return (
     <View style={styles.screen}>
-    <ScreenHeader title="Edit Fursuit" onBack={() => router.back()} />
-    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
-      <View style={styles.header}>
+      <ScreenHeader title="Edit Fursuit" onBack={() => router.back()} />
+      <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+        <View style={styles.header}>
           <Text style={styles.eyebrow}>Edit bio</Text>
           <Text style={styles.title}>Refresh your fursuit entry</Text>
           <Text style={styles.subtitle}>
@@ -724,10 +809,16 @@ export default function EditFursuitScreen() {
             <Text style={styles.message}>Loading your fursuit details…</Text>
           ) : error ? (
             <View style={styles.errorBlock}>
-              <Text style={styles.errorText}>{
-                error instanceof Error ? error.message : 'We could not load that fursuit.'
-              }</Text>
-              <TailTagButton variant="outline" size="sm" onPress={() => refetch()}>
+              <Text style={styles.errorText}>
+                {error instanceof Error
+                  ? error.message
+                  : "We could not load that fursuit."}
+              </Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => refetch()}
+              >
                 Try again
               </TailTagButton>
             </View>
@@ -745,9 +836,16 @@ export default function EditFursuitScreen() {
                       <ActivityIndicator color={colors.primary} />
                     </View>
                   ) : selectedPhoto ? (
-                    <Image source={selectedPhoto.uri} style={styles.photoPreview} contentFit="cover" />
+                    <Image
+                      source={selectedPhoto.uri}
+                      style={styles.photoPreview}
+                      contentFit="cover"
+                    />
                   ) : detail?.avatar_url ? (
-                    <AppImage url={detail.avatar_url} style={styles.photoPreview} />
+                    <AppImage
+                      url={detail.avatar_url}
+                      style={styles.photoPreview}
+                    />
                   ) : (
                     <View style={styles.photoPlaceholder}>
                       <Text style={styles.photoPlaceholderText}>No photo</Text>
@@ -757,10 +855,14 @@ export default function EditFursuitScreen() {
                 <View style={styles.photoButtons}>
                   <TailTagButton
                     variant="outline"
-                    onPress={() => { void handlePickPhoto(); }}
+                    onPress={() => {
+                      void handlePickPhoto();
+                    }}
                     disabled={disableForm || isProcessingPhoto}
                   >
-                    {detail?.avatar_url || selectedPhoto ? 'Change photo' : 'Choose photo'}
+                    {detail?.avatar_url || selectedPhoto
+                      ? "Change photo"
+                      : "Choose photo"}
                   </TailTagButton>
                   {selectedPhoto ? (
                     <TailTagButton
@@ -772,7 +874,9 @@ export default function EditFursuitScreen() {
                     </TailTagButton>
                   ) : null}
                 </View>
-                {photoError ? <Text style={styles.errorText}>{photoError}</Text> : null}
+                {photoError ? (
+                  <Text style={styles.errorText}>{photoError}</Text>
+                ) : null}
               </View>
 
               <View style={styles.fieldGroup}>
@@ -809,7 +913,9 @@ export default function EditFursuitScreen() {
                   <>
                     <View style={styles.colorSelectedList}>
                       {selectedColors.length === 0 ? (
-                        <Text style={styles.helperLabel}>No colors selected yet.</Text>
+                        <Text style={styles.helperLabel}>
+                          No colors selected yet.
+                        </Text>
                       ) : null}
                       {selectedColors.map((color) => (
                         <Pressable
@@ -818,15 +924,21 @@ export default function EditFursuitScreen() {
                           onPress={() => handleToggleColor(color)}
                           disabled={disableForm}
                         >
-                          <Text style={styles.colorSelectedText}>{color.name}</Text>
+                          <Text style={styles.colorSelectedText}>
+                            {color.name}
+                          </Text>
                           <Text style={styles.colorSelectedRemove}>Remove</Text>
                         </Pressable>
                       ))}
                     </View>
                     <View style={styles.colorOptionList}>
                       {colorOptions.map((option) => {
-                        const isSelected = selectedColors.some((color) => color.id === option.id);
-                        const isAtLimit = !isSelected && selectedColors.length >= MAX_FURSUIT_COLORS;
+                        const isSelected = selectedColors.some(
+                          (color) => color.id === option.id,
+                        );
+                        const isAtLimit =
+                          !isSelected &&
+                          selectedColors.length >= MAX_FURSUIT_COLORS;
                         return (
                           <Pressable
                             key={option.id}
@@ -842,8 +954,12 @@ export default function EditFursuitScreen() {
                             <Text
                               style={[
                                 styles.colorChipLabel,
-                                isSelected ? styles.colorChipLabelSelected : null,
-                                isAtLimit ? styles.colorChipLabelDisabled : null,
+                                isSelected
+                                  ? styles.colorChipLabelSelected
+                                  : null,
+                                isAtLimit
+                                  ? styles.colorChipLabelDisabled
+                                  : null,
                               ]}
                             >
                               {option.name}
@@ -854,7 +970,8 @@ export default function EditFursuitScreen() {
                     </View>
                     {selectedColors.length >= MAX_FURSUIT_COLORS ? (
                       <Text style={styles.helperLabel}>
-                        You picked the maximum number of colors. Tap one to remove it.
+                        You picked the maximum number of colors. Tap one to
+                        remove it.
                       </Text>
                     ) : null}
                   </>
@@ -872,7 +989,8 @@ export default function EditFursuitScreen() {
                   autoCapitalize="words"
                 />
                 <Text style={styles.helperLabel}>
-                  Tap a suggestion or keep typing to add a new species to the shared list.
+                  Tap a suggestion or keep typing to add a new species to the
+                  shared list.
                 </Text>
                 {isSpeciesBusy ? (
                   <Text style={styles.helperLabel}>Loading species…</Text>
@@ -893,7 +1011,9 @@ export default function EditFursuitScreen() {
                 ) : speciesSuggestions.length > 0 ? (
                   <View style={styles.speciesSuggestionSection}>
                     <Text style={styles.helperLabel}>
-                      {normalizedSpeciesInput ? 'Matching species' : 'Popular species'}
+                      {normalizedSpeciesInput
+                        ? "Matching species"
+                        : "Popular species"}
                     </Text>
                     <View style={styles.speciesSuggestionList}>
                       {speciesSuggestions.map((option) => {
@@ -901,7 +1021,7 @@ export default function EditFursuitScreen() {
                         return (
                           <TailTagButton
                             key={option.id}
-                            variant={isSelected ? 'primary' : 'ghost'}
+                            variant={isSelected ? "primary" : "ghost"}
                             size="sm"
                             onPress={() => handleSpeciesSelect(option)}
                             disabled={disableForm}
@@ -918,13 +1038,35 @@ export default function EditFursuitScreen() {
 
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Pronouns</Text>
-                <TailTagInput
-                  value={pronounsInput}
-                  onChangeText={setPronounsInput}
-                  placeholder="They/them, she/they, he/him, etc."
-                  editable={!disableForm}
-                  returnKeyType="next"
-                />
+                <Text style={styles.helperLabel}>
+                  Select all pronouns that fit your fursuit.
+                </Text>
+                <View style={styles.pronounChipList}>
+                  {PRONOUN_OPTIONS.map((option) => {
+                    const isSelected = selectedPronouns.includes(option);
+                    return (
+                      <Pressable
+                        key={option}
+                        accessibilityRole="button"
+                        onPress={() => handleTogglePronoun(option)}
+                        style={[
+                          styles.colorChip,
+                          isSelected ? styles.colorChipSelected : null,
+                        ]}
+                        disabled={disableForm}
+                      >
+                        <Text
+                          style={[
+                            styles.colorChipLabel,
+                            isSelected ? styles.colorChipLabelSelected : null,
+                          ]}
+                        >
+                          {option}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
 
               <View style={styles.fieldGroup}>
@@ -932,7 +1074,7 @@ export default function EditFursuitScreen() {
                 <TailTagInput
                   value={likesInput}
                   onChangeText={setLikesInput}
-                  placeholder="Games, hobbies, music - whatever makes you light up"
+                  placeholder="Games, hobbies, music, or whatever makes you light up"
                   editable={!disableForm}
                   multiline
                   numberOfLines={3}
@@ -958,8 +1100,8 @@ export default function EditFursuitScreen() {
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Social links</Text>
                 <Text style={styles.helperLabel}>
-                  Add the places where catchers can follow you. Pick a platform and
-                  enter your username.
+                  Add the places where catchers can follow you. Pick a platform
+                  and enter your username.
                 </Text>
                 <View style={styles.socialList}>
                   {socialLinks.map((entry, index) => {
@@ -968,7 +1110,7 @@ export default function EditFursuitScreen() {
                         (e) =>
                           e.id !== entry.id &&
                           e.platformId &&
-                          e.platformId !== CUSTOM_PLATFORM_ID
+                          e.platformId !== CUSTOM_PLATFORM_ID,
                       )
                       .map((e) => e.platformId);
                     const isCustom = entry.platformId === CUSTOM_PLATFORM_ID;
@@ -978,7 +1120,7 @@ export default function EditFursuitScreen() {
                           {ALLOWED_SOCIAL_PLATFORMS.map((platform) => {
                             const isSelected = entry.platformId === platform.id;
                             const isUsedElsewhere = usedPlatformIds.includes(
-                              platform.id
+                              platform.id,
                             );
                             return (
                               <Pressable
@@ -987,15 +1129,17 @@ export default function EditFursuitScreen() {
                                   !isUsedElsewhere &&
                                   handleSocialLinkChange(
                                     entry.id,
-                                    'platformId',
-                                    platform.id
+                                    "platformId",
+                                    platform.id,
                                   )
                                 }
                                 disabled={disableForm || isUsedElsewhere}
                                 style={[
                                   styles.socialPlatformChip,
-                                  isSelected && styles.socialPlatformChipSelected,
-                                  isUsedElsewhere && styles.socialPlatformChipDisabled,
+                                  isSelected &&
+                                    styles.socialPlatformChipSelected,
+                                  isUsedElsewhere &&
+                                    styles.socialPlatformChipDisabled,
                                 ]}
                               >
                                 <Text
@@ -1016,8 +1160,8 @@ export default function EditFursuitScreen() {
                             onPress={() =>
                               handleSocialLinkChange(
                                 entry.id,
-                                'platformId',
-                                CUSTOM_PLATFORM_ID
+                                "platformId",
+                                CUSTOM_PLATFORM_ID,
                               )
                             }
                             disabled={disableForm}
@@ -1040,9 +1184,9 @@ export default function EditFursuitScreen() {
                         {isCustom ? (
                           <View style={styles.socialCustomInputs}>
                             <TailTagInput
-                              value={entry.label ?? ''}
+                              value={entry.label ?? ""}
                               onChangeText={(value) =>
-                                handleSocialLinkChange(entry.id, 'label', value)
+                                handleSocialLinkChange(entry.id, "label", value)
                               }
                               placeholder="Label (e.g. Mastodon, Website)"
                               editable={!disableForm}
@@ -1051,9 +1195,9 @@ export default function EditFursuitScreen() {
                             />
                             <View style={styles.socialInputRow}>
                               <TailTagInput
-                                value={entry.url ?? ''}
+                                value={entry.url ?? ""}
                                 onChangeText={(value) =>
-                                  handleSocialLinkChange(entry.id, 'url', value)
+                                  handleSocialLinkChange(entry.id, "url", value)
                                 }
                                 placeholder="https://example.com/you"
                                 editable={!disableForm}
@@ -1061,8 +1205,8 @@ export default function EditFursuitScreen() {
                                 keyboardType="url"
                                 returnKeyType={
                                   index === socialLinks.length - 1
-                                    ? 'done'
-                                    : 'next'
+                                    ? "done"
+                                    : "next"
                                 }
                                 onSubmitEditing={
                                   index === socialLinks.length - 1
@@ -1074,9 +1218,7 @@ export default function EditFursuitScreen() {
                               <TailTagButton
                                 variant="ghost"
                                 size="sm"
-                                onPress={() =>
-                                  handleRemoveSocialLink(entry.id)
-                                }
+                                onPress={() => handleRemoveSocialLink(entry.id)}
                                 disabled={disableForm}
                                 style={styles.socialRemoveButton}
                               >
@@ -1091,8 +1233,8 @@ export default function EditFursuitScreen() {
                               onChangeText={(value) =>
                                 handleSocialLinkChange(
                                   entry.id,
-                                  'handle',
-                                  value
+                                  "handle",
+                                  value,
                                 )
                               }
                               placeholder="Username"
@@ -1101,8 +1243,8 @@ export default function EditFursuitScreen() {
                               keyboardType="default"
                               returnKeyType={
                                 index === socialLinks.length - 1
-                                  ? 'done'
-                                  : 'next'
+                                  ? "done"
+                                  : "next"
                               }
                               onSubmitEditing={
                                 index === socialLinks.length - 1
@@ -1114,9 +1256,7 @@ export default function EditFursuitScreen() {
                             <TailTagButton
                               variant="ghost"
                               size="sm"
-                              onPress={() =>
-                                handleRemoveSocialLink(entry.id)
-                              }
+                              onPress={() => handleRemoveSocialLink(entry.id)}
                               disabled={disableForm}
                               style={styles.socialRemoveButton}
                             >
@@ -1176,16 +1316,23 @@ export default function EditFursuitScreen() {
                     </TailTagButton>
                   </View>
                 ) : conventions.length === 0 ? (
-                  <Text style={styles.message}>No conventions are available yet. Check back soon.</Text>
+                  <Text style={styles.message}>
+                    No conventions are available yet. Check back soon.
+                  </Text>
                 ) : profileConventionIdSet.size === 0 ? (
                   <Text style={styles.message}>
-                    Opt into a convention from Settings before assigning this suit.
+                    Opt into a convention from Settings before assigning this
+                    suit.
                   </Text>
                 ) : (
                   <View style={styles.conventionList}>
                     {conventions.map((convention) => {
-                      const isAllowed = profileConventionIdSet.has(convention.id);
-                      const isSelected = selectedConventionIds.has(convention.id);
+                      const isAllowed = profileConventionIdSet.has(
+                        convention.id,
+                      );
+                      const isSelected = selectedConventionIds.has(
+                        convention.id,
+                      );
 
                       return (
                         <ConventionToggle
@@ -1197,9 +1344,9 @@ export default function EditFursuitScreen() {
                           badgeText={
                             isAllowed
                               ? isSelected
-                                ? 'Joined'
-                                : 'Tap to join'
-                              : 'Opt in via Settings'
+                                ? "Joined"
+                                : "Tap to join"
+                              : "Opt in via Settings"
                           }
                           onToggle={(conventionId, nextSelected) =>
                             handleConventionToggle(conventionId, nextSelected)
@@ -1211,7 +1358,9 @@ export default function EditFursuitScreen() {
                 )}
               </View>
 
-              {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+              {submitError ? (
+                <Text style={styles.errorText}>{submitError}</Text>
+              ) : null}
 
               <View style={styles.buttonRow}>
                 <TailTagButton
@@ -1222,14 +1371,18 @@ export default function EditFursuitScreen() {
                 >
                   Cancel
                 </TailTagButton>
-                <TailTagButton onPress={handleSubmit} loading={isSubmitting} disabled={isSubmitting}>
+                <TailTagButton
+                  onPress={handleSubmit}
+                  loading={isSubmitting}
+                  disabled={isSubmitting}
+                >
                   Save changes
                 </TailTagButton>
               </View>
             </View>
           )}
         </TailTagCard>
-    </KeyboardAwareFormWrapper>
+      </KeyboardAwareFormWrapper>
     </View>
   );
 }

@@ -24,8 +24,8 @@ import {
 } from '../../profile';
 import type { Json } from '../../../types/database';
 
-const CATCH_RECONCILE_WINDOW_MS = 45_000;
-const CATCH_RECONCILE_POLL_INTERVAL_MS = 2_000;
+const CATCH_RECONCILE_DEBOUNCE_MS = 800;
+const CATCH_RECONCILE_FOLLOW_UP_MS = 6_000;
 
 type NotificationRow = {
   id: string;
@@ -159,7 +159,7 @@ export function AchievementToastManager() {
   const sessionStartedAtRef = useRef<string>(new Date().toISOString());
   const notificationCatchupCursorRef = useRef<string>(sessionStartedAtRef.current);
   const catchReconcileTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const catchReconcileUntilRef = useRef<number>(0);
+  const catchReconcileFollowUpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const catchReconcileInFlightRef = useRef<boolean>(false);
 
   const segments = useSegments();
@@ -178,6 +178,10 @@ export function AchievementToastManager() {
       clearTimeout(catchReconcileTimeoutRef.current);
       catchReconcileTimeoutRef.current = null;
     }
+    if (catchReconcileFollowUpTimeoutRef.current) {
+      clearTimeout(catchReconcileFollowUpTimeoutRef.current);
+      catchReconcileFollowUpTimeoutRef.current = null;
+    }
   }, []);
 
   const scheduleCatchReconcile = useCallback(() => {
@@ -185,56 +189,41 @@ export function AchievementToastManager() {
       return;
     }
 
-    catchReconcileUntilRef.current = Math.max(
-      catchReconcileUntilRef.current,
-      Date.now() + CATCH_RECONCILE_WINDOW_MS,
-    );
-
-    if (catchReconcileTimeoutRef.current) {
-      return;
-    }
-
-    const tick = async () => {
-      if (!userId) {
-        clearCatchReconcileTimer();
-        catchReconcileUntilRef.current = 0;
-        catchReconcileInFlightRef.current = false;
+    const runReconcile = async () => {
+      if (catchReconcileInFlightRef.current) {
         return;
       }
-
-      if (Date.now() > catchReconcileUntilRef.current) {
-        clearCatchReconcileTimer();
-        catchReconcileUntilRef.current = 0;
+      catchReconcileInFlightRef.current = true;
+      try {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: statusQueryKey }),
+          queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] }),
+        ]);
+      } finally {
         catchReconcileInFlightRef.current = false;
-        return;
       }
-
-      if (!catchReconcileInFlightRef.current) {
-        catchReconcileInFlightRef.current = true;
-        try {
-          await Promise.all([
-            queryClient.invalidateQueries({ queryKey: statusQueryKey }),
-            queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] }),
-          ]);
-        } finally {
-          catchReconcileInFlightRef.current = false;
-        }
-      }
-
-      catchReconcileTimeoutRef.current = setTimeout(() => {
-        void tick();
-      }, CATCH_RECONCILE_POLL_INTERVAL_MS);
     };
 
+    if (catchReconcileTimeoutRef.current) {
+      clearTimeout(catchReconcileTimeoutRef.current);
+    }
     catchReconcileTimeoutRef.current = setTimeout(() => {
-      void tick();
-    }, 0);
-  }, [clearCatchReconcileTimer, queryClient, statusQueryKey, userId]);
+      catchReconcileTimeoutRef.current = null;
+      void runReconcile();
+    }, CATCH_RECONCILE_DEBOUNCE_MS);
+
+    if (catchReconcileFollowUpTimeoutRef.current) {
+      clearTimeout(catchReconcileFollowUpTimeoutRef.current);
+    }
+    catchReconcileFollowUpTimeoutRef.current = setTimeout(() => {
+      catchReconcileFollowUpTimeoutRef.current = null;
+      void runReconcile();
+    }, CATCH_RECONCILE_FOLLOW_UP_MS);
+  }, [queryClient, statusQueryKey, userId]);
 
   useEffect(() => {
     return () => {
       clearCatchReconcileTimer();
-      catchReconcileUntilRef.current = 0;
       catchReconcileInFlightRef.current = false;
     };
   }, [clearCatchReconcileTimer]);
@@ -329,7 +318,6 @@ export function AchievementToastManager() {
   useEffect(() => {
     if (snapshotUserRef.current !== userId) {
       clearCatchReconcileTimer();
-      catchReconcileUntilRef.current = 0;
       catchReconcileInFlightRef.current = false;
       unlockedSnapshotRef.current.clear();
       hasPrimedSnapshotRef.current = false;

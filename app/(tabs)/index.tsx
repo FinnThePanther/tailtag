@@ -168,7 +168,6 @@ export default function HomeScreen() {
     data: achievementStatuses = [],
     error: achievementsError,
     isLoading: isAchievementsLoading,
-    isFetching: isAchievementsFetching,
     refetch: refetchAchievements,
   } = useQuery<AchievementWithStatus[], Error>({
     queryKey: achievementsQueryKey,
@@ -204,7 +203,8 @@ export default function HomeScreen() {
   }, [unlockedAchievements]);
 
   const achievementsErrorMessage = achievementsError?.message ?? null;
-  const isAchievementsBusy = isAchievementsLoading || isAchievementsFetching;
+  const showAchievementsSkeleton =
+    achievementStatuses.length === 0 && isAchievementsLoading;
 
   const conventionMap = useMemo(() => {
     return new Map(
@@ -633,7 +633,7 @@ export default function HomeScreen() {
           <Text style={styles.sectionEyebrow}>Achievements</Text>
           <Text style={styles.sectionTitle}>Track your progress</Text>
 
-          {isAchievementsBusy ? (
+          {showAchievementsSkeleton ? (
             <Text style={styles.message}>Checking your progress…</Text>
           ) : achievementsErrorMessage ? (
             <View style={styles.helper}>
