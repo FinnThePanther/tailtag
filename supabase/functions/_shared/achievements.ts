@@ -407,7 +407,33 @@ async function processCatchConfirmedEvent(
   }
 
   // Process achievements and daily tasks using the catch_performed event
-  return await processCatchEvent(supabaseAdmin, catchPerformedEvent, { skipDailyTasks: false });
+  const result = await processCatchEvent(supabaseAdmin, catchPerformedEvent, { skipDailyTasks: false });
+
+  // This synthetic catch_performed row is processed inline here (not via queue),
+  // so stamp it to avoid leaving unprocessed rows with no queue metadata.
+  if (!insertError) {
+    const now = new Date().toISOString();
+    const { error: stampError } = await supabaseAdmin
+      .from("events")
+      .update({
+        retry_count: 0,
+        processed_at: now,
+        last_attempted_at: now,
+        last_error: null,
+      })
+      .eq("event_id", catchPerformedEvent.event_id)
+      .is("processed_at", null);
+
+    if (stampError) {
+      console.error("[events-ingress] Failed to stamp synthetic catch_performed event", {
+        event_id: catchPerformedEvent.event_id,
+        catch_id: catchId,
+        error: stampError,
+      });
+    }
+  }
+
+  return result;
 }
 
 async function processProfileEvent(

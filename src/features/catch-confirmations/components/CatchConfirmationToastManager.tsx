@@ -9,6 +9,7 @@ import { pendingCatchesQueryKey } from '../api/confirmations';
 import { myPendingCatchesQueryKey } from '../api/myPendingCatches';
 import { CAUGHT_SUITS_QUERY_KEY } from '../../suits';
 import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks/hooks';
+import { achievementsStatusQueryKey } from '../../achievements';
 
 /**
  * Mount once inside the app shell so catch confirmation notifications raise toasts in real time.
@@ -142,6 +143,11 @@ export function CatchConfirmationToastManager() {
       // Only catches confirmed today count toward today's tasks
       void queryClient.invalidateQueries({
         queryKey: [DAILY_TASKS_QUERY_KEY],
+      });
+
+      // Refresh achievements in case catch-based awards were granted.
+      void queryClient.invalidateQueries({
+        queryKey: achievementsStatusQueryKey(userId),
       });
     };
 

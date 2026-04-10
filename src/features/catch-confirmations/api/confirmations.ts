@@ -76,6 +76,13 @@ function normalizeColorNames(raw: unknown): string[] {
   return raw.filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
 }
 
+async function wakeGameplayQueue(): Promise<void> {
+  const { error } = await supabase.rpc('process_gameplay_queue_if_active');
+  if (error) {
+    throw error;
+  }
+}
+
 /**
  * Fetch all pending catches for the user's fursuits
  */
@@ -125,7 +132,7 @@ export async function confirmCatch(
   userId: string,
   decision: 'accept' | 'reject',
   reason?: string,
-  _conventionId?: string // No longer needed - server-side emission handles this
+  conventionId?: string
 ): Promise<ConfirmCatchResult> {
   const { data, error } = await supabase.rpc('confirm_catch', {
     p_catch_id: catchId,
@@ -148,8 +155,44 @@ export async function confirmCatch(
     throw new Error(result?.message ?? 'Failed to process catch decision.');
   }
 
-  // Event emission now happens server-side in the confirm_catch RPC function
-  // This eliminates the 401 auth error that occurred with client-side emission
+  if (decision === 'accept' && conventionId) {
+    const occurredAt = new Date().toISOString();
+    const rpcRow = isRecord(data) ? data : null;
+    const optimisticPayload: Record<string, Json> = {
+      catch_id: catchId,
+      convention_id: conventionId,
+      source: 'catch_confirmed',
+      status: 'ACCEPTED',
+      fursuit_id:
+        typeof rpcRow?.fursuit_id === 'string' && rpcRow.fursuit_id.length > 0
+          ? rpcRow.fursuit_id
+          : null,
+      catcher_id:
+        typeof rpcRow?.catcher_id === 'string' && rpcRow.catcher_id.length > 0
+          ? rpcRow.catcher_id
+          : null,
+    };
+
+    emitLocalGameplayEvent({
+      eventId: `catch:${catchId}:confirmed:local`,
+      idempotencyKey: `catch:${catchId}:confirmed:${occurredAt}`,
+      type: 'catch_performed',
+      conventionId,
+      occurredAt,
+      payload: ({ ...optimisticPayload, payload: optimisticPayload } as Json),
+      emittedAt: Date.now(),
+    });
+  }
+
+  if (decision === 'accept') {
+    void wakeGameplayQueue().catch((queueWakeError) => {
+      captureFeatureError(queueWakeError, {
+        scope: 'catch-confirmations.confirmCatch',
+        action: 'wakeGameplayQueue',
+        catchId,
+      });
+    });
+  }
 
   return {
     success: true,
@@ -273,6 +316,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       const colorNames = normalizeColorNames(responseData?.colors);
       const optimisticPayload: Record<string, Json> = {
         catch_id: result.catchId,
+        catcher_id: currentUserId,
         fursuit_id: params.fursuitId,
         convention_id: params.conventionId,
         status: result.status,
@@ -292,6 +336,14 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         occurredAt,
         payload: ({ ...optimisticPayload, payload: optimisticPayload } as Json),
         emittedAt: Date.now(),
+      });
+
+      void wakeGameplayQueue().catch((queueWakeError) => {
+        captureFeatureError(queueWakeError, {
+          scope: 'catch-confirmations.createCatch',
+          action: 'wakeGameplayQueue',
+          catchId: result.catchId,
+        });
       });
     }
 

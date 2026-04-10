@@ -33,6 +33,7 @@ import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareF
 import { useAuth } from "../../src/features/auth";
 import { emitGameplayEvent } from "../../src/features/events";
 import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
+import { achievementsStatusQueryKey } from "../../src/features/achievements";
 import { supabase } from "../../src/lib/supabase";
 import {
   captureHandledException,
@@ -409,6 +410,9 @@ export default function CatchScreen() {
       queryClient.invalidateQueries({
         queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
       });
+      void queryClient.invalidateQueries({
+        queryKey: achievementsStatusQueryKey(userId),
+      });
 
       // Invalidate pending catches for the fursuit owner (if it's a pending catch)
       if (catchResult.requiresApproval && catchResult.fursuitOwnerId) {
@@ -593,6 +597,9 @@ export default function CatchScreen() {
       }
       queryClient.invalidateQueries({
         queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: achievementsStatusQueryKey(userId),
       });
 
       if (catchResult.requiresApproval && catchResult.fursuitOwnerId) {
