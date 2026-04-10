@@ -9,15 +9,15 @@ import { styles } from './TailTagInput.styles';
 type TailTagInputProps = TextInputProps;
 
 function Input(
-  { style, ...rest }: TailTagInputProps,
+  { style, placeholderTextColor, ...rest }: TailTagInputProps,
   ref: ForwardedRef<TextInput>
 ) {
   return (
     <TextInput
       ref={ref}
-      placeholderTextColor={colors.textPlaceholder}
       style={[styles.input, style]}
       {...rest}
+      placeholderTextColor={placeholderTextColor ?? colors.textPlaceholder}
     />
   );
 }

@@ -83,8 +83,7 @@ import { CONVENTION_LEADERBOARD_QUERY_KEY } from "../../src/features/leaderboard
 import { usePushNotifications } from "../../src/features/push-notifications";
 import { styles } from "../../src/app-styles/(tabs)/settings.styles";
 
-const FEEDBACK_FORM_URL =
-  "https://forms.gle/e65DqKt1VsuvoFTx8";
+const FEEDBACK_FORM_URL = "https://forms.gle/e65DqKt1VsuvoFTx8";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -207,7 +206,7 @@ export default function SettingsScreen() {
   );
   const [hasHydratedSocialLinks, setHasHydratedSocialLinks] = useState(false);
 
-const [isSaving, setIsSaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -246,10 +245,16 @@ const [isSaving, setIsSaving] = useState(false);
     : null;
 
   const isDirty = useMemo(() => {
-    const usernameChanged = normalizedProfileUsername !== normalizedUsernameInput;
+    const usernameChanged =
+      normalizedProfileUsername !== normalizedUsernameInput;
     const bioChanged = (profile?.bio ?? "") !== bioInput.trim();
     return usernameChanged || bioChanged;
-  }, [bioInput, normalizedProfileUsername, normalizedUsernameInput, profile?.bio]);
+  }, [
+    bioInput,
+    normalizedProfileUsername,
+    normalizedUsernameInput,
+    profile?.bio,
+  ]);
 
   const resetDraftFromProfile = useCallback(
     (
@@ -728,9 +733,9 @@ const [isSaving, setIsSaving] = useState(false);
       });
 
       try {
-        const previouslySelectedConventionIds = (profileConventionIds ?? []).filter(
-          (id) => id !== conventionId,
-        );
+        const previouslySelectedConventionIds = (
+          profileConventionIds ?? []
+        ).filter((id) => id !== conventionId);
 
         if (!nextSelected) {
           await optOutOfConvention(userId, conventionId);
@@ -746,10 +751,9 @@ const [isSaving, setIsSaving] = useState(false);
             verifiedLocation: verifiedLocation ?? undefined,
             verificationMethod: verifiedLocation ? "gps" : "none",
           });
-          queryClient.setQueryData<string[]>(
-            profileConventionQueryKey,
-            [conventionId],
-          );
+          queryClient.setQueryData<string[]>(profileConventionQueryKey, [
+            conventionId,
+          ]);
         }
         void queryClient.invalidateQueries({
           queryKey: [DAILY_TASKS_QUERY_KEY],
@@ -922,7 +926,11 @@ const [isSaving, setIsSaving] = useState(false);
           ]}
         >
           <Pressable style={styles.menuButton} hitSlop={8}>
-            <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
+            <Ionicons
+              name="ellipsis-vertical"
+              size={20}
+              color={colors.textMuted}
+            />
           </Pressable>
         </MenuView>
       </View>
@@ -1015,7 +1023,7 @@ const [isSaving, setIsSaving] = useState(false);
                 autoCapitalize="none"
                 autoCorrect={false}
                 maxLength={USERNAME_MAX_LENGTH}
-                placeholder="Pick a handle tailtaggers will remember"
+                placeholder="Choose a username that identifies you"
               />
               {usernameValidationMessage ? (
                 <Text style={styles.usernameInvalid}>
@@ -1385,7 +1393,6 @@ const [isSaving, setIsSaving] = useState(false);
           </View>
         </TailTagCard>
       ) : null}
-
 
       <TailTagCard>
         <View style={styles.accountSection}>

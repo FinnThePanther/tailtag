@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 import { colors, radius, spacing } from '../../theme';
 
@@ -12,5 +12,9 @@ export const styles = StyleSheet.create({
     color: colors.foreground,
     fontSize: 16,
     backgroundColor: colors.backgroundElevated,
+    ...Platform.select({
+      android: { includeFontPadding: false },
+      default: {},
+    }),
   },
 });

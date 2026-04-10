@@ -1,6 +1,12 @@
 import { supabase } from '../../../lib/supabase';
 import { captureFeatureError } from '../../../lib/sentry';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../../lib/runtimeConfig';
+import {
+  emitImmediateAchievementAwards,
+  type ImmediateAchievementAward,
+} from '../../achievements/immediateAwardsBus';
+import { emitLocalGameplayEvent } from '../../events/localGameplayEventsBus';
+import type { Json } from '../../../types/database';
 import type { CatchMode, PendingCatch, ConfirmCatchResult, CreateCatchResult, CreateCatchParams } from '../types';
 
 // Query keys
@@ -11,6 +17,64 @@ export const pendingCatchesQueryKey = (userId: string) =>
 
 // Stale times
 export const PENDING_CATCHES_STALE_TIME = 15 * 1000; // 15 seconds
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeInlineAwards(raw: unknown): ImmediateAchievementAward[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const awards: ImmediateAchievementAward[] = [];
+
+  for (const entry of raw) {
+    if (!isRecord(entry)) {
+      continue;
+    }
+
+    if (entry.awarded === false) {
+      continue;
+    }
+
+    const achievementKey =
+      typeof entry.achievement_key === 'string' && entry.achievement_key.length > 0
+        ? entry.achievement_key
+        : null;
+
+    if (!achievementKey) {
+      continue;
+    }
+
+    awards.push({
+      achievementId:
+        typeof entry.achievement_id === 'string' && entry.achievement_id.length > 0
+          ? entry.achievement_id
+          : null,
+      achievementKey,
+      awardedAt:
+        typeof entry.awarded_at === 'string' && entry.awarded_at.length > 0
+          ? entry.awarded_at
+          : null,
+      context: isRecord(entry.context) ? (entry.context as Json) : null,
+      sourceEventId:
+        typeof entry.source_event_id === 'string' && entry.source_event_id.length > 0
+          ? entry.source_event_id
+          : null,
+    });
+  }
+
+  return awards;
+}
+
+function normalizeColorNames(raw: unknown): string[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw.filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+}
 
 /**
  * Fetch all pending catches for the user's fursuits
@@ -123,6 +187,7 @@ export async function updateFursuitCatchMode(
 export async function createCatch(params: CreateCatchParams): Promise<CreateCatchResult> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
+  const currentUserId = sessionData.session?.user.id ?? null;
   const supabaseKey = SUPABASE_ANON_KEY;
 
   if (!accessToken) {
@@ -186,7 +251,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       throw new Error("We couldn't save that catch. Please try again.");
     }
 
-    return {
+    const result: CreateCatchResult = {
       catchId: responseData.catch_id,
       status: responseData.status,
       expiresAt: responseData.expires_at ?? null,
@@ -194,6 +259,43 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       requiresApproval: responseData.requires_approval ?? false,
       fursuitOwnerId: responseData.fursuit_owner_id,
     };
+
+    const immediateAwards = normalizeInlineAwards(responseData?.awards);
+    if (currentUserId && immediateAwards.length > 0) {
+      emitImmediateAchievementAwards({
+        userId: currentUserId,
+        awards: immediateAwards,
+      });
+    }
+
+    if (!result.requiresApproval && params.conventionId) {
+      const occurredAt = new Date().toISOString();
+      const colorNames = normalizeColorNames(responseData?.colors);
+      const optimisticPayload: Record<string, Json> = {
+        catch_id: result.catchId,
+        fursuit_id: params.fursuitId,
+        convention_id: params.conventionId,
+        status: result.status,
+        is_tutorial: params.isTutorial ?? false,
+        species: typeof responseData?.species === 'string' ? responseData.species : null,
+        colors: colorNames,
+      };
+
+      emitLocalGameplayEvent({
+        eventId:
+          typeof responseData?.event_id === 'string' && responseData.event_id.length > 0
+            ? responseData.event_id
+            : `catch:${result.catchId}:local`,
+        idempotencyKey: `catch:${result.catchId}:${occurredAt}`,
+        type: 'catch_performed',
+        conventionId: params.conventionId,
+        occurredAt,
+        payload: ({ ...optimisticPayload, payload: optimisticPayload } as Json),
+        emittedAt: Date.now(),
+      });
+    }
+
+    return result;
   } catch (error) {
     clearTimeout(timeoutId);
 
