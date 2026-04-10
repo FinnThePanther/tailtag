@@ -11,7 +11,6 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.xxl,
-    gap: spacing.lg,
   },
   header: {
     gap: spacing.xs,
@@ -44,6 +43,6 @@ export const styles = StyleSheet.create({
     fontSize: 14,
   },
   separator: {
-    height: spacing.sm,
+    height: spacing.xs,
   },
 });
