@@ -16,5 +16,6 @@ export {
 export { useAchievementUnlockToast } from './hooks';
 
 export { AchievementToastManager } from './components/AchievementToastManager';
+export { AchievementsSummarySkeleton } from './components/AchievementsSummarySkeleton';
 
 export type { AchievementCategory, AchievementRecipientRole } from '../../types/database';

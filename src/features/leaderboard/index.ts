@@ -1,4 +1,5 @@
 export type { LeaderboardEntry, SuitLeaderboardEntry } from './api/leaderboard';
+export { LeaderboardSectionSkeleton } from './components/LeaderboardSectionSkeleton';
 export {
   CONVENTION_LEADERBOARD_QUERY_KEY,
   conventionLeaderboardQueryKey,
