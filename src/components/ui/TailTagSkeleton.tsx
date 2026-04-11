@@ -40,11 +40,7 @@ export function TailTagSkeletonGroup({ children }: TailTagSkeletonGroupProps) {
     );
   }, [progress]);
 
-  return (
-    <SkeletonGroupContext.Provider value={progress}>
-      {children}
-    </SkeletonGroupContext.Provider>
-  );
+  return <SkeletonGroupContext.Provider value={progress}>{children}</SkeletonGroupContext.Provider>;
 }
 
 // ---------------------------------------------------------------------------
