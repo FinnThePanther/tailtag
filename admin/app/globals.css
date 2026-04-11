@@ -9,7 +9,11 @@
 body {
   background: #0b1021;
   color: #e2e8f0;
-  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  font-family:
+    'Manrope',
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 a {

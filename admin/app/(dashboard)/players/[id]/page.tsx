@@ -32,26 +32,60 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
         }
       >
         <div className="grid gap-4 md:grid-cols-4">
-          <Info label="Role" value={profile.role} />
-          <Info label="Created" value={profile.created_at ? new Date(profile.created_at).toLocaleDateString() : '—'} />
-          <Info label="Suspended until" value={profile.suspended_until ?? '—'} />
-          <Info label="Suspension reason" value={profile.suspension_reason ?? '—'} />
+          <Info
+            label="Role"
+            value={profile.role}
+          />
+          <Info
+            label="Created"
+            value={profile.created_at ? new Date(profile.created_at).toLocaleDateString() : '—'}
+          />
+          <Info
+            label="Suspended until"
+            value={profile.suspended_until ?? '—'}
+          />
+          <Info
+            label="Suspension reason"
+            value={profile.suspension_reason ?? '—'}
+          />
         </div>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card title="Moderation summary" subtitle="Counts and flags">
+        <Card
+          title="Moderation summary"
+          subtitle="Counts and flags"
+        >
           <div className="grid gap-3 sm:grid-cols-2">
-            <SummaryMetric label="Active bans" value={(moderationSummary as any)?.active_bans ?? 0} />
-            <SummaryMetric label="Reports" value={(moderationSummary as any)?.report_count ?? 0} />
-            <SummaryMetric label="Pending reports" value={(moderationSummary as any)?.pending_reports ?? 0} />
-            <SummaryMetric label="Blocked by others" value={(moderationSummary as any)?.users_blocked ?? 0} />
+            <SummaryMetric
+              label="Active bans"
+              value={(moderationSummary as any)?.active_bans ?? 0}
+            />
+            <SummaryMetric
+              label="Reports"
+              value={(moderationSummary as any)?.report_count ?? 0}
+            />
+            <SummaryMetric
+              label="Pending reports"
+              value={(moderationSummary as any)?.pending_reports ?? 0}
+            />
+            <SummaryMetric
+              label="Blocked by others"
+              value={(moderationSummary as any)?.users_blocked ?? 0}
+            />
           </div>
         </Card>
-        <ModerationPanel userId={profile.id} isSuspended={profile.is_suspended} conventions={conventions} />
+        <ModerationPanel
+          userId={profile.id}
+          isSuspended={profile.is_suspended}
+          conventions={conventions}
+        />
       </div>
 
-      <Card title="User blocks" subtitle="Block relationships">
+      <Card
+        title="User blocks"
+        subtitle="Block relationships"
+      >
         <Table headers={['Direction', 'Username', 'Date']}>
           {blocks.map((block) => (
             <tr key={block.id}>
@@ -68,7 +102,10 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
           ))}
           {blocks.length === 0 ? (
             <tr>
-              <td className="px-4 py-3 text-sm text-muted" colSpan={3}>
+              <td
+                className="px-4 py-3 text-sm text-muted"
+                colSpan={3}
+              >
                 No block relationships.
               </td>
             </tr>
@@ -76,7 +113,10 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
         </Table>
       </Card>
 
-      <Card title="Recent moderation actions" subtitle="Latest 10 actions">
+      <Card
+        title="Recent moderation actions"
+        subtitle="Latest 10 actions"
+      >
         <Table headers={['Type', 'Scope', 'Reason', 'Duration', 'Status', 'Created']}>
           {actions?.map((action) => (
             <tr key={action.id}>
@@ -107,7 +147,10 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
           ))}
           {!actions?.length ? (
             <tr>
-              <td className="px-4 py-3 text-sm text-muted" colSpan={6}>
+              <td
+                className="px-4 py-3 text-sm text-muted"
+                colSpan={6}
+              >
                 No moderation actions recorded.
               </td>
             </tr>
@@ -131,7 +174,10 @@ function SummaryMetric({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex items-center justify-between rounded-xl border border-border bg-background/50 px-3 py-2">
       <div className="flex items-center gap-2 text-sm text-slate-200">
-        <Activity size={14} className="text-primary" />
+        <Activity
+          size={14}
+          className="text-primary"
+        />
         <span>{label}</span>
       </div>
       <span className="text-lg font-semibold text-white">{value}</span>

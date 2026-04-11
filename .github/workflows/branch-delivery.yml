@@ -168,9 +168,13 @@ jobs:
     needs:
       - changes
       - validate
-    if: needs.changes.outputs.mobile == 'true' && github.ref_name == 'dev'
+    # Add [skip eas] to the merge commit message for non-runtime changes
+    # such as repo-wide formatting.
+    if: >-
+      needs.changes.outputs.mobile == 'true' &&
+      github.ref_name == 'dev' &&
+      !contains(github.event.head_commit.message, '[skip eas]')
     environment: staging
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

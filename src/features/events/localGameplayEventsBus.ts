@@ -1,4 +1,4 @@
-import type { Json } from "../../types/database";
+import type { Json } from '../../types/database';
 
 export type LocalGameplayEvent = {
   eventId: string;
@@ -26,7 +26,7 @@ export function emitLocalGameplayEvent(event: LocalGameplayEvent) {
     try {
       listener(event);
     } catch (error) {
-      console.error("[local-gameplay-events] listener error", error);
+      console.error('[local-gameplay-events] listener error', error);
     }
   }
 }

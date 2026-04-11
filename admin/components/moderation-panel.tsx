@@ -2,10 +2,7 @@
 
 import { useState, useTransition } from 'react';
 
-import {
-  banUserAction,
-  unbanUserAction,
-} from '@/app/(dashboard)/players/actions';
+import { banUserAction, unbanUserAction } from '@/app/(dashboard)/players/actions';
 
 type Scope = 'global' | 'event';
 
@@ -79,7 +76,9 @@ export function ModerationPanel({
               />
             </div>
             <div>
-              <label className="text-xs text-slate-200">Duration (hours, blank for permanent)</label>
+              <label className="text-xs text-slate-200">
+                Duration (hours, blank for permanent)
+              </label>
               <input
                 value={banDuration}
                 onChange={(e) => setBanDuration(e.target.value ? Number(e.target.value) : '')}
@@ -111,7 +110,10 @@ export function ModerationPanel({
                 >
                   <option value="">Select convention</option>
                   {conventions.map((c) => (
-                    <option key={c.id} value={c.id}>
+                    <option
+                      key={c.id}
+                      value={c.id}
+                    >
                       {c.name}
                     </option>
                   ))}
@@ -120,7 +122,6 @@ export function ModerationPanel({
             ) : null}
           </div>
         </ActionBlock>
-
       </div>
     </div>
   );

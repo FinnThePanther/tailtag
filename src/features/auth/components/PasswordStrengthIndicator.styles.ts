@@ -1,14 +1,14 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet } from 'react-native';
 
-import { spacing } from "../../../theme";
+import { spacing } from '../../../theme';
 
 export const styles = StyleSheet.create({
   container: {
     gap: spacing.sm,
   },
   bar: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
   segment: {
@@ -18,7 +18,7 @@ export const styles = StyleSheet.create({
   },
   strengthLabel: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: '600',
     marginLeft: 4,
     minWidth: 44,
   },
@@ -26,15 +26,15 @@ export const styles = StyleSheet.create({
     gap: 5,
   },
   checkItem: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
   checkLabel: {
     fontSize: 12,
-    color: "rgba(148,163,184,0.6)",
+    color: 'rgba(148,163,184,0.6)',
   },
   checkLabelMet: {
-    color: "rgba(148,163,184,0.9)",
+    color: 'rgba(148,163,184,0.9)',
   },
 });

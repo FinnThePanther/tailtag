@@ -25,7 +25,10 @@ export async function fetchDashboardSummary() {
     supabase.from('profiles').select('id', { count: 'exact', head: true }),
     supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_suspended', true),
     supabase.from('conventions').select('id', { count: 'exact', head: true }),
-    supabase.from('user_reports').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    supabase
+      .from('user_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending'),
   ]);
 
   return {
@@ -76,13 +79,17 @@ export async function fetchPlayerProfile(userId: string) {
   const [{ data: profile }, { data: moderationSummary }, { data: actions }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, username, avatar_url, role, is_suspended, suspended_until, suspension_reason, created_at')
+      .select(
+        'id, username, avatar_url, role, is_suspended, suspended_until, suspension_reason, created_at',
+      )
       .eq('id', userId)
       .single(),
     (supabase as any).rpc('get_user_moderation_summary', { p_user_id: userId }),
     supabase
       .from('user_moderation_actions')
-      .select('id, action_type, scope, convention_id, reason, duration_hours, is_active, created_at, expires_at, revoked_at')
+      .select(
+        'id, action_type, scope, convention_id, reason, duration_hours, is_active, created_at, expires_at, revoked_at',
+      )
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(10),
@@ -122,13 +129,13 @@ export async function fetchConventions(): Promise<ConventionRow[]> {
         'geofence_radius_meters',
         'geofence_enabled',
         'location_verification_required',
-      ].join(', ')
+      ].join(', '),
     )
     .order('start_date', { ascending: false });
   if (error) {
     throw error;
   }
-  return ((data ?? []) as unknown) as ConventionRow[];
+  return (data ?? []) as unknown as ConventionRow[];
 }
 
 type EventStaffAssignment = {
@@ -138,7 +145,9 @@ type EventStaffAssignment = {
   status: string;
   assigned_at: string;
   notes: string | null;
-  profiles?: { username?: string | null; avatar_url?: string | null; role?: string | null } | { username?: string | null; avatar_url?: string | null; role?: string | null }[];
+  profiles?:
+    | { username?: string | null; avatar_url?: string | null; role?: string | null }
+    | { username?: string | null; avatar_url?: string | null; role?: string | null }[];
 };
 
 export async function fetchConvention(conventionId: string): Promise<{
@@ -165,7 +174,7 @@ export async function fetchConvention(conventionId: string): Promise<{
         'geofence_radius_meters',
         'geofence_enabled',
         'location_verification_required',
-      ].join(', ')
+      ].join(', '),
     )
     .eq('id', conventionId)
     .single();
@@ -177,7 +186,7 @@ export async function fetchConvention(conventionId: string): Promise<{
   const staffQuery = await supabase
     .from('event_staff')
     .select(
-      'id, profile_id, role, status, assigned_at, notes, profiles:profile_id(username, avatar_url, role)'
+      'id, profile_id, role, status, assigned_at, notes, profiles:profile_id(username, avatar_url, role)',
     )
     .eq('convention_id', conventionId)
     .order('assigned_at', { ascending: false });
@@ -289,7 +298,7 @@ export async function fetchStaffAssignments() {
         'profiles:profile_id(username, role)',
         'assigned_by_user_id',
         'assigned_by:assigned_by_user_id(username)',
-      ].join(', ')
+      ].join(', '),
     )
     .order('assigned_at', { ascending: false });
   if (error) {
@@ -338,7 +347,7 @@ export async function fetchTags(limit = 50): Promise<TagWithMeta[]> {
         'updated_at',
         'fursuits(id, name)',
         'profiles:registered_by_user_id(username)',
-      ].join(', ')
+      ].join(', '),
     )
     .order('updated_at', { ascending: false })
     .limit(limit);
@@ -422,7 +431,7 @@ export async function fetchTagScanLogs(params: {
         'metadata',
         'tags:tag_id(id, nfc_uid, qr_token, fursuit_id, fursuits(name))',
         'profiles:scanner_user_id(username)',
-      ].join(', ')
+      ].join(', '),
     )
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -474,7 +483,7 @@ export async function fetchReports(params: {
         'created_at',
         'profiles:reporter_id(username)',
         'reported:reported_user_id(username)',
-      ].join(', ')
+      ].join(', '),
     )
     .order('created_at', { ascending: false })
     .limit(params.limit ?? 50);
@@ -489,7 +498,6 @@ export async function fetchReports(params: {
   }
   return (data ?? []) as any;
 }
-
 
 export async function fetchAchievements() {
   const supabase = createServiceRoleClient();
@@ -544,11 +552,15 @@ export async function fetchConventionTasks(conventionId: string): Promise<Conven
   return (data ?? []) as ConventionTaskRow[];
 }
 
-export async function fetchConventionAchievements(conventionId: string): Promise<ConventionAchievementRow[]> {
+export async function fetchConventionAchievements(
+  conventionId: string,
+): Promise<ConventionAchievementRow[]> {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from('achievements')
-    .select('id, key, name, description, category, recipient_role, trigger_event, is_active, created_at, rule_id, achievement_rules(kind, rule)')
+    .select(
+      'id, key, name, description, category, recipient_role, trigger_event, is_active, created_at, rule_id, achievement_rules(kind, rule)',
+    )
     .eq('convention_id', conventionId)
     .order('created_at', { ascending: false });
 

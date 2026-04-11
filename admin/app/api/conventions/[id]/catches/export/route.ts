@@ -21,7 +21,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   const { data, error } = await supabase
     .from('catches')
-    .select('id, catcher_id, fursuit_id, convention_id, status, caught_at, decided_at, rejection_reason')
+    .select(
+      'id, catcher_id, fursuit_id, convention_id, status, caught_at, decided_at, rejection_reason',
+    )
     .eq('convention_id', conventionId)
     .order('caught_at', { ascending: false })
     .limit(limit);
@@ -30,7 +32,16 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const header = ['id', 'catcher_id', 'fursuit_id', 'convention_id', 'status', 'caught_at', 'decided_at', 'rejection_reason'];
+  const header = [
+    'id',
+    'catcher_id',
+    'fursuit_id',
+    'convention_id',
+    'status',
+    'caught_at',
+    'decided_at',
+    'rejection_reason',
+  ];
   const rows = (data ?? []).map((row) =>
     [
       row.id,
@@ -43,7 +54,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       (row as any).rejection_reason ?? '',
     ]
       .map((value) => `"${(value ?? '').toString().replace(/"/g, '""')}"`)
-      .join(',')
+      .join(','),
   );
 
   const csv = [header.join(','), ...rows].join('\n');

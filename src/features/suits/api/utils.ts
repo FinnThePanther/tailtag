@@ -84,13 +84,7 @@ export const mapFursuitBio = (raw: unknown): FursuitBio | null => {
   const createdAt = typeof source.created_at === 'string' ? source.created_at : null;
   const updatedAt = typeof source.updated_at === 'string' ? source.updated_at : null;
 
-  if (
-    !ownerName &&
-    !pronouns &&
-    !likesAndInterests &&
-    !askMeAbout &&
-    socialLinks.length === 0
-  ) {
+  if (!ownerName && !pronouns && !likesAndInterests && !askMeAbout && socialLinks.length === 0) {
     return null;
   }
 
@@ -132,11 +126,10 @@ export const mapFursuitColors = (raw: unknown): FursuitColorOption[] => {
 
       const source = entry as RawColorAssignment;
       const color = source.color ?? null;
-      const id = color && typeof color === 'object' && typeof color.id === 'string' ? color.id : null;
+      const id =
+        color && typeof color === 'object' && typeof color.id === 'string' ? color.id : null;
       const name =
-        color && typeof color === 'object' && typeof color.name === 'string'
-          ? color.name
-          : null;
+        color && typeof color === 'object' && typeof color.name === 'string' ? color.name : null;
       const normalizedName =
         color && typeof color === 'object' && typeof color.normalized_name === 'string'
           ? color.normalized_name

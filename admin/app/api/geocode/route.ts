@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   }
 
   const endpoint = new URL(
-    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`,
   );
   endpoint.searchParams.set('access_token', token);
   endpoint.searchParams.set('limit', '5');
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   if (!response.ok) {
     return NextResponse.json(
       { error: `Geocoding failed (${response.status})` },
-      { status: response.status }
+      { status: response.status },
     );
   }
 

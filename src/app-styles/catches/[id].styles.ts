@@ -1,6 +1,6 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet } from 'react-native';
 
-import { colors, spacing } from "../../theme";
+import { colors, spacing } from '../../theme';
 
 export const styles = StyleSheet.create({
   screen: {
@@ -23,7 +23,7 @@ export const styles = StyleSheet.create({
     gap: spacing.md,
   },
   message: {
-    color: "rgba(203,213,225,0.9)",
+    color: 'rgba(203,213,225,0.9)',
     fontSize: 14,
     marginBottom: spacing.sm,
   },
@@ -34,37 +34,37 @@ export const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sectionLabel: {
-    color: "rgba(148,163,184,0.7)",
+    color: 'rgba(148,163,184,0.7)',
     fontSize: 11,
-    textTransform: "uppercase",
+    textTransform: 'uppercase',
     letterSpacing: 1.5,
-    fontWeight: "600",
+    fontWeight: '600',
     marginBottom: spacing.sm,
   },
   catchPhoto: {
-    width: "100%",
+    width: '100%',
     aspectRatio: 4 / 3,
     borderRadius: 8,
-    backgroundColor: "rgba(30,41,59,0.8)",
+    backgroundColor: 'rgba(30,41,59,0.8)',
   },
   pressed: {
     opacity: 0.7,
   },
   fullscreenBackdrop: {
     flex: 1,
-    backgroundColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   fullscreenClose: {
-    position: "absolute",
+    position: 'absolute',
     top: 52,
     right: spacing.lg,
     zIndex: 10,
     padding: spacing.sm,
   },
   fullscreenImage: {
-    width: "100%",
-    height: "100%",
+    width: '100%',
+    height: '100%',
   },
 });

@@ -9,8 +9,7 @@ import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 export const CATCH_BY_ID_QUERY_KEY = 'catch-by-id';
 export const CATCH_BY_ID_STALE_TIME = 2 * 60_000;
 
-export const catchByIdQueryKey = (catchId: string) =>
-  [CATCH_BY_ID_QUERY_KEY, catchId] as const;
+export const catchByIdQueryKey = (catchId: string) => [CATCH_BY_ID_QUERY_KEY, catchId] as const;
 
 const CATCH_SELECT = `
   id,
@@ -97,8 +96,7 @@ export async function fetchCatchById(catchId: string): Promise<CaughtRecord | nu
         }),
         description: rawFursuit.description ?? null,
         unique_code: rawFursuit.unique_code ?? null,
-        catchCount:
-          typeof rawFursuit.catch_count === 'number' ? rawFursuit.catch_count : 0,
+        catchCount: typeof rawFursuit.catch_count === 'number' ? rawFursuit.catch_count : 0,
         catchMode,
         created_at: rawFursuit.created_at ?? null,
         conventions: [],
@@ -109,8 +107,7 @@ export async function fetchCatchById(catchId: string): Promise<CaughtRecord | nu
   return {
     id: record.id,
     caught_at: record.caught_at ?? null,
-    catchNumber:
-      typeof record.catch_number === 'number' ? record.catch_number : null,
+    catchNumber: typeof record.catch_number === 'number' ? record.catch_number : null,
     catchPhotoPath: record.catch_photo_path ?? null,
     catchPhotoUrl: resolveStorageMediaUrl({
       bucket: CATCH_PHOTO_BUCKET,

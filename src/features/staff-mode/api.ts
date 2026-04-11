@@ -54,7 +54,9 @@ export async function searchPlayersForStaff(term: string): Promise<StaffPlayerRe
 }
 
 export async function staffModerate(params: StaffModerateParams): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
   const supabaseUrl = SUPABASE_URL;

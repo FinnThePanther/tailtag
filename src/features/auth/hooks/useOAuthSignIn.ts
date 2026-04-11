@@ -8,7 +8,11 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
 import { supabase } from '../../../lib/supabase';
-import { completeOAuthSessionFromUrl, getOAuthRedirectUri, setPendingOAuthProvider } from '../utils/oauth';
+import {
+  completeOAuthSessionFromUrl,
+  getOAuthRedirectUri,
+  setPendingOAuthProvider,
+} from '../utils/oauth';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -110,7 +114,6 @@ export function useOAuthSignIn() {
         throw new Error('Apple sign-in did not return an identity token.');
       }
 
-
       // Exchange credential with Supabase
       const { data, error: authError } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
@@ -130,10 +133,7 @@ export function useOAuthSignIn() {
       // Apple only provides fullName on the first sign-in attempt
       // Capture and save it immediately if available
       if (credential.fullName) {
-        const fullName = [
-          credential.fullName.givenName,
-          credential.fullName.familyName,
-        ]
+        const fullName = [credential.fullName.givenName, credential.fullName.familyName]
           .filter(Boolean)
           .join(' ');
 
@@ -236,7 +236,7 @@ export function useOAuthSignIn() {
         setActiveProvider(null);
       }
     },
-    [activeProvider, redirectUri, resolveSessionFromUrl, signInWithAppleNative]
+    [activeProvider, redirectUri, resolveSessionFromUrl, signInWithAppleNative],
   );
 
   return {

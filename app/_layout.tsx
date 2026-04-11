@@ -1,44 +1,53 @@
 // app/_layout.tsx
-import { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
-import { useSegments, Stack, Redirect, useNavigationContainerRef, useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { QueryCache, QueryClient, QueryClientProvider, MutationCache, useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import { useSegments, Stack, Redirect, useNavigationContainerRef, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import {
+  QueryCache,
+  QueryClient,
+  QueryClientProvider,
+  MutationCache,
+  useQuery,
+} from '@tanstack/react-query';
 
-import { AuthProvider, useAuth, usePrimeUserData } from "../src/features/auth";
-import { NavigationReadyProvider, useSetNavigationReady } from "../src/hooks/useNavigationReady";
-import { createProfileQueryOptions } from "../src/features/profile";
-import { colors } from "../src/theme";
-import { ToastProvider } from "../src/hooks/useToast";
-import { DailyTaskToastManager } from "../src/features/daily-tasks/components/DailyTaskToastManager";
-import { AchievementToastManager } from "../src/features/achievements";
-import { CatchConfirmationToastManager } from "../src/features/catch-confirmations";
-import { PushNotificationManager } from "../src/features/push-notifications";
+import { AuthProvider, useAuth, usePrimeUserData } from '../src/features/auth';
+import { NavigationReadyProvider, useSetNavigationReady } from '../src/hooks/useNavigationReady';
+import { createProfileQueryOptions } from '../src/features/profile';
+import { colors } from '../src/theme';
+import { ToastProvider } from '../src/hooks/useToast';
+import { DailyTaskToastManager } from '../src/features/daily-tasks/components/DailyTaskToastManager';
+import { AchievementToastManager } from '../src/features/achievements';
+import { CatchConfirmationToastManager } from '../src/features/catch-confirmations';
+import { PushNotificationManager } from '../src/features/push-notifications';
 import {
   Sentry,
   addMonitoringBreadcrumb,
   captureFeatureError,
   captureNonCriticalError,
   routingInstrumentation,
-} from "../src/lib/sentry";
-import { handleAuthError } from "../src/lib/authErrorHandler";
-import { SuspensionGate } from "../src/features/moderation";
-import { EnvironmentBanner } from "../src/components/EnvironmentBanner";
+} from '../src/lib/sentry';
+import { handleAuthError } from '../src/lib/authErrorHandler';
+import { SuspensionGate } from '../src/features/moderation';
+import { EnvironmentBanner } from '../src/components/EnvironmentBanner';
 
 function LoadingScreen() {
   return (
     <View
       style={{
         flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
+        alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: colors.background,
       }}
     >
-      <ActivityIndicator size="large" color={colors.primary} />
+      <ActivityIndicator
+        size="large"
+        color={colors.primary}
+      />
     </View>
   );
 }
@@ -52,10 +61,9 @@ function RootLayoutNav() {
   const router = useRouter();
   const { status, session } = useAuth();
   const segments = useSegments();
-  const inAuthGroup = segments.length > 0 && segments[0] === "(auth)";
-  const inOnboardingFlow = segments.length > 0 && segments[0] === "onboarding";
-  const inResetPasswordFlow =
-    segments.length > 0 && segments[0] === "reset-password";
+  const inAuthGroup = segments.length > 0 && segments[0] === '(auth)';
+  const inOnboardingFlow = segments.length > 0 && segments[0] === 'onboarding';
+  const inResetPasswordFlow = segments.length > 0 && segments[0] === 'reset-password';
   const userId = session?.user.id ?? null;
   const setNavigationReady = useSetNavigationReady();
 
@@ -65,7 +73,7 @@ function RootLayoutNav() {
     isFetching: isProfileFetching,
     error: profileError,
   } = useQuery({
-    ...createProfileQueryOptions(userId ?? ""),
+    ...createProfileQueryOptions(userId ?? ''),
     enabled: Boolean(userId),
     refetchInterval: 5 * 60_000,
   });
@@ -95,12 +103,12 @@ function RootLayoutNav() {
     !profile &&
     (isProfileLoading || isProfileFetching);
 
-  let redirectHref: "/" | "/auth" | "/onboarding" | null = null;
+  let redirectHref: '/' | '/auth' | '/onboarding' | null = null;
 
   if (!session && !inAuthGroup) {
-    redirectHref = "/auth";
+    redirectHref = '/auth';
   } else if (session && inAuthGroup && !shouldResolvePostAuthDestination) {
-    redirectHref = shouldGateOnboarding ? "/onboarding" : "/";
+    redirectHref = shouldGateOnboarding ? '/onboarding' : '/';
   } else if (
     !inResetPasswordFlow &&
     session &&
@@ -108,7 +116,7 @@ function RootLayoutNav() {
     !inOnboardingFlow &&
     !shouldShowOnboardingRedirectLoading
   ) {
-    redirectHref = "/onboarding";
+    redirectHref = '/onboarding';
   } else if (
     session &&
     inOnboardingFlow &&
@@ -116,12 +124,10 @@ function RootLayoutNav() {
     !isProfileLoading &&
     !isProfileFetching
   ) {
-    redirectHref = "/";
+    redirectHref = '/';
   }
 
-  const shouldShowLoadingScreen =
-    status === "loading" ||
-    shouldShowOnboardingRedirectLoading;
+  const shouldShowLoadingScreen = status === 'loading' || shouldShowOnboardingRedirectLoading;
 
   useEffect(() => {
     if (shouldShowLoadingScreen || redirectHref) {
@@ -136,10 +142,10 @@ function RootLayoutNav() {
       return;
     }
 
-    router.replace(shouldGateOnboarding ? "/onboarding" : "/");
+    router.replace(shouldGateOnboarding ? '/onboarding' : '/');
   }, [inAuthGroup, router, session, shouldGateOnboarding, shouldResolvePostAuthDestination]);
 
-  if (status === "loading") {
+  if (status === 'loading') {
     return <LoadingScreen />;
   }
 
@@ -159,8 +165,8 @@ function RootLayoutNav() {
 
     // Log onboarding redirect for debugging
     addMonitoringBreadcrumb({
-      category: "routing",
-      message: "Redirecting to onboarding",
+      category: 'routing',
+      message: 'Redirecting to onboarding',
       data: {
         userId,
         profileIsNew: profile?.is_new,
@@ -173,7 +179,13 @@ function RootLayoutNav() {
     return <Redirect href="/onboarding" />;
   }
 
-  if (session && inOnboardingFlow && hasCompletedOnboarding && !isProfileLoading && !isProfileFetching) {
+  if (
+    session &&
+    inOnboardingFlow &&
+    hasCompletedOnboarding &&
+    !isProfileLoading &&
+    !isProfileFetching
+  ) {
     return <Redirect href="/" />;
   }
 
@@ -205,50 +217,86 @@ function RootLayoutNav() {
       }}
     >
       {/* Auth group - no header (full-screen auth flow) */}
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="(auth)"
+        options={{ headerShown: false }}
+      />
 
       {/* Main app (tabs) - no header (tab navigator has its own) */}
-      <Stack.Screen name="(tabs)" options={{ headerShown: false, title: '' }} />
+      <Stack.Screen
+        name="(tabs)"
+        options={{ headerShown: false, title: '' }}
+      />
 
       {/* Onboarding - no header (custom multi-step wizard) */}
-      <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="onboarding/index"
+        options={{ headerShown: false }}
+      />
 
       {/* Standalone fursuit flows - has its own _layout.tsx */}
-      <Stack.Screen name="fursuits" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="fursuits"
+        options={{ headerShown: false }}
+      />
 
       {/* Catch detail screens */}
-      <Stack.Screen name="catches" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="catches"
+        options={{ headerShown: false }}
+      />
 
       {/* Public player profiles */}
-      <Stack.Screen name="profile" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="profile"
+        options={{ headerShown: false }}
+      />
 
       {/* Achievements */}
-      <Stack.Screen name="achievements/index" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="achievements/index"
+        options={{ headerShown: false }}
+      />
 
       {/* Daily tasks */}
-      <Stack.Screen name="daily-tasks/index" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="daily-tasks/index"
+        options={{ headerShown: false }}
+      />
 
       {/* Leaderboard */}
-      <Stack.Screen name="leaderboard" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="leaderboard"
+        options={{ headerShown: false }}
+      />
 
       {/* Blocked users management */}
-      <Stack.Screen name="blocked-users" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="blocked-users"
+        options={{ headerShown: false }}
+      />
 
       {/* OAuth callback (deep link landing) */}
-      <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="auth/callback"
+        options={{ headerShown: false }}
+      />
 
       {/* Password reset completion (deep link landing) */}
-      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="reset-password"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }
 
 /** Query key prefixes that map to non-critical severity. */
 const NON_CRITICAL_KEY_PREFIXES = [
-  "convention-leaderboard",
-  "convention-suit-leaderboard",
-  "fursuit-species",
-  "fursuit-colors",
+  'convention-leaderboard',
+  'convention-suit-leaderboard',
+  'fursuit-species',
+  'fursuit-colors',
 ];
 
 function isNonCriticalQueryKey(queryKey: unknown): boolean {
@@ -263,7 +311,7 @@ function extractQueryErrorExtras(
   base: Record<string, unknown>,
 ): Record<string, unknown> {
   const extras = { ...base };
-  if (typeof error === "object" && error !== null) {
+  if (typeof error === 'object' && error !== null) {
     const e = error as { code?: string; details?: string; hint?: string };
     if (e.code) extras.supabaseCode = e.code;
     if (e.details) extras.supabaseDetails = e.details;
@@ -279,7 +327,7 @@ function Layout() {
         queryCache: new QueryCache({
           onError: (error, query) => {
             const extras = extractQueryErrorExtras(error, {
-              scope: "react-query.query",
+              scope: 'react-query.query',
               queryHash: query?.queryHash,
               queryKey: query?.queryKey,
             });
@@ -293,7 +341,7 @@ function Layout() {
         mutationCache: new MutationCache({
           onError: (error, _variables, _context, mutation) => {
             const extras = extractQueryErrorExtras(error, {
-              scope: "react-query.mutation",
+              scope: 'react-query.mutation',
               mutationId: mutation?.mutationId,
               mutationKey: mutation?.options?.mutationKey,
             });
@@ -301,7 +349,7 @@ function Layout() {
             void handleAuthError(error);
           },
         }),
-      })
+      }),
   );
   const navigationRef = useNavigationContainerRef();
 
@@ -313,8 +361,8 @@ function Layout() {
     if (navigationRef.current) {
       routingInstrumentation.registerNavigationContainer(navigationRef);
       addMonitoringBreadcrumb({
-        category: "navigation",
-        message: "Registered navigation container",
+        category: 'navigation',
+        message: 'Registered navigation container',
       });
       return;
     }
@@ -324,8 +372,8 @@ function Layout() {
       if (navigationRef.current) {
         routingInstrumentation.registerNavigationContainer(navigationRef);
         addMonitoringBreadcrumb({
-          category: "navigation",
-          message: "Registered navigation container (delayed)",
+          category: 'navigation',
+          message: 'Registered navigation container (delayed)',
         });
         clearInterval(interval);
       }

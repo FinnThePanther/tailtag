@@ -1,17 +1,14 @@
-import { useState } from "react";
-import { Text, View } from "react-native";
+import { useState } from 'react';
+import { Text, View } from 'react-native';
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from '@tanstack/react-query';
 
-import { TailTagButton } from "../../../components/ui/TailTagButton";
-import { TailTagCard } from "../../../components/ui/TailTagCard";
-import {
-  completeOnboarding,
-  emitOnboardingCompletedEvent,
-} from "../../onboarding";
-import { achievementsStatusQueryKey } from "../../achievements";
-import { profileQueryKey, type ProfileSummary } from "../../profile";
-import { styles } from "./AchievementStep.styles";
+import { TailTagButton } from '../../../components/ui/TailTagButton';
+import { TailTagCard } from '../../../components/ui/TailTagCard';
+import { completeOnboarding, emitOnboardingCompletedEvent } from '../../onboarding';
+import { achievementsStatusQueryKey } from '../../achievements';
+import { profileQueryKey, type ProfileSummary } from '../../profile';
+import { styles } from './AchievementStep.styles';
 
 type AchievementStepProps = {
   userId: string;
@@ -43,18 +40,15 @@ export function AchievementStep({
     try {
       await completeOnboarding(userId);
 
-      queryClient.setQueryData<ProfileSummary | null>(
-        profileQueryKey(userId),
-        (current) => ({
-          username: current?.username ?? null,
-          bio: current?.bio ?? null,
-          avatar_url: current?.avatar_url ?? null,
-          social_links: current?.social_links ?? [],
-          onboarding_completed: true,
-          is_new: false,
-          role: current?.role,
-        }),
-      );
+      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey(userId), (current) => ({
+        username: current?.username ?? null,
+        bio: current?.bio ?? null,
+        avatar_url: current?.avatar_url ?? null,
+        social_links: current?.social_links ?? [],
+        onboarding_completed: true,
+        is_new: false,
+        role: current?.role,
+      }));
 
       await queryClient.invalidateQueries({
         queryKey: profileQueryKey(userId),
@@ -73,7 +67,7 @@ export function AchievementStep({
       const message =
         caught instanceof Error
           ? caught.message
-          : "We could not finish onboarding right now. Please try again.";
+          : 'We could not finish onboarding right now. Please try again.';
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);
@@ -86,50 +80,34 @@ export function AchievementStep({
         <Text style={styles.eyebrow}>Step 5</Text>
         <Text style={styles.title}>Achievement unlocked!</Text>
         <Text style={styles.body}>
-          You&apos;re ready to play TailTag! The Getting Started achievement is
-          now yours — check the achievements screen to see how to earn more
-          achievements.
+          You&apos;re ready to play TailTag! The Getting Started achievement is now yours — check
+          the achievements screen to see how to earn more achievements.
         </Text>
 
         <View style={styles.summary}>
           <Text style={styles.summaryTitle}>What you accomplished</Text>
           <View style={styles.summaryItem}>
-            <View
-              style={[
-                styles.dot,
-                hasJoinedConvention ? styles.dotPrimary : styles.dotMuted,
-              ]}
-            />
+            <View style={[styles.dot, hasJoinedConvention ? styles.dotPrimary : styles.dotMuted]} />
             <Text style={styles.summaryText}>
               {hasJoinedConvention
-                ? "Joined your first convention"
-                : "You can join a convention anytime"}
+                ? 'Joined your first convention'
+                : 'You can join a convention anytime'}
             </Text>
           </View>
           <View style={styles.summaryItem}>
-            <View
-              style={[
-                styles.dot,
-                hasFursuit ? styles.dotPrimary : styles.dotMuted,
-              ]}
-            />
+            <View style={[styles.dot, hasFursuit ? styles.dotPrimary : styles.dotMuted]} />
             <Text style={styles.summaryText}>
-              {hasFursuit
-                ? "Registered a fursuit"
-                : "You can add a fursuit anytime"}
+              {hasFursuit ? 'Registered a fursuit' : 'You can add a fursuit anytime'}
             </Text>
           </View>
           <View style={styles.summaryItem}>
             <View
-              style={[
-                styles.dot,
-                hasEnabledNotifications ? styles.dotPrimary : styles.dotMuted,
-              ]}
+              style={[styles.dot, hasEnabledNotifications ? styles.dotPrimary : styles.dotMuted]}
             />
             <Text style={styles.summaryText}>
               {hasEnabledNotifications
-                ? "Enabled notifications"
-                : "You can enable notifications anytime"}
+                ? 'Enabled notifications'
+                : 'You can enable notifications anytime'}
             </Text>
           </View>
         </View>

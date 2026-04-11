@@ -18,7 +18,7 @@ export type LocationVerificationResponse = {
 };
 
 export async function verifyConventionLocation(
-  params: LocationVerificationRequest
+  params: LocationVerificationRequest,
 ): Promise<LocationVerificationResponse> {
   const { data, error } = await supabase.rpc('verify_convention_location', {
     p_profile_id: params.profileId,

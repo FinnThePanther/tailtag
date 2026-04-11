@@ -24,10 +24,7 @@ export const sortSpeciesOptions = (options: FursuitSpeciesOption[]) =>
   [...options].sort(compareSpeciesOptions);
 
 export const normalizeSpeciesName = (value: string) =>
-  value
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase();
+  value.trim().replace(/\s+/g, ' ').toLowerCase();
 
 export async function fetchFursuitSpecies(): Promise<FursuitSpeciesOption[]> {
   const client = supabase as any;

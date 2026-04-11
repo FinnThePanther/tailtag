@@ -61,7 +61,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
         created_at,
         updated_at
       )
-    `
+    `,
     )
     .eq('id', fursuitId)
     .eq('is_tutorial', false)
@@ -72,10 +72,14 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
   }
 
   if (!data) {
-    captureHandledMessage('Fursuit detail not found', {
-      scope: 'suits.fetchFursuitDetail',
-      fursuitId,
-    }, 'warning');
+    captureHandledMessage(
+      'Fursuit detail not found',
+      {
+        scope: 'suits.fetchFursuitDetail',
+        fursuitId,
+      },
+      'warning',
+    );
     throw new Error('That fursuit was not found. It may have been removed.');
   }
 
@@ -97,8 +101,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
   const speciesId = speciesEntry?.id ?? data.species_id ?? null;
   const colors = mapFursuitColors(data.color_assignments ?? null);
 
-  let resolvedCatchCount =
-    typeof data.catch_count === 'number' ? data.catch_count : 0;
+  let resolvedCatchCount = typeof data.catch_count === 'number' ? data.catch_count : 0;
 
   if (resolvedCatchCount <= 0) {
     const { count: fallbackCount, error: fallbackError } = await client
@@ -114,7 +117,8 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
   }
 
   // Default to AUTO_ACCEPT if not set
-  const catchMode: CatchMode = data.catch_mode === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
+  const catchMode: CatchMode =
+    data.catch_mode === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
 
   return {
     id: data.id,

@@ -10,7 +10,7 @@ type TailTagInputProps = TextInputProps;
 
 function Input(
   { style, placeholderTextColor, ...rest }: TailTagInputProps,
-  ref: ForwardedRef<TextInput>
+  ref: ForwardedRef<TextInput>,
 ) {
   return (
     <TextInput

@@ -29,7 +29,7 @@ export function CatchModeSwitch({ value, onChange, disabled = false }: CatchMode
         setIsUpdating(false);
       }
     },
-    [onChange, isUpdating, disabled]
+    [onChange, isUpdating, disabled],
   );
 
   return (

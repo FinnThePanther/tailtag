@@ -43,14 +43,19 @@ export function BlockedUsersScreen() {
 
   const renderItem = ({ item }: { item: UserBlock }) => (
     <View style={styles.row}>
-      <AppAvatar url={item.blockedAvatarUrl} size="xs" fallback="user" />
+      <AppAvatar
+        url={item.blockedAvatarUrl}
+        size="xs"
+        fallback="user"
+      />
       <View style={styles.info}>
-        <Text style={styles.username} numberOfLines={1}>
+        <Text
+          style={styles.username}
+          numberOfLines={1}
+        >
           {item.blockedUsername ?? 'Unknown user'}
         </Text>
-        <Text style={styles.date}>
-          Blocked {new Date(item.createdAt).toLocaleDateString()}
-        </Text>
+        <Text style={styles.date}>Blocked {new Date(item.createdAt).toLocaleDateString()}</Text>
       </View>
       <TailTagButton
         variant="outline"
@@ -75,7 +80,11 @@ export function BlockedUsersScreen() {
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>Could not load blocked users.</Text>
-        <TailTagButton variant="outline" size="sm" onPress={() => refetch()}>
+        <TailTagButton
+          variant="outline"
+          size="sm"
+          onPress={() => refetch()}
+        >
           Try again
         </TailTagButton>
       </View>
@@ -88,9 +97,7 @@ export function BlockedUsersScreen() {
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
       contentContainerStyle={blockedUsers.length === 0 ? styles.centered : styles.list}
-      ListEmptyComponent={
-        <Text style={styles.message}>You haven't blocked anyone.</Text>
-      }
+      ListEmptyComponent={<Text style={styles.message}>You haven't blocked anyone.</Text>}
     />
   );
 }

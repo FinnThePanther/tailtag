@@ -54,7 +54,12 @@ export default async function ConventionDetail({ params }: { params: { id: strin
       <Card
         title="Configuration"
         subtitle="Adjust event rules and feature flags"
-        actions={<SlidersHorizontal size={16} className="text-primary" />}
+        actions={
+          <SlidersHorizontal
+            size={16}
+            className="text-primary"
+          />
+        }
       >
         <ConventionConfigForm
           conventionId={convention.id}
@@ -77,21 +82,33 @@ export default async function ConventionDetail({ params }: { params: { id: strin
         }
       >
         <div className="grid gap-3 md:grid-cols-3">
-          <Info icon={<MapPin size={14} />} label="Status">
+          <Info
+            icon={<MapPin size={14} />}
+            label="Status"
+          >
             {convention.geofence_enabled ? 'Enabled' : 'Disabled'}
           </Info>
-          <Info icon={<MapPin size={14} />} label="Radius">
+          <Info
+            icon={<MapPin size={14} />}
+            label="Radius"
+          >
             {convention.geofence_radius_meters
               ? `${convention.geofence_radius_meters}m`
               : 'Not configured'}
           </Info>
-          <Info icon={<MapPin size={14} />} label="Verification">
+          <Info
+            icon={<MapPin size={14} />}
+            label="Verification"
+          >
             {convention.location_verification_required ? 'Required on opt-in' : 'Optional'}
           </Info>
         </div>
       </Card>
 
-      <Card title="Staff assignments" subtitle="People assigned to this convention">
+      <Card
+        title="Staff assignments"
+        subtitle="People assigned to this convention"
+      >
         <Table headers={['Name', 'Role', 'Status', 'Assigned at', 'Notes']}>
           {staff?.map((assignment) => (
             <tr key={assignment.id}>
@@ -106,14 +123,19 @@ export default async function ConventionDetail({ params }: { params: { id: strin
               <td className="px-4 py-3 capitalize text-slate-200">{assignment.role}</td>
               <td className="px-4 py-3 text-slate-200">{assignment.status}</td>
               <td className="px-4 py-3 text-slate-200">
-                {assignment.assigned_at ? new Date(assignment.assigned_at).toLocaleDateString() : '—'}
+                {assignment.assigned_at
+                  ? new Date(assignment.assigned_at).toLocaleDateString()
+                  : '—'}
               </td>
               <td className="px-4 py-3 text-slate-200">{assignment.notes ?? '—'}</td>
             </tr>
           ))}
           {!staff?.length ? (
             <tr>
-              <td className="px-4 py-3 text-sm text-muted" colSpan={5}>
+              <td
+                className="px-4 py-3 text-sm text-muted"
+                colSpan={5}
+              >
                 No staff assigned yet.
               </td>
             </tr>
@@ -121,17 +143,33 @@ export default async function ConventionDetail({ params }: { params: { id: strin
         </Table>
       </Card>
 
-      <ConventionTasksCard conventionId={convention.id} tasks={tasks} />
+      <ConventionTasksCard
+        conventionId={convention.id}
+        tasks={tasks}
+      />
 
-      <ConventionAchievementsCard conventionId={convention.id} achievements={achievements} />
+      <ConventionAchievementsCard
+        conventionId={convention.id}
+        achievements={achievements}
+      />
     </div>
   );
 }
 
-function Info({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+function Info({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-center gap-2 rounded-xl border border-border bg-background/50 px-3 py-2 text-sm text-slate-200">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-primary">{icon}</div>
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-primary">
+        {icon}
+      </div>
       <div>
         <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
         <p className="font-semibold text-white">{children}</p>

@@ -5,10 +5,7 @@ import { useToast } from '../../../hooks/useToast';
 import { captureHandledException } from '../../../lib/sentry';
 import { achievementsStatusQueryKey } from '../../achievements';
 import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks/hooks';
-import {
-  confirmCatch,
-  pendingCatchesQueryKey,
-} from '../api/confirmations';
+import { confirmCatch, pendingCatchesQueryKey } from '../api/confirmations';
 import type { PendingCatch } from '../types';
 
 type UseConfirmCatchOptions = {
@@ -57,13 +54,13 @@ export function useConfirmCatch(options?: UseConfirmCatchOptions) {
       });
 
       const previousCatches = queryClient.getQueryData<PendingCatch[]>(
-        pendingCatchesQueryKey(userId ?? '')
+        pendingCatchesQueryKey(userId ?? ''),
       );
 
       if (previousCatches) {
         queryClient.setQueryData<PendingCatch[]>(
           pendingCatchesQueryKey(userId ?? ''),
-          previousCatches.filter((c) => c.catchId !== catchId)
+          previousCatches.filter((c) => c.catchId !== catchId),
         );
       }
 
@@ -92,7 +89,7 @@ export function useConfirmCatch(options?: UseConfirmCatchOptions) {
       if (context?.previousCatches !== undefined) {
         queryClient.setQueryData<PendingCatch[]>(
           pendingCatchesQueryKey(userId ?? ''),
-          context.previousCatches
+          context.previousCatches,
         );
       }
 

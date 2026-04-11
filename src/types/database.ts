@@ -2337,21 +2337,21 @@ export const Constants = {
 
 // Type aliases for application use
 export type FursuitSocialLink = {
-  label: string
-  url: string
-}
+  label: string;
+  url: string;
+};
 
-export type FursuitsRow = Database['public']['Tables']['fursuits']['Row']
-export type FursuitsInsert = Database['public']['Tables']['fursuits']['Insert']
-export type FursuitBiosInsert = Database['public']['Tables']['fursuit_bios']['Insert']
-export type AchievementCategory = Database['public']['Enums']['achievement_category']
-export type AchievementRecipientRole = Database['public']['Enums']['achievement_recipient_role']
-export type AchievementTriggerEvent = Database['public']['Enums']['achievement_trigger_event']
-export type AchievementsRow = Database['public']['Tables']['achievements']['Row']
-export type UserAchievementsRow = Database['public']['Tables']['user_achievements']['Row']
-export type AchievementEventsRow = Database['public']['Tables']['user_achievements']['Row']
-export type DailyTaskKind = string
-export type DailyAssignmentsRow = Database['public']['Tables']['daily_assignments']['Row']
-export type DailyTasksRow = Database['public']['Tables']['daily_tasks']['Row']
-export type UserDailyProgressRow = Database['public']['Tables']['user_daily_progress']['Row']
-export type UserDailyStreaksRow = Database['public']['Tables']['user_daily_streaks']['Row']
+export type FursuitsRow = Database['public']['Tables']['fursuits']['Row'];
+export type FursuitsInsert = Database['public']['Tables']['fursuits']['Insert'];
+export type FursuitBiosInsert = Database['public']['Tables']['fursuit_bios']['Insert'];
+export type AchievementCategory = Database['public']['Enums']['achievement_category'];
+export type AchievementRecipientRole = Database['public']['Enums']['achievement_recipient_role'];
+export type AchievementTriggerEvent = Database['public']['Enums']['achievement_trigger_event'];
+export type AchievementsRow = Database['public']['Tables']['achievements']['Row'];
+export type UserAchievementsRow = Database['public']['Tables']['user_achievements']['Row'];
+export type AchievementEventsRow = Database['public']['Tables']['user_achievements']['Row'];
+export type DailyTaskKind = string;
+export type DailyAssignmentsRow = Database['public']['Tables']['daily_assignments']['Row'];
+export type DailyTasksRow = Database['public']['Tables']['daily_tasks']['Row'];
+export type UserDailyProgressRow = Database['public']['Tables']['user_daily_progress']['Row'];
+export type UserDailyStreaksRow = Database['public']['Tables']['user_daily_streaks']['Row'];

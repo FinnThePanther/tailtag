@@ -53,7 +53,7 @@ export function ConventionGeofenceForm({
       longitude: initialLongitude ?? DEFAULT_VIEW.longitude,
       zoom: initialLatitude && initialLongitude ? 14 : DEFAULT_VIEW.zoom,
     }),
-    [initialLatitude, initialLongitude]
+    [initialLatitude, initialLongitude],
   );
 
   const [latitude, setLatitude] = useState<number | null>(initialLatitude);
@@ -150,7 +150,10 @@ export function ConventionGeofenceForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6"
+    >
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm text-slate-200">
           <input
@@ -162,7 +165,8 @@ export function ConventionGeofenceForm({
           Enable geofence for this convention
         </label>
         <p className="text-xs text-muted">
-          When enabled, players must pass on-site location verification before they can join this convention.
+          When enabled, players must pass on-site location verification before they can join this
+          convention.
         </p>
       </div>
 
@@ -240,7 +244,11 @@ export function ConventionGeofenceForm({
               {latitude !== null && longitude !== null && enabled ? (
                 <>
                   {Source && Layer && geofenceFeature ? (
-                    <Source id="geofence" type="geojson" data={geofenceFeature}>
+                    <Source
+                      id="geofence"
+                      type="geojson"
+                      data={geofenceFeature}
+                    >
                       <Layer
                         id="geofence-fill"
                         type="fill"
@@ -254,7 +262,11 @@ export function ConventionGeofenceForm({
                     </Source>
                   ) : null}
                   {Marker ? (
-                    <Marker latitude={latitude} longitude={longitude} anchor="bottom">
+                    <Marker
+                      latitude={latitude}
+                      longitude={longitude}
+                      anchor="bottom"
+                    >
                       <div className="rounded-full bg-primary px-2 py-1 text-xs font-semibold text-slate-900 shadow">
                         Pin
                       </div>
@@ -270,7 +282,8 @@ export function ConventionGeofenceForm({
           )}
         </div>
         <p className="text-xs text-muted">
-          Use the search bar or click anywhere on the map to position the pin. The radius preview updates automatically.
+          Use the search bar or click anywhere on the map to position the pin. The radius preview
+          updates automatically.
         </p>
       </div>
 
@@ -295,7 +308,9 @@ export function ConventionGeofenceForm({
             type="number"
             step="0.00001"
             value={latitude ?? ''}
-            onChange={(event) => setLatitude(event.target.value === '' ? null : Number(event.target.value))}
+            onChange={(event) =>
+              setLatitude(event.target.value === '' ? null : Number(event.target.value))
+            }
             disabled={!enabled}
             className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary disabled:opacity-40"
           />
@@ -306,14 +321,17 @@ export function ConventionGeofenceForm({
             type="number"
             step="0.00001"
             value={longitude ?? ''}
-            onChange={(event) => setLongitude(event.target.value === '' ? null : Number(event.target.value))}
+            onChange={(event) =>
+              setLongitude(event.target.value === '' ? null : Number(event.target.value))
+            }
             disabled={!enabled}
             className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary disabled:opacity-40"
           />
         </div>
       </div>
       <p className="text-xs text-muted">
-        Coordinates update automatically from the map pin. Edit them manually for minor adjustments if needed.
+        Coordinates update automatically from the map pin. Edit them manually for minor adjustments
+        if needed.
       </p>
 
       <div className="flex flex-col gap-3 border-t border-border/70 pt-4 md:flex-row md:items-center md:justify-between">
@@ -343,17 +361,19 @@ function useMapLibre(): MapModule | null {
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([import('react-map-gl/maplibre'), import('maplibre-gl')]).then(([mapGl, maplibre]) => {
-      if (mounted) {
-        setModule({
-          Map: mapGl.default,
-          Marker: mapGl.Marker,
-          Source: mapGl.Source,
-          Layer: mapGl.Layer,
-          maplibregl: maplibre.default,
-        });
-      }
-    });
+    Promise.all([import('react-map-gl/maplibre'), import('maplibre-gl')]).then(
+      ([mapGl, maplibre]) => {
+        if (mounted) {
+          setModule({
+            Map: mapGl.default,
+            Marker: mapGl.Marker,
+            Source: mapGl.Source,
+            Layer: mapGl.Layer,
+            maplibregl: maplibre.default,
+          });
+        }
+      },
+    );
     return () => {
       mounted = false;
     };
@@ -374,8 +394,7 @@ function buildCircleFeature(latitude: number, longitude: number, radiusMeters: n
     const dy = radiusMeters * Math.sin(angle);
 
     const pointLat = latitude + (dy / earthRadius) * (180 / Math.PI);
-    const pointLng =
-      longitude + (dx / (earthRadius * Math.cos(latRad))) * (180 / Math.PI);
+    const pointLng = longitude + (dx / (earthRadius * Math.cos(latRad))) * (180 / Math.PI);
     coordinates.push([pointLng, pointLat]);
   }
 

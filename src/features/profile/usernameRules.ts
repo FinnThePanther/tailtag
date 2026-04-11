@@ -1,20 +1,20 @@
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 15;
-export const USERNAME_RESERVED_SUBSTRINGS = ["tailtag", "admin"] as const;
+export const USERNAME_RESERVED_SUBSTRINGS = ['tailtag', 'admin'] as const;
 
 const USERNAME_INVALID_CHARACTERS_REGEX = /[^a-z0-9_]/g;
 const USERNAME_ALLOWED_PATTERN = /^[a-z0-9_]+$/;
 const GENERATED_SUFFIX_LENGTH = 4;
-const GENERATED_SEPARATOR = "_";
-const DEFAULT_GENERATED_USERNAME_BASE = "player";
+const GENERATED_SEPARATOR = '_';
+const DEFAULT_GENERATED_USERNAME_BASE = 'player';
 
 export type UsernameValidationCode =
-  | "valid"
-  | "empty"
-  | "too_short"
-  | "too_long"
-  | "invalid_chars"
-  | "reserved";
+  | 'valid'
+  | 'empty'
+  | 'too_short'
+  | 'too_long'
+  | 'invalid_chars'
+  | 'reserved';
 
 export type UsernameValidationResult = {
   isValid: boolean;
@@ -29,13 +29,13 @@ type ValidateUsernameOptions = {
 
 function stripReservedSubstrings(value: string): string {
   return USERNAME_RESERVED_SUBSTRINGS.reduce(
-    (current, term) => current.split(term).join(""),
+    (current, term) => current.split(term).join(''),
     value,
   );
 }
 
 function generateRandomSuffix(length: number): string {
-  let generated = "";
+  let generated = '';
 
   while (generated.length < length) {
     generated += Math.random().toString(36).slice(2);
@@ -47,17 +47,13 @@ function generateRandomSuffix(length: number): string {
 function normalizeGeneratedBase(value: string): string {
   const withoutReserved = stripReservedSubstrings(value);
   const clamped = withoutReserved.slice(0, USERNAME_MAX_LENGTH);
-  const fallback = clamped.length >= USERNAME_MIN_LENGTH
-    ? clamped
-    : DEFAULT_GENERATED_USERNAME_BASE;
+  const fallback =
+    clamped.length >= USERNAME_MIN_LENGTH ? clamped : DEFAULT_GENERATED_USERNAME_BASE;
   return fallback.slice(0, USERNAME_MAX_LENGTH);
 }
 
 export function normalizeUsernameInput(value: string | null | undefined): string {
-  return (value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(USERNAME_INVALID_CHARACTERS_REGEX, "");
+  return (value ?? '').trim().toLowerCase().replace(USERNAME_INVALID_CHARACTERS_REGEX, '');
 }
 
 export function hasReservedUsernameSubstring(value: string): boolean {
@@ -70,13 +66,13 @@ export function validateUsername(
   options: ValidateUsernameOptions = {},
 ): UsernameValidationResult {
   const allowEmpty = options.allowEmpty === true;
-  const normalized = (value ?? "").trim().toLowerCase();
+  const normalized = (value ?? '').trim().toLowerCase();
 
   if (!normalized) {
     if (allowEmpty) {
       return {
         isValid: true,
-        code: "valid",
+        code: 'valid',
         message: null,
         normalized,
       };
@@ -84,7 +80,7 @@ export function validateUsername(
 
     return {
       isValid: false,
-      code: "empty",
+      code: 'empty',
       message: `Username must be ${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} characters.`,
       normalized,
     };
@@ -93,7 +89,7 @@ export function validateUsername(
   if (normalized.length < USERNAME_MIN_LENGTH) {
     return {
       isValid: false,
-      code: "too_short",
+      code: 'too_short',
       message: `Username must be at least ${USERNAME_MIN_LENGTH} characters.`,
       normalized,
     };
@@ -102,7 +98,7 @@ export function validateUsername(
   if (normalized.length > USERNAME_MAX_LENGTH) {
     return {
       isValid: false,
-      code: "too_long",
+      code: 'too_long',
       message: `Username must be at most ${USERNAME_MAX_LENGTH} characters.`,
       normalized,
     };
@@ -111,8 +107,8 @@ export function validateUsername(
   if (!USERNAME_ALLOWED_PATTERN.test(normalized)) {
     return {
       isValid: false,
-      code: "invalid_chars",
-      message: "Use only lowercase letters, numbers, and underscores.",
+      code: 'invalid_chars',
+      message: 'Use only lowercase letters, numbers, and underscores.',
       normalized,
     };
   }
@@ -120,7 +116,7 @@ export function validateUsername(
   if (hasReservedUsernameSubstring(normalized)) {
     return {
       isValid: false,
-      code: "reserved",
+      code: 'reserved',
       message: 'Username cannot include "tailtag" or "admin".',
       normalized,
     };
@@ -128,7 +124,7 @@ export function validateUsername(
 
   return {
     isValid: true,
-    code: "valid",
+    code: 'valid',
     message: null,
     normalized,
   };
@@ -155,8 +151,7 @@ export function buildGeneratedUsername(
     }
   }
 
-  const prefixLength =
-    USERNAME_MAX_LENGTH - GENERATED_SUFFIX_LENGTH - GENERATED_SEPARATOR.length;
+  const prefixLength = USERNAME_MAX_LENGTH - GENERATED_SUFFIX_LENGTH - GENERATED_SEPARATOR.length;
   const prefix = base.slice(0, Math.max(prefixLength, USERNAME_MIN_LENGTH));
 
   for (let attempt = 0; attempt < 10; attempt += 1) {

@@ -52,7 +52,7 @@ export async function fetchConventions(): Promise<ConventionSummary[]> {
         'geofence_radius_meters',
         'geofence_enabled',
         'location_verification_required',
-      ].join(', ')
+      ].join(', '),
     )
     .order('start_date', { ascending: true, nullsFirst: false })
     .order('name', { ascending: true });
@@ -169,7 +169,7 @@ export async function addFursuitConvention(fursuitId: string, conventionId: stri
     .from('fursuit_conventions')
     .upsert(
       { fursuit_id: fursuitId, convention_id: conventionId },
-      { onConflict: 'fursuit_id, convention_id' }
+      { onConflict: 'fursuit_id, convention_id' },
     );
 
   if (error) {
@@ -187,7 +187,10 @@ export async function addFursuitConvention(fursuitId: string, conventionId: stri
   });
 }
 
-export async function removeFursuitConvention(fursuitId: string, conventionId: string): Promise<void> {
+export async function removeFursuitConvention(
+  fursuitId: string,
+  conventionId: string,
+): Promise<void> {
   const client = supabase as any;
   const { error } = await client
     .from('fursuit_conventions')

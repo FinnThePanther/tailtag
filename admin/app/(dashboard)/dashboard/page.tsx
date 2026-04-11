@@ -11,26 +11,53 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-4">
-        <Metric label="Players" value={summary.totalPlayers} icon={<Users size={16} className="text-primary" />} />
+        <Metric
+          label="Players"
+          value={summary.totalPlayers}
+          icon={
+            <Users
+              size={16}
+              className="text-primary"
+            />
+          }
+        />
         <Metric
           label="Suspended"
           value={summary.suspendedPlayers}
           hint="Active bans"
-          icon={<ShieldBan size={16} className="text-primary" />}
+          icon={
+            <ShieldBan
+              size={16}
+              className="text-primary"
+            />
+          }
         />
         <Metric
           label="Conventions"
           value={summary.activeConventions}
-          icon={<CalendarDays size={16} className="text-primary" />}
+          icon={
+            <CalendarDays
+              size={16}
+              className="text-primary"
+            />
+          }
         />
         <Metric
           label="Pending reports"
           value={summary.pendingReports}
-          icon={<AlertCircle size={16} className="text-primary" />}
+          icon={
+            <AlertCircle
+              size={16}
+              className="text-primary"
+            />
+          }
         />
       </div>
 
-      <Card title="Conventions" subtitle="Event overview with quick links">
+      <Card
+        title="Conventions"
+        subtitle="Event overview with quick links"
+      >
         <div className="divide-y divide-border/80">
           {conventions.length === 0 ? (
             <p className="py-4 text-sm text-muted">No conventions yet.</p>
@@ -61,18 +88,41 @@ export default async function DashboardPage() {
         </div>
       </Card>
 
-      <Card title="Quick actions" subtitle="Get to common flows fast">
+      <Card
+        title="Quick actions"
+        subtitle="Get to common flows fast"
+      >
         <div className="grid gap-3 sm:grid-cols-3">
-          <QuickLink href="/players" label="Player search" description="Find players across events" />
-          <QuickLink href="/staff" label="Staff assignments" description="Manage event staff access" />
-          <QuickLink href="/audit" label="Audit log" description="Review recent admin activity" />
+          <QuickLink
+            href="/players"
+            label="Player search"
+            description="Find players across events"
+          />
+          <QuickLink
+            href="/staff"
+            label="Staff assignments"
+            description="Manage event staff access"
+          />
+          <QuickLink
+            href="/audit"
+            label="Audit log"
+            description="Review recent admin activity"
+          />
         </div>
       </Card>
     </div>
   );
 }
 
-function QuickLink({ href, label, description }: { href: string; label: string; description: string }) {
+function QuickLink({
+  href,
+  label,
+  description,
+}: {
+  href: string;
+  label: string;
+  description: string;
+}) {
   return (
     <Link
       href={href}
@@ -80,7 +130,10 @@ function QuickLink({ href, label, description }: { href: string; label: string; 
     >
       <div className="flex items-center justify-between">
         <p className="text-base font-semibold text-white">{label}</p>
-        <ArrowUpRight size={16} className="text-primary" />
+        <ArrowUpRight
+          size={16}
+          className="text-primary"
+        />
       </div>
       <p className="text-sm text-muted">{description}</p>
     </Link>

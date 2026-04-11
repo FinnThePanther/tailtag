@@ -17,8 +17,13 @@ export default async function AnalyticsPage() {
 
   return (
     <div className="space-y-4">
-      <Card title="Analytics" subtitle="Event metrics and exports">
-        <Table headers={['Convention', 'Catches (total)', 'Catches today', 'Pending catches', 'Export']}>
+      <Card
+        title="Analytics"
+        subtitle="Event metrics and exports"
+      >
+        <Table
+          headers={['Convention', 'Catches (total)', 'Catches today', 'Pending catches', 'Export']}
+        >
           {rows.map((row) => (
             <tr key={row.id}>
               <td className="px-4 py-3 text-slate-200">
@@ -42,7 +47,10 @@ export default async function AnalyticsPage() {
           ))}
           {!rows.length ? (
             <tr>
-              <td className="px-4 py-3 text-sm text-muted" colSpan={5}>
+              <td
+                className="px-4 py-3 text-sm text-muted"
+                colSpan={5}
+              >
                 No conventions found.
               </td>
             </tr>

@@ -1,9 +1,9 @@
-import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Pressable, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { AppAvatar } from "../../../components/ui/AppAvatar";
-import { toDisplayDate } from "../../../utils/dates";
-import { styles } from "./CaughtSuitRow.styles";
+import { AppAvatar } from '../../../components/ui/AppAvatar';
+import { toDisplayDate } from '../../../utils/dates';
+import { styles } from './CaughtSuitRow.styles';
 
 type CaughtSuitRowProps = {
   name: string;
@@ -13,14 +13,8 @@ type CaughtSuitRowProps = {
   onPress?: () => void;
 };
 
-export function CaughtSuitRow({
-  name,
-  species,
-  avatarUrl,
-  caughtAt,
-  onPress,
-}: CaughtSuitRowProps) {
-  const displaySpecies = species?.trim() || "Species not set";
+export function CaughtSuitRow({ name, species, avatarUrl, caughtAt, onPress }: CaughtSuitRowProps) {
+  const displaySpecies = species?.trim() || 'Species not set';
   const displayDate = toDisplayDate(caughtAt);
 
   return (
@@ -30,16 +24,29 @@ export function CaughtSuitRow({
       onPress={onPress}
       style={({ pressed }) => [styles.container, pressed && styles.pressed]}
     >
-      <AppAvatar url={avatarUrl} size="md" fallback="fursuit" />
+      <AppAvatar
+        url={avatarUrl}
+        size="md"
+        fallback="fursuit"
+      />
       <View style={styles.textCol}>
-        <Text style={styles.name} numberOfLines={1}>
+        <Text
+          style={styles.name}
+          numberOfLines={1}
+        >
           {name}
         </Text>
-        <Text style={styles.species} numberOfLines={1}>
+        <Text
+          style={styles.species}
+          numberOfLines={1}
+        >
           {displaySpecies}
         </Text>
         {displayDate ? (
-          <Text style={styles.date} numberOfLines={1}>
+          <Text
+            style={styles.date}
+            numberOfLines={1}
+          >
             {displayDate}
           </Text>
         ) : null}

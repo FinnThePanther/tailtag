@@ -1,18 +1,18 @@
-import { ACHIEVEMENT_RULE_IDS } from "../constants.ts";
-import type { AwardCandidate, ProfileEventContext, ProfileRuleDefinition } from "../types.ts";
+import { ACHIEVEMENT_RULE_IDS } from '../constants.ts';
+import type { AwardCandidate, ProfileEventContext, ProfileRuleDefinition } from '../types.ts';
 
 const profileRules: ProfileRuleDefinition[] = [
   {
     ruleId: ACHIEVEMENT_RULE_IDS.PROFILE_COMPLETE,
-    achievementKey: "PROFILE_COMPLETE",
-    eventType: "profile_updated",
+    achievementKey: 'PROFILE_COMPLETE',
+    eventType: 'profile_updated',
     metadata: {
-      displayName: "Profile Complete",
-      description: "Add a profile photo, username, and bio.",
-      category: "meta",
-      recipientRole: "any",
+      displayName: 'Profile Complete',
+      description: 'Add a profile photo, username, and bio.',
+      category: 'meta',
+      recipientRole: 'any',
       canEvaluateClient: true,
-      resetMode: "none",
+      resetMode: 'none',
     },
     requiredStats: [],
     evaluate(context: ProfileEventContext): AwardCandidate[] {
@@ -23,7 +23,7 @@ const profileRules: ProfileRuleDefinition[] = [
       return [
         {
           ruleId: ACHIEVEMENT_RULE_IDS.PROFILE_COMPLETE,
-          achievementKey: "PROFILE_COMPLETE",
+          achievementKey: 'PROFILE_COMPLETE',
           userId: context.userId,
           context: {
             user_id: context.userId,

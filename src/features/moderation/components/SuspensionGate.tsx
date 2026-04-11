@@ -32,7 +32,11 @@ export function SuspensionGate({ reason, suspendedUntil }: SuspensionGateProps) 
     <View style={styles.container}>
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <Ionicons name="ban" size={48} color="#f87171" />
+          <Ionicons
+            name="ban"
+            size={48}
+            color="#f87171"
+          />
         </View>
         <Text style={styles.title}>Account Suspended</Text>
 
@@ -45,16 +49,16 @@ export function SuspensionGate({ reason, suspendedUntil }: SuspensionGateProps) 
         )}
 
         {timeRemaining ? (
-          <Text style={styles.duration}>
-            Time remaining: {timeRemaining}
-          </Text>
+          <Text style={styles.duration}>Time remaining: {timeRemaining}</Text>
         ) : suspendedUntil ? null : (
-          <Text style={styles.duration}>
-            This suspension is permanent.
-          </Text>
+          <Text style={styles.duration}>This suspension is permanent.</Text>
         )}
 
-        <Pressable onPress={() => void Linking.openURL('mailto:support@tailtag.app?subject=Account%20Suspension%20Appeal')}>
+        <Pressable
+          onPress={() =>
+            void Linking.openURL('mailto:support@tailtag.app?subject=Account%20Suspension%20Appeal')
+          }
+        >
           <Text style={styles.contact}>
             If you believe this is an error, contact{' '}
             <Text style={styles.contactLink}>support@tailtag.app</Text>

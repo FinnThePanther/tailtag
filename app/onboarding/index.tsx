@@ -23,7 +23,10 @@ const stepIndex = (step: StepId) => STEPS.indexOf(step);
 
 const LoadingView = () => (
   <View style={styles.loadingContainer}>
-    <ActivityIndicator size="large" color={colors.primary} />
+    <ActivityIndicator
+      size="large"
+      color={colors.primary}
+    />
   </View>
 );
 
@@ -39,12 +42,10 @@ export default function OnboardingScreen() {
 
   const profileQueryOptions = useMemo(
     () => (userId ? createProfileQueryOptions(userId) : null),
-    [userId]
+    [userId],
   );
 
-  const {
-    data: profile,
-  } = useQuery<ProfileSummary | null, Error>({
+  const { data: profile } = useQuery<ProfileSummary | null, Error>({
     ...(profileQueryOptions ?? {
       queryKey: ['profile', 'guest'],
       queryFn: async () => null,
@@ -82,14 +83,20 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={['top', 'bottom']}
+    >
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.header}>New player onboarding</Text>
-        <ProgressDots currentIndex={currentIndex} total={STEPS.length} />
+        <ProgressDots
+          currentIndex={currentIndex}
+          total={STEPS.length}
+        />
 
         {currentStep === 'welcome' ? (
           <WelcomeStep onContinue={goToNextStep} />

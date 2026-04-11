@@ -1,11 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,10 +10,7 @@ import { colors } from '../../../theme';
 import { supabase } from '../../../lib/supabase';
 import { CATCH_PHOTO_BUCKET } from '../../../constants/storage';
 import { loadUriAsUint8Array } from '../../../utils/files';
-import {
-  processImageForUpload,
-  IMAGE_UPLOAD_PRESETS,
-} from '../../../utils/images';
+import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { buildAuthenticatedStorageObjectUrl } from '../../../utils/supabase-image';
 import { createCatch, updateCatchPhoto, fetchConventionFursuits } from '../api/confirmations';
 import { FursuitPicker } from './FursuitPicker';
@@ -189,7 +180,9 @@ export function PhotoCatchCard({
         forcePending: true,
       });
     } catch (error) {
-      setLocalError(error instanceof Error ? error.message : "Couldn't create catch. Please try again.");
+      setLocalError(
+        error instanceof Error ? error.message : "Couldn't create catch. Please try again.",
+      );
       setIsUploadingPhoto(false);
       return;
     }
@@ -215,7 +208,9 @@ export function PhotoCatchCard({
       photoUrl = buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, storagePath);
     } catch {
       // Roll back the catch so it doesn't sit in the owner's pending queue without a photo
-      await Promise.resolve((client as typeof supabase).from('catches').delete().eq('id', catchResult.catchId)).catch(() => {});
+      await Promise.resolve(
+        (client as typeof supabase).from('catches').delete().eq('id', catchResult.catchId),
+      ).catch(() => {});
       setLocalError("Couldn't upload your photo. Please check your connection and try again.");
       setIsUploadingPhoto(false);
       return;
@@ -228,8 +223,13 @@ export function PhotoCatchCard({
         photoUrl,
       });
     } catch {
-      await Promise.resolve((client as typeof supabase).from('catches').delete().eq('id', catchResult.catchId)).catch(() => {});
-      await supabase.storage.from(CATCH_PHOTO_BUCKET).remove([storagePath]).catch(() => {});
+      await Promise.resolve(
+        (client as typeof supabase).from('catches').delete().eq('id', catchResult.catchId),
+      ).catch(() => {});
+      await supabase.storage
+        .from(CATCH_PHOTO_BUCKET)
+        .remove([storagePath])
+        .catch(() => {});
       setLocalError("Couldn't save your photo. Please check your connection and try again.");
       setIsUploadingPhoto(false);
       return;
@@ -245,17 +245,23 @@ export function PhotoCatchCard({
     });
   };
 
-  const canSubmit = Boolean(photo) && Boolean(selectedFursuit) && !isSubmitting && !isUploadingPhoto;
+  const canSubmit =
+    Boolean(photo) && Boolean(selectedFursuit) && !isSubmitting && !isUploadingPhoto;
   const isBusy = isSubmitting || isUploadingPhoto;
 
   return (
     <TailTagCard style={styles.card}>
       <View style={styles.titleRow}>
-        <Ionicons name="camera" size={20} color={colors.primary} />
+        <Ionicons
+          name="camera"
+          size={20}
+          color={colors.primary}
+        />
         <Text style={styles.title}>Photo Catch</Text>
       </View>
       <Text style={styles.subtitle}>
-        Take a selfie with a fursuiter to log the catch. The owner will review your photo before it counts.
+        Take a selfie with a fursuiter to log the catch. The owner will review your photo before it
+        counts.
       </Text>
 
       {step === 'idle' ? (
@@ -271,7 +277,11 @@ export function PhotoCatchCard({
             style={styles.cameraButton}
           >
             <View style={styles.buttonContent}>
-              <Ionicons name="camera-outline" size={18} color={colors.primary} />
+              <Ionicons
+                name="camera-outline"
+                size={18}
+                color={colors.primary}
+              />
               <Text style={styles.cameraButtonText}>Open Camera</Text>
             </View>
           </TailTagButton>
@@ -287,8 +297,15 @@ export function PhotoCatchCard({
             />
             <View style={styles.previewActions}>
               <Text style={styles.previewLabel}>Selfie taken</Text>
-              <Pressable onPress={handleRetakePhoto} style={styles.retakeButton}>
-                <Ionicons name="refresh-outline" size={14} color="rgba(148,163,184,0.8)" />
+              <Pressable
+                onPress={handleRetakePhoto}
+                style={styles.retakeButton}
+              >
+                <Ionicons
+                  name="refresh-outline"
+                  size={14}
+                  color="rgba(148,163,184,0.8)"
+                />
                 <Text style={styles.retakeText}>Retake</Text>
               </Pressable>
             </View>
@@ -315,7 +332,11 @@ export function PhotoCatchCard({
 
       {(localError ?? submitError) ? (
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={18} color="#f87171" />
+          <Ionicons
+            name="alert-circle"
+            size={18}
+            color="#f87171"
+          />
           <Text style={styles.errorText}>{localError ?? submitError}</Text>
         </View>
       ) : null}
@@ -332,7 +353,11 @@ export function PhotoCatchCard({
       )}
 
       <View style={styles.infoRow}>
-        <Ionicons name="information-circle-outline" size={14} color="rgba(148,163,184,0.6)" />
+        <Ionicons
+          name="information-circle-outline"
+          size={14}
+          color="rgba(148,163,184,0.6)"
+        />
         <Text style={styles.infoText}>Photo catches always require owner approval.</Text>
       </View>
     </TailTagCard>

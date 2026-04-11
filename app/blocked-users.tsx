@@ -9,7 +9,10 @@ export default function BlockedUsersRoute() {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader title="Blocked Users" onBack={() => router.back()} />
+      <ScreenHeader
+        title="Blocked Users"
+        onBack={() => router.back()}
+      />
       <BlockedUsersScreen />
     </View>
   );

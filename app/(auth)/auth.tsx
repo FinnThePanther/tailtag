@@ -1,44 +1,36 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Platform, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform, Text, View } from 'react-native';
 
-import { useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { TailTagButton } from "../../src/components/ui/TailTagButton";
-import { TailTagCard } from "../../src/components/ui/TailTagCard";
-import { TailTagInput } from "../../src/components/ui/TailTagInput";
-import { PasswordInput } from "../../src/components/ui/PasswordInput";
-import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareFormWrapper";
-import { PasswordStrengthIndicator } from "../../src/features/auth/components/PasswordStrengthIndicator";
-import { useOAuthSignIn } from "../../src/features/auth/hooks/useOAuthSignIn";
-import { buildGeneratedUsername } from "../../src/features/profile";
-import { supabase } from "../../src/lib/supabase";
-import {
-  isValidEmail,
-  mapAuthError,
-  validatePassword,
-} from "../../src/utils/authValidation";
-import { styles } from "../../src/app-styles/(auth)/auth.styles";
+import { TailTagButton } from '../../src/components/ui/TailTagButton';
+import { TailTagCard } from '../../src/components/ui/TailTagCard';
+import { TailTagInput } from '../../src/components/ui/TailTagInput';
+import { PasswordInput } from '../../src/components/ui/PasswordInput';
+import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
+import { PasswordStrengthIndicator } from '../../src/features/auth/components/PasswordStrengthIndicator';
+import { useOAuthSignIn } from '../../src/features/auth/hooks/useOAuthSignIn';
+import { buildGeneratedUsername } from '../../src/features/profile';
+import { supabase } from '../../src/lib/supabase';
+import { isValidEmail, mapAuthError, validatePassword } from '../../src/utils/authValidation';
+import { styles } from '../../src/app-styles/(auth)/auth.styles';
 
-type AuthMode = "sign_in" | "sign_up";
+type AuthMode = 'sign_in' | 'sign_up';
 
 export default function AuthScreen() {
   const router = useRouter();
-  const [mode, setMode] = useState<AuthMode>("sign_up");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [mode, setMode] = useState<AuthMode>('sign_up');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendError, setResendError] = useState<string | null>(null);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const {
-    signInWithProvider,
-    activeProvider,
-    error: oauthError,
-  } = useOAuthSignIn();
+  const { signInWithProvider, activeProvider, error: oauthError } = useOAuthSignIn();
 
   useEffect(() => {
     return () => {
@@ -66,7 +58,7 @@ export default function AuthScreen() {
     setResendError(null);
     try {
       const { error: resendErr } = await supabase.auth.resend({
-        type: "signup",
+        type: 'signup',
         email: email.trim(),
       });
       if (resendErr) throw resendErr;
@@ -77,9 +69,9 @@ export default function AuthScreen() {
   }, [email, resendCooldown, startCooldown]);
 
   const toggleMode = () => {
-    setMode((current) => (current === "sign_in" ? "sign_up" : "sign_in"));
+    setMode((current) => (current === 'sign_in' ? 'sign_up' : 'sign_in'));
     setError(null);
-    setConfirmPassword("");
+    setConfirmPassword('');
     setEmailSent(false);
   };
 
@@ -93,21 +85,21 @@ export default function AuthScreen() {
     if (isSubmitting) return;
     setError(null);
     try {
-      await signInWithProvider("discord");
+      await signInWithProvider('discord');
     } catch {
       // Error state handled inside useOAuthSignIn
     }
   };
 
-  const isDiscordLoading = activeProvider === "discord";
-  const isGoogleLoading = activeProvider === "google";
-  const isAppleLoading = activeProvider === "apple";
+  const isDiscordLoading = activeProvider === 'discord';
+  const isGoogleLoading = activeProvider === 'google';
+  const isAppleLoading = activeProvider === 'apple';
 
   const handleGoogleSignIn = async () => {
     if (isSubmitting) return;
     setError(null);
     try {
-      await signInWithProvider("google");
+      await signInWithProvider('google');
     } catch {
       // Error state is surfaced by the hook
     }
@@ -117,7 +109,7 @@ export default function AuthScreen() {
     if (isSubmitting) return;
     setError(null);
     try {
-      await signInWithProvider("apple");
+      await signInWithProvider('apple');
     } catch {
       // Error state is surfaced by the hook
     }
@@ -129,26 +121,24 @@ export default function AuthScreen() {
     const trimmedEmail = email.trim();
 
     if (trimmedEmail.length === 0 || password.length === 0) {
-      setError("Enter your email and password to continue.");
+      setError('Enter your email and password to continue.');
       return;
     }
 
     if (!isValidEmail(trimmedEmail)) {
-      setError("Please enter a valid email address.");
+      setError('Please enter a valid email address.');
       return;
     }
 
-    if (mode === "sign_up") {
+    if (mode === 'sign_up') {
       const validation = validatePassword(password);
       if (!validation.isAcceptable) {
-        setError(
-          "Your password doesn't meet all the requirements shown below.",
-        );
+        setError("Your password doesn't meet all the requirements shown below.");
         return;
       }
 
       if (password !== confirmPassword) {
-        setError("Passwords do not match.");
+        setError('Passwords do not match.');
         return;
       }
     }
@@ -157,13 +147,13 @@ export default function AuthScreen() {
     setError(null);
 
     try {
-      if (mode === "sign_up") {
+      if (mode === 'sign_up') {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: trimmedEmail,
           password,
           options: {
             data: {
-              username: buildGeneratedUsername(trimmedEmail.split("@")[0], {
+              username: buildGeneratedUsername(trimmedEmail.split('@')[0], {
                 forceSuffix: true,
               }),
             },
@@ -201,15 +191,17 @@ export default function AuthScreen() {
 
   if (emailSent) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      <SafeAreaView
+        style={styles.safeArea}
+        edges={['top', 'bottom']}
+      >
         <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
           <View style={styles.header}>
             <Text style={styles.eyebrow}>TailTag</Text>
             <Text style={styles.title}>Check your email</Text>
             <Text style={styles.subtitle}>
-              We sent a confirmation link to{" "}
-              <Text style={styles.emailHighlight}>{email}</Text>. Tap the link
-              to activate your account, then come back and sign in.
+              We sent a confirmation link to <Text style={styles.emailHighlight}>{email}</Text>. Tap
+              the link to activate your account, then come back and sign in.
             </Text>
           </View>
 
@@ -221,19 +213,17 @@ export default function AuthScreen() {
             >
               {resendCooldown > 0
                 ? `Resend email (${resendCooldown}s)`
-                : "Resend confirmation email"}
+                : 'Resend confirmation email'}
             </TailTagButton>
 
-            {resendError ? (
-              <Text style={styles.errorText}>{resendError}</Text>
-            ) : null}
+            {resendError ? <Text style={styles.errorText}>{resendError}</Text> : null}
 
             <TailTagButton
               variant="ghost"
               onPress={() => {
                 setEmailSent(false);
                 setResendError(null);
-                setMode("sign_in");
+                setMode('sign_in');
               }}
             >
               Back to sign in
@@ -245,17 +235,20 @@ export default function AuthScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={['top', 'bottom']}
+    >
       <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <Text style={styles.eyebrow}>TailTag</Text>
           <Text style={styles.title}>
-            {mode === "sign_in" ? "Welcome back" : "Create your TailTag"}
+            {mode === 'sign_in' ? 'Welcome back' : 'Create your TailTag'}
           </Text>
           <Text style={styles.subtitle}>
-            {mode === "sign_in"
-              ? "Log in with email and password to keep tagging suits."
-              : "Sign up with email and password to start your TailTag collection."}
+            {mode === 'sign_in'
+              ? 'Log in with email and password to keep tagging suits.'
+              : 'Sign up with email and password to start your TailTag collection.'}
           </Text>
         </View>
 
@@ -279,22 +272,18 @@ export default function AuthScreen() {
             <PasswordInput
               value={password}
               onChangeText={setPassword}
-              autoComplete={mode === "sign_in" ? "password" : "password-new"}
+              autoComplete={mode === 'sign_in' ? 'password' : 'password-new'}
               placeholder={
-                mode === "sign_up"
-                  ? "8+ chars, mixed case, number, symbol"
-                  : "Enter your password"
+                mode === 'sign_up' ? '8+ chars, mixed case, number, symbol' : 'Enter your password'
               }
               editable={!isSubmitting}
-              returnKeyType={mode === "sign_up" ? "next" : "done"}
-              onSubmitEditing={mode === "sign_in" ? handleSubmit : undefined}
+              returnKeyType={mode === 'sign_up' ? 'next' : 'done'}
+              onSubmitEditing={mode === 'sign_in' ? handleSubmit : undefined}
             />
-            {mode === "sign_up" && (
-              <PasswordStrengthIndicator password={password} />
-            )}
+            {mode === 'sign_up' && <PasswordStrengthIndicator password={password} />}
           </View>
 
-          {mode === "sign_up" && (
+          {mode === 'sign_up' && (
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Confirm password</Text>
               <PasswordInput
@@ -311,8 +300,11 @@ export default function AuthScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <TailTagButton onPress={handleSubmit} loading={isSubmitting}>
-            {mode === "sign_in" ? "Log in" : "Sign up"}
+          <TailTagButton
+            onPress={handleSubmit}
+            loading={isSubmitting}
+          >
+            {mode === 'sign_in' ? 'Log in' : 'Sign up'}
           </TailTagButton>
 
           <TailTagButton
@@ -320,9 +312,7 @@ export default function AuthScreen() {
             onPress={toggleMode}
             disabled={isSubmitting}
           >
-            {mode === "sign_in"
-              ? "Need an account? Sign up"
-              : "Already have an account? Log in"}
+            {mode === 'sign_in' ? 'Need an account? Sign up' : 'Already have an account? Log in'}
           </TailTagButton>
 
           <View style={styles.divider}>
@@ -331,7 +321,7 @@ export default function AuthScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          {Platform.OS === "ios" && (
+          {Platform.OS === 'ios' && (
             <TailTagButton
               variant="outline"
               onPress={handleAppleSignIn}
@@ -369,10 +359,10 @@ export default function AuthScreen() {
 
         <View style={styles.footerHelper}>
           <Text style={styles.helperText}>
-            Having trouble logging in?{" "}
+            Having trouble logging in?{' '}
             <Text
               style={styles.link}
-              onPress={() => router.push("/forgot-password")}
+              onPress={() => router.push('/forgot-password')}
             >
               Reset password
             </Text>

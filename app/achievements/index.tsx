@@ -1,11 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import {
-  Alert,
-  RefreshControl,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
@@ -62,7 +56,12 @@ type AchievementGroup = {
 };
 
 function groupByConventionAndCategory(achievements: AchievementWithStatus[]): AchievementGroup[] {
-  const globalGroup: AchievementGroup = { key: 'global', label: 'Global', isConvention: false, byCategory: {} };
+  const globalGroup: AchievementGroup = {
+    key: 'global',
+    label: 'Global',
+    isConvention: false,
+    byCategory: {},
+  };
   const conventionGroups = new Map<string, AchievementGroup>();
 
   for (const achievement of achievements) {
@@ -93,7 +92,7 @@ function groupByConventionAndCategory(achievements: AchievementWithStatus[]): Ac
     groups.push(globalGroup);
   }
   const sortedConventions = [...conventionGroups.values()].sort((a, b) =>
-    a.label.localeCompare(b.label)
+    a.label.localeCompare(b.label),
   );
   groups.push(...sortedConventions);
   return groups;
@@ -105,8 +104,9 @@ export default function AchievementsScreen() {
   const userId = session?.user.id ?? null;
 
   const achievementsQueryKey = useMemo(
-    () => (userId ? achievementsStatusQueryKey(userId) : ['achievements-status', 'guest'] as const),
-    [userId]
+    () =>
+      userId ? achievementsStatusQueryKey(userId) : (['achievements-status', 'guest'] as const),
+    [userId],
   );
 
   const {
@@ -126,11 +126,11 @@ export default function AchievementsScreen() {
 
   const unlocked = useMemo(
     () => achievements.filter((achievement) => achievement.unlocked),
-    [achievements]
+    [achievements],
   );
   const locked = useMemo(
     () => achievements.filter((achievement) => !achievement.unlocked),
-    [achievements]
+    [achievements],
   );
 
   const unlockedCount = unlocked.length;
@@ -164,91 +164,113 @@ export default function AchievementsScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader title="Achievements" onBack={() => router.back()} />
+      <ScreenHeader
+        title="Achievements"
+        onBack={() => router.back()}
+      />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.container}
         refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={() => {
-            void refetch({ throwOnError: false });
-          }}
-          tintColor={colors.primary}
-        />
-      }
-    >
-      <TailTagCard style={styles.summaryCard}>
-        <View style={styles.summaryHeader}>
-          <Text style={styles.summaryEyebrow}>Achievements</Text>
-          <Text style={styles.summaryTitle}>Your progress</Text>
-        </View>
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => {
+              void refetch({ throwOnError: false });
+            }}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        <TailTagCard style={styles.summaryCard}>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.summaryEyebrow}>Achievements</Text>
+            <Text style={styles.summaryTitle}>Your progress</Text>
+          </View>
 
-        {isLoading ? (
-          <Text style={styles.message}>Loading achievements…</Text>
-        ) : error ? (
-          <View style={styles.errorBlock}>
-            <Text style={styles.errorText}>{error.message}</Text>
-            <TailTagButton variant="outline" size="sm" onPress={handleRetry}>
-              Try again
-            </TailTagButton>
-          </View>
-        ) : achievements.length === 0 ? (
-          <View style={styles.helperBlock}>
-            <Text style={styles.message}>No achievements available yet.</Text>
-            <TailTagButton variant="outline" size="sm" onPress={handleComingSoon}>
-              Stay tuned
-            </TailTagButton>
-          </View>
-        ) : (
-          <View style={styles.summaryContent}>
-            <View>
-              <Text style={styles.progressHeadline}>
-                {unlockedCount} / {totalCount} unlocked
-              </Text>
-              <Text style={styles.progressSubhead}>
-                {progressPercent}% complete{latestUnlock ? ` · Last unlock: ${latestUnlock.name}` : ''}
-              </Text>
+          {isLoading ? (
+            <Text style={styles.message}>Loading achievements…</Text>
+          ) : error ? (
+            <View style={styles.errorBlock}>
+              <Text style={styles.errorText}>{error.message}</Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={handleRetry}
+              >
+                Try again
+              </TailTagButton>
             </View>
-            <View style={styles.progressBar}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${Math.min(Math.max(progressPercent, 0), 100)}%` },
-                ]}
-              />
+          ) : achievements.length === 0 ? (
+            <View style={styles.helperBlock}>
+              <Text style={styles.message}>No achievements available yet.</Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={handleComingSoon}
+              >
+                Stay tuned
+              </TailTagButton>
             </View>
-          </View>
-        )}
-      </TailTagCard>
-
-      {!isLoading && !error ? (
-        <TailTagCard>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Unlocked</Text>
-            {unlocked.length === 0 ? (
-              <Text style={styles.message}>Start catching suits to earn your first badge.</Text>
-            ) : (
-              groupedUnlocked.map((group) => (
-                <AchievementGroupSection key={group.key} group={group} unlocked />
-              ))
-            )}
-          </View>
-
-          <View style={styles.sectionDivider} />
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Locked</Text>
-            {locked.length === 0 ? (
-              <Text style={styles.message}>You've unlocked every achievement available today. 🎉</Text>
-            ) : (
-              groupedLocked.map((group) => (
-                <AchievementGroupSection key={group.key} group={group} unlocked={false} />
-              ))
-            )}
-          </View>
+          ) : (
+            <View style={styles.summaryContent}>
+              <View>
+                <Text style={styles.progressHeadline}>
+                  {unlockedCount} / {totalCount} unlocked
+                </Text>
+                <Text style={styles.progressSubhead}>
+                  {progressPercent}% complete
+                  {latestUnlock ? ` · Last unlock: ${latestUnlock.name}` : ''}
+                </Text>
+              </View>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${Math.min(Math.max(progressPercent, 0), 100)}%` },
+                  ]}
+                />
+              </View>
+            </View>
+          )}
         </TailTagCard>
-      ) : null}
+
+        {!isLoading && !error ? (
+          <TailTagCard>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Unlocked</Text>
+              {unlocked.length === 0 ? (
+                <Text style={styles.message}>Start catching suits to earn your first badge.</Text>
+              ) : (
+                groupedUnlocked.map((group) => (
+                  <AchievementGroupSection
+                    key={group.key}
+                    group={group}
+                    unlocked
+                  />
+                ))
+              )}
+            </View>
+
+            <View style={styles.sectionDivider} />
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Locked</Text>
+              {locked.length === 0 ? (
+                <Text style={styles.message}>
+                  You've unlocked every achievement available today. 🎉
+                </Text>
+              ) : (
+                groupedLocked.map((group) => (
+                  <AchievementGroupSection
+                    key={group.key}
+                    group={group}
+                    unlocked={false}
+                  />
+                ))
+              )}
+            </View>
+          </TailTagCard>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -269,10 +291,18 @@ function AchievementGroupSection({
         </View>
       ) : null}
       {Object.entries(group.byCategory).map(([category, items]) => (
-        <View key={category} style={styles.categoryBlock}>
+        <View
+          key={category}
+          style={styles.categoryBlock}
+        >
           <Text style={styles.categoryLabel}>{CATEGORY_LABELS[category] ?? category}</Text>
           {items.map((achievement) => (
-            <AchievementRow key={achievement.id} achievement={achievement} unlocked={unlocked} isConvention={group.isConvention} />
+            <AchievementRow
+              key={achievement.id}
+              achievement={achievement}
+              unlocked={unlocked}
+              isConvention={group.isConvention}
+            />
           ))}
         </View>
       ))}
@@ -292,13 +322,20 @@ function AchievementRow({
   const unlockedAt = formatUnlockedAt(achievement.unlockedAt ?? null);
 
   return (
-    <View style={[styles.achievementRow, unlocked ? styles.achievementUnlocked : styles.achievementLocked]}>
+    <View
+      style={[
+        styles.achievementRow,
+        unlocked ? styles.achievementUnlocked : styles.achievementLocked,
+      ]}
+    >
       <View style={styles.achievementContent}>
         <Text style={styles.achievementName}>{achievement.name}</Text>
         <Text style={styles.achievementDescription}>{achievement.description}</Text>
         <Text style={styles.achievementMeta}>
           {RECIPIENT_LABELS[achievement.recipientRole] ?? 'General'}
-          {isConvention ? ` · ${CATEGORY_LABELS[achievement.category] ?? achievement.category}` : ''}
+          {isConvention
+            ? ` · ${CATEGORY_LABELS[achievement.category] ?? achievement.category}`
+            : ''}
         </Text>
         {unlocked && unlockedAt ? (
           <Text style={styles.achievementUnlockedAt}>Unlocked on {unlockedAt}</Text>

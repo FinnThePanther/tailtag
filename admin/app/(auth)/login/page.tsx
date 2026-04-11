@@ -71,9 +71,15 @@ function LoginForm() {
             {error ?? persistentError ?? 'You do not have access to that page.'}
           </div>
         )}
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+        <form
+          className="mt-6 space-y-4"
+          onSubmit={handleSubmit}
+        >
           <div className="space-y-2">
-            <label className="text-sm text-slate-200" htmlFor="email">
+            <label
+              className="text-sm text-slate-200"
+              htmlFor="email"
+            >
               Email
             </label>
             <input
@@ -86,7 +92,10 @@ function LoginForm() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm text-slate-200" htmlFor="password">
+            <label
+              className="text-sm text-slate-200"
+              htmlFor="password"
+            >
               Password
             </label>
             <input
@@ -113,14 +122,16 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md rounded-2xl border border-border bg-panel p-8 shadow-xl">
-          <h1 className="text-2xl font-semibold text-white">TailTag Admin</h1>
-          <p className="mt-2 text-sm text-slate-300">Loading...</p>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background px-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-panel p-8 shadow-xl">
+            <h1 className="text-2xl font-semibold text-white">TailTag Admin</h1>
+            <p className="mt-2 text-sm text-slate-300">Loading...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <LoginForm />
     </Suspense>
   );

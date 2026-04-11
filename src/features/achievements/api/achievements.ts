@@ -39,7 +39,9 @@ export async function fetchAchievementCatalog(): Promise<AchievementRecord[]> {
   const client = supabase as any;
   const { data, error } = await client
     .from('achievements')
-    .select('id, key, name, description, category, recipient_role, trigger_event, is_active, convention_id, convention:conventions(name)')
+    .select(
+      'id, key, name, description, category, recipient_role, trigger_event, is_active, convention_id, convention:conventions(name)',
+    )
     .order('category', { ascending: true })
     .order('name', { ascending: true });
 
@@ -104,7 +106,11 @@ export async function fetchAchievementStatus(userId: string): Promise<Achievemen
 
   return achievements
     .filter((achievement) => achievement.isActive)
-    .filter((achievement) => achievement.conventionId === null || optedInConventionIds.includes(achievement.conventionId))
+    .filter(
+      (achievement) =>
+        achievement.conventionId === null ||
+        optedInConventionIds.includes(achievement.conventionId),
+    )
     .map((achievement) => {
       const unlocked = unlockedMap.get(achievement.id) ?? null;
       return {
@@ -120,17 +126,21 @@ export const USER_UNLOCKED_ACHIEVEMENTS_QUERY_KEY = 'user-unlocked-achievements'
 export const userUnlockedAchievementsQueryKey = (userId: string) =>
   [USER_UNLOCKED_ACHIEVEMENTS_QUERY_KEY, userId] as const;
 
-export async function fetchUserUnlockedAchievements(userId: string): Promise<AchievementWithStatus[]> {
+export async function fetchUserUnlockedAchievements(
+  userId: string,
+): Promise<AchievementWithStatus[]> {
   const client = supabase as any;
   const { data, error } = await client
     .from('user_achievements')
-    .select(`
+    .select(
+      `
       unlocked_at,
       context,
       achievement:achievements!inner(
         id, key, name, description, category, recipient_role, trigger_event, is_active, convention_id
       )
-    `)
+    `,
+    )
     .eq('user_id', userId)
     .order('unlocked_at', { ascending: false });
 

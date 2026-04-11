@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, Text, View } from 'react-native';
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { TailTagButton } from "../../../components/ui/TailTagButton";
-import { TailTagCard } from "../../../components/ui/TailTagCard";
-import { TailTagInput } from "../../../components/ui/TailTagInput";
+import { TailTagButton } from '../../../components/ui/TailTagButton';
+import { TailTagCard } from '../../../components/ui/TailTagCard';
+import { TailTagInput } from '../../../components/ui/TailTagInput';
 import {
   createConventionsQueryOptions,
   fetchProfileConventionIds,
@@ -14,10 +14,10 @@ import {
   PROFILE_CONVENTIONS_QUERY_KEY,
   type ConventionSummary,
   type VerifiedLocation,
-} from "../../conventions";
-import { ConventionToggle } from "../../../components/conventions/ConventionToggle";
-import { CONVENTION_LEADERBOARD_QUERY_KEY } from "../../leaderboard/api/leaderboard";
-import { styles } from "./ConventionStep.styles";
+} from '../../conventions';
+import { ConventionToggle } from '../../../components/conventions/ConventionToggle';
+import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../leaderboard/api/leaderboard';
+import { styles } from './ConventionStep.styles';
 
 type ConventionStepProps = {
   userId: string;
@@ -28,20 +28,13 @@ type ConventionStepProps = {
 export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepProps) {
   const queryClient = useQueryClient();
   const hasInitializedSelectionsRef = useRef(false);
-  const [searchInput, setSearchInput] = useState("");
-  const [selectedConventionIds, setSelectedConventionIds] = useState<
-    Set<string>
-  >(new Set());
-  const [verifiedLocations, setVerifiedLocations] = useState<
-    Record<string, VerifiedLocation>
-  >({});
+  const [searchInput, setSearchInput] = useState('');
+  const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
+  const [verifiedLocations, setVerifiedLocations] = useState<Record<string, VerifiedLocation>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const conventionsQueryOptions = useMemo(
-    () => createConventionsQueryOptions(),
-    [],
-  );
+  const conventionsQueryOptions = useMemo(() => createConventionsQueryOptions(), []);
   const {
     data: conventions = [],
     error,
@@ -53,15 +46,17 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
   });
 
   // Fetch user's existing conventions to handle onboarding restarts
-  const { data: existingConventionIds = [], isLoading: isLoadingExisting } =
-    useQuery<string[], Error>({
-      queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
-      queryFn: () => fetchProfileConventionIds(userId),
-      staleTime: 0, // Always fetch fresh data during onboarding
-      refetchOnMount: true,
-      refetchOnWindowFocus: false, // Don't refetch while user is editing selections
-      refetchOnReconnect: false, // Don't refetch on reconnect to avoid overwriting edits
-    });
+  const { data: existingConventionIds = [], isLoading: isLoadingExisting } = useQuery<
+    string[],
+    Error
+  >({
+    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    queryFn: () => fetchProfileConventionIds(userId),
+    staleTime: 0, // Always fetch fresh data during onboarding
+    refetchOnMount: true,
+    refetchOnWindowFocus: false, // Don't refetch while user is editing selections
+    refetchOnReconnect: false, // Don't refetch on reconnect to avoid overwriting edits
+  });
 
   // Pre-populate selected conventions with existing ones on initial load only
   // This ensures we don't overwrite user's in-progress edits if the query refetches
@@ -83,8 +78,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
 
     const normalized = searchInput.trim().toLowerCase();
     return conventions.filter((convention) => {
-      const haystack =
-        `${convention.name} ${convention.location ?? ""}`.toLowerCase();
+      const haystack = `${convention.name} ${convention.location ?? ''}`.toLowerCase();
       return haystack.includes(normalized);
     });
   }, [conventions, searchInput]);
@@ -117,7 +111,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
 
   const handleSubmit = async () => {
     if (selectedConventionIds.size === 0 || isSubmitting) {
-      setSubmitError("Select a convention to continue.");
+      setSubmitError('Select a convention to continue.');
       return;
     }
 
@@ -172,7 +166,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
       const message =
         caught instanceof Error
           ? caught.message
-          : "We could not save your convention selection. Please try again.";
+          : 'We could not save your convention selection. Please try again.';
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);
@@ -185,7 +179,8 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
         <Text style={styles.eyebrow}>Step 2</Text>
         <Text style={styles.title}>Choose your first convention</Text>
         <Text style={styles.body}>
-          Pick the convention you're currently attending to find other fursuiters! If there are no active cons right now, you can skip this and join one later.
+          Pick the convention you're currently attending to find other fursuiters! If there are no
+          active cons right now, you can skip this and join one later.
         </Text>
 
         <TailTagInput
@@ -219,14 +214,15 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
           ) : error ? (
             <Text style={styles.error}>{error.message}</Text>
           ) : filteredConventions.length === 0 ? (
-            <Text style={styles.message}>
-              No conventions matched your search yet.
-            </Text>
+            <Text style={styles.message}>No conventions matched your search yet.</Text>
           ) : (
             filteredConventions.map((convention) => {
               const selected = selectedConventionIds.has(convention.id);
               return (
-                <View key={convention.id} style={styles.listItem}>
+                <View
+                  key={convention.id}
+                  style={styles.listItem}
+                >
                   <ConventionToggle
                     convention={convention}
                     selected={selected}
@@ -234,11 +230,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
                     disabled={isSubmitting}
                     profileId={userId}
                     onToggle={(conventionId, nextSelected, verifiedLocation) =>
-                      toggleConvention(
-                        conventionId,
-                        nextSelected,
-                        verifiedLocation,
-                      )
+                      toggleConvention(conventionId, nextSelected, verifiedLocation)
                     }
                   />
                 </View>

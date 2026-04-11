@@ -17,7 +17,10 @@ type UseGeoVerificationReturn = {
 export function useGeoVerification(): UseGeoVerificationReturn {
   const [isVerifying, setIsVerifying] = useState(false);
 
-  async function verifyLocation(conventionId: string, profileId: string): Promise<VerificationResult> {
+  async function verifyLocation(
+    conventionId: string,
+    profileId: string,
+  ): Promise<VerificationResult> {
     setIsVerifying(true);
     try {
       const position = await Location.getCurrentPositionAsync({

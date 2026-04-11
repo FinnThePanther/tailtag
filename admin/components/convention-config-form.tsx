@@ -38,7 +38,10 @@ export function ConventionConfigForm({
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form
+      onSubmit={submit}
+      className="space-y-4"
+    >
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="text-sm text-slate-200">Catch cooldown (seconds)</label>

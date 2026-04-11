@@ -18,7 +18,8 @@ const DEFAULT_CONFIG = {
 
 function validateSlug(slug: string) {
   if (!slug.trim()) throw new Error('Slug is required.');
-  if (!/^[a-z0-9-]+$/.test(slug)) throw new Error('Slug must only contain lowercase letters, numbers, and hyphens.');
+  if (!/^[a-z0-9-]+$/.test(slug))
+    throw new Error('Slug must only contain lowercase letters, numbers, and hyphens.');
 }
 
 export async function createConventionAction(input: {
@@ -185,19 +186,18 @@ export async function updateConventionGeofenceAction(input: {
         'geofence_radius_meters',
         'geofence_enabled',
         'location_verification_required',
-      ].join(', ')
+      ].join(', '),
     )
     .eq('id', input.conventionId)
     .single();
 
-  const before: GeofenceSettings =
-    (current as GeofenceSettings | null) ?? {
-      latitude: null,
-      longitude: null,
-      geofence_radius_meters: null,
-      geofence_enabled: false,
-      location_verification_required: false,
-    };
+  const before: GeofenceSettings = (current as GeofenceSettings | null) ?? {
+    latitude: null,
+    longitude: null,
+    geofence_radius_meters: null,
+    geofence_enabled: false,
+    location_verification_required: false,
+  };
 
   const sanitizedRadius = input.radiusMeters ? Math.round(input.radiusMeters) : null;
   if (sanitizedRadius && (sanitizedRadius < 100 || sanitizedRadius > 10000)) {
@@ -206,7 +206,9 @@ export async function updateConventionGeofenceAction(input: {
 
   const nextLatitude = input.geofenceEnabled ? input.latitude : null;
   const nextLongitude = input.geofenceEnabled ? input.longitude : null;
-  const nextRadius = input.geofenceEnabled ? sanitizedRadius ?? before.geofence_radius_meters ?? 500 : null;
+  const nextRadius = input.geofenceEnabled
+    ? (sanitizedRadius ?? before.geofence_radius_meters ?? 500)
+    : null;
 
   if (input.geofenceEnabled) {
     if (nextLatitude === null || nextLongitude === null) {
@@ -350,17 +352,11 @@ export async function updateConventionTaskAction(input: {
   revalidatePath(`/conventions/${input.conventionId}`);
 }
 
-export async function deleteConventionTaskAction(input: {
-  taskId: string;
-  conventionId: string;
-}) {
+export async function deleteConventionTaskAction(input: { taskId: string; conventionId: string }) {
   const { profile } = await assertAdminAction([...CONTENT_ROLES]);
   const supabase = createServiceRoleClient();
 
-  const { error } = await supabase
-    .from('daily_tasks')
-    .delete()
-    .eq('id', input.taskId);
+  const { error } = await supabase.from('daily_tasks').delete().eq('id', input.taskId);
 
   if (error) throw error;
 
@@ -377,10 +373,7 @@ export async function deleteConventionTaskAction(input: {
 
 // ─── Convention-scoped achievements ──────────────────────────────────────────
 
-const KIND_META: Record<
-  string,
-  { triggerEvent: string; recipientRole: string }
-> = {
+const KIND_META: Record<string, { triggerEvent: string; recipientRole: string }> = {
   fursuit_caught_count_at_convention: {
     triggerEvent: 'catch_performed',
     recipientRole: 'fursuit_owner',

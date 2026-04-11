@@ -25,7 +25,9 @@
     "prebuild:staging": "APP_ENV=staging npm run prebuild",
     "prebuild:production": "APP_ENV=production npm run prebuild",
     "gen:types": "npx supabase gen types typescript --project-id rtxbvjicfxgcouufumce > /tmp/fresh-types.ts && python3 scripts/update-types.py /tmp/fresh-types.ts",
-    "ci:validate": "npm run doctor && npm run lint && npm run typecheck",
+    "format": "prettier . --write --ignore-unknown",
+    "format:check": "prettier . --check --ignore-unknown",
+    "ci:validate": "npm run doctor && npm run format:check && npm run lint && npm run typecheck",
     "build:dev:ios": "eas build --platform ios --profile development",
     "build:dev:android": "eas build --platform android --profile development",
     "build:dev:all": "eas build --platform all --profile development",
@@ -35,8 +37,7 @@
     "build:prod:ios": "eas build --platform ios --profile production",
     "build:prod:android": "eas build --platform android --profile production",
     "build:prod:all": "eas build --platform all --profile production",
-    "eas-build-pre-install": "node ./scripts/sync-native-env.cjs",
-    "prepare": "sh scripts/install-hooks.sh"
+    "eas-build-pre-install": "node ./scripts/sync-native-env.cjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -95,6 +96,8 @@
     "eslint-config-expo": "~10.0.0",
     "eslint-plugin-react-hooks": "^4.6.2",
     "jsonwebtoken": "^9.0.3",
+    "prettier": "3.8.2",
+    "prettier-plugin-astro": "0.14.1",
     "typescript": "~5.9.2"
   },
   "private": true,

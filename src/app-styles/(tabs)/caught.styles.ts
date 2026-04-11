@@ -1,6 +1,6 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet } from 'react-native';
 
-import { colors, spacing } from "../../theme";
+import { colors, spacing } from '../../theme';
 
 export const styles = StyleSheet.create({
   list: {
@@ -19,27 +19,27 @@ export const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 12,
     letterSpacing: 4,
-    textTransform: "uppercase",
+    textTransform: 'uppercase',
     color: colors.primary,
   },
   title: {
     fontSize: 26,
-    fontWeight: "700",
+    fontWeight: '700',
     color: colors.foreground,
   },
   subtitle: {
     fontSize: 15,
-    color: "rgba(203,213,225,0.9)",
+    color: 'rgba(203,213,225,0.9)',
   },
   message: {
-    color: "rgba(203,213,225,0.9)",
+    color: 'rgba(203,213,225,0.9)',
     fontSize: 14,
   },
   helper: {
     gap: spacing.sm,
   },
   error: {
-    color: "#fca5a5",
+    color: '#fca5a5',
     fontSize: 14,
   },
   separator: {

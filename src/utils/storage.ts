@@ -3,7 +3,7 @@ import { extractStoragePathFromUrl } from './supabase-image';
 
 export const deriveStoragePathFromPublicUrl = (
   fileUrl: string | null | undefined,
-  bucketName: string
+  bucketName: string,
 ) => {
   if (!fileUrl) {
     return null;
