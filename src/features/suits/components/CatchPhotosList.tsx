@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Dimensions, Modal, Pressable, StatusBar, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,16 +17,28 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 type CatchPhotosListProps = {
   items: CatchOfFursuitItem[];
+  onAllLoaded?: () => void;
 };
 
-export function CatchPhotosList({ items }: CatchPhotosListProps) {
+export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   const { session } = useAuth();
   const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [settledCount, setSettledCount] = useState(0);
 
   const withPhoto = items.filter((item): item is CatchOfFursuitItem & { catch_photo_url: string } =>
     Boolean(item.catch_photo_url?.trim()),
   );
+
+  const handleSettled = useCallback(() => {
+    setSettledCount((c) => c + 1);
+  }, []);
+
+  useEffect(() => {
+    if (withPhoto.length > 0 && settledCount >= withPhoto.length) {
+      onAllLoaded?.();
+    }
+  }, [settledCount, withPhoto.length, onAllLoaded]);
 
   const handleDownloadPhoto = useCallback(
     async (url: string) => {
@@ -77,6 +89,8 @@ export function CatchPhotosList({ items }: CatchPhotosListProps) {
               height={SCREEN_WIDTH * 0.31}
               style={styles.thumbnail}
               accessibilityLabel="Catch photo thumbnail"
+              onLoad={handleSettled}
+              onError={handleSettled}
             />
           </Pressable>
         ))}
