@@ -15,9 +15,7 @@ export const CATCHES_BY_FURSUIT_STALE_TIME = 2 * 60_000;
 export const catchesByFursuitQueryKey = (fursuitId: string) =>
   [CATCHES_BY_FURSUIT_QUERY_KEY, fursuitId] as const;
 
-export async function fetchCatchesByFursuit(
-  fursuitId: string,
-): Promise<CatchOfFursuitItem[]> {
+export async function fetchCatchesByFursuit(fursuitId: string): Promise<CatchOfFursuitItem[]> {
   const client = supabase as any;
   const { data, error } = await client
     .from('catches')
@@ -27,9 +25,7 @@ export async function fetchCatchesByFursuit(
     .order('caught_at', { ascending: false });
 
   if (error) {
-    throw new Error(
-      `We couldn't load catches for this fursuit: ${error.message}`,
-    );
+    throw new Error(`We couldn't load catches for this fursuit: ${error.message}`);
   }
 
   return (data ?? []).map((row: any) => ({

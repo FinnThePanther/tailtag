@@ -53,9 +53,7 @@ export function PendingCatchCard({
   const router = useRouter();
   const { session } = useAuth();
   const { width: screenWidth } = useWindowDimensions();
-  const [timeDisplay, setTimeDisplay] = useState(() =>
-    formatTimeRemaining(pendingCatch.expiresAt)
-  );
+  const [timeDisplay, setTimeDisplay] = useState(() => formatTimeRemaining(pendingCatch.expiresAt));
   const fadeAnimRef = useRef(new Animated.Value(1));
   const scaleAnimRef = useRef(new Animated.Value(1));
   const [animatingSuccess, setAnimatingSuccess] = useState(false);
@@ -123,9 +121,7 @@ export function PendingCatchCard({
   );
 
   return (
-    <Animated.View
-      style={containerStyle}
-    >
+    <Animated.View style={containerStyle}>
       {isExpired && (
         <View style={styles.expiredOverlay}>
           <Text style={styles.expiredTitle}>This request has expired</Text>
@@ -135,11 +131,18 @@ export function PendingCatchCard({
       <View style={styles.header}>
         <View style={styles.catcherInfo}>
           <Pressable onPress={handleViewProfile}>
-            <AppAvatar url={pendingCatch.catcherAvatarUrl} size="xs" fallback="user" />
+            <AppAvatar
+              url={pendingCatch.catcherAvatarUrl}
+              size="xs"
+              fallback="user"
+            />
           </Pressable>
           <View style={styles.textInfo}>
             <Pressable onPress={handleViewProfile}>
-              <Text style={styles.username} numberOfLines={1}>
+              <Text
+                style={styles.username}
+                numberOfLines={1}
+              >
                 {pendingCatch.catcherUsername}
               </Text>
             </Pressable>
@@ -147,7 +150,9 @@ export function PendingCatchCard({
         </View>
         <View
           style={styles.timeContainer}
-          accessibilityLabel={isExpired ? 'This catch request has expired' : `Expires in ${timeDisplay}`}
+          accessibilityLabel={
+            isExpired ? 'This catch request has expired' : `Expires in ${timeDisplay}`
+          }
           accessibilityRole="text"
         >
           <Ionicons
@@ -155,9 +160,7 @@ export function PendingCatchCard({
             size={14}
             color={isExpired ? '#f87171' : '#fbbf24'}
           />
-          <Text style={[styles.timeText, isExpired && styles.expiredText]}>
-            {timeDisplay}
-          </Text>
+          <Text style={[styles.timeText, isExpired && styles.expiredText]}>{timeDisplay}</Text>
         </View>
       </View>
 
@@ -198,7 +201,11 @@ export function PendingCatchCard({
                 accessibilityLabel="Close fullscreen photo"
                 accessibilityRole="button"
               >
-                <Ionicons name="close" size={28} color="#fff" />
+                <Ionicons
+                  name="close"
+                  size={28}
+                  color="#fff"
+                />
               </Pressable>
             </Pressable>
           </Modal>
@@ -207,14 +214,28 @@ export function PendingCatchCard({
 
       <View style={styles.contextContainer}>
         <View style={styles.contextRow}>
-          <Ionicons name="paw-outline" size={14} color={colors.primary} />
-          <Text style={styles.fursuitContextText} numberOfLines={1}>
+          <Ionicons
+            name="paw-outline"
+            size={14}
+            color={colors.primary}
+          />
+          <Text
+            style={styles.fursuitContextText}
+            numberOfLines={1}
+          >
             {pendingCatch.fursuitName}
           </Text>
         </View>
         <View style={styles.contextRow}>
-          <Ionicons name="location-outline" size={14} color="rgba(148,163,184,0.8)" />
-          <Text style={styles.contextText} numberOfLines={1}>
+          <Ionicons
+            name="location-outline"
+            size={14}
+            color="rgba(148,163,184,0.8)"
+          />
+          <Text
+            style={styles.contextText}
+            numberOfLines={1}
+          >
             {pendingCatch.conventionName}
           </Text>
         </View>

@@ -1,6 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { unblockUser, BLOCKED_USERS_QUERY_KEY, BLOCKED_IDS_QUERY_KEY } from '../api/blocks';
-import { CONVENTION_LEADERBOARD_QUERY_KEY, CONVENTION_SUIT_LEADERBOARD_QUERY_KEY } from '../../leaderboard';
+import {
+  CONVENTION_LEADERBOARD_QUERY_KEY,
+  CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
+} from '../../leaderboard';
 
 export function useUnblockUser() {
   const queryClient = useQueryClient();

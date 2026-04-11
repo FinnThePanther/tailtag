@@ -15,9 +15,7 @@ export const NOTIFICATION_DEEP_LINKS: Record<PushNotificationType, string> = {
   catch_expired: '/suits',
 };
 
-export const isPushNotificationType = (
-  value: unknown
-): value is PushNotificationType => {
+export const isPushNotificationType = (value: unknown): value is PushNotificationType => {
   return typeof value === 'string' && value in NOTIFICATION_DEEP_LINKS;
 };
 

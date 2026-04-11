@@ -18,7 +18,7 @@ export function ProfileActionMenu({ profileId, profileUsername }: ProfileActionM
     const displayName = profileUsername || 'this user';
     Alert.alert(
       `Block ${displayName}?`,
-      'They won\'t be able to catch your fursuits, and you won\'t see them on leaderboards. You can unblock them later in Settings.',
+      "They won't be able to catch your fursuits, and you won't see them on leaderboards. You can unblock them later in Settings.",
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -72,7 +72,11 @@ export function ProfileActionMenu({ profileId, profileUsername }: ProfileActionM
         hitSlop={8}
         style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
       >
-        <Ionicons name="ellipsis-horizontal" size={24} color={colors.foreground} />
+        <Ionicons
+          name="ellipsis-horizontal"
+          size={24}
+          color={colors.foreground}
+        />
       </Pressable>
       <ReportModal
         visible={reportVisible}

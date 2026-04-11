@@ -38,9 +38,7 @@ export function StaffModerationModal({
   const trimmedReason = reason.trim();
   const title = `${action === 'ban' ? 'Ban' : 'Unban'} ${username ?? 'user'}`;
   const description =
-    action === 'ban'
-      ? 'Enter a reason for the ban.'
-      : 'Enter a reason for lifting the ban.';
+    action === 'ban' ? 'Enter a reason for the ban.' : 'Enter a reason for lifting the ban.';
   const submitLabel = action === 'ban' ? 'Ban' : 'Unban';
 
   return (
@@ -54,7 +52,11 @@ export function StaffModerationModal({
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>{title}</Text>
-            <Pressable onPress={onClose} hitSlop={8} disabled={isSubmitting}>
+            <Pressable
+              onPress={onClose}
+              hitSlop={8}
+              disabled={isSubmitting}
+            >
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
           </View>

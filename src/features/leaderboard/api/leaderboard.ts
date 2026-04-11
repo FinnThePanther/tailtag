@@ -27,7 +27,9 @@ export const CONVENTION_LEADERBOARD_QUERY_KEY = 'convention-leaderboard';
 export const conventionLeaderboardQueryKey = (conventionId: string) =>
   [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId] as const;
 
-export async function fetchConventionLeaderboard(conventionId: string): Promise<LeaderboardEntry[]> {
+export async function fetchConventionLeaderboard(
+  conventionId: string,
+): Promise<LeaderboardEntry[]> {
   const { data, error } = await supabase
     .from('mv_convention_leaderboard')
     .select('*')
@@ -62,7 +64,9 @@ export const CONVENTION_SUIT_LEADERBOARD_QUERY_KEY = 'convention-suit-leaderboar
 export const conventionSuitLeaderboardQueryKey = (conventionId: string) =>
   [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, conventionId] as const;
 
-export async function fetchConventionSuitLeaderboard(conventionId: string): Promise<SuitLeaderboardEntry[]> {
+export async function fetchConventionSuitLeaderboard(
+  conventionId: string,
+): Promise<SuitLeaderboardEntry[]> {
   const { data, error } = await supabase
     .from('mv_fursuit_popularity')
     .select(
@@ -82,7 +86,7 @@ export async function fetchConventionSuitLeaderboard(conventionId: string): Prom
           )
         )
       )
-    `
+    `,
     )
     .eq('convention_id', conventionId)
     .order('catch_count', { ascending: false })

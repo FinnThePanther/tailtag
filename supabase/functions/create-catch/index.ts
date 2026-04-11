@@ -7,28 +7,27 @@
  */
 
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
 import {
   ingestGameplayEvent,
   loadGameplayQueueConfig,
   scheduleGameplayQueueDrain,
-} from "../_shared/gameplayQueue.ts";
-import {
-  processAchievementsForEvent,
-} from "../_shared/achievements.ts";
-import type { InsertableEventRow } from "../_shared/types.ts";
+} from '../_shared/gameplayQueue.ts';
+import { processAchievementsForEvent } from '../_shared/achievements.ts';
+import type { InsertableEventRow } from '../_shared/types.ts';
 
 const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL");
-const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("ANON_KEY");
-const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('ANON_KEY');
+const serviceRoleKey =
+  Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
-  throw new Error("Missing Supabase configuration");
+  throw new Error('Missing Supabase configuration');
 }
 
 const resolvedSupabaseUrl = supabaseUrl;
@@ -76,11 +75,11 @@ type InlineEventRow = {
 };
 
 function parseQueueMessageId(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
     return Math.trunc(value);
   }
 
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const parsed = Number.parseInt(value, 10);
     if (Number.isFinite(parsed) && parsed > 0) {
       return parsed;
@@ -95,9 +94,9 @@ async function processEventInline(eventId: string): Promise<{
   awards: unknown[];
 }> {
   const { data, error } = await supabaseAdmin
-    .from("events")
-    .select("event_id,user_id,convention_id,type,payload,occurred_at,processed_at,queue_message_id")
-    .eq("event_id", eventId)
+    .from('events')
+    .select('event_id,user_id,convention_id,type,payload,occurred_at,processed_at,queue_message_id')
+    .eq('event_id', eventId)
     .maybeSingle();
 
   if (error) {
@@ -127,18 +126,18 @@ async function processEventInline(eventId: string): Promise<{
   const now = new Date().toISOString();
 
   const { error: stampError } = await supabaseAdmin
-    .from("events")
+    .from('events')
     .update({
       retry_count: 0,
       processed_at: now,
       last_attempted_at: now,
       last_error: null,
     })
-    .eq("event_id", eventId)
-    .is("processed_at", null);
+    .eq('event_id', eventId)
+    .is('processed_at', null);
 
   if (stampError) {
-    console.error("[create-catch] Failed to stamp processed event after inline processing", {
+    console.error('[create-catch] Failed to stamp processed event after inline processing', {
       eventId,
       error: stampError,
     });
@@ -146,11 +145,14 @@ async function processEventInline(eventId: string): Promise<{
 
   const queueMessageId = parseQueueMessageId(row.queue_message_id);
   if (queueMessageId !== null) {
-    const { error: queueDeleteError } = await supabaseAdmin.rpc("delete_gameplay_event_queue_message", {
-      p_message_id: queueMessageId,
-    });
+    const { error: queueDeleteError } = await supabaseAdmin.rpc(
+      'delete_gameplay_event_queue_message',
+      {
+        p_message_id: queueMessageId,
+      },
+    );
     if (queueDeleteError) {
-      console.error("[create-catch] Failed deleting queue message after inline processing", {
+      console.error('[create-catch] Failed deleting queue message after inline processing', {
         eventId,
         queueMessageId,
         error: queueDeleteError,
@@ -169,19 +171,19 @@ function jsonResponse(status: number, payload: unknown) {
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
   });
 }
 
 function extractBearerToken(req: Request): string | null {
-  const authHeader = req.headers.get("Authorization");
+  const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
     return null;
   }
 
-  const [scheme, token] = authHeader.split(" ");
-  if (scheme !== "Bearer" || !token) {
+  const [scheme, token] = authHeader.split(' ');
+  if (scheme !== 'Bearer' || !token) {
     return null;
   }
 
@@ -196,8 +198,8 @@ async function getUserIdFromRequest(req: Request): Promise<string | null> {
 
   const { data, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !data.user) {
-    console.error("[create-catch] Failed to resolve user from bearer token", {
-      error: error?.message ?? "Unknown auth error",
+    console.error('[create-catch] Failed to resolve user from bearer token', {
+      error: error?.message ?? 'Unknown auth error',
     });
     return null;
   }
@@ -208,18 +210,18 @@ async function getUserIdFromRequest(req: Request): Promise<string | null> {
 async function handlePost(req: Request): Promise<Response> {
   const userId = await getUserIdFromRequest(req);
   if (!userId) {
-    return jsonResponse(401, { error: "Unauthorized" });
+    return jsonResponse(401, { error: 'Unauthorized' });
   }
 
   let body: CreateCatchRequest;
   try {
-    body = await req.json() as CreateCatchRequest;
+    body = (await req.json()) as CreateCatchRequest;
   } catch {
-    return jsonResponse(400, { error: "Invalid JSON payload" });
+    return jsonResponse(400, { error: 'Invalid JSON payload' });
   }
 
   if (!body.fursuit_id) {
-    return jsonResponse(400, { error: "Missing fursuit_id" });
+    return jsonResponse(400, { error: 'Missing fursuit_id' });
   }
 
   try {
@@ -237,7 +239,7 @@ async function handlePost(req: Request): Promise<Response> {
       });
 
       if (blocked === true) {
-        return jsonResponse(403, { error: "Cannot catch this fursuit" });
+        return jsonResponse(403, { error: 'Cannot catch this fursuit' });
       }
     }
 
@@ -252,18 +254,18 @@ async function handlePost(req: Request): Promise<Response> {
 
     if (error) {
       // Handle specific error cases
-      if (error.message?.includes("Cannot catch your own fursuit")) {
-        return jsonResponse(400, { error: "Cannot catch your own fursuit" });
+      if (error.message?.includes('Cannot catch your own fursuit')) {
+        return jsonResponse(400, { error: 'Cannot catch your own fursuit' });
       }
-      if (error.message?.includes("already caught")) {
-        return jsonResponse(400, { error: "Fursuit already caught at this convention" });
+      if (error.message?.includes('already caught')) {
+        return jsonResponse(400, { error: 'Fursuit already caught at this convention' });
       }
-      if (error.message?.includes("not found")) {
-        return jsonResponse(404, { error: "Fursuit not found" });
+      if (error.message?.includes('not found')) {
+        return jsonResponse(404, { error: 'Fursuit not found' });
       }
 
-      console.error("[create-catch] RPC error:", error);
-      return jsonResponse(500, { error: "Failed to create catch" });
+      console.error('[create-catch] RPC error:', error);
+      return jsonResponse(500, { error: 'Failed to create catch' });
     }
 
     const result = data as CreateCatchResponse;
@@ -275,25 +277,25 @@ async function handlePost(req: Request): Promise<Response> {
     let colorNames: string[] = [];
 
     try {
-      const fursuitPromise = (async () => await supabaseAdmin
-        .from('fursuits')
-        .select('name, species:fursuit_species(name)')
-        .eq('id', body.fursuit_id)
-        .single())();
-      const colorsPromise = (async () => await supabaseAdmin
-        .from('fursuit_color_assignments')
-        .select('color:fursuit_colors(name)')
-        .eq('fursuit_id', body.fursuit_id)
-        .order('position', { ascending: true }))();
+      const fursuitPromise = (async () =>
+        await supabaseAdmin
+          .from('fursuits')
+          .select('name, species:fursuit_species(name)')
+          .eq('id', body.fursuit_id)
+          .single())();
+      const colorsPromise = (async () =>
+        await supabaseAdmin
+          .from('fursuit_color_assignments')
+          .select('color:fursuit_colors(name)')
+          .eq('fursuit_id', body.fursuit_id)
+          .order('position', { ascending: true }))();
       // For photo catches (force_pending = true), the notification is sent after the
       // photo URL is attached (PATCH handler), so we skip fetching catcher here.
-      const catcherPromise = (result.requires_approval && !body.force_pending)
-        ? (async () => await supabaseAdmin
-            .from('profiles')
-            .select('username')
-            .eq('id', userId)
-            .single())()
-        : Promise.resolve(undefined);
+      const catcherPromise =
+        result.requires_approval && !body.force_pending
+          ? (async () =>
+              await supabaseAdmin.from('profiles').select('username').eq('id', userId).single())()
+          : Promise.resolve(undefined);
 
       const [fursuitResult, colorsResult, catcherResult] = await Promise.all([
         fursuitPromise,
@@ -316,7 +318,12 @@ async function handlePost(req: Request): Promise<Response> {
       // Send approval notification for non-photo catches only.
       // Photo catches (force_pending = true) delay notification until after the photo URL
       // is attached in the PATCH handler, so the owner sees the photo immediately.
-      if (result.requires_approval && !body.force_pending && fursuitResult.data && catcherResult?.data) {
+      if (
+        result.requires_approval &&
+        !body.force_pending &&
+        fursuitResult.data &&
+        catcherResult?.data
+      ) {
         const { error: notifError } = await supabaseAdmin.rpc('notify_catch_pending', {
           p_catch_id: result.catch_id,
           p_fursuit_owner_id: result.fursuit_owner_id,
@@ -326,11 +333,11 @@ async function handlePost(req: Request): Promise<Response> {
         });
 
         if (notifError) {
-          console.error("[create-catch] Failed to send notification:", notifError);
+          console.error('[create-catch] Failed to send notification:', notifError);
         }
       }
     } catch (metadataError) {
-      console.error("[create-catch] Metadata/notification error:", metadataError);
+      console.error('[create-catch] Metadata/notification error:', metadataError);
       // Don't fail the catch creation if metadata fetch fails
     }
 
@@ -360,17 +367,20 @@ async function handlePost(req: Request): Promise<Response> {
     if (
       !ingestResult.duplicate &&
       queueConfig.inlineProcessingEnabled &&
-      eventType === "catch_performed"
+      eventType === 'catch_performed'
     ) {
       try {
         const inlineResult = await processEventInline(ingestResult.eventId);
         processedInline = inlineResult.processed;
         inlineAwards = inlineResult.awards;
       } catch (inlineError) {
-        console.error("[create-catch] Inline gameplay processing failed; falling back to queue wakeup", {
-          eventId: ingestResult.eventId,
-          error: inlineError,
-        });
+        console.error(
+          '[create-catch] Inline gameplay processing failed; falling back to queue wakeup',
+          {
+            eventId: ingestResult.eventId,
+            error: inlineError,
+          },
+        );
       }
     }
 
@@ -393,26 +403,26 @@ async function handlePost(req: Request): Promise<Response> {
       colors: colorNames,
     });
   } catch (error) {
-    console.error("[create-catch] Unexpected error:", error);
-    return jsonResponse(500, { error: "Internal server error" });
+    console.error('[create-catch] Unexpected error:', error);
+    return jsonResponse(500, { error: 'Internal server error' });
   }
 }
 
 async function handlePatch(req: Request): Promise<Response> {
   const userId = await getUserIdFromRequest(req);
   if (!userId) {
-    return jsonResponse(401, { error: "Unauthorized" });
+    return jsonResponse(401, { error: 'Unauthorized' });
   }
 
   let body: UpdateCatchPhotoRequest;
   try {
-    body = await req.json() as UpdateCatchPhotoRequest;
+    body = (await req.json()) as UpdateCatchPhotoRequest;
   } catch {
-    return jsonResponse(400, { error: "Invalid JSON payload" });
+    return jsonResponse(400, { error: 'Invalid JSON payload' });
   }
 
   if (!body.catch_id || !body.catch_photo_url) {
-    return jsonResponse(400, { error: "Missing catch_id or catch_photo_url" });
+    return jsonResponse(400, { error: 'Missing catch_id or catch_photo_url' });
   }
 
   // Verify the catch belongs to this user
@@ -423,11 +433,11 @@ async function handlePatch(req: Request): Promise<Response> {
     .single();
 
   if (fetchError || !catchRow) {
-    return jsonResponse(404, { error: "Catch not found" });
+    return jsonResponse(404, { error: 'Catch not found' });
   }
 
   if ((catchRow as { catcher_id: string }).catcher_id !== userId) {
-    return jsonResponse(403, { error: "Forbidden" });
+    return jsonResponse(403, { error: 'Forbidden' });
   }
 
   const { error: updateError } = await supabaseAdmin
@@ -439,8 +449,8 @@ async function handlePatch(req: Request): Promise<Response> {
     .eq('id', body.catch_id);
 
   if (updateError) {
-    console.error("[create-catch] Failed to update catch photo:", updateError);
-    return jsonResponse(500, { error: "Failed to update catch photo" });
+    console.error('[create-catch] Failed to update catch photo:', updateError);
+    return jsonResponse(500, { error: 'Failed to update catch photo' });
   }
 
   // Now that the photo URL is attached, notify the fursuit owner.
@@ -471,11 +481,11 @@ async function handlePatch(req: Request): Promise<Response> {
       });
 
       if (notifError) {
-        console.error("[create-catch] Failed to send photo catch notification:", notifError);
+        console.error('[create-catch] Failed to send photo catch notification:', notifError);
       }
     }
   } catch (notifError) {
-    console.error("[create-catch] Error sending photo catch notification:", notifError);
+    console.error('[create-catch] Error sending photo catch notification:', notifError);
     // Don't fail the response — the photo was attached successfully
   }
 
@@ -483,17 +493,17 @@ async function handlePatch(req: Request): Promise<Response> {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  if (req.method === "POST") {
+  if (req.method === 'POST') {
     return handlePost(req);
   }
 
-  if (req.method === "PATCH") {
+  if (req.method === 'PATCH') {
     return handlePatch(req);
   }
 
-  return jsonResponse(405, { error: "Method not allowed" });
+  return jsonResponse(405, { error: 'Method not allowed' });
 });

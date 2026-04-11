@@ -1,24 +1,20 @@
 /// <reference lib="deno.unstable" />
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote esm.sh imports.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
-import { processAchievementsForEvent } from "../_shared/achievements.ts";
-import type { InsertableEventRow } from "../_shared/types.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+import { processAchievementsForEvent } from '../_shared/achievements.ts';
+import type { InsertableEventRow } from '../_shared/types.ts';
 
 const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const serviceRoleKey =
-  Deno.env.get("SERVICE_ROLE_KEY") ??
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error(
-    "Missing Supabase configuration (SUPABASE_URL / SERVICE_ROLE_KEY)",
-  );
+  throw new Error('Missing Supabase configuration (SUPABASE_URL / SERVICE_ROLE_KEY)');
 }
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -30,7 +26,7 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
 
 const BATCH_SIZE = 50;
 const STUCK_EVENT_THRESHOLD_MINUTES = 2;
-const LEGACY_PROCESSOR_CONFIG_NAME = "legacy_event_processor_enabled";
+const LEGACY_PROCESSOR_CONFIG_NAME = 'legacy_event_processor_enabled';
 
 type UnprocessedEvent = {
   event_id: string;
@@ -48,18 +44,18 @@ function jsonResponse(status: number, payload: unknown) {
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
   });
 }
 
 function extractBearerAuthorization(req: Request): string | null {
-  const header = req.headers.get("Authorization") ?? req.headers.get("authorization");
+  const header = req.headers.get('Authorization') ?? req.headers.get('authorization');
   if (!header) {
     return null;
   }
-  const parts = header.trim().split(" ");
-  if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
+  const parts = header.trim().split(' ');
+  if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') {
     return null;
   }
   return parts[1];
@@ -71,22 +67,22 @@ function isServiceRoleAuth(req: Request): boolean {
 
 async function isLegacyProcessorEnabled(): Promise<boolean> {
   const { data, error } = await supabaseAdmin
-    .from("edge_function_config")
-    .select("config")
-    .eq("function_name", LEGACY_PROCESSOR_CONFIG_NAME)
+    .from('edge_function_config')
+    .select('config')
+    .eq('function_name', LEGACY_PROCESSOR_CONFIG_NAME)
     .maybeSingle();
 
   if (error) {
-    console.error("[process-achievements] Failed to load legacy processor config", {
+    console.error('[process-achievements] Failed to load legacy processor config', {
       error,
     });
     return false;
   }
 
   const value = data?.config;
-  if (typeof value === "object" && value !== null && "value" in value) {
+  if (typeof value === 'object' && value !== null && 'value' in value) {
     const configuredValue = (value as { value?: unknown }).value;
-    return configuredValue === true || configuredValue === "true";
+    return configuredValue === true || configuredValue === 'true';
   }
 
   return false;
@@ -108,13 +104,13 @@ async function processQueue(): Promise<{
   processed: number;
   failed: number;
 }> {
-  const { data: events, error: fetchError } = await supabaseAdmin.rpc(
-    "fetch_unprocessed_events",
-    { batch_size: BATCH_SIZE, min_age_seconds: 3 },
-  );
+  const { data: events, error: fetchError } = await supabaseAdmin.rpc('fetch_unprocessed_events', {
+    batch_size: BATCH_SIZE,
+    min_age_seconds: 3,
+  });
 
   if (fetchError) {
-    console.error("[process-achievements] Failed to fetch unprocessed events", {
+    console.error('[process-achievements] Failed to fetch unprocessed events', {
       error: fetchError,
     });
     throw new Error(`Failed to fetch events: ${fetchError.message}`);
@@ -126,9 +122,7 @@ async function processQueue(): Promise<{
     return { fetched: 0, processed: 0, failed: 0 };
   }
 
-  console.log(
-    `[process-achievements] Processing batch of ${rows.length} events`,
-  );
+  console.log(`[process-achievements] Processing batch of ${rows.length} events`);
 
   // Warn about events stuck longer than the threshold — indicates inline processing
   // and at least one previous cron/webhook pass failed for these events.
@@ -156,23 +150,22 @@ async function processQueue(): Promise<{
       await processAchievementsForEvent(supabaseAdmin, eventRow);
 
       const { error: stampError } = await supabaseAdmin
-        .from("events")
+        .from('events')
         .update({ processed_at: new Date().toISOString() })
-        .eq("event_id", event.event_id);
+        .eq('event_id', event.event_id);
 
       if (stampError) {
-        console.error(
-          "[process-achievements] Failed to stamp processed_at",
-          { event_id: event.event_id, error: stampError },
-        );
+        console.error('[process-achievements] Failed to stamp processed_at', {
+          event_id: event.event_id,
+          error: stampError,
+        });
         failed++;
       } else {
         processed++;
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error("[process-achievements] Failed to process event", {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[process-achievements] Failed to process event', {
         event_id: event.event_id,
         type: event.type,
         retry_count: event.retry_count,
@@ -180,22 +173,22 @@ async function processQueue(): Promise<{
       });
 
       const { error: updateError } = await supabaseAdmin
-        .from("events")
+        .from('events')
         .update({ last_error: errorMessage })
-        .eq("event_id", event.event_id);
+        .eq('event_id', event.event_id);
 
       if (updateError) {
-        console.error(
-          "[process-achievements] Failed to record last_error",
-          { event_id: event.event_id, error: updateError },
-        );
+        console.error('[process-achievements] Failed to record last_error', {
+          event_id: event.event_id,
+          error: updateError,
+        });
       }
 
       failed++;
     }
   }
 
-  console.log("[process-achievements] Batch complete", {
+  console.log('[process-achievements] Batch complete', {
     fetched: rows.length,
     processed,
     failed,
@@ -205,21 +198,21 @@ async function processQueue(): Promise<{
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  if (req.method !== "POST") {
-    return jsonResponse(405, { error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return jsonResponse(405, { error: 'Method not allowed' });
   }
 
   if (!isServiceRoleAuth(req)) {
-    return jsonResponse(401, { error: "Unauthorized" });
+    return jsonResponse(401, { error: 'Unauthorized' });
   }
 
   if (!(await isLegacyProcessorEnabled())) {
     return jsonResponse(409, {
-      error: "Legacy event processor is disabled",
+      error: 'Legacy event processor is disabled',
       disabled: true,
     });
   }
@@ -229,7 +222,7 @@ Deno.serve(async (req) => {
     return jsonResponse(200, result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[process-achievements] Queue processing failed", { error });
+    console.error('[process-achievements] Queue processing failed', { error });
     return jsonResponse(500, { error: message });
   }
 });

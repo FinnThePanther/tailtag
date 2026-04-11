@@ -9,10 +9,7 @@ import {
   captureSupabaseError,
   setUser,
 } from '../../../lib/sentry';
-import {
-  registerForceSignOut,
-  unregisterForceSignOut,
-} from '../../../lib/authErrorHandler';
+import { registerForceSignOut, unregisterForceSignOut } from '../../../lib/authErrorHandler';
 
 type AuthStatus = 'loading' | 'signed_in' | 'signed_out';
 
@@ -51,10 +48,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (sessionError) {
-          captureSupabaseError(sessionError, {
-            scope: 'auth.resolveSession',
-            action: 'getSession',
-          }, 'critical');
+          captureSupabaseError(
+            sessionError,
+            {
+              scope: 'auth.resolveSession',
+              action: 'getSession',
+            },
+            'critical',
+          );
           setError(sessionError.message);
           setSession(null);
           setStatus('signed_out');
@@ -94,9 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         const fallbackMessage =
-          caughtError instanceof Error
-            ? caughtError.message
-            : 'Unable to resolve auth session.';
+          caughtError instanceof Error ? caughtError.message : 'Unable to resolve auth session.';
         setError(fallbackMessage);
         setSession(null);
         setStatus('signed_out');
@@ -158,7 +157,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (refreshError) {
       // If refresh fails, try to get the current session as fallback
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
 
       if (currentSession) {
         // We have a valid cached session, use it
@@ -174,10 +175,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // No valid session at all
-      captureSupabaseError(refreshError, {
-        scope: 'auth.refreshSession',
-        action: 'refreshSession',
-      }, 'critical');
+      captureSupabaseError(
+        refreshError,
+        {
+          scope: 'auth.refreshSession',
+          action: 'refreshSession',
+        },
+        'critical',
+      );
       setError(refreshError.message);
       setSession(null);
       setStatus('signed_out');
@@ -225,10 +230,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { error: localSignOutError } = await supabase.auth.signOut({ scope: 'local' });
 
         if (localSignOutError) {
-          captureSupabaseError(localSignOutError, {
-            scope: 'auth.forceSignOut',
-            action: 'signOutLocal',
-          }, 'critical');
+          captureSupabaseError(
+            localSignOutError,
+            {
+              scope: 'auth.forceSignOut',
+              action: 'signOutLocal',
+            },
+            'critical',
+          );
         }
       }
     } catch (caughtError) {
@@ -261,7 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshSession,
       forceSignOut,
     }),
-    [session, status, error, refreshSession, forceSignOut]
+    [session, status, error, refreshSession, forceSignOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

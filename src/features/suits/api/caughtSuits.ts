@@ -66,7 +66,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
           updated_at
         )
       )
-    `
+    `,
     )
     .eq('catcher_id', userId)
     .eq('status', 'ACCEPTED')
@@ -85,7 +85,8 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       }
 
       // Default to AUTO_ACCEPT if not set
-      const catchMode: CatchMode = rawFursuit?.catch_mode === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
+      const catchMode: CatchMode =
+        rawFursuit?.catch_mode === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
 
       const fursuit = rawFursuit
         ? ({
@@ -102,8 +103,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
             }),
             description: rawFursuit.description ?? null,
             unique_code: rawFursuit.unique_code ?? null,
-            catchCount:
-              typeof rawFursuit.catch_count === 'number' ? rawFursuit.catch_count : 0,
+            catchCount: typeof rawFursuit.catch_count === 'number' ? rawFursuit.catch_count : 0,
             catchMode,
             created_at: rawFursuit.created_at ?? null,
             conventions: [],
@@ -114,8 +114,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       return {
         id: record.id,
         caught_at: record.caught_at ?? null,
-        catchNumber:
-          typeof record.catch_number === 'number' ? record.catch_number : null,
+        catchNumber: typeof record.catch_number === 'number' ? record.catch_number : null,
         catchPhotoPath: record.catch_photo_path ?? null,
         catchPhotoUrl: resolveStorageMediaUrl({
           bucket: CATCH_PHOTO_BUCKET,

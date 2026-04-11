@@ -1,25 +1,21 @@
 /// <reference lib="deno.unstable" />
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote esm.sh imports.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
-import { processAchievementsForEvent } from "../_shared/achievements.ts";
-import { loadGameplayQueueConfig } from "../_shared/gameplayQueue.ts";
-import type { InsertableEventRow } from "../_shared/types.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+import { processAchievementsForEvent } from '../_shared/achievements.ts';
+import { loadGameplayQueueConfig } from '../_shared/gameplayQueue.ts';
+import type { InsertableEventRow } from '../_shared/types.ts';
 
 const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const serviceRoleKey =
-  Deno.env.get("SERVICE_ROLE_KEY") ??
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error(
-    "Missing Supabase configuration (SUPABASE_URL / SERVICE_ROLE_KEY)",
-  );
+  throw new Error('Missing Supabase configuration (SUPABASE_URL / SERVICE_ROLE_KEY)');
 }
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -60,18 +56,18 @@ function jsonResponse(status: number, payload: unknown) {
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
   });
 }
 
 function extractBearerAuthorization(req: Request): string | null {
-  const header = req.headers.get("Authorization") ?? req.headers.get("authorization");
+  const header = req.headers.get('Authorization') ?? req.headers.get('authorization');
   if (!header) {
     return null;
   }
-  const parts = header.trim().split(" ");
-  if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
+  const parts = header.trim().split(' ');
+  if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') {
     return null;
   }
   return parts[1];
@@ -82,10 +78,10 @@ function isServiceRoleAuth(req: Request): boolean {
 }
 
 function parsePositiveInteger(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
     return Math.trunc(value);
   }
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const parsed = Number.parseInt(value, 10);
     if (Number.isFinite(parsed) && parsed > 0) {
       return parsed;
@@ -102,7 +98,7 @@ async function readQueueBatch(
   visibilityTimeoutSeconds: number,
   batchSize: number,
 ): Promise<QueueMessage[]> {
-  const { data, error } = await supabaseAdmin.rpc("read_gameplay_event_queue", {
+  const { data, error } = await supabaseAdmin.rpc('read_gameplay_event_queue', {
     p_visibility_timeout_seconds: visibilityTimeoutSeconds,
     p_batch_size: batchSize,
   });
@@ -115,7 +111,7 @@ async function readQueueBatch(
 }
 
 async function deleteQueueMessage(messageId: number): Promise<void> {
-  const { error } = await supabaseAdmin.rpc("delete_gameplay_event_queue_message", {
+  const { error } = await supabaseAdmin.rpc('delete_gameplay_event_queue_message', {
     p_message_id: messageId,
   });
 
@@ -125,7 +121,7 @@ async function deleteQueueMessage(messageId: number): Promise<void> {
 }
 
 async function archiveQueueMessage(messageId: number): Promise<void> {
-  const { error } = await supabaseAdmin.rpc("archive_gameplay_event_queue_message", {
+  const { error } = await supabaseAdmin.rpc('archive_gameplay_event_queue_message', {
     p_message_id: messageId,
   });
 
@@ -136,9 +132,9 @@ async function archiveQueueMessage(messageId: number): Promise<void> {
 
 async function loadEventRow(eventId: string): Promise<GameplayEventRow | null> {
   const { data, error } = await supabaseAdmin
-    .from("events")
-    .select("event_id, user_id, convention_id, type, payload, occurred_at, processed_at")
-    .eq("event_id", eventId)
+    .from('events')
+    .select('event_id, user_id, convention_id, type, payload, occurred_at, processed_at')
+    .eq('event_id', eventId)
     .maybeSingle();
 
   if (error) {
@@ -148,36 +144,30 @@ async function loadEventRow(eventId: string): Promise<GameplayEventRow | null> {
   return (data ?? null) as GameplayEventRow | null;
 }
 
-async function updateEventAttempt(
-  eventId: string,
-  readCount: number,
-): Promise<void> {
+async function updateEventAttempt(eventId: string, readCount: number): Promise<void> {
   const { error } = await supabaseAdmin
-    .from("events")
+    .from('events')
     .update({
       retry_count: toRetryCount(readCount),
       last_attempted_at: new Date().toISOString(),
     })
-    .eq("event_id", eventId);
+    .eq('event_id', eventId);
 
   if (error) {
     throw new Error(`Failed to update event attempt for ${eventId}: ${error.message}`);
   }
 }
 
-async function markEventSuccess(
-  eventId: string,
-  readCount: number,
-): Promise<void> {
+async function markEventSuccess(eventId: string, readCount: number): Promise<void> {
   const { error } = await supabaseAdmin
-    .from("events")
+    .from('events')
     .update({
       retry_count: toRetryCount(readCount),
       processed_at: new Date().toISOString(),
       last_attempted_at: new Date().toISOString(),
       last_error: null,
     })
-    .eq("event_id", eventId);
+    .eq('event_id', eventId);
 
   if (error) {
     throw new Error(`Failed to mark event success for ${eventId}: ${error.message}`);
@@ -202,9 +192,9 @@ async function markEventFailure(
   }
 
   const { error } = await supabaseAdmin
-    .from("events")
+    .from('events')
     .update(updatePayload)
-    .eq("event_id", eventId);
+    .eq('event_id', eventId);
 
   if (error) {
     throw new Error(`Failed to mark event failure for ${eventId}: ${error.message}`);
@@ -214,13 +204,13 @@ async function markEventFailure(
 async function processQueueMessage(
   queueMessage: QueueMessage,
   maxAttempts: number,
-): Promise<Pick<WorkerResult, "processed" | "failed" | "deleted" | "archived">> {
+): Promise<Pick<WorkerResult, 'processed' | 'failed' | 'deleted' | 'archived'>> {
   const payload = queueMessage.message ?? {};
-  const eventId = typeof payload.event_id === "string" ? payload.event_id : null;
+  const eventId = typeof payload.event_id === 'string' ? payload.event_id : null;
 
   if (!eventId) {
     await archiveQueueMessage(queueMessage.msg_id);
-    console.error("[process-gameplay-queue] Archived malformed message", {
+    console.error('[process-gameplay-queue] Archived malformed message', {
       message_id: queueMessage.msg_id,
       payload,
     });
@@ -231,7 +221,7 @@ async function processQueueMessage(
 
   if (!eventRow) {
     await archiveQueueMessage(queueMessage.msg_id);
-    console.error("[process-gameplay-queue] Archived queue message for missing event", {
+    console.error('[process-gameplay-queue] Archived queue message for missing event', {
       message_id: queueMessage.msg_id,
       event_id: eventId,
     });
@@ -262,7 +252,7 @@ async function processQueueMessage(
         errorMessage,
         `Max attempts exceeded (${queueMessage.read_ct}/${maxAttempts})`,
       );
-      console.error("[process-gameplay-queue] Archived failed event", {
+      console.error('[process-gameplay-queue] Archived failed event', {
         event_id: eventId,
         message_id: queueMessage.msg_id,
         read_ct: queueMessage.read_ct,
@@ -272,7 +262,7 @@ async function processQueueMessage(
     }
 
     await markEventFailure(eventId, queueMessage.read_ct, errorMessage);
-    console.error("[process-gameplay-queue] Failed processing event", {
+    console.error('[process-gameplay-queue] Failed processing event', {
       event_id: eventId,
       message_id: queueMessage.msg_id,
       read_ct: queueMessage.read_ct,
@@ -321,9 +311,7 @@ async function processQueue(req: Request): Promise<WorkerResult> {
     }
 
     const remaining = maxMessages - result.fetched;
-    const batchSize = maxDurationMs !== null
-      ? 1
-      : Math.min(config.batchSize, remaining);
+    const batchSize = maxDurationMs !== null ? 1 : Math.min(config.batchSize, remaining);
     const rows = await readQueueBatch(config.visibilityTimeoutSeconds, batchSize);
 
     if (rows.length === 0) {
@@ -349,16 +337,16 @@ async function processQueue(req: Request): Promise<WorkerResult> {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  if (req.method !== "POST") {
-    return jsonResponse(405, { error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return jsonResponse(405, { error: 'Method not allowed' });
   }
 
   if (!isServiceRoleAuth(req)) {
-    return jsonResponse(401, { error: "Unauthorized" });
+    return jsonResponse(401, { error: 'Unauthorized' });
   }
 
   try {
@@ -366,7 +354,7 @@ Deno.serve(async (req) => {
     return jsonResponse(200, result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[process-gameplay-queue] Queue processing failed", { error });
+    console.error('[process-gameplay-queue] Queue processing failed', { error });
     return jsonResponse(500, { error: message });
   }
 });

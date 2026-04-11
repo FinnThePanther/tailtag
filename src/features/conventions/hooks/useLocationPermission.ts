@@ -4,11 +4,7 @@ import * as Location from 'expo-location';
 import { supabase } from '@/lib/supabase';
 import { captureNonCriticalError } from '@/lib/sentry';
 
-export type LocationPermissionStatus =
-  | 'not_determined'
-  | 'granted'
-  | 'denied'
-  | 'restricted';
+export type LocationPermissionStatus = 'not_determined' | 'granted' | 'denied' | 'restricted';
 
 type PermissionSource = 'check' | 'request';
 
@@ -37,16 +33,13 @@ export function useLocationPermission(profileId?: string): UseLocationPermission
         payload.location_permission_granted_at = now;
       }
 
-      const { error } = await supabase
-        .from('profiles')
-        .update(payload)
-        .eq('id', profileId);
+      const { error } = await supabase.from('profiles').update(payload).eq('id', profileId);
 
       if (error) {
         captureNonCriticalError(error, { scope: 'location-permission.persist', profileId });
       }
     },
-    [profileId]
+    [profileId],
   );
 
   const checkPermission = useCallback(async () => {

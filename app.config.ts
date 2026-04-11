@@ -46,9 +46,7 @@ const resolveRequiredExistingFile = (relativePath: string, label: string) => {
     return relativePath;
   }
 
-  throw new Error(
-    `Missing ${label} for APP_ENV=${APP_ENV}. Expected file at ${relativePath}.`
-  );
+  throw new Error(`Missing ${label} for APP_ENV=${APP_ENV}. Expected file at ${relativePath}.`);
 };
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
@@ -89,7 +87,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: env.androidApplicationId,
     googleServicesFile: resolveRequiredExistingFile(
       env.googleServicesFile,
-      'Android Firebase config'
+      'Android Firebase config',
     ),
     blockedPermissions: [
       'android.permission.RECORD_AUDIO',

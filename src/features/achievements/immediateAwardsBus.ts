@@ -1,4 +1,4 @@
-import type { Json } from "../../types/database";
+import type { Json } from '../../types/database';
 
 export type ImmediateAchievementAward = {
   achievementId: string | null;
@@ -29,7 +29,7 @@ export function emitImmediateAchievementAwards(event: ImmediateAwardEvent) {
     try {
       listener(event);
     } catch (error) {
-      console.error("[achievement-bus] listener error", error);
+      console.error('[achievement-bus] listener error', error);
     }
   }
 }

@@ -1,42 +1,33 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Keyboard, Pressable, Text, View } from "react-native";
-import { Image } from "expo-image";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 
-import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { TailTagButton } from "../../../src/components/ui/TailTagButton";
-import { TailTagCard } from "../../../src/components/ui/TailTagCard";
-import { TailTagInput } from "../../../src/components/ui/TailTagInput";
-import { ScreenHeader } from "../../../src/components/ui/ScreenHeader";
-import { KeyboardAwareFormWrapper } from "../../../src/components/ui/KeyboardAwareFormWrapper";
-import { FURSUIT_BUCKET } from "../../../src/constants/storage";
-import {
-  UNIQUE_CODE_ATTEMPTS,
-  UNIQUE_INSERT_ATTEMPTS,
-} from "../../../src/constants/codes";
-import { useAuth } from "../../../src/features/auth";
-import { supabase } from "../../../src/lib/supabase";
-import { captureNonCriticalError } from "../../../src/lib/sentry";
-import { generateUniqueCodeCandidate } from "../../../src/utils/code";
-import { loadUriAsUint8Array } from "../../../src/utils/files";
-import {
-  processImageForUpload,
-  IMAGE_UPLOAD_PRESETS,
-} from "../../../src/utils/images";
-import { buildAuthenticatedStorageObjectUrl } from "../../../src/utils/supabase-image";
-import { colors } from "../../../src/theme";
+import { TailTagButton } from '../../../src/components/ui/TailTagButton';
+import { TailTagCard } from '../../../src/components/ui/TailTagCard';
+import { TailTagInput } from '../../../src/components/ui/TailTagInput';
+import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
+import { KeyboardAwareFormWrapper } from '../../../src/components/ui/KeyboardAwareFormWrapper';
+import { FURSUIT_BUCKET } from '../../../src/constants/storage';
+import { UNIQUE_CODE_ATTEMPTS, UNIQUE_INSERT_ATTEMPTS } from '../../../src/constants/codes';
+import { useAuth } from '../../../src/features/auth';
+import { supabase } from '../../../src/lib/supabase';
+import { captureNonCriticalError } from '../../../src/lib/sentry';
+import { generateUniqueCodeCandidate } from '../../../src/utils/code';
+import { loadUriAsUint8Array } from '../../../src/utils/files';
+import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../src/utils/images';
+import { buildAuthenticatedStorageObjectUrl } from '../../../src/utils/supabase-image';
+import { colors } from '../../../src/theme';
 import {
   MY_SUITS_QUERY_KEY,
   MY_SUITS_COUNT_QUERY_KEY,
   createMySuitsCountQueryOptions,
-} from "../../../src/features/suits";
-import { MAX_FURSUITS_PER_USER } from "../../../src/constants/fursuits";
-import {
-  CatchModeSwitch,
-  type CatchMode,
-} from "../../../src/features/catch-confirmations";
+} from '../../../src/features/suits';
+import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
+import { CatchModeSwitch, type CatchMode } from '../../../src/features/catch-confirmations';
 import {
   ensureSpeciesEntry,
   fetchFursuitSpecies,
@@ -44,13 +35,13 @@ import {
   normalizeSpeciesName,
   sortSpeciesOptions,
   type FursuitSpeciesOption,
-} from "../../../src/features/species";
+} from '../../../src/features/species';
 import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
   type FursuitColorOption,
-} from "../../../src/features/colors";
+} from '../../../src/features/colors';
 import {
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
@@ -58,16 +49,12 @@ import {
   fetchProfileConventionIds,
   isConventionActive,
   PROFILE_CONVENTIONS_QUERY_KEY,
-} from "../../../src/features/conventions";
-import { ConventionToggle } from "../../../src/components/conventions/ConventionToggle";
-import { createProfileQueryOptions } from "../../../src/features/profile";
-import { emitGameplayEvent } from "../../../src/features/events";
-import { DAILY_TASKS_QUERY_KEY } from "../../../src/features/daily-tasks/hooks";
-import type {
-  FursuitBiosInsert,
-  FursuitsInsert,
-  Json,
-} from "../../../src/types/database";
+} from '../../../src/features/conventions';
+import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
+import { createProfileQueryOptions } from '../../../src/features/profile';
+import { emitGameplayEvent } from '../../../src/features/events';
+import { DAILY_TASKS_QUERY_KEY } from '../../../src/features/daily-tasks/hooks';
+import type { FursuitBiosInsert, FursuitsInsert, Json } from '../../../src/types/database';
 import {
   ALLOWED_SOCIAL_PLATFORMS,
   CUSTOM_PLATFORM_ID,
@@ -75,9 +62,9 @@ import {
   createInitialSocialLinks,
   SOCIAL_LINK_LIMIT,
   socialLinksToSave,
-} from "../../../src/features/suits/forms/socialLinks";
-import type { EditableSocialLink } from "../../../src/features/suits/forms/socialLinks";
-import { styles } from "../../../src/app-styles/(tabs)/suits/add-fursuit.styles";
+} from '../../../src/features/suits/forms/socialLinks';
+import type { EditableSocialLink } from '../../../src/features/suits/forms/socialLinks';
+import { styles } from '../../../src/app-styles/(tabs)/suits/add-fursuit.styles';
 
 type UploadCandidate = {
   uri: string;
@@ -87,12 +74,12 @@ type UploadCandidate = {
 } | null;
 
 const PRONOUN_OPTIONS = [
-  "he/him",
-  "she/her",
-  "they/them",
-  "he/they",
-  "she/they",
-  "any pronouns",
+  'he/him',
+  'she/her',
+  'they/them',
+  'he/they',
+  'she/they',
+  'any pronouns',
 ] as const;
 
 export default function AddFursuitScreen() {
@@ -139,20 +126,17 @@ export default function AddFursuitScreen() {
 
   const isAtFursuitLimit = suitCount >= MAX_FURSUITS_PER_USER;
 
-  const [nameInput, setNameInput] = useState("");
-  const [speciesInput, setSpeciesInput] = useState("");
-  const [selectedSpecies, setSelectedSpecies] =
-    useState<FursuitSpeciesOption | null>(null);
-  const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>(
-    [],
-  );
+  const [nameInput, setNameInput] = useState('');
+  const [speciesInput, setSpeciesInput] = useState('');
+  const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption | null>(null);
+  const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
   const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
-  const [likesInput, setLikesInput] = useState("");
-  const [askMeAboutInput, setAskMeAboutInput] = useState("");
-  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(
-    () => createInitialSocialLinks(),
+  const [likesInput, setLikesInput] = useState('');
+  const [askMeAboutInput, setAskMeAboutInput] = useState('');
+  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(() =>
+    createInitialSocialLinks(),
   );
-  const [catchMode, setCatchMode] = useState<CatchMode>("AUTO_ACCEPT");
+  const [catchMode, setCatchMode] = useState<CatchMode>('AUTO_ACCEPT');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -165,10 +149,7 @@ export default function AddFursuitScreen() {
   const colorLoadError = colorError?.message ?? null;
   const isColorBusy = isColorLoading;
 
-  const normalizedSpeciesInput = useMemo(
-    () => normalizeSpeciesName(speciesInput),
-    [speciesInput],
-  );
+  const normalizedSpeciesInput = useMemo(() => normalizeSpeciesName(speciesInput), [speciesInput]);
 
   const speciesSuggestions = useMemo(() => {
     if (speciesOptions.length === 0) {
@@ -180,9 +161,7 @@ export default function AddFursuitScreen() {
     }
 
     return speciesOptions
-      .filter((option) =>
-        option.normalizedName.includes(normalizedSpeciesInput),
-      )
+      .filter((option) => option.normalizedName.includes(normalizedSpeciesInput))
       .slice(0, 12);
   }, [normalizedSpeciesInput, speciesOptions]);
 
@@ -197,9 +176,7 @@ export default function AddFursuitScreen() {
         return;
       }
 
-      const match =
-        speciesOptions.find((option) => option.normalizedName === normalized) ??
-        null;
+      const match = speciesOptions.find((option) => option.normalizedName === normalized) ?? null;
       setSelectedSpecies(match);
     },
     [speciesOptions],
@@ -240,10 +217,7 @@ export default function AddFursuitScreen() {
     });
   }, []);
 
-  const conventionsQueryOptions = useMemo(
-    () => createConventionsQueryOptions(),
-    [],
-  );
+  const conventionsQueryOptions = useMemo(() => createConventionsQueryOptions(), []);
   const {
     data: conventions = [],
     error: conventionsError,
@@ -268,9 +242,7 @@ export default function AddFursuitScreen() {
     queryFn: () => fetchProfileConventionIds(userId!),
   });
 
-  const [selectedConventionIds, setSelectedConventionIds] = useState<
-    Set<string>
-  >(new Set());
+  const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
   const [hasHydratedConventions, setHasHydratedConventions] = useState(false);
 
   const socialLinksCanAddMore = useMemo(
@@ -309,9 +281,7 @@ export default function AddFursuitScreen() {
     }
 
     setSelectedConventionIds((current) => {
-      const filtered = new Set(
-        [...current].filter((id) => profileConventionIdSet.has(id)),
-      );
+      const filtered = new Set([...current].filter((id) => profileConventionIdSet.has(id)));
       return filtered.size === current.size ? current : filtered;
     });
   }, [
@@ -349,9 +319,9 @@ export default function AddFursuitScreen() {
     for (let attempt = 0; attempt < UNIQUE_CODE_ATTEMPTS; attempt += 1) {
       const candidate = generateUniqueCodeCandidate();
       const { data, error } = await client
-        .from("fursuits")
-        .select("id")
-        .eq("unique_code", candidate)
+        .from('fursuits')
+        .select('id')
+        .eq('unique_code', candidate)
         .limit(1);
 
       if (error) {
@@ -363,23 +333,20 @@ export default function AddFursuitScreen() {
       }
     }
 
-    throw new Error(
-      "We couldn't generate a unique tag code. Please try again.",
-    );
+    throw new Error("We couldn't generate a unique tag code. Please try again.");
   }, []);
 
   const handlePickPhoto = useCallback(async () => {
     try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (status !== "granted") {
-        setPhotoError("We need media library access to select a photo.");
+      if (status !== 'granted') {
+        setPhotoError('We need media library access to select a photo.');
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: "images",
+        mediaTypes: 'images',
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.85,
@@ -392,22 +359,25 @@ export default function AddFursuitScreen() {
       const asset = result.assets[0];
 
       if (!asset) {
-        setPhotoError("No photo selected.");
+        setPhotoError('No photo selected.');
         return;
       }
 
       setIsProcessingPhoto(true);
       setPhotoError(null);
       try {
-        const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.fursuitAvatar);
+        const processed = await processImageForUpload(
+          asset.uri,
+          IMAGE_UPLOAD_PRESETS.fursuitAvatar,
+        );
         setSelectedPhoto({
           uri: processed.uri,
-          mimeType: "image/jpeg",
+          mimeType: 'image/jpeg',
           fileName: `fursuit-${Date.now()}.jpg`,
           fileSize: 0,
         });
       } catch {
-        setPhotoError("We could not process that photo. Please try another.");
+        setPhotoError('We could not process that photo. Please try another.');
       } finally {
         setIsProcessingPhoto(false);
       }
@@ -415,7 +385,7 @@ export default function AddFursuitScreen() {
       const fallbackMessage =
         caught instanceof Error
           ? caught.message
-          : "We could not open your photo library. Please try again.";
+          : 'We could not open your photo library. Please try again.';
       setPhotoError(fallbackMessage);
     }
   }, []);
@@ -442,7 +412,7 @@ export default function AddFursuitScreen() {
     const pronounsValue = selectedPronouns
       .map((value) => value.trim())
       .filter((value) => value.length > 0)
-      .join(", ");
+      .join(', ');
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
     const normalizedSpeciesValue = normalizeSpeciesName(trimmedSpecies);
@@ -450,42 +420,38 @@ export default function AddFursuitScreen() {
     const selectedColorIds = selectedColors.map((color) => color.id);
 
     if (!trimmedName) {
-      setSubmitError("Give your fursuit a name before saving.");
+      setSubmitError('Give your fursuit a name before saving.');
       return;
     }
 
     if (!trimmedSpecies) {
-      setSubmitError("Add your fursuit species before saving.");
+      setSubmitError('Add your fursuit species before saving.');
       return;
     }
 
     if (selectedColorIds.length === 0) {
-      setSubmitError("Pick at least one color for your fursuit.");
+      setSubmitError('Pick at least one color for your fursuit.');
       return;
     }
 
     if (selectedColorIds.length > MAX_FURSUIT_COLORS) {
-      setSubmitError(
-        "You can choose up to three colors. Remove one to add another.",
-      );
+      setSubmitError('You can choose up to three colors. Remove one to add another.');
       return;
     }
 
     for (const entry of normalizedSocialLinks) {
       if (!entry.label || !entry.url) {
-        setSubmitError("Fill in both the label and URL for each social link.");
+        setSubmitError('Fill in both the label and URL for each social link.');
         return;
       }
       if (!/^https?:\/\//i.test(entry.url)) {
-        setSubmitError(
-          "Links should include http:// or https:// so we can open them.",
-        );
+        setSubmitError('Links should include http:// or https:// so we can open them.');
         return;
       }
     }
 
-    const allowedConventionIds = Array.from(selectedConventionIds).filter(
-      (id) => profileConventionIdSet.has(id),
+    const allowedConventionIds = Array.from(selectedConventionIds).filter((id) =>
+      profileConventionIdSet.has(id),
     );
 
     setIsSubmitting(true);
@@ -496,8 +462,7 @@ export default function AddFursuitScreen() {
 
     try {
       const speciesRecord =
-        selectedSpecies &&
-        selectedSpecies.normalizedName === normalizedSpeciesValue
+        selectedSpecies && selectedSpecies.normalizedName === normalizedSpeciesValue
           ? selectedSpecies
           : await ensureSpeciesEntry(trimmedSpecies);
 
@@ -506,9 +471,7 @@ export default function AddFursuitScreen() {
       queryClient.setQueryData<FursuitSpeciesOption[]>(
         [FURSUIT_SPECIES_QUERY_KEY],
         (current = []) => {
-          const existingIndex = current.findIndex(
-            (option) => option.id === speciesRecord.id,
-          );
+          const existingIndex = current.findIndex((option) => option.id === speciesRecord.id);
 
           if (existingIndex >= 0) {
             const next = [...current];
@@ -560,9 +523,9 @@ export default function AddFursuitScreen() {
           catch_mode: catchMode,
         };
         const { data: inserted, error } = await (supabase as any)
-          .from("fursuits")
+          .from('fursuits')
           .insert(payload)
-          .select("id")
+          .select('id')
           .single();
 
         if (!error && inserted?.id) {
@@ -574,13 +537,13 @@ export default function AddFursuitScreen() {
           continue;
         }
 
-        if (error.code !== "23505") {
+        if (error.code !== '23505') {
           throw error;
         }
       }
 
       if (!createdFursuitId) {
-        throw new Error("We could not save your fursuit. Please try again.");
+        throw new Error('We could not save your fursuit. Please try again.');
       }
 
       if (selectedColorIds.length > 0) {
@@ -591,7 +554,7 @@ export default function AddFursuitScreen() {
         }));
 
         const { error: colorAssignmentError } = await (supabase as any)
-          .from("fursuit_color_assignments")
+          .from('fursuit_color_assignments')
           .insert(colorAssignments);
 
         if (colorAssignmentError) {
@@ -610,30 +573,28 @@ export default function AddFursuitScreen() {
       const bioPayload: FursuitBiosInsert = {
         fursuit_id: createdFursuitId,
         version: 1,
-        owner_name: profile?.username ?? "",
+        owner_name: profile?.username ?? '',
         pronouns: pronounsValue,
         likes_and_interests: trimmedLikes,
         ask_me_about: trimmedAskMeAbout,
         social_links: normalizedSocialLinks as unknown as Json,
       };
 
-      const { error: bioError } = await (supabase as any)
-        .from("fursuit_bios")
-        .insert(bioPayload);
+      const { error: bioError } = await (supabase as any).from('fursuit_bios').insert(bioPayload);
 
       if (bioError) {
         throw bioError;
       }
 
-      setNameInput("");
-      setSpeciesInput("");
+      setNameInput('');
+      setSpeciesInput('');
       setSelectedSpecies(null);
       setSelectedColors([]);
       setSelectedPronouns([]);
-      setLikesInput("");
-      setAskMeAboutInput("");
+      setLikesInput('');
+      setAskMeAboutInput('');
       setSocialLinks(createInitialSocialLinks());
-      setCatchMode("AUTO_ACCEPT");
+      setCatchMode('AUTO_ACCEPT');
       setSelectedConventionIds(new Set(activeProfileConventionIds));
       setHasHydratedConventions(true);
       setSelectedPhoto(null);
@@ -647,11 +608,11 @@ export default function AddFursuitScreen() {
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
 
       // Navigate immediately
-      router.replace("/suits");
+      router.replace('/suits');
 
       // Fire-and-forget: emit event without blocking navigation
       emitGameplayEvent({
-        type: "fursuit_created",
+        type: 'fursuit_created',
         payload: {
           fursuit_id: createdFursuitId,
           owner_id: userId,
@@ -659,7 +620,7 @@ export default function AddFursuitScreen() {
         },
       }).catch((error) => {
         captureNonCriticalError(error, {
-          scope: "suits.addFursuit.eventEmission",
+          scope: 'suits.addFursuit.eventEmission',
           userId,
           fursuitId: createdFursuitId,
         });
@@ -673,16 +634,13 @@ export default function AddFursuitScreen() {
 
       if (createdFursuitId) {
         const { error: cleanupSuitError } = await (supabase as any)
-          .from("fursuits")
+          .from('fursuits')
           .delete()
-          .eq("id", createdFursuitId)
-          .eq("owner_id", userId);
+          .eq('id', createdFursuitId)
+          .eq('owner_id', userId);
 
         if (cleanupSuitError) {
-          console.warn(
-            "Failed to clean up fursuit record after bio error",
-            cleanupSuitError,
-          );
+          console.warn('Failed to clean up fursuit record after bio error', cleanupSuitError);
         }
       }
 
@@ -692,10 +650,7 @@ export default function AddFursuitScreen() {
           .remove([uploadedStoragePath]);
 
         if (cleanupError) {
-          console.warn(
-            "Failed to clean up uploaded suit photo after error",
-            cleanupError,
-          );
+          console.warn('Failed to clean up uploaded suit photo after error', cleanupError);
         }
       }
     } finally {
@@ -704,15 +659,9 @@ export default function AddFursuitScreen() {
   };
 
   const handleSocialLinkChange = useCallback(
-    (
-      id: string,
-      field: "platformId" | "handle" | "label" | "url",
-      value: string,
-    ) => {
+    (id: string, field: 'platformId' | 'handle' | 'label' | 'url', value: string) => {
       setSocialLinks((current) =>
-        current.map((entry) =>
-          entry.id === id ? { ...entry, [field]: value } : entry,
-        ),
+        current.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry)),
       );
     },
     [],
@@ -732,394 +681,387 @@ export default function AddFursuitScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader title="Add a Fursuit" onBack={() => router.back()} />
+      <ScreenHeader
+        title="Add a Fursuit"
+        onBack={() => router.back()}
+      />
       <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
-      {isAtFursuitLimit && (
-        <TailTagCard style={styles.limitBanner}>
-          <Text style={styles.limitBannerText}>
-            You have reached the maximum of {MAX_FURSUITS_PER_USER} fursuits.
-            Delete an existing fursuit to add a new one.
-          </Text>
-          <TailTagButton
-            variant="outline"
-            onPress={() => router.push("/suits")}
-          >
-            Manage my suits
-          </TailTagButton>
-        </TailTagCard>
-      )}
-
-      <View style={styles.formCard}>
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Suit photo</Text>
-          <View style={styles.photoRow}>
-            {isProcessingPhoto ? (
-              <View style={[styles.photoPreview, styles.photoProcessing]}>
-                <ActivityIndicator color={colors.primary} />
-              </View>
-            ) : selectedPhoto ? (
-              <Image
-                source={selectedPhoto.uri}
-                style={styles.photoPreview}
-                contentFit="cover"
-              />
-            ) : (
-              <View style={styles.photoPlaceholder}>
-                <Text style={styles.photoPlaceholderText}>No photo</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.photoButtons}>
+        {isAtFursuitLimit && (
+          <TailTagCard style={styles.limitBanner}>
+            <Text style={styles.limitBannerText}>
+              You have reached the maximum of {MAX_FURSUITS_PER_USER} fursuits. Delete an existing
+              fursuit to add a new one.
+            </Text>
             <TailTagButton
               variant="outline"
-              onPress={handlePickPhoto}
-              disabled={isSubmitting || isProcessingPhoto}
+              onPress={() => router.push('/suits')}
             >
-              Choose photo
+              Manage my suits
             </TailTagButton>
-            {selectedPhoto ? (
-              <TailTagButton
-                variant="ghost"
-                onPress={handleClearPhoto}
-                disabled={isSubmitting}
-              >
-                Remove photo
-              </TailTagButton>
-            ) : null}
-          </View>
-          {photoError ? (
-            <Text style={styles.errorText}>{photoError}</Text>
-          ) : null}
-        </View>
+          </TailTagCard>
+        )}
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Name</Text>
-          <TailTagInput
-            value={nameInput}
-            onChangeText={setNameInput}
-            placeholder="Eclipse the Sergal"
-            editable={!isSubmitting}
-            returnKeyType="next"
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Species</Text>
-          <TailTagInput
-            value={speciesInput}
-            onChangeText={handleSpeciesInputChange}
-            placeholder="Sergal, Dutch Angel Dragon, etc."
-            editable={!isSubmitting}
-            returnKeyType="next"
-            autoCapitalize="words"
-          />
-          <Text style={styles.helperLabel}>
-            Tap a suggestion or keep typing to add a new species to the shared
-            list.
-          </Text>
-          {isSpeciesBusy ? (
-            <Text style={styles.helperLabel}>Loading species…</Text>
-          ) : speciesLoadError ? (
-            <View style={styles.helperColumn}>
-              <Text style={styles.errorText}>{speciesLoadError}</Text>
+        <View style={styles.formCard}>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Suit photo</Text>
+            <View style={styles.photoRow}>
+              {isProcessingPhoto ? (
+                <View style={[styles.photoPreview, styles.photoProcessing]}>
+                  <ActivityIndicator color={colors.primary} />
+                </View>
+              ) : selectedPhoto ? (
+                <Image
+                  source={selectedPhoto.uri}
+                  style={styles.photoPreview}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={styles.photoPlaceholder}>
+                  <Text style={styles.photoPlaceholderText}>No photo</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.photoButtons}>
               <TailTagButton
                 variant="outline"
-                size="sm"
-                onPress={() => {
-                  void refetchSpecies({ throwOnError: false });
-                }}
-                disabled={isSubmitting}
+                onPress={handlePickPhoto}
+                disabled={isSubmitting || isProcessingPhoto}
               >
-                Try again
+                Choose photo
               </TailTagButton>
-            </View>
-          ) : speciesSuggestions.length > 0 ? (
-            <View style={styles.speciesSuggestionSection}>
-              <Text style={styles.helperLabel}>
-                {normalizedSpeciesInput
-                  ? "Matching species"
-                  : "Popular species"}
-              </Text>
-              <View style={styles.speciesSuggestionList}>
-                {speciesSuggestions.map((option) => {
-                  const isSelected = selectedSpecies?.id === option.id;
-                  return (
-                    <Pressable
-                      key={option.id}
-                      accessibilityRole="button"
-                      onPress={() => handleSpeciesSelect(option)}
-                      style={[
-                        styles.colorChip,
-                        isSelected ? styles.colorChipSelected : null,
-                      ]}
-                      disabled={isSubmitting}
-                    >
-                      <Text
-                        style={[
-                          styles.colorChipLabel,
-                          isSelected ? styles.colorChipLabelSelected : null,
-                        ]}
-                      >
-                        {option.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Colors</Text>
-          <Text style={styles.helperLabel}>Pick up to three colors.</Text>
-          {isColorBusy ? (
-            <Text style={styles.helperLabel}>Loading colors…</Text>
-          ) : colorLoadError ? (
-            <View style={styles.helperColumn}>
-              <Text style={styles.errorText}>{colorLoadError}</Text>
-              <TailTagButton
-                variant="outline"
-                size="sm"
-                onPress={() => {
-                  void refetchColors({ throwOnError: false });
-                }}
-                disabled={isSubmitting}
-              >
-                Try again
-              </TailTagButton>
-            </View>
-          ) : (
-            <>
-              <View style={styles.colorSelectedList}>
-                {selectedColors.length === 0 ? (
-                  <Text style={styles.helperLabel}>
-                    No colors selected yet.
-                  </Text>
-                ) : null}
-                {selectedColors.map((color) => (
-                  <Pressable
-                    key={`selected-${color.id}`}
-                    style={styles.colorSelectedChip}
-                    onPress={() => handleToggleColor(color)}
-                    disabled={isSubmitting}
-                  >
-                    <Text style={styles.colorSelectedText}>{color.name}</Text>
-                    <Text style={styles.colorSelectedRemove}>Remove</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <View style={styles.colorOptionList}>
-                {colorOptions.map((option) => {
-                  const isSelected = selectedColors.some(
-                    (color) => color.id === option.id,
-                  );
-                  const isAtLimit =
-                    !isSelected && selectedColors.length >= MAX_FURSUIT_COLORS;
-                  return (
-                    <Pressable
-                      key={option.id}
-                      accessibilityRole="button"
-                      onPress={() => handleToggleColor(option)}
-                      style={[
-                        styles.colorChip,
-                        isSelected ? styles.colorChipSelected : null,
-                        isAtLimit ? styles.colorChipDisabled : null,
-                      ]}
-                      disabled={isSubmitting || (!isSelected && isAtLimit)}
-                    >
-                      <Text
-                        style={[
-                          styles.colorChipLabel,
-                          isSelected ? styles.colorChipLabelSelected : null,
-                          isAtLimit ? styles.colorChipLabelDisabled : null,
-                        ]}
-                      >
-                        {option.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              {selectedColors.length >= MAX_FURSUIT_COLORS ? (
-                <Text style={styles.helperLabel}>
-                  You picked the maximum number of colors. Tap one to remove it.
-                </Text>
-              ) : null}
-            </>
-          )}
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Fursuit Pronouns</Text>
-          <Text style={styles.helperLabel}>
-            Select all pronouns that fit your fursuit.
-          </Text>
-          <View style={styles.pronounChipList}>
-            {PRONOUN_OPTIONS.map((option) => {
-              const isSelected = selectedPronouns.includes(option);
-              return (
-                <Pressable
-                  key={option}
-                  accessibilityRole="button"
-                  onPress={() => handleTogglePronoun(option)}
-                  style={[
-                    styles.colorChip,
-                    isSelected ? styles.colorChipSelected : null,
-                  ]}
+              {selectedPhoto ? (
+                <TailTagButton
+                  variant="ghost"
+                  onPress={handleClearPhoto}
                   disabled={isSubmitting}
                 >
-                  <Text
-                    style={[
-                      styles.colorChipLabel,
-                      isSelected ? styles.colorChipLabelSelected : null,
-                    ]}
-                  >
-                    {option}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                  Remove photo
+                </TailTagButton>
+              ) : null}
+            </View>
+            {photoError ? <Text style={styles.errorText}>{photoError}</Text> : null}
           </View>
-        </View>
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Likes & interests</Text>
-          <TailTagInput
-            value={likesInput}
-            onChangeText={setLikesInput}
-            placeholder="Games, hobbies, music - whatever makes you light up"
-            editable={!isSubmitting}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            style={styles.textArea}
-          />
-        </View>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Name</Text>
+            <TailTagInput
+              value={nameInput}
+              onChangeText={setNameInput}
+              placeholder="Eclipse the Sergal"
+              editable={!isSubmitting}
+              returnKeyType="next"
+            />
+          </View>
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Ask me about...</Text>
-          <TailTagInput
-            value={askMeAboutInput}
-            onChangeText={setAskMeAboutInput}
-            placeholder="Give catchers a question to break the ice"
-            editable={!isSubmitting}
-            multiline
-            numberOfLines={2}
-            textAlignVertical="top"
-            style={styles.textArea}
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Social links</Text>
-          <Text style={styles.helperLabel}>
-            Add the places where catchers can follow you. Pick a platform and
-            enter your username.
-          </Text>
-          <View style={styles.socialList}>
-            {socialLinks.map((entry, index) => {
-              const usedPlatformIds = socialLinks
-                .filter(
-                  (e) =>
-                    e.id !== entry.id &&
-                    e.platformId &&
-                    e.platformId !== CUSTOM_PLATFORM_ID,
-                )
-                .map((e) => e.platformId);
-              const isCustom = entry.platformId === CUSTOM_PLATFORM_ID;
-              return (
-                <View key={entry.id} style={styles.socialRow}>
-                  <View style={styles.socialPlatformChips}>
-                    {ALLOWED_SOCIAL_PLATFORMS.map((platform) => {
-                      const isSelected = entry.platformId === platform.id;
-                      const isUsedElsewhere = usedPlatformIds.includes(
-                        platform.id,
-                      );
-                      return (
-                        <Pressable
-                          key={platform.id}
-                          onPress={() =>
-                            !isUsedElsewhere &&
-                            handleSocialLinkChange(
-                              entry.id,
-                              "platformId",
-                              platform.id,
-                            )
-                          }
-                          disabled={isSubmitting || isUsedElsewhere}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Species</Text>
+            <TailTagInput
+              value={speciesInput}
+              onChangeText={handleSpeciesInputChange}
+              placeholder="Sergal, Dutch Angel Dragon, etc."
+              editable={!isSubmitting}
+              returnKeyType="next"
+              autoCapitalize="words"
+            />
+            <Text style={styles.helperLabel}>
+              Tap a suggestion or keep typing to add a new species to the shared list.
+            </Text>
+            {isSpeciesBusy ? (
+              <Text style={styles.helperLabel}>Loading species…</Text>
+            ) : speciesLoadError ? (
+              <View style={styles.helperColumn}>
+                <Text style={styles.errorText}>{speciesLoadError}</Text>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void refetchSpecies({ throwOnError: false });
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Try again
+                </TailTagButton>
+              </View>
+            ) : speciesSuggestions.length > 0 ? (
+              <View style={styles.speciesSuggestionSection}>
+                <Text style={styles.helperLabel}>
+                  {normalizedSpeciesInput ? 'Matching species' : 'Popular species'}
+                </Text>
+                <View style={styles.speciesSuggestionList}>
+                  {speciesSuggestions.map((option) => {
+                    const isSelected = selectedSpecies?.id === option.id;
+                    return (
+                      <Pressable
+                        key={option.id}
+                        accessibilityRole="button"
+                        onPress={() => handleSpeciesSelect(option)}
+                        style={[styles.colorChip, isSelected ? styles.colorChipSelected : null]}
+                        disabled={isSubmitting}
+                      >
+                        <Text
                           style={[
-                            styles.socialPlatformChip,
-                            isSelected && styles.socialPlatformChipSelected,
-                            isUsedElsewhere && styles.socialPlatformChipDisabled,
+                            styles.colorChipLabel,
+                            isSelected ? styles.colorChipLabelSelected : null,
                           ]}
                         >
-                          <Text
-                            style={[
-                              styles.socialPlatformChipText,
-                              isSelected && styles.socialPlatformChipTextSelected,
-                              isUsedElsewhere &&
-                                styles.socialPlatformChipTextDisabled,
-                            ]}
-                          >
-                            {platform.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+                          {option.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Colors</Text>
+            <Text style={styles.helperLabel}>Pick up to three colors.</Text>
+            {isColorBusy ? (
+              <Text style={styles.helperLabel}>Loading colors…</Text>
+            ) : colorLoadError ? (
+              <View style={styles.helperColumn}>
+                <Text style={styles.errorText}>{colorLoadError}</Text>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void refetchColors({ throwOnError: false });
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Try again
+                </TailTagButton>
+              </View>
+            ) : (
+              <>
+                <View style={styles.colorSelectedList}>
+                  {selectedColors.length === 0 ? (
+                    <Text style={styles.helperLabel}>No colors selected yet.</Text>
+                  ) : null}
+                  {selectedColors.map((color) => (
                     <Pressable
-                      onPress={() =>
-                        handleSocialLinkChange(
-                          entry.id,
-                          "platformId",
-                          CUSTOM_PLATFORM_ID,
-                        )
-                      }
+                      key={`selected-${color.id}`}
+                      style={styles.colorSelectedChip}
+                      onPress={() => handleToggleColor(color)}
                       disabled={isSubmitting}
+                    >
+                      <Text style={styles.colorSelectedText}>{color.name}</Text>
+                      <Text style={styles.colorSelectedRemove}>Remove</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <View style={styles.colorOptionList}>
+                  {colorOptions.map((option) => {
+                    const isSelected = selectedColors.some((color) => color.id === option.id);
+                    const isAtLimit = !isSelected && selectedColors.length >= MAX_FURSUIT_COLORS;
+                    return (
+                      <Pressable
+                        key={option.id}
+                        accessibilityRole="button"
+                        onPress={() => handleToggleColor(option)}
+                        style={[
+                          styles.colorChip,
+                          isSelected ? styles.colorChipSelected : null,
+                          isAtLimit ? styles.colorChipDisabled : null,
+                        ]}
+                        disabled={isSubmitting || (!isSelected && isAtLimit)}
+                      >
+                        <Text
+                          style={[
+                            styles.colorChipLabel,
+                            isSelected ? styles.colorChipLabelSelected : null,
+                            isAtLimit ? styles.colorChipLabelDisabled : null,
+                          ]}
+                        >
+                          {option.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {selectedColors.length >= MAX_FURSUIT_COLORS ? (
+                  <Text style={styles.helperLabel}>
+                    You picked the maximum number of colors. Tap one to remove it.
+                  </Text>
+                ) : null}
+              </>
+            )}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Fursuit Pronouns</Text>
+            <Text style={styles.helperLabel}>Select all pronouns that fit your fursuit.</Text>
+            <View style={styles.pronounChipList}>
+              {PRONOUN_OPTIONS.map((option) => {
+                const isSelected = selectedPronouns.includes(option);
+                return (
+                  <Pressable
+                    key={option}
+                    accessibilityRole="button"
+                    onPress={() => handleTogglePronoun(option)}
+                    style={[styles.colorChip, isSelected ? styles.colorChipSelected : null]}
+                    disabled={isSubmitting}
+                  >
+                    <Text
                       style={[
-                        styles.socialPlatformChip,
-                        isCustom && styles.socialPlatformChipSelected,
+                        styles.colorChipLabel,
+                        isSelected ? styles.colorChipLabelSelected : null,
                       ]}
                     >
-                      <Text
+                      {option}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Likes & interests</Text>
+            <TailTagInput
+              value={likesInput}
+              onChangeText={setLikesInput}
+              placeholder="Games, hobbies, music - whatever makes you light up"
+              editable={!isSubmitting}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              style={styles.textArea}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Ask me about...</Text>
+            <TailTagInput
+              value={askMeAboutInput}
+              onChangeText={setAskMeAboutInput}
+              placeholder="Give catchers a question to break the ice"
+              editable={!isSubmitting}
+              multiline
+              numberOfLines={2}
+              textAlignVertical="top"
+              style={styles.textArea}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Social links</Text>
+            <Text style={styles.helperLabel}>
+              Add the places where catchers can follow you. Pick a platform and enter your username.
+            </Text>
+            <View style={styles.socialList}>
+              {socialLinks.map((entry, index) => {
+                const usedPlatformIds = socialLinks
+                  .filter(
+                    (e) => e.id !== entry.id && e.platformId && e.platformId !== CUSTOM_PLATFORM_ID,
+                  )
+                  .map((e) => e.platformId);
+                const isCustom = entry.platformId === CUSTOM_PLATFORM_ID;
+                return (
+                  <View
+                    key={entry.id}
+                    style={styles.socialRow}
+                  >
+                    <View style={styles.socialPlatformChips}>
+                      {ALLOWED_SOCIAL_PLATFORMS.map((platform) => {
+                        const isSelected = entry.platformId === platform.id;
+                        const isUsedElsewhere = usedPlatformIds.includes(platform.id);
+                        return (
+                          <Pressable
+                            key={platform.id}
+                            onPress={() =>
+                              !isUsedElsewhere &&
+                              handleSocialLinkChange(entry.id, 'platformId', platform.id)
+                            }
+                            disabled={isSubmitting || isUsedElsewhere}
+                            style={[
+                              styles.socialPlatformChip,
+                              isSelected && styles.socialPlatformChipSelected,
+                              isUsedElsewhere && styles.socialPlatformChipDisabled,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.socialPlatformChipText,
+                                isSelected && styles.socialPlatformChipTextSelected,
+                                isUsedElsewhere && styles.socialPlatformChipTextDisabled,
+                              ]}
+                            >
+                              {platform.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                      <Pressable
+                        onPress={() =>
+                          handleSocialLinkChange(entry.id, 'platformId', CUSTOM_PLATFORM_ID)
+                        }
+                        disabled={isSubmitting}
                         style={[
-                          styles.socialPlatformChipText,
-                          isCustom && styles.socialPlatformChipTextSelected,
+                          styles.socialPlatformChip,
+                          isCustom && styles.socialPlatformChipSelected,
                         ]}
                       >
-                        Custom
-                      </Text>
-                    </Pressable>
-                  </View>
-                  {isCustom ? (
-                    <View style={styles.socialCustomInputs}>
-                      <TailTagInput
-                        value={entry.label ?? ""}
-                        onChangeText={(value) =>
-                          handleSocialLinkChange(entry.id, "label", value)
-                        }
-                        placeholder="Label (e.g. Mastodon, Website)"
-                        editable={!isSubmitting}
-                        returnKeyType="next"
-                        style={styles.socialInput}
-                      />
+                        <Text
+                          style={[
+                            styles.socialPlatformChipText,
+                            isCustom && styles.socialPlatformChipTextSelected,
+                          ]}
+                        >
+                          Custom
+                        </Text>
+                      </Pressable>
+                    </View>
+                    {isCustom ? (
+                      <View style={styles.socialCustomInputs}>
+                        <TailTagInput
+                          value={entry.label ?? ''}
+                          onChangeText={(value) => handleSocialLinkChange(entry.id, 'label', value)}
+                          placeholder="Label (e.g. Mastodon, Website)"
+                          editable={!isSubmitting}
+                          returnKeyType="next"
+                          style={styles.socialInput}
+                        />
+                        <View style={styles.socialInputRow}>
+                          <TailTagInput
+                            value={entry.url ?? ''}
+                            onChangeText={(value) => handleSocialLinkChange(entry.id, 'url', value)}
+                            placeholder="https://example.com/you"
+                            editable={!isSubmitting}
+                            autoCapitalize="none"
+                            keyboardType="url"
+                            returnKeyType={index === socialLinks.length - 1 ? 'done' : 'next'}
+                            onSubmitEditing={
+                              index === socialLinks.length - 1 ? handleSubmit : undefined
+                            }
+                            style={styles.socialInput}
+                          />
+                          <TailTagButton
+                            variant="ghost"
+                            size="sm"
+                            onPress={() => handleRemoveSocialLink(entry.id)}
+                            disabled={isSubmitting}
+                            style={styles.socialRemoveButton}
+                          >
+                            Remove
+                          </TailTagButton>
+                        </View>
+                      </View>
+                    ) : (
                       <View style={styles.socialInputRow}>
                         <TailTagInput
-                          value={entry.url ?? ""}
+                          value={entry.handle}
                           onChangeText={(value) =>
-                            handleSocialLinkChange(entry.id, "url", value)
+                            handleSocialLinkChange(entry.id, 'handle', value)
                           }
-                          placeholder="https://example.com/you"
+                          placeholder="Username"
                           editable={!isSubmitting}
                           autoCapitalize="none"
-                          keyboardType="url"
-                          returnKeyType={
-                            index === socialLinks.length - 1 ? "done" : "next"
-                          }
+                          keyboardType="default"
+                          returnKeyType={index === socialLinks.length - 1 ? 'done' : 'next'}
                           onSubmitEditing={
-                            index === socialLinks.length - 1
-                              ? handleSubmit
-                              : undefined
+                            index === socialLinks.length - 1 ? handleSubmit : undefined
                           }
                           style={styles.socialInput}
                         />
@@ -1133,140 +1075,98 @@ export default function AddFursuitScreen() {
                           Remove
                         </TailTagButton>
                       </View>
-                    </View>
-                  ) : (
-                    <View style={styles.socialInputRow}>
-                      <TailTagInput
-                        value={entry.handle}
-                        onChangeText={(value) =>
-                          handleSocialLinkChange(entry.id, "handle", value)
-                        }
-                        placeholder="Username"
-                        editable={!isSubmitting}
-                        autoCapitalize="none"
-                        keyboardType="default"
-                        returnKeyType={
-                          index === socialLinks.length - 1 ? "done" : "next"
-                        }
-                        onSubmitEditing={
-                          index === socialLinks.length - 1
-                            ? handleSubmit
-                            : undefined
-                        }
-                        style={styles.socialInput}
-                      />
-                      <TailTagButton
-                        variant="ghost"
-                        size="sm"
-                        onPress={() => handleRemoveSocialLink(entry.id)}
-                        disabled={isSubmitting}
-                        style={styles.socialRemoveButton}
-                      >
-                        Remove
-                      </TailTagButton>
-                    </View>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-          {socialLinksCanAddMore ? (
-            <TailTagButton
-              variant="outline"
-              size="sm"
-              onPress={handleAddSocialLink}
-              disabled={isSubmitting}
-            >
-              Add another link
-            </TailTagButton>
-          ) : (
-            <Text style={styles.helperLabel}>
-              You can add up to {SOCIAL_LINK_LIMIT} links.
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Catch settings</Text>
-          <CatchModeSwitch
-            value={catchMode}
-            onChange={setCatchMode}
-            disabled={isSubmitting}
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Conventions</Text>
-          <Text style={styles.helperLabel}>
-            Choose the conventions where this suit will be catchable.
-          </Text>
-          {isConventionsBusy ? (
-            <Text style={styles.message}>Loading conventions…</Text>
-          ) : conventionsLoadError ? (
-            <View style={styles.helperColumn}>
-              <Text style={styles.errorText}>{conventionsLoadError}</Text>
-              <TailTagButton
-                variant="outline"
-                size="sm"
-                onPress={() => {
-                  void refetchConventions({ throwOnError: false });
-                  void refetchProfileConventions({ throwOnError: false });
-                }}
-                disabled={isSubmitting}
-              >
-                Try again
-              </TailTagButton>
-            </View>
-          ) : conventions.length === 0 ? (
-            <Text style={styles.message}>
-              No conventions are available yet. Check back soon.
-            </Text>
-          ) : profileConventionIdSet.size === 0 ? (
-            <Text style={styles.message}>
-              Opt into a convention from Settings before assigning this suit.
-            </Text>
-          ) : (
-            <View style={styles.conventionList}>
-              {conventions.map((convention) => {
-                const isAllowed = profileConventionIdSet.has(convention.id);
-                const isSelected = selectedConventionIds.has(convention.id);
-
-                return (
-                  <ConventionToggle
-                    key={convention.id}
-                    convention={convention}
-                    selected={isSelected}
-                    pending={false}
-                    disabled={!isAllowed}
-                    badgeText={
-                      isAllowed
-                        ? isSelected
-                          ? "Joined"
-                          : "Tap to join"
-                        : "Opt in via Settings"
-                    }
-                    onToggle={(conventionId, nextSelected) =>
-                      handleConventionToggle(conventionId, nextSelected)
-                    }
-                  />
+                    )}
+                  </View>
                 );
               })}
             </View>
-          )}
+            {socialLinksCanAddMore ? (
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={handleAddSocialLink}
+                disabled={isSubmitting}
+              >
+                Add another link
+              </TailTagButton>
+            ) : (
+              <Text style={styles.helperLabel}>You can add up to {SOCIAL_LINK_LIMIT} links.</Text>
+            )}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Catch settings</Text>
+            <CatchModeSwitch
+              value={catchMode}
+              onChange={setCatchMode}
+              disabled={isSubmitting}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Conventions</Text>
+            <Text style={styles.helperLabel}>
+              Choose the conventions where this suit will be catchable.
+            </Text>
+            {isConventionsBusy ? (
+              <Text style={styles.message}>Loading conventions…</Text>
+            ) : conventionsLoadError ? (
+              <View style={styles.helperColumn}>
+                <Text style={styles.errorText}>{conventionsLoadError}</Text>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void refetchConventions({ throwOnError: false });
+                    void refetchProfileConventions({ throwOnError: false });
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Try again
+                </TailTagButton>
+              </View>
+            ) : conventions.length === 0 ? (
+              <Text style={styles.message}>No conventions are available yet. Check back soon.</Text>
+            ) : profileConventionIdSet.size === 0 ? (
+              <Text style={styles.message}>
+                Opt into a convention from Settings before assigning this suit.
+              </Text>
+            ) : (
+              <View style={styles.conventionList}>
+                {conventions.map((convention) => {
+                  const isAllowed = profileConventionIdSet.has(convention.id);
+                  const isSelected = selectedConventionIds.has(convention.id);
+
+                  return (
+                    <ConventionToggle
+                      key={convention.id}
+                      convention={convention}
+                      selected={isSelected}
+                      pending={false}
+                      disabled={!isAllowed}
+                      badgeText={
+                        isAllowed ? (isSelected ? 'Joined' : 'Tap to join') : 'Opt in via Settings'
+                      }
+                      onToggle={(conventionId, nextSelected) =>
+                        handleConventionToggle(conventionId, nextSelected)
+                      }
+                    />
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+
+          <TailTagButton
+            onPress={handleSubmit}
+            loading={isSubmitting}
+            disabled={isSubmitting}
+          >
+            Save fursuit
+          </TailTagButton>
         </View>
-
-        {submitError ? (
-          <Text style={styles.errorText}>{submitError}</Text>
-        ) : null}
-
-        <TailTagButton
-          onPress={handleSubmit}
-          loading={isSubmitting}
-          disabled={isSubmitting}
-        >
-          Save fursuit
-        </TailTagButton>
-      </View>
       </KeyboardAwareFormWrapper>
     </View>
   );

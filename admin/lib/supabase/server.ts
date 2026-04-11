@@ -8,11 +8,7 @@ export function createServerSupabaseClient() {
   const cookieStore = cookies();
   const safeSet =
     typeof cookieStore.set === 'function'
-      ? (
-          name: string,
-          value: string,
-          options: Parameters<(typeof cookieStore)['set']>[2]
-        ) => {
+      ? (name: string, value: string, options: Parameters<(typeof cookieStore)['set']>[2]) => {
           try {
             cookieStore.set(name, value, options);
           } catch {
@@ -22,10 +18,7 @@ export function createServerSupabaseClient() {
       : () => {};
   const safeRemove =
     typeof cookieStore.set === 'function'
-      ? (
-          name: string,
-          options: Parameters<(typeof cookieStore)['set']>[2]
-        ) => {
+      ? (name: string, options: Parameters<(typeof cookieStore)['set']>[2]) => {
           try {
             cookieStore.set(name, '', { ...options, maxAge: 0 });
           } catch {

@@ -16,8 +16,4 @@ export {
   type LocationVerificationRequest,
   type LocationVerificationResponse,
 } from './api/geoVerification';
-export {
-  formatConventionDateRange,
-  isConventionEnded,
-  isConventionActive,
-} from './utils';
+export { formatConventionDateRange, isConventionEnded, isConventionActive } from './utils';

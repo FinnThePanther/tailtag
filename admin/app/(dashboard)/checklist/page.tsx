@@ -83,9 +83,15 @@ export default function ChecklistPage() {
               className="flex w-full items-start gap-3 rounded-xl border border-border bg-background/60 px-3 py-2 text-left transition hover:border-primary"
             >
               {isDone ? (
-                <CheckCircle size={18} className="mt-0.5 text-primary" />
+                <CheckCircle
+                  size={18}
+                  className="mt-0.5 text-primary"
+                />
               ) : (
-                <Circle size={18} className="mt-0.5 text-muted" />
+                <Circle
+                  size={18}
+                  className="mt-0.5 text-muted"
+                />
               )}
               <div>
                 <p className="text-sm font-semibold text-white">{item.label}</p>

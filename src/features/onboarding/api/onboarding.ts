@@ -45,7 +45,7 @@ const generateAvailableFursuitCode = async (): Promise<string> => {
     }
   }
 
-  captureHandledMessage("Ran out of attempts while generating unique fursuit code", {
+  captureHandledMessage('Ran out of attempts while generating unique fursuit code', {
     scope: 'onboarding.generateAvailableFursuitCode',
   });
   throw new Error("We couldn't generate a unique tag code. Please try again.");
@@ -57,10 +57,12 @@ const uploadFursuitPhoto = async (userId: string, photo: FursuitPhotoCandidate) 
 
   const fileBytes = await loadUriAsUint8Array(photo.uri);
 
-  const { error: uploadError } = await supabase.storage.from(FURSUIT_BUCKET).upload(storagePath, fileBytes, {
-    contentType: 'image/jpeg',
-    upsert: false,
-  });
+  const { error: uploadError } = await supabase.storage
+    .from(FURSUIT_BUCKET)
+    .upload(storagePath, fileBytes, {
+      contentType: 'image/jpeg',
+      upsert: false,
+    });
 
   if (uploadError) {
     throw uploadError;
@@ -114,8 +116,8 @@ export async function createQuickFursuit(options: {
       new Set(
         (Array.isArray(colorIds) ? colorIds : [])
           .map((value) => (typeof value === 'string' ? value.trim() : ''))
-          .filter((value) => value.length > 0)
-      )
+          .filter((value) => value.length > 0),
+      ),
     );
 
     if (!normalizedName) {
@@ -151,7 +153,11 @@ export async function createQuickFursuit(options: {
         is_tutorial: false,
       };
 
-      const { data: inserted, error } = await client.from('fursuits').insert(payload).select('id').single();
+      const { data: inserted, error } = await client
+        .from('fursuits')
+        .insert(payload)
+        .select('id')
+        .single();
 
       if (!error && inserted?.id) {
         const fursuitId = String(inserted.id);

@@ -19,11 +19,7 @@ import { FursuitCard } from '../../../src/features/suits';
 import { useAuth } from '../../../src/features/auth';
 import { createProfileQueryOptions } from '../../../src/features/profile';
 import { ProfileActionMenu, checkIsBlocked } from '../../../src/features/moderation';
-import {
-  fetchMySuits,
-  mySuitsQueryKey,
-  MY_SUITS_STALE_TIME,
-} from '../../../src/features/suits';
+import { fetchMySuits, mySuitsQueryKey, MY_SUITS_STALE_TIME } from '../../../src/features/suits';
 import {
   fetchUserUnlockedAchievements,
   userUnlockedAchievementsQueryKey,
@@ -85,10 +81,7 @@ export default function PublicProfileScreen() {
 
   const { width: screenWidth } = useWindowDimensions();
 
-  const {
-    data: unlockedAchievements = [],
-    isLoading: isAchievementsLoading,
-  } = useQuery({
+  const { data: unlockedAchievements = [], isLoading: isAchievementsLoading } = useQuery({
     queryKey: userUnlockedAchievementsQueryKey(profileId ?? ''),
     queryFn: () => fetchUserUnlockedAchievements(profileId ?? ''),
     staleTime: 5 * 60_000,
@@ -122,7 +115,10 @@ export default function PublicProfileScreen() {
   if (!profileId) {
     return (
       <View style={styles.screen}>
-        <ScreenHeader title="Player Profile" onBack={() => router.back()} />
+        <ScreenHeader
+          title="Player Profile"
+          onBack={() => router.back()}
+        />
         <View style={styles.centeredMessage}>
           <Text style={styles.message}>Player not found.</Text>
         </View>
@@ -145,156 +141,184 @@ export default function PublicProfileScreen() {
               <Text style={styles.headerButton}>Edit</Text>
             </Pressable>
           ) : profileId ? (
-            <ProfileActionMenu profileId={profileId} profileUsername={profile?.username} />
+            <ProfileActionMenu
+              profileId={profileId}
+              profileUsername={profile?.username}
+            />
           ) : undefined
         }
       />
 
       {isBlocked ? (
         <View style={styles.centeredMessage}>
-          <Ionicons name="ban-outline" size={48} color="rgba(148,163,184,0.5)" />
+          <Ionicons
+            name="ban-outline"
+            size={48}
+            color="rgba(148,163,184,0.5)"
+          />
           <Text style={styles.message}>Profile unavailable</Text>
         </View>
       ) : (
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-        {/* Profile header */}
-        <TailTagCard>
-          {isProfileLoading ? (
-            <Text style={styles.message}>Loading profile…</Text>
-          ) : profileError ? (
-            <View style={styles.errorBlock}>
-              <Text style={styles.errorText}>Could not load this profile.</Text>
-              <TailTagButton variant="outline" size="sm" onPress={() => refetchProfile()}>
-                Try again
-              </TailTagButton>
-            </View>
-          ) : (
-            <View style={styles.profileHeader}>
-              <View style={styles.profileAvatarWrapper}>
-                {avatarUrl ? (
-                  <AppImage
-                    url={avatarUrl}
-                    width={screenWidth}
-                    height={screenWidth}
-                    style={styles.profileAvatar}
-                  />
-                ) : (
-                  <View style={styles.profileAvatarFallback}>
-                    <Ionicons name="person" size={48} color="rgba(148,163,184,0.4)" />
-                  </View>
-                )}
-              </View>
-              <Text style={styles.username}>
-                {profile?.username}
-              </Text>
-              {profile?.bio ? (
-                <Text style={styles.bio}>{profile.bio}</Text>
-              ) : null}
-            </View>
-          )}
-        </TailTagCard>
-
-        {/* Stats */}
-        <TailTagCard>
-          <Text style={styles.sectionTitle}>Stats</Text>
-          {isStatsLoading ? (
-            <Text style={styles.message}>Loading stats…</Text>
-          ) : (
-            <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{catchCount.toLocaleString()}</Text>
-                <Text style={styles.statLabel}>Fursuits caught</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{conventionCount.toLocaleString()}</Text>
-                <Text style={styles.statLabel}>Conventions attended</Text>
-              </View>
-            </View>
-          )}
-        </TailTagCard>
-
-        {/* Social links — only shown if any exist */}
-        {!isSuitsLoading && socialLinks.length > 0 ? (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.container}
+        >
+          {/* Profile header */}
           <TailTagCard>
-            <Text style={styles.sectionTitle}>Social links</Text>
-            <View style={styles.socialList}>
-              {socialLinks.map((link) => (
-                <Pressable
-                  key={`${link.label}-${link.url}`}
-                  style={styles.socialLink}
-                  onPress={() => openSocialLink(link.url)}
+            {isProfileLoading ? (
+              <Text style={styles.message}>Loading profile…</Text>
+            ) : profileError ? (
+              <View style={styles.errorBlock}>
+                <Text style={styles.errorText}>Could not load this profile.</Text>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => refetchProfile()}
                 >
-                  <Text style={styles.socialLabel}>{link.label}</Text>
-                  <Text style={styles.socialUrl} numberOfLines={1}>
-                    {link.url}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </TailTagCard>
-        ) : null}
-
-        {/* Fursuits */}
-        <TailTagCard>
-          <Text style={styles.sectionTitle}>
-            Fursuits{fursuits.length > 0 ? ` (${fursuits.length})` : ''}
-          </Text>
-          {isSuitsLoading ? (
-            <Text style={styles.message}>Loading fursuits…</Text>
-          ) : suitsError ? (
-            <Text style={styles.errorText}>Could not load fursuits.</Text>
-          ) : fursuits.length === 0 ? (
-            <Text style={styles.message}>No fursuits registered yet.</Text>
-          ) : (
-            <View style={styles.suitsList}>
-              {fursuits.map((fursuit) => (
-                <Pressable
-                  key={fursuit.id}
-                  onPress={() =>
-                    router.push({ pathname: '/fursuits/[id]', params: { id: fursuit.id } })
-                  }
-                >
-                  <FursuitCard
-                    name={fursuit.name}
-                    species={fursuit.species}
-                    colors={fursuit.colors}
-                    avatarUrl={fursuit.avatar_url}
-                    uniqueCode={fursuit.unique_code}
-                  />
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </TailTagCard>
-
-        {/* Achievements */}
-        <TailTagCard>
-          <Text style={styles.sectionTitle}>
-            Achievements{unlockedAchievements.length > 0 ? ` (${unlockedAchievements.length})` : ''}
-          </Text>
-          {isAchievementsLoading ? (
-            <Text style={styles.message}>Loading achievements…</Text>
-          ) : unlockedAchievements.length === 0 ? (
-            <Text style={styles.message}>No achievements earned yet.</Text>
-          ) : (
-            <View style={styles.achievementList}>
-              {unlockedAchievements.map((achievement) => (
-                <View key={achievement.id} style={styles.achievementRow}>
-                  <View style={styles.achievementIcon}>
-                    <Ionicons name="trophy" size={16} color={colors.primary} />
-                  </View>
-                  <View style={styles.achievementText}>
-                    <Text style={styles.achievementName}>{achievement.name}</Text>
-                    <Text style={styles.achievementDescription} numberOfLines={2}>
-                      {achievement.description}
-                    </Text>
-                  </View>
+                  Try again
+                </TailTagButton>
+              </View>
+            ) : (
+              <View style={styles.profileHeader}>
+                <View style={styles.profileAvatarWrapper}>
+                  {avatarUrl ? (
+                    <AppImage
+                      url={avatarUrl}
+                      width={screenWidth}
+                      height={screenWidth}
+                      style={styles.profileAvatar}
+                    />
+                  ) : (
+                    <View style={styles.profileAvatarFallback}>
+                      <Ionicons
+                        name="person"
+                        size={48}
+                        color="rgba(148,163,184,0.4)"
+                      />
+                    </View>
+                  )}
                 </View>
-              ))}
-            </View>
-          )}
-        </TailTagCard>
-      </ScrollView>
+                <Text style={styles.username}>{profile?.username}</Text>
+                {profile?.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
+              </View>
+            )}
+          </TailTagCard>
+
+          {/* Stats */}
+          <TailTagCard>
+            <Text style={styles.sectionTitle}>Stats</Text>
+            {isStatsLoading ? (
+              <Text style={styles.message}>Loading stats…</Text>
+            ) : (
+              <View style={styles.statsGrid}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statValue}>{catchCount.toLocaleString()}</Text>
+                  <Text style={styles.statLabel}>Fursuits caught</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statValue}>{conventionCount.toLocaleString()}</Text>
+                  <Text style={styles.statLabel}>Conventions attended</Text>
+                </View>
+              </View>
+            )}
+          </TailTagCard>
+
+          {/* Social links — only shown if any exist */}
+          {!isSuitsLoading && socialLinks.length > 0 ? (
+            <TailTagCard>
+              <Text style={styles.sectionTitle}>Social links</Text>
+              <View style={styles.socialList}>
+                {socialLinks.map((link) => (
+                  <Pressable
+                    key={`${link.label}-${link.url}`}
+                    style={styles.socialLink}
+                    onPress={() => openSocialLink(link.url)}
+                  >
+                    <Text style={styles.socialLabel}>{link.label}</Text>
+                    <Text
+                      style={styles.socialUrl}
+                      numberOfLines={1}
+                    >
+                      {link.url}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </TailTagCard>
+          ) : null}
+
+          {/* Fursuits */}
+          <TailTagCard>
+            <Text style={styles.sectionTitle}>
+              Fursuits{fursuits.length > 0 ? ` (${fursuits.length})` : ''}
+            </Text>
+            {isSuitsLoading ? (
+              <Text style={styles.message}>Loading fursuits…</Text>
+            ) : suitsError ? (
+              <Text style={styles.errorText}>Could not load fursuits.</Text>
+            ) : fursuits.length === 0 ? (
+              <Text style={styles.message}>No fursuits registered yet.</Text>
+            ) : (
+              <View style={styles.suitsList}>
+                {fursuits.map((fursuit) => (
+                  <Pressable
+                    key={fursuit.id}
+                    onPress={() =>
+                      router.push({ pathname: '/fursuits/[id]', params: { id: fursuit.id } })
+                    }
+                  >
+                    <FursuitCard
+                      name={fursuit.name}
+                      species={fursuit.species}
+                      colors={fursuit.colors}
+                      avatarUrl={fursuit.avatar_url}
+                      uniqueCode={fursuit.unique_code}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </TailTagCard>
+
+          {/* Achievements */}
+          <TailTagCard>
+            <Text style={styles.sectionTitle}>
+              Achievements
+              {unlockedAchievements.length > 0 ? ` (${unlockedAchievements.length})` : ''}
+            </Text>
+            {isAchievementsLoading ? (
+              <Text style={styles.message}>Loading achievements…</Text>
+            ) : unlockedAchievements.length === 0 ? (
+              <Text style={styles.message}>No achievements earned yet.</Text>
+            ) : (
+              <View style={styles.achievementList}>
+                {unlockedAchievements.map((achievement) => (
+                  <View
+                    key={achievement.id}
+                    style={styles.achievementRow}
+                  >
+                    <View style={styles.achievementIcon}>
+                      <Ionicons
+                        name="trophy"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    </View>
+                    <View style={styles.achievementText}>
+                      <Text style={styles.achievementName}>{achievement.name}</Text>
+                      <Text
+                        style={styles.achievementDescription}
+                        numberOfLines={2}
+                      >
+                        {achievement.description}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </TailTagCard>
+        </ScrollView>
       )}
     </View>
   );

@@ -37,9 +37,7 @@ export const extensionFromPath = (value: string | null | undefined): string | nu
   return normalizeExtension(match?.[1]);
 };
 
-export const extensionFromMimeType = (
-  mimeType: string | null | undefined,
-): string | null => {
+export const extensionFromMimeType = (mimeType: string | null | undefined): string | null => {
   if (!mimeType) return null;
 
   const subtype = mimeType.split('/')[1]?.toLowerCase();
@@ -124,9 +122,9 @@ export async function processImageForUpload(
 }
 
 export const IMAGE_UPLOAD_PRESETS = {
-  profileAvatar: { maxDimension: 512,  quality: 0.85, format: 'jpeg' as const },
+  profileAvatar: { maxDimension: 512, quality: 0.85, format: 'jpeg' as const },
   fursuitAvatar: { maxDimension: 1024, quality: 0.85, format: 'jpeg' as const },
-  catchPhoto:    { maxDimension: 1500, quality: 0.85, format: 'jpeg' as const },
+  catchPhoto: { maxDimension: 1500, quality: 0.85, format: 'jpeg' as const },
 };
 
 export function extractStoragePath(
@@ -136,9 +134,7 @@ export function extractStoragePath(
   return extractStoragePathFromUrl(fileUrl, bucket);
 }
 
-export const buildImageUploadCandidate = <
-  T extends ImageAssetMetadata,
->(
+export const buildImageUploadCandidate = <T extends ImageAssetMetadata>(
   asset: T,
   fallbackBasename: string,
 ): {

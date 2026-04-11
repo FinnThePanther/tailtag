@@ -9,23 +9,20 @@
  */
 
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
-import { ingestGameplayEvent } from "../_shared/gameplayQueue.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+import { ingestGameplayEvent } from '../_shared/gameplayQueue.ts';
 
 const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const serviceRoleKey =
-  Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error(
-    "Missing SUPABASE_URL or SERVICE_ROLE_KEY environment variables"
-  );
+  throw new Error('Missing SUPABASE_URL or SERVICE_ROLE_KEY environment variables');
 }
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -54,7 +51,7 @@ interface ExpireResult {
 function respondJson(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
 
@@ -62,21 +59,21 @@ function respondJson(data: unknown, status = 200) {
  * Batch insert notifications for all expired catches
  */
 async function batchInsertNotifications(
-  notifications: { user_id: string; type: string; payload: Record<string, unknown> }[]
+  notifications: { user_id: string; type: string; payload: Record<string, unknown> }[],
 ): Promise<number> {
   if (notifications.length === 0) {
     return 0;
   }
 
   const { data, error } = await supabaseAdmin
-    .from("notifications")
+    .from('notifications')
     .insert(notifications)
-    .select("id");
+    .select('id');
 
   if (error) {
     console.error(
       `[expire-pending-catches] Failed to batch insert ${notifications.length} notifications:`,
-      error
+      error,
     );
     return 0;
   }
@@ -88,13 +85,13 @@ async function batchInsertNotifications(
  * Build notification objects for a single expired catch
  */
 function buildNotificationsForExpiredCatch(catchData: ExpiredCatch) {
-  const catcherUsername = catchData.catcher_username || "Someone";
-  const fursuitName = catchData.fursuit_name || "a fursuit";
+  const catcherUsername = catchData.catcher_username || 'Someone';
+  const fursuitName = catchData.fursuit_name || 'a fursuit';
 
   return [
     {
       user_id: catchData.catcher_id,
-      type: "catch_expired" as const,
+      type: 'catch_expired' as const,
       payload: {
         fursuit_name: fursuitName,
         catch_id: catchData.id,
@@ -102,7 +99,7 @@ function buildNotificationsForExpiredCatch(catchData: ExpiredCatch) {
     },
     {
       user_id: catchData.owner_id,
-      type: "catch_expired" as const,
+      type: 'catch_expired' as const,
       payload: {
         fursuit_name: fursuitName,
         catcher_username: catcherUsername,
@@ -114,7 +111,7 @@ function buildNotificationsForExpiredCatch(catchData: ExpiredCatch) {
 
 async function recordExpiredEvent(catchData: ExpiredCatch): Promise<void> {
   await ingestGameplayEvent(supabaseAdmin, {
-    type: "catch_expired",
+    type: 'catch_expired',
     userId: catchData.catcher_id,
     payload: {
       catch_id: catchData.id,
@@ -130,18 +127,18 @@ async function recordExpiredEvent(catchData: ExpiredCatch): Promise<void> {
 async function handleRequest(): Promise<Response> {
   try {
     // Call the expire_pending_catches RPC to expire catches and get details
-    const { data, error } = await supabaseAdmin.rpc("expire_pending_catches");
+    const { data, error } = await supabaseAdmin.rpc('expire_pending_catches');
 
     if (error) {
-      console.error("[expire-pending-catches] RPC error:", error);
-      return respondJson({ error: "Failed to expire catches" }, 500);
+      console.error('[expire-pending-catches] RPC error:', error);
+      return respondJson({ error: 'Failed to expire catches' }, 500);
     }
 
     const result = data as ExpireResult;
 
     if (!result.success) {
-      console.error("[expire-pending-catches] RPC returned failure:", result);
-      return respondJson({ error: "Expire operation failed" }, 500);
+      console.error('[expire-pending-catches] RPC returned failure:', result);
+      return respondJson({ error: 'Expire operation failed' }, 500);
     }
 
     // Process expired catches: batch notifications and emit events
@@ -157,13 +154,13 @@ async function handleRequest(): Promise<Response> {
       expiredCatches.map(async (catchData) => {
         await recordExpiredEvent(catchData);
         console.log(
-          `[expire-pending-catches] Processed expired catch ${catchData.id}: ${catchData.catcher_username || "Someone"} -> ${catchData.fursuit_name || "a fursuit"}`
+          `[expire-pending-catches] Processed expired catch ${catchData.id}: ${catchData.catcher_username || 'Someone'} -> ${catchData.fursuit_name || 'a fursuit'}`,
         );
       }),
     );
 
     ingestResults.forEach((result, index) => {
-      if (result.status === "rejected") {
+      if (result.status === 'rejected') {
         const catchData = expiredCatches[index];
         console.error(
           `[expire-pending-catches] Failed to record event for catch ${catchData?.id}:`,
@@ -173,7 +170,7 @@ async function handleRequest(): Promise<Response> {
     });
 
     console.log(
-      `[expire-pending-catches] Completed: ${result.expired_count} catches expired, ${notificationsSent} notifications sent`
+      `[expire-pending-catches] Completed: ${result.expired_count} catches expired, ${notificationsSent} notifications sent`,
     );
 
     return respondJson({
@@ -183,23 +180,20 @@ async function handleRequest(): Promise<Response> {
       timestamp: result.timestamp,
     });
   } catch (error) {
-    console.error("[expire-pending-catches] Unexpected error:", error);
-    return respondJson(
-      { error: (error as Error).message ?? "Unknown error" },
-      500
-    );
+    console.error('[expire-pending-catches] Unexpected error:', error);
+    return respondJson({ error: (error as Error).message ?? 'Unknown error' }, 500);
   }
 }
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   // Accept both GET and POST (cron jobs may use either)
-  if (req.method !== "GET" && req.method !== "POST") {
-    return respondJson({ error: "Method not allowed" }, 405);
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return respondJson({ error: 'Method not allowed' }, 405);
   }
 
   return handleRequest();

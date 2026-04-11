@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Animated, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -45,7 +53,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <View pointerEvents="none" style={[styles.container, { bottom: containerBottom }]}>
+      <View
+        pointerEvents="none"
+        style={[styles.container, { bottom: containerBottom }]}
+      >
         {toasts.map((toast) => (
           <ToastItem
             key={toast.id}

@@ -1,20 +1,20 @@
-import { useState } from "react";
-import { Text, View } from "react-native";
+import { useState } from 'react';
+import { Text, View } from 'react-native';
 
-import { useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareFormWrapper";
-import { TailTagButton } from "../../src/components/ui/TailTagButton";
-import { TailTagCard } from "../../src/components/ui/TailTagCard";
-import { TailTagInput } from "../../src/components/ui/TailTagInput";
-import { supabase } from "../../src/lib/supabase";
-import { isValidEmail, mapAuthError } from "../../src/utils/authValidation";
-import { styles } from "../../src/app-styles/(auth)/forgot-password.styles";
+import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
+import { TailTagButton } from '../../src/components/ui/TailTagButton';
+import { TailTagCard } from '../../src/components/ui/TailTagCard';
+import { TailTagInput } from '../../src/components/ui/TailTagInput';
+import { supabase } from '../../src/lib/supabase';
+import { isValidEmail, mapAuthError } from '../../src/utils/authValidation';
+import { styles } from '../../src/app-styles/(auth)/forgot-password.styles';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
@@ -25,12 +25,12 @@ export default function ForgotPasswordScreen() {
     const trimmedEmail = email.trim();
 
     if (trimmedEmail.length === 0) {
-      setError("Enter your email address to continue.");
+      setError('Enter your email address to continue.');
       return;
     }
 
     if (!isValidEmail(trimmedEmail)) {
-      setError("Please enter a valid email address.");
+      setError('Please enter a valid email address.');
       return;
     }
 
@@ -38,10 +38,9 @@ export default function ForgotPasswordScreen() {
     setError(null);
 
     try {
-      const { error: resetError } =
-        await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-          redirectTo: "tailtag://reset-password",
-        });
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: 'tailtag://reset-password',
+      });
 
       if (resetError) {
         throw resetError;
@@ -58,23 +57,22 @@ export default function ForgotPasswordScreen() {
 
   if (emailSent) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      <SafeAreaView
+        style={styles.safeArea}
+        edges={['top', 'bottom']}
+      >
         <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
           <View style={styles.header}>
             <Text style={styles.eyebrow}>TailTag</Text>
             <Text style={styles.title}>Check your email</Text>
             <Text style={styles.subtitle}>
-              If an account exists for{" "}
-              <Text style={styles.emailHighlight}>{email}</Text>, we sent a
-              password reset link. Check your inbox and follow the link to set a
-              new password.
+              If an account exists for <Text style={styles.emailHighlight}>{email}</Text>, we sent a
+              password reset link. Check your inbox and follow the link to set a new password.
             </Text>
           </View>
 
           <TailTagCard style={styles.formCard}>
-            <TailTagButton onPress={() => router.replace("/auth")}>
-              Back to sign in
-            </TailTagButton>
+            <TailTagButton onPress={() => router.replace('/auth')}>Back to sign in</TailTagButton>
           </TailTagCard>
         </KeyboardAwareFormWrapper>
       </SafeAreaView>
@@ -82,14 +80,16 @@ export default function ForgotPasswordScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={['top', 'bottom']}
+    >
       <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <Text style={styles.eyebrow}>TailTag</Text>
           <Text style={styles.title}>Reset your password</Text>
           <Text style={styles.subtitle}>
-            Enter the email address associated with your account and we'll send
-            you a reset link.
+            Enter the email address associated with your account and we'll send you a reset link.
           </Text>
         </View>
 
@@ -111,13 +111,16 @@ export default function ForgotPasswordScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <TailTagButton onPress={handleSubmit} loading={isSubmitting}>
+          <TailTagButton
+            onPress={handleSubmit}
+            loading={isSubmitting}
+          >
             Send reset link
           </TailTagButton>
 
           <TailTagButton
             variant="ghost"
-            onPress={() => router.replace("/auth")}
+            onPress={() => router.replace('/auth')}
             disabled={isSubmitting}
           >
             Back to sign in

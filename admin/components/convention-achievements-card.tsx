@@ -73,7 +73,7 @@ function formStateFromAchievement(ach: ConventionAchievementRow): AchievementFor
   const rule = ach.rule as Record<string, unknown> | null;
   const threshold =
     ach.rule_kind === 'fursuit_caught_count_at_convention' && rule
-      ? (rule.threshold as number) ?? 1
+      ? ((rule.threshold as number) ?? 1)
       : 1;
 
   const filters = Array.isArray(rule?.filters) ? (rule.filters as Record<string, unknown>[]) : [];
@@ -105,7 +105,10 @@ function buildRule(form: AchievementFormState, kind: string) {
   }
 
   if (form.colorFilter.trim()) {
-    const colors = form.colorFilter.split(',').map((c) => c.trim()).filter(Boolean);
+    const colors = form.colorFilter
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
     if (colors.length > 0) {
       filters.push({ path: 'payload.colors', in: colors });
     }
@@ -131,7 +134,8 @@ function summarizeRule(rule: Record<string, unknown> | null, kind: string | null
   const filters = Array.isArray(rule.filters) ? (rule.filters as Record<string, unknown>[]) : [];
   for (const f of filters) {
     if (f.path === 'payload.species' && f.equals) parts.push(`species=${f.equals}`);
-    if (f.path === 'payload.colors' && Array.isArray(f.in)) parts.push(`colors=${(f.in as string[]).join(',')}`);
+    if (f.path === 'payload.colors' && Array.isArray(f.in))
+      parts.push(`colors=${(f.in as string[]).join(',')}`);
   }
   return parts.length > 0 ? parts.join(', ') : null;
 }
@@ -159,8 +163,10 @@ export function ConventionAchievementsCard({ conventionId, achievements }: Props
 
   const selectedKind = RULE_KINDS.find((k) => k.value === form.kind)!;
 
-  const updateField = <K extends keyof AchievementFormState>(key: K, value: AchievementFormState[K]) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const updateField = <K extends keyof AchievementFormState>(
+    key: K,
+    value: AchievementFormState[K],
+  ) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleNameChange = (value: string) => {
     setForm((prev) => ({
@@ -336,7 +342,10 @@ export function ConventionAchievementsCard({ conventionId, achievements }: Props
         ))}
         {achievements.length === 0 ? (
           <tr>
-            <td className="px-4 py-3 text-sm text-muted" colSpan={6}>
+            <td
+              className="px-4 py-3 text-sm text-muted"
+              colSpan={6}
+            >
               No convention achievements yet.
             </td>
           </tr>
@@ -347,7 +356,10 @@ export function ConventionAchievementsCard({ conventionId, achievements }: Props
         <h3 className="mb-4 text-sm font-semibold text-white">
           {isEditing ? 'Edit achievement' : 'Add an achievement'}
         </h3>
-        <form onSubmit={isEditing ? handleUpdate : handleCreate} className="space-y-3">
+        <form
+          onSubmit={isEditing ? handleUpdate : handleCreate}
+          className="space-y-3"
+        >
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <label className="text-xs text-muted">Name</label>
@@ -393,7 +405,10 @@ export function ConventionAchievementsCard({ conventionId, achievements }: Props
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
               >
                 {CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
+                  <option
+                    key={c.value}
+                    value={c.value}
+                  >
                     {c.label}
                   </option>
                 ))}
@@ -407,7 +422,10 @@ export function ConventionAchievementsCard({ conventionId, achievements }: Props
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
               >
                 {RULE_KINDS.map((k) => (
-                  <option key={k.value} value={k.value}>
+                  <option
+                    key={k.value}
+                    value={k.value}
+                  >
                     {k.label}
                   </option>
                 ))}
@@ -436,7 +454,10 @@ export function ConventionAchievementsCard({ conventionId, achievements }: Props
                     className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
                   >
                     {METRIC_OPTIONS.map((m) => (
-                      <option key={m.value} value={m.value}>
+                      <option
+                        key={m.value}
+                        value={m.value}
+                      >
                         {m.label}
                       </option>
                     ))}
@@ -487,8 +508,12 @@ export function ConventionAchievementsCard({ conventionId, achievements }: Props
               className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-accent disabled:opacity-50"
             >
               {isPending
-                ? isEditing ? 'Saving…' : 'Creating…'
-                : isEditing ? 'Save changes' : 'Create achievement'}
+                ? isEditing
+                  ? 'Saving…'
+                  : 'Creating…'
+                : isEditing
+                  ? 'Save changes'
+                  : 'Create achievement'}
             </button>
             {isEditing ? (
               <button

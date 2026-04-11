@@ -1,31 +1,31 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
 
-import * as Linking from "expo-linking";
-import { useRouter } from "expo-router";
-import * as QueryParams from "expo-auth-session/build/QueryParams";
-import { SafeAreaView } from "react-native-safe-area-context";
+import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
+import * as QueryParams from 'expo-auth-session/build/QueryParams';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { KeyboardAwareFormWrapper } from "../src/components/ui/KeyboardAwareFormWrapper";
-import { PasswordInput } from "../src/components/ui/PasswordInput";
-import { TailTagButton } from "../src/components/ui/TailTagButton";
-import { TailTagCard } from "../src/components/ui/TailTagCard";
-import { PasswordStrengthIndicator } from "../src/features/auth/components/PasswordStrengthIndicator";
-import { supabase } from "../src/lib/supabase";
-import { colors } from "../src/theme";
-import { mapAuthError, validatePassword } from "../src/utils/authValidation";
-import { styles } from "../src/app-styles/reset-password.styles";
+import { KeyboardAwareFormWrapper } from '../src/components/ui/KeyboardAwareFormWrapper';
+import { PasswordInput } from '../src/components/ui/PasswordInput';
+import { TailTagButton } from '../src/components/ui/TailTagButton';
+import { TailTagCard } from '../src/components/ui/TailTagCard';
+import { PasswordStrengthIndicator } from '../src/features/auth/components/PasswordStrengthIndicator';
+import { supabase } from '../src/lib/supabase';
+import { colors } from '../src/theme';
+import { mapAuthError, validatePassword } from '../src/utils/authValidation';
+import { styles } from '../src/app-styles/reset-password.styles';
 
-type SessionState = "loading" | "ready" | "error";
+type SessionState = 'loading' | 'ready' | 'error';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const url = Linking.useURL();
-  const [sessionState, setSessionState] = useState<SessionState>("loading");
+  const [sessionState, setSessionState] = useState<SessionState>('loading');
   const [sessionError, setSessionError] = useState<string | null>(null);
 
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -37,10 +37,8 @@ export default function ResetPasswordScreen() {
       if (!isMounted) return;
 
       if (!incomingUrl) {
-        setSessionState("error");
-        setSessionError(
-          "No reset link found. Please request a new password reset.",
-        );
+        setSessionState('error');
+        setSessionError('No reset link found. Please request a new password reset.');
         return;
       }
 
@@ -48,23 +46,19 @@ export default function ResetPasswordScreen() {
 
       if (errorCode) {
         if (isMounted) {
-          setSessionState("error");
-          setSessionError("This reset link is invalid. Please request a new one.");
+          setSessionState('error');
+          setSessionError('This reset link is invalid. Please request a new one.');
         }
         return;
       }
 
-      const accessToken =
-        typeof params.access_token === "string" ? params.access_token : null;
-      const refreshToken =
-        typeof params.refresh_token === "string" ? params.refresh_token : null;
+      const accessToken = typeof params.access_token === 'string' ? params.access_token : null;
+      const refreshToken = typeof params.refresh_token === 'string' ? params.refresh_token : null;
 
       if (!accessToken || !refreshToken) {
         if (isMounted) {
-          setSessionState("error");
-          setSessionError(
-            "This reset link has expired or is invalid. Please request a new one.",
-          );
+          setSessionState('error');
+          setSessionError('This reset link has expired or is invalid. Please request a new one.');
         }
         return;
       }
@@ -78,17 +72,15 @@ export default function ResetPasswordScreen() {
         if (!isMounted) return;
 
         if (error) {
-          setSessionState("error");
-          setSessionError(
-            "This reset link has expired. Please request a new password reset.",
-          );
+          setSessionState('error');
+          setSessionError('This reset link has expired. Please request a new password reset.');
         } else {
-          setSessionState("ready");
+          setSessionState('ready');
         }
       } catch {
         if (isMounted) {
-          setSessionState("error");
-          setSessionError("Something went wrong. Please try again later.");
+          setSessionState('error');
+          setSessionError('Something went wrong. Please try again later.');
         }
       }
     };
@@ -111,14 +103,12 @@ export default function ResetPasswordScreen() {
 
     const validation = validatePassword(password);
     if (!validation.isAcceptable) {
-      setSubmitError(
-        "Your new password doesn't meet all the requirements shown below.",
-      );
+      setSubmitError("Your new password doesn't meet all the requirements shown below.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setSubmitError("Passwords do not match.");
+      setSubmitError('Passwords do not match.');
       return;
     }
 
@@ -142,35 +132,40 @@ export default function ResetPasswordScreen() {
     }
   };
 
-  if (sessionState === "loading") {
+  if (sessionState === 'loading') {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+        />
         <Text style={styles.statusText}>Verifying your reset link…</Text>
       </View>
     );
   }
 
-  if (sessionState === "error") {
+  if (sessionState === 'error') {
     return (
-      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      <SafeAreaView
+        style={styles.safeArea}
+        edges={['top', 'bottom']}
+      >
         <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
           <View style={styles.header}>
             <Text style={styles.eyebrow}>TailTag</Text>
             <Text style={styles.title}>Link expired</Text>
             <Text style={styles.subtitle}>
-              {sessionError ??
-                "This reset link is no longer valid. Please request a new one."}
+              {sessionError ?? 'This reset link is no longer valid. Please request a new one.'}
             </Text>
           </View>
 
           <TailTagCard style={styles.formCard}>
-            <TailTagButton onPress={() => router.replace("/forgot-password")}>
+            <TailTagButton onPress={() => router.replace('/forgot-password')}>
               Request new link
             </TailTagButton>
             <TailTagButton
               variant="ghost"
-              onPress={() => router.replace("/auth")}
+              onPress={() => router.replace('/auth')}
             >
               Back to sign in
             </TailTagButton>
@@ -182,7 +177,10 @@ export default function ResetPasswordScreen() {
 
   if (success) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      <SafeAreaView
+        style={styles.safeArea}
+        edges={['top', 'bottom']}
+      >
         <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
           <View style={styles.header}>
             <Text style={styles.eyebrow}>TailTag</Text>
@@ -193,9 +191,7 @@ export default function ResetPasswordScreen() {
           </View>
 
           <TailTagCard style={styles.formCard}>
-            <TailTagButton onPress={() => router.replace("/")}>
-              Continue to app
-            </TailTagButton>
+            <TailTagButton onPress={() => router.replace('/')}>Continue to app</TailTagButton>
           </TailTagCard>
         </KeyboardAwareFormWrapper>
       </SafeAreaView>
@@ -203,14 +199,15 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={['top', 'bottom']}
+    >
       <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <Text style={styles.eyebrow}>TailTag</Text>
           <Text style={styles.title}>Set new password</Text>
-          <Text style={styles.subtitle}>
-            Choose a strong password for your account.
-          </Text>
+          <Text style={styles.subtitle}>Choose a strong password for your account.</Text>
         </View>
 
         <TailTagCard style={styles.formCard}>
@@ -240,11 +237,12 @@ export default function ResetPasswordScreen() {
             />
           </View>
 
-          {submitError ? (
-            <Text style={styles.errorText}>{submitError}</Text>
-          ) : null}
+          {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
 
-          <TailTagButton onPress={handleSubmit} loading={isSubmitting}>
+          <TailTagButton
+            onPress={handleSubmit}
+            loading={isSubmitting}
+          >
             Update password
           </TailTagButton>
         </TailTagCard>

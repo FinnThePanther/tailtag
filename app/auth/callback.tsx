@@ -1,21 +1,21 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
-import * as Linking from "expo-linking";
-import { useRouter } from "expo-router";
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
+import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
 
-import { completeOAuthSessionFromUrl } from "../../src/features/auth/utils/oauth";
-import { colors } from "../../src/theme";
-import { styles } from "../../src/app-styles/auth/callback.styles";
+import { completeOAuthSessionFromUrl } from '../../src/features/auth/utils/oauth';
+import { colors } from '../../src/theme';
+import { styles } from '../../src/app-styles/auth/callback.styles';
 
 const formatErrorMessage = (input: unknown) =>
-  input instanceof Error ? input.message : "Unable to finish signing in. Please try again.";
+  input instanceof Error ? input.message : 'Unable to finish signing in. Please try again.';
 
-type StatusState = "loading" | "idle" | "error";
+type StatusState = 'loading' | 'idle' | 'error';
 
 export default function OAuthCallbackScreen() {
   const router = useRouter();
   const url = Linking.useURL();
-  const [status, setStatus] = useState<StatusState>("loading");
+  const [status, setStatus] = useState<StatusState>('loading');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,11 +27,11 @@ export default function OAuthCallbackScreen() {
       }
 
       if (!incomingUrl) {
-        setStatus("idle");
+        setStatus('idle');
         return;
       }
 
-      setStatus("loading");
+      setStatus('loading');
 
       try {
         const handled = await completeOAuthSessionFromUrl(incomingUrl);
@@ -41,18 +41,18 @@ export default function OAuthCallbackScreen() {
         }
 
         if (handled) {
-          router.replace("/");
+          router.replace('/');
           return;
         }
 
-        setStatus("error");
-        setError("This link did not include a valid session. Try signing in again.");
+        setStatus('error');
+        setError('This link did not include a valid session. Try signing in again.');
       } catch (caught) {
         if (!isMounted) {
           return;
         }
 
-        setStatus("error");
+        setStatus('error');
         setError(formatErrorMessage(caught));
       }
     };
@@ -65,7 +65,7 @@ export default function OAuthCallbackScreen() {
           void completeFromUrl(initialUrl);
         })
         .catch((caught) => {
-          console.error("[auth-callback] Failed to load initial URL", caught);
+          console.error('[auth-callback] Failed to load initial URL', caught);
           void completeFromUrl(null);
         });
     }
@@ -75,18 +75,21 @@ export default function OAuthCallbackScreen() {
     };
   }, [router, url]);
 
-  const showError = status === "error" && error;
+  const showError = status === 'error' && error;
 
   return (
     <View style={styles.container}>
-      {status === "loading" && (
+      {status === 'loading' && (
         <>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+          />
           <Text style={styles.statusText}>Finishing up your sign-in…</Text>
         </>
       )}
 
-      {status === "idle" && (
+      {status === 'idle' && (
         <Text style={styles.statusText}>
           This page is used to finish social sign-ins. You can return to the login screen if you
           reached it accidentally.

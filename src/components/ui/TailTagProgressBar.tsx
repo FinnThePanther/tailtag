@@ -25,11 +25,7 @@ export function TailTagProgressBar({
   return (
     <View style={[styles.track, { backgroundColor: trackColor }, style]}>
       <View
-        style={[
-          styles.fill,
-          { backgroundColor: indicatorColor, width: widthPercent },
-          fillStyle,
-        ]}
+        style={[styles.fill, { backgroundColor: indicatorColor, width: widthPercent }, fillStyle]}
       />
     </View>
   );

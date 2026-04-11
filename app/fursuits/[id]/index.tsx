@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -93,7 +86,11 @@ export default function FursuitDetailScreen() {
   }, [detail, userId]);
 
   const shouldFetchCatchesOfFursuit = Boolean(
-    isOwner && fursuitId && detail && typeof detail.catchCount === 'number' && detail.catchCount > 0,
+    isOwner &&
+    fursuitId &&
+    detail &&
+    typeof detail.catchCount === 'number' &&
+    detail.catchCount > 0,
   );
   const { data: catchesOfFursuit = [] } = useQuery({
     queryKey: catchesByFursuitQueryKey(fursuitId ?? ''),
@@ -190,120 +187,134 @@ export default function FursuitDetailScreen() {
         onBack={() => router.back()}
         right={editButton}
       />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+      >
         <TailTagCard>
-        {isLoading ? (
-          <Text style={styles.message}>Loading that fursuit…</Text>
-        ) : error ? (
-          <View style={styles.errorBlock}>
-            <Text style={styles.errorText}>{
-              error instanceof Error ? error.message : 'We could not load that fursuit.'
-            }</Text>
-            <TailTagButton variant="outline" size="sm" onPress={() => refetch()}>
-              Try again
-            </TailTagButton>
-          </View>
-        ) : !detail ? (
-          <Text style={styles.message}>That fursuit could not be found.</Text>
-        ) : (
-          <View style={styles.detailStack}>
-            <View style={styles.avatarWrapper}>
-              {detail.avatar_url ? (
-                <AppImage
-                  url={detail.avatar_url}
-                  width={screenWidth}
-                  height={screenWidth}
-                  style={styles.avatar}
-                />
-              ) : (
-                <Text style={styles.avatarFallback}>No avatar</Text>
-              )}
+          {isLoading ? (
+            <Text style={styles.message}>Loading that fursuit…</Text>
+          ) : error ? (
+            <View style={styles.errorBlock}>
+              <Text style={styles.errorText}>
+                {error instanceof Error ? error.message : 'We could not load that fursuit.'}
+              </Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => refetch()}
+              >
+                Try again
+              </TailTagButton>
             </View>
-            <View style={styles.leadDetails}>
-              <Text style={styles.leadName} numberOfLines={1}>
-                {detail.name}
-              </Text>
-              <Text style={styles.leadMeta} numberOfLines={1}>
-                {detail.species?.trim() || 'Species not set yet'}
-              </Text>
-              <Text style={styles.leadMeta} numberOfLines={1}>
-                {detail.colors?.length
-                  ? `Colors: ${detail.colors.map((c) => c.name).join(', ')}`
-                  : 'None specified'}
-              </Text>
-              {addedDate ? (
-                <Text style={styles.leadTimeline}>Added on {addedDate}</Text>
+          ) : !detail ? (
+            <Text style={styles.message}>That fursuit could not be found.</Text>
+          ) : (
+            <View style={styles.detailStack}>
+              <View style={styles.avatarWrapper}>
+                {detail.avatar_url ? (
+                  <AppImage
+                    url={detail.avatar_url}
+                    width={screenWidth}
+                    height={screenWidth}
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <Text style={styles.avatarFallback}>No avatar</Text>
+                )}
+              </View>
+              <View style={styles.leadDetails}>
+                <Text
+                  style={styles.leadName}
+                  numberOfLines={1}
+                >
+                  {detail.name}
+                </Text>
+                <Text
+                  style={styles.leadMeta}
+                  numberOfLines={1}
+                >
+                  {detail.species?.trim() || 'Species not set yet'}
+                </Text>
+                <Text
+                  style={styles.leadMeta}
+                  numberOfLines={1}
+                >
+                  {detail.colors?.length
+                    ? `Colors: ${detail.colors.map((c) => c.name).join(', ')}`
+                    : 'None specified'}
+                </Text>
+                {addedDate ? <Text style={styles.leadTimeline}>Added on {addedDate}</Text> : null}
+              </View>
+              {detail.unique_code?.trim() ? (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Catch code</Text>
+                  <Pressable
+                    onLongPress={() => {
+                      void Clipboard.setStringAsync(detail.unique_code!.trim().toUpperCase());
+                      Alert.alert('Code copied', 'The catch code is ready to paste.');
+                      handleCodeCopied();
+                    }}
+                    accessibilityRole="button"
+                    accessibilityHint="Long press to copy the code"
+                  >
+                    <Text style={styles.codeValue}>{detail.unique_code.trim().toUpperCase()}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              {!isOwner && detail.owner_id ? (
+                <Pressable
+                  style={({ pressed }) => [styles.ownerRow, pressed && styles.ownerRowPressed]}
+                  onPress={() =>
+                    router.push({ pathname: '/profile/[id]', params: { id: detail.owner_id } })
+                  }
+                >
+                  <Text style={styles.ownerLabel}>Owner</Text>
+                  <View style={styles.ownerRight}>
+                    <Text style={styles.ownerName}>{detail.bio?.ownerName?.trim()}</Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={14}
+                      color={colors.primary}
+                    />
+                  </View>
+                </Pressable>
+              ) : null}
+              {detail.bio ? (
+                <FursuitBioDetails bio={detail.bio} />
+              ) : (
+                <Text style={styles.message}>This fursuit does not have a bio yet.</Text>
+              )}
+              {typeof detail.catchCount === 'number' ? (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>
+                    {isOwner ? 'Catch stats' : 'Catch history'}
+                  </Text>
+                  <Text style={styles.sectionItem}>{catchSummary}</Text>
+                </View>
+              ) : null}
+              {isOwner && catchesOfFursuit.some((c) => c.catch_photo_url?.trim()) ? (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Catch photos</Text>
+                  <CatchPhotosList items={catchesOfFursuit} />
+                </View>
+              ) : null}
+              {detail.conventions.length > 0 ? (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Convention appearances</Text>
+                  {detail.conventions.map((convention) => (
+                    <Text
+                      key={convention.id}
+                      style={styles.sectionItem}
+                    >
+                      {convention.name}
+                    </Text>
+                  ))}
+                </View>
               ) : null}
             </View>
-            {detail.unique_code?.trim() ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Catch code</Text>
-                <Pressable
-                  onLongPress={() => {
-                    void Clipboard.setStringAsync(
-                      detail.unique_code!.trim().toUpperCase(),
-                    );
-                    Alert.alert('Code copied', 'The catch code is ready to paste.');
-                    handleCodeCopied();
-                  }}
-                  accessibilityRole="button"
-                  accessibilityHint="Long press to copy the code"
-                >
-                  <Text style={styles.codeValue}>
-                    {detail.unique_code.trim().toUpperCase()}
-                  </Text>
-                </Pressable>
-              </View>
-            ) : null}
-            {!isOwner && detail.owner_id ? (
-              <Pressable
-                style={({ pressed }) => [styles.ownerRow, pressed && styles.ownerRowPressed]}
-                onPress={() =>
-                  router.push({ pathname: '/profile/[id]', params: { id: detail.owner_id } })
-                }
-              >
-                <Text style={styles.ownerLabel}>Owner</Text>
-                <View style={styles.ownerRight}>
-                  <Text style={styles.ownerName}>
-                    {detail.bio?.ownerName?.trim()}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={14} color={colors.primary} />
-                </View>
-              </Pressable>
-            ) : null}
-            {detail.bio ? (
-              <FursuitBioDetails bio={detail.bio} />
-            ) : (
-              <Text style={styles.message}>This fursuit does not have a bio yet.</Text>
-            )}
-            {typeof detail.catchCount === 'number' ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  {isOwner ? 'Catch stats' : 'Catch history'}
-                </Text>
-                <Text style={styles.sectionItem}>{catchSummary}</Text>
-              </View>
-            ) : null}
-            {isOwner &&
-            catchesOfFursuit.some((c) => c.catch_photo_url?.trim()) ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Catch photos</Text>
-                <CatchPhotosList items={catchesOfFursuit} />
-              </View>
-            ) : null}
-            {detail.conventions.length > 0 ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Convention appearances</Text>
-                {detail.conventions.map((convention) => (
-                  <Text key={convention.id} style={styles.sectionItem}>
-                    {convention.name}
-                  </Text>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        )}
-      </TailTagCard>
+          )}
+        </TailTagCard>
       </ScrollView>
     </View>
   );

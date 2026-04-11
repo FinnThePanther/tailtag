@@ -12,7 +12,9 @@ export type AdminProfile = Pick<
 > & { email?: string | null };
 
 export async function getSessionWithProfile(): Promise<{
-  session: Awaited<ReturnType<ReturnType<typeof createServerSupabaseClient>['auth']['getSession']>>['data']['session'];
+  session: Awaited<
+    ReturnType<ReturnType<typeof createServerSupabaseClient>['auth']['getSession']>
+  >['data']['session'];
   profile: AdminProfile | null;
 }> {
   const supabase = createServerSupabaseClient();

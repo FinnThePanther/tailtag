@@ -1,66 +1,72 @@
-import { View } from "react-native";
+import { View } from 'react-native';
 
-import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors } from "../../src/theme";
-import { TabBadge } from "../../src/components/TabBadge";
-import { usePendingCatches } from "../../src/features/catch-confirmations";
+import { colors } from '../../src/theme';
+import { TabBadge } from '../../src/components/TabBadge';
+import { usePendingCatches } from '../../src/features/catch-confirmations';
 
 type IconOptions = {
   pendingCatchCount?: number;
 };
 
 const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => {
-  const color = focused ? colors.primary : "rgba(203,213,225,0.8)";
+  const color = focused ? colors.primary : 'rgba(203,213,225,0.8)';
 
   switch (name) {
-    case "index":
+    case 'index':
       return (
         <Ionicons
-          name={focused ? "home" : "home-outline"}
+          name={focused ? 'home' : 'home-outline'}
           size={22}
           color={color}
         />
       );
-    case "caught":
+    case 'caught':
       return (
         <Ionicons
-          name={focused ? "ribbon" : "ribbon-outline"}
+          name={focused ? 'ribbon' : 'ribbon-outline'}
           size={22}
           color={color}
         />
       );
-    case "catch":
+    case 'catch':
       return (
         <Ionicons
-          name={focused ? "scan" : "scan-outline"}
+          name={focused ? 'scan' : 'scan-outline'}
           size={22}
           color={color}
         />
       );
-    case "suits":
+    case 'suits':
       return (
         <View>
           <Ionicons
-            name={focused ? "paw" : "paw-outline"}
+            name={focused ? 'paw' : 'paw-outline'}
             size={22}
             color={color}
           />
           <TabBadge count={options?.pendingCatchCount ?? 0} />
         </View>
       );
-    case "settings":
+    case 'settings':
       return (
         <Ionicons
-          name={focused ? "settings" : "settings-outline"}
+          name={focused ? 'settings' : 'settings-outline'}
           size={22}
           color={color}
         />
       );
     default:
-      return <Ionicons name="ellipse" size={22} color={color} />;
+      return (
+        <Ionicons
+          name="ellipse"
+          size={22}
+          color={color}
+        />
+      );
   }
 };
 
@@ -74,37 +80,49 @@ export default function TabsLayout() {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#0f172a",
-          borderTopColor: "rgba(148,163,184,0.2)",
+          backgroundColor: '#0f172a',
+          borderTopColor: 'rgba(148,163,184,0.2)',
         },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: "rgba(203,213,225,0.8)",
+        tabBarInactiveTintColor: 'rgba(203,213,225,0.8)',
         tabBarIcon: ({ focused }) => iconForRoute(route.name, focused, { pendingCatchCount }),
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: "600",
+          fontWeight: '600',
         },
         sceneStyle: {
           backgroundColor: colors.background,
           // Don't add paddingTop for tabs with nested Stack navigators that handle their own headers
-          paddingTop: route.name === "suits" ? 0 : insets.top,
+          paddingTop: route.name === 'suits' ? 0 : insets.top,
         },
       })}
     >
-      <Tabs.Screen name="index" options={{ title: "Home" }} />
-      <Tabs.Screen name="caught" options={{ title: "Caught" }} />
-      <Tabs.Screen name="catch" options={{ title: "Catch" }} />
+      <Tabs.Screen
+        name="index"
+        options={{ title: 'Home' }}
+      />
+      <Tabs.Screen
+        name="caught"
+        options={{ title: 'Caught' }}
+      />
+      <Tabs.Screen
+        name="catch"
+        options={{ title: 'Catch' }}
+      />
       <Tabs.Screen
         name="suits"
-        options={{ title: "My Suits" }}
+        options={{ title: 'My Suits' }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            navigation.navigate("suits", { screen: "index" });
+            navigation.navigate('suits', { screen: 'index' });
           },
         })}
       />
-      <Tabs.Screen name="settings" options={{ title: "Settings" }} />
+      <Tabs.Screen
+        name="settings"
+        options={{ title: 'Settings' }}
+      />
     </Tabs>
   );
 }

@@ -1,7 +1,7 @@
-import { Stack } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Stack } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors } from "../../../src/theme";
+import { colors } from '../../../src/theme';
 
 export default function SuitsLayout() {
   const insets = useSafeAreaInsets();
@@ -10,7 +10,7 @@ export default function SuitsLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        headerStyle: { backgroundColor: "#0f172a" },
+        headerStyle: { backgroundColor: '#0f172a' },
         headerTintColor: colors.primary,
         headerTitleStyle: { color: colors.foreground },
         contentStyle: { backgroundColor: colors.background },
@@ -20,7 +20,7 @@ export default function SuitsLayout() {
         name="index"
         options={{
           headerShown: false,
-          title: "My Suits",
+          title: 'My Suits',
           contentStyle: {
             backgroundColor: colors.background,
             // This screen has no header, so we need to add safe area padding

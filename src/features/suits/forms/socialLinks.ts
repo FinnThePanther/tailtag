@@ -8,11 +8,36 @@ export type SocialPlatform = {
 };
 
 export const ALLOWED_SOCIAL_PLATFORMS: SocialPlatform[] = [
-  { id: 'twitter', label: 'X (Twitter)', urlTemplate: 'https://x.com/{handle}', handleFormat: 'strip_at' },
-  { id: 'bluesky', label: 'Bluesky', urlTemplate: 'https://bsky.app/profile/{handle}', handleFormat: 'as_is' },
-  { id: 'instagram', label: 'Instagram', urlTemplate: 'https://instagram.com/{handle}', handleFormat: 'strip_at' },
-  { id: 'tiktok', label: 'TikTok', urlTemplate: 'https://www.tiktok.com/@{handle}', handleFormat: 'add_at' },
-  { id: 'telegram', label: 'Telegram', urlTemplate: 'https://t.me/{handle}', handleFormat: 'strip_at' },
+  {
+    id: 'twitter',
+    label: 'X (Twitter)',
+    urlTemplate: 'https://x.com/{handle}',
+    handleFormat: 'strip_at',
+  },
+  {
+    id: 'bluesky',
+    label: 'Bluesky',
+    urlTemplate: 'https://bsky.app/profile/{handle}',
+    handleFormat: 'as_is',
+  },
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    urlTemplate: 'https://instagram.com/{handle}',
+    handleFormat: 'strip_at',
+  },
+  {
+    id: 'tiktok',
+    label: 'TikTok',
+    urlTemplate: 'https://www.tiktok.com/@{handle}',
+    handleFormat: 'add_at',
+  },
+  {
+    id: 'telegram',
+    label: 'Telegram',
+    urlTemplate: 'https://t.me/{handle}',
+    handleFormat: 'strip_at',
+  },
 ];
 
 export const CUSTOM_PLATFORM_ID = 'custom';
@@ -44,7 +69,10 @@ function normalizeHandle(handle: string, format: HandleFormat): string {
   }
 }
 
-export function buildSocialUrl(platformId: string, handle: string): { label: string; url: string } | null {
+export function buildSocialUrl(
+  platformId: string,
+  handle: string,
+): { label: string; url: string } | null {
   const platform = ALLOWED_SOCIAL_PLATFORMS.find((p) => p.id === platformId);
   if (!platform) return null;
 
@@ -60,11 +88,31 @@ const PLATFORM_URL_PATTERNS: {
   regex: RegExp;
   extractGroup: number;
 }[] = [
-  { platformId: 'twitter', regex: /^https?:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/([^/?#]+)/i, extractGroup: 1 },
-  { platformId: 'bluesky', regex: /^https?:\/\/(?:www\.)?bsky\.app\/profile\/([^/?#]+)/i, extractGroup: 1 },
-  { platformId: 'instagram', regex: /^https?:\/\/(?:www\.)?instagram\.com\/([^/?#]+)/i, extractGroup: 1 },
-  { platformId: 'tiktok', regex: /^https?:\/\/(?:www\.)?tiktok\.com\/@?([^/?#]+)/i, extractGroup: 1 },
-  { platformId: 'telegram', regex: /^https?:\/\/(?:t\.me|telegram\.me)\/([^/?#]+)/i, extractGroup: 1 },
+  {
+    platformId: 'twitter',
+    regex: /^https?:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/([^/?#]+)/i,
+    extractGroup: 1,
+  },
+  {
+    platformId: 'bluesky',
+    regex: /^https?:\/\/(?:www\.)?bsky\.app\/profile\/([^/?#]+)/i,
+    extractGroup: 1,
+  },
+  {
+    platformId: 'instagram',
+    regex: /^https?:\/\/(?:www\.)?instagram\.com\/([^/?#]+)/i,
+    extractGroup: 1,
+  },
+  {
+    platformId: 'tiktok',
+    regex: /^https?:\/\/(?:www\.)?tiktok\.com\/@?([^/?#]+)/i,
+    extractGroup: 1,
+  },
+  {
+    platformId: 'telegram',
+    regex: /^https?:\/\/(?:t\.me|telegram\.me)\/([^/?#]+)/i,
+    extractGroup: 1,
+  },
 ];
 
 export function matchPlatformFromUrl(url: string): { platformId: string; handle: string } | null {
@@ -95,7 +143,9 @@ export function createInitialSocialLinks(): EditableSocialLink[] {
   return [createEmptySocialLink()];
 }
 
-export function mapEditableSocialLinks(links: { label: string; url: string }[]): EditableSocialLink[] {
+export function mapEditableSocialLinks(
+  links: { label: string; url: string }[],
+): EditableSocialLink[] {
   const result: EditableSocialLink[] = [];
 
   for (const link of links) {
@@ -130,7 +180,7 @@ export function mapEditableSocialLinks(links: { label: string; url: string }[]):
 
 export function socialLinksToSave(
   entries: EditableSocialLink[],
-  otherLinks: { label: string; url: string }[] = []
+  otherLinks: { label: string; url: string }[] = [],
 ): { label: string; url: string }[] {
   const result: { label: string; url: string }[] = [];
   for (const entry of entries) {

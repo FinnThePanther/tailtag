@@ -16,20 +16,36 @@ function PendingConfirmationRow({ item }: { item: MyPendingCatch }) {
 
   return (
     <View style={styles.row}>
-      <AppAvatar url={item.fursuitAvatarUrl} size="md" fallback="fursuit" />
+      <AppAvatar
+        url={item.fursuitAvatarUrl}
+        size="md"
+        fallback="fursuit"
+      />
       <View style={styles.textCol}>
-        <Text style={styles.name} numberOfLines={1}>
+        <Text
+          style={styles.name}
+          numberOfLines={1}
+        >
           {item.fursuitName}
         </Text>
-        <Text style={styles.subtitle} numberOfLines={1}>
+        <Text
+          style={styles.subtitle}
+          numberOfLines={1}
+        >
           Awaiting owner approval
         </Text>
         {displayDate ? (
-          <Text style={styles.date} numberOfLines={1}>
+          <Text
+            style={styles.date}
+            numberOfLines={1}
+          >
             {displayDate} · {item.conventionName}
           </Text>
         ) : (
-          <Text style={styles.date} numberOfLines={1}>
+          <Text
+            style={styles.date}
+            numberOfLines={1}
+          >
             {item.conventionName}
           </Text>
         )}
@@ -45,7 +61,11 @@ export function PendingConfirmationsList({ pendingCatches }: PendingConfirmation
     <TailTagCard style={styles.container}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <Ionicons name="time-outline" size={18} color="#fbbf24" />
+          <Ionicons
+            name="time-outline"
+            size={18}
+            color="#fbbf24"
+          />
           <Text style={styles.title}>Pending confirmations</Text>
         </View>
         {!isEmpty && (
@@ -54,7 +74,10 @@ export function PendingConfirmationsList({ pendingCatches }: PendingConfirmation
             accessibilityLabel={`${pendingCatches.length} pending ${pendingCatches.length === 1 ? 'confirmation' : 'confirmations'}`}
             accessibilityRole="text"
           >
-            <Text numberOfLines={1} style={styles.badgeText}>
+            <Text
+              numberOfLines={1}
+              style={styles.badgeText}
+            >
               {pendingCatches.length}
             </Text>
           </View>
@@ -62,7 +85,8 @@ export function PendingConfirmationsList({ pendingCatches }: PendingConfirmation
       </View>
       {isEmpty ? (
         <Text style={styles.description}>
-          No pending confirmations. When you catch a fursuit that requires owner approval, it will appear here until they approve or decline.
+          No pending confirmations. When you catch a fursuit that requires owner approval, it will
+          appear here until they approve or decline.
         </Text>
       ) : (
         <>

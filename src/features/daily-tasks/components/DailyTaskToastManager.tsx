@@ -43,7 +43,11 @@ export function DailyTaskToastManager() {
   return (
     <Fragment>
       {watcherIds.map((conventionId) => (
-        <DailyTaskWatcher key={`${userId}:${conventionId}`} userId={userId} conventionId={conventionId} />
+        <DailyTaskWatcher
+          key={`${userId}:${conventionId}`}
+          userId={userId}
+          conventionId={conventionId}
+        />
       ))}
     </Fragment>
   );

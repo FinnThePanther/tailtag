@@ -29,17 +29,29 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
 
   return (
     <div className="space-y-4">
-      <Card title="Player search" subtitle="Search by username or email">
-        <PlayerSearchForm conventions={conventions} initialValues={searchParams} />
+      <Card
+        title="Player search"
+        subtitle="Search by username or email"
+      >
+        <PlayerSearchForm
+          conventions={conventions}
+          initialValues={searchParams}
+        />
       </Card>
-      <Card title="Results" subtitle={`Showing ${players.length} players`}>
+      <Card
+        title="Results"
+        subtitle={`Showing ${players.length} players`}
+      >
         <Table headers={['Player', 'Role', 'Status', 'Catches', 'Reports', 'Created', '']}>
           {players.map((player) => (
             <tr key={player.id}>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5">
-                    <UserRound size={18} className="text-primary" />
+                    <UserRound
+                      size={18}
+                      className="text-primary"
+                    />
                   </div>
                   <div>
                     <p className="font-semibold text-white">{player.username ?? 'Unknown'}</p>
@@ -76,7 +88,10 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
           ))}
           {players.length === 0 ? (
             <tr>
-              <td className="px-4 py-3 text-sm text-muted" colSpan={7}>
+              <td
+                className="px-4 py-3 text-sm text-muted"
+                colSpan={7}
+              >
                 No players found.
               </td>
             </tr>

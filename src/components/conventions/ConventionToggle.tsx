@@ -17,7 +17,11 @@ export type ConventionToggleProps = {
   disabled?: boolean;
   badgeText?: string;
   profileId?: string;
-  onToggle: (conventionId: string, nextSelected: boolean, verifiedLocation?: VerifiedLocation | null) => void;
+  onToggle: (
+    conventionId: string,
+    nextSelected: boolean,
+    verifiedLocation?: VerifiedLocation | null,
+  ) => void;
 };
 
 export function ConventionToggle({
@@ -33,14 +37,22 @@ export function ConventionToggle({
     Boolean(profileId) &&
     Boolean(convention.location_verification_required) &&
     Boolean(convention.geofence_enabled);
-  const { status, requestPermission, isLoading: isRequestingPermission } = useLocationPermission(profileId);
+  const {
+    status,
+    requestPermission,
+    isLoading: isRequestingPermission,
+  } = useLocationPermission(profileId);
   const { verifyLocation, isVerifying } = useGeoVerification();
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
-  const dateRange = formatConventionDateRange(convention.start_date ?? null, convention.end_date ?? null);
+  const dateRange = formatConventionDateRange(
+    convention.start_date ?? null,
+    convention.end_date ?? null,
+  );
   const hasEnded = isConventionEnded(convention.end_date ?? null);
   const isDisabledDueToEnd = hasEnded && !selected; // Allow deselecting even if ended
-  const shouldDisable = disabled || pending || isVerifying || isRequestingPermission || isDisabledDueToEnd;
+  const shouldDisable =
+    disabled || pending || isVerifying || isRequestingPermission || isDisabledDueToEnd;
   const showDisabledBadge = !selected && !pending && (disabled || hasEnded);
 
   const handlePress = async () => {
@@ -114,9 +126,15 @@ export function ConventionToggle({
           ]}
         >
           {pending || isVerifying ? (
-            <ActivityIndicator size="small" color={colors.foreground} />
+            <ActivityIndicator
+              size="small"
+              color={colors.foreground}
+            />
           ) : (
-            <Text numberOfLines={1} style={styles.conventionBadgeText}>
+            <Text
+              numberOfLines={1}
+              style={styles.conventionBadgeText}
+            >
               {badgeText ?? (selected ? 'Joined' : 'Tap to join')}
             </Text>
           )}

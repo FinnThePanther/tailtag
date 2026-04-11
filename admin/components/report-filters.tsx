@@ -29,7 +29,10 @@ export function ReportFilters({ conventions, initial }: Props) {
   };
 
   return (
-    <form onSubmit={apply} className="grid gap-3 md:grid-cols-3">
+    <form
+      onSubmit={apply}
+      className="grid gap-3 md:grid-cols-3"
+    >
       <div>
         <label className="text-sm text-slate-200">Status</label>
         <select
@@ -67,7 +70,10 @@ export function ReportFilters({ conventions, initial }: Props) {
         >
           <option value="">Any</option>
           {conventions.map((c) => (
-            <option key={c.id} value={c.id}>
+            <option
+              key={c.id}
+              value={c.id}
+            >
               {c.name}
             </option>
           ))}

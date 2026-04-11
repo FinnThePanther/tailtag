@@ -68,7 +68,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
         created_at,
         updated_at
       )
-    `
+    `,
     )
     .eq('owner_id', userId)
     .eq('is_tutorial', false)
@@ -104,7 +104,8 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
     const colors = mapFursuitColors(item.color_assignments ?? null);
 
     // Default to AUTO_ACCEPT if not set
-    const catchMode: CatchMode = item.catch_mode === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
+    const catchMode: CatchMode =
+      item.catch_mode === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
 
     return {
       id: item.id,

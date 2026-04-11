@@ -58,10 +58,7 @@ type ProgressRow = Pick<
   'task_id' | 'current_count' | 'is_completed' | 'completed_at'
 >;
 
-type StreakRow = Pick<
-  UserDailyStreaksRow,
-  'current_streak' | 'best_streak' | 'last_completed_day'
->;
+type StreakRow = Pick<UserDailyStreaksRow, 'current_streak' | 'best_streak' | 'last_completed_day'>;
 
 const EMPTY_STREAK = {
   current: 0,
@@ -114,7 +111,10 @@ function pad(value: number): string {
   return value.toString().padStart(2, '0');
 }
 
-function getLocalDay(now: Date, timezone: string): {
+function getLocalDay(
+  now: Date,
+  timezone: string,
+): {
   day: string;
   year: number;
   month: number;
@@ -200,13 +200,21 @@ function zonedTimeToUtc(
   }
 
   const utcMillis = Date.UTC(
-    Number(utcParts[1]), Number(utcParts[2]) - 1, Number(utcParts[3]),
-    Number(utcParts[4]), Number(utcParts[5]), Number(utcParts[6])
+    Number(utcParts[1]),
+    Number(utcParts[2]) - 1,
+    Number(utcParts[3]),
+    Number(utcParts[4]),
+    Number(utcParts[5]),
+    Number(utcParts[6]),
   );
 
   const tzMillis = Date.UTC(
-    Number(tzParts[1]), Number(tzParts[2]) - 1, Number(tzParts[3]),
-    Number(tzParts[4]), Number(tzParts[5]), Number(tzParts[6])
+    Number(tzParts[1]),
+    Number(tzParts[2]) - 1,
+    Number(tzParts[3]),
+    Number(tzParts[4]),
+    Number(tzParts[5]),
+    Number(tzParts[6]),
   );
 
   const offsetMs = utcMillis - tzMillis;
@@ -238,7 +246,7 @@ async function loadAssignments(conventionId: string, day: string): Promise<Assig
   const result = await supabase
     .from('daily_assignments')
     .select(
-      'id, day, position, convention_id, task:daily_tasks(id, name, description, kind, requirement, metadata, is_active, convention_id)'
+      'id, day, position, convention_id, task:daily_tasks(id, name, description, kind, requirement, metadata, is_active, convention_id)',
     )
     .eq('day', day)
     .eq('convention_id', conventionId)
@@ -266,15 +274,19 @@ async function ensureAssignmentsForDay(
   const supabaseKey = SUPABASE_ANON_KEY;
 
   if (!accessToken || !supabaseUrl || !supabaseKey) {
-    captureHandledMessage('Missing credentials for daily task rotation fallback', {
-      scope: 'dailyTasks.ensureAssignmentsForDay',
-      userId,
-      conventionId,
-      day,
-      hasAccessToken: Boolean(accessToken),
-      hasSupabaseUrl: Boolean(supabaseUrl),
-      hasSupabaseKey: Boolean(supabaseKey),
-    }, 'warning');
+    captureHandledMessage(
+      'Missing credentials for daily task rotation fallback',
+      {
+        scope: 'dailyTasks.ensureAssignmentsForDay',
+        userId,
+        conventionId,
+        day,
+        hasAccessToken: Boolean(accessToken),
+        hasSupabaseUrl: Boolean(supabaseUrl),
+        hasSupabaseKey: Boolean(supabaseKey),
+      },
+      'warning',
+    );
     return currentResult;
   }
 
@@ -289,38 +301,50 @@ async function ensureAssignmentsForDay(
           'Content-Type': 'application/json',
         },
         body: '{}',
-      }
+      },
     );
 
     if (!response.ok) {
       const responseBody = await response.text().catch(() => null);
-      captureHandledMessage('Daily task rotation fallback failed', {
+      captureHandledMessage(
+        'Daily task rotation fallback failed',
+        {
+          scope: 'dailyTasks.ensureAssignmentsForDay',
+          userId,
+          conventionId,
+          day,
+          status: response.status,
+          responseBody,
+        },
+        'warning',
+      );
+      return currentResult;
+    }
+
+    captureHandledMessage(
+      'Daily task rotation fallback created missing assignments',
+      {
         scope: 'dailyTasks.ensureAssignmentsForDay',
         userId,
         conventionId,
         day,
-        status: response.status,
-        responseBody,
-      }, 'warning');
-      return currentResult;
-    }
-
-    captureHandledMessage('Daily task rotation fallback created missing assignments', {
-      scope: 'dailyTasks.ensureAssignmentsForDay',
-      userId,
-      conventionId,
-      day,
-    }, 'info');
+      },
+      'info',
+    );
 
     return await loadAssignments(conventionId, day);
   } catch (error) {
-    captureHandledMessage('Daily task rotation fallback threw', {
-      scope: 'dailyTasks.ensureAssignmentsForDay',
-      userId,
-      conventionId,
-      day,
-      error: error instanceof Error ? error.message : String(error),
-    }, 'warning');
+    captureHandledMessage(
+      'Daily task rotation fallback threw',
+      {
+        scope: 'dailyTasks.ensureAssignmentsForDay',
+        userId,
+        conventionId,
+        day,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      'warning',
+    );
     return currentResult;
   }
 }
@@ -340,21 +364,26 @@ export async function fetchDailyTasks({
   }
 
   if (!conventionRow) {
-    captureHandledMessage('Convention missing when fetching daily tasks', {
-      scope: 'dailyTasks.fetchDailyTasks',
-      userId,
-      conventionId,
-    }, 'warning');
+    captureHandledMessage(
+      'Convention missing when fetching daily tasks',
+      {
+        scope: 'dailyTasks.fetchDailyTasks',
+        userId,
+        conventionId,
+      },
+      'warning',
+    );
     throw new Error('That convention is no longer available.');
   }
 
   const convention = conventionRow as ConventionTimezoneRow;
   const timezone = convention.timezone ?? 'UTC';
   const nowUtc = new Date();
-  const { day: localDay, resetAtIso, millisecondsUntilReset } = computeResetMetadata(
-    timezone,
-    nowUtc,
-  );
+  const {
+    day: localDay,
+    resetAtIso,
+    millisecondsUntilReset,
+  } = computeResetMetadata(timezone, nowUtc);
 
   const progressPromise = supabase
     .from('user_daily_progress')

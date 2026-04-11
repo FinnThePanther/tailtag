@@ -203,9 +203,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       return true;
     } catch (caught) {
       const fallbackMessage =
-        caught instanceof Error
-          ? caught.message
-          : 'Unable to enable push notifications right now.';
+        caught instanceof Error ? caught.message : 'Unable to enable push notifications right now.';
       setError(fallbackMessage);
       captureNonCriticalError(caught, {
         scope: 'push-notifications.requestPermission',
@@ -266,7 +264,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       refreshState,
       requestPermissionAndRegister,
       token,
-    ]
+    ],
   );
 
   return state;

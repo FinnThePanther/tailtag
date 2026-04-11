@@ -1,7 +1,11 @@
 import { supabase } from '../../../lib/supabase';
 import { captureFeatureError } from '../../../lib/sentry';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../../lib/runtimeConfig';
-import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET, PROFILE_AVATAR_BUCKET } from '../../../constants/storage';
+import {
+  CATCH_PHOTO_BUCKET,
+  FURSUIT_BUCKET,
+  PROFILE_AVATAR_BUCKET,
+} from '../../../constants/storage';
 import {
   buildAuthenticatedStorageObjectUrl,
   resolveStorageMediaUrl,
@@ -12,7 +16,13 @@ import {
 } from '../../achievements/immediateAwardsBus';
 import { emitLocalGameplayEvent } from '../../events/localGameplayEventsBus';
 import type { Json } from '../../../types/database';
-import type { CatchMode, PendingCatch, ConfirmCatchResult, CreateCatchResult, CreateCatchParams } from '../types';
+import type {
+  CatchMode,
+  PendingCatch,
+  ConfirmCatchResult,
+  CreateCatchResult,
+  CreateCatchParams,
+} from '../types';
 
 // Query keys
 export const PENDING_CATCHES_QUERY_KEY = 'pending-catches';
@@ -57,9 +67,7 @@ function normalizeInlineAwards(
 
     if (currentUserId) {
       const awardUserId =
-        typeof entry.user_id === 'string' && entry.user_id.length > 0
-          ? entry.user_id
-          : null;
+        typeof entry.user_id === 'string' && entry.user_id.length > 0 ? entry.user_id : null;
       if (!awardUserId || awardUserId !== currentUserId) {
         continue;
       }
@@ -91,7 +99,9 @@ function normalizeColorNames(raw: unknown): string[] {
     return [];
   }
 
-  return raw.filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+  return raw.filter(
+    (value): value is string => typeof value === 'string' && value.trim().length > 0,
+  );
 }
 
 async function wakeGameplayQueue(): Promise<void> {
@@ -149,7 +159,6 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
   }));
 }
 
-
 /**
  * Confirm or reject a pending catch.
  * When accepting, the catch_confirmed event is emitted server-side by the RPC function.
@@ -165,7 +174,7 @@ export async function confirmCatch(
   userId: string,
   decision: 'accept' | 'reject',
   reason?: string,
-  _conventionId?: string
+  _conventionId?: string,
 ): Promise<ConfirmCatchResult> {
   const { data, error } = await supabase.rpc('confirm_catch', {
     p_catch_id: catchId,
@@ -178,7 +187,7 @@ export async function confirmCatch(
     throw new Error(
       decision === 'accept'
         ? "We couldn't approve this catch. Please try again."
-        : "We couldn't decline this catch. Please try again."
+        : "We couldn't decline this catch. Please try again.",
     );
   }
 
@@ -212,7 +221,7 @@ export async function confirmCatch(
 export async function updateFursuitCatchMode(
   fursuitId: string,
   userId: string,
-  catchMode: CatchMode
+  catchMode: CatchMode,
 ): Promise<void> {
   const client = supabase as any;
 
@@ -254,7 +263,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
     const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         apikey: supabaseKey,
         'Content-Type': 'application/json',
       },
@@ -286,13 +295,19 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         throw new Error('You cannot catch this fursuit.');
       }
       if (errorMessage.includes('Cannot catch your own')) {
-        throw new Error('That tag belongs to one of your own suits. Trade codes with friends to grow your collection.');
+        throw new Error(
+          'That tag belongs to one of your own suits. Trade codes with friends to grow your collection.',
+        );
       }
       if (errorMessage.includes('already caught') || errorMessage.includes('pending')) {
-        throw new Error('You already caught this suit at this convention. Try catching them at another con!');
+        throw new Error(
+          'You already caught this suit at this convention. Try catching them at another con!',
+        );
       }
       if (errorMessage.includes('not found')) {
-        throw new Error("We couldn't find a fursuit with that code. Double-check the letters and try again.");
+        throw new Error(
+          "We couldn't find a fursuit with that code. Double-check the letters and try again.",
+        );
       }
 
       throw new Error("We couldn't save that catch. Please try again.");
@@ -338,7 +353,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         type: 'catch_performed',
         conventionId: params.conventionId,
         occurredAt,
-        payload: ({ ...optimisticPayload, payload: optimisticPayload } as Json),
+        payload: { ...optimisticPayload, payload: optimisticPayload } as Json,
         emittedAt: Date.now(),
       });
 
@@ -396,13 +411,12 @@ export async function updateCatchPhoto(
 
   try {
     const resolvedPhotoUrl =
-      params.photoUrl ??
-      buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, params.photoPath);
+      params.photoUrl ?? buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, params.photoPath);
 
     const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
       method: 'PATCH',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         apikey: supabaseKey,
         'Content-Type': 'application/json',
       },

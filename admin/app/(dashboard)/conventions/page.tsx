@@ -22,7 +22,10 @@ export default async function ConventionsPage() {
     >
       <div className="divide-y divide-border/80">
         {conventions.map((convention) => (
-          <div key={convention.id} className="flex items-center justify-between gap-3 py-3">
+          <div
+            key={convention.id}
+            className="flex items-center justify-between gap-3 py-3"
+          >
             <div className="space-y-1">
               <p className="text-base font-semibold text-white">{convention.name}</p>
               <p className="text-sm text-muted">

@@ -10,7 +10,11 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { STAFF_MODE_ENABLED } from '../../src/constants/features';
 import { useAuth } from '../../src/features/auth';
 import { profileQueryKey, fetchProfile } from '../../src/features/profile';
-import { searchPlayersForStaff, staffModerate, type StaffPlayerResult } from '../../src/features/staff-mode/api';
+import {
+  searchPlayersForStaff,
+  staffModerate,
+  type StaffPlayerResult,
+} from '../../src/features/staff-mode/api';
 import { canUseStaffMode } from '../../src/features/staff-mode/constants';
 import { StaffModerationModal } from '../../src/features/staff-mode/components/StaffModerationModal';
 import { captureHandledException } from '../../src/lib/sentry';
@@ -42,7 +46,12 @@ export default function StaffModeScreen() {
   const [reason, setReason] = useState('');
   const [modalError, setModalError] = useState<string | null>(null);
   const [isSubmittingModeration, setIsSubmittingModeration] = useState(false);
-  const { data: results = [], isFetching, error: searchError, refetch } = useQuery({
+  const {
+    data: results = [],
+    isFetching,
+    error: searchError,
+    refetch,
+  } = useQuery({
     queryKey: ['staff-mode-search', search],
     enabled: staffAllowed && search.trim().length > 2,
     queryFn: () => searchPlayersForStaff(search),
@@ -114,9 +123,7 @@ export default function StaffModeScreen() {
       const successMessage = nextSuspended ? 'Ban applied.' : 'Ban lifted.';
 
       setLastResult((current) =>
-        current?.id === selectedPlayer.id
-          ? { ...current, is_suspended: nextSuspended }
-          : current
+        current?.id === selectedPlayer.id ? { ...current, is_suspended: nextSuspended } : current,
       );
 
       resetModerationModal();
@@ -145,7 +152,11 @@ export default function StaffModeScreen() {
               Look up players, review status, and open profiles quickly during the event.
             </Text>
           </View>
-          <TailTagButton variant="ghost" size="sm" onPress={() => router.back()}>
+          <TailTagButton
+            variant="ghost"
+            size="sm"
+            onPress={() => router.back()}
+          >
             Back
           </TailTagButton>
         </View>
@@ -163,7 +174,12 @@ export default function StaffModeScreen() {
             />
             <View style={styles.helperRow}>
               <Text style={styles.helperText}>Min 3 characters to search</Text>
-              <TailTagButton variant="outline" size="sm" onPress={() => refetch()} loading={isFetching}>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => refetch()}
+                loading={isFetching}
+              >
                 Refresh
               </TailTagButton>
             </View>
@@ -201,7 +217,11 @@ export default function StaffModeScreen() {
           <View style={styles.lastSection}>
             <View style={styles.headerRow}>
               <Text style={styles.sectionTitle}>Last lookup</Text>
-              <TailTagButton variant="ghost" size="sm" onPress={() => setSearch(lastResult.username ?? '')}>
+              <TailTagButton
+                variant="ghost"
+                size="sm"
+                onPress={() => setSearch(lastResult.username ?? '')}
+              >
                 Search again
               </TailTagButton>
             </View>
@@ -266,7 +286,9 @@ function PlayerRow({ player, disabled = false, onBan, onUnban, onViewProfile }: 
       );
     } else {
       Alert.alert('Actions', undefined, [
-        isSuspended ? { text: 'Unban', onPress: onUnban } : { text: 'Ban', style: 'destructive' as const, onPress: onBan },
+        isSuspended
+          ? { text: 'Unban', onPress: onUnban }
+          : { text: 'Ban', style: 'destructive' as const, onPress: onBan },
         { text: 'View profile', onPress: onViewProfile },
         { text: 'Cancel', style: 'cancel' },
       ]);
@@ -276,7 +298,9 @@ function PlayerRow({ player, disabled = false, onBan, onUnban, onViewProfile }: 
   return (
     <View style={styles.resultRow}>
       <View style={styles.avatarPlaceholder}>
-        <Text style={styles.avatarInitial}>{(player.username ?? '?').slice(0, 1).toUpperCase()}</Text>
+        <Text style={styles.avatarInitial}>
+          {(player.username ?? '?').slice(0, 1).toUpperCase()}
+        </Text>
       </View>
       <View style={styles.resultMeta}>
         <Text style={styles.resultName}>{player.username ?? 'Unknown'}</Text>
@@ -294,7 +318,11 @@ function PlayerRow({ player, disabled = false, onBan, onUnban, onViewProfile }: 
         disabled={disabled}
         style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.5 }]}
       >
-        <Ionicons name="ellipsis-vertical" size={18} color={colors.foreground} />
+        <Ionicons
+          name="ellipsis-vertical"
+          size={18}
+          color={colors.foreground}
+        />
       </Pressable>
     </View>
   );

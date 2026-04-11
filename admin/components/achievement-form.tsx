@@ -2,7 +2,10 @@
 
 import { useState, useTransition } from 'react';
 
-import { grantAchievementAction, revokeAchievementAction } from '@/app/(dashboard)/achievements/actions';
+import {
+  grantAchievementAction,
+  revokeAchievementAction,
+} from '@/app/(dashboard)/achievements/actions';
 
 type Props = {
   achievements: { id: string; name: string; description: string }[];
@@ -41,7 +44,10 @@ export function AchievementForm({ achievements }: Props) {
           className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
         >
           {achievements.map((a) => (
-            <option key={a.id} value={a.id}>
+            <option
+              key={a.id}
+              value={a.id}
+            >
               {a.name}
             </option>
           ))}
@@ -59,7 +65,9 @@ export function AchievementForm({ achievements }: Props) {
         <button
           type="button"
           disabled={isPending || !userId || !achievementId}
-          onClick={() => handle(() => revokeAchievementAction({ userId, achievementId }), 'Revoked')}
+          onClick={() =>
+            handle(() => revokeAchievementAction({ userId, achievementId }), 'Revoked')
+          }
           className="rounded-lg border border-border px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-primary disabled:opacity-50"
         >
           Revoke

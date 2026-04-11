@@ -22,7 +22,10 @@ export default async function ConventionLocationPage({ params }: { params: { id:
         <ArrowLeft size={14} /> Back to convention
       </Link>
 
-      <Card title="Geo-fence & verification" subtitle="Define the area that counts as on-site">
+      <Card
+        title="Geo-fence & verification"
+        subtitle="Define the area that counts as on-site"
+      >
         <ConventionGeofenceForm
           conventionId={convention.id}
           name={convention.name}

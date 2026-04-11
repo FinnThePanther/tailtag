@@ -6,7 +6,10 @@ import { supabase } from '../../../lib/supabase';
 const OAUTH_SCHEME = 'tailtag';
 const OAUTH_CALLBACK_PATH = 'auth/callback';
 let pendingProvider: string | null = null;
-const providerTokenStore: Record<string, { accessToken: string | null; refreshToken: string | null }> = {};
+const providerTokenStore: Record<
+  string,
+  { accessToken: string | null; refreshToken: string | null }
+> = {};
 
 export const getOAuthRedirectUri = () =>
   AuthSession.makeRedirectUri({
@@ -47,7 +50,8 @@ export const completeOAuthSessionFromUrl = async (url: string) => {
 
   const accessToken = typeof params.access_token === 'string' ? params.access_token : null;
   const refreshToken = typeof params.refresh_token === 'string' ? params.refresh_token : null;
-  const providerAccessToken = typeof params.provider_token === 'string' ? params.provider_token : null;
+  const providerAccessToken =
+    typeof params.provider_token === 'string' ? params.provider_token : null;
   const providerRefreshToken =
     typeof params.provider_refresh_token === 'string' ? params.provider_refresh_token : null;
 
