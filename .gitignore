@@ -52,7 +52,7 @@ admin/.next
 admin/.env.local
 
 # Local PRDs for feature development
-/docs
+/prds
 CLAUDE.md
 .mcp.json
 AGENTS.md
