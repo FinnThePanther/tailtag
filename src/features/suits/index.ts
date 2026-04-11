@@ -3,6 +3,8 @@ export { FursuitBioDetails } from './components/FursuitBioDetails';
 export { CaughtSuitRow } from './components/CaughtSuitRow';
 export { CatchOfFursuitRow } from './components/CatchOfFursuitRow';
 export { CatchPhotosList } from './components/CatchPhotosList';
+export { FursuitDetailSkeleton } from './components/FursuitDetailSkeleton';
+export { CatchPhotosListSkeleton } from './components/CatchPhotosListSkeleton';
 export {
   fetchCatchesByFursuit,
   CATCHES_BY_FURSUIT_QUERY_KEY,

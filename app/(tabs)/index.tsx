@@ -36,9 +36,16 @@ import {
   fetchAchievementStatus,
   achievementsStatusQueryKey,
   type AchievementWithStatus,
+  AchievementsSummarySkeleton,
 } from '../../src/features/achievements';
 import { emitGameplayEvent } from '../../src/features/events';
-import { useDailyTasks, DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks';
+import {
+  useDailyTasks,
+  DAILY_TASKS_QUERY_KEY,
+  DailyTasksSummarySkeleton,
+} from '../../src/features/daily-tasks';
+import { LeaderboardSectionSkeleton } from '../../src/features/leaderboard';
+import { useAllDataReady } from '../../src/hooks/useAllDataReady';
 import { spacing } from '../../src/theme';
 import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/(tabs)/index.styles';
@@ -111,12 +118,7 @@ export default function HomeScreen() {
 
   const contentWidthStyle = useMemo(() => ({ width: maxContentWidth }), [maxContentWidth]);
 
-  const {
-    data: conventions = [],
-    error: conventionsError,
-    isLoading: isConventionsLoading,
-    refetch: refetchConventions,
-  } = useQuery<ConventionSummary[], Error>({
+  const conventionsQuery = useQuery<ConventionSummary[], Error>({
     queryKey: [CONVENTIONS_QUERY_KEY],
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
@@ -124,13 +126,13 @@ export default function HomeScreen() {
     refetchOnReconnect: false,
     queryFn: () => fetchConventions(),
   });
-
   const {
-    data: profileConventionIds = [],
-    error: profileConventionsError,
-    isLoading: isProfileConventionsLoading,
-    refetch: refetchProfileConventions,
-  } = useQuery<string[], Error>({
+    data: conventions = [],
+    error: conventionsError,
+    refetch: refetchConventions,
+  } = conventionsQuery;
+
+  const profileConventionsQuery = useQuery<string[], Error>({
     queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
@@ -138,6 +140,11 @@ export default function HomeScreen() {
     refetchOnReconnect: false,
     queryFn: () => fetchProfileConventionIds(userId!),
   });
+  const {
+    data: profileConventionIds = [],
+    error: profileConventionsError,
+    refetch: refetchProfileConventions,
+  } = profileConventionsQuery;
 
   const achievementsQueryKey = useMemo(
     () =>
@@ -145,12 +152,7 @@ export default function HomeScreen() {
     [userId],
   );
 
-  const {
-    data: achievementStatuses = [],
-    error: achievementsError,
-    isLoading: isAchievementsLoading,
-    refetch: refetchAchievements,
-  } = useQuery<AchievementWithStatus[], Error>({
+  const achievementsQuery = useQuery<AchievementWithStatus[], Error>({
     queryKey: achievementsQueryKey,
     enabled: Boolean(userId),
     queryFn: () => fetchAchievementStatus(userId ?? ''),
@@ -158,6 +160,11 @@ export default function HomeScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+  const {
+    data: achievementStatuses = [],
+    error: achievementsError,
+    refetch: refetchAchievements,
+  } = achievementsQuery;
 
   const unlockedAchievements = useMemo(
     () => achievementStatuses.filter((achievement) => achievement.unlocked),
@@ -182,7 +189,6 @@ export default function HomeScreen() {
   }, [unlockedAchievements]);
 
   const achievementsErrorMessage = achievementsError?.message ?? null;
-  const showAchievementsSkeleton = achievementStatuses.length === 0 && isAchievementsLoading;
 
   const conventionMap = useMemo(() => {
     return new Map(conventions.map((convention) => [convention.id, convention]));
@@ -199,13 +205,13 @@ export default function HomeScreen() {
   }, [availableConventions]);
   const selectedConventionId = selectedConvention?.id ?? null;
 
+  const dailyTasksQuery = useDailyTasks(userId, selectedConventionId, { suppressToasts: true });
   const {
     data: dailyTasksData,
     error: dailyTasksError,
-    isLoading: isDailyTasksLoading,
     refetch: refetchDailyTasks,
     countdown: dailyCountdown,
-  } = useDailyTasks(userId, selectedConventionId, { suppressToasts: true });
+  } = dailyTasksQuery;
 
   const dailyTotalTasks = dailyTasksData?.totalCount ?? 0;
   const dailyCompletedTasks = dailyTasksData?.completedCount ?? 0;
@@ -214,7 +220,6 @@ export default function HomeScreen() {
   const dailyRemainingTasks = Math.max(dailyTotalTasks - dailyCompletedTasks, 0);
   const dailyTasksErrorMessage = dailyTasksError?.message ?? null;
   const hasDailyAssignments = dailyTotalTasks > 0;
-  const showDailySkeleton = !dailyTasksData && isDailyTasksLoading;
   const showDailyError = !dailyTasksData && Boolean(dailyTasksErrorMessage);
   const dailyAllComplete = hasDailyAssignments && dailyRemainingTasks === 0;
   const dailyTimezone = dailyTasksData?.timezone ?? selectedConvention?.timezone ?? 'UTC';
@@ -236,13 +241,7 @@ export default function HomeScreen() {
     }
   }, [dailyTasksData?.resetAt, dailyTimezone]);
 
-  const {
-    data: leaderboardEntries = [],
-    error: leaderboardError,
-    isLoading: isLeaderboardLoading,
-    isFetching: isLeaderboardFetching,
-    refetch: refetchLeaderboard,
-  } = useQuery<LeaderboardEntry[], Error>(
+  const leaderboardQuery = useQuery<LeaderboardEntry[], Error>(
     selectedConventionId
       ? createConventionLeaderboardQueryOptions(selectedConventionId)
       : {
@@ -251,14 +250,13 @@ export default function HomeScreen() {
           enabled: false,
         },
   );
-
   const {
-    data: suitLeaderboardEntries = [],
-    error: suitLeaderboardError,
-    isLoading: isSuitLeaderboardLoading,
-    isFetching: isSuitLeaderboardFetching,
-    refetch: refetchSuitLeaderboard,
-  } = useQuery<SuitLeaderboardEntry[], Error>(
+    data: leaderboardEntries = [],
+    error: leaderboardError,
+    refetch: refetchLeaderboard,
+  } = leaderboardQuery;
+
+  const suitLeaderboardQuery = useQuery<SuitLeaderboardEntry[], Error>(
     selectedConventionId
       ? createConventionSuitLeaderboardQueryOptions(selectedConventionId)
       : {
@@ -267,6 +265,11 @@ export default function HomeScreen() {
           enabled: false,
         },
   );
+  const {
+    data: suitLeaderboardEntries = [],
+    error: suitLeaderboardError,
+    refetch: refetchSuitLeaderboard,
+  } = suitLeaderboardQuery;
 
   // Subscribe to realtime changes for leaderboard updates
   useEffect(() => {
@@ -342,9 +345,7 @@ export default function HomeScreen() {
 
   const membershipErrorMessage =
     profileConventionsError?.message ?? conventionsError?.message ?? null;
-  const isMembershipLoading = isProfileConventionsLoading || isConventionsLoading;
   const hasConventionAccess = availableConventions.length > 0;
-  const isLeaderboardBusy = isLeaderboardLoading || isLeaderboardFetching;
 
   const rankByProfileId = useMemo(() => {
     return new Map(leaderboardEntries.map((entry, index) => [entry.profileId, index + 1]));
@@ -364,9 +365,18 @@ export default function HomeScreen() {
   const displayEntries = isSelfOutsideTop && selfEntry ? [...topEntries, selfEntry] : topEntries;
 
   const topSuitEntries = suitLeaderboardEntries.slice(0, MAX_LEADERBOARD_ENTRIES);
-  const isSuitLeaderboardBusy = isSuitLeaderboardLoading || isSuitLeaderboardFetching;
   const suitErrorMessage = suitLeaderboardError?.message ?? null;
   const hasSuitEntries = topSuitEntries.length > 0;
+
+  const tier1Ready = useAllDataReady([conventionsQuery, profileConventionsQuery]);
+  const rawTier2Ready = useAllDataReady([dailyTasksQuery, achievementsQuery]);
+  // When there's no convention, daily tasks won't fire; gate tier 2 on achievements only.
+  const tier2Ready =
+    tier1Ready &&
+    (!selectedConventionId
+      ? achievementsQuery.data !== undefined || achievementsQuery.isError
+      : rawTier2Ready);
+  const tier3Ready = useAllDataReady([leaderboardQuery, suitLeaderboardQuery]);
 
   useEffect(() => {
     if (!suitLeaderboardEntries.length) return;
@@ -507,10 +517,12 @@ export default function HomeScreen() {
           <Text style={styles.sectionEyebrow}>Daily tasks</Text>
           <Text style={styles.sectionTitle}>Today's objectives</Text>
 
-          {!selectedConventionId ? (
+          {!tier1Ready ? (
+            <DailyTasksSummarySkeleton />
+          ) : !selectedConventionId ? (
             <Text style={styles.message}>Pick a convention to unlock daily tasks.</Text>
-          ) : showDailySkeleton ? (
-            <Text style={styles.message}>Checking today's lineup...</Text>
+          ) : !tier2Ready ? (
+            <DailyTasksSummarySkeleton />
           ) : showDailyError ? (
             <View style={styles.helper}>
               <Text style={styles.error}>{dailyTasksErrorMessage}</Text>
@@ -563,8 +575,8 @@ export default function HomeScreen() {
           <Text style={styles.sectionEyebrow}>Achievements</Text>
           <Text style={styles.sectionTitle}>Track your progress</Text>
 
-          {showAchievementsSkeleton ? (
-            <Text style={styles.message}>Checking your progress…</Text>
+          {!tier1Ready || !tier2Ready ? (
+            <AchievementsSummarySkeleton />
           ) : achievementsErrorMessage ? (
             <View style={styles.helper}>
               <Text style={styles.error}>{achievementsErrorMessage}</Text>
@@ -621,8 +633,12 @@ export default function HomeScreen() {
           <Text style={styles.sectionEyebrow}>Leaderboard</Text>
           <Text style={styles.sectionTitle}>Catch standings</Text>
 
-          {isMembershipLoading ? (
-            <Text style={styles.message}>Loading convention info…</Text>
+          {!tier1Ready ? (
+            <View style={styles.leaderboardContent}>
+              <LeaderboardSectionSkeleton />
+              <View style={styles.leaderboardDivider} />
+              <LeaderboardSectionSkeleton />
+            </View>
           ) : membershipErrorMessage ? (
             <View style={styles.helper}>
               <Text style={styles.error}>{membershipErrorMessage}</Text>
@@ -646,8 +662,8 @@ export default function HomeScreen() {
               {selectedConventionId ? (
                 <View style={styles.leaderboardStack}>
                   <View>
-                    {isLeaderboardBusy ? (
-                      <Text style={styles.message}>Loading leaderboard…</Text>
+                    {!tier3Ready ? (
+                      <LeaderboardSectionSkeleton />
                     ) : leaderboardError ? (
                       <View style={styles.helper}>
                         <Text style={styles.error}>{leaderboardError.message}</Text>
@@ -740,8 +756,8 @@ export default function HomeScreen() {
 
                   <View style={styles.suitLeaderboardSection}>
                     <Text style={styles.sectionSubheading}>Top fursuits</Text>
-                    {isSuitLeaderboardBusy ? (
-                      <Text style={styles.message}>Loading suit stats…</Text>
+                    {!tier3Ready ? (
+                      <LeaderboardSectionSkeleton />
                     ) : suitErrorMessage ? (
                       <View style={styles.helper}>
                         <Text style={styles.error}>{suitErrorMessage}</Text>

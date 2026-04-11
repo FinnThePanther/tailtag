@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -28,7 +29,12 @@ import {
   createUserCatchCountQueryOptions,
   createUserConventionCountQueryOptions,
   aggregateSocialLinks,
+  ProfileHeaderSkeleton,
+  StatsGridSkeleton,
+  FursuitsListSkeleton,
+  AchievementsListSkeleton,
 } from '../../../src/features/public-profile';
+import { useAllDataReady } from '../../../src/hooks/useAllDataReady';
 import { captureNonCriticalError } from '../../../src/lib/sentry';
 import { colors } from '../../../src/theme';
 import { styles } from '../../../src/app-styles/profile/[id]/index.styles';
@@ -56,21 +62,13 @@ export default function PublicProfileScreen() {
 
   const isSelf = Boolean(profileId && currentUserId && profileId === currentUserId);
 
-  const {
-    data: profile,
-    isLoading: isProfileLoading,
-    error: profileError,
-    refetch: refetchProfile,
-  } = useQuery({
+  const profileQuery = useQuery({
     ...createProfileQueryOptions(profileId ?? ''),
     enabled: Boolean(profileId),
   });
+  const { data: profile, error: profileError, refetch: refetchProfile } = profileQuery;
 
-  const {
-    data: fursuits = [],
-    isLoading: isSuitsLoading,
-    error: suitsError,
-  } = useQuery({
+  const fursuitsQuery = useQuery({
     queryKey: mySuitsQueryKey(profileId ?? ''),
     queryFn: () => fetchMySuits(profileId ?? ''),
     staleTime: MY_SUITS_STALE_TIME,
@@ -78,10 +76,11 @@ export default function PublicProfileScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+  const { data: fursuits = [], error: suitsError } = fursuitsQuery;
 
   const { width: screenWidth } = useWindowDimensions();
 
-  const { data: unlockedAchievements = [], isLoading: isAchievementsLoading } = useQuery({
+  const achievementsQuery = useQuery({
     queryKey: userUnlockedAchievementsQueryKey(profileId ?? ''),
     queryFn: () => fetchUserUnlockedAchievements(profileId ?? ''),
     staleTime: 5 * 60_000,
@@ -89,28 +88,50 @@ export default function PublicProfileScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+  const { data: unlockedAchievements = [] } = achievementsQuery;
 
-  const { data: catchCount = 0, isLoading: isCatchCountLoading } = useQuery({
+  const catchCountQuery = useQuery({
     ...createUserCatchCountQueryOptions(profileId ?? ''),
     enabled: Boolean(profileId),
   });
+  const { data: catchCount = 0 } = catchCountQuery;
 
-  const { data: conventionCount = 0, isLoading: isConventionCountLoading } = useQuery({
+  const conventionCountQuery = useQuery({
     ...createUserConventionCountQueryOptions(profileId ?? ''),
     enabled: Boolean(profileId),
   });
+  const { data: conventionCount = 0 } = conventionCountQuery;
 
-  const { data: isBlocked = false } = useQuery({
+  const isBlockedQuery = useQuery({
     queryKey: ['is-blocked', currentUserId, profileId],
     queryFn: () => checkIsBlocked(profileId!),
     enabled: Boolean(profileId) && Boolean(currentUserId) && !isSelf,
     staleTime: 2 * 60_000,
   });
+  const { data: isBlocked = false } = isBlockedQuery;
 
   const avatarUrl = profile?.avatar_url ?? (fursuits.length > 0 ? fursuits[0].avatar_url : null);
   const socialLinks = aggregateSocialLinks(fursuits, profile?.social_links ?? []);
 
-  const isStatsLoading = isCatchCountLoading || isConventionCountLoading;
+  const [headerAvatarLoaded, setHeaderAvatarLoaded] = useState(false);
+  useEffect(() => {
+    setHeaderAvatarLoaded(false);
+  }, [profileId]);
+
+  // Tier 1: profile header (isBlockedQuery treated as ready in self-view since it's disabled)
+  const tier1Ready =
+    (profileQuery.data !== undefined || profileQuery.isError) &&
+    (isSelf || isBlockedQuery.data !== undefined || isBlockedQuery.isError);
+  // Tier 2: stats, fursuits, achievements — all reveal together
+  const tier2Ready = useAllDataReady([
+    fursuitsQuery,
+    achievementsQuery,
+    catchCountQuery,
+    conventionCountQuery,
+  ]);
+
+  const profileOwnAvatarUrl = profile?.avatar_url ?? null;
+  const headerRevealReady = tier1Ready && (!profileOwnAvatarUrl || headerAvatarLoaded);
 
   if (!profileId) {
     return (
@@ -165,9 +186,7 @@ export default function PublicProfileScreen() {
         >
           {/* Profile header */}
           <TailTagCard>
-            {isProfileLoading ? (
-              <Text style={styles.message}>Loading profile…</Text>
-            ) : profileError ? (
+            {profileError ? (
               <View style={styles.errorBlock}>
                 <Text style={styles.errorText}>Could not load this profile.</Text>
                 <TailTagButton
@@ -179,27 +198,43 @@ export default function PublicProfileScreen() {
                 </TailTagButton>
               </View>
             ) : (
-              <View style={styles.profileHeader}>
-                <View style={styles.profileAvatarWrapper}>
-                  {avatarUrl ? (
-                    <AppImage
-                      url={avatarUrl}
-                      width={screenWidth}
-                      height={screenWidth}
-                      style={styles.profileAvatar}
-                    />
-                  ) : (
-                    <View style={styles.profileAvatarFallback}>
-                      <Ionicons
-                        name="person"
-                        size={48}
-                        color="rgba(148,163,184,0.4)"
-                      />
+              <View>
+                {tier1Ready && (
+                  <View style={[styles.profileHeader, !headerRevealReady && { opacity: 0 }]}>
+                    <View style={styles.profileAvatarWrapper}>
+                      {avatarUrl ? (
+                        <AppImage
+                          url={avatarUrl}
+                          width={screenWidth}
+                          height={screenWidth}
+                          style={styles.profileAvatar}
+                          onLoad={() => setHeaderAvatarLoaded(true)}
+                        />
+                      ) : (
+                        <View style={styles.profileAvatarFallback}>
+                          <Ionicons
+                            name="person"
+                            size={48}
+                            color="rgba(148,163,184,0.4)"
+                          />
+                        </View>
+                      )}
                     </View>
-                  )}
-                </View>
-                <Text style={styles.username}>{profile?.username}</Text>
-                {profile?.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
+                    <Text style={styles.username}>{profile?.username}</Text>
+                    {profile?.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
+                  </View>
+                )}
+                {!headerRevealReady && (
+                  <View
+                    style={
+                      tier1Ready
+                        ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }
+                        : undefined
+                    }
+                  >
+                    <ProfileHeaderSkeleton />
+                  </View>
+                )}
               </View>
             )}
           </TailTagCard>
@@ -207,8 +242,8 @@ export default function PublicProfileScreen() {
           {/* Stats */}
           <TailTagCard>
             <Text style={styles.sectionTitle}>Stats</Text>
-            {isStatsLoading ? (
-              <Text style={styles.message}>Loading stats…</Text>
+            {!tier2Ready ? (
+              <StatsGridSkeleton />
             ) : (
               <View style={styles.statsGrid}>
                 <View style={styles.statCard}>
@@ -224,7 +259,7 @@ export default function PublicProfileScreen() {
           </TailTagCard>
 
           {/* Social links — only shown if any exist */}
-          {!isSuitsLoading && socialLinks.length > 0 ? (
+          {tier2Ready && socialLinks.length > 0 ? (
             <TailTagCard>
               <Text style={styles.sectionTitle}>Social links</Text>
               <View style={styles.socialList}>
@@ -252,8 +287,8 @@ export default function PublicProfileScreen() {
             <Text style={styles.sectionTitle}>
               Fursuits{fursuits.length > 0 ? ` (${fursuits.length})` : ''}
             </Text>
-            {isSuitsLoading ? (
-              <Text style={styles.message}>Loading fursuits…</Text>
+            {!tier2Ready ? (
+              <FursuitsListSkeleton />
             ) : suitsError ? (
               <Text style={styles.errorText}>Could not load fursuits.</Text>
             ) : fursuits.length === 0 ? (
@@ -286,8 +321,8 @@ export default function PublicProfileScreen() {
               Achievements
               {unlockedAchievements.length > 0 ? ` (${unlockedAchievements.length})` : ''}
             </Text>
-            {isAchievementsLoading ? (
-              <Text style={styles.message}>Loading achievements…</Text>
+            {!tier2Ready ? (
+              <AchievementsListSkeleton />
             ) : unlockedAchievements.length === 0 ? (
               <Text style={styles.message}>No achievements earned yet.</Text>
             ) : (

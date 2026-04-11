@@ -17,6 +17,8 @@ type AppImageProps = {
   // Accept ViewStyle from callers; expo-image's Image will receive it cast to ImageStyle
   style?: ViewStyle | StyleProp<ImageStyle>;
   accessibilityLabel?: string;
+  onLoad?: () => void;
+  onError?: () => void;
 };
 
 export function AppImage({
@@ -27,6 +29,8 @@ export function AppImage({
   transition = 200,
   style,
   accessibilityLabel,
+  onLoad,
+  onError: onErrorProp,
 }: AppImageProps) {
   const { session } = useAuth();
   const [errored, setErrored] = useState(false);
@@ -59,7 +63,11 @@ export function AppImage({
       transition={transition}
       recyclingKey={resolvedUrl ?? undefined}
       accessibilityLabel={accessibilityLabel}
-      onError={() => setErrored(true)}
+      onLoad={onLoad}
+      onError={() => {
+        setErrored(true);
+        onErrorProp?.();
+      }}
     />
   );
 }

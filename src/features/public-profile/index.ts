@@ -12,3 +12,10 @@ export {
 export { aggregateSocialLinks } from './api/socialLinkAggregator';
 
 export type { PublicProfileStats } from './types';
+
+export {
+  ProfileHeaderSkeleton,
+  StatsGridSkeleton,
+  FursuitsListSkeleton,
+  AchievementsListSkeleton,
+} from './components/PublicProfileSkeletons';
