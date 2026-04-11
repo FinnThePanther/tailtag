@@ -1,6 +1,11 @@
 {
   "editor.formatOnSave": true,
+  "editor.formatOnSaveMode": "file",
   "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  "prettier.configPath": "prettier.config.cjs",
+  "prettier.prettierPath": "node_modules/prettier",
+  "prettier.requireConfig": true,
 
   "deno.enablePaths": ["supabase/functions"],
   "deno.lint": true,

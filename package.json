@@ -37,8 +37,7 @@
     "build:prod:ios": "eas build --platform ios --profile production",
     "build:prod:android": "eas build --platform android --profile production",
     "build:prod:all": "eas build --platform all --profile production",
-    "eas-build-pre-install": "node ./scripts/sync-native-env.cjs",
-    "prepare": "sh scripts/install-hooks.sh"
+    "eas-build-pre-install": "node ./scripts/sync-native-env.cjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -97,7 +96,6 @@
     "eslint-config-expo": "~10.0.0",
     "eslint-plugin-react-hooks": "^4.6.2",
     "jsonwebtoken": "^9.0.3",
-    "lint-staged": "16.4.0",
     "prettier": "3.8.2",
     "prettier-plugin-astro": "0.14.1",
     "typescript": "~5.9.2"

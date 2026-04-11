@@ -6,6 +6,12 @@ build/
 web-build/
 coverage/
 
+.DS_Store
+.mcp.json
+AGENTS.md
+CLAUDE.md
+docs/
+
 ios/
 android/
 
