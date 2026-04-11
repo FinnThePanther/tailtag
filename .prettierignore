@@ -21,6 +21,7 @@ web/dist/
 *.tsbuildinfo
 package-lock.json
 deno.lock
+src/types/database.ts
 
 .env
 .env.*
