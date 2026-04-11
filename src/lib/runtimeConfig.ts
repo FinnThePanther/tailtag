@@ -37,15 +37,10 @@ const readBoolean = (value: unknown): boolean | undefined => {
 };
 
 export const APP_ENV =
-  readString(extra.environment) ??
-  readString(process.env.APP_ENV) ??
-  'development';
+  readString(extra.environment) ?? readString(process.env.APP_ENV) ?? 'development';
 
-export const SUPABASE_URL =
-  readString(extra.supabaseUrl) ?? '';
+export const SUPABASE_URL = readString(extra.supabaseUrl) ?? '';
 
-export const SUPABASE_ANON_KEY =
-  readString(extra.supabaseAnonKey) ?? '';
+export const SUPABASE_ANON_KEY = readString(extra.supabaseAnonKey) ?? '';
 
-export const STAFF_MODE_ENABLED =
-  readBoolean(extra.staffModeEnabled) ?? false;
+export const STAFF_MODE_ENABLED = readBoolean(extra.staffModeEnabled) ?? false;

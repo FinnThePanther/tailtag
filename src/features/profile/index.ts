@@ -21,7 +21,4 @@ export {
   buildGeneratedUsername,
 } from './usernameRules';
 export type { ProfileSummary } from './api/profile';
-export type {
-  UsernameValidationCode,
-  UsernameValidationResult,
-} from './usernameRules';
+export type { UsernameValidationCode, UsernameValidationResult } from './usernameRules';

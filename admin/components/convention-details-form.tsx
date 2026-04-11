@@ -94,7 +94,10 @@ export function ConventionDetailsForm({
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form
+      onSubmit={submit}
+      className="space-y-4"
+    >
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="text-sm text-slate-200">Convention name</label>
@@ -156,7 +159,10 @@ export function ConventionDetailsForm({
             className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
           >
             {TIMEZONES.map((tz) => (
-              <option key={tz} value={tz}>
+              <option
+                key={tz}
+                value={tz}
+              >
                 {tz}
               </option>
             ))}

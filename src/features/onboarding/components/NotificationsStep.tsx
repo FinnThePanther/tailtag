@@ -1,26 +1,20 @@
-import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { useEffect, useState } from 'react';
+import { Text, View } from 'react-native';
 
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from '@expo/vector-icons';
 
-import { TailTagButton } from "../../../components/ui/TailTagButton";
-import { TailTagCard } from "../../../components/ui/TailTagCard";
-import {
-  markPushNotificationPrompted,
-  usePushNotifications,
-} from "../../push-notifications";
-import { captureNonCriticalError } from "../../../lib/sentry";
-import { styles } from "./NotificationsStep.styles";
+import { TailTagButton } from '../../../components/ui/TailTagButton';
+import { TailTagCard } from '../../../components/ui/TailTagCard';
+import { markPushNotificationPrompted, usePushNotifications } from '../../push-notifications';
+import { captureNonCriticalError } from '../../../lib/sentry';
+import { styles } from './NotificationsStep.styles';
 
 type NotificationsStepProps = {
   userId: string;
   onComplete: (enabled: boolean) => void;
 };
 
-export function NotificationsStep({
-  userId,
-  onComplete,
-}: NotificationsStepProps) {
+export function NotificationsStep({ userId, onComplete }: NotificationsStepProps) {
   const { isSupported, requestPermissionAndRegister } = usePushNotifications({
     userId,
   });
@@ -29,7 +23,7 @@ export function NotificationsStep({
   const markPrompted = () => {
     void markPushNotificationPrompted(userId).catch((error) => {
       captureNonCriticalError(error, {
-        scope: "onboarding.notifications.markPrompted",
+        scope: 'onboarding.notifications.markPrompted',
         userId,
       });
     });
@@ -44,7 +38,7 @@ export function NotificationsStep({
       enabled = result !== false;
     } catch (error) {
       captureNonCriticalError(error, {
-        scope: "onboarding.notifications.enable",
+        scope: 'onboarding.notifications.enable',
         userId,
       });
     } finally {
@@ -76,10 +70,14 @@ export function NotificationsStep({
           <Text style={styles.eyebrow}>Step 4</Text>
           <Text style={styles.title}>Notifications unavailable</Text>
           <View style={styles.unsupportedRow}>
-            <Ionicons name="information-circle-outline" size={20} color="rgba(148,163,184,0.7)" />
+            <Ionicons
+              name="information-circle-outline"
+              size={20}
+              color="rgba(148,163,184,0.7)"
+            />
             <Text style={styles.body}>
-              Push notifications aren't supported on this device. You can still
-              use TailTag — you just won't receive live alerts.
+              Push notifications aren't supported on this device. You can still use TailTag — you
+              just won't receive live alerts.
             </Text>
           </View>
         </TailTagCard>
@@ -93,17 +91,22 @@ export function NotificationsStep({
         <Text style={styles.eyebrow}>Step 4</Text>
         <Text style={styles.title}>Stay in the loop</Text>
         <Text style={styles.body}>
-          Enable notifications so TailTag can let you know when something
-          exciting happens!
+          Enable notifications so TailTag can let you know when something exciting happens!
         </Text>
 
         <View style={styles.notificationList}>
-          <NotificationItem emoji="🏆" label="You unlock a new achievement" />
+          <NotificationItem
+            emoji="🏆"
+            label="You unlock a new achievement"
+          />
           <NotificationItem
             emoji="🎉"
             label="A catch you submitted is confirmed"
           />
-          <NotificationItem emoji="✅" label="You complete a daily task" />
+          <NotificationItem
+            emoji="✅"
+            label="You complete a daily task"
+          />
         </View>
 
         <TailTagButton

@@ -1,26 +1,17 @@
-import { useCallback, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Keyboard,
-  Pressable,
-  Text,
-  View,
-} from "react-native";
-import { Image } from "expo-image";
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 
-import * as ImagePicker from "expo-image-picker";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import * as ImagePicker from 'expo-image-picker';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { TailTagButton } from "../../../components/ui/TailTagButton";
-import { TailTagCard } from "../../../components/ui/TailTagCard";
-import { TailTagInput } from "../../../components/ui/TailTagInput";
-import { KeyboardAwareFormWrapper } from "../../../components/ui/KeyboardAwareFormWrapper";
-import { SkipButton } from "./SkipButton";
-import {
-  createQuickFursuit,
-  type FursuitPhotoCandidate,
-} from "../../onboarding";
-import { MY_SUITS_QUERY_KEY } from "../../suits";
+import { TailTagButton } from '../../../components/ui/TailTagButton';
+import { TailTagCard } from '../../../components/ui/TailTagCard';
+import { TailTagInput } from '../../../components/ui/TailTagInput';
+import { KeyboardAwareFormWrapper } from '../../../components/ui/KeyboardAwareFormWrapper';
+import { SkipButton } from './SkipButton';
+import { createQuickFursuit, type FursuitPhotoCandidate } from '../../onboarding';
+import { MY_SUITS_QUERY_KEY } from '../../suits';
 import {
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
@@ -28,20 +19,17 @@ import {
   fetchProfileConventionIds,
   isConventionActive,
   PROFILE_CONVENTIONS_QUERY_KEY,
-} from "../../conventions";
-import { captureNonCriticalError } from "../../../lib/sentry";
-import {
-  processImageForUpload,
-  IMAGE_UPLOAD_PRESETS,
-} from "../../../utils/images";
-import { colors } from "../../../theme";
+} from '../../conventions';
+import { captureNonCriticalError } from '../../../lib/sentry';
+import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
+import { colors } from '../../../theme';
 import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
   type FursuitColorOption,
-} from "../../colors";
-import { styles } from "./FursuitStep.styles";
+} from '../../colors';
+import { styles } from './FursuitStep.styles';
 
 type FursuitStepProps = {
   userId: string;
@@ -64,18 +52,15 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
     refetchOnReconnect: false,
   });
   const [isExpanded, setIsExpanded] = useState(false);
-  const [nameInput, setNameInput] = useState("");
-  const [speciesInput, setSpeciesInput] = useState("");
-  const [descriptionInput, setDescriptionInput] = useState("");
-  const [selectedPhoto, setSelectedPhoto] =
-    useState<FursuitPhotoCandidate | null>(null);
+  const [nameInput, setNameInput] = useState('');
+  const [speciesInput, setSpeciesInput] = useState('');
+  const [descriptionInput, setDescriptionInput] = useState('');
+  const [selectedPhoto, setSelectedPhoto] = useState<FursuitPhotoCandidate | null>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>(
-    [],
-  );
+  const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
   const colorLoadError = colorError?.message ?? null;
   const isColorBusy = isColorLoading;
 
@@ -129,16 +114,15 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
 
   const handlePickPhoto = async () => {
     try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (status !== "granted") {
-        setPhotoError("We need media access to attach a suit photo.");
+      if (status !== 'granted') {
+        setPhotoError('We need media access to attach a suit photo.');
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: "images",
+        mediaTypes: 'images',
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.85,
@@ -151,22 +135,25 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
       const asset = result.assets?.[0];
 
       if (!asset) {
-        setPhotoError("No photo selected.");
+        setPhotoError('No photo selected.');
         return;
       }
 
       setIsProcessingPhoto(true);
       setPhotoError(null);
       try {
-        const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.fursuitAvatar);
+        const processed = await processImageForUpload(
+          asset.uri,
+          IMAGE_UPLOAD_PRESETS.fursuitAvatar,
+        );
         setSelectedPhoto({
           uri: processed.uri,
-          mimeType: "image/jpeg",
+          mimeType: 'image/jpeg',
           fileName: `fursuit-${Date.now()}.jpg`,
           fileSize: 0,
         });
       } catch {
-        setPhotoError("We could not process that photo. Please try another.");
+        setPhotoError('We could not process that photo. Please try another.');
       } finally {
         setIsProcessingPhoto(false);
       }
@@ -174,7 +161,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
       const message =
         caught instanceof Error
           ? caught.message
-          : "We could not open your photo library. Please try again.";
+          : 'We could not open your photo library. Please try again.';
       setPhotoError(message);
     }
   };
@@ -185,9 +172,9 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
   };
 
   const resetForm = () => {
-    setNameInput("");
-    setSpeciesInput("");
-    setDescriptionInput("");
+    setNameInput('');
+    setSpeciesInput('');
+    setDescriptionInput('');
     setSelectedColors([]);
     setSelectedPhoto(null);
     setPhotoError(null);
@@ -205,22 +192,22 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
     const colorIds = selectedColors.map((color) => color.id);
 
     if (!trimmedName) {
-      setSubmitError("Give your fursuit a name before saving.");
+      setSubmitError('Give your fursuit a name before saving.');
       return;
     }
 
     if (!trimmedSpecies) {
-      setSubmitError("Add a suit species so others know who to call out.");
+      setSubmitError('Add a suit species so others know who to call out.');
       return;
     }
 
     if (colorIds.length === 0) {
-      setSubmitError("Pick at least one suit color before saving.");
+      setSubmitError('Pick at least one suit color before saving.');
       return;
     }
 
     if (colorIds.length > MAX_FURSUIT_COLORS) {
-      setSubmitError("Choose up to three colors. Remove one to add another.");
+      setSubmitError('Choose up to three colors. Remove one to add another.');
       return;
     }
 
@@ -260,7 +247,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
       const message =
         caught instanceof Error
           ? caught.message
-          : "We could not save that suit right now. Please try again.";
+          : 'We could not save that suit right now. Please try again.';
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);
@@ -273,16 +260,21 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
         <Text style={styles.eyebrow}>Step 3</Text>
         <Text style={styles.title}>Add a fursuit (optional)</Text>
         <Text style={styles.body}>
-          Fursuits are how other players recognize you. Add one now or skip and
-          come back later.
+          Fursuits are how other players recognize you. Add one now or skip and come back later.
         </Text>
 
         {!isExpanded ? (
           <View style={styles.ctaRow}>
-            <TailTagButton style={styles.fullWidthCta} onPress={handleOpenForm}>
+            <TailTagButton
+              style={styles.fullWidthCta}
+              onPress={handleOpenForm}
+            >
               Add my fursuit
             </TailTagButton>
-            <SkipButton style={styles.fullWidthCta} onPress={onSkip} />
+            <SkipButton
+              style={styles.fullWidthCta}
+              onPress={onSkip}
+            />
           </View>
         ) : (
           <View style={styles.form}>
@@ -337,9 +329,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
                 <>
                   <View style={styles.colorSelectedList}>
                     {selectedColors.length === 0 ? (
-                      <Text style={styles.helperLabel}>
-                        Tap a color to add it.
-                      </Text>
+                      <Text style={styles.helperLabel}>Tap a color to add it.</Text>
                     ) : null}
                     {selectedColors.map((color) => (
                       <Pressable
@@ -348,21 +338,15 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
                         onPress={() => handleToggleColor(color)}
                         disabled={isSubmitting}
                       >
-                        <Text style={styles.colorSelectedText}>
-                          {color.name}
-                        </Text>
+                        <Text style={styles.colorSelectedText}>{color.name}</Text>
                         <Text style={styles.colorSelectedRemove}>Remove</Text>
                       </Pressable>
                     ))}
                   </View>
                   <View style={styles.colorOptionList}>
                     {colorOptions.map((option) => {
-                      const isSelected = selectedColors.some(
-                        (color) => color.id === option.id,
-                      );
-                      const isAtLimit =
-                        !isSelected &&
-                        selectedColors.length >= MAX_FURSUIT_COLORS;
+                      const isSelected = selectedColors.some((color) => color.id === option.id);
+                      const isAtLimit = !isSelected && selectedColors.length >= MAX_FURSUIT_COLORS;
                       return (
                         <Pressable
                           key={option.id}
@@ -428,14 +412,10 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
                   Choose photo
                 </TailTagButton>
               )}
-              {photoError ? (
-                <Text style={styles.error}>{photoError}</Text>
-              ) : null}
+              {photoError ? <Text style={styles.error}>{photoError}</Text> : null}
             </View>
 
-            {submitError ? (
-              <Text style={styles.error}>{submitError}</Text>
-            ) : null}
+            {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
 
             <View style={styles.formCtaRow}>
               <TailTagButton

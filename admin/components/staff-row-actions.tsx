@@ -4,7 +4,13 @@ import { useTransition } from 'react';
 
 import { removeStaffAssignment } from '@/app/(dashboard)/staff/actions';
 
-export function StaffRowActions({ assignmentId, conventionId }: { assignmentId: string; conventionId: string }) {
+export function StaffRowActions({
+  assignmentId,
+  conventionId,
+}: {
+  assignmentId: string;
+  conventionId: string;
+}) {
   const [isPending, startTransition] = useTransition();
 
   const remove = () =>

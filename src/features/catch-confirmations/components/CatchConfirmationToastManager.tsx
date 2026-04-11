@@ -95,12 +95,10 @@ export function CatchConfirmationToastManager() {
     });
 
     const handleCatchPending = (payload: Record<string, unknown> | null) => {
-      const catcherUsername = typeof payload?.catcher_username === 'string'
-        ? payload.catcher_username
-        : 'Someone';
-      const fursuitName = typeof payload?.fursuit_name === 'string'
-        ? payload.fursuit_name
-        : 'your fursuit';
+      const catcherUsername =
+        typeof payload?.catcher_username === 'string' ? payload.catcher_username : 'Someone';
+      const fursuitName =
+        typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'your fursuit';
 
       showToast(`${catcherUsername} wants to catch ${fursuitName}`);
 
@@ -117,9 +115,8 @@ export function CatchConfirmationToastManager() {
     };
 
     const handleCatchConfirmed = (payload: Record<string, unknown> | null) => {
-      const fursuitName = typeof payload?.fursuit_name === 'string'
-        ? payload.fursuit_name
-        : 'The fursuit';
+      const fursuitName =
+        typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'The fursuit';
 
       showToast(`${fursuitName} approved your catch!`);
 
@@ -152,9 +149,8 @@ export function CatchConfirmationToastManager() {
     };
 
     const handleCatchRejected = (payload: Record<string, unknown> | null) => {
-      const fursuitName = typeof payload?.fursuit_name === 'string'
-        ? payload.fursuit_name
-        : 'The fursuit owner';
+      const fursuitName =
+        typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'The fursuit owner';
 
       showToast(`${fursuitName} declined your catch request`);
 
@@ -175,9 +171,8 @@ export function CatchConfirmationToastManager() {
     };
 
     const handleCatchExpired = (payload: Record<string, unknown> | null) => {
-      const fursuitName = typeof payload?.fursuit_name === 'string'
-        ? payload.fursuit_name
-        : 'A fursuit';
+      const fursuitName =
+        typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'A fursuit';
 
       showToast(`Your catch request for ${fursuitName} has expired`);
 
@@ -259,7 +254,7 @@ export function CatchConfirmationToastManager() {
             // Not a catch confirmation notification, ignore
             break;
         }
-      }
+      },
     );
 
     const handleChannelStatus = (status: string, error?: Error) => {

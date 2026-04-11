@@ -22,17 +22,19 @@ const steps = [
   <div class="max-w-md mx-auto">
     <h2 class="text-xl font-semibold text-foreground mb-8 text-center">How it works</h2>
     <ol class="space-y-6">
-      {steps.map((step) => (
-        <li class="flex gap-4">
-          <span class="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-background font-bold flex items-center justify-center text-sm">
-            {step.number}
-          </span>
-          <div>
-            <h3 class="font-semibold text-foreground">{step.title}</h3>
-            <p class="text-foreground/70 text-sm mt-1">{step.description}</p>
-          </div>
-        </li>
-      ))}
+      {
+        steps.map((step) => (
+          <li class="flex gap-4">
+            <span class="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-background font-bold flex items-center justify-center text-sm">
+              {step.number}
+            </span>
+            <div>
+              <h3 class="font-semibold text-foreground">{step.title}</h3>
+              <p class="text-foreground/70 text-sm mt-1">{step.description}</p>
+            </div>
+          </li>
+        ))
+      }
     </ol>
   </div>
 </section>

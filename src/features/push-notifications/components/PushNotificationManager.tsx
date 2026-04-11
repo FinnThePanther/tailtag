@@ -123,7 +123,7 @@ export function PushNotificationManager() {
 
       pendingRouteRef.current = route;
     },
-    [router, session, isNavigationReady]
+    [router, session, isNavigationReady],
   );
 
   useEffect(() => {
@@ -142,7 +142,8 @@ export function PushNotificationManager() {
       handleNavigation(notificationType);
     };
 
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    const responseSubscription =
+      Notifications.addNotificationResponseReceivedListener(handleResponse);
 
     // Listen for notifications received while app is in foreground
     const foregroundSubscription = Notifications.addNotificationReceivedListener((notification) => {
@@ -264,7 +265,7 @@ export function PushNotificationManager() {
         isSyncingRef.current = false;
       }
     },
-    [userId]
+    [userId],
   );
 
   useEffect(() => {

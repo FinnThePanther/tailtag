@@ -12,7 +12,12 @@ export function ProgressDots({ currentIndex, total }: ProgressDotsProps) {
     <View style={styles.container}>
       {Array.from({ length: total }, (_item, index) => {
         const isActive = index === currentIndex;
-        return <View key={index} style={[styles.dot, isActive ? styles.dotActive : null]} />;
+        return (
+          <View
+            key={index}
+            style={[styles.dot, isActive ? styles.dotActive : null]}
+          />
+        );
       })}
     </View>
   );

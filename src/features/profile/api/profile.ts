@@ -2,7 +2,10 @@ import { supabase } from '../../../lib/supabase';
 import { PROFILE_AVATAR_BUCKET } from '../../../constants/storage';
 import { loadUriAsUint8Array } from '../../../utils/files';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
-import { buildAuthenticatedStorageObjectUrl, resolveStorageMediaUrl } from '../../../utils/supabase-image';
+import {
+  buildAuthenticatedStorageObjectUrl,
+  resolveStorageMediaUrl,
+} from '../../../utils/supabase-image';
 import type { FursuitPhotoCandidate } from '../../onboarding/api/onboarding';
 import type { FursuitSocialLink } from '../../../types/database';
 import {
@@ -36,7 +39,8 @@ export const PROFILE_STALE_TIME = 2 * 60_000;
 export const profileQueryKey = (userId: string) => [PROFILE_QUERY_KEY, userId] as const;
 
 // Stable columns that have always existed — used as fallback when new columns aren't migrated yet.
-const STABLE_COLUMNS = 'username, bio, is_new, onboarding_completed, role, push_notifications_enabled, push_notifications_prompted';
+const STABLE_COLUMNS =
+  'username, bio, is_new, onboarding_completed, role, push_notifications_enabled, push_notifications_prompted';
 const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, avatar_path, social_links, is_suspended, suspended_until, suspension_reason`;
 const NEW_USER_PROFILE_RETRY_DELAYS_MS = [150, 500] as const;
 
@@ -48,11 +52,7 @@ function sleep(ms: number): Promise<void> {
 
 async function selectProfileRow(columns: string, userId: string) {
   const client = supabase as any;
-  return client
-    .from('profiles')
-    .select(columns)
-    .eq('id', userId)
-    .maybeSingle();
+  return client.from('profiles').select(columns).eq('id', userId).maybeSingle();
 }
 
 async function selectProfileWithColumnFallback(userId: string) {
@@ -131,7 +131,9 @@ function mapProfileData(data: any, overrides: Partial<ProfileSummary> = {}): Pro
     bio: data.bio ?? null,
     avatar_path: avatarPath,
     avatar_url: avatarUrl,
-    social_links: Array.isArray(data.social_links) ? (data.social_links as FursuitSocialLink[]) : [],
+    social_links: Array.isArray(data.social_links)
+      ? (data.social_links as FursuitSocialLink[])
+      : [],
     is_new: data.is_new === true,
     onboarding_completed: data.onboarding_completed === true,
     role: data.role ?? undefined,
@@ -206,14 +208,8 @@ export async function uploadProfileAvatar(
   return storagePath;
 }
 
-export async function updateProfileAvatar(
-  userId: string,
-  avatarPath: string,
-): Promise<void> {
-  const avatarUrl = buildAuthenticatedStorageObjectUrl(
-    PROFILE_AVATAR_BUCKET,
-    avatarPath,
-  );
+export async function updateProfileAvatar(userId: string, avatarPath: string): Promise<void> {
+  const avatarUrl = buildAuthenticatedStorageObjectUrl(PROFILE_AVATAR_BUCKET, avatarPath);
 
   const { error } = await (supabase as any)
     .from('profiles')
@@ -261,7 +257,7 @@ export async function updateProfileSocialLinks(
 
 export async function checkUsernameAvailability(
   username: string,
-  currentUserId: string
+  currentUserId: string,
 ): Promise<boolean> {
   const normalized = normalizeUsernameInput(username);
   const validation = validateUsername(normalized);

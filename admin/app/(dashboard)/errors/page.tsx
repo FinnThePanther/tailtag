@@ -6,7 +6,10 @@ export default async function ErrorsPage() {
   const errors = await fetchAdminErrors(50);
 
   return (
-    <Card title="Admin errors" subtitle="Recent error events captured by admin_error_log">
+    <Card
+      title="Admin errors"
+      subtitle="Recent error events captured by admin_error_log"
+    >
       <Table headers={['Type', 'Message', 'Severity', 'Convention', 'Occurred']}>
         {errors.map((error) => (
           <tr key={error.id}>
@@ -21,7 +24,10 @@ export default async function ErrorsPage() {
         ))}
         {!errors.length ? (
           <tr>
-            <td className="px-4 py-3 text-sm text-muted" colSpan={5}>
+            <td
+              className="px-4 py-3 text-sm text-muted"
+              colSpan={5}
+            >
               No errors logged.
             </td>
           </tr>

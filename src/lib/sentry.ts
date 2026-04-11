@@ -1,10 +1,10 @@
-import * as Sentry from "@sentry/react-native";
-import Constants from "expo-constants";
-import { APP_ENV } from "./runtimeConfig";
+import * as Sentry from '@sentry/react-native';
+import Constants from 'expo-constants';
+import { APP_ENV } from './runtimeConfig';
 
 type Extras = Record<string, unknown>;
 
-export type SeverityTier = "critical" | "feature" | "non-critical";
+export type SeverityTier = 'critical' | 'feature' | 'non-critical';
 
 const routingInstrumentation = Sentry.reactNavigationIntegration({
   enableTimeToInitialDisplay: true,
@@ -13,15 +13,16 @@ const routingInstrumentation = Sentry.reactNavigationIntegration({
 
 const SENTRY_DSN =
   process.env.EXPO_PUBLIC_SENTRY_DSN ??
-  "https://998a5618a19167d71ccbcc016706fbae@o4510151259455488.ingest.us.sentry.io/4510151295959040";
+  'https://998a5618a19167d71ccbcc016706fbae@o4510151259455488.ingest.us.sentry.io/4510151295959040';
 
 const ENVIRONMENT =
   APP_ENV ??
   Constants.expoConfig?.extra?.environment ??
-  (process.env.NODE_ENV ?? (__DEV__ ? "development" : "production"));
+  process.env.NODE_ENV ??
+  (__DEV__ ? 'development' : 'production');
 
 const RELEASE = (() => {
-  const slug = Constants.expoConfig?.slug ?? "tailtag";
+  const slug = Constants.expoConfig?.slug ?? 'tailtag';
   const version =
     Constants.expoConfig?.version ??
     Constants.expoConfig?.runtimeVersion ??
@@ -58,8 +59,7 @@ Sentry.init({
   ],
   beforeSend(event, hint) {
     const error = hint.originalException;
-    const message =
-      error instanceof Error ? error.message : String(error ?? "");
+    const message = error instanceof Error ? error.message : String(error ?? '');
 
     if (IGNORED_ERROR_PATTERNS.some((pattern) => pattern.test(message))) {
       return null;
@@ -70,17 +70,17 @@ Sentry.init({
   beforeBreadcrumb(breadcrumb) {
     // Drop console.log breadcrumbs in production (keep warn/error)
     if (
-      breadcrumb.category === "console" &&
-      breadcrumb.level !== "warning" &&
-      breadcrumb.level !== "error"
+      breadcrumb.category === 'console' &&
+      breadcrumb.level !== 'warning' &&
+      breadcrumb.level !== 'error'
     ) {
       return null;
     }
     // Drop XHR breadcrumbs for realtime polling/heartbeat
     if (
-      breadcrumb.category === "xhr" &&
-      typeof breadcrumb.data?.url === "string" &&
-      breadcrumb.data.url.includes("/realtime/")
+      breadcrumb.category === 'xhr' &&
+      typeof breadcrumb.data?.url === 'string' &&
+      breadcrumb.data.url.includes('/realtime/')
     ) {
       return null;
     }
@@ -88,19 +88,20 @@ Sentry.init({
   },
 });
 
-const normalizeError = (error: unknown, fallbackMessage = "Unknown error"): Error => {
+const normalizeError = (error: unknown, fallbackMessage = 'Unknown error'): Error => {
   if (error instanceof Error) {
     return error;
   }
 
-  if (typeof error === "string") {
+  if (typeof error === 'string') {
     return new Error(error);
   }
 
-  if (typeof error === "object" && error !== null && "message" in error) {
-    const message = typeof (error as { message?: unknown }).message === "string"
-      ? (error as { message: string }).message
-      : fallbackMessage;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message =
+      typeof (error as { message?: unknown }).message === 'string'
+        ? (error as { message: string }).message
+        : fallbackMessage;
     return new Error(message);
   }
 
@@ -112,9 +113,9 @@ const normalizeError = (error: unknown, fallbackMessage = "Unknown error"): Erro
 // ---------------------------------------------------------------------------
 
 const TIER_CONFIG: Record<SeverityTier, { level: Sentry.SeverityLevel; tag: string }> = {
-  critical: { level: "fatal", tag: "critical" },
-  feature: { level: "error", tag: "feature" },
-  "non-critical": { level: "warning", tag: "non-critical" },
+  critical: { level: 'fatal', tag: 'critical' },
+  feature: { level: 'error', tag: 'feature' },
+  'non-critical': { level: 'warning', tag: 'non-critical' },
 };
 
 const captureWithTier = (
@@ -127,8 +128,8 @@ const captureWithTier = (
   const config = TIER_CONFIG[tier];
 
   Sentry.withScope((scope) => {
-    scope.setTag("handled", "true");
-    scope.setTag("severity_tier", config.tag);
+    scope.setTag('handled', 'true');
+    scope.setTag('severity_tier', config.tag);
     scope.setLevel(config.level);
 
     if (extras) {
@@ -144,42 +145,31 @@ const captureWithTier = (
 };
 
 /** Auth failures, event pipeline broken, data corruption. */
-export const captureCriticalError = (
-  error: unknown,
-  extras?: Extras,
-  fingerprint?: string[],
-) => captureWithTier("critical", error, extras, fingerprint);
+export const captureCriticalError = (error: unknown, extras?: Extras, fingerprint?: string[]) =>
+  captureWithTier('critical', error, extras, fingerprint);
 
 /** Core feature failures: catches, achievements, fursuit CRUD. */
-export const captureFeatureError = (
-  error: unknown,
-  extras?: Extras,
-  fingerprint?: string[],
-) => captureWithTier("feature", error, extras, fingerprint);
+export const captureFeatureError = (error: unknown, extras?: Extras, fingerprint?: string[]) =>
+  captureWithTier('feature', error, extras, fingerprint);
 
 /** Non-critical failures: leaderboard, metadata, push notifications. */
-export const captureNonCriticalError = (
-  error: unknown,
-  extras?: Extras,
-) => captureWithTier("non-critical", error, extras);
+export const captureNonCriticalError = (error: unknown, extras?: Extras) =>
+  captureWithTier('non-critical', error, extras);
 
 /**
  * @deprecated Use `captureCriticalError`, `captureFeatureError`, or
  * `captureNonCriticalError` instead. This alias maps to `captureFeatureError`.
  */
-export const captureHandledException = (
-  error: unknown,
-  extras?: Extras,
-  fingerprint?: string[],
-) => captureFeatureError(error, extras, fingerprint);
+export const captureHandledException = (error: unknown, extras?: Extras, fingerprint?: string[]) =>
+  captureFeatureError(error, extras, fingerprint);
 
 export const captureHandledMessage = (
   message: string,
   extras?: Extras,
-  level: Sentry.SeverityLevel = "info"
+  level: Sentry.SeverityLevel = 'info',
 ) => {
   Sentry.withScope((scope) => {
-    scope.setTag("handled", "true");
+    scope.setTag('handled', 'true');
     scope.setLevel(level);
 
     if (extras) {
@@ -198,16 +188,16 @@ export const captureHandledMessage = (
 export const captureSupabaseError = (
   error: unknown,
   context: Extras & { scope: string; action?: string },
-  tier: SeverityTier = "feature",
+  tier: SeverityTier = 'feature',
 ) => {
   if (!error) {
-    captureHandledMessage("Supabase error without details", context, "warning");
+    captureHandledMessage('Supabase error without details', context, 'warning');
     return;
   }
 
   const metadata: Extras = { ...context };
 
-  if (typeof error === "object" && error !== null) {
+  if (typeof error === 'object' && error !== null) {
     const supabaseError = error as {
       code?: string;
       details?: string;
@@ -243,12 +233,14 @@ export const addMonitoringBreadcrumb = (breadcrumb: {
   level?: Sentry.SeverityLevel;
 }) => {
   Sentry.addBreadcrumb({
-    level: breadcrumb.level ?? "info",
+    level: breadcrumb.level ?? 'info',
     ...breadcrumb,
   });
 };
 
-export const setUser = (user: { id: string; email?: string | null; username?: string | null } | null) => {
+export const setUser = (
+  user: { id: string; email?: string | null; username?: string | null } | null,
+) => {
   if (user) {
     Sentry.setUser({
       id: user.id,

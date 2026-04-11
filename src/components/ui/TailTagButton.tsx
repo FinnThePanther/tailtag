@@ -58,7 +58,10 @@ const VARIANT_STYLES: Record<ButtonVariant, { container: ViewStyle; text: TextSt
   },
 };
 
-const SIZE_STYLES: Record<ButtonSize, { paddingVertical: number; paddingHorizontal: number; fontSize: number }> = {
+const SIZE_STYLES: Record<
+  ButtonSize,
+  { paddingVertical: number; paddingHorizontal: number; fontSize: number }
+> = {
   sm: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,

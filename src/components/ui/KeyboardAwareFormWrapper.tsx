@@ -1,10 +1,10 @@
-import type { ReactNode } from "react";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import type { ReactNode } from 'react';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
-import type { StyleProp, ViewStyle } from "react-native";
+import type { StyleProp, ViewStyle } from 'react-native';
 
-import { spacing } from "../../theme";
-import { styles } from "./KeyboardAwareFormWrapper.styles";
+import { spacing } from '../../theme';
+import { styles } from './KeyboardAwareFormWrapper.styles';
 
 interface KeyboardAwareFormWrapperProps {
   children: ReactNode;

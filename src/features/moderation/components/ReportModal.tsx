@@ -1,10 +1,5 @@
 import { useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { Modal, Pressable, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { TailTagButton } from '../../../components/ui/TailTagButton';
@@ -75,7 +70,10 @@ export function ReportModal({
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>Report</Text>
-            <Pressable onPress={handleClose} hitSlop={8}>
+            <Pressable
+              onPress={handleClose}
+              hitSlop={8}
+            >
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
           </View>
@@ -91,10 +89,7 @@ export function ReportModal({
               {REPORT_TYPES.map((type) => (
                 <Pressable
                   key={type}
-                  style={[
-                    styles.typeOption,
-                    selectedType === type && styles.typeOptionSelected,
-                  ]}
+                  style={[styles.typeOption, selectedType === type && styles.typeOptionSelected]}
                   onPress={() => setSelectedType(type)}
                 >
                   <Text

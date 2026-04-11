@@ -20,7 +20,7 @@ export function PlayerSearchForm({ conventions, initialValues }: Props) {
   const pathname = usePathname();
   const [query, setQuery] = useState(initialValues.q ?? '');
   const [role, setRole] = useState<Database['public']['Enums']['user_role'] | ''>(
-    initialValues.role ?? ''
+    initialValues.role ?? '',
   );
   const [suspended, setSuspended] = useState(initialValues.suspended ?? '');
   const [conventionId, setConventionId] = useState(initialValues.conventionId ?? '');
@@ -36,7 +36,10 @@ export function PlayerSearchForm({ conventions, initialValues }: Props) {
   };
 
   return (
-    <form onSubmit={submit} className="grid gap-4 md:grid-cols-4">
+    <form
+      onSubmit={submit}
+      className="grid gap-4 md:grid-cols-4"
+    >
       <div className="md:col-span-2">
         <label className="text-sm text-slate-200">Search</label>
         <input
@@ -82,7 +85,10 @@ export function PlayerSearchForm({ conventions, initialValues }: Props) {
         >
           <option value="">Any</option>
           {conventions.map((c) => (
-            <option key={c.id} value={c.id}>
+            <option
+              key={c.id}
+              value={c.id}
+            >
               {c.name}
             </option>
           ))}

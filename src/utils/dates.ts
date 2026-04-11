@@ -11,9 +11,7 @@ export const toDisplayDate = (value: string | null | undefined) => {
     return null;
   }
 
-  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? parseDateOnlyAsLocal(value)
-    : new Date(value);
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? parseDateOnlyAsLocal(value) : new Date(value);
 
   if (Number.isNaN(parsed.getTime())) {
     return null;

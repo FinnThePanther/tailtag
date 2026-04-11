@@ -25,7 +25,11 @@ export function PendingCatchesList({
     <TailTagCard style={styles.container}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <Ionicons name="hourglass-outline" size={18} color="#fbbf24" />
+          <Ionicons
+            name="hourglass-outline"
+            size={18}
+            color="#fbbf24"
+          />
           <Text style={styles.title}>Pending Catch Requests</Text>
         </View>
         {!isEmpty && (
@@ -34,13 +38,19 @@ export function PendingCatchesList({
             accessibilityLabel={`${pendingCatches.length} pending ${pendingCatches.length === 1 ? 'catch' : 'catches'}`}
             accessibilityRole="text"
           >
-            <Text numberOfLines={1} style={styles.badgeText}>{pendingCatches.length}</Text>
+            <Text
+              numberOfLines={1}
+              style={styles.badgeText}
+            >
+              {pendingCatches.length}
+            </Text>
           </View>
         )}
       </View>
       {isEmpty ? (
         <Text style={styles.description}>
-          No pending requests right now. When someone catches your suit and you have manual approval enabled, their requests will appear here for you to approve or decline.
+          No pending requests right now. When someone catches your suit and you have manual approval
+          enabled, their requests will appear here for you to approve or decline.
         </Text>
       ) : (
         <>

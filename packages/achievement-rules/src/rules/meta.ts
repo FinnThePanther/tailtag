@@ -1,5 +1,5 @@
-import { ACHIEVEMENT_RULE_IDS } from "../constants.ts";
-import type { AwardCandidate } from "../types.ts";
+import { ACHIEVEMENT_RULE_IDS } from '../constants.ts';
+import type { AwardCandidate } from '../types.ts';
 
 /**
  * Evaluates the ACHIEVEMENT_HUNTER meta achievement.
@@ -14,7 +14,7 @@ export function evaluateMetaAchievements(
     return [
       {
         ruleId: ACHIEVEMENT_RULE_IDS.ACHIEVEMENT_HUNTER,
-        achievementKey: "ACHIEVEMENT_HUNTER",
+        achievementKey: 'ACHIEVEMENT_HUNTER',
         userId,
         context: {
           total_achievements: totalRealAchievements,

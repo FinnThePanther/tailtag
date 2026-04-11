@@ -4,7 +4,11 @@ import { useState, useTransition } from 'react';
 
 import { addStaffAssignment } from '@/app/(dashboard)/staff/actions';
 
-export function StaffAssignmentForm({ conventions }: { conventions: { id: string; name: string }[] }) {
+export function StaffAssignmentForm({
+  conventions,
+}: {
+  conventions: { id: string; name: string }[];
+}) {
   const [profileId, setProfileId] = useState('');
   const [conventionId, setConventionId] = useState(conventions[0]?.id ?? '');
   const [role, setRole] = useState<'staff' | 'organizer'>('staff');
@@ -31,7 +35,10 @@ export function StaffAssignmentForm({ conventions }: { conventions: { id: string
   };
 
   return (
-    <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
+    <form
+      onSubmit={submit}
+      className="grid gap-4 md:grid-cols-2"
+    >
       <div>
         <label className="text-sm text-slate-200">Profile ID</label>
         <input
@@ -50,7 +57,10 @@ export function StaffAssignmentForm({ conventions }: { conventions: { id: string
           className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
         >
           {conventions.map((c) => (
-            <option key={c.id} value={c.id}>
+            <option
+              key={c.id}
+              value={c.id}
+            >
               {c.name}
             </option>
           ))}

@@ -1,9 +1,9 @@
-import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Pressable, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { AppAvatar } from "../../../components/ui/AppAvatar";
-import { toDisplayDate } from "../../../utils/dates";
-import { styles } from "./CatchOfFursuitRow.styles";
+import { AppAvatar } from '../../../components/ui/AppAvatar';
+import { toDisplayDate } from '../../../utils/dates';
+import { styles } from './CatchOfFursuitRow.styles';
 
 type CatchOfFursuitRowProps = {
   catchPhotoUrl?: string | null;
@@ -20,8 +20,7 @@ export function CatchOfFursuitRow({
   caughtAt,
   onPress,
 }: CatchOfFursuitRowProps) {
-  const displayName =
-    catcherUsername?.trim() || "Someone";
+  const displayName = catcherUsername?.trim() || 'Someone';
   const displayDate = toDisplayDate(caughtAt);
   const thumbnailUrl = catchPhotoUrl ?? catcherAvatarUrl;
 
@@ -32,13 +31,23 @@ export function CatchOfFursuitRow({
       onPress={onPress}
       style={({ pressed }) => [styles.container, pressed && styles.pressed]}
     >
-      <AppAvatar url={thumbnailUrl} size="md" fallback="user" />
+      <AppAvatar
+        url={thumbnailUrl}
+        size="md"
+        fallback="user"
+      />
       <View style={styles.textCol}>
-        <Text style={styles.name} numberOfLines={1}>
+        <Text
+          style={styles.name}
+          numberOfLines={1}
+        >
           {displayName}
         </Text>
         {displayDate ? (
-          <Text style={styles.date} numberOfLines={1}>
+          <Text
+            style={styles.date}
+            numberOfLines={1}
+          >
             {displayDate}
           </Text>
         ) : null}

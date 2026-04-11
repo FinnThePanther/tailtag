@@ -31,10 +31,7 @@ function trimPath(path: string): string {
   return path.replace(/^\/+/, '');
 }
 
-export function buildAuthenticatedStorageObjectUrl(
-  bucket: string,
-  path: string,
-): string {
+export function buildAuthenticatedStorageObjectUrl(bucket: string, path: string): string {
   const normalizedBucket = bucket.trim();
   const normalizedPath = trimPath(path.trim());
   return `${SUPABASE_URL}${OBJECT_AUTHENTICATED_PATH}${normalizedBucket}/${normalizedPath}`;
@@ -105,9 +102,7 @@ export function extractStoragePathFromUrl(
   return location.path;
 }
 
-export function toAuthenticatedStorageUrl(
-  url: string | null | undefined,
-): string | null {
+export function toAuthenticatedStorageUrl(url: string | null | undefined): string | null {
   if (!url) {
     return null;
   }
@@ -117,17 +112,11 @@ export function toAuthenticatedStorageUrl(
     return url;
   }
 
-  const basePath = location.render
-    ? RENDER_AUTHENTICATED_PATH
-    : OBJECT_AUTHENTICATED_PATH;
+  const basePath = location.render ? RENDER_AUTHENTICATED_PATH : OBJECT_AUTHENTICATED_PATH;
   const queryIndex = url.indexOf('?');
   const hashIndex = url.indexOf('#');
   const queryStart =
-    queryIndex === -1
-      ? hashIndex
-      : hashIndex === -1
-      ? queryIndex
-      : Math.min(queryIndex, hashIndex);
+    queryIndex === -1 ? hashIndex : hashIndex === -1 ? queryIndex : Math.min(queryIndex, hashIndex);
   const suffix = queryStart === -1 ? '' : url.slice(queryStart);
 
   return `${SUPABASE_URL}${basePath}${location.bucket}/${location.path}${suffix}`;

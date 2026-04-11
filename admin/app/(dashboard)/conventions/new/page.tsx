@@ -13,7 +13,10 @@ export default function NewConventionPage() {
       >
         <ArrowLeft size={14} /> Back to conventions
       </Link>
-      <Card title="New Convention" subtitle="Create a convention to get started">
+      <Card
+        title="New Convention"
+        subtitle="Create a convention to get started"
+      >
         <CreateConventionForm />
       </Card>
     </div>

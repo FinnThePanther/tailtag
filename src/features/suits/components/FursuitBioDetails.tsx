@@ -1,37 +1,25 @@
-import {
-  Alert,
-  Linking,
-  Pressable,
-  Text,
-  View,
-} from "react-native";
+import { Alert, Linking, Pressable, Text, View } from 'react-native';
 
-import type { FursuitBio } from "../types";
-import { captureNonCriticalError } from "../../../lib/sentry";
-import { styles } from "./FursuitBioDetails.styles";
+import type { FursuitBio } from '../types';
+import { captureNonCriticalError } from '../../../lib/sentry';
+import { styles } from './FursuitBioDetails.styles';
 
 const openSocialLink = async (url: string) => {
   try {
     const canOpen = await Linking.canOpenURL(url);
 
     if (!canOpen) {
-      Alert.alert(
-        "Link unavailable",
-        "We couldn't open that social link on this device.",
-      );
+      Alert.alert('Link unavailable', "We couldn't open that social link on this device.");
       return;
     }
 
     await Linking.openURL(url);
   } catch (error) {
     captureNonCriticalError(error, {
-      scope: "suits.openSocialLink",
+      scope: 'suits.openSocialLink',
       url,
     });
-    Alert.alert(
-      "Link unavailable",
-      "We couldn't open that social link. Try again later.",
-    );
+    Alert.alert('Link unavailable', "We couldn't open that social link. Try again later.");
   }
 };
 
@@ -82,7 +70,10 @@ export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
                 onPress={() => openSocialLink(link.url)}
               >
                 <Text style={styles.socialLabel}>{link.label}</Text>
-                <Text style={styles.socialUrl} numberOfLines={1}>
+                <Text
+                  style={styles.socialUrl}
+                  numberOfLines={1}
+                >
                   {link.url}
                 </Text>
               </Pressable>

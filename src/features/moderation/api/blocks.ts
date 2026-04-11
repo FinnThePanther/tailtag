@@ -6,11 +6,9 @@ import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 export const BLOCKED_USERS_QUERY_KEY = 'blocked-users';
 export const BLOCKED_IDS_QUERY_KEY = 'blocked-ids';
 
-export const blockedUsersQueryKey = (userId: string) =>
-  [BLOCKED_USERS_QUERY_KEY, userId] as const;
+export const blockedUsersQueryKey = (userId: string) => [BLOCKED_USERS_QUERY_KEY, userId] as const;
 
-export const blockedIdsQueryKey = (userId: string) =>
-  [BLOCKED_IDS_QUERY_KEY, userId] as const;
+export const blockedIdsQueryKey = (userId: string) => [BLOCKED_IDS_QUERY_KEY, userId] as const;
 
 export async function fetchBlockedUsers(userId: string): Promise<UserBlock[]> {
   const { data, error } = await (supabase as any).rpc('get_blocked_users', {
@@ -49,7 +47,9 @@ export async function fetchBlockedIds(userId: string): Promise<string[]> {
 }
 
 export async function blockUser(blockedId: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
   const { error } = await (supabase as any)
@@ -66,7 +66,9 @@ export async function blockUser(blockedId: string): Promise<void> {
 }
 
 export async function unblockUser(blockedId: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
   const { error } = await (supabase as any)
@@ -81,7 +83,9 @@ export async function unblockUser(blockedId: string): Promise<void> {
 }
 
 export async function checkIsBlocked(otherUserId: string): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return false;
 
   const { data, error } = await (supabase as any).rpc('is_blocked', {

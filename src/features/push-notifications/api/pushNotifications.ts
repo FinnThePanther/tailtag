@@ -47,10 +47,7 @@ export async function updatePushPreference(userId: string, enabled: boolean): Pr
     payload.expo_push_token = null;
   }
 
-  const { error } = await supabase
-    .from('profiles')
-    .update(payload)
-    .eq('id', userId);
+  const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
 
   if (error) {
     throw new Error(error.message);

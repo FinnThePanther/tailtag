@@ -1,20 +1,21 @@
 /// <reference lib="deno.unstable" />
 // eslint-disable-next-line import/no-unresolved
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
 
 const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL");
-const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const AVATAR_BUCKET = "profile-avatars";
-const FURSUIT_BUCKET = "fursuit-avatars";
-const CATCH_PHOTO_BUCKET = "catch-photos";
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const serviceRoleKey =
+  Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const AVATAR_BUCKET = 'profile-avatars';
+const FURSUIT_BUCKET = 'fursuit-avatars';
+const CATCH_PHOTO_BUCKET = 'catch-photos';
 
 if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error("Missing environment variables");
+  throw new Error('Missing environment variables');
 }
 
 // Service role client for admin operations
@@ -23,23 +24,23 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
 });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   // Get token and verify it with Supabase Auth
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "No token" }), {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ error: 'No token' }), {
       status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
@@ -52,10 +53,10 @@ Deno.serve(async (req) => {
   const userId = authData.user?.id ?? null;
 
   if (authError || !userId) {
-    console.error("[delete-account] Token verification failed:", authError);
-    return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
+    console.error('[delete-account] Token verification failed:', authError);
+    return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
       status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
   console.log(`[delete-account] Deleting user ${userId}`);
@@ -69,13 +70,13 @@ Deno.serve(async (req) => {
   };
 
   const formatCleanupError = (input: unknown) => {
-    if (input && typeof input === "object" && "message" in input) {
-      return String((input as { message?: unknown }).message ?? "Unknown error");
+    if (input && typeof input === 'object' && 'message' in input) {
+      return String((input as { message?: unknown }).message ?? 'Unknown error');
     }
-    return typeof input === "string" ? input : "Unknown error";
+    return typeof input === 'string' ? input : 'Unknown error';
   };
 
-  const chunkArray = <T,>(input: T[], size: number): T[][] => {
+  const chunkArray = <T>(input: T[], size: number): T[][] => {
     const chunks: T[][] = [];
     for (let index = 0; index < input.length; index += size) {
       chunks.push(input.slice(index, index + size));
@@ -100,19 +101,14 @@ Deno.serve(async (req) => {
       let offset = 0;
 
       while (true) {
-        const { data, error } = await supabaseAdmin.storage
-          .from(bucketId)
-          .list(prefix, {
-            limit: pageSize,
-            offset,
-            sortBy: { column: "name", order: "asc" },
-          });
+        const { data, error } = await supabaseAdmin.storage.from(bucketId).list(prefix, {
+          limit: pageSize,
+          offset,
+          sortBy: { column: 'name', order: 'asc' },
+        });
 
         if (error) {
-          console.error(
-            `[delete-account] Failed to list ${label} objects`,
-            error,
-          );
+          console.error(`[delete-account] Failed to list ${label} objects`, error);
           summary.complete = false;
           summary.lastError = formatCleanupError(error);
           break;
@@ -141,15 +137,10 @@ Deno.serve(async (req) => {
       }
 
       for (const chunk of chunkArray(paths, pageSize)) {
-        const { error: removeError } = await supabaseAdmin.storage
-          .from(bucketId)
-          .remove(chunk);
+        const { error: removeError } = await supabaseAdmin.storage.from(bucketId).remove(chunk);
 
         if (removeError) {
-          console.error(
-            `[delete-account] Failed to remove ${label} objects`,
-            removeError,
-          );
+          console.error(`[delete-account] Failed to remove ${label} objects`, removeError);
           summary.complete = false;
           summary.lastError = formatCleanupError(removeError);
           continue;
@@ -158,10 +149,7 @@ Deno.serve(async (req) => {
         summary.totalRemoved += chunk.length;
       }
     } catch (error) {
-      console.error(
-        `[delete-account] Unexpected error removing ${label} objects`,
-        error,
-      );
+      console.error(`[delete-account] Unexpected error removing ${label} objects`, error);
       summary.complete = false;
       summary.lastError = formatCleanupError(error);
     }
@@ -169,16 +157,16 @@ Deno.serve(async (req) => {
   };
 
   try {
-    console.log("[delete-account] Removing stored assets");
+    console.log('[delete-account] Removing stored assets');
     const cleanupSummaries = [
-      await removeUserBucketFolder(AVATAR_BUCKET, userId, "profile avatars"),
-      await removeUserBucketFolder(FURSUIT_BUCKET, userId, "fursuit photos"),
-      await removeUserBucketFolder(CATCH_PHOTO_BUCKET, userId, "catch photos"),
+      await removeUserBucketFolder(AVATAR_BUCKET, userId, 'profile avatars'),
+      await removeUserBucketFolder(FURSUIT_BUCKET, userId, 'fursuit photos'),
+      await removeUserBucketFolder(CATCH_PHOTO_BUCKET, userId, 'catch photos'),
     ];
 
     for (const summary of cleanupSummaries) {
-      const status = summary.complete ? "complete" : "partial";
-      const errorSuffix = summary.lastError ? ` lastError=${summary.lastError}` : "";
+      const status = summary.complete ? 'complete' : 'partial';
+      const errorSuffix = summary.lastError ? ` lastError=${summary.lastError}` : '';
       console.log(
         `[delete-account] Cleanup summary (${summary.label}): status=${status} listed=${summary.totalListed} removed=${summary.totalRemoved}${errorSuffix}`,
       );
@@ -187,11 +175,11 @@ Deno.serve(async (req) => {
     // STEP 1: Handle special case - preserve catches on other users' fursuits
     // SET NULL for decided_by_user_id (these catches belong to other users)
     // The foreign key constraint uses SET NULL, but we do it explicitly for clarity
-    console.log("[delete-account] Nullifying decided_by references");
+    console.log('[delete-account] Nullifying decided_by references');
     await supabaseAdmin
-      .from("catches")
+      .from('catches')
       .update({ decided_by_user_id: null })
-      .eq("decided_by_user_id", userId);
+      .eq('decided_by_user_id', userId);
 
     // STEP 2: Delete auth user - CASCADE constraints handle all related data
     // This will automatically cascade delete:
@@ -204,29 +192,29 @@ Deno.serve(async (req) => {
     //   - user_achievements (CASCADE)
     //   - user_daily_progress (CASCADE)
     //   - user_daily_streaks (CASCADE)
-    console.log("[delete-account] Deleting auth user (cascade will handle all related data)");
+    console.log('[delete-account] Deleting auth user (cascade will handle all related data)');
     const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (deleteAuthError) {
-      console.error("[delete-account] Auth deletion failed:", deleteAuthError);
+      console.error('[delete-account] Auth deletion failed:', deleteAuthError);
       throw new Error(`Auth deletion failed: ${deleteAuthError.message}`);
     }
 
-    console.log("[delete-account] Deletion complete");
+    console.log('[delete-account] Deletion complete');
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error("[delete-account] Error:", error);
+    console.error('[delete-account] Error:', error);
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : "Deletion failed",
+        error: error instanceof Error ? error.message : 'Deletion failed',
       }),
       {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
     );
   }
 });

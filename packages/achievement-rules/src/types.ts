@@ -1,10 +1,10 @@
 export type GameEventType =
-  | "catch_performed"
-  | "profile_updated"
-  | "onboarding_completed"
-  | "convention_joined";
+  | 'catch_performed'
+  | 'profile_updated'
+  | 'onboarding_completed'
+  | 'convention_joined';
 
-export type ResetMode = "none" | "daily" | "rolling" | "windowed";
+export type ResetMode = 'none' | 'daily' | 'rolling' | 'windowed';
 
 export type AwardContext = Record<string, unknown>;
 
@@ -19,8 +19,8 @@ export interface AwardCandidate {
 export interface RuleMetadata {
   displayName: string;
   description?: string;
-  category: "catching" | "variety" | "dedication" | "fursuiter" | "fun" | "meta";
-  recipientRole: "catcher" | "fursuit_owner" | "any";
+  category: 'catching' | 'variety' | 'dedication' | 'fursuiter' | 'fun' | 'meta';
+  recipientRole: 'catcher' | 'fursuit_owner' | 'any';
   canEvaluateClient: boolean;
   resetMode: ResetMode;
   tags?: string[];

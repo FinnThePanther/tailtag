@@ -1,11 +1,11 @@
-import { supabase } from "../../../lib/supabase";
-import { captureCriticalError, addMonitoringBreadcrumb } from "../../../lib/sentry";
+import { supabase } from '../../../lib/supabase';
+import { captureCriticalError, addMonitoringBreadcrumb } from '../../../lib/sentry';
 import {
   emitImmediateAchievementAwards,
   type ImmediateAchievementAward,
-} from "../../achievements/immediateAwardsBus";
-import { emitLocalGameplayEvent } from "../localGameplayEventsBus";
-import type { Json } from "../../../types/database";
+} from '../../achievements/immediateAwardsBus';
+import { emitLocalGameplayEvent } from '../localGameplayEventsBus';
+import type { Json } from '../../../types/database';
 
 export type GameplayEventInput = {
   type: string;
@@ -25,10 +25,9 @@ export type AchievementAward = ImmediateAchievementAward & {
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const generateIdempotencyKey = () =>
-  `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+const generateIdempotencyKey = () => `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
 const normalizeAwards = (raw: unknown): AchievementAward[] => {
   if (!Array.isArray(raw)) {
@@ -43,7 +42,7 @@ const normalizeAwards = (raw: unknown): AchievementAward[] => {
     }
 
     const achievementKey =
-      typeof entry.achievement_key === "string" && entry.achievement_key.length > 0
+      typeof entry.achievement_key === 'string' && entry.achievement_key.length > 0
         ? entry.achievement_key
         : null;
 
@@ -54,17 +53,15 @@ const normalizeAwards = (raw: unknown): AchievementAward[] => {
     }
 
     const achievementId =
-      typeof entry.achievement_id === "string" && entry.achievement_id.length > 0
+      typeof entry.achievement_id === 'string' && entry.achievement_id.length > 0
         ? entry.achievement_id
         : null;
     const userId =
-      typeof entry.user_id === "string" && entry.user_id.length > 0 ? entry.user_id : null;
+      typeof entry.user_id === 'string' && entry.user_id.length > 0 ? entry.user_id : null;
     const awardedAt =
-      typeof entry.awarded_at === "string" && entry.awarded_at.length > 0
-        ? entry.awarded_at
-        : null;
+      typeof entry.awarded_at === 'string' && entry.awarded_at.length > 0 ? entry.awarded_at : null;
     const sourceEventId =
-      typeof entry.source_event_id === "string" && entry.source_event_id.length > 0
+      typeof entry.source_event_id === 'string' && entry.source_event_id.length > 0
         ? entry.source_event_id
         : null;
     const context = isRecord(entry.context) ? (entry.context as Json) : null;
@@ -82,7 +79,7 @@ const normalizeAwards = (raw: unknown): AchievementAward[] => {
   return awards;
 };
 
-const normalizeOccurredAt = (input: GameplayEventInput["occurredAt"]) => {
+const normalizeOccurredAt = (input: GameplayEventInput['occurredAt']) => {
   if (!input) {
     return new Date().toISOString();
   }
@@ -106,10 +103,10 @@ export async function emitGameplayEvent(
   const type = input.type.trim();
 
   if (!type) {
-    captureCriticalError(
-      new Error("Missing gameplay event type"),
-      { scope: "events.emitGameplayEvent", input },
-    );
+    captureCriticalError(new Error('Missing gameplay event type'), {
+      scope: 'events.emitGameplayEvent',
+      input,
+    });
     return null;
   }
 
@@ -128,8 +125,8 @@ export async function emitGameplayEvent(
     };
 
     addMonitoringBreadcrumb({
-      category: "events",
-      message: "Event emission started",
+      category: 'events',
+      message: 'Event emission started',
       data: { type, conventionId: input.conventionId ?? null },
     });
 
@@ -137,7 +134,7 @@ export async function emitGameplayEvent(
     const invokePromise = supabase.functions.invoke<{
       event_id: string;
       awards?: unknown;
-    }>("events-ingress", {
+    }>('events-ingress', {
       body,
     });
 
@@ -176,13 +173,13 @@ export async function emitGameplayEvent(
 
           if (statusCode === 401) {
             addMonitoringBreadcrumb({
-              category: "events",
-              message: "Event emission unauthorized",
+              category: 'events',
+              message: 'Event emission unauthorized',
               data: {
                 type,
                 conventionId: input.conventionId ?? null,
               },
-              level: "warning",
+              level: 'warning',
             });
           }
         }
@@ -193,13 +190,13 @@ export async function emitGameplayEvent(
     }
 
     addMonitoringBreadcrumb({
-      category: "events",
-      message: "Event emission completed",
+      category: 'events',
+      message: 'Event emission completed',
       data: { type, durationMs: duration },
     });
 
-    if (!data || typeof data.event_id !== "string") {
-      throw new Error("events-ingress response missing event_id");
+    if (!data || typeof data.event_id !== 'string') {
+      throw new Error('events-ingress response missing event_id');
     }
 
     emitLocalGameplayEvent({
@@ -243,7 +240,7 @@ export async function emitGameplayEvent(
     const duration = Date.now() - startTime;
 
     captureCriticalError(error, {
-      scope: "events.emitGameplayEvent",
+      scope: 'events.emitGameplayEvent',
       type,
       conventionId: input.conventionId ?? null,
       duration,

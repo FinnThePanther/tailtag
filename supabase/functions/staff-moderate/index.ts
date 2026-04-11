@@ -7,19 +7,20 @@
  */
 
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
 
 const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL");
-const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("ANON_KEY");
-const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('ANON_KEY');
+const serviceRoleKey =
+  Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
-  throw new Error("Missing Supabase configuration");
+  throw new Error('Missing Supabase configuration');
 }
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -29,16 +30,16 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   },
 });
 
-const ALLOWED_ROLES = ["staff", "moderator", "organizer", "owner"];
+const ALLOWED_ROLES = ['staff', 'moderator', 'organizer', 'owner'];
 
-type ModerateAction = "ban" | "unban";
+type ModerateAction = 'ban' | 'unban';
 
 interface ModerateRequest {
   action: ModerateAction;
   userId: string;
   reason: string;
   durationHours?: number | null;
-  scope?: "global" | "event";
+  scope?: 'global' | 'event';
   conventionId?: string | null;
 }
 
@@ -47,13 +48,13 @@ function jsonResponse(status: number, payload: unknown) {
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
   });
 }
 
 async function getCallerInfo(req: Request): Promise<{ id: string; role: string } | null> {
-  const authHeader = req.headers.get("Authorization");
+  const authHeader = req.headers.get('Authorization');
   if (!authHeader) return null;
 
   const supabaseUserClient = createClient(supabaseUrl!, supabaseAnonKey!, {
@@ -64,9 +65,9 @@ async function getCallerInfo(req: Request): Promise<{ id: string; role: string }
   if (error || !data.user) return null;
 
   const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("role")
-    .eq("id", data.user.id)
+    .from('profiles')
+    .select('role')
+    .eq('id', data.user.id)
     .single();
 
   if (!profile) return null;
@@ -75,39 +76,39 @@ async function getCallerInfo(req: Request): Promise<{ id: string; role: string }
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  if (req.method !== "POST") {
-    return jsonResponse(405, { error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return jsonResponse(405, { error: 'Method not allowed' });
   }
 
   const caller = await getCallerInfo(req);
   if (!caller) {
-    return jsonResponse(401, { error: "Unauthorized" });
+    return jsonResponse(401, { error: 'Unauthorized' });
   }
 
   if (!ALLOWED_ROLES.includes(caller.role)) {
-    return jsonResponse(403, { error: "Insufficient permissions" });
+    return jsonResponse(403, { error: 'Insufficient permissions' });
   }
 
   let body: ModerateRequest;
   try {
-    body = await req.json() as ModerateRequest;
+    body = (await req.json()) as ModerateRequest;
   } catch {
-    return jsonResponse(400, { error: "Invalid JSON payload" });
+    return jsonResponse(400, { error: 'Invalid JSON payload' });
   }
 
   if (!body.action || !body.userId || !body.reason) {
-    return jsonResponse(400, { error: "Missing required fields: action, userId, reason" });
+    return jsonResponse(400, { error: 'Missing required fields: action, userId, reason' });
   }
 
-  if (!["ban", "unban"].includes(body.action)) {
-    return jsonResponse(400, { error: "Invalid action" });
+  if (!['ban', 'unban'].includes(body.action)) {
+    return jsonResponse(400, { error: 'Invalid action' });
   }
 
-  const scope = body.scope ?? "global";
+  const scope = body.scope ?? 'global';
   const expiresAt =
     body.durationHours && body.durationHours > 0
       ? new Date(Date.now() + body.durationHours * 60 * 60 * 1000).toISOString()
@@ -115,101 +116,97 @@ Deno.serve(async (req) => {
 
   try {
     // For bans, insert a new moderation action record
-    if (body.action === "ban") {
-      const { error: insertError } = await supabaseAdmin
-        .from("user_moderation_actions")
-        .insert({
-          user_id: body.userId,
-          action_type: body.action,
-          scope,
-          convention_id: scope === "event" ? body.conventionId ?? null : null,
-          reason: body.reason,
-          duration_hours: body.durationHours ?? null,
-          expires_at: expiresAt,
-          is_active: true,
-          applied_by_user_id: caller.id,
-        });
+    if (body.action === 'ban') {
+      const { error: insertError } = await supabaseAdmin.from('user_moderation_actions').insert({
+        user_id: body.userId,
+        action_type: body.action,
+        scope,
+        convention_id: scope === 'event' ? (body.conventionId ?? null) : null,
+        reason: body.reason,
+        duration_hours: body.durationHours ?? null,
+        expires_at: expiresAt,
+        is_active: true,
+        applied_by_user_id: caller.id,
+      });
 
       if (insertError) {
-        console.error("[staff-moderate] Insert error:", insertError);
-        return jsonResponse(500, { error: "Failed to apply moderation action" });
+        console.error('[staff-moderate] Insert error:', insertError);
+        return jsonResponse(500, { error: 'Failed to apply moderation action' });
       }
     }
 
     // For bans, also update the profile suspension status
-    if (body.action === "ban") {
+    if (body.action === 'ban') {
       const { error: updateError } = await supabaseAdmin
-        .from("profiles")
+        .from('profiles')
         .update({
           is_suspended: true,
           suspended_until: expiresAt,
-          suspension_reason: body.reason || "Banned",
+          suspension_reason: body.reason || 'Banned',
         })
-        .eq("id", body.userId);
+        .eq('id', body.userId);
 
       if (updateError) {
-        console.error("[staff-moderate] Profile update error:", updateError);
+        console.error('[staff-moderate] Profile update error:', updateError);
       }
     }
 
     // For unbans, revoke active ban actions and clear profile suspension
-    if (body.action === "unban") {
+    if (body.action === 'unban') {
       const { error: revokeError } = await supabaseAdmin
-        .from("user_moderation_actions")
+        .from('user_moderation_actions')
         .update({
           is_active: false,
           revoked_at: new Date().toISOString(),
           revoked_by_user_id: caller.id,
-          revoke_reason: body.reason || "Unbanned via staff mode",
+          revoke_reason: body.reason || 'Unbanned via staff mode',
         })
-        .eq("user_id", body.userId)
-        .eq("action_type", "ban")
-        .eq("is_active", true);
+        .eq('user_id', body.userId)
+        .eq('action_type', 'ban')
+        .eq('is_active', true);
 
       if (revokeError) {
-        console.error("[staff-moderate] Revoke error:", revokeError);
-        return jsonResponse(500, { error: "Failed to revoke ban" });
+        console.error('[staff-moderate] Revoke error:', revokeError);
+        return jsonResponse(500, { error: 'Failed to revoke ban' });
       }
 
       const { error: clearError } = await supabaseAdmin
-        .from("profiles")
+        .from('profiles')
         .update({
           is_suspended: false,
           suspended_until: null,
           suspension_reason: null,
         })
-        .eq("id", body.userId);
+        .eq('id', body.userId);
 
       if (clearError) {
-        console.error("[staff-moderate] Profile clear error:", clearError);
+        console.error('[staff-moderate] Profile clear error:', clearError);
       }
     }
 
     // Write to audit log
-    const { error: auditError } = await supabaseAdmin
-      .from("audit_log")
-      .insert({
-        actor_id: caller.id,
-        action: `${body.action}_user`,
-        entity_type: "profile",
-        entity_id: body.userId,
-        context: {
-          reason: body.reason,
-          scope,
-          convention_id: body.conventionId ?? null,
-          duration_hours: body.durationHours ?? null,
-          source: "staff_mode",
-        },
-      });
+    const { error: auditError } = await supabaseAdmin.from('audit_log').insert({
+      actor_id: caller.id,
+      action: `${body.action}_user`,
+      entity_type: 'profile',
+      entity_id: body.userId,
+      context: {
+        reason: body.reason,
+        scope,
+        convention_id: body.conventionId ?? null,
+        duration_hours: body.durationHours ?? null,
+        source: 'staff_mode',
+      },
+    });
 
     if (auditError) {
-      console.error("[staff-moderate] Audit log error:", auditError);
+      console.error('[staff-moderate] Audit log error:', auditError);
       // Don't fail the request if audit logging fails
     }
 
     return jsonResponse(200, { success: true, action: body.action });
   } catch (error) {
-    console.error("[staff-moderate] Unexpected error:", error);
-    return jsonResponse(500, { error: "Internal server error" });
+    console.error('[staff-moderate] Unexpected error:', error);
+    return jsonResponse(500, { error: 'Internal server error' });
   }
 });

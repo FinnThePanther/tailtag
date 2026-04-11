@@ -1,26 +1,19 @@
-import { useCallback, useState } from "react";
-import {
-  Alert,
-  Dimensions,
-  Modal,
-  Pressable,
-  StatusBar,
-  View,
-} from "react-native";
-import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
-import { File, Paths } from "expo-file-system";
-import * as Sharing from "expo-sharing";
+import { useCallback, useState } from 'react';
+import { Alert, Dimensions, Modal, Pressable, StatusBar, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
-import { AppImage } from "../../../components/ui/AppImage";
-import { TailTagButton } from "../../../components/ui/TailTagButton";
-import { useAuth } from "../../auth/providers/AuthProvider";
-import { inferImageExtension, inferImageMimeType } from "../../../utils/images";
-import { getStorageAuthHeaders, toExpoImageSource } from "../../../utils/supabase-image";
-import type { CatchOfFursuitItem } from "../api/catchesByFursuit";
-import { styles } from "./CatchPhotosList.styles";
+import { AppImage } from '../../../components/ui/AppImage';
+import { TailTagButton } from '../../../components/ui/TailTagButton';
+import { useAuth } from '../../auth/providers/AuthProvider';
+import { inferImageExtension, inferImageMimeType } from '../../../utils/images';
+import { getStorageAuthHeaders, toExpoImageSource } from '../../../utils/supabase-image';
+import type { CatchOfFursuitItem } from '../api/catchesByFursuit';
+import { styles } from './CatchPhotosList.styles';
 
-const SCREEN_WIDTH = Dimensions.get("window").width;
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 type CatchPhotosListProps = {
   items: CatchOfFursuitItem[];
@@ -31,38 +24,37 @@ export function CatchPhotosList({ items }: CatchPhotosListProps) {
   const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const withPhoto = items.filter(
-    (item): item is CatchOfFursuitItem & { catch_photo_url: string } =>
-      Boolean(item.catch_photo_url?.trim()),
+  const withPhoto = items.filter((item): item is CatchOfFursuitItem & { catch_photo_url: string } =>
+    Boolean(item.catch_photo_url?.trim()),
   );
 
-  const handleDownloadPhoto = useCallback(async (url: string) => {
-    setIsDownloading(true);
-    try {
-      const canShare = await Sharing.isAvailableAsync();
-      if (!canShare) {
-        Alert.alert("Not supported", "Sharing is not available on this device.");
-        return;
+  const handleDownloadPhoto = useCallback(
+    async (url: string) => {
+      setIsDownloading(true);
+      try {
+        const canShare = await Sharing.isAvailableAsync();
+        if (!canShare) {
+          Alert.alert('Not supported', 'Sharing is not available on this device.');
+          return;
+        }
+        const extension = inferImageExtension({ uri: url }) || 'jpg';
+        const mimeType = inferImageMimeType({ uri: url });
+        const dest = new File(Paths.cache, `catch-${Date.now()}.${extension}`);
+        const file = await File.downloadFileAsync(url, dest, {
+          headers: getStorageAuthHeaders(url, session?.access_token),
+        });
+        await Sharing.shareAsync(file.uri, {
+          mimeType,
+          dialogTitle: 'Save catch photo',
+        });
+      } catch {
+        Alert.alert('Download failed', 'Could not download the photo. Please try again.');
+      } finally {
+        setIsDownloading(false);
       }
-      const extension = inferImageExtension({ uri: url }) || "jpg";
-      const mimeType = inferImageMimeType({ uri: url });
-      const dest = new File(Paths.cache, `catch-${Date.now()}.${extension}`);
-      const file = await File.downloadFileAsync(url, dest, {
-        headers: getStorageAuthHeaders(url, session?.access_token),
-      });
-      await Sharing.shareAsync(file.uri, {
-        mimeType,
-        dialogTitle: "Save catch photo",
-      });
-    } catch {
-      Alert.alert(
-        "Download failed",
-        "Could not download the photo. Please try again.",
-      );
-    } finally {
-      setIsDownloading(false);
-    }
-  }, [session?.access_token]);
+    },
+    [session?.access_token],
+  );
 
   if (withPhoto.length === 0) {
     return null;
@@ -74,10 +66,7 @@ export function CatchPhotosList({ items }: CatchPhotosListProps) {
         {withPhoto.map((item) => (
           <Pressable
             key={item.id}
-            style={({ pressed }) => [
-              styles.thumbnailWrap,
-              pressed && styles.thumbnailPressed,
-            ]}
+            style={({ pressed }) => [styles.thumbnailWrap, pressed && styles.thumbnailPressed]}
             onPress={() => setFullscreenUrl(item.catch_photo_url)}
             accessibilityRole="button"
             accessibilityLabel="View catch photo fullscreen"
@@ -109,7 +98,11 @@ export function CatchPhotosList({ items }: CatchPhotosListProps) {
               accessibilityRole="button"
               accessibilityLabel="Close fullscreen photo"
             >
-              <Ionicons name="close" size={28} color="#fff" />
+              <Ionicons
+                name="close"
+                size={28}
+                color="#fff"
+              />
             </Pressable>
             <Image
               source={toExpoImageSource(fullscreenUrl, session?.access_token)}

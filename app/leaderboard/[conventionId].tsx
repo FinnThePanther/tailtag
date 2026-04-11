@@ -23,8 +23,7 @@ import { colors } from '../../src/theme';
 import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/leaderboard/[conventionId].styles';
 
-const formatCatchCount = (count: number) =>
-  count === 1 ? '1 catch' : `${count} catches`;
+const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);
 
 export default function FullLeaderboardScreen() {
   const router = useRouter();
@@ -57,7 +56,7 @@ export default function FullLeaderboardScreen() {
         conventionId,
       });
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conventionId, userId]);
 
   const {
@@ -65,9 +64,7 @@ export default function FullLeaderboardScreen() {
     error: leaderboardError,
     isLoading: isLeaderboardLoading,
     refetch: refetchLeaderboard,
-  } = useQuery<LeaderboardEntry[], Error>(
-    createConventionLeaderboardQueryOptions(conventionId),
-  );
+  } = useQuery<LeaderboardEntry[], Error>(createConventionLeaderboardQueryOptions(conventionId));
 
   const {
     data: suitEntries = [],
@@ -99,7 +96,9 @@ export default function FullLeaderboardScreen() {
     }
 
     const accessToken = session?.access_token ?? null;
-    const authenticatedUrls = urls.filter((url) => Boolean(getStorageAuthHeaders(url, accessToken)));
+    const authenticatedUrls = urls.filter((url) =>
+      Boolean(getStorageAuthHeaders(url, accessToken)),
+    );
     const publicUrls = urls.filter((url) => !authenticatedUrls.includes(url));
 
     if (publicUrls.length > 0) {
@@ -117,21 +116,25 @@ export default function FullLeaderboardScreen() {
 
   return (
     <View style={styles.wrapper}>
-      <ScreenHeader title={title} onBack={() => router.back()} />
+      <ScreenHeader
+        title={title}
+        onBack={() => router.back()}
+      />
       <ScrollView contentContainerStyle={styles.container}>
-
         {/* Players section */}
         {section !== 'suits' && (
           <>
-            {section === undefined && (
-              <Text style={styles.sectionTitle}>Catchers</Text>
-            )}
+            {section === undefined && <Text style={styles.sectionTitle}>Catchers</Text>}
             {isLeaderboardLoading ? (
               <Text style={styles.message}>Loading…</Text>
             ) : leaderboardError ? (
               <View style={styles.errorRow}>
                 <Text style={styles.error}>{leaderboardError.message}</Text>
-                <TailTagButton variant="outline" size="sm" onPress={() => void refetchLeaderboard({ throwOnError: false })}>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => void refetchLeaderboard({ throwOnError: false })}
+                >
                   Try again
                 </TailTagButton>
               </View>
@@ -156,16 +159,26 @@ export default function FullLeaderboardScreen() {
                     >
                       <Text style={styles.rank}>#{rank}</Text>
                       <View style={styles.details}>
-                        <Text style={styles.name} numberOfLines={1}>
+                        <Text
+                          style={styles.name}
+                          numberOfLines={1}
+                        >
                           {entry.username ?? 'Unnamed player'}
                           {isSelf ? ' · You' : ''}
                         </Text>
-                        <Text style={styles.catchLabel} numberOfLines={1}>
+                        <Text
+                          style={styles.catchLabel}
+                          numberOfLines={1}
+                        >
                           {formatCatchCount(entry.catchCount)}
                         </Text>
                       </View>
                       {isSelf ? (
-                        <Ionicons name="person" size={14} color={colors.primary} />
+                        <Ionicons
+                          name="person"
+                          size={14}
+                          color={colors.primary}
+                        />
                       ) : null}
                     </Pressable>
                   );
@@ -180,15 +193,17 @@ export default function FullLeaderboardScreen() {
         {/* Suits section */}
         {section !== 'catchers' && (
           <>
-            {section === undefined && (
-              <Text style={styles.sectionTitle}>Top Fursuits</Text>
-            )}
+            {section === undefined && <Text style={styles.sectionTitle}>Top Fursuits</Text>}
             {isSuitLoading ? (
               <Text style={styles.message}>Loading…</Text>
             ) : suitError ? (
               <View style={styles.errorRow}>
                 <Text style={styles.error}>{suitError.message}</Text>
-                <TailTagButton variant="outline" size="sm" onPress={() => void refetchSuits({ throwOnError: false })}>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => void refetchSuits({ throwOnError: false })}
+                >
                   Try again
                 </TailTagButton>
               </View>
@@ -207,10 +222,23 @@ export default function FullLeaderboardScreen() {
                     accessibilityLabel={`View ${entry.name}'s fursuit profile`}
                   >
                     <Text style={styles.rank}>#{index + 1}</Text>
-                    <AppAvatar url={entry.avatarUrl} size="xs" fallback="fursuit" style={styles.avatarMargin} />
+                    <AppAvatar
+                      url={entry.avatarUrl}
+                      size="xs"
+                      fallback="fursuit"
+                      style={styles.avatarMargin}
+                    />
                     <View style={styles.details}>
-                      <Text style={styles.name} numberOfLines={1}>{entry.name}</Text>
-                      <Text style={styles.catchLabel} numberOfLines={1}>
+                      <Text
+                        style={styles.name}
+                        numberOfLines={1}
+                      >
+                        {entry.name}
+                      </Text>
+                      <Text
+                        style={styles.catchLabel}
+                        numberOfLines={1}
+                      >
                         {formatCatchCount(entry.catchCount)}
                       </Text>
                     </View>

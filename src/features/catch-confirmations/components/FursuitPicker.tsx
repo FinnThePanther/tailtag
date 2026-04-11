@@ -1,11 +1,5 @@
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppAvatar } from '../../../components/ui/AppAvatar';
@@ -30,9 +24,7 @@ export function FursuitPicker({
   const [search, setSearch] = useState('');
 
   const filtered = search.trim()
-    ? items.filter((item) =>
-        item.name.toLowerCase().includes(search.toLowerCase()),
-      )
+    ? items.filter((item) => item.name.toLowerCase().includes(search.toLowerCase()))
     : items;
 
   if (isLoading) {
@@ -47,12 +39,15 @@ export function FursuitPicker({
   if (items.length === 0) {
     return (
       <View style={styles.center}>
-        <Ionicons name="paw-outline" size={32} color="rgba(148,163,184,0.4)" />
+        <Ionicons
+          name="paw-outline"
+          size={32}
+          color="rgba(148,163,184,0.4)"
+        />
         <Text style={styles.emptyTitle}>No fursuits found</Text>
         <Text style={styles.emptySubtitle}>
-          No other fursuits are registered at your conventions yet. Ask the
-          fursuiter to join TailTag and opt into the same convention, then try
-          again!
+          No other fursuits are registered at your conventions yet. Ask the fursuiter to join
+          TailTag and opt into the same convention, then try again!
         </Text>
       </View>
     );
@@ -104,19 +99,34 @@ function FursuitPickerRow({ item, isSelected, onPress }: RowProps) {
       accessibilityState={{ checked: isSelected }}
       accessibilityLabel={`${item.name}${item.species ? `, ${item.species}` : ''}`}
     >
-      <AppAvatar url={item.avatarUrl} size="sm" fallback="fursuit" style={styles.avatarFlexShrink} />
+      <AppAvatar
+        url={item.avatarUrl}
+        size="sm"
+        fallback="fursuit"
+        style={styles.avatarFlexShrink}
+      />
       <View style={styles.rowText}>
-        <Text style={styles.rowName} numberOfLines={1}>
+        <Text
+          style={styles.rowName}
+          numberOfLines={1}
+        >
           {item.name}
         </Text>
         {item.species ? (
-          <Text style={styles.rowSpecies} numberOfLines={1}>
+          <Text
+            style={styles.rowSpecies}
+            numberOfLines={1}
+          >
             {item.species}
           </Text>
         ) : null}
       </View>
       {isSelected && (
-        <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+        <Ionicons
+          name="checkmark-circle"
+          size={22}
+          color={colors.primary}
+        />
       )}
     </Pressable>
   );

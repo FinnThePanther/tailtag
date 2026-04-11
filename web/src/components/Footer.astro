@@ -1,20 +1,30 @@
 ---
 import { siteConfig } from '../config/site';
-
 ---
 
 <footer class="px-6 py-8 border-t border-card-border mt-auto">
   <div class="max-w-md mx-auto text-center space-y-4">
     <p class="text-foreground/70 text-sm">
       Questions or bugs?{' '}
-      <a href={siteConfig.links.discord} class="text-primary hover:underline">
+      <a
+        href={siteConfig.links.discord}
+        class="text-primary hover:underline"
+      >
         Join our Discord
       </a>
     </p>
     <div class="flex items-center justify-center gap-4 text-sm text-foreground/50">
-      <a href="/privacy" class="hover:text-foreground/70">Privacy</a>
+      <a
+        href="/privacy"
+        class="hover:text-foreground/70"
+        >Privacy</a
+      >
       <span>&middot;</span>
-      <a href="/terms" class="hover:text-foreground/70">Terms</a>
+      <a
+        href="/terms"
+        class="hover:text-foreground/70"
+        >Terms</a
+      >
     </div>
   </div>
 </footer>

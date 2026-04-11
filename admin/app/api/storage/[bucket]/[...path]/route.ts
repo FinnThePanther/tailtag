@@ -11,10 +11,7 @@ type RouteParams = {
   path: string[];
 };
 
-export async function GET(
-  _req: Request,
-  { params }: { params: RouteParams },
-) {
+export async function GET(_req: Request, { params }: { params: RouteParams }) {
   await requireAdminProfile();
 
   const bucket = params.bucket;

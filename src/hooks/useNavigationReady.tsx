@@ -23,9 +23,7 @@ export function NavigationReadyProvider({ children }: { children: React.ReactNod
   const value = useMemo(() => ({ isReady, setReady }), [isReady, setReady]);
 
   return (
-    <NavigationReadyContext.Provider value={value}>
-      {children}
-    </NavigationReadyContext.Provider>
+    <NavigationReadyContext.Provider value={value}>{children}</NavigationReadyContext.Provider>
   );
 }
 

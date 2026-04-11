@@ -6,7 +6,10 @@ export default async function AuditPage() {
   const logs = await fetchAuditLogs(50);
 
   return (
-    <Card title="Audit log" subtitle="Recent admin actions">
+    <Card
+      title="Audit log"
+      subtitle="Recent admin actions"
+    >
       <Table headers={['Action', 'Entity', 'Actor', 'Context', 'Created']}>
         {logs.map((log) => (
           <tr key={log.id}>
@@ -26,7 +29,10 @@ export default async function AuditPage() {
         ))}
         {!logs.length ? (
           <tr>
-            <td className="px-4 py-3 text-sm text-muted" colSpan={5}>
+            <td
+              className="px-4 py-3 text-sm text-muted"
+              colSpan={5}
+            >
               No audit entries yet.
             </td>
           </tr>

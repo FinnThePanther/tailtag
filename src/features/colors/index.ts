@@ -24,10 +24,7 @@ export const sortColorOptions = (options: FursuitColorOption[]) =>
   [...options].sort(compareColorOptions);
 
 export const normalizeColorName = (value: string) =>
-  value
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase();
+  value.trim().replace(/\s+/g, ' ').toLowerCase();
 
 export async function fetchFursuitColors(): Promise<FursuitColorOption[]> {
   const client = supabase as any;

@@ -1,28 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  PixelRatio,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PixelRatio, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { Image } from "expo-image";
-import { AppAvatar } from "../../src/components/ui/AppAvatar";
-import { TailTagButton } from "../../src/components/ui/TailTagButton";
-import { TailTagCard } from "../../src/components/ui/TailTagCard";
-import { TailTagProgressBar } from "../../src/components/ui/TailTagProgressBar";
-import { useAuth } from "../../src/features/auth";
-import { fetchProfile, profileQueryKey } from "../../src/features/profile";
-import { supabase } from "../../src/lib/supabase";
-import { captureHandledException } from "../../src/lib/sentry";
+import { Image } from 'expo-image';
+import { AppAvatar } from '../../src/components/ui/AppAvatar';
+import { TailTagButton } from '../../src/components/ui/TailTagButton';
+import { TailTagCard } from '../../src/components/ui/TailTagCard';
+import { TailTagProgressBar } from '../../src/components/ui/TailTagProgressBar';
+import { useAuth } from '../../src/features/auth';
+import { fetchProfile, profileQueryKey } from '../../src/features/profile';
+import { supabase } from '../../src/lib/supabase';
+import { captureHandledException } from '../../src/lib/sentry';
 import {
   CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
@@ -30,7 +23,7 @@ import {
   fetchConventions,
   fetchProfileConventionIds,
   PROFILE_CONVENTIONS_QUERY_KEY,
-} from "../../src/features/conventions";
+} from '../../src/features/conventions';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
   CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
@@ -38,27 +31,22 @@ import {
   createConventionSuitLeaderboardQueryOptions,
   type LeaderboardEntry,
   type SuitLeaderboardEntry,
-} from "../../src/features/leaderboard";
+} from '../../src/features/leaderboard';
 import {
   fetchAchievementStatus,
   achievementsStatusQueryKey,
   type AchievementWithStatus,
-} from "../../src/features/achievements";
-import { emitGameplayEvent } from "../../src/features/events";
-import {
-  useDailyTasks,
-  DAILY_TASKS_QUERY_KEY,
-} from "../../src/features/daily-tasks";
-import { spacing } from "../../src/theme";
-import { getStorageAuthHeaders, getTransformedImageUrl } from "../../src/utils/supabase-image";
-import { styles } from "../../src/app-styles/(tabs)/index.styles";
+} from '../../src/features/achievements';
+import { emitGameplayEvent } from '../../src/features/events';
+import { useDailyTasks, DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks';
+import { spacing } from '../../src/theme';
+import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
+import { styles } from '../../src/app-styles/(tabs)/index.styles';
 
 const MAX_LEADERBOARD_ENTRIES = 5;
-const usernameNudgeDismissedKey = (userId: string) =>
-  `tailtag:username-nudge-dismissed:${userId}`;
+const usernameNudgeDismissedKey = (userId: string) => `tailtag:username-nudge-dismissed:${userId}`;
 
-const formatCatchCount = (count: number) =>
-  count === 1 ? "1 catch" : `${count} catches`;
+const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -85,7 +73,7 @@ export default function HomeScreen() {
     AsyncStorage.getItem(usernameNudgeDismissedKey(userId))
       .then((value) => {
         if (isActive) {
-          setNudgeDismissed(value === "true");
+          setNudgeDismissed(value === 'true');
         }
       })
       .catch(() => {
@@ -105,13 +93,11 @@ export default function HomeScreen() {
     }
 
     setNudgeDismissed(true);
-    AsyncStorage.setItem(usernameNudgeDismissedKey(userId), "true").catch(
-      () => undefined,
-    );
+    AsyncStorage.setItem(usernameNudgeDismissedKey(userId), 'true').catch(() => undefined);
   }, [userId]);
 
   const { data: profile } = useQuery({
-    queryKey: userId ? profileQueryKey(userId) : ["profile", "guest"],
+    queryKey: userId ? profileQueryKey(userId) : ['profile', 'guest'],
     enabled: Boolean(userId) && nudgeDismissed === false,
     queryFn: () => fetchProfile(userId!),
   });
@@ -123,10 +109,7 @@ export default function HomeScreen() {
     return Math.min(contentWidth, 960);
   }, [windowWidth]);
 
-  const contentWidthStyle = useMemo(
-    () => ({ width: maxContentWidth }),
-    [maxContentWidth],
-  );
+  const contentWidthStyle = useMemo(() => ({ width: maxContentWidth }), [maxContentWidth]);
 
   const {
     data: conventions = [],
@@ -158,9 +141,7 @@ export default function HomeScreen() {
 
   const achievementsQueryKey = useMemo(
     () =>
-      userId
-        ? achievementsStatusQueryKey(userId)
-        : (["achievements-status", "guest"] as const),
+      userId ? achievementsStatusQueryKey(userId) : (['achievements-status', 'guest'] as const),
     [userId],
   );
 
@@ -172,7 +153,7 @@ export default function HomeScreen() {
   } = useQuery<AchievementWithStatus[], Error>({
     queryKey: achievementsQueryKey,
     enabled: Boolean(userId),
-    queryFn: () => fetchAchievementStatus(userId ?? ""),
+    queryFn: () => fetchAchievementStatus(userId ?? ''),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -186,9 +167,7 @@ export default function HomeScreen() {
   const achievementsTotal = achievementStatuses.length;
   const achievementsUnlockedCount = unlockedAchievements.length;
   const achievementsProgressPercent =
-    achievementsTotal > 0
-      ? Math.round((achievementsUnlockedCount / achievementsTotal) * 100)
-      : 0;
+    achievementsTotal > 0 ? Math.round((achievementsUnlockedCount / achievementsTotal) * 100) : 0;
 
   const latestUnlockedAchievement = useMemo(() => {
     if (unlockedAchievements.length === 0) {
@@ -203,21 +182,16 @@ export default function HomeScreen() {
   }, [unlockedAchievements]);
 
   const achievementsErrorMessage = achievementsError?.message ?? null;
-  const showAchievementsSkeleton =
-    achievementStatuses.length === 0 && isAchievementsLoading;
+  const showAchievementsSkeleton = achievementStatuses.length === 0 && isAchievementsLoading;
 
   const conventionMap = useMemo(() => {
-    return new Map(
-      conventions.map((convention) => [convention.id, convention]),
-    );
+    return new Map(conventions.map((convention) => [convention.id, convention]));
   }, [conventions]);
 
   const availableConventions = useMemo(() => {
     return profileConventionIds
       .map((id) => conventionMap.get(id))
-      .filter((convention): convention is ConventionSummary =>
-        Boolean(convention),
-      );
+      .filter((convention): convention is ConventionSummary => Boolean(convention));
   }, [conventionMap, profileConventionIds]);
 
   const selectedConvention = useMemo(() => {
@@ -236,34 +210,28 @@ export default function HomeScreen() {
   const dailyTotalTasks = dailyTasksData?.totalCount ?? 0;
   const dailyCompletedTasks = dailyTasksData?.completedCount ?? 0;
   const dailyProgressValue =
-    dailyTotalTasks > 0
-      ? Math.min(dailyCompletedTasks / dailyTotalTasks, 1)
-      : 0;
-  const dailyRemainingTasks = Math.max(
-    dailyTotalTasks - dailyCompletedTasks,
-    0,
-  );
+    dailyTotalTasks > 0 ? Math.min(dailyCompletedTasks / dailyTotalTasks, 1) : 0;
+  const dailyRemainingTasks = Math.max(dailyTotalTasks - dailyCompletedTasks, 0);
   const dailyTasksErrorMessage = dailyTasksError?.message ?? null;
   const hasDailyAssignments = dailyTotalTasks > 0;
   const showDailySkeleton = !dailyTasksData && isDailyTasksLoading;
   const showDailyError = !dailyTasksData && Boolean(dailyTasksErrorMessage);
   const dailyAllComplete = hasDailyAssignments && dailyRemainingTasks === 0;
-  const dailyTimezone =
-    dailyTasksData?.timezone ?? selectedConvention?.timezone ?? "UTC";
+  const dailyTimezone = dailyTasksData?.timezone ?? selectedConvention?.timezone ?? 'UTC';
   const dailyResetAtLabel = useMemo(() => {
     if (!dailyTasksData?.resetAt) {
       return null;
     }
 
     try {
-      return new Intl.DateTimeFormat("en-US", {
+      return new Intl.DateTimeFormat('en-US', {
         timeZone: dailyTimezone,
-        hour: "numeric",
-        minute: "2-digit",
-        timeZoneName: "short",
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short',
       }).format(new Date(dailyTasksData.resetAt));
     } catch (error) {
-      console.warn("failed formatting daily reset time", error);
+      console.warn('failed formatting daily reset time', error);
       return null;
     }
   }, [dailyTasksData?.resetAt, dailyTimezone]);
@@ -278,7 +246,7 @@ export default function HomeScreen() {
     selectedConventionId
       ? createConventionLeaderboardQueryOptions(selectedConventionId)
       : {
-          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, "idle"],
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, 'idle'],
           queryFn: async () => [],
           enabled: false,
         },
@@ -294,7 +262,7 @@ export default function HomeScreen() {
     selectedConventionId
       ? createConventionSuitLeaderboardQueryOptions(selectedConventionId)
       : {
-          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, "idle"],
+          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, 'idle'],
           queryFn: async () => [],
           enabled: false,
         },
@@ -310,21 +278,18 @@ export default function HomeScreen() {
     const catchesChannel = supabase
       .channel(`leaderboard-catches:${selectedConventionId}:${instanceId}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "*",
-          schema: "public",
-          table: "catches",
+          event: '*',
+          schema: 'public',
+          table: 'catches',
         },
         () => {
           void queryClient.invalidateQueries({
             queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId],
           });
           void queryClient.invalidateQueries({
-            queryKey: [
-              CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
-              selectedConventionId,
-            ],
+            queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId],
           });
         },
       )
@@ -334,11 +299,11 @@ export default function HomeScreen() {
     const participantsChannel = supabase
       .channel(`leaderboard-participants:${selectedConventionId}:${instanceId}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "*",
-          schema: "public",
-          table: "profile_conventions",
+          event: '*',
+          schema: 'public',
+          table: 'profile_conventions',
           filter: `convention_id=eq.${selectedConventionId}`,
         },
         () => {
@@ -353,19 +318,16 @@ export default function HomeScreen() {
     const fursuitsChannel = supabase
       .channel(`leaderboard-fursuits:${selectedConventionId}:${instanceId}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "*",
-          schema: "public",
-          table: "fursuit_conventions",
+          event: '*',
+          schema: 'public',
+          table: 'fursuit_conventions',
           filter: `convention_id=eq.${selectedConventionId}`,
         },
         () => {
           void queryClient.invalidateQueries({
-            queryKey: [
-              CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
-              selectedConventionId,
-            ],
+            queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId],
           });
         },
       )
@@ -380,40 +342,29 @@ export default function HomeScreen() {
 
   const membershipErrorMessage =
     profileConventionsError?.message ?? conventionsError?.message ?? null;
-  const isMembershipLoading =
-    isProfileConventionsLoading || isConventionsLoading;
+  const isMembershipLoading = isProfileConventionsLoading || isConventionsLoading;
   const hasConventionAccess = availableConventions.length > 0;
   const isLeaderboardBusy = isLeaderboardLoading || isLeaderboardFetching;
 
   const rankByProfileId = useMemo(() => {
-    return new Map(
-      leaderboardEntries.map((entry, index) => [entry.profileId, index + 1]),
-    );
+    return new Map(leaderboardEntries.map((entry, index) => [entry.profileId, index + 1]));
   }, [leaderboardEntries]);
 
   // Only show players with at least 1 catch
-  const entriesWithCatches = leaderboardEntries.filter(
-    (entry) => entry.catchCount > 0,
-  );
+  const entriesWithCatches = leaderboardEntries.filter((entry) => entry.catchCount > 0);
   const topEntries = entriesWithCatches.slice(0, MAX_LEADERBOARD_ENTRIES);
   const selfEntry = userId
     ? (entriesWithCatches.find((entry) => entry.profileId === userId) ?? null)
     : null;
 
   const isSelfOutsideTop = Boolean(
-    selfEntry &&
-    !topEntries.some((entry) => entry.profileId === selfEntry.profileId),
+    selfEntry && !topEntries.some((entry) => entry.profileId === selfEntry.profileId),
   );
 
-  const displayEntries =
-    isSelfOutsideTop && selfEntry ? [...topEntries, selfEntry] : topEntries;
+  const displayEntries = isSelfOutsideTop && selfEntry ? [...topEntries, selfEntry] : topEntries;
 
-  const topSuitEntries = suitLeaderboardEntries.slice(
-    0,
-    MAX_LEADERBOARD_ENTRIES,
-  );
-  const isSuitLeaderboardBusy =
-    isSuitLeaderboardLoading || isSuitLeaderboardFetching;
+  const topSuitEntries = suitLeaderboardEntries.slice(0, MAX_LEADERBOARD_ENTRIES);
+  const isSuitLeaderboardBusy = isSuitLeaderboardLoading || isSuitLeaderboardFetching;
   const suitErrorMessage = suitLeaderboardError?.message ?? null;
   const hasSuitEntries = topSuitEntries.length > 0;
 
@@ -462,34 +413,24 @@ export default function HomeScreen() {
 
     // Fire-and-forget: don't block UI on event emission
     void emitGameplayEvent({
-      type: "leaderboard_refreshed",
+      type: 'leaderboard_refreshed',
       conventionId: selectedConventionId,
       payload: {
         convention_id: selectedConventionId,
       },
     }).catch((error) => {
       captureHandledException(error, {
-        scope: "home.handleReloadStandings",
+        scope: 'home.handleReloadStandings',
         conventionId: selectedConventionId,
       });
     });
     void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
-  }, [
-    refetchLeaderboard,
-    refetchSuitLeaderboard,
-    userId,
-    selectedConventionId,
-    queryClient,
-  ]);
+  }, [refetchLeaderboard, refetchSuitLeaderboard, userId, selectedConventionId, queryClient]);
 
   return (
     <View style={styles.wrapper}>
       <LinearGradient
-        colors={[
-          "rgba(56,189,248,0.18)",
-          "rgba(14,165,233,0.1)",
-          "transparent",
-        ]}
+        colors={['rgba(56,189,248,0.18)', 'rgba(14,165,233,0.1)', 'transparent']}
         style={styles.backgroundGradient}
         pointerEvents="none"
       />
@@ -505,16 +446,19 @@ export default function HomeScreen() {
             Catch fursuits, grow your collection, and make new furry friends!
           </Text>
           <Text style={styles.subtitle}>
-            TailTag makes meeting fursuiters fun! Catch thier fursuit, learn
-            about their likes and interests, and start a furry friendship!
+            TailTag makes meeting fursuiters fun! Catch thier fursuit, learn about their likes and
+            interests, and start a furry friendship!
           </Text>
           <View style={styles.ctaRow}>
-            <TailTagButton onPress={() => router.push("/catch")} size="lg">
+            <TailTagButton
+              onPress={() => router.push('/catch')}
+              size="lg"
+            >
               Catch a fursuit
             </TailTagButton>
             <TailTagButton
               variant="outline"
-              onPress={() => router.push("/suits/add-fursuit")}
+              onPress={() => router.push('/suits/add-fursuit')}
               size="lg"
             >
               Add your suit
@@ -523,17 +467,13 @@ export default function HomeScreen() {
         </View>
 
         {nudgeDismissed === false && session && (
-          <TailTagCard
-            style={[styles.nudgeCard, styles.nudgeCardAlert, contentWidthStyle]}
-          >
+          <TailTagCard style={[styles.nudgeCard, styles.nudgeCardAlert, contentWidthStyle]}>
             <View style={styles.nudgeContent}>
               <View style={styles.nudgeTextBlock}>
                 <Text style={[styles.nudgeText, styles.nudgeTextAlert]}>
-                  Your current username is{" "}
-                  <Text
-                    style={[styles.nudgeUsername, styles.nudgeUsernameAlert]}
-                  >
-                    {profile?.username ?? "..."}
+                  Your current username is{' '}
+                  <Text style={[styles.nudgeUsername, styles.nudgeUsernameAlert]}>
+                    {profile?.username ?? '...'}
                   </Text>
                   . Want to pick something better?
                 </Text>
@@ -542,7 +482,7 @@ export default function HomeScreen() {
                   size="sm"
                   onPress={() => {
                     handleDismissNudge();
-                    router.push("/settings");
+                    router.push('/settings');
                   }}
                 >
                   Change username
@@ -568,9 +508,7 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Today's objectives</Text>
 
           {!selectedConventionId ? (
-            <Text style={styles.message}>
-              Pick a convention to unlock daily tasks.
-            </Text>
+            <Text style={styles.message}>Pick a convention to unlock daily tasks.</Text>
           ) : showDailySkeleton ? (
             <Text style={styles.message}>Checking today's lineup...</Text>
           ) : showDailyError ? (
@@ -587,18 +525,14 @@ export default function HomeScreen() {
               </TailTagButton>
             </View>
           ) : !hasDailyAssignments ? (
-            <Text style={styles.message}>
-              Tasks unlock once today's rotation goes live.
-            </Text>
+            <Text style={styles.message}>Tasks unlock once today's rotation goes live.</Text>
           ) : (
             <View style={styles.dailySummaryBlock}>
               <View style={styles.dailySummaryHeader}>
                 <Text style={styles.dailySummaryText}>
                   {dailyCompletedTasks} / {dailyTotalTasks} complete
                 </Text>
-                <Text style={styles.dailyCountdown}>
-                  Resets in {dailyCountdown}
-                </Text>
+                <Text style={styles.dailyCountdown}>Resets in {dailyCountdown}</Text>
               </View>
               <TailTagProgressBar
                 value={dailyProgressValue}
@@ -606,22 +540,18 @@ export default function HomeScreen() {
               />
               <Text style={styles.dailySummaryText}>
                 {dailyAllComplete
-                  ? "All tasks complete - bonus secured."
-                  : `${dailyRemainingTasks} task${
-                      dailyRemainingTasks === 1 ? "" : "s"
-                    } remaining`}
+                  ? 'All tasks complete - bonus secured.'
+                  : `${dailyRemainingTasks} task${dailyRemainingTasks === 1 ? '' : 's'} remaining`}
               </Text>
               {dailyResetAtLabel ? (
-                <Text style={styles.dailyResetLabel}>
-                  Next reset at {dailyResetAtLabel}
-                </Text>
+                <Text style={styles.dailyResetLabel}>Next reset at {dailyResetAtLabel}</Text>
               ) : null}
             </View>
           )}
 
           <TailTagButton
             variant="outline"
-            onPress={() => router.push("/daily-tasks")}
+            onPress={() => router.push('/daily-tasks')}
             style={styles.dailyCta}
             disabled={!selectedConventionId}
           >
@@ -650,8 +580,7 @@ export default function HomeScreen() {
             </View>
           ) : achievementsTotal === 0 ? (
             <Text style={styles.message}>
-              Achievements will appear as soon as the first convention goes
-              live.
+              Achievements will appear as soon as the first convention goes live.
             </Text>
           ) : (
             <View style={styles.achievementSummary}>
@@ -659,19 +588,14 @@ export default function HomeScreen() {
                 <Text style={styles.achievementProgressLabel}>
                   {achievementsUnlockedCount} / {achievementsTotal} unlocked
                 </Text>
-                <Text style={styles.sectionBody}>
-                  {achievementsProgressPercent}% complete
-                </Text>
+                <Text style={styles.sectionBody}>{achievementsProgressPercent}% complete</Text>
               </View>
               <View style={styles.achievementProgressBar}>
                 <View
                   style={[
                     styles.achievementProgressFill,
                     {
-                      width: `${Math.min(
-                        Math.max(achievementsProgressPercent, 0),
-                        100,
-                      )}%`,
+                      width: `${Math.min(Math.max(achievementsProgressPercent, 0), 100)}%`,
                     },
                   ]}
                 />
@@ -679,14 +603,14 @@ export default function HomeScreen() {
               <Text style={styles.achievementFootnote}>
                 {latestUnlockedAchievement
                   ? `Last unlock: ${latestUnlockedAchievement.name}`
-                  : "Catch a suit to unlock your first badge."}
+                  : 'Catch a suit to unlock your first badge.'}
               </Text>
             </View>
           )}
 
           <TailTagButton
             variant="outline"
-            onPress={() => router.push("/achievements")}
+            onPress={() => router.push('/achievements')}
             style={styles.achievementCta}
           >
             View achievements
@@ -716,8 +640,7 @@ export default function HomeScreen() {
           ) : hasConventionAccess ? (
             <View style={styles.leaderboardContent}>
               <Text style={styles.sectionBody}>
-                Showing top taggers for{" "}
-                {selectedConvention?.name ?? "your convention"}.
+                Showing top taggers for {selectedConvention?.name ?? 'your convention'}.
               </Text>
 
               {selectedConventionId ? (
@@ -727,9 +650,7 @@ export default function HomeScreen() {
                       <Text style={styles.message}>Loading leaderboard…</Text>
                     ) : leaderboardError ? (
                       <View style={styles.helper}>
-                        <Text style={styles.error}>
-                          {leaderboardError.message}
-                        </Text>
+                        <Text style={styles.error}>{leaderboardError.message}</Text>
                         <TailTagButton
                           variant="outline"
                           size="sm"
@@ -744,8 +665,7 @@ export default function HomeScreen() {
                       <View style={styles.leaderboardSection}>
                         <View style={styles.leaderboardList}>
                           {displayEntries.map((entry) => {
-                            const rank =
-                              rankByProfileId.get(entry.profileId) ?? 0;
+                            const rank = rankByProfileId.get(entry.profileId) ?? 0;
                             const isSelf = entry.profileId === userId;
 
                             return (
@@ -758,27 +678,25 @@ export default function HomeScreen() {
                                 ]}
                                 onPress={() =>
                                   router.push({
-                                    pathname: "/profile/[id]",
+                                    pathname: '/profile/[id]',
                                     params: { id: entry.profileId },
                                   })
                                 }
                               >
-                                <Text style={styles.leaderboardRank}>
-                                  #{rank}
-                                </Text>
+                                <Text style={styles.leaderboardRank}>#{rank}</Text>
                                 <View style={styles.leaderboardDetails}>
                                   <Text
                                     style={styles.leaderboardName}
                                     numberOfLines={1}
                                   >
-                                    {entry.username ?? "Unnamed player"}
+                                    {entry.username ?? 'Unnamed player'}
                                   </Text>
                                   <Text
                                     style={styles.leaderboardCatchLabel}
                                     numberOfLines={1}
                                   >
                                     {formatCatchCount(entry.catchCount)}
-                                    {isSelf ? " · You" : ""}
+                                    {isSelf ? ' · You' : ''}
                                   </Text>
                                 </View>
                               </Pressable>
@@ -787,8 +705,7 @@ export default function HomeScreen() {
                         </View>
                         {isSelfOutsideTop && selfEntry ? (
                           <Text style={styles.leaderboardFootnote}>
-                            You're currently #
-                            {rankByProfileId.get(selfEntry.profileId)}. Keep
+                            You're currently #{rankByProfileId.get(selfEntry.profileId)}. Keep
                             hunting to climb the board.
                           </Text>
                         ) : null}
@@ -799,25 +716,22 @@ export default function HomeScreen() {
                           ]}
                           onPress={() =>
                             router.push({
-                              pathname: "/leaderboard/[conventionId]",
+                              pathname: '/leaderboard/[conventionId]',
                               params: {
                                 conventionId: selectedConventionId!,
-                                conventionName: selectedConvention?.name ?? "",
-                                section: "catchers",
+                                conventionName: selectedConvention?.name ?? '',
+                                section: 'catchers',
                               },
                             })
                           }
                         >
-                          <Text style={styles.seeAllText}>
-                            See all catchers
-                          </Text>
+                          <Text style={styles.seeAllText}>See all catchers</Text>
                           <Text style={styles.seeAllArrow}>→</Text>
                         </Pressable>
                       </View>
                     ) : (
                       <Text style={styles.message}>
-                        No catches yet. Be the first to tag a suit at this
-                        convention.
+                        No catches yet. Be the first to tag a suit at this convention.
                       </Text>
                     )}
                   </View>
@@ -855,16 +769,14 @@ export default function HomeScreen() {
                               ]}
                               onPress={() =>
                                 router.push({
-                                  pathname: "/fursuits/[id]",
+                                  pathname: '/fursuits/[id]',
                                   params: { id: entry.fursuitId },
                                 })
                               }
                               accessibilityRole="button"
                               accessibilityLabel={`View ${entry.name}'s fursuit profile`}
                             >
-                              <Text style={styles.leaderboardRank}>
-                                #{index + 1}
-                              </Text>
+                              <Text style={styles.leaderboardRank}>#{index + 1}</Text>
                               <AppAvatar
                                 url={entry.avatarUrl}
                                 size="xs"
@@ -895,11 +807,11 @@ export default function HomeScreen() {
                           ]}
                           onPress={() =>
                             router.push({
-                              pathname: "/leaderboard/[conventionId]",
+                              pathname: '/leaderboard/[conventionId]',
                               params: {
                                 conventionId: selectedConventionId!,
-                                conventionName: selectedConvention?.name ?? "",
-                                section: "suits",
+                                conventionName: selectedConvention?.name ?? '',
+                                section: 'suits',
                               },
                             })
                           }
@@ -909,9 +821,7 @@ export default function HomeScreen() {
                         </Pressable>
                       </View>
                     ) : (
-                      <Text style={styles.message}>
-                        No fursuits have been caught yet.
-                      </Text>
+                      <Text style={styles.message}>No fursuits have been caught yet.</Text>
                     )}
                   </View>
                 </View>
@@ -925,7 +835,7 @@ export default function HomeScreen() {
               <TailTagButton
                 variant="outline"
                 size="sm"
-                onPress={() => router.push("/settings")}
+                onPress={() => router.push('/settings')}
               >
                 Manage conventions
               </TailTagButton>
@@ -948,34 +858,30 @@ export default function HomeScreen() {
           <View>
             {[
               {
-                step: "1",
-                title: "Add your fursuit (if you have one)",
-                description:
-                  "Each fursuit gets an auto-generated catch code to share.",
+                step: '1',
+                title: 'Add your fursuit (if you have one)',
+                description: 'Each fursuit gets an auto-generated catch code to share.',
               },
               {
-                step: "2",
-                title: "Start catching fursuiters",
+                step: '2',
+                title: 'Start catching fursuiters',
                 description:
-                  "Tag fursuits with a selfie or catch code and watch your collection grow.",
+                  'Tag fursuits with a selfie or catch code and watch your collection grow.',
               },
               {
-                step: "3",
-                title: "Complete tasks & earn achievements",
+                step: '3',
+                title: 'Complete tasks & earn achievements',
                 description:
-                  "Tackle daily challenges at conventions and unlock achievements along the way.",
+                  'Tackle daily challenges at conventions and unlock achievements along the way.',
               },
               {
-                step: "4",
-                title: "Meet new furry friends",
-                description: "Connect with cool new fursuiters while you play!",
+                step: '4',
+                title: 'Meet new furry friends',
+                description: 'Connect with cool new fursuiters while you play!',
               },
             ].map((item, index, array) => (
               <View
-                style={[
-                  styles.stepRow,
-                  index < array.length - 1 && styles.stepRowSpacing,
-                ]}
+                style={[styles.stepRow, index < array.length - 1 && styles.stepRowSpacing]}
                 key={item.step}
               >
                 <View style={styles.stepBadge}>

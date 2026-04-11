@@ -29,8 +29,7 @@ type PersistedToastState = {
 
 const DAILY_TASK_TOAST_STORAGE_PREFIX = '@daily-task-toasts:';
 
-const storageKeyForState = (stateKey: string) =>
-  `${DAILY_TASK_TOAST_STORAGE_PREFIX}${stateKey}`;
+const storageKeyForState = (stateKey: string) => `${DAILY_TASK_TOAST_STORAGE_PREFIX}${stateKey}`;
 
 const serializeToastState = (state: ToastState): PersistedToastState => ({
   dayKey: state.dayKey,
@@ -93,8 +92,8 @@ export function useDailyTasks(
   const { showToast } = useToast();
   const suppressToasts = options.suppressToasts ?? false;
   const stateKey = userId && conventionId ? `${userId}:${conventionId}` : null;
-  const [isToastStateReady, setToastStateReady] = useState<boolean>(
-    () => Boolean(stateKey && dailyTaskToastStateMap.has(stateKey)),
+  const [isToastStateReady, setToastStateReady] = useState<boolean>(() =>
+    Boolean(stateKey && dailyTaskToastStateMap.has(stateKey)),
   );
 
   useEffect(() => {
@@ -143,7 +142,8 @@ export function useDailyTasks(
   }, [stateKey]);
 
   const query = useQuery<DailyTasksSummary, Error>({
-    queryKey: userId && conventionId ? dailyTasksQueryKey(userId, conventionId) : [DAILY_TASKS_QUERY_KEY],
+    queryKey:
+      userId && conventionId ? dailyTasksQueryKey(userId, conventionId) : [DAILY_TASKS_QUERY_KEY],
     enabled,
     queryFn: () => fetchDailyTasks({ userId: userId!, conventionId: conventionId! }),
     staleTime: Infinity,
@@ -244,9 +244,10 @@ export function useDailyTasks(
 
       if (!suppressToasts) {
         const streak = summary.streak?.current ?? 0;
-        const message = streak > 0
-          ? `All daily tasks complete! Current streak: ${streak}`
-          : 'All daily tasks complete!';
+        const message =
+          streak > 0
+            ? `All daily tasks complete! Current streak: ${streak}`
+            : 'All daily tasks complete!';
         showToast(message);
       }
     } else if (!allComplete && state.allCompleteNotified) {
@@ -308,7 +309,7 @@ export function useDailyTasks(
           void queryClient.invalidateQueries({
             queryKey: dailyTasksQueryKey(userId, conventionId),
           });
-        }
+        },
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {

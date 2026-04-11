@@ -1,25 +1,25 @@
-import { ACHIEVEMENT_RULE_IDS } from "../constants.ts";
-import type { AwardCandidate, SimpleEventContext, SimpleRuleDefinition } from "../types.ts";
+import { ACHIEVEMENT_RULE_IDS } from '../constants.ts';
+import type { AwardCandidate, SimpleEventContext, SimpleRuleDefinition } from '../types.ts';
 
 const simpleRules: SimpleRuleDefinition[] = [
   {
     ruleId: ACHIEVEMENT_RULE_IDS.GETTING_STARTED,
-    achievementKey: "getting_started",
-    eventType: "onboarding_completed",
+    achievementKey: 'getting_started',
+    eventType: 'onboarding_completed',
     metadata: {
-      displayName: "Getting Started",
-      description: "Finish the onboarding flow.",
-      category: "meta",
-      recipientRole: "any",
+      displayName: 'Getting Started',
+      description: 'Finish the onboarding flow.',
+      category: 'meta',
+      recipientRole: 'any',
       canEvaluateClient: true,
-      resetMode: "none",
+      resetMode: 'none',
     },
     requiredStats: [],
     evaluate(context: SimpleEventContext): AwardCandidate[] {
       return [
         {
           ruleId: ACHIEVEMENT_RULE_IDS.GETTING_STARTED,
-          achievementKey: "getting_started",
+          achievementKey: 'getting_started',
           userId: context.userId,
           context: {
             user_id: context.userId,
@@ -31,15 +31,15 @@ const simpleRules: SimpleRuleDefinition[] = [
   },
   {
     ruleId: ACHIEVEMENT_RULE_IDS.EXPLORER,
-    achievementKey: "EXPLORER",
-    eventType: "convention_joined",
+    achievementKey: 'EXPLORER',
+    eventType: 'convention_joined',
     metadata: {
-      displayName: "Explorer",
-      description: "Join a convention in the app.",
-      category: "fun",
-      recipientRole: "catcher",
+      displayName: 'Explorer',
+      description: 'Join a convention in the app.',
+      category: 'fun',
+      recipientRole: 'catcher',
       canEvaluateClient: true,
-      resetMode: "none",
+      resetMode: 'none',
     },
     requiredStats: [],
     evaluate(context: SimpleEventContext): AwardCandidate[] {
@@ -49,7 +49,7 @@ const simpleRules: SimpleRuleDefinition[] = [
       return [
         {
           ruleId: ACHIEVEMENT_RULE_IDS.EXPLORER,
-          achievementKey: "EXPLORER",
+          achievementKey: 'EXPLORER',
           userId: context.userId,
           context: {
             user_id: context.userId,
@@ -62,7 +62,7 @@ const simpleRules: SimpleRuleDefinition[] = [
 ];
 
 export function evaluateSimpleEventAchievements(
-  eventType: "onboarding_completed" | "convention_joined",
+  eventType: 'onboarding_completed' | 'convention_joined',
   context: SimpleEventContext,
 ): AwardCandidate[] {
   return simpleRules

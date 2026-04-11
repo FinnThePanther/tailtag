@@ -22,7 +22,10 @@ export function SimulateCatchForm({ conventionId }: Props) {
   };
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-2 text-sm">
+    <form
+      onSubmit={submit}
+      className="flex flex-col gap-2 text-sm"
+    >
       <div className="grid gap-2 md:grid-cols-2">
         <div>
           <label className="text-xs text-slate-200">Catcher ID</label>

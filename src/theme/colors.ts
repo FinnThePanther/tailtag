@@ -37,5 +37,5 @@ export const colors = {
   amber: '#fbbf24',
   slate100: '#f1f5f9',
   slate200: '#e2e8f0',
-  slate300: '#cbd5f5'
+  slate300: '#cbd5f5',
 } as const;

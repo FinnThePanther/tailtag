@@ -3,10 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const {
-  envConfigs,
-  resolveAppEnv,
-} = require('./native-env.config.cjs');
+const { envConfigs, resolveAppEnv } = require('./native-env.config.cjs');
 
 const repoRoot = path.resolve(__dirname, '..');
 const requestedEnv = process.env.APP_ENV ?? process.argv[2] ?? 'development';
@@ -46,9 +43,7 @@ function replaceRequired(contents, relativePath, replacements) {
     const matches = next.match(replacement.pattern);
 
     if (!matches) {
-      throw new Error(
-        `Could not find ${replacement.label} in ${relativePath}.`
-      );
+      throw new Error(`Could not find ${replacement.label} in ${relativePath}.`);
     }
 
     next = next.replace(replacement.pattern, replacement.value);
@@ -161,9 +156,7 @@ if (
     },
   ])
 ) {
-  changedFiles.push(
-    'android/app/src/main/java/com/finnthepanther/tailtag/staging/MainActivity.kt'
-  );
+  changedFiles.push('android/app/src/main/java/com/finnthepanther/tailtag/staging/MainActivity.kt');
 }
 
 if (
@@ -176,7 +169,7 @@ if (
   ])
 ) {
   changedFiles.push(
-    'android/app/src/main/java/com/finnthepanther/tailtag/staging/MainApplication.kt'
+    'android/app/src/main/java/com/finnthepanther/tailtag/staging/MainApplication.kt',
   );
 }
 
@@ -215,9 +208,7 @@ if (syncOptionalCopy(config.googleServicesFile, 'google-services.json')) {
   syncedGoogleServicesTargets.push('google-services.json');
 }
 
-if (
-  syncOptionalCopy(config.googleServicesFile, 'android/app/google-services.json')
-) {
+if (syncOptionalCopy(config.googleServicesFile, 'android/app/google-services.json')) {
   syncedGoogleServicesTargets.push('android/app/google-services.json');
 }
 
@@ -228,13 +219,11 @@ if (syncedGoogleServicesTargets.length > 0) {
   !fs.existsSync(path.join(repoRoot, config.googleServicesFile))
 ) {
   console.warn(
-    `[sync-native-env] ${config.googleServicesFile} not found. Android ${appEnv} builds will need an environment-specific Firebase config before push-enabled builds can succeed.`
+    `[sync-native-env] ${config.googleServicesFile} not found. Android ${appEnv} builds will need an environment-specific Firebase config before push-enabled builds can succeed.`,
   );
 }
 
-if (
-  syncOptionalCopy(config.iosGoogleServicesFile, 'GoogleService-Info.plist')
-) {
+if (syncOptionalCopy(config.iosGoogleServicesFile, 'GoogleService-Info.plist')) {
   changedFiles.push('GoogleService-Info.plist');
 }
 
@@ -243,6 +232,4 @@ if (changedFiles.length === 0) {
   process.exit(0);
 }
 
-console.log(
-  `[sync-native-env] ${appEnv}: updated ${changedFiles.join(', ')}`
-);
+console.log(`[sync-native-env] ${appEnv}: updated ${changedFiles.join(', ')}`);

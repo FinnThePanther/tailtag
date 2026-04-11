@@ -1,14 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
-import {
-  Alert,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   FursuitCard,
@@ -16,32 +9,29 @@ import {
   MY_SUITS_QUERY_KEY,
   MY_SUITS_COUNT_QUERY_KEY,
   MY_SUITS_STALE_TIME,
-} from "../../../src/features/suits";
+} from '../../../src/features/suits';
 import {
   PendingCatchesList,
   useConfirmCatch,
   usePendingCatches,
-} from "../../../src/features/catch-confirmations";
-import { MAX_FURSUITS_PER_USER } from "../../../src/constants/fursuits";
-import type { FursuitSummary } from "../../../src/features/suits";
-import { TailTagButton } from "../../../src/components/ui/TailTagButton";
-import { TailTagCard } from "../../../src/components/ui/TailTagCard";
-import { FURSUIT_BUCKET } from "../../../src/constants/storage";
-import { useAuth } from "../../../src/features/auth";
-import { supabase } from "../../../src/lib/supabase";
-import { colors } from "../../../src/theme";
-import { toDisplayDate } from "../../../src/utils/dates";
-import { deriveStoragePathFromPublicUrl } from "../../../src/utils/storage";
-import { styles } from "../../../src/app-styles/(tabs)/suits/index.styles";
+} from '../../../src/features/catch-confirmations';
+import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
+import type { FursuitSummary } from '../../../src/features/suits';
+import { TailTagButton } from '../../../src/components/ui/TailTagButton';
+import { TailTagCard } from '../../../src/components/ui/TailTagCard';
+import { FURSUIT_BUCKET } from '../../../src/constants/storage';
+import { useAuth } from '../../../src/features/auth';
+import { supabase } from '../../../src/lib/supabase';
+import { colors } from '../../../src/theme';
+import { toDisplayDate } from '../../../src/utils/dates';
+import { deriveStoragePathFromPublicUrl } from '../../../src/utils/storage';
+import { styles } from '../../../src/app-styles/(tabs)/suits/index.styles';
 
 export default function MySuitsScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
-  const suitsQueryKey = useMemo(
-    () => [MY_SUITS_QUERY_KEY, userId] as const,
-    [userId],
-  );
+  const suitsQueryKey = useMemo(() => [MY_SUITS_QUERY_KEY, userId] as const, [userId]);
 
   const queryClient = useQueryClient();
   const {
@@ -63,15 +53,14 @@ export default function MySuitsScreen() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
 
-  const { data: pendingCatches = [], refetch: refetchPendingCatches } =
-    usePendingCatches();
+  const { data: pendingCatches = [], refetch: refetchPendingCatches } = usePendingCatches();
   const confirmCatchMutation = useConfirmCatch();
 
   const handleAcceptCatch = useCallback(
     (catchId: string, conventionId?: string) => {
       setProcessingCatchId(catchId);
       confirmCatchMutation.mutate(
-        { catchId, decision: "accept", conventionId },
+        { catchId, decision: 'accept', conventionId },
         { onSettled: () => setProcessingCatchId(null) },
       );
     },
@@ -82,7 +71,7 @@ export default function MySuitsScreen() {
     (catchId: string) => {
       setProcessingCatchId(catchId);
       confirmCatchMutation.mutate(
-        { catchId, decision: "reject" },
+        { catchId, decision: 'reject' },
         { onSettled: () => setProcessingCatchId(null) },
       );
     },
@@ -102,8 +91,7 @@ export default function MySuitsScreen() {
       if (
         !state ||
         state.isInvalidated ||
-        (state.status === "success" &&
-          Date.now() - state.dataUpdatedAt > MY_SUITS_STALE_TIME)
+        (state.status === 'success' && Date.now() - state.dataUpdatedAt > MY_SUITS_STALE_TIME)
       ) {
         void refetch({ throwOnError: false });
       }
@@ -112,10 +100,7 @@ export default function MySuitsScreen() {
 
   const handleRefresh = useCallback(async () => {
     setActionError(null);
-    await Promise.all([
-      refetch({ throwOnError: false }),
-      refetchPendingCatches(),
-    ]);
+    await Promise.all([refetch({ throwOnError: false }), refetchPendingCatches()]);
   }, [refetch, refetchPendingCatches]);
 
   const handleDelete = useCallback(
@@ -125,22 +110,19 @@ export default function MySuitsScreen() {
       }
 
       Alert.alert(
-        "Remove fursuit?",
+        'Remove fursuit?',
         `Remove ${suit.name} from your fursuits? You can always add it back later.`,
         [
-          { text: "Cancel", style: "cancel" },
+          { text: 'Cancel', style: 'cancel' },
           {
-            text: "Remove",
-            style: "destructive",
+            text: 'Remove',
+            style: 'destructive',
             onPress: async () => {
               setDeletingId(suit.id);
               setActionError(null);
 
               try {
-                const objectPath = deriveStoragePathFromPublicUrl(
-                  suit.avatar_url,
-                  FURSUIT_BUCKET,
-                );
+                const objectPath = deriveStoragePathFromPublicUrl(suit.avatar_url, FURSUIT_BUCKET);
 
                 if (objectPath) {
                   const { error: storageError } = await supabase.storage
@@ -148,27 +130,22 @@ export default function MySuitsScreen() {
                     .remove([objectPath]);
 
                   if (storageError) {
-                    console.warn(
-                      "Failed to remove fursuit avatar from storage",
-                      storageError,
-                    );
+                    console.warn('Failed to remove fursuit avatar from storage', storageError);
                   }
                 }
 
                 const { error: deleteError } = await (supabase as any)
-                  .from("fursuits")
+                  .from('fursuits')
                   .delete()
-                  .eq("id", suit.id)
-                  .eq("owner_id", userId);
+                  .eq('id', suit.id)
+                  .eq('owner_id', userId);
 
                 if (deleteError) {
                   throw deleteError;
                 }
 
-                queryClient.setQueryData<FursuitSummary[]>(
-                  suitsQueryKey,
-                  (current) =>
-                    (current ?? []).filter((item) => item.id !== suit.id),
+                queryClient.setQueryData<FursuitSummary[]>(suitsQueryKey, (current) =>
+                  (current ?? []).filter((item) => item.id !== suit.id),
                 );
 
                 // Invalidate count cache so limit check updates immediately
@@ -230,9 +207,7 @@ export default function MySuitsScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Your fursuits</Text>
           <Text style={styles.sectionMeta}>
-            {hasSuits
-              ? `${suitCount} ${suitCount === 1 ? "suit" : "suits"}`
-              : "No suits yet"}
+            {hasSuits ? `${suitCount} ${suitCount === 1 ? 'suit' : 'suits'}` : 'No suits yet'}
           </Text>
         </View>
         {isLoading ? (
@@ -240,7 +215,11 @@ export default function MySuitsScreen() {
         ) : combinedError ? (
           <View style={styles.helperColumn}>
             <Text style={styles.error}>{combinedError}</Text>
-            <TailTagButton variant="outline" size="sm" onPress={handleRefresh}>
+            <TailTagButton
+              variant="outline"
+              size="sm"
+              onPress={handleRefresh}
+            >
               Try again
             </TailTagButton>
           </View>
@@ -254,11 +233,7 @@ export default function MySuitsScreen() {
               return (
                 <View
                   key={suit.id}
-                  style={
-                    index < suits.length - 1
-                      ? styles.listItemSpacing
-                      : undefined
-                  }
+                  style={index < suits.length - 1 ? styles.listItemSpacing : undefined}
                 >
                   <FursuitCard
                     name={suit.name}
@@ -269,7 +244,7 @@ export default function MySuitsScreen() {
                     timelineLabel={timelineLabel}
                     onPress={() =>
                       router.push({
-                        pathname: "/fursuits/[id]",
+                        pathname: '/fursuits/[id]',
                         params: { id: suit.id },
                       })
                     }
@@ -282,8 +257,7 @@ export default function MySuitsScreen() {
                         accessibilityLabel="Delete fursuit"
                         style={({ pressed }) => [
                           {
-                            opacity:
-                              deletingId === suit.id ? 0.6 : pressed ? 0.8 : 1,
+                            opacity: deletingId === suit.id ? 0.6 : pressed ? 0.8 : 1,
                           },
                         ]}
                       >
@@ -301,8 +275,7 @@ export default function MySuitsScreen() {
           </View>
         ) : (
           <Text style={styles.message}>
-            You haven&apos;t added any suits yet. Tap “Add a fursuit” below to get
-            started.
+            You haven&apos;t added any suits yet. Tap “Add a fursuit” below to get started.
           </Text>
         )}
       </TailTagCard>
@@ -315,7 +288,7 @@ export default function MySuitsScreen() {
               : `Add a new suit before you head to the floor. (${suitCount}/${MAX_FURSUITS_PER_USER})`}
           </Text>
           <TailTagButton
-            onPress={() => router.push("/suits/add-fursuit")}
+            onPress={() => router.push('/suits/add-fursuit')}
             disabled={isAtFursuitLimit}
           >
             Add a fursuit

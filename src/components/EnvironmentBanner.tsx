@@ -1,16 +1,16 @@
-import { View, Text, StyleSheet } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { APP_ENV } from "../lib/runtimeConfig";
+import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { APP_ENV } from '../lib/runtimeConfig';
 
 const ENV_CONFIG = {
-  development: { label: "DEV", backgroundColor: "#b45309", textColor: "#fef3c7" },
-  staging: { label: "STAGING", backgroundColor: "#c2410c", textColor: "#fff7ed" },
+  development: { label: 'DEV', backgroundColor: '#b45309', textColor: '#fef3c7' },
+  staging: { label: 'STAGING', backgroundColor: '#c2410c', textColor: '#fff7ed' },
 } as const;
 
 type KnownEnv = keyof typeof ENV_CONFIG;
 
 function isKnownEnv(env: string | undefined): env is KnownEnv {
-  return env === "development" || env === "staging";
+  return env === 'development' || env === 'staging';
 }
 
 export function EnvironmentBanner() {
@@ -34,16 +34,16 @@ export function EnvironmentBanner() {
 
 const styles = StyleSheet.create({
   banner: {
-    position: "absolute",
+    position: 'absolute',
     left: 0,
     right: 0,
     zIndex: 9999,
-    alignItems: "center",
+    alignItems: 'center',
     paddingVertical: 2,
   },
   label: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: '700',
     letterSpacing: 1.5,
   },
 });

@@ -49,7 +49,9 @@ function defaultFormState(): TaskFormState {
 
 function formStateFromTask(task: ConventionTaskRow): TaskFormState {
   const metadata = task.metadata;
-  const filters = Array.isArray(metadata?.filters) ? (metadata.filters as Record<string, unknown>[]) : [];
+  const filters = Array.isArray(metadata?.filters)
+    ? (metadata.filters as Record<string, unknown>[])
+    : [];
 
   const speciesEntry = filters.find((f) => f.path === 'payload.species');
   const colorEntry = filters.find((f) => f.path === 'payload.colors');
@@ -74,7 +76,10 @@ function buildMetadata(form: TaskFormState) {
   }
 
   if (form.colorFilter.trim()) {
-    const colors = form.colorFilter.split(',').map((c) => c.trim()).filter(Boolean);
+    const colors = form.colorFilter
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
     if (colors.length > 0) {
       filters.push({ path: 'payload.colors', in: colors });
     }
@@ -98,10 +103,13 @@ function summarizeMetadata(metadata: Record<string, unknown> | null): string | n
   if (!metadata) return null;
   const parts: string[] = [];
   if (metadata.metric === 'unique') parts.push('unique');
-  const filters = Array.isArray(metadata.filters) ? (metadata.filters as Record<string, unknown>[]) : [];
+  const filters = Array.isArray(metadata.filters)
+    ? (metadata.filters as Record<string, unknown>[])
+    : [];
   for (const f of filters) {
     if (f.path === 'payload.species' && f.equals) parts.push(`species=${f.equals}`);
-    if (f.path === 'payload.colors' && Array.isArray(f.in)) parts.push(`colors=${(f.in as string[]).join(',')}`);
+    if (f.path === 'payload.colors' && Array.isArray(f.in))
+      parts.push(`colors=${(f.in as string[]).join(',')}`);
   }
   return parts.length > 0 ? parts.join(', ') : null;
 }
@@ -211,15 +219,16 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
   const isEditing = editingId !== null;
 
   return (
-    <Card title="Convention Daily Tasks" subtitle="Tasks added to the rotation for this convention">
+    <Card
+      title="Convention Daily Tasks"
+      subtitle="Tasks added to the rotation for this convention"
+    >
       <Table headers={['Name', 'Kind', 'Req.', 'Filters', 'Status', '']}>
         {tasks.map((task) => (
           <tr key={task.id}>
             <td className="px-4 py-3">
               <p className="font-medium text-slate-200">{task.name}</p>
-              {task.description ? (
-                <p className="text-xs text-muted">{task.description}</p>
-              ) : null}
+              {task.description ? <p className="text-xs text-muted">{task.description}</p> : null}
             </td>
             <td className="px-4 py-3">
               <span className="rounded-md bg-white/5 px-2 py-1 text-xs font-medium text-slate-300">
@@ -265,7 +274,10 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
         ))}
         {tasks.length === 0 ? (
           <tr>
-            <td className="px-4 py-3 text-sm text-muted" colSpan={6}>
+            <td
+              className="px-4 py-3 text-sm text-muted"
+              colSpan={6}
+            >
               No convention tasks yet.
             </td>
           </tr>
@@ -276,7 +288,10 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
         <h3 className="mb-4 text-sm font-semibold text-white">
           {isEditing ? 'Edit task' : 'Add a task'}
         </h3>
-        <form onSubmit={isEditing ? handleUpdate : handleCreate} className="space-y-3">
+        <form
+          onSubmit={isEditing ? handleUpdate : handleCreate}
+          className="space-y-3"
+        >
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <label className="text-xs text-muted">Name</label>
@@ -307,7 +322,10 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
               >
                 {TASK_KINDS.map((k) => (
-                  <option key={k.value} value={k.value}>
+                  <option
+                    key={k.value}
+                    value={k.value}
+                  >
                     {k.label}
                   </option>
                 ))}
@@ -331,7 +349,10 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
               >
                 {METRIC_OPTIONS.map((m) => (
-                  <option key={m.value} value={m.value}>
+                  <option
+                    key={m.value}
+                    value={m.value}
+                  >
                     {m.label}
                   </option>
                 ))}
@@ -379,8 +400,12 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
               className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-accent disabled:opacity-50"
             >
               {isPending
-                ? isEditing ? 'Saving…' : 'Creating…'
-                : isEditing ? 'Save changes' : 'Create task'}
+                ? isEditing
+                  ? 'Saving…'
+                  : 'Creating…'
+                : isEditing
+                  ? 'Save changes'
+                  : 'Create task'}
             </button>
             {isEditing ? (
               <button

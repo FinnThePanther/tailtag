@@ -1,7 +1,8 @@
 export const siteConfig = {
   name: 'TailTag',
   tagline: 'A real-world convention game where you catch fursuiters at events.',
-  description: 'Create a profile, register your fursuit, and collect catches, stats, and achievements at conventions.',
+  description:
+    'Create a profile, register your fursuit, and collect catches, stats, and achievements at conventions.',
 
   links: {
     ios: 'https://finnthepanther.com',

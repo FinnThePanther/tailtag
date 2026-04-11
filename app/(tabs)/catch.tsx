@@ -1,9 +1,9 @@
-import { useCallback, useState } from "react";
-import { Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useState } from 'react';
+import { Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { useRouter, useFocusEffect } from "expo-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 
 import {
   FursuitCard,
@@ -12,12 +12,12 @@ import {
   mapLatestFursuitBio,
   mapFursuitColors,
   fursuitDetailQueryKey,
-} from "../../src/features/suits";
-import type { FursuitBio } from "../../src/features/suits";
+} from '../../src/features/suits';
+import type { FursuitBio } from '../../src/features/suits';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
   CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
-} from "../../src/features/leaderboard";
+} from '../../src/features/leaderboard';
 import {
   createCatch,
   myPendingCatchesQueryKey,
@@ -25,41 +25,38 @@ import {
   PhotoCatchCard,
   type CatchStatus,
   type CreateCatchResult,
-} from "../../src/features/catch-confirmations";
-import { TailTagButton } from "../../src/components/ui/TailTagButton";
-import { TailTagCard } from "../../src/components/ui/TailTagCard";
-import { TailTagInput } from "../../src/components/ui/TailTagInput";
-import { KeyboardAwareFormWrapper } from "../../src/components/ui/KeyboardAwareFormWrapper";
-import { useAuth } from "../../src/features/auth";
-import { emitGameplayEvent } from "../../src/features/events";
-import { DAILY_TASKS_QUERY_KEY } from "../../src/features/daily-tasks/hooks";
-import { achievementsStatusQueryKey } from "../../src/features/achievements";
-import { supabase } from "../../src/lib/supabase";
-import {
-  captureHandledException,
-  addMonitoringBreadcrumb,
-} from "../../src/lib/sentry";
-import { spacing } from "../../src/theme";
-import { useBlockedIds } from "../../src/features/moderation";
-import { normalizeUniqueCodeInput } from "../../src/utils/code";
-import { toDisplayDateTime } from "../../src/utils/dates";
-import { FURSUIT_BUCKET } from "../../src/constants/storage";
-import { resolveStorageMediaUrl } from "../../src/utils/supabase-image";
-import { styles } from "../../src/app-styles/(tabs)/catch.styles";
+} from '../../src/features/catch-confirmations';
+import { TailTagButton } from '../../src/components/ui/TailTagButton';
+import { TailTagCard } from '../../src/components/ui/TailTagCard';
+import { TailTagInput } from '../../src/components/ui/TailTagInput';
+import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
+import { useAuth } from '../../src/features/auth';
+import { emitGameplayEvent } from '../../src/features/events';
+import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
+import { achievementsStatusQueryKey } from '../../src/features/achievements';
+import { supabase } from '../../src/lib/supabase';
+import { captureHandledException, addMonitoringBreadcrumb } from '../../src/lib/sentry';
+import { spacing } from '../../src/theme';
+import { useBlockedIds } from '../../src/features/moderation';
+import { normalizeUniqueCodeInput } from '../../src/utils/code';
+import { toDisplayDateTime } from '../../src/utils/dates';
+import { FURSUIT_BUCKET } from '../../src/constants/storage';
+import { resolveStorageMediaUrl } from '../../src/utils/supabase-image';
+import { styles } from '../../src/app-styles/(tabs)/catch.styles';
 
-import type { FursuitsRow } from "../../src/types/database";
-import type { FursuitColorOption } from "../../src/features/colors";
+import type { FursuitsRow } from '../../src/types/database';
+import type { FursuitColorOption } from '../../src/features/colors';
 
 type FursuitDetails = Pick<
   FursuitsRow,
-  | "id"
-  | "name"
-  | "species_id"
-  | "avatar_url"
-  | "unique_code"
-  | "owner_id"
-  | "is_tutorial"
-  | "catch_count"
+  | 'id'
+  | 'name'
+  | 'species_id'
+  | 'avatar_url'
+  | 'unique_code'
+  | 'owner_id'
+  | 'is_tutorial'
+  | 'catch_count'
 > & {
   avatar_path?: string | null;
   created_at: string | null;
@@ -83,25 +80,17 @@ export default function CatchScreen() {
 
   const blockedIds = useBlockedIds(userId);
 
-  const [codeInput, setCodeInput] = useState("");
+  const [codeInput, setCodeInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
   const [photoSubmitError, setPhotoSubmitError] = useState<string | null>(null);
-  const [caughtFursuit, setCaughtFursuit] = useState<FursuitDetails | null>(
-    null,
-  );
+  const [caughtFursuit, setCaughtFursuit] = useState<FursuitDetails | null>(null);
   const [catchRecord, setCatchRecord] = useState<CatchRecord | null>(null);
   const [catchNumber, setCatchNumber] = useState<number | null>(null);
-  const [conversationPrompt, setConversationPrompt] = useState<string | null>(
-    null,
-  );
-  const [lastCatchConventionId, setLastCatchConventionId] = useState<
-    string | null
-  >(null);
-  const [lastCatchConventionIds, setLastCatchConventionIds] = useState<
-    string[]
-  >([]);
+  const [conversationPrompt, setConversationPrompt] = useState<string | null>(null);
+  const [lastCatchConventionId, setLastCatchConventionId] = useState<string | null>(null);
+  const [lastCatchConventionIds, setLastCatchConventionIds] = useState<string[]>([]);
 
   const resetCatchState = () => {
     setCaughtFursuit(null);
@@ -125,7 +114,7 @@ export default function CatchScreen() {
 
   const lastCaughtFursuitId = caughtFursuit?.id ?? null;
   const lastCatchRecordId = catchRecord?.id ?? null;
-  const isPending = catchRecord?.status === "PENDING";
+  const isPending = catchRecord?.status === 'PENDING';
 
   const handleCatchCodeCopied = useCallback(() => {
     if (!userId) {
@@ -133,12 +122,12 @@ export default function CatchScreen() {
     }
     if (!lastCatchConventionId) {
       console.warn(
-        "Skipping catch_shared event because no convention was recorded for the latest catch",
+        'Skipping catch_shared event because no convention was recorded for the latest catch',
       );
       return;
     }
     void emitGameplayEvent({
-      type: "catch_shared",
+      type: 'catch_shared',
       conventionId: lastCatchConventionId,
       payload: {
         convention_id: lastCatchConventionId,
@@ -163,9 +152,7 @@ export default function CatchScreen() {
     const normalizedCode = normalizeUniqueCodeInput(codeInput);
 
     if (!normalizedCode) {
-      setSubmitError(
-        "Enter the code from the fursuit badge to record your catch.",
-      );
+      setSubmitError('Enter the code from the fursuit badge to record your catch.');
       return;
     }
 
@@ -178,7 +165,7 @@ export default function CatchScreen() {
 
       // Fetch fursuit details by code
       const { data: fursuit, error: fursuitError } = await client
-        .from("fursuits")
+        .from('fursuits')
         .select(
           `
           id,
@@ -216,10 +203,10 @@ export default function CatchScreen() {
           )
         `,
         )
-        .eq("unique_code", normalizedCode)
-        .order("version", { ascending: false, foreignTable: "fursuit_bios" })
-        .limit(1, { foreignTable: "fursuit_bios" })
-        .eq("is_tutorial", false)
+        .eq('unique_code', normalizedCode)
+        .order('version', { ascending: false, foreignTable: 'fursuit_bios' })
+        .limit(1, { foreignTable: 'fursuit_bios' })
+        .eq('is_tutorial', false)
         .maybeSingle();
 
       if (fursuitError) {
@@ -235,16 +222,13 @@ export default function CatchScreen() {
       }
 
       const initialCatchCount =
-        typeof (fursuit as any)?.catch_count === "number"
-          ? (fursuit as any).catch_count
-          : 0;
+        typeof (fursuit as any)?.catch_count === 'number' ? (fursuit as any).catch_count : 0;
 
       const normalizedFursuit: FursuitDetails = {
         id: fursuit.id,
         name: fursuit.name,
         species: (fursuit as any)?.species_entry?.name ?? null,
-        species_id:
-          (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
+        species_id: (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
         avatar_path: (fursuit as any)?.avatar_path ?? null,
         avatar_url: resolveStorageMediaUrl({
           bucket: FURSUIT_BUCKET,
@@ -262,46 +246,40 @@ export default function CatchScreen() {
 
       if (normalizedFursuit.is_tutorial) {
         resetCatchState();
-        setSubmitError("Tutorial suits cannot be caught by scanning codes.");
+        setSubmitError('Tutorial suits cannot be caught by scanning codes.');
         return;
       }
 
       if (blockedIds.has(normalizedFursuit.owner_id)) {
         resetCatchState();
-        setSubmitError("You cannot catch this fursuit.");
+        setSubmitError('You cannot catch this fursuit.');
         return;
       }
 
       // Get shared conventions between catcher and fursuit
-      const { data: suitConventionRows, error: suitConventionError } =
-        await client
-          .from("fursuit_conventions")
-          .select("convention_id")
-          .eq("fursuit_id", normalizedFursuit.id);
+      const { data: suitConventionRows, error: suitConventionError } = await client
+        .from('fursuit_conventions')
+        .select('convention_id')
+        .eq('fursuit_id', normalizedFursuit.id);
 
       if (suitConventionError) {
         throw suitConventionError;
       }
 
-      const { data: playerConventionRows, error: playerConventionError } =
-        await client
-          .from("profile_conventions")
-          .select("convention_id")
-          .eq("profile_id", userId);
+      const { data: playerConventionRows, error: playerConventionError } = await client
+        .from('profile_conventions')
+        .select('convention_id')
+        .eq('profile_id', userId);
 
       if (playerConventionError) {
         throw playerConventionError;
       }
 
       const suitConventionIds = new Set<string>(
-        (suitConventionRows ?? []).map(
-          (row: { convention_id: string }) => row.convention_id,
-        ),
+        (suitConventionRows ?? []).map((row: { convention_id: string }) => row.convention_id),
       );
       const playerConventionIds = new Set<string>(
-        (playerConventionRows ?? []).map(
-          (row: { convention_id: string }) => row.convention_id,
-        ),
+        (playerConventionRows ?? []).map((row: { convention_id: string }) => row.convention_id),
       );
 
       if (playerConventionIds.size === 0) {
@@ -336,12 +314,12 @@ export default function CatchScreen() {
       // Use the Edge Function to create the catch
       // This handles approval mode logic server-side
       addMonitoringBreadcrumb({
-        category: "catch",
-        message: "Catch initiated",
+        category: 'catch',
+        message: 'Catch initiated',
         data: {
           fursuitId: normalizedFursuit.id,
           conventionId: primaryConventionId,
-          method: "manual",
+          method: 'manual',
         },
       });
       const catchResult = await createCatch({
@@ -351,10 +329,7 @@ export default function CatchScreen() {
       });
 
       const promptCandidate = normalizedFursuit.bio
-        ? [
-            normalizedFursuit.bio.askMeAbout,
-            normalizedFursuit.bio.likesAndInterests,
-          ]
+        ? [normalizedFursuit.bio.askMeAbout, normalizedFursuit.bio.likesAndInterests]
             .map((value) => value?.trim())
             .find((value) => value)
         : null;
@@ -366,23 +341,20 @@ export default function CatchScreen() {
       if (!catchResult.requiresApproval) {
         try {
           const { data: latestFursuit, error: latestCatchError } = await client
-            .from("fursuits")
-            .select("catch_count")
-            .eq("id", normalizedFursuit.id)
+            .from('fursuits')
+            .select('catch_count')
+            .eq('id', normalizedFursuit.id)
             .maybeSingle();
 
           if (latestCatchError) {
             throw latestCatchError;
           }
 
-          if (latestFursuit && typeof latestFursuit.catch_count === "number") {
-            latestCatchCount = Math.max(
-              latestFursuit.catch_count,
-              minimumCatchCount,
-            );
+          if (latestFursuit && typeof latestFursuit.catch_count === 'number') {
+            latestCatchCount = Math.max(latestFursuit.catch_count, minimumCatchCount);
           }
         } catch (countError) {
-          console.warn("Failed to refresh catch count", countError);
+          console.warn('Failed to refresh catch count', countError);
         }
       }
 
@@ -431,25 +403,23 @@ export default function CatchScreen() {
       }
 
       // Invalidate my pending catches so the Caught tab list updates
-      if (catchResult.status === "PENDING") {
+      if (catchResult.status === 'PENDING') {
         queryClient.invalidateQueries({
           queryKey: myPendingCatchesQueryKey(userId),
         });
       }
 
-      setCodeInput("");
+      setCodeInput('');
 
       // Events are now fired by the Edge Function, no need to emit here
     } catch (caught) {
       const fallbackMessage =
-        caught instanceof Error
-          ? caught.message
-          : "We couldn't save that catch. Please try again.";
+        caught instanceof Error ? caught.message : "We couldn't save that catch. Please try again.";
       setSubmitError(fallbackMessage);
       resetCatchState();
 
       captureHandledException(caught, {
-        scope: "catch.performCatch",
+        scope: 'catch.performCatch',
         userId,
       });
     } finally {
@@ -458,13 +428,13 @@ export default function CatchScreen() {
   };
 
   const caughtAtLabel = catchRecord
-    ? (toDisplayDateTime(catchRecord.caught_at) ?? "Caught just now")
+    ? (toDisplayDateTime(catchRecord.caught_at) ?? 'Caught just now')
     : null;
 
   const handleCatchAnother = () => {
     resetCatchState();
     setSubmitError(null);
-    setCodeInput("");
+    setCodeInput('');
   };
 
   const handlePhotoCatch = async (params: {
@@ -484,7 +454,7 @@ export default function CatchScreen() {
 
       // Fetch fursuit details for the result card
       const { data: fursuit, error: fursuitError } = await client
-        .from("fursuits")
+        .from('fursuits')
         .select(
           `
           id,
@@ -522,8 +492,8 @@ export default function CatchScreen() {
           )
         `,
         )
-        .eq("id", params.fursuitId)
-        .eq("is_tutorial", false)
+        .eq('id', params.fursuitId)
+        .eq('is_tutorial', false)
         .maybeSingle();
 
       if (fursuitError) throw fursuitError;
@@ -536,8 +506,7 @@ export default function CatchScreen() {
         id: fursuit.id,
         name: fursuit.name,
         species: (fursuit as any)?.species_entry?.name ?? null,
-        species_id:
-          (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
+        species_id: (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
         avatar_path: (fursuit as any)?.avatar_path ?? null,
         avatar_url: resolveStorageMediaUrl({
           bucket: FURSUIT_BUCKET,
@@ -546,9 +515,7 @@ export default function CatchScreen() {
         }),
         unique_code: fursuit.unique_code ?? null,
         catch_count:
-          typeof (fursuit as any)?.catch_count === "number"
-            ? (fursuit as any).catch_count
-            : 0,
+          typeof (fursuit as any)?.catch_count === 'number' ? (fursuit as any).catch_count : 0,
         owner_id: fursuit.owner_id,
         created_at: fursuit.created_at ?? null,
         bio: mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
@@ -557,12 +524,12 @@ export default function CatchScreen() {
       };
 
       addMonitoringBreadcrumb({
-        category: "catch",
-        message: "Photo catch completed",
+        category: 'catch',
+        message: 'Photo catch completed',
         data: {
           fursuitId: params.fursuitId,
           conventionId: params.conventionId,
-          method: "photo",
+          method: 'photo',
         },
       });
 
@@ -570,10 +537,7 @@ export default function CatchScreen() {
       const { catchResult } = params;
 
       const promptCandidate = normalizedFursuit.bio
-        ? [
-            normalizedFursuit.bio.askMeAbout,
-            normalizedFursuit.bio.likesAndInterests,
-          ]
+        ? [normalizedFursuit.bio.askMeAbout, normalizedFursuit.bio.likesAndInterests]
             .map((v) => v?.trim())
             .find((v) => v)
         : null;
@@ -589,9 +553,7 @@ export default function CatchScreen() {
         status: catchResult.status,
       });
       setLastCatchConventionId(params.conventionId);
-      setLastCatchConventionIds(
-        params.conventionId ? [params.conventionId] : [],
-      );
+      setLastCatchConventionIds(params.conventionId ? [params.conventionId] : []);
       setCatchNumber(catchResult.catchNumber);
       setConversationPrompt(promptCandidate ?? null);
 
@@ -604,10 +566,7 @@ export default function CatchScreen() {
           queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, params.conventionId],
         });
         queryClient.invalidateQueries({
-          queryKey: [
-            CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
-            params.conventionId,
-          ],
+          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, params.conventionId],
         });
       }
       queryClient.invalidateQueries({
@@ -623,21 +582,19 @@ export default function CatchScreen() {
         });
       }
 
-      if (catchResult.status === "PENDING") {
+      if (catchResult.status === 'PENDING') {
         queryClient.invalidateQueries({
           queryKey: myPendingCatchesQueryKey(userId),
         });
       }
     } catch (caught) {
       const fallbackMessage =
-        caught instanceof Error
-          ? caught.message
-          : "We couldn't save that catch. Please try again.";
+        caught instanceof Error ? caught.message : "We couldn't save that catch. Please try again.";
       setPhotoSubmitError(fallbackMessage);
       resetCatchState();
 
       captureHandledException(caught, {
-        scope: "catch.performPhotoCatch",
+        scope: 'catch.performPhotoCatch',
         userId,
       });
     } finally {
@@ -683,18 +640,20 @@ export default function CatchScreen() {
             onSubmitEditing={handleSubmit}
             style={styles.codeInput}
           />
-          <Text style={styles.helpText}>
-            Letters only, {codeInput.length}/8 characters.
-          </Text>
+          <Text style={styles.helpText}>Letters only, {codeInput.length}/8 characters.</Text>
           <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
-            Some fursuits require manual approval. If so, the owner will be
-            notified and your catch will count once approved.
+            Some fursuits require manual approval. If so, the owner will be notified and your catch
+            will count once approved.
           </Text>
         </View>
 
         {submitError ? (
           <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle" size={18} color="#f87171" />
+            <Ionicons
+              name="alert-circle"
+              size={18}
+              color="#f87171"
+            />
             <Text style={styles.errorText}>{submitError}</Text>
           </View>
         ) : null}
@@ -711,14 +670,10 @@ export default function CatchScreen() {
 
       {caughtFursuit ? (
         <TailTagCard
-          style={
-            isPending
-              ? [styles.cardSpacing, styles.pendingCard]
-              : styles.cardSpacing
-          }
+          style={isPending ? [styles.cardSpacing, styles.pendingCard] : styles.cardSpacing}
         >
           <Text style={styles.sectionTitle}>
-            {isPending ? "Catch pending approval" : "Nice catch!"}
+            {isPending ? 'Catch pending approval' : 'Nice catch!'}
           </Text>
           {isPending ? (
             <>
@@ -736,18 +691,12 @@ export default function CatchScreen() {
           ) : null}
           <Text style={styles.sectionBody}>
             {isPending
-              ? "In the meantime, check out their bio below and start a conversation!"
+              ? 'In the meantime, check out their bio below and start a conversation!'
               : `You just tagged ${caughtFursuit.name}. Scroll through their bio below and start a conversation!`}
           </Text>
           {conversationPrompt ? (
-            <TailTagCard
-              style={isPending ? styles.pendingPromptCard : styles.promptCard}
-            >
-              <Text
-                style={
-                  isPending ? styles.pendingPromptLabel : styles.promptLabel
-                }
-              >
+            <TailTagCard style={isPending ? styles.pendingPromptCard : styles.promptCard}>
+              <Text style={isPending ? styles.pendingPromptLabel : styles.promptLabel}>
                 Ask them about…
               </Text>
               <Text style={styles.promptBody}>{conversationPrompt}</Text>
@@ -763,7 +712,7 @@ export default function CatchScreen() {
               timelineLabel={caughtAtLabel ?? undefined}
               onPress={() =>
                 router.push({
-                  pathname: "/fursuits/[id]",
+                  pathname: '/fursuits/[id]',
                   params: { id: caughtFursuit.id },
                 })
               }
@@ -780,7 +729,7 @@ export default function CatchScreen() {
           <View style={styles.buttonRow}>
             <TailTagButton
               variant="outline"
-              onPress={() => router.push("/caught")}
+              onPress={() => router.push('/caught')}
               style={[styles.fullWidthButton, styles.stackedButtonSpacing]}
             >
               View catches
