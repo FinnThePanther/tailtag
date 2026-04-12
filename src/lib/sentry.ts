@@ -41,6 +41,9 @@ const IGNORED_ERROR_PATTERNS = [
   /PGRST116/, // Supabase "no rows returned" — expected for optional lookups
 ];
 
+/** Request URLs that are noisy and not useful for performance traces. */
+const IGNORED_TRACE_REQUEST_PATTERNS = [/\/realtime\//i];
+
 Sentry.init({
   dsn: SENTRY_DSN,
   environment: ENVIRONMENT,
@@ -54,7 +57,11 @@ Sentry.init({
   replaysOnErrorSampleRate: 1.0,
   integrations: [
     routingInstrumentation,
-    Sentry.reactNativeTracingIntegration(),
+    Sentry.reactNativeTracingIntegration({
+      shouldCreateSpanForRequest(url) {
+        return !IGNORED_TRACE_REQUEST_PATTERNS.some((pattern) => pattern.test(url));
+      },
+    }),
     Sentry.mobileReplayIntegration(),
   ],
   beforeSend(event, hint) {

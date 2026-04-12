@@ -47,6 +47,7 @@ Set Edge Function secrets through Supabase, not in committed files.
 
 | Variable | Required | Secret | Used by | Notes |
 | --- | --- | --- | --- | --- |
+| `SENTRY_AUTH_TOKEN` | Recommended for release builds | Yes | Sentry Expo plugin, source map upload | Needed for automatic source-map and debug-symbol upload during EAS/native release builds and for `sentry-expo-upload-sourcemaps` after `eas update`. |
 | `SUPABASE_ACCESS_TOKEN` | Backend CI and scripts | Yes | Supabase CLI | Used to link projects, deploy functions, generate types, and verify environments. |
 | `SUPABASE_DB_PASSWORD` | Backend CI and scripts | Yes | Supabase CLI | Required for linked database operations. |
 | `PROJECT_REF` | Backend CI | No | Supabase CLI | Selects target Supabase project. |
