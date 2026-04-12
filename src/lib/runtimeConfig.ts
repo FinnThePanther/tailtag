@@ -4,6 +4,7 @@ type ExpoExtra = {
   environment?: string;
   supabaseUrl?: string;
   supabaseAnonKey?: string;
+  supabaseImageTransformsEnabled?: boolean | string;
   staffModeEnabled?: boolean | string;
 };
 
@@ -42,5 +43,10 @@ export const APP_ENV =
 export const SUPABASE_URL = readString(extra.supabaseUrl) ?? '';
 
 export const SUPABASE_ANON_KEY = readString(extra.supabaseAnonKey) ?? '';
+
+export const SUPABASE_IMAGE_TRANSFORMS_ENABLED =
+  readBoolean(extra.supabaseImageTransformsEnabled) ??
+  readBoolean(process.env.EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORMS_ENABLED) ??
+  false;
 
 export const STAFF_MODE_ENABLED = readBoolean(extra.staffModeEnabled) ?? false;

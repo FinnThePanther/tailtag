@@ -12,6 +12,7 @@ The mobile app reads public runtime values from Expo config. `app.config.ts` sel
 | `EXPO_PUBLIC_APP_ENV` | No | No | EAS build env | Mirrors the selected app environment in EAS build profiles. |
 | `EXPO_PUBLIC_SUPABASE_URL` | No for normal local dev | No | EAS build env | Public Supabase project URL. Local mobile config is currently resolved through `app.config.ts`. |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | No for normal local dev | No | EAS build env | Public anon key. It is safe for clients, but should still be kept consistent by environment. |
+| `EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORMS_ENABLED` | No | No | Mobile image rendering | Enables Supabase Storage Image Transformation URLs when set to `true`. Defaults off until the CDN/R2 or generated-thumbnail migration is ready. |
 | `EXPO_PUBLIC_STAFF_MODE_ENABLED` | No | No | Mobile feature flag | Enables staff mode UI when set to `true`; role checks still apply. |
 | `EXPO_PUBLIC_SENTRY_DSN` | No | No | Mobile Sentry setup | Optional DSN for mobile error reporting. |
 

@@ -181,9 +181,15 @@ These are configured in `eas.json` and `app.config.ts`:
 |---|---|---|---|
 | Supabase URL | `rtxbvjicfxgcouufumce` | *staging project ref* | *production project ref* |
 | Supabase Anon Key | dev key | staging key | production key |
+| Supabase Image Transformations | Disabled | Disabled | Disabled |
 | Sentry DSN | shared | shared | shared (tagged by env) |
 | App Bundle ID | `com.tailtag.app.dev` | `com.tailtag.app.staging` | `com.tailtag.app` |
 | EAS Build Profile | `development` | `preview` | `production` |
+
+Supabase Storage Image Transformations are disabled through
+`EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORMS_ENABLED=false` until the planned CDN/R2
+or generated-thumbnail migration replaces the temporary direct-object delivery
+path.
 
 ---
 
