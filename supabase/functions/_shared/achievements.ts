@@ -16,6 +16,12 @@ import type { InsertableEventRow, Json } from './types.ts';
 const DAILY_TASK_ACHIEVEMENT_PREFIX = 'DAILY_TASK_';
 const PROFILE_AVATAR_BUCKET = 'profile-avatars';
 const PROFILE_AVATAR_PUBLIC_PATH = `/storage/v1/object/public/${PROFILE_AVATAR_BUCKET}/`;
+const PROFILE_AVATAR_AUTHENTICATED_PATH =
+  `/storage/v1/object/authenticated/${PROFILE_AVATAR_BUCKET}/`;
+const PROFILE_AVATAR_PUBLIC_RENDER_PATH =
+  `/storage/v1/render/image/public/${PROFILE_AVATAR_BUCKET}/`;
+const PROFILE_AVATAR_AUTHENTICATED_RENDER_PATH =
+  `/storage/v1/render/image/authenticated/${PROFILE_AVATAR_BUCKET}/`;
 
 type RpcAwardResult = {
   achievement_key: string;
@@ -40,13 +46,23 @@ export type ProcessedAchievementResult = {
 
 const MAX_QUERY_LIMIT = 20000;
 
-function hasUploadedProfileAvatar(avatarUrl: unknown): boolean {
+function hasUploadedProfileAvatar(avatarUrl: unknown, avatarPath: unknown): boolean {
+  if (typeof avatarPath === 'string' && avatarPath.trim().length > 0) {
+    return true;
+  }
+
   if (typeof avatarUrl !== 'string') {
     return false;
   }
 
   const trimmed = avatarUrl.trim();
-  return trimmed.length > 0 && trimmed.includes(PROFILE_AVATAR_PUBLIC_PATH);
+  return (
+    trimmed.length > 0 &&
+    (trimmed.includes(PROFILE_AVATAR_PUBLIC_PATH) ||
+      trimmed.includes(PROFILE_AVATAR_AUTHENTICATED_PATH) ||
+      trimmed.includes(PROFILE_AVATAR_PUBLIC_RENDER_PATH) ||
+      trimmed.includes(PROFILE_AVATAR_AUTHENTICATED_RENDER_PATH))
+  );
 }
 
 /**
@@ -1040,7 +1056,7 @@ async function fetchProfileSnapshot(
 ) {
   const { data, error } = await supabaseAdmin
     .from('profiles')
-    .select('avatar_url,username,bio')
+    .select('avatar_url,avatar_path,username,bio')
     .eq('id', userId)
     .limit(1)
     .maybeSingle();
@@ -1053,7 +1069,7 @@ async function fetchProfileSnapshot(
     return null;
   }
   return {
-    hasAvatar: hasUploadedProfileAvatar(data.avatar_url),
+    hasAvatar: hasUploadedProfileAvatar(data.avatar_url, data.avatar_path),
     hasUsername: Boolean(data.username && data.username.trim().length > 0),
     hasBio: Boolean(data.bio && data.bio.trim().length > 0),
   };
