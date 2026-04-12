@@ -134,6 +134,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     environment: APP_ENV,
     supabaseUrl: publicEnv.supabaseUrl,
     supabaseAnonKey: publicEnv.supabaseAnonKey,
+    supabaseImageTransformsEnabled:
+      process.env.EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORMS_ENABLED === 'true',
     staffModeEnabled: process.env.EXPO_PUBLIC_STAFF_MODE_ENABLED === 'true',
     eas: {
       projectId: '3ae47a1a-6584-423d-b52d-90b5acd11048',

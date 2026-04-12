@@ -1,6 +1,6 @@
 import type { ImageSource } from 'expo-image';
 
-import { SUPABASE_URL } from '../lib/runtimeConfig';
+import { SUPABASE_IMAGE_TRANSFORMS_ENABLED, SUPABASE_URL } from '../lib/runtimeConfig';
 
 const OBJECT_PUBLIC_PATH = '/storage/v1/object/public/';
 const OBJECT_AUTHENTICATED_PATH = '/storage/v1/object/authenticated/';
@@ -184,8 +184,9 @@ export function toExpoImageSource(
 }
 
 /**
- * Rewrites a Supabase Storage public URL to the Image Transformation endpoint,
- * which serves correctly-sized variants via Supabase's CDN.
+ * Rewrites a Supabase Storage URL to the Image Transformation endpoint when
+ * transformations are enabled. When disabled, returns the authenticated object
+ * URL to avoid Storage Image Transformation usage.
  *
  * Returns null for null/undefined/empty input.
  * Returns the URL unchanged for non-Supabase URLs (e.g. local file:// URIs).
@@ -201,6 +202,10 @@ export function getTransformedImageUrl(
   const location = resolveStorageLocationFromUrl(authenticatedUrl);
   if (!location) {
     return authenticatedUrl;
+  }
+
+  if (!SUPABASE_IMAGE_TRANSFORMS_ENABLED) {
+    return `${SUPABASE_URL}${OBJECT_AUTHENTICATED_PATH}${location.bucket}/${location.path}`;
   }
 
   const renderPath = location.authenticated ? RENDER_AUTHENTICATED_PATH : RENDER_PUBLIC_PATH;
