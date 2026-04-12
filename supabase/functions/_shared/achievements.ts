@@ -16,12 +16,9 @@ import type { InsertableEventRow, Json } from './types.ts';
 const DAILY_TASK_ACHIEVEMENT_PREFIX = 'DAILY_TASK_';
 const PROFILE_AVATAR_BUCKET = 'profile-avatars';
 const PROFILE_AVATAR_PUBLIC_PATH = `/storage/v1/object/public/${PROFILE_AVATAR_BUCKET}/`;
-const PROFILE_AVATAR_AUTHENTICATED_PATH =
-  `/storage/v1/object/authenticated/${PROFILE_AVATAR_BUCKET}/`;
-const PROFILE_AVATAR_PUBLIC_RENDER_PATH =
-  `/storage/v1/render/image/public/${PROFILE_AVATAR_BUCKET}/`;
-const PROFILE_AVATAR_AUTHENTICATED_RENDER_PATH =
-  `/storage/v1/render/image/authenticated/${PROFILE_AVATAR_BUCKET}/`;
+const PROFILE_AVATAR_AUTHENTICATED_PATH = `/storage/v1/object/authenticated/${PROFILE_AVATAR_BUCKET}/`;
+const PROFILE_AVATAR_PUBLIC_RENDER_PATH = `/storage/v1/render/image/public/${PROFILE_AVATAR_BUCKET}/`;
+const PROFILE_AVATAR_AUTHENTICATED_RENDER_PATH = `/storage/v1/render/image/authenticated/${PROFILE_AVATAR_BUCKET}/`;
 
 type RpcAwardResult = {
   achievement_key: string;
