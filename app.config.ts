@@ -15,6 +15,7 @@ const { envConfigs, resolveAppEnv } = require('./scripts/native-env.config.cjs')
   >;
   resolveAppEnv: (input?: string) => 'development' | 'staging' | 'production';
 };
+const rootPackage = require('./package.json') as { version: string };
 
 const APP_ENV = resolveAppEnv(process.env.APP_ENV);
 const env = envConfigs[APP_ENV];
@@ -60,7 +61,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: env.appDisplayName,
   slug: 'tailtag',
-  version: '0.0.1',
+  version: rootPackage.version,
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
