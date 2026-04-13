@@ -17,11 +17,10 @@ type ReportModalProps = {
 };
 
 const REPORT_TYPES: ReportType[] = [
-  'inappropriate_conduct',
-  'harassment',
   'inappropriate_content',
+  'harassment',
   'cheating',
-  'impersonation',
+  'spam',
   'other',
 ];
 
@@ -31,7 +30,7 @@ export function ReportModal({
   reportedUserId,
   reportedFursuitId,
 }: ReportModalProps) {
-  const [selectedType, setSelectedType] = useState<ReportType>('inappropriate_conduct');
+  const [selectedType, setSelectedType] = useState<ReportType>('inappropriate_content');
   const [description, setDescription] = useState('');
   const reportMutation = useReportUser();
 
@@ -45,7 +44,7 @@ export function ReportModal({
       },
       {
         onSuccess: () => {
-          setSelectedType('inappropriate_conduct');
+          setSelectedType('inappropriate_content');
           setDescription('');
           onClose();
         },
@@ -54,7 +53,7 @@ export function ReportModal({
   };
 
   const handleClose = () => {
-    setSelectedType('inappropriate_conduct');
+    setSelectedType('inappropriate_content');
     setDescription('');
     onClose();
   };

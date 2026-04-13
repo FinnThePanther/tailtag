@@ -7,13 +7,7 @@ export type UserBlock = {
   createdAt: string;
 };
 
-export type ReportType =
-  | 'inappropriate_conduct'
-  | 'harassment'
-  | 'inappropriate_content'
-  | 'cheating'
-  | 'impersonation'
-  | 'other';
+export type ReportType = 'inappropriate_content' | 'harassment' | 'cheating' | 'spam' | 'other';
 
 export type ReportInput = {
   reportedUserId?: string;
@@ -24,10 +18,9 @@ export type ReportInput = {
 };
 
 export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
-  inappropriate_conduct: 'Inappropriate conduct',
-  harassment: 'Harassment',
   inappropriate_content: 'Inappropriate content',
+  harassment: 'Harassment',
   cheating: 'Cheating',
-  impersonation: 'Impersonation',
+  spam: 'Spam',
   other: 'Other',
 };

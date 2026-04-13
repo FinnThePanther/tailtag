@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { Card } from '@/components/card';
 import { Table } from '@/components/table';
 import { ReportFilters } from '@/components/report-filters';
@@ -46,6 +48,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
             const target = Array.isArray(report.reported)
               ? report.reported[0]?.username
               : (report.reported as any)?.username;
+            const reportedUserId = report.reported_user_id as string | null;
+            const reportedFursuitId = report.reported_fursuit_id as string | null;
 
             return (
               <tr key={id}>
@@ -53,7 +57,16 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
                 <td className="px-4 py-3 capitalize text-slate-200">{report.status}</td>
                 <td className="px-4 py-3 text-slate-200">{reporter ?? report.reporter_id}</td>
                 <td className="px-4 py-3 text-slate-200">
-                  {target ?? report.reported_user_id ?? report.reported_fursuit_id ?? '—'}
+                  {reportedUserId ? (
+                    <Link
+                      href={`/players/${reportedUserId}`}
+                      className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-slate-100 transition hover:border-primary"
+                    >
+                      {target ?? reportedUserId}
+                    </Link>
+                  ) : (
+                    <span>{reportedFursuitId ? `Fursuit: ${reportedFursuitId}` : '—'}</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-slate-200">
                   {report.description ? (
