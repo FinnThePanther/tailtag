@@ -58,14 +58,25 @@ import { siteConfig } from '../config/site';
         <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Data Retention</h2>
         <p>
           We retain your data while your account is active. You can delete your account at any time
-          through the app settings, which will remove all your data from our systems.
+          through the app settings. You can also request account deletion on our{' '}
+          <a
+            href="/delete-account"
+            class="text-primary hover:underline"
+            >Delete Account page</a
+          >.
         </p>
       </section>
 
       <section>
         <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Contact</h2>
         <p>
-          For privacy questions, please reach out via our{' '}
+          For privacy questions, email{' '}
+          <a
+            href={`mailto:${siteConfig.links.supportEmail}`}
+            class="text-primary hover:underline"
+            >{siteConfig.links.supportEmail}</a
+          >{' '}
+          or reach out via our{' '}
           <a
             href={siteConfig.links.discord}
             class="text-primary hover:underline"
