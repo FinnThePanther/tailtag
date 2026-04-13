@@ -94,6 +94,13 @@ export const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     backgroundColor: colors.surfaceMuted,
   },
+  reportActionRow: {
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  reportButton: {
+    borderColor: colors.borderInteractive,
+  },
   contextContainer: {
     gap: spacing.xs,
     marginBottom: spacing.md,

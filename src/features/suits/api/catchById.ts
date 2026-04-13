@@ -19,6 +19,7 @@ const CATCH_SELECT = `
   catch_photo_url,
   fursuit:fursuits (
     id,
+    owner_id,
     name,
     species_id,
     avatar_path,
@@ -84,6 +85,7 @@ export async function fetchCatchById(catchId: string): Promise<CaughtRecord | nu
   const fursuit: FursuitSummary | null = rawFursuit
     ? {
         id: rawFursuit.id,
+        owner_id: rawFursuit.owner_id ?? null,
         name: rawFursuit.name,
         species: rawFursuit.species_entry?.name ?? null,
         speciesId: rawFursuit.species_entry?.id ?? rawFursuit.species_id ?? null,

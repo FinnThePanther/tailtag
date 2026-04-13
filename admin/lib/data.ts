@@ -496,7 +496,67 @@ export async function fetchReports(params: {
   if (error) {
     throw error;
   }
-  return (data ?? []) as any;
+
+  const reports = (data ?? []) as any[];
+  const fursuitIds = Array.from(
+    new Set(
+      reports
+        .map((report) => report.reported_fursuit_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ),
+  );
+
+  if (fursuitIds.length === 0) {
+    return reports;
+  }
+
+  const { data: fursuits, error: fursuitsError } = await supabase
+    .from('fursuits')
+    .select('id, name, owner_id')
+    .in('id', fursuitIds);
+
+  if (fursuitsError) {
+    throw fursuitsError;
+  }
+
+  const ownerIds = Array.from(
+    new Set(
+      (fursuits ?? [])
+        .map((fursuit: any) => fursuit.owner_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ),
+  );
+  const ownerMap = new Map<string, any>();
+
+  if (ownerIds.length > 0) {
+    const { data: owners, error: ownersError } = await supabase
+      .from('profiles')
+      .select('id, username')
+      .in('id', ownerIds);
+
+    if (ownersError) {
+      throw ownersError;
+    }
+
+    for (const owner of owners ?? []) {
+      ownerMap.set(owner.id, owner);
+    }
+  }
+
+  const fursuitMap = new Map<string, any>();
+  for (const fursuit of fursuits ?? []) {
+    fursuitMap.set(fursuit.id, {
+      ...fursuit,
+      owner: ownerMap.get(fursuit.owner_id) ?? null,
+    });
+  }
+
+  return reports.map((report) => ({
+    ...report,
+    reported_fursuit: report.reported_fursuit_id
+      ? (fursuitMap.get(report.reported_fursuit_id) ?? null)
+      : null,
+  }));
 }
 
 export async function fetchAchievements() {

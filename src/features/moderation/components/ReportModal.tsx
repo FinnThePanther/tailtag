@@ -14,14 +14,15 @@ type ReportModalProps = {
   onClose: () => void;
   reportedUserId?: string;
   reportedFursuitId?: string;
+  conventionId?: string | null;
+  title?: string;
 };
 
 const REPORT_TYPES: ReportType[] = [
-  'inappropriate_conduct',
-  'harassment',
   'inappropriate_content',
+  'harassment',
   'cheating',
-  'impersonation',
+  'spam',
   'other',
 ];
 
@@ -30,8 +31,10 @@ export function ReportModal({
   onClose,
   reportedUserId,
   reportedFursuitId,
+  conventionId,
+  title = 'Report',
 }: ReportModalProps) {
-  const [selectedType, setSelectedType] = useState<ReportType>('inappropriate_conduct');
+  const [selectedType, setSelectedType] = useState<ReportType>('inappropriate_content');
   const [description, setDescription] = useState('');
   const reportMutation = useReportUser();
 
@@ -40,12 +43,13 @@ export function ReportModal({
       {
         reportedUserId,
         reportedFursuitId,
+        conventionId: conventionId ?? undefined,
         reportType: selectedType,
         description: description.trim(),
       },
       {
         onSuccess: () => {
-          setSelectedType('inappropriate_conduct');
+          setSelectedType('inappropriate_content');
           setDescription('');
           onClose();
         },
@@ -54,7 +58,7 @@ export function ReportModal({
   };
 
   const handleClose = () => {
-    setSelectedType('inappropriate_conduct');
+    setSelectedType('inappropriate_content');
     setDescription('');
     onClose();
   };
@@ -69,7 +73,7 @@ export function ReportModal({
       <KeyboardProvider>
         <View style={styles.container}>
           <View style={styles.header}>
-            <Text style={styles.title}>Report</Text>
+            <Text style={styles.title}>{title}</Text>
             <Pressable
               onPress={handleClose}
               hitSlop={8}

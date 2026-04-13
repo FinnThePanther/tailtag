@@ -1,0 +1,106 @@
+---
+import Base from '../layouts/Base.astro';
+import Footer from '../components/Footer.astro';
+import { siteConfig } from '../config/site';
+
+const supportEmail = siteConfig.links.supportEmail;
+const deleteAccountMailto = siteConfig.links.deleteAccountMailto;
+---
+
+<Base title="Delete Account">
+  <article class="flex-1 px-6 py-12 max-w-2xl mx-auto">
+    <h1 class="text-3xl font-bold text-foreground mb-8">Delete Your TailTag Account</h1>
+
+    <div class="prose prose-invert prose-sm max-w-none space-y-6 text-foreground/80">
+      <p class="text-foreground/60 text-sm">Last updated: April 13, 2026</p>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Contact</h2>
+        <p>
+          TailTag account deletion requests are handled by TailTag Support. You can contact us at{
+            ' '
+          }
+          <a
+            href={`mailto:${supportEmail}`}
+            class="text-primary hover:underline"
+            >{supportEmail}</a
+          >.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Delete In The App</h2>
+        <p>
+          If you can still sign in, delete your account directly in the app:
+          <strong> Settings -&gt; Profile &amp; account -&gt; Delete account</strong>.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Request Deletion On The Web</h2>
+        <p>
+          If you cannot access the app, submit a deletion request by email:
+          <a
+            href={deleteAccountMailto}
+            class="text-primary hover:underline"
+          >
+            TailTag Account Deletion Request</a
+          >.
+        </p>
+        <p>Include the following details to help us verify account ownership:</p>
+        <ul class="list-disc list-inside space-y-2">
+          <li>The email address on your TailTag account</li>
+          <li>Your TailTag username or display name</li>
+          <li>A short request confirming you want your account and associated data deleted</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">What Is Deleted</h2>
+        <p>
+          After we verify your identity, account deletion removes your TailTag account and
+          associated gameplay/profile data, including:
+        </p>
+        <ul class="list-disc list-inside space-y-2">
+          <li>Authentication account and profile</li>
+          <li>Owned fursuits and related fursuit photos</li>
+          <li>Catches tied to your owned fursuits or catches created by your account</li>
+          <li>Achievements, daily progress, and daily streak data</li>
+          <li>Notifications linked to your account</li>
+          <li>Uploaded profile avatars and catch photos stored under your account</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">What May Be Retained</h2>
+        <p>
+          Some records may be retained when needed for safety, legal compliance, audit history,
+          support tracking, service integrity, or operational backups. In these cases, user
+          references are minimized or de-identified where possible. For example, certain references
+          in shared records can be set to null when your account is removed.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Request Timeline</h2>
+        <p>
+          We process account deletion requests within 30 days after we verify account ownership.
+          Once complete, we send a confirmation to the requesting email address.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Related Policies</h2>
+        <p>
+          For more details about data handling, see our{' '}
+          <a
+            href="/privacy"
+            class="text-primary hover:underline"
+            >Privacy Policy</a
+          >.
+        </p>
+      </section>
+    </div>
+  </article>
+  <Footer />
+</Base>

@@ -32,6 +32,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       catch_photo_url,
       fursuit:fursuits (
         id,
+        owner_id,
         name,
         species_id,
         avatar_path,
@@ -91,6 +92,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       const fursuit = rawFursuit
         ? ({
             id: rawFursuit.id,
+            owner_id: rawFursuit.owner_id ?? null,
             name: rawFursuit.name,
             species: rawFursuit.species_entry?.name ?? null,
             speciesId: rawFursuit.species_entry?.id ?? rawFursuit.species_id ?? null,

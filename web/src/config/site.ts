@@ -8,6 +8,8 @@ export const siteConfig = {
     ios: 'https://finnthepanther.com',
     android: 'https://finnthepanther.com',
     discord: 'https://discord.gg/Fv7NPJNTP2',
+    supportEmail: 'support@tailtag.app',
+    deleteAccountMailto: 'mailto:support@tailtag.app?subject=TailTag%20Account%20Deletion',
   },
 
   platforms: {
