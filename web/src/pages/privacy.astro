@@ -2,6 +2,9 @@
 import Base from '../layouts/Base.astro';
 import Footer from '../components/Footer.astro';
 import { siteConfig } from '../config/site';
+
+const supportEmail = siteConfig.links.supportEmail;
+const deleteAccountMailto = siteConfig.links.deleteAccountMailto;
 ---
 
 <Base title="Privacy Policy">
@@ -9,15 +12,19 @@ import { siteConfig } from '../config/site';
     <h1 class="text-3xl font-bold text-foreground mb-8">Privacy Policy</h1>
 
     <div class="prose prose-invert prose-sm max-w-none space-y-6 text-foreground/80">
-      <p class="text-foreground/60 text-sm">
-        Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-      </p>
+      <p class="text-foreground/60 text-sm">Last updated: April 13, 2026</p>
 
       <section>
         <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Overview</h2>
         <p>
-          {siteConfig.name} ("we", "our", or "us") respects your privacy. This Privacy Policy explains
-          how we collect, use, and protect your information when you use our mobile application.
+          {siteConfig.name} ("we", "our", or "us") is a convention game for creating a profile,
+          registering fursuits, logging catches, and tracking achievements. This Privacy Policy
+          explains what information we collect, how we use it, who helps us process it, and how you
+          can request deletion of your account and associated data.
+        </p>
+        <p>
+          We do not sell personal information. We do not show ads, and we do not use TailTag data
+          for cross-app or cross-site advertising tracking.
         </p>
       </section>
 
@@ -25,58 +32,148 @@ import { siteConfig } from '../config/site';
         <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Information We Collect</h2>
         <ul class="list-disc list-inside space-y-2">
           <li>
-            <strong>Account Information:</strong> Email address and display name when you create an account.
+            <strong>Account and sign-in data:</strong> your email address, TailTag user ID,
+            username or display name, authentication provider identifiers, and authentication
+            metadata from providers such as Apple, Google, or Discord.
           </li>
-          <li><strong>Profile Data:</strong> Fursuit photos and details you choose to share.</li>
-          <li><strong>Usage Data:</strong> Catches, achievements, and gameplay statistics.</li>
           <li>
-            <strong>Device Information:</strong> Device type and operating system for app functionality.
+            <strong>Profile and fursuit data:</strong> profile avatar, profile bio, social links,
+            fursuit names, fursuit photos, fursuit descriptions, species, colors, catch settings,
+            and convention associations you choose to add.
+          </li>
+          <li>
+            <strong>Gameplay data:</strong> catches, catch status, catch timestamps, convention
+            participation, achievements, daily tasks, streaks, leaderboards, notifications, NFC tag
+            registration and scans, and related gameplay events.
+          </li>
+          <li>
+            <strong>Photos:</strong> profile avatars, fursuit photos, and catch photos you upload
+            or take in the app.
+          </li>
+          <li>
+            <strong>Location verification data:</strong> when you choose to verify that you are at a
+            convention, TailTag requests foreground location access and sends your current latitude,
+            longitude, and location accuracy to our backend to compare with the convention geofence.
+            TailTag does not continuously track your location in the background.
+          </li>
+          <li>
+            <strong>Push notification data:</strong> Expo push tokens, notification permission
+            status, notification preferences, and notification delivery records.
+          </li>
+          <li>
+            <strong>Diagnostics and app telemetry:</strong> crash reports, error logs, performance
+            traces, profiling data, device and operating system details, app version, navigation
+            breadcrumbs, and related metadata. These diagnostics may include your TailTag user ID,
+            email address, or username when you are signed in. TailTag does not record session
+            replay samples in production beta builds.
+          </li>
+          <li>
+            <strong>Moderation, safety, and support data:</strong> reports, blocks, moderation
+            actions, support emails, deletion requests, and notes needed to review safety issues or
+            account requests.
           </li>
         </ul>
       </section>
 
       <section>
-        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">How We Use Your Information</h2>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">How We Use Information</h2>
         <ul class="list-disc list-inside space-y-2">
-          <li>To provide and maintain the {siteConfig.name} service</li>
-          <li>To display your profile to other users</li>
-          <li>To track catches, achievements, and leaderboard standings</li>
-          <li>To improve the app and fix bugs</li>
+          <li>Provide TailTag features, including sign-in, profiles, fursuits, catches, achievements, daily tasks, leaderboards, and notifications.</li>
+          <li>Verify convention participation when a convention requires location verification.</li>
+          <li>Process uploaded photos and display user-provided content inside TailTag.</li>
+          <li>Send operational notifications about catches, achievements, daily tasks, and account activity.</li>
+          <li>Monitor app reliability, diagnose crashes and errors, measure performance, and improve beta builds.</li>
+          <li>Review reports, enforce safety rules, prevent abuse, and support moderation workflows.</li>
+          <li>Respond to support, account deletion, privacy, and security requests.</li>
+          <li>Comply with legal, safety, audit, and service integrity obligations.</li>
         </ul>
       </section>
 
       <section>
-        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Data Sharing</h2>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">What Other Users Can See</h2>
         <p>
-          We do not sell your personal information. Your profile and catch data are visible to other {
-            siteConfig.name
-          } users as part of the gameplay experience.
+          TailTag is a social convention game. Other users may see information that is part of the
+          gameplay experience, such as your username or display name, profile avatar, public profile
+          details, registered fursuits, fursuit photos, catch counts, achievements, leaderboard
+          standings, and shared catch information. Report and moderation details are limited to the
+          users and staff roles needed to review them.
         </p>
       </section>
 
       <section>
-        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Data Retention</h2>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Processors and Providers</h2>
         <p>
-          We retain your data while your account is active. You can delete your account at any time
-          through the app settings. You can also request account deletion on our{' '}
+          We use service providers to operate TailTag. These providers process information for us or
+          help complete actions you request:
+        </p>
+        <ul class="list-disc list-inside space-y-2">
+          <li><strong>Supabase:</strong> authentication, database, storage, realtime updates, and Edge Functions.</li>
+          <li><strong>Expo:</strong> app services and push notification delivery infrastructure.</li>
+          <li><strong>Sentry:</strong> crash reporting, diagnostics, performance monitoring, and profiling telemetry.</li>
+          <li><strong>Apple, Google, and Discord:</strong> sign-in providers when you choose those authentication options.</li>
+          <li><strong>Apple and Google:</strong> mobile platform services, app distribution, and platform-level push notification delivery.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Security</h2>
+        <p>
+          We use reasonable technical and organizational safeguards for TailTag, including encrypted
+          network connections, account authentication, access controls, and role-based moderation
+          tools. No service can guarantee perfect security, but we work to limit access to personal
+          information to the systems and people who need it.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Account Deletion and Retention</h2>
+        <p>
+          You can delete your account in the app from <strong>Settings -&gt; Profile &amp; account -&gt; Delete account</strong>.
+          If you cannot access the app, you can request deletion from our{' '}
           <a
             href="/delete-account"
             class="text-primary hover:underline"
             >Delete Account page</a
+          >{' '}
+          or email{' '}
+          <a
+            href={deleteAccountMailto}
+            class="text-primary hover:underline"
+            >{supportEmail}</a
           >.
+        </p>
+        <p>
+          Account deletion removes your authentication account, profile, account-linked gameplay
+          records, and stored user media where supported by TailTag's deletion flow and database
+          cascades. This includes profile avatars, fursuit photos, catch photos, owned fursuits,
+          catches tied to your owned fursuits or created by your account, achievements, daily
+          progress, streaks, and notifications linked to your account.
+        </p>
+        <p>
+          Some records may be retained when needed for safety, legal compliance, audit history,
+          support tracking, service integrity, or operational backups. Where possible, user
+          references are minimized, set to null, or de-identified when an account is removed.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Children</h2>
+        <p>
+          TailTag is intended for users who are at least 13 years old. It is not directed to
+          children under 13, and children under 13 should not use TailTag or provide information to
+          us.
         </p>
       </section>
 
       <section>
         <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Contact</h2>
         <p>
-          For privacy questions, email{' '}
+          For privacy questions or requests, email{' '}
           <a
-            href={`mailto:${siteConfig.links.supportEmail}`}
+            href={`mailto:${supportEmail}`}
             class="text-primary hover:underline"
-            >{siteConfig.links.supportEmail}</a
-          >{' '}
-          or reach out via our{' '}
+            >{supportEmail}</a
+          >. You can also reach us through our{' '}
           <a
             href={siteConfig.links.discord}
             class="text-primary hover:underline"

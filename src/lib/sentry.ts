@@ -53,8 +53,6 @@ Sentry.init({
   spotlight: __DEV__,
   tracesSampleRate: __DEV__ ? 1.0 : 0.1,
   profilesSampleRate: __DEV__ ? 1.0 : 0.05,
-  replaysSessionSampleRate: 0.01,
-  replaysOnErrorSampleRate: 1.0,
   integrations: [
     routingInstrumentation,
     Sentry.reactNativeTracingIntegration({
@@ -62,7 +60,6 @@ Sentry.init({
         return !IGNORED_TRACE_REQUEST_PATTERNS.some((pattern) => pattern.test(url));
       },
     }),
-    Sentry.mobileReplayIntegration(),
   ],
   beforeSend(event, hint) {
     const error = hint.originalException;

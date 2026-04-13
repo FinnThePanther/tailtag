@@ -73,6 +73,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'TailTag needs access to your photo library so you can add photos of your fursuits to your profile.',
       NSCameraUsageDescription:
         'TailTag needs access to your camera so you can take photos of your fursuits.',
+      NSLocationWhenInUseUsageDescription:
+        'TailTag uses your location only when you choose to verify that you are at a convention. TailTag does not continuously track your location.',
       ITSAppUsesNonExemptEncryption: false,
       UIBackgroundModes: ['remote-notification'],
     },
