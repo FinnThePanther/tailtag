@@ -16,6 +16,7 @@ export type FursuitBio = {
 
 export type FursuitSummary = {
   id: string;
+  owner_id?: string | null;
   name: string;
   species: string | null;
   speciesId: string | null;

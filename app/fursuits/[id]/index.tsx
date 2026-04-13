@@ -20,6 +20,7 @@ import {
   fursuitDetailQueryKey,
 } from '../../../src/features/suits';
 import { useAuth } from '../../../src/features/auth';
+import { ContentActionMenu } from '../../../src/features/moderation';
 import {
   PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
@@ -186,6 +187,16 @@ export default function FursuitDetailScreen() {
     >
       <Text style={styles.headerButton}>Edit</Text>
     </Pressable>
+  ) : detail && userId && detail.owner_id !== userId ? (
+    <ContentActionMenu
+      currentUserId={userId}
+      reportedUserId={detail.owner_id}
+      reportedFursuitId={detail.id}
+      targetName={detail.bio?.ownerName || detail.name}
+      reportLabel="Report fursuit"
+      reportTitle={`Report ${detail.name}`}
+      blockLabel="Block owner"
+    />
   ) : undefined;
 
   return (

@@ -15,6 +15,7 @@ const { envConfigs, resolveAppEnv } = require('./scripts/native-env.config.cjs')
   >;
   resolveAppEnv: (input?: string) => 'development' | 'staging' | 'production';
 };
+const rootPackage = require('./package.json') as { version: string };
 
 const APP_ENV = resolveAppEnv(process.env.APP_ENV);
 const env = envConfigs[APP_ENV];
@@ -36,6 +37,13 @@ const publicEnvConfig = {
   },
 } as const;
 const publicEnv = publicEnvConfig[APP_ENV];
+const CAMERA_PERMISSION =
+  'TailTag needs camera access so you can take fursuit, profile, and catch photos.';
+const PHOTO_LIBRARY_PERMISSION =
+  'TailTag needs photo library access so you can add profile, fursuit, and catch photos.';
+const LOCATION_WHEN_IN_USE_PERMISSION =
+  'TailTag uses your location only when you choose to verify that you are at a convention. TailTag does not continuously track your location.';
+const NFC_PERMISSION = 'TailTag needs NFC access to scan fursuit tags.';
 const maybeResolveExistingFile = (relativePath: string) => {
   const absolutePath = path.resolve(__dirname, relativePath);
   return fs.existsSync(absolutePath) ? relativePath : undefined;
@@ -53,7 +61,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: env.appDisplayName,
   slug: 'tailtag',
-  version: '0.0.1',
+  version: rootPackage.version,
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -69,10 +77,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     googleServicesFile: maybeResolveExistingFile(env.iosGoogleServicesFile),
     usesAppleSignIn: true,
     infoPlist: {
-      NSPhotoLibraryUsageDescription:
-        'TailTag needs access to your photo library so you can add photos of your fursuits to your profile.',
-      NSCameraUsageDescription:
-        'TailTag needs access to your camera so you can take photos of your fursuits.',
+      NSPhotoLibraryUsageDescription: PHOTO_LIBRARY_PERMISSION,
+      NSCameraUsageDescription: CAMERA_PERMISSION,
+      NSLocationWhenInUseUsageDescription: LOCATION_WHEN_IN_USE_PERMISSION,
       ITSAppUsesNonExemptEncryption: false,
       UIBackgroundModes: ['remote-notification'],
     },
@@ -95,6 +102,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.WRITE_EXTERNAL_STORAGE',
       'android.permission.SYSTEM_ALERT_WINDOW',
       'android.permission.WRITE_SETTINGS',
+      'android.permission.VIBRATE',
     ],
   },
   web: {
@@ -114,10 +122,35 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'react-native-nfc-manager',
       {
-        nfcPermission: 'TailTag needs NFC access to scan fursuit tags.',
+        nfcPermission: NFC_PERMISSION,
       },
     ],
-    'expo-camera',
+    [
+      'expo-camera',
+      {
+        cameraPermission: CAMERA_PERMISSION,
+        microphonePermission: false,
+        recordAudioAndroid: false,
+      },
+    ],
+    [
+      'expo-image-picker',
+      {
+        photosPermission: PHOTO_LIBRARY_PERMISSION,
+        cameraPermission: CAMERA_PERMISSION,
+        microphonePermission: false,
+      },
+    ],
+    [
+      'expo-location',
+      {
+        locationWhenInUsePermission: LOCATION_WHEN_IN_USE_PERMISSION,
+        locationAlwaysPermission: false,
+        locationAlwaysAndWhenInUsePermission: false,
+        isIosBackgroundLocationEnabled: false,
+        isAndroidBackgroundLocationEnabled: false,
+      },
+    ],
     [
       'expo-notifications',
       {

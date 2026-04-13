@@ -24,6 +24,7 @@ export { useReportUser } from './hooks/useReportUser';
 
 // Components
 export { ProfileActionMenu } from './components/ProfileActionMenu';
+export { ContentActionMenu } from './components/ContentActionMenu';
 export { ReportModal } from './components/ReportModal';
 export { BlockedUsersScreen } from './components/BlockedUsersScreen';
 export { SuspensionGate } from './components/SuspensionGate';

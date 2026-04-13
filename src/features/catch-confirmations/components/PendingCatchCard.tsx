@@ -9,6 +9,7 @@ import { AppAvatar } from '../../../components/ui/AppAvatar';
 import { AppImage } from '../../../components/ui/AppImage';
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { colors } from '../../../theme';
+import { ContentActionMenu } from '../../moderation';
 import { toExpoImageSource } from '../../../utils/supabase-image';
 import type { PendingCatch } from '../types';
 import { styles } from './PendingCatchCard.styles';
@@ -52,6 +53,7 @@ export function PendingCatchCard({
 }: PendingCatchCardProps) {
   const router = useRouter();
   const { session } = useAuth();
+  const currentUserId = session?.user.id ?? null;
   const { width: screenWidth } = useWindowDimensions();
   const [timeDisplay, setTimeDisplay] = useState(() => formatTimeRemaining(pendingCatch.expiresAt));
   const fadeAnimRef = useRef(new Animated.Value(1));
@@ -209,6 +211,22 @@ export function PendingCatchCard({
               </Pressable>
             </Pressable>
           </Modal>
+          <View style={styles.reportActionRow}>
+            <ContentActionMenu
+              currentUserId={currentUserId}
+              reportedUserId={pendingCatch.catcherId}
+              reportedFursuitId={pendingCatch.fursuitId}
+              conventionId={pendingCatch.conventionId}
+              targetName={pendingCatch.catcherUsername}
+              reportLabel="Report catch photo"
+              reportTitle="Report catch photo"
+              blockLabel="Block catcher"
+              triggerKind="button"
+              triggerLabel="Report photo"
+              disabled={isProcessing}
+              style={styles.reportButton}
+            />
+          </View>
         </>
       ) : null}
 
