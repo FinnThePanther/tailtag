@@ -29,6 +29,7 @@ import {
 } from '../../src/features/suits';
 import type { CaughtRecord } from '../../src/features/suits';
 import { useAuth } from '../../src/features/auth';
+import { ContentActionMenu } from '../../src/features/moderation';
 import { toDisplayDateTime } from '../../src/utils/dates';
 import { inferImageExtension, inferImageMimeType } from '../../src/utils/images';
 import { getStorageAuthHeaders, toExpoImageSource } from '../../src/utils/supabase-image';
@@ -71,6 +72,8 @@ export default function CatchDetailScreen() {
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [photoFullscreen, setPhotoFullscreen] = useState(false);
+  const ownerId = details?.owner_id ?? null;
+  const canModerateOwnerContent = Boolean(ownerId && userId && ownerId !== userId);
 
   const handleDownloadPhoto = useCallback(
     async (url: string) => {
@@ -132,6 +135,19 @@ export default function CatchDetailScreen() {
       <ScreenHeader
         title={`Caught: ${details.name}`}
         onBack={() => router.back()}
+        right={
+          canModerateOwnerContent ? (
+            <ContentActionMenu
+              currentUserId={userId}
+              reportedUserId={ownerId}
+              reportedFursuitId={details.id}
+              targetName={details.bio?.ownerName || details.name}
+              reportLabel={record.catchPhotoUrl ? 'Report catch photo' : 'Report fursuit'}
+              reportTitle={record.catchPhotoUrl ? 'Report catch photo' : `Report ${details.name}`}
+              blockLabel="Block owner"
+            />
+          ) : undefined
+        }
       />
       <ScrollView
         style={styles.scroll}
