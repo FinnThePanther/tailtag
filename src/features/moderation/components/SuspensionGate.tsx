@@ -56,12 +56,14 @@ export function SuspensionGate({ reason, suspendedUntil }: SuspensionGateProps) 
 
         <Pressable
           onPress={() =>
-            void Linking.openURL('mailto:support@tailtag.app?subject=Account%20Suspension%20Appeal')
+            void Linking.openURL(
+              'mailto:support@playtailtag.com?subject=Account%20Suspension%20Appeal',
+            )
           }
         >
           <Text style={styles.contact}>
             If you believe this is an error, contact{' '}
-            <Text style={styles.contactLink}>support@tailtag.app</Text>
+            <Text style={styles.contactLink}>support@playtailtag.com</Text>
           </Text>
         </Pressable>
 
