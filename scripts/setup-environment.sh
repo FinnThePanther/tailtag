@@ -140,11 +140,10 @@ else
   END;
   \$\$;
   " > /dev/null
-  # Also set as edge function secrets so functions that read these values
-  # directly get the right project-specific values.
+  # Also set SERVICE_ROLE_KEY as an edge function secret. SUPABASE_URL is a
+  # reserved Edge Function env name, so the project URL is only synced to vault.
   npx supabase secrets set SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" --project-ref "$PROJECT_REF" > /dev/null
-  npx supabase secrets set SUPABASE_URL="$SUPABASE_URL" --project-ref "$PROJECT_REF" > /dev/null
-  ok "Vault and edge function required secrets updated."
+  ok "Vault required secrets and edge function SERVICE_ROLE_KEY updated."
 fi
 
 # ── 1c. Derived vault secrets ────────────────────────────────────────────────
