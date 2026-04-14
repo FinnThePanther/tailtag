@@ -7,9 +7,9 @@ Use this inventory as the source of truth for TailTag's privacy policy, Apple Ap
 ## Public Policy Values
 
 - App name: TailTag
-- Privacy policy URL: `https://tailtag.app/privacy`
-- Account deletion URL: `https://tailtag.app/delete-account`
-- Support email: `support@tailtag.app`
+- Privacy policy URL: `https://playtailtag.com/privacy`
+- Account deletion URL: `https://playtailtag.com/delete-account`
+- Support email: `support@playtailtag.com`
 - Intended audience: users 13 and older; TailTag is not directed to children under 13.
 - Ads: no ads.
 - Sale of personal information: no sale.
@@ -118,8 +118,8 @@ Google notes:
 Public request paths:
 
 - In app: `Settings -> Profile & account -> Delete account`
-- Web: `https://tailtag.app/delete-account`
-- Email: `support@tailtag.app`
+- Web: `https://playtailtag.com/delete-account`
+- Email: `support@playtailtag.com`
 
 Deletion behavior to disclose:
 

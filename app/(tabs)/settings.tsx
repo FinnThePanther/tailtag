@@ -73,10 +73,10 @@ import { usePushNotifications } from '../../src/features/push-notifications';
 import { styles } from '../../src/app-styles/(tabs)/settings.styles';
 
 const FEEDBACK_FORM_URL = 'https://forms.gle/e65DqKt1VsuvoFTx8';
-const PRIVACY_POLICY_URL = 'https://tailtag.app/privacy';
-const TERMS_URL = 'https://tailtag.app/terms';
-const DELETE_ACCOUNT_URL = 'https://tailtag.app/delete-account';
-const SUPPORT_EMAIL_URL = 'mailto:support@tailtag.app';
+const PRIVACY_POLICY_URL = 'https://playtailtag.com/privacy';
+const TERMS_URL = 'https://playtailtag.com/terms';
+const DELETE_ACCOUNT_URL = 'https://playtailtag.com/delete-account';
+const SUPPORT_EMAIL_URL = 'mailto:support@playtailtag.com';
 const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
 
 export default function SettingsScreen() {
