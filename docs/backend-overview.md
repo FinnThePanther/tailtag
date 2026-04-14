@@ -38,7 +38,12 @@ Deployable functions currently include:
 - `send-push`
 - `staff-moderate`
 
-JWT verification settings are defined in `supabase/config.toml` for local development. Deployment scripts also handle functions that intentionally use `--no-verify-jwt`.
+JWT verification settings are defined in `supabase/config.toml` for local development.
+`create-catch`, `delete-account`, and `events-ingress` intentionally deploy with
+Supabase platform JWT verification disabled because they verify bearer tokens or
+service-role authorization inside the function code. They are not unauthenticated
+public endpoints. Keep every deployment path's `--no-verify-jwt` list aligned with
+`supabase/config.toml`.
 
 ## Data and processing flow
 
