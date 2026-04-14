@@ -17,4 +17,7 @@ export const generateUniqueCodeCandidate = () => {
 };
 
 export const normalizeUniqueCodeInput = (value: string) =>
-  value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, UNIQUE_CODE_LENGTH);
+  value
+    .replace(/[^a-zA-Z]/g, '')
+    .toUpperCase()
+    .slice(0, UNIQUE_CODE_LENGTH);

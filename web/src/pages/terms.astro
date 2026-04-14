@@ -1,0 +1,91 @@
+---
+import Base from '../layouts/Base.astro';
+import Footer from '../components/Footer.astro';
+import { siteConfig } from '../config/site';
+---
+
+<Base title="Terms of Service">
+  <article class="flex-1 px-6 py-12 max-w-2xl mx-auto">
+    <h1 class="text-3xl font-bold text-foreground mb-8">Terms of Service</h1>
+
+    <div class="prose prose-invert prose-sm max-w-none space-y-6 text-foreground/80">
+      <p class="text-foreground/60 text-sm">
+        Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+      </p>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Acceptance of Terms</h2>
+        <p>
+          By using {siteConfig.name}, you agree to these Terms of Service. If you do not agree,
+          please do not use the app.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Description of Service</h2>
+        <p>
+          {siteConfig.name} is a mobile game for fursuit enthusiasts at conventions. Users can register
+          fursuits, log catches in the app, and track achievements and statistics.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">User Conduct</h2>
+        <p>You agree to:</p>
+        <ul class="list-disc list-inside space-y-2 mt-2">
+          <li>Provide accurate information about yourself and your fursuit(s)</li>
+          <li>Respect other users and their privacy</li>
+          <li>Not upload inappropriate, offensive, or illegal content</li>
+          <li>Not attempt to exploit, hack, or disrupt the service</li>
+          <li>Only log catches and share information with other users' consent</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Content Ownership</h2>
+        <p>
+          You retain ownership of photos and content you upload. By uploading, you grant {
+            siteConfig.name
+          } a license to display this content within the app to other users.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Alpha/Beta Testing</h2>
+        <p>
+          {siteConfig.name} is currently in alpha/beta testing. The service is provided "as is" without
+          warranties. Features may change, and data may be reset between test builds.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Account Termination</h2>
+        <p>
+          We reserve the right to suspend or terminate accounts that violate these terms. You may
+          delete your account at any time through the app settings.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Limitation of Liability</h2>
+        <p>
+          {siteConfig.name} is provided for entertainment purposes. We are not liable for any damages
+          arising from use of the service.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Contact</h2>
+        <p>
+          For questions about these terms, please reach out via our{' '}
+          <a
+            href={siteConfig.links.discord}
+            class="text-primary hover:underline"
+            >Discord server</a
+          >.
+        </p>
+      </section>
+    </div>
+  </article>
+  <Footer />
+</Base>

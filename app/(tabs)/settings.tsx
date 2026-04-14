@@ -1,26 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Keyboard, Pressable, Switch, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { MenuView } from '@react-native-menu/menu';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+
+import * as Linking from 'expo-linking';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { AppAvatar } from '../../src/components/ui/AppAvatar';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
-import { AVATAR_BUCKET, MAX_IMAGE_SIZE } from '../../src/constants/storage';
+import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
+import { STAFF_MODE_ENABLED } from '../../src/constants/features';
 import {
-  addFursuitConvention,
   CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
   fetchConventions,
@@ -28,48 +23,65 @@ import {
   optInToConvention,
   optOutOfConvention,
   PROFILE_CONVENTIONS_QUERY_KEY,
-  removeFursuitConvention,
 } from '../../src/features/conventions';
 import { useAuth } from '../../src/features/auth';
-import type { ConventionSummary } from '../../src/features/conventions';
-import {
-  fetchMySuits,
-  MY_SUITS_QUERY_KEY,
-  MY_SUITS_STALE_TIME,
-} from '../../src/features/suits';
-import type { FursuitSummary } from '../../src/features/suits';
+import type { ConventionSummary, VerifiedLocation } from '../../src/features/conventions';
+import { ConventionToggle } from '../../src/components/conventions/ConventionToggle';
 import { supabase } from '../../src/lib/supabase';
-import { colors, spacing, radius } from '../../src/theme';
-import { loadUriAsUint8Array } from '../../src/utils/files';
-import { toDisplayDate } from '../../src/utils/dates';
-import { deriveStoragePathFromPublicUrl } from '../../src/utils/storage';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../src/lib/runtimeConfig';
+import { captureHandledException } from '../../src/lib/sentry';
+import { colors } from '../../src/theme';
+import { buildImageUploadCandidate, extractStoragePath } from '../../src/utils/images';
+import { buildAuthenticatedStorageObjectUrl } from '../../src/utils/supabase-image';
+import { PROFILE_AVATAR_BUCKET } from '../../src/constants/storage';
+import { emitGameplayEvent } from '../../src/features/events';
+import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import {
+  checkUsernameAvailability,
   fetchProfile,
+  hasUploadedProfileAvatar,
+  normalizeUsernameInput,
+  USERNAME_MAX_LENGTH,
+  uploadProfileAvatar,
+  updateProfileAvatar,
+  updateProfileSocialLinks,
+  validateUsername,
   PROFILE_QUERY_KEY,
   PROFILE_STALE_TIME,
 } from '../../src/features/profile';
 import type { ProfileSummary } from '../../src/features/profile';
+import type { FursuitPhotoCandidate } from '../../src/features/onboarding/api/onboarding';
+import type { EditableSocialLink } from '../../src/features/suits/forms/socialLinks';
+import {
+  ALLOWED_SOCIAL_PLATFORMS,
+  CUSTOM_PLATFORM_ID,
+  SOCIAL_LINK_LIMIT,
+  createEmptySocialLink,
+  mapEditableSocialLinks,
+  socialLinksToSave,
+} from '../../src/features/suits/forms/socialLinks';
+import { canUseStaffMode } from '../../src/features/staff-mode/constants';
+import {
+  CAUGHT_SUITS_QUERY_KEY,
+  CAUGHT_SUITS_STALE_TIME,
+  caughtSuitsQueryKey,
+  fetchCaughtSuits,
+} from '../../src/features/suits/api/caughtSuits';
+import type { CaughtRecord } from '../../src/features/suits/api/caughtSuits';
+import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../src/features/leaderboard/api/leaderboard';
+import { usePushNotifications } from '../../src/features/push-notifications';
+import { styles } from '../../src/app-styles/(tabs)/settings.styles';
 
-type UploadCandidate = {
-  uri: string;
-  mimeType: string;
-  fileName: string;
-  fileSize: number;
-} | null;
-
-const formatConventionDateRange = (start: string | null, end: string | null) => {
-  const startLabel = toDisplayDate(start);
-  const endLabel = toDisplayDate(end);
-
-  if (startLabel && endLabel) {
-    return startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
-  }
-
-  return startLabel ?? endLabel ?? null;
-};
+const FEEDBACK_FORM_URL = 'https://forms.gle/e65DqKt1VsuvoFTx8';
+const PRIVACY_POLICY_URL = 'https://tailtag.app/privacy';
+const TERMS_URL = 'https://tailtag.app/terms';
+const DELETE_ACCOUNT_URL = 'https://tailtag.app/delete-account';
+const SUPPORT_EMAIL_URL = 'mailto:support@tailtag.app';
+const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
 
 export default function SettingsScreen() {
-  const { session } = useAuth();
+  const router = useRouter();
+  const { session, forceSignOut } = useAuth();
   const userId = session?.user.id ?? null;
 
   const queryClient = useQueryClient();
@@ -91,10 +103,8 @@ export default function SettingsScreen() {
   const conventionsQueryKey = useMemo(() => [CONVENTIONS_QUERY_KEY] as const, []);
   const profileConventionQueryKey = useMemo(
     () => [PROFILE_CONVENTIONS_QUERY_KEY, userId] as const,
-    [userId]
+    [userId],
   );
-  const suitsQueryKey = useMemo(() => [MY_SUITS_QUERY_KEY, userId] as const, [userId]);
-
   const {
     data: conventions = [],
     error: conventionsError,
@@ -123,56 +133,117 @@ export default function SettingsScreen() {
     queryFn: () => fetchProfileConventionIds(userId!),
   });
 
+  const caughtSuitsQueryKeyValue = useMemo(
+    () => (userId ? caughtSuitsQueryKey(userId) : ([CAUGHT_SUITS_QUERY_KEY] as const)),
+    [userId],
+  );
   const {
-    data: mySuits = [],
-    error: suitsError,
-    isLoading: isSuitsLoading,
-    refetch: refetchSuits,
-  } = useQuery<FursuitSummary[], Error>({
-    queryKey: suitsQueryKey,
+    data: caughtSuits = [],
+    error: caughtSuitsError,
+    isLoading: isCaughtSuitsLoading,
+    refetch: refetchCaughtSuits,
+  } = useQuery<CaughtRecord[], Error>({
+    queryKey: caughtSuitsQueryKeyValue,
     enabled: Boolean(userId),
-    staleTime: MY_SUITS_STALE_TIME,
+    staleTime: CAUGHT_SUITS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchMySuits(userId!),
+    queryFn: () => fetchCaughtSuits(userId!),
   });
+
+  const {
+    isSupported: isPushSupported,
+    permissionStatus,
+    isEnabled: isPushEnabled,
+    isRegistering: isPushRegistering,
+    error: pushError,
+    requestPermissionAndRegister,
+    disablePushNotifications,
+    refreshState: refreshPushState,
+  } = usePushNotifications({ userId });
 
   const [usernameInput, setUsernameInput] = useState('');
   const [bioInput, setBioInput] = useState('');
 
-  const [selectedAvatar, setSelectedAvatar] = useState<UploadCandidate>(null);
-  const [shouldRemoveAvatar, setShouldRemoveAvatar] = useState(false);
+  type UsernameCheckStatus = 'idle' | 'checking' | 'available' | 'taken' | 'error';
+  const [usernameCheckStatus, setUsernameCheckStatus] = useState<UsernameCheckStatus>('idle');
+  const usernameCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [optimisticPushEnabled, setOptimisticPushEnabled] = useState<boolean | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+
+  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(() => [
+    createEmptySocialLink(),
+  ]);
+  const [isSavingSocialLinks, setIsSavingSocialLinks] = useState(false);
+  const [socialLinksError, setSocialLinksError] = useState<string | null>(null);
+  const [socialLinksMessage, setSocialLinksMessage] = useState<string | null>(null);
+  const [hasHydratedSocialLinks, setHasHydratedSocialLinks] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [hasEditedDraft, setHasEditedDraft] = useState(false);
+  const saveMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const isDeletingAccountRef = useRef(false);
   const [conventionError, setConventionError] = useState<string | null>(null);
   const [pendingMemberships, setPendingMemberships] = useState<Set<string>>(() => new Set());
 
   const selectedConventionIdSet = useMemo(
     () => new Set(profileConventionIds),
-    [profileConventionIds]
+    [profileConventionIds],
   );
+
+  const normalizedUsernameInput = useMemo(
+    () => normalizeUsernameInput(usernameInput),
+    [usernameInput],
+  );
+  const normalizedSessionUsername = useMemo(() => {
+    const metadataUsername = session?.user.user_metadata?.username;
+    return typeof metadataUsername === 'string' ? normalizeUsernameInput(metadataUsername) : '';
+  }, [session?.user.user_metadata?.username]);
+  const normalizedProfileUsername = useMemo(
+    () => normalizeUsernameInput(profile?.username ?? ''),
+    [profile?.username],
+  );
+  const normalizedCurrentUsername = useMemo(
+    () =>
+      normalizedProfileUsername.length > 0 ? normalizedProfileUsername : normalizedSessionUsername,
+    [normalizedProfileUsername, normalizedSessionUsername],
+  );
+  const usernameValidation = useMemo(
+    () => validateUsername(normalizedUsernameInput, { allowEmpty: true }),
+    [normalizedUsernameInput],
+  );
+  const hasUsernameValidationError =
+    normalizedUsernameInput.length > 0 && !usernameValidation.isValid;
+  const usernameValidationMessage = hasUsernameValidationError ? usernameValidation.message : null;
+
+  const isDirty = useMemo(() => {
+    const usernameChanged = normalizedCurrentUsername !== normalizedUsernameInput;
+    const bioChanged = (profile?.bio ?? '') !== bioInput.trim();
+    return usernameChanged || bioChanged;
+  }, [bioInput, normalizedCurrentUsername, normalizedUsernameInput, profile?.bio]);
 
   const resetDraftFromProfile = useCallback(
     (summary: ProfileSummary | null, options: { resetMessages?: boolean } = {}) => {
       const { resetMessages = true } = options;
 
-      setUsernameInput(summary?.username ?? '');
+      const summaryUsername = normalizeUsernameInput(summary?.username ?? '');
+      setUsernameInput(summaryUsername || normalizedSessionUsername);
       setBioInput(summary?.bio ?? '');
-      setSelectedAvatar(null);
-      setShouldRemoveAvatar(false);
-      setAvatarError(null);
 
       if (resetMessages) {
         setSaveMessage(null);
         setSaveError(null);
       }
     },
-    []
+    [normalizedSessionUsername],
   );
 
   useFocusEffect(
@@ -182,13 +253,16 @@ export default function SettingsScreen() {
         return;
       }
 
-      resetDraftFromProfile(profile, { resetMessages: true });
+      if (!hasEditedDraft) {
+        resetDraftFromProfile(profile, { resetMessages: true });
+      }
       const profileState = queryClient.getQueryState<ProfileSummary | null>(profileQueryKey);
 
       if (
         !profileState ||
         profileState.isInvalidated ||
-        (profileState.status === 'success' && Date.now() - profileState.dataUpdatedAt > PROFILE_STALE_TIME)
+        (profileState.status === 'success' &&
+          Date.now() - profileState.dataUpdatedAt > PROFILE_STALE_TIME)
       ) {
         void refetchProfile({ throwOnError: false });
       }
@@ -204,7 +278,8 @@ export default function SettingsScreen() {
         void refetchConventions({ throwOnError: false });
       }
 
-      const profileConventionsState = queryClient.getQueryState<string[]>(profileConventionQueryKey);
+      const profileConventionsState =
+        queryClient.getQueryState<string[]>(profileConventionQueryKey);
 
       if (
         !profileConventionsState ||
@@ -215,16 +290,20 @@ export default function SettingsScreen() {
         void refetchProfileConventions({ throwOnError: false });
       }
 
-      const suitsState = queryClient.getQueryState<FursuitSummary[]>(suitsQueryKey);
+      const caughtSuitsState = queryClient.getQueryState<CaughtRecord[]>(caughtSuitsQueryKeyValue);
 
       if (
-        !suitsState ||
-        suitsState.isInvalidated ||
-        (suitsState.status === 'success' && Date.now() - suitsState.dataUpdatedAt > MY_SUITS_STALE_TIME)
+        !caughtSuitsState ||
+        caughtSuitsState.isInvalidated ||
+        (caughtSuitsState.status === 'success' &&
+          Date.now() - caughtSuitsState.dataUpdatedAt > CAUGHT_SUITS_STALE_TIME)
       ) {
-        void refetchSuits({ throwOnError: false });
+        void refetchCaughtSuits({ throwOnError: false });
       }
+
+      void refreshPushState();
     }, [
+      hasEditedDraft,
       profile,
       profileQueryKey,
       queryClient,
@@ -235,214 +314,260 @@ export default function SettingsScreen() {
       refetchConventions,
       profileConventionQueryKey,
       refetchProfileConventions,
-      suitsQueryKey,
-      refetchSuits,
-    ])
+      caughtSuitsQueryKeyValue,
+      refetchCaughtSuits,
+      refreshPushState,
+    ]),
   );
 
   useEffect(() => {
     if (!userId) {
       resetDraftFromProfile(null);
+      setHasEditedDraft(false);
+      return;
+    }
+
+    if (hasEditedDraft || isSaving) {
       return;
     }
 
     resetDraftFromProfile(profile, { resetMessages: false });
-  }, [profile, resetDraftFromProfile, userId]);
+  }, [hasEditedDraft, isSaving, profile, resetDraftFromProfile, userId]);
+
+  useEffect(() => {
+    if (!isDirty && hasEditedDraft) {
+      setHasEditedDraft(false);
+    }
+  }, [hasEditedDraft, isDirty]);
+
+  // Hydrate social links from profile once on first load
+  useEffect(() => {
+    if (hasHydratedSocialLinks || !profile) return;
+    const existing = profile.social_links ?? [];
+    setSocialLinks(mapEditableSocialLinks(existing));
+    setHasHydratedSocialLinks(true);
+  }, [profile, hasHydratedSocialLinks]);
 
   useEffect(() => {
     if (!userId) {
       setConventionError(null);
       setPendingMemberships(() => new Set());
+      setDeleteAccountError(null);
+      setIsDeletingAccount(false);
     }
   }, [userId]);
 
-  const handlePickAvatar = useCallback(async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== 'granted') {
-        setAvatarError('We need media library access to pick a photo.');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.85,
-      });
-
-      if (result.canceled) {
-        return;
-      }
-
-      const asset = result.assets[0];
-
-      if (!asset) {
-        setAvatarError('No photo selected.');
-        return;
-      }
-
-      if (asset.fileSize && asset.fileSize > MAX_IMAGE_SIZE) {
-        setAvatarError('Profile photos must be 5MB or smaller.');
-        return;
-      }
-
-      const candidate: UploadCandidate = {
-        uri: asset.uri,
-        mimeType: asset.mimeType ?? 'image/jpeg',
-        fileName: asset.fileName ?? `profile-${Date.now()}.jpg`,
-        fileSize: asset.fileSize ?? 0,
-      };
-
-      setSelectedAvatar(candidate);
-      setShouldRemoveAvatar(false);
-      setAvatarError(null);
-      setSaveMessage(null);
-      setSaveError(null);
-    } catch (caught) {
-      const fallbackMessage =
-        caught instanceof Error
-          ? caught.message
-          : 'We could not open your photo library right now. Please try again.';
-      setAvatarError(fallbackMessage);
+  useEffect(() => {
+    if (!saveMessage) {
+      return;
     }
-  }, []);
 
-  const handleClearAvatar = useCallback(() => {
-    setSelectedAvatar(null);
-    setAvatarError(null);
-    setSaveMessage(null);
-  }, []);
+    if (saveMessageTimeoutRef.current) {
+      clearTimeout(saveMessageTimeoutRef.current);
+    }
 
-  const handleRemoveCurrentAvatar = useCallback(() => {
-    setSelectedAvatar(null);
-    setShouldRemoveAvatar(true);
-    setAvatarError(null);
-    setSaveMessage(null);
-  }, []);
+    saveMessageTimeoutRef.current = setTimeout(() => {
+      setSaveMessage(null);
+      saveMessageTimeoutRef.current = null;
+    }, SAVE_PROFILE_FEEDBACK_DURATION_MS);
 
-  const handleCancelAvatarRemoval = useCallback(() => {
-    setShouldRemoveAvatar(false);
-    setAvatarError(null);
-    setSaveMessage(null);
-  }, []);
+    return () => {
+      if (saveMessageTimeoutRef.current) {
+        clearTimeout(saveMessageTimeoutRef.current);
+        saveMessageTimeoutRef.current = null;
+      }
+    };
+  }, [saveMessage]);
 
-  const conventionsLoadError = conventionsError?.message ?? profileConventionsError?.message ?? null;
-  const suitsLoadError = suitsError?.message ?? null;
+  useEffect(() => {
+    if (usernameCheckRef.current) {
+      clearTimeout(usernameCheckRef.current);
+    }
+
+    // No check needed if empty or unchanged from saved profile
+    if (
+      !normalizedUsernameInput ||
+      normalizedUsernameInput === normalizedCurrentUsername ||
+      !usernameValidation.isValid
+    ) {
+      setUsernameCheckStatus('idle');
+      return;
+    }
+
+    setUsernameCheckStatus('checking');
+
+    usernameCheckRef.current = setTimeout(() => {
+      if (!userId) return;
+      checkUsernameAvailability(normalizedUsernameInput, userId)
+        .then((available) => {
+          setUsernameCheckStatus(available ? 'available' : 'taken');
+        })
+        .catch(() => {
+          setUsernameCheckStatus('error');
+        });
+    }, 500);
+
+    return () => {
+      if (usernameCheckRef.current) {
+        clearTimeout(usernameCheckRef.current);
+      }
+    };
+  }, [normalizedCurrentUsername, normalizedUsernameInput, userId, usernameValidation.isValid]);
+
+  const conventionsLoadError =
+    conventionsError?.message ?? profileConventionsError?.message ?? null;
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
 
-  const isDirty = (() => {
-    const usernameChanged = (profile?.username ?? '') !== usernameInput.trim();
-    const bioChanged = (profile?.bio ?? '') !== bioInput.trim();
-    const avatarChanged = Boolean(selectedAvatar) || (shouldRemoveAvatar && profile?.avatar_url);
-    return usernameChanged || bioChanged || avatarChanged;
-  })();
+  const statsError = caughtSuitsError?.message ?? profileConventionsError?.message ?? null;
+  const isStatsLoading = isCaughtSuitsLoading || isProfileConventionsLoading;
+  const caughtSuitCount = caughtSuits.length;
+  const attendedConventionCount = profileConventionIds.length;
+  const staffModeAllowed = useMemo(
+    () => STAFF_MODE_ENABLED && canUseStaffMode(profile?.role ?? null),
+    [profile?.role],
+  );
+  const isPushDenied = permissionStatus === 'denied';
+  const canTogglePush = isPushSupported && !isPushRegistering;
+  const isPushToggleOn = isPushSupported && permissionStatus === 'granted' && isPushEnabled;
+  const displayPushToggleOn = optimisticPushEnabled ?? isPushToggleOn;
+
+  const handleTogglePush = useCallback(
+    async (nextValue: boolean) => {
+      // Optimistically reflect the tap immediately so the switch animates smoothly.
+      setOptimisticPushEnabled(nextValue);
+
+      try {
+        if (nextValue) {
+          if (isPushDenied) {
+            // Attempt re-request — works on Android if not permanently denied;
+            // on iOS returns denied immediately without showing a dialog.
+            const success = await requestPermissionAndRegister();
+            if (!success) {
+              Alert.alert(
+                'Notifications Blocked',
+                'Notifications for TailTag are disabled. To enable them, open your device settings and allow notifications for TailTag.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Open Settings',
+                    onPress: () => void Linking.openSettings(),
+                  },
+                ],
+              );
+            }
+            return;
+          }
+          await requestPermissionAndRegister();
+          return;
+        }
+
+        await disablePushNotifications();
+      } finally {
+        // Clear optimistic state — real state from the hook now reflects truth.
+        setOptimisticPushEnabled(null);
+      }
+    },
+    [disablePushNotifications, isPushDenied, requestPermissionAndRegister],
+  );
+
+  const handleOpenFeedbackForm = useCallback(async () => {
+    await WebBrowser.openBrowserAsync(FEEDBACK_FORM_URL);
+  }, []);
+
+  const handleOpenExternalUrl = useCallback(async (url: string) => {
+    if (url.startsWith('mailto:')) {
+      await Linking.openURL(url);
+      return;
+    }
+
+    await WebBrowser.openBrowserAsync(url);
+  }, []);
+
+  const isUsernameTaken = usernameCheckStatus === 'taken';
+  const isUsernameChecking = usernameCheckStatus === 'checking';
 
   const handleSave = useCallback(async () => {
     if (!userId || isSaving || !isDirty) {
       return;
     }
 
-    const trimmedUsername = usernameInput.trim();
+    Keyboard.dismiss();
+
+    const trimmedUsername = normalizedUsernameInput;
     const trimmedBio = bioInput.trim();
     const normalizedUsername = trimmedUsername.length > 0 ? trimmedUsername : null;
     const normalizedBio = trimmedBio.length > 0 ? trimmedBio : null;
-    const previousAvatarUrl = profile?.avatar_url ?? null;
 
-    let uploadedAvatarPath: string | null = null;
-    let nextAvatarUrl = previousAvatarUrl;
+    if (normalizedUsername) {
+      const validation = validateUsername(normalizedUsername);
+      if (!validation.isValid) {
+        setSaveError(validation.message ?? 'Please enter a valid username.');
+        return;
+      }
+    }
 
     setIsSaving(true);
     setSaveError(null);
     setSaveMessage(null);
 
     try {
-      if (selectedAvatar) {
-        if (selectedAvatar.fileSize > MAX_IMAGE_SIZE) {
-          throw new Error('Profile photos must be 5MB or smaller.');
-        }
-
-        const extension = selectedAvatar.fileName.split('.').pop()?.toLowerCase() ?? 'png';
-        const storagePath = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
-        uploadedAvatarPath = storagePath;
-
-        const fileBytes = await loadUriAsUint8Array(selectedAvatar.uri);
-
-        const { error: uploadError } = await supabase.storage
-          .from(AVATAR_BUCKET)
-          .upload(storagePath, fileBytes, {
-            contentType: selectedAvatar.mimeType,
-            upsert: true,
-          });
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(storagePath);
-
-        nextAvatarUrl = publicUrl;
-      } else if (shouldRemoveAvatar) {
-        nextAvatarUrl = null;
-      }
-
       const { error } = await (supabase as any).from('profiles').upsert(
         {
           id: userId,
           username: normalizedUsername,
           bio: normalizedBio,
-          avatar_url: nextAvatarUrl,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: 'id' }
+        { onConflict: 'id' },
       );
 
       if (error) {
         throw error;
       }
 
-      if (selectedAvatar && previousAvatarUrl && nextAvatarUrl !== previousAvatarUrl) {
-        const objectPath = deriveStoragePathFromPublicUrl(previousAvatarUrl, AVATAR_BUCKET);
-        if (objectPath) {
-          await supabase.storage.from(AVATAR_BUCKET).remove([objectPath]);
-        }
-      }
-
-      if (!selectedAvatar && shouldRemoveAvatar && previousAvatarUrl) {
-        const objectPath = deriveStoragePathFromPublicUrl(previousAvatarUrl, AVATAR_BUCKET);
-        if (objectPath) {
-          await supabase.storage.from(AVATAR_BUCKET).remove([objectPath]);
-        }
-      }
-
-      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, {
-        username: normalizedUsername,
-        bio: normalizedBio,
-        avatar_url: nextAvatarUrl,
-      });
+      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+        current
+          ? {
+              ...current,
+              username: normalizedUsername,
+              bio: normalizedBio,
+            }
+          : {
+              username: normalizedUsername,
+              bio: normalizedBio,
+              avatar_path: null,
+              avatar_url: null,
+              social_links: [],
+              is_new: false,
+              onboarding_completed: false,
+            },
+      );
       setUsernameInput(trimmedUsername);
       setBioInput(trimmedBio);
-      setSelectedAvatar(null);
-      setShouldRemoveAvatar(false);
-      setSaveMessage('Profile updated');
+      setHasEditedDraft(false);
+      setSaveMessage('Profile saved');
+
+      // Fire-and-forget: don't block UI on event emission
+      void emitGameplayEvent({
+        type: 'profile_updated',
+        payload: {
+          username_present: trimmedUsername.length > 0,
+          bio_present: trimmedBio.length > 0,
+          avatar_present: hasUploadedProfileAvatar(profile?.avatar_url, profile?.avatar_path),
+        },
+      }).catch((error) => {
+        captureHandledException(error, {
+          scope: 'settings.handleSave.profileUpdated',
+          userId,
+        });
+      });
+      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error
           ? caught.message
           : 'We could not update your profile right now. Please try again.';
       setSaveError(fallbackMessage);
-
-      if (uploadedAvatarPath) {
-        const { error: cleanupError } = await supabase.storage
-          .from(AVATAR_BUCKET)
-          .remove([uploadedAvatarPath]);
-        if (cleanupError) {
-          console.warn('Failed to clean up uploaded avatar after error', cleanupError);
-        }
-      }
     } finally {
       setIsSaving(false);
     }
@@ -450,16 +575,136 @@ export default function SettingsScreen() {
     userId,
     isSaving,
     isDirty,
-    usernameInput,
+    normalizedUsernameInput,
     bioInput,
-    selectedAvatar,
-    shouldRemoveAvatar,
+    profile?.avatar_path,
+    profile?.avatar_url,
     profileQueryKey,
     queryClient,
   ]);
 
+  const handlePickAvatar = useCallback(async () => {
+    if (!userId || isUploadingAvatar) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    const asset = result.assets[0];
+    const photo: FursuitPhotoCandidate = buildImageUploadCandidate(asset, `avatar-${Date.now()}`);
+
+    setIsUploadingAvatar(true);
+    setAvatarError(null);
+
+    try {
+      const oldAvatarUrl =
+        queryClient.getQueryData<ProfileSummary | null>(profileQueryKey)?.avatar_url ?? null;
+      const oldAvatarPath =
+        queryClient.getQueryData<ProfileSummary | null>(profileQueryKey)?.avatar_path ?? null;
+      const avatarPath = await uploadProfileAvatar(userId, photo);
+      await updateProfileAvatar(userId, avatarPath);
+      const avatarUrl = buildAuthenticatedStorageObjectUrl(PROFILE_AVATAR_BUCKET, avatarPath);
+      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+        current
+          ? {
+              ...current,
+              avatar_path: avatarPath,
+              avatar_url: avatarUrl,
+            }
+          : current,
+      );
+      void emitGameplayEvent({
+        type: 'profile_updated',
+        payload: {
+          username_present: Boolean(profile?.username?.trim()),
+          bio_present: Boolean(profile?.bio?.trim()),
+          avatar_present: true,
+        },
+      }).catch((error) => {
+        captureHandledException(error, {
+          scope: 'settings.handlePickAvatar.profileUpdated',
+          userId,
+        });
+      });
+      const oldPath = oldAvatarPath ?? extractStoragePath(oldAvatarUrl, PROFILE_AVATAR_BUCKET);
+      if (oldPath) {
+        void supabase.storage
+          .from(PROFILE_AVATAR_BUCKET)
+          .remove([oldPath])
+          .catch(() => {});
+      }
+    } catch (caught) {
+      const msg =
+        caught instanceof Error
+          ? caught.message
+          : "We couldn't upload your photo. Please try again.";
+      setAvatarError(msg);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }, [userId, isUploadingAvatar, profile?.bio, profile?.username, profileQueryKey, queryClient]);
+
+  const socialLinksCanAddMore = socialLinks.length < SOCIAL_LINK_LIMIT;
+
+  const handleSocialLinkChange = (
+    id: string,
+    field: 'platformId' | 'handle' | 'label' | 'url',
+    value: string,
+  ) => {
+    setSocialLinks((current) =>
+      current.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry)),
+    );
+  };
+
+  const handleAddSocialLink = () => {
+    if (!socialLinksCanAddMore) return;
+    setSocialLinks((current) => [...current, createEmptySocialLink()]);
+  };
+
+  const handleRemoveSocialLink = (id: string) => {
+    setSocialLinks((current) => {
+      const next = current.filter((entry) => entry.id !== id);
+      return next.length > 0 ? next : [createEmptySocialLink()];
+    });
+  };
+
+  const handleSaveSocialLinks = useCallback(async () => {
+    if (!userId || isSavingSocialLinks) return;
+
+    Keyboard.dismiss();
+
+    const normalized = socialLinksToSave(socialLinks);
+
+    setIsSavingSocialLinks(true);
+    setSocialLinksError(null);
+    setSocialLinksMessage(null);
+
+    try {
+      await updateProfileSocialLinks(userId, normalized);
+      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+        current ? { ...current, social_links: normalized } : current,
+      );
+      setSocialLinksMessage('Social links saved');
+    } catch (caught) {
+      setSocialLinksError(
+        caught instanceof Error ? caught.message : 'Could not save social links. Try again.',
+      );
+    } finally {
+      setIsSavingSocialLinks(false);
+    }
+  }, [userId, isSavingSocialLinks, socialLinks, profileQueryKey, queryClient]);
+
   const handleToggleProfileConvention = useCallback(
-    async (conventionId: string, isSelected: boolean) => {
+    async (
+      conventionId: string,
+      nextSelected: boolean,
+      verifiedLocation?: VerifiedLocation | null,
+    ) => {
       if (!userId) {
         return;
       }
@@ -478,19 +723,35 @@ export default function SettingsScreen() {
       });
 
       try {
-        if (isSelected) {
+        const previouslySelectedConventionIds = (profileConventionIds ?? []).filter(
+          (id) => id !== conventionId,
+        );
+
+        if (!nextSelected) {
           await optOutOfConvention(userId, conventionId);
           queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) =>
-            (current ?? []).filter((value) => value !== conventionId)
+            (current ?? []).filter((value) => value !== conventionId),
           );
         } else {
-          await optInToConvention(userId, conventionId);
-          queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) => {
-            const next = new Set(current ?? []);
-            next.add(conventionId);
-            return Array.from(next);
+          await optInToConvention({
+            profileId: userId,
+            conventionId,
+            verifiedLocation: verifiedLocation ?? undefined,
+            verificationMethod: verifiedLocation ? 'gps' : 'none',
           });
+          queryClient.setQueryData<string[]>(profileConventionQueryKey, [conventionId]);
         }
+        void queryClient.invalidateQueries({
+          queryKey: [DAILY_TASKS_QUERY_KEY],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
+        });
+        previouslySelectedConventionIds.forEach((id) => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, id],
+          });
+        });
       } catch (caught) {
         const fallbackMessage =
           caught instanceof Error
@@ -505,76 +766,7 @@ export default function SettingsScreen() {
         });
       }
     },
-    [pendingMemberships, profileConventionQueryKey, queryClient, userId]
-  );
-
-  const handleToggleSuitConvention = useCallback(
-    async (fursuitId: string, conventionId: string, isSelected: boolean) => {
-      if (!userId) {
-        return;
-      }
-
-      const key = `fursuit:${fursuitId}:${conventionId}`;
-
-      if (pendingMemberships.has(key)) {
-        return;
-      }
-
-      setConventionError(null);
-      setPendingMemberships((current) => {
-        const next = new Set(current);
-        next.add(key);
-        return next;
-      });
-
-      try {
-        if (isSelected) {
-          await removeFursuitConvention(fursuitId, conventionId);
-        } else {
-          await addFursuitConvention(fursuitId, conventionId);
-        }
-
-        queryClient.setQueryData<FursuitSummary[]>(suitsQueryKey, (current) => {
-          const listing = current ?? [];
-
-          return listing.map((suit) => {
-            if (suit.id !== fursuitId) {
-              return suit;
-            }
-
-            const nextIds = new Set(suit.conventions.map((entry) => entry.id));
-
-            if (isSelected) {
-              nextIds.delete(conventionId);
-            } else {
-              nextIds.add(conventionId);
-            }
-
-            const ordered = conventions.length
-              ? conventions.filter((entry) => nextIds.has(entry.id))
-              : suit.conventions.filter((entry) => nextIds.has(entry.id));
-
-            return {
-              ...suit,
-              conventions: ordered,
-            };
-          });
-        });
-      } catch (caught) {
-        const fallbackMessage =
-          caught instanceof Error
-            ? caught.message
-            : 'We could not update fursuit conventions right now. Please try again.';
-        setConventionError(fallbackMessage);
-      } finally {
-        setPendingMemberships((current) => {
-          const next = new Set(current);
-          next.delete(key);
-          return next;
-        });
-      }
-    },
-    [conventions, pendingMemberships, queryClient, suitsQueryKey, userId]
+    [pendingMemberships, profileConventionIds, profileConventionQueryKey, queryClient, userId],
   );
 
   const handleSignOut = useCallback(async () => {
@@ -593,536 +785,605 @@ export default function SettingsScreen() {
     }
   }, [isSigningOut]);
 
+  const performAccountDeletion = useCallback(async () => {
+    if (!userId || isDeletingAccount || isDeletingAccountRef.current) {
+      return;
+    }
+
+    isDeletingAccountRef.current = true;
+    setIsDeletingAccount(true);
+    setDeleteAccountError(null);
+
+    try {
+      // Get token
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
+      const accessToken = currentSession?.access_token;
+
+      if (!accessToken) {
+        throw new Error('No session found');
+      }
+
+      const supabaseUrl = SUPABASE_URL;
+      const supabaseKey = SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Missing config');
+      }
+
+      // Call Edge Function
+      const response = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          apikey: supabaseKey,
+        },
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Deletion failed';
+        try {
+          const payload = (await response.json()) as { error?: string };
+          if (typeof payload.error === 'string' && payload.error.length > 0) {
+            errorMessage = payload.error;
+          }
+        } catch {
+          // Ignore parse failures and keep the generic message.
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Clear local session and cache
+      await forceSignOut();
+      queryClient.clear();
+
+      // Stay on this screen - user will be redirected by auth guard
+      Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
+    } catch (caught) {
+      setDeleteAccountError(caught instanceof Error ? caught.message : 'Deletion failed');
+    } finally {
+      setIsDeletingAccount(false);
+      isDeletingAccountRef.current = false;
+    }
+  }, [forceSignOut, isDeletingAccount, queryClient, userId]);
+
+  const handleDeleteAccount = useCallback(() => {
+    if (!userId || isDeletingAccount) {
+      return;
+    }
+
+    Alert.alert(
+      'Delete account?',
+      "Deleting your account will permanently remove your profile, fursuits, catches, achievements, and daily task progress. This can't be undone.",
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: () => {
+            void performAccountDeletion();
+          },
+        },
+      ],
+    );
+  }, [isDeletingAccount, performAccountDeletion, userId]);
+
   return (
-    <KeyboardAvoidingView
-      style={styles.wrapper}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-      >
+    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+      <View style={styles.headerRow}>
         <View style={styles.header}>
           <Text style={styles.eyebrow}>Settings</Text>
           <Text style={styles.title}>Profile & account</Text>
-          <Text style={styles.subtitle}>Update your details or sign out of TailTag.</Text>
+          <Text style={styles.subtitle}>
+            Update your settings, sign out, or delete your account.
+          </Text>
         </View>
+        <MenuView
+          title="More options"
+          onPressAction={({ nativeEvent }) => {
+            if (nativeEvent.event === 'blocked-users') {
+              router.push('/blocked-users');
+            }
+          }}
+          actions={[
+            {
+              id: 'blocked-users',
+              title: 'Blocked users',
+              image: 'hand.raised',
+            },
+          ]}
+        >
+          <Pressable
+            style={styles.menuButton}
+            hitSlop={8}
+          >
+            <Ionicons
+              name="ellipsis-vertical"
+              size={20}
+              color={colors.textMuted}
+            />
+          </Pressable>
+        </MenuView>
+      </View>
 
-        <TailTagCard>
-          {isProfileLoading ? (
-            <Text style={styles.message}>Loading profile…</Text>
-          ) : profileError ? (
-            <Text style={styles.error}>{profileError.message}</Text>
+      <TailTagCard>
+        <View style={styles.statsSection}>
+          <Text style={styles.sectionTitle}>Your all-time stats</Text>
+          {isStatsLoading ? (
+            <Text style={styles.message}>Loading stats…</Text>
+          ) : statsError ? (
+            <View style={styles.helperColumn}>
+              <Text style={styles.error}>{statsError}</Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => {
+                  void refetchCaughtSuits({ throwOnError: false });
+                  void refetchProfileConventions({ throwOnError: false });
+                }}
+              >
+                Try again
+              </TailTagButton>
+            </View>
           ) : (
-            <View style={styles.profileSection}>
-              <Text style={styles.sectionTitle}>Profile photo</Text>
-              <View style={styles.avatarRow}>
-                {selectedAvatar ? (
-                  <Image source={{ uri: selectedAvatar.uri }} style={styles.avatarPreview} />
-                ) : profile?.avatar_url && !shouldRemoveAvatar ? (
-                  <Image source={{ uri: profile.avatar_url }} style={styles.avatarPreview} />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarPlaceholderText}>No photo</Text>
-                  </View>
-                )}
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{caughtSuitCount.toLocaleString()}</Text>
+                <Text style={styles.statLabel}>Fursuits caught</Text>
               </View>
-              <View style={styles.avatarButtons}>
-                <TailTagButton
-                  variant="outline"
-                  onPress={handlePickAvatar}
-                  disabled={isProfileLoading || isSaving}
-                  style={styles.avatarButtonSpacing}
-                >
-                  Choose new photo
-                </TailTagButton>
-                {selectedAvatar ? (
-                  <TailTagButton
-                    variant="ghost"
-                    onPress={handleClearAvatar}
-                    disabled={isProfileLoading || isSaving}
-                  >
-                    Clear new photo
-                  </TailTagButton>
-                ) : profile?.avatar_url && !shouldRemoveAvatar ? (
-                  <TailTagButton
-                    variant="ghost"
-                    onPress={handleRemoveCurrentAvatar}
-                    disabled={isProfileLoading || isSaving}
-                  >
-                    Remove current photo
-                  </TailTagButton>
-                ) : shouldRemoveAvatar ? (
-                  <TailTagButton
-                    variant="ghost"
-                    onPress={handleCancelAvatarRemoval}
-                    disabled={isProfileLoading || isSaving}
-                  >
-                    Keep current photo
-                  </TailTagButton>
-                ) : null}
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{attendedConventionCount.toLocaleString()}</Text>
+                <Text style={styles.statLabel}>Conventions attended</Text>
               </View>
-              {shouldRemoveAvatar && !selectedAvatar ? (
-                <Text style={styles.warning}>Avatar will be removed once you save.</Text>
-              ) : null}
-              {avatarError ? <Text style={styles.error}>{avatarError}</Text> : null}
             </View>
           )}
-        </TailTagCard>
+        </View>
+      </TailTagCard>
 
-        <TailTagCard>
+      <TailTagCard>
+        {isProfileLoading ? (
+          <Text style={styles.message}>Loading profile…</Text>
+        ) : profileError ? (
+          <Text style={styles.error}>{profileError.message}</Text>
+        ) : (
           <View style={styles.fieldGroup}>
-            <Text style={styles.sectionTitle}>Username</Text>
-            <TailTagInput
-              value={usernameInput}
-              onChangeText={(value) => {
-                setUsernameInput(value);
-                setSaveMessage(null);
-                setSaveError(null);
-              }}
-              editable={!isProfileLoading && !isSaving}
-              placeholder="Pick a handle tailtaggers will remember"
-            />
-          </View>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.sectionTitle}>Bio</Text>
-            <TailTagInput
-              value={bioInput}
-              onChangeText={(value) => {
-                setBioInput(value);
-                setSaveMessage(null);
-                setSaveError(null);
-              }}
-              editable={!isProfileLoading && !isSaving}
-              multiline
-              numberOfLines={4}
-              style={styles.bioInput}
-              placeholder="Share species, favorite cons, or a quick hello."
-            />
-          </View>
-          {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
-          {saveMessage ? <Text style={styles.success}>{saveMessage}</Text> : null}
-          <TailTagButton
-            onPress={handleSave}
-            disabled={!isDirty || isProfileLoading || isSaving}
-            loading={isSaving}
-          >
-            Save profile
-          </TailTagButton>
-        </TailTagCard>
-
-        <TailTagCard>
-          <View style={styles.conventionSection}>
-            <Text style={styles.sectionTitle}>Convention attendance</Text>
-            <Text style={styles.sectionDescription}>
-              Opt into conventions you&apos;ll be at so catches only count when everyone is on-site.
-            </Text>
-
-            {isConventionsBusy ? (
-              <Text style={styles.message}>Loading conventions…</Text>
-            ) : conventionsLoadError ? (
-              <View style={styles.helperColumn}>
-                <Text style={styles.error}>{conventionsLoadError}</Text>
-                <TailTagButton
-                  variant="outline"
-                  size="sm"
-                  onPress={() => {
-                    void refetchConventions({ throwOnError: false });
-                    void refetchProfileConventions({ throwOnError: false });
-                  }}
-                >
-                  Try again
-                </TailTagButton>
-              </View>
-            ) : conventions.length === 0 ? (
-              <Text style={styles.message}>No conventions are available yet. Check back soon.</Text>
-            ) : (
-              <View style={styles.conventionList}>
-                {conventions.map((convention) => {
-                  const isSelected = selectedConventionIdSet.has(convention.id);
-                  const membershipKey = `profile:${userId}:${convention.id}`;
-                  const isPending = pendingMemberships.has(membershipKey);
-
-                  return (
-                    <ConventionToggle
-                      key={`profile-${convention.id}`}
-                      convention={convention}
-                      selected={isSelected}
-                      pending={isPending}
-                      onToggle={() => handleToggleProfileConvention(convention.id, isSelected)}
-                    />
-                  );
-                })}
-              </View>
-            )}
-
-            {conventionError ? <Text style={styles.error}>{conventionError}</Text> : null}
-
-            <View style={styles.sectionDivider} />
-
-            <Text style={styles.sectionSubtitle}>Assign suits to conventions</Text>
-            <Text style={styles.sectionHint}>
-              Mark each suit so other players know where they can trade tags with you.
-            </Text>
-
-            {isSuitsLoading ? (
-              <Text style={styles.message}>Loading your suits…</Text>
-            ) : suitsLoadError ? (
-              <View style={styles.helperColumn}>
-                <Text style={styles.error}>{suitsLoadError}</Text>
-                <TailTagButton
-                  variant="outline"
-                  size="sm"
-                  onPress={() => {
-                    void refetchSuits({ throwOnError: false });
-                  }}
-                >
-                  Try again
-                </TailTagButton>
-              </View>
-            ) : mySuits.length === 0 ? (
-              <Text style={styles.message}>
-                Add a fursuit from the Suits tab to start assigning conventions.
-              </Text>
-            ) : conventions.length === 0 ? (
-              <Text style={styles.message}>Opt into a convention above to assign your suits.</Text>
-            ) : (
-              <View style={styles.suitList}>
-                {mySuits.map((suit) => (
-                  <View key={suit.id} style={styles.suitBlock}>
-                    <View style={styles.suitHeader}>
-                      <Text style={styles.suitName}>{suit.name}</Text>
-                      {suit.unique_code ? (
-                        <Text style={styles.suitCode}>{suit.unique_code.toUpperCase()}</Text>
-                      ) : null}
-                    </View>
-                    {suit.species ? (
-                      <Text style={styles.suitMetaText}>{suit.species}</Text>
-                    ) : null}
-                    <View style={styles.suitConventions}>
-                      {conventions.map((convention) => {
-                        const isSelected = suit.conventions.some((entry) => entry.id === convention.id);
-                        const membershipKey = `fursuit:${suit.id}:${convention.id}`;
-                        const isPending = pendingMemberships.has(membershipKey);
-                        const playerHasConvention = selectedConventionIdSet.has(convention.id);
-                        const disabled = !playerHasConvention && !isSelected;
-                        const badgeText = isSelected
-                          ? 'Assigned'
-                          : playerHasConvention
-                            ? 'Assign'
-                            : 'Opt in above first';
-
-                        return (
-                          <ConventionToggle
-                            key={`fursuit-${suit.id}-${convention.id}`}
-                            convention={convention}
-                            selected={isSelected}
-                            pending={isPending}
-                            disabled={disabled}
-                            badgeText={badgeText}
-                            onToggle={() => handleToggleSuitConvention(suit.id, convention.id, isSelected)}
-                          />
-                        );
-                      })}
-                    </View>
+            <View style={styles.avatarSection}>
+              <Pressable
+                onPress={handlePickAvatar}
+                disabled={isUploadingAvatar}
+                style={({ pressed }) => [
+                  styles.avatarButton,
+                  pressed && styles.avatarButtonPressed,
+                ]}
+              >
+                {profile?.avatar_url ? (
+                  <AppAvatar
+                    url={profile.avatar_url}
+                    size="xl"
+                    fallback="user"
+                  />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarPlaceholderText}>Add photo</Text>
                   </View>
-                ))}
-              </View>
-            )}
+                )}
+                {isUploadingAvatar ? (
+                  <View style={styles.avatarOverlay}>
+                    <ActivityIndicator color={colors.foreground} />
+                  </View>
+                ) : null}
+              </Pressable>
+              {avatarError ? <Text style={styles.error}>{avatarError}</Text> : null}
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.sectionTitle}>Username</Text>
+              <TailTagInput
+                value={usernameInput}
+                onChangeText={(value) => {
+                  setHasEditedDraft(true);
+                  setUsernameInput(normalizeUsernameInput(value));
+                  setSaveMessage(null);
+                  setSaveError(null);
+                }}
+                editable={!isProfileLoading && !isSaving}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={USERNAME_MAX_LENGTH}
+                placeholder="Choose a username that identifies you"
+              />
+              {usernameValidationMessage ? (
+                <Text style={styles.usernameInvalid}>{usernameValidationMessage}</Text>
+              ) : usernameCheckStatus === 'checking' ? (
+                <Text style={styles.usernameChecking}>Checking availability…</Text>
+              ) : usernameCheckStatus === 'available' ? (
+                <Text style={styles.usernameAvailable}>Username is available</Text>
+              ) : usernameCheckStatus === 'taken' ? (
+                <Text style={styles.usernameTaken}>Username is already taken</Text>
+              ) : usernameCheckStatus === 'error' ? (
+                <Text style={styles.usernameError}>Could not verify availability. Try again.</Text>
+              ) : null}
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.sectionTitle}>Bio</Text>
+              <TailTagInput
+                value={bioInput}
+                onChangeText={(value) => {
+                  setHasEditedDraft(true);
+                  setBioInput(value);
+                  setSaveMessage(null);
+                  setSaveError(null);
+                }}
+                editable={!isProfileLoading && !isSaving}
+                autoCapitalize="sentences"
+                multiline
+                numberOfLines={4}
+                style={styles.bioInput}
+                placeholder="Share species, favorite cons, or a quick hello."
+              />
+            </View>
+            {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
+            <TailTagButton
+              onPress={handleSave}
+              disabled={
+                !isDirty ||
+                isProfileLoading ||
+                isSaving ||
+                hasUsernameValidationError ||
+                isUsernameTaken ||
+                isUsernameChecking
+              }
+              loading={isSaving}
+            >
+              {saveMessage ?? 'Save profile'}
+            </TailTagButton>
+          </View>
+        )}
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.sectionTitle}>Social links</Text>
+          <Text style={styles.sectionDescription}>
+            Add links so players can follow you on social media.
+          </Text>
+          <View style={styles.socialList}>
+            {socialLinks.map((entry, index) => {
+              const usedPlatformIds = socialLinks
+                .filter(
+                  (e) => e.id !== entry.id && e.platformId && e.platformId !== CUSTOM_PLATFORM_ID,
+                )
+                .map((e) => e.platformId);
+              const isCustom = entry.platformId === CUSTOM_PLATFORM_ID;
+              return (
+                <View
+                  key={entry.id}
+                  style={styles.socialRow}
+                >
+                  <View style={styles.socialPlatformChips}>
+                    {ALLOWED_SOCIAL_PLATFORMS.map((platform) => {
+                      const isSelected = entry.platformId === platform.id;
+                      const isUsedElsewhere = usedPlatformIds.includes(platform.id);
+                      return (
+                        <Pressable
+                          key={platform.id}
+                          onPress={() =>
+                            !isUsedElsewhere &&
+                            handleSocialLinkChange(entry.id, 'platformId', platform.id)
+                          }
+                          disabled={isSavingSocialLinks || isUsedElsewhere}
+                          style={[
+                            styles.socialPlatformChip,
+                            isSelected && styles.socialPlatformChipSelected,
+                            isUsedElsewhere && styles.socialPlatformChipDisabled,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.socialPlatformChipText,
+                              isSelected && styles.socialPlatformChipTextSelected,
+                              isUsedElsewhere && styles.socialPlatformChipTextDisabled,
+                            ]}
+                          >
+                            {platform.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                    <Pressable
+                      onPress={() =>
+                        handleSocialLinkChange(entry.id, 'platformId', CUSTOM_PLATFORM_ID)
+                      }
+                      disabled={isSavingSocialLinks}
+                      style={[
+                        styles.socialPlatformChip,
+                        isCustom && styles.socialPlatformChipSelected,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.socialPlatformChipText,
+                          isCustom && styles.socialPlatformChipTextSelected,
+                        ]}
+                      >
+                        Custom
+                      </Text>
+                    </Pressable>
+                  </View>
+                  {isCustom ? (
+                    <View style={styles.socialCustomInputs}>
+                      <TailTagInput
+                        value={entry.label ?? ''}
+                        onChangeText={(value) => handleSocialLinkChange(entry.id, 'label', value)}
+                        placeholder="Label (e.g. Mastodon, Website)"
+                        editable={!isSavingSocialLinks}
+                        returnKeyType="next"
+                        style={styles.socialInput}
+                      />
+                      <View style={styles.socialInputRow}>
+                        <TailTagInput
+                          value={entry.url ?? ''}
+                          onChangeText={(value) => handleSocialLinkChange(entry.id, 'url', value)}
+                          placeholder="https://example.com/you"
+                          editable={!isSavingSocialLinks}
+                          autoCapitalize="none"
+                          keyboardType="url"
+                          returnKeyType={index === socialLinks.length - 1 ? 'done' : 'next'}
+                          style={styles.socialInput}
+                        />
+                        <TailTagButton
+                          variant="ghost"
+                          size="sm"
+                          onPress={() => handleRemoveSocialLink(entry.id)}
+                          disabled={isSavingSocialLinks}
+                          style={styles.socialRemoveButton}
+                        >
+                          Remove
+                        </TailTagButton>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.socialInputRow}>
+                      <TailTagInput
+                        value={entry.handle}
+                        onChangeText={(value) => handleSocialLinkChange(entry.id, 'handle', value)}
+                        placeholder="Username"
+                        editable={!isSavingSocialLinks}
+                        autoCapitalize="none"
+                        returnKeyType={index === socialLinks.length - 1 ? 'done' : 'next'}
+                        style={styles.socialInput}
+                      />
+                      <TailTagButton
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => handleRemoveSocialLink(entry.id)}
+                        disabled={isSavingSocialLinks}
+                        style={styles.socialRemoveButton}
+                      >
+                        Remove
+                      </TailTagButton>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+          {socialLinksCanAddMore ? (
+            <TailTagButton
+              variant="outline"
+              size="sm"
+              onPress={handleAddSocialLink}
+              disabled={isSavingSocialLinks}
+            >
+              Add a link
+            </TailTagButton>
+          ) : (
+            <Text style={styles.helperLabel}>You can add up to {SOCIAL_LINK_LIMIT} links.</Text>
+          )}
+          {socialLinksError ? <Text style={styles.error}>{socialLinksError}</Text> : null}
+          {socialLinksMessage ? <Text style={styles.success}>{socialLinksMessage}</Text> : null}
+          <TailTagButton
+            onPress={handleSaveSocialLinks}
+            disabled={isSavingSocialLinks}
+            loading={isSavingSocialLinks}
+            style={styles.saveSocialLinksButton}
+          >
+            Save links
+          </TailTagButton>
+        </View>
+      </TailTagCard>
+
+      <TailTagCard>
+        <View style={styles.conventionSection}>
+          <Text style={styles.sectionTitle}>Convention attendance</Text>
+          <Text style={styles.sectionDescription}>
+            Assign your current convention so catches only count when everyone is on-site.
+          </Text>
+
+          {isConventionsBusy ? (
+            <Text style={styles.message}>Loading conventions…</Text>
+          ) : conventionsLoadError ? (
+            <View style={styles.helperColumn}>
+              <Text style={styles.error}>{conventionsLoadError}</Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => {
+                  void refetchConventions({ throwOnError: false });
+                  void refetchProfileConventions({ throwOnError: false });
+                }}
+              >
+                Try again
+              </TailTagButton>
+            </View>
+          ) : conventions.length === 0 ? (
+            <Text style={styles.message}>No conventions are available yet. Check back soon.</Text>
+          ) : (
+            <View style={styles.conventionList}>
+              {conventions.map((convention) => {
+                const isSelected = selectedConventionIdSet.has(convention.id);
+                const membershipKey = `profile:${userId}:${convention.id}`;
+                const isPending = pendingMemberships.has(membershipKey);
+
+                return (
+                  <ConventionToggle
+                    key={`profile-${convention.id}`}
+                    convention={convention}
+                    selected={isSelected}
+                    pending={isPending}
+                    profileId={userId ?? undefined}
+                    onToggle={(conventionId, nextSelected, verifiedLocation) =>
+                      handleToggleProfileConvention(conventionId, nextSelected, verifiedLocation)
+                    }
+                  />
+                );
+              })}
+            </View>
+          )}
+
+          {conventionError ? <Text style={styles.error}>{conventionError}</Text> : null}
+        </View>
+      </TailTagCard>
+
+      <TailTagCard>
+        <View style={styles.accountSection}>
+          <Text style={styles.sectionTitle}>Push Notifications</Text>
+          <Text style={styles.sectionDescription}>
+            Get alerts when you unlock achievements or catches change status.
+          </Text>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleText}>
+              <Text style={styles.sectionSubtitle}>Enable push notifications</Text>
+              <Text style={styles.sectionHint}>
+                {isPushDenied
+                  ? 'Turn on notifications in Settings to re-enable push.'
+                  : 'We only send important game updates.'}
+              </Text>
+            </View>
+            <Switch
+              value={displayPushToggleOn}
+              onValueChange={handleTogglePush}
+              disabled={!canTogglePush}
+              trackColor={{
+                false: 'rgba(148,163,184,0.3)',
+                true: colors.primaryDark,
+              }}
+              thumbColor={displayPushToggleOn ? colors.primary : 'rgba(203,213,225,0.9)'}
+              ios_backgroundColor="rgba(148,163,184,0.3)"
+              accessibilityRole="switch"
+              accessibilityLabel="Enable push notifications"
+              accessibilityHint="Toggle push notifications on or off."
+              accessibilityState={{
+                checked: displayPushToggleOn,
+                disabled: !canTogglePush,
+              }}
+            />
+          </View>
+          {!isPushSupported ? (
+            <Text style={styles.warning}>Push notifications require a physical device.</Text>
+          ) : null}
+          {isPushDenied ? (
+            <Text style={styles.warning}>Notifications are disabled in system settings.</Text>
+          ) : null}
+          {pushError ? <Text style={styles.error}>{pushError}</Text> : null}
+        </View>
+      </TailTagCard>
+
+      {staffModeAllowed ? (
+        <TailTagCard>
+          <View style={styles.accountSection}>
+            <Text style={styles.sectionTitle}>Staff Mode</Text>
+            <Text style={styles.sectionDescription}>
+              On-site search and scan tools for staff, organizers, and owners.
+            </Text>
+            <TailTagButton onPress={() => router.push('/staff-mode')}>
+              Open Staff Mode
+            </TailTagButton>
+            <Text style={styles.sectionHint}>
+              Use Staff Mode to look up players and open event tools quickly.
+            </Text>
           </View>
         </TailTagCard>
+      ) : null}
 
-        <TailTagCard>
+      <TailTagCard>
+        <View style={styles.accountSection}>
+          <Text style={styles.sectionTitle}>Beta Feedback</Text>
+          <Text style={styles.sectionDescription}>
+            Found a bug or have a suggestion? Let us know!
+          </Text>
+          <TailTagButton
+            variant="outline"
+            onPress={handleOpenFeedbackForm}
+          >
+            Report a Bug or Give Feedback
+          </TailTagButton>
+        </View>
+      </TailTagCard>
+
+      <TailTagCard>
+        <View style={styles.accountSection}>
+          <Text style={styles.sectionTitle}>Legal & privacy</Text>
+          <Text style={styles.sectionDescription}>
+            Review how TailTag handles your data, account deletion requests, and beta terms.
+          </Text>
+          <TailTagButton
+            variant="outline"
+            onPress={() => void handleOpenExternalUrl(PRIVACY_POLICY_URL)}
+          >
+            Privacy Policy
+          </TailTagButton>
+          <TailTagButton
+            variant="outline"
+            onPress={() => void handleOpenExternalUrl(DELETE_ACCOUNT_URL)}
+          >
+            Delete Account Help
+          </TailTagButton>
+          <TailTagButton
+            variant="outline"
+            onPress={() => void handleOpenExternalUrl(TERMS_URL)}
+          >
+            Terms of Service
+          </TailTagButton>
+          <TailTagButton
+            variant="ghost"
+            onPress={() => void handleOpenExternalUrl(SUPPORT_EMAIL_URL)}
+          >
+            Contact Support
+          </TailTagButton>
+        </View>
+      </TailTagCard>
+
+      <TailTagCard>
+        <View style={styles.accountSection}>
           <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionDescription}>
+            Log out of TailTag or delete your account entirely.
+          </Text>
           {signOutError ? <Text style={styles.error}>{signOutError}</Text> : null}
-          <TailTagButton onPress={handleSignOut} loading={isSigningOut}>
+          <TailTagButton
+            onPress={handleSignOut}
+            loading={isSigningOut}
+          >
             Log out
           </TailTagButton>
-        </TailTagCard>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-}
-
-type ConventionToggleProps = {
-  convention: ConventionSummary;
-  selected: boolean;
-  pending: boolean;
-  disabled?: boolean;
-  badgeText?: string;
-  onToggle: () => void;
-};
-
-function ConventionToggle({
-  convention,
-  selected,
-  pending,
-  disabled = false,
-  badgeText,
-  onToggle,
-}: ConventionToggleProps) {
-  const dateRange = formatConventionDateRange(convention.start_date ?? null, convention.end_date ?? null);
-  const shouldDisable = disabled || pending;
-  const showDisabledBadge = !selected && !pending && disabled;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled: shouldDisable, selected }}
-      onPress={onToggle}
-      disabled={shouldDisable}
-      style={({ pressed }) => [
-        styles.conventionRow,
-        selected && styles.conventionRowSelected,
-        (shouldDisable) && styles.conventionRowDisabled,
-        pressed && !shouldDisable ? styles.conventionRowPressed : null,
-      ]}
-    >
-      <View style={styles.conventionInfo}>
-        <Text style={styles.conventionName}>{convention.name}</Text>
-        {convention.location ? (
-          <Text style={styles.conventionMetaText}>{convention.location}</Text>
-        ) : null}
-        {dateRange ? <Text style={styles.conventionMetaText}>{dateRange}</Text> : null}
-      </View>
-      <View
-        style={[
-          styles.conventionBadge,
-          selected && styles.conventionBadgeActive,
-          showDisabledBadge ? styles.conventionBadgeDisabled : null,
-        ]}
-      >
-        {pending ? (
-          <ActivityIndicator size="small" color={colors.foreground} />
-        ) : (
-          <Text style={styles.conventionBadgeText}>
-            {badgeText ?? (selected ? 'Opted in' : 'Tap to join')}
+          {deleteAccountError ? <Text style={styles.error}>{deleteAccountError}</Text> : null}
+          <TailTagButton
+            variant="destructive"
+            onPress={handleDeleteAccount}
+            loading={isDeletingAccount}
+            disabled={!userId}
+          >
+            Delete account
+          </TailTagButton>
+          <Text style={styles.sectionHint}>
+            Deleting your account removes all catches, fursuits, photos, achievements, and daily
+            progress.
           </Text>
-        )}
-      </View>
-    </Pressable>
+          <Text style={styles.warning}>This action cannot be undone.</Text>
+        </View>
+      </TailTagCard>
+    </KeyboardAwareFormWrapper>
   );
 }
-
-const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-    gap: spacing.lg,
-  },
-  header: {
-    gap: spacing.xs,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: 'uppercase',
-    color: colors.primary,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.foreground,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: 'rgba(203,213,225,0.9)',
-  },
-  message: {
-    color: 'rgba(203,213,225,0.9)',
-    fontSize: 14,
-  },
-  profileSection: {
-    gap: spacing.md,
-  },
-  conventionSection: {
-    gap: spacing.md,
-  },
-  sectionTitle: {
-    color: colors.foreground,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  sectionDescription: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  sectionDivider: {
-    borderBottomColor: 'rgba(148,163,184,0.18)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginVertical: spacing.md,
-  },
-  sectionSubtitle: {
-    color: colors.foreground,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  sectionHint: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 12,
-  },
-  avatarRow: {
-    alignItems: 'flex-start',
-  },
-  avatarPreview: {
-    width: 96,
-    height: 96,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.3)',
-  },
-  avatarPlaceholder: {
-    width: 96,
-    height: 96,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(30,41,59,0.6)',
-  },
-  avatarPlaceholderText: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  },
-  avatarButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  avatarButtonSpacing: {
-    marginRight: spacing.sm,
-  },
-  warning: {
-    color: '#fbbf24',
-    fontSize: 12,
-  },
-  fieldGroup: {
-    marginBottom: spacing.md,
-  },
-  bioInput: {
-    minHeight: 120,
-    textAlignVertical: 'top',
-  },
-  helperColumn: {
-    gap: spacing.sm,
-  },
-  conventionList: {
-    gap: spacing.sm,
-  },
-  conventionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
-    borderRadius: radius.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: 'rgba(15,23,42,0.7)',
-    gap: spacing.sm,
-  },
-  conventionRowSelected: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(8,47,73,0.55)',
-  },
-  conventionRowDisabled: {
-    opacity: 0.55,
-  },
-  conventionRowPressed: {
-    opacity: 0.9,
-  },
-  conventionInfo: {
-    flex: 1,
-    marginRight: spacing.sm,
-    gap: 2,
-  },
-  conventionName: {
-    color: colors.foreground,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  conventionMetaText: {
-    color: 'rgba(148,163,184,0.85)',
-    fontSize: 12,
-  },
-  conventionBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.35)',
-    backgroundColor: 'rgba(15,23,42,0.6)',
-    minWidth: 112,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  conventionBadgeActive: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(56,189,248,0.2)',
-  },
-  conventionBadgeDisabled: {
-    borderColor: 'rgba(148,163,184,0.2)',
-    backgroundColor: 'rgba(30,41,59,0.6)',
-  },
-  conventionBadgeText: {
-    color: colors.foreground,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  suitList: {
-    gap: spacing.md,
-  },
-  suitBlock: {
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.25)',
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    backgroundColor: 'rgba(15,23,42,0.65)',
-    gap: spacing.sm,
-  },
-  suitHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  suitName: {
-    color: colors.foreground,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  suitCode: {
-    color: '#38bdf8',
-    fontFamily: 'Courier',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  suitMetaText: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 12,
-  },
-  suitConventions: {
-    gap: spacing.sm,
-  },
-  error: {
-    color: '#fca5a5',
-    fontSize: 14,
-  },
-  success: {
-    color: '#67e8f9',
-    fontSize: 14,
-  },
-});

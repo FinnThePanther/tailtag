@@ -1,31 +1,441 @@
-import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PixelRatio, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { Image } from 'expo-image';
+import { AppAvatar } from '../../src/components/ui/AppAvatar';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
-import { colors, spacing } from '../../src/theme';
+import { TailTagProgressBar } from '../../src/components/ui/TailTagProgressBar';
+import { useAuth } from '../../src/features/auth';
+import { fetchProfile, profileQueryKey } from '../../src/features/profile';
+import { supabase } from '../../src/lib/supabase';
+import { captureHandledException } from '../../src/lib/sentry';
+import {
+  CONVENTIONS_QUERY_KEY,
+  CONVENTIONS_STALE_TIME,
+  type ConventionSummary,
+  fetchConventions,
+  fetchProfileConventionIds,
+  PROFILE_CONVENTIONS_QUERY_KEY,
+} from '../../src/features/conventions';
+import {
+  CONVENTION_LEADERBOARD_QUERY_KEY,
+  CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
+  createConventionLeaderboardQueryOptions,
+  createConventionSuitLeaderboardQueryOptions,
+  type LeaderboardEntry,
+  type SuitLeaderboardEntry,
+} from '../../src/features/leaderboard';
+import {
+  fetchAchievementStatus,
+  achievementsStatusQueryKey,
+  type AchievementWithStatus,
+  AchievementsSummarySkeleton,
+} from '../../src/features/achievements';
+import { emitGameplayEvent } from '../../src/features/events';
+import {
+  useDailyTasks,
+  DAILY_TASKS_QUERY_KEY,
+  DailyTasksSummarySkeleton,
+} from '../../src/features/daily-tasks';
+import { LeaderboardSectionSkeleton } from '../../src/features/leaderboard';
+import { useAllDataReady } from '../../src/hooks/useAllDataReady';
+import { spacing } from '../../src/theme';
+import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
+import { styles } from '../../src/app-styles/(tabs)/index.styles';
 
-const features = [
-  {
-    title: 'Mobile-first dashboard',
-    description:
-      'Cards, buttons, and inputs are tuned for thumbs—no pinching or zooming required.',
-  },
-  {
-    title: 'Fast email login',
-    description: 'Secure email sign-in keeps your progress ready on any device.',
-  },
-  {
-    title: 'Ready for the floor',
-    description:
-      'Install TailTag on your phone and keep tagging even when the hotel Wi-Fi is spotty.',
-  },
-];
+const MAX_LEADERBOARD_ENTRIES = 5;
+const usernameNudgeDismissedKey = (userId: string) => `tailtag:username-nudge-dismissed:${userId}`;
+
+const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+  const queryClient = useQueryClient();
+  const { width: windowWidth } = useWindowDimensions();
+
+  // Username change nudge
+  const [nudgeDismissed, setNudgeDismissed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!userId) {
+      setNudgeDismissed(true);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    setNudgeDismissed(null);
+
+    AsyncStorage.getItem(usernameNudgeDismissedKey(userId))
+      .then((value) => {
+        if (isActive) {
+          setNudgeDismissed(value === 'true');
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setNudgeDismissed(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [userId]);
+
+  const handleDismissNudge = useCallback(() => {
+    if (!userId) {
+      return;
+    }
+
+    setNudgeDismissed(true);
+    AsyncStorage.setItem(usernameNudgeDismissedKey(userId), 'true').catch(() => undefined);
+  }, [userId]);
+
+  const { data: profile } = useQuery({
+    queryKey: userId ? profileQueryKey(userId) : ['profile', 'guest'],
+    enabled: Boolean(userId) && nudgeDismissed === false,
+    queryFn: () => fetchProfile(userId!),
+  });
+
+  const maxContentWidth = useMemo(() => {
+    const safeWidth = Number.isFinite(windowWidth) ? windowWidth : 0;
+    const paddedWidth = safeWidth - spacing.lg * 2;
+    const contentWidth = paddedWidth > 0 ? paddedWidth : Math.max(safeWidth, 0);
+    return Math.min(contentWidth, 960);
+  }, [windowWidth]);
+
+  const contentWidthStyle = useMemo(() => ({ width: maxContentWidth }), [maxContentWidth]);
+
+  const conventionsQuery = useQuery<ConventionSummary[], Error>({
+    queryKey: [CONVENTIONS_QUERY_KEY],
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchConventions(),
+  });
+  const {
+    data: conventions = [],
+    error: conventionsError,
+    refetch: refetchConventions,
+  } = conventionsQuery;
+
+  const profileConventionsQuery = useQuery<string[], Error>({
+    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchProfileConventionIds(userId!),
+  });
+  const {
+    data: profileConventionIds = [],
+    error: profileConventionsError,
+    refetch: refetchProfileConventions,
+  } = profileConventionsQuery;
+
+  const achievementsQueryKey = useMemo(
+    () =>
+      userId ? achievementsStatusQueryKey(userId) : (['achievements-status', 'guest'] as const),
+    [userId],
+  );
+
+  const achievementsQuery = useQuery<AchievementWithStatus[], Error>({
+    queryKey: achievementsQueryKey,
+    enabled: Boolean(userId),
+    queryFn: () => fetchAchievementStatus(userId ?? ''),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const {
+    data: achievementStatuses = [],
+    error: achievementsError,
+    refetch: refetchAchievements,
+  } = achievementsQuery;
+
+  const unlockedAchievements = useMemo(
+    () => achievementStatuses.filter((achievement) => achievement.unlocked),
+    [achievementStatuses],
+  );
+
+  const achievementsTotal = achievementStatuses.length;
+  const achievementsUnlockedCount = unlockedAchievements.length;
+  const achievementsProgressPercent =
+    achievementsTotal > 0 ? Math.round((achievementsUnlockedCount / achievementsTotal) * 100) : 0;
+
+  const latestUnlockedAchievement = useMemo(() => {
+    if (unlockedAchievements.length === 0) {
+      return null;
+    }
+
+    return [...unlockedAchievements].sort((a, b) => {
+      const aTime = a.unlockedAt ? new Date(a.unlockedAt).getTime() : 0;
+      const bTime = b.unlockedAt ? new Date(b.unlockedAt).getTime() : 0;
+      return bTime - aTime;
+    })[0];
+  }, [unlockedAchievements]);
+
+  const achievementsErrorMessage = achievementsError?.message ?? null;
+
+  const conventionMap = useMemo(() => {
+    return new Map(conventions.map((convention) => [convention.id, convention]));
+  }, [conventions]);
+
+  const availableConventions = useMemo(() => {
+    return profileConventionIds
+      .map((id) => conventionMap.get(id))
+      .filter((convention): convention is ConventionSummary => Boolean(convention));
+  }, [conventionMap, profileConventionIds]);
+
+  const selectedConvention = useMemo(() => {
+    return availableConventions[0] ?? null;
+  }, [availableConventions]);
+  const selectedConventionId = selectedConvention?.id ?? null;
+
+  const dailyTasksQuery = useDailyTasks(userId, selectedConventionId, { suppressToasts: true });
+  const {
+    data: dailyTasksData,
+    error: dailyTasksError,
+    refetch: refetchDailyTasks,
+    countdown: dailyCountdown,
+  } = dailyTasksQuery;
+
+  const dailyTotalTasks = dailyTasksData?.totalCount ?? 0;
+  const dailyCompletedTasks = dailyTasksData?.completedCount ?? 0;
+  const dailyProgressValue =
+    dailyTotalTasks > 0 ? Math.min(dailyCompletedTasks / dailyTotalTasks, 1) : 0;
+  const dailyRemainingTasks = Math.max(dailyTotalTasks - dailyCompletedTasks, 0);
+  const dailyTasksErrorMessage = dailyTasksError?.message ?? null;
+  const hasDailyAssignments = dailyTotalTasks > 0;
+  const showDailyError = !dailyTasksData && Boolean(dailyTasksErrorMessage);
+  const dailyAllComplete = hasDailyAssignments && dailyRemainingTasks === 0;
+  const dailyTimezone = dailyTasksData?.timezone ?? selectedConvention?.timezone ?? 'UTC';
+  const dailyResetAtLabel = useMemo(() => {
+    if (!dailyTasksData?.resetAt) {
+      return null;
+    }
+
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: dailyTimezone,
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short',
+      }).format(new Date(dailyTasksData.resetAt));
+    } catch (error) {
+      console.warn('failed formatting daily reset time', error);
+      return null;
+    }
+  }, [dailyTasksData?.resetAt, dailyTimezone]);
+
+  const leaderboardQuery = useQuery<LeaderboardEntry[], Error>(
+    selectedConventionId
+      ? createConventionLeaderboardQueryOptions(selectedConventionId)
+      : {
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, 'idle'],
+          queryFn: async () => [],
+          enabled: false,
+        },
+  );
+  const {
+    data: leaderboardEntries = [],
+    error: leaderboardError,
+    refetch: refetchLeaderboard,
+  } = leaderboardQuery;
+
+  const suitLeaderboardQuery = useQuery<SuitLeaderboardEntry[], Error>(
+    selectedConventionId
+      ? createConventionSuitLeaderboardQueryOptions(selectedConventionId)
+      : {
+          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, 'idle'],
+          queryFn: async () => [],
+          enabled: false,
+        },
+  );
+  const {
+    data: suitLeaderboardEntries = [],
+    error: suitLeaderboardError,
+    refetch: refetchSuitLeaderboard,
+  } = suitLeaderboardQuery;
+
+  // Subscribe to realtime changes for leaderboard updates
+  useEffect(() => {
+    if (!selectedConventionId) return;
+
+    const instanceId = Math.random().toString(36).substring(2, 11);
+
+    // Subscribe to catches - invalidate leaderboard when new catches happen
+    const catchesChannel = supabase
+      .channel(`leaderboard-catches:${selectedConventionId}:${instanceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'catches',
+        },
+        () => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId],
+          });
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId],
+          });
+        },
+      )
+      .subscribe();
+
+    // Subscribe to profile_conventions - invalidate when players join/leave
+    const participantsChannel = supabase
+      .channel(`leaderboard-participants:${selectedConventionId}:${instanceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profile_conventions',
+          filter: `convention_id=eq.${selectedConventionId}`,
+        },
+        () => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId],
+          });
+        },
+      )
+      .subscribe();
+
+    // Subscribe to fursuit_conventions - invalidate when fursuits join/leave
+    const fursuitsChannel = supabase
+      .channel(`leaderboard-fursuits:${selectedConventionId}:${instanceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'fursuit_conventions',
+          filter: `convention_id=eq.${selectedConventionId}`,
+        },
+        () => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId],
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(catchesChannel);
+      void supabase.removeChannel(participantsChannel);
+      void supabase.removeChannel(fursuitsChannel);
+    };
+  }, [selectedConventionId, queryClient]);
+
+  const membershipErrorMessage =
+    profileConventionsError?.message ?? conventionsError?.message ?? null;
+  const hasConventionAccess = availableConventions.length > 0;
+
+  const rankByProfileId = useMemo(() => {
+    return new Map(leaderboardEntries.map((entry, index) => [entry.profileId, index + 1]));
+  }, [leaderboardEntries]);
+
+  // Only show players with at least 1 catch
+  const entriesWithCatches = leaderboardEntries.filter((entry) => entry.catchCount > 0);
+  const topEntries = entriesWithCatches.slice(0, MAX_LEADERBOARD_ENTRIES);
+  const selfEntry = userId
+    ? (entriesWithCatches.find((entry) => entry.profileId === userId) ?? null)
+    : null;
+
+  const isSelfOutsideTop = Boolean(
+    selfEntry && !topEntries.some((entry) => entry.profileId === selfEntry.profileId),
+  );
+
+  const displayEntries = isSelfOutsideTop && selfEntry ? [...topEntries, selfEntry] : topEntries;
+
+  const topSuitEntries = suitLeaderboardEntries.slice(0, MAX_LEADERBOARD_ENTRIES);
+  const suitErrorMessage = suitLeaderboardError?.message ?? null;
+  const hasSuitEntries = topSuitEntries.length > 0;
+
+  const tier1Ready = useAllDataReady([conventionsQuery, profileConventionsQuery]);
+  const rawTier2Ready = useAllDataReady([dailyTasksQuery, achievementsQuery]);
+  // When there's no convention, daily tasks won't fire; gate tier 2 on achievements only.
+  const tier2Ready =
+    tier1Ready &&
+    (!selectedConventionId
+      ? achievementsQuery.data !== undefined || achievementsQuery.isError
+      : rawTier2Ready);
+  const tier3Ready = useAllDataReady([leaderboardQuery, suitLeaderboardQuery]);
+
+  useEffect(() => {
+    if (!suitLeaderboardEntries.length) return;
+    const pixelSize = Math.round(40 * Math.min(PixelRatio.get(), 3));
+    const urls = suitLeaderboardEntries
+      .slice(0, MAX_LEADERBOARD_ENTRIES)
+      .map((e) =>
+        getTransformedImageUrl(e.avatarUrl, {
+          width: pixelSize,
+          height: pixelSize,
+        }),
+      )
+      .filter((url): url is string => url !== null);
+    if (urls.length === 0) {
+      return;
+    }
+
+    const accessToken = session?.access_token ?? null;
+    const authenticatedUrls = urls.filter((url) =>
+      Boolean(getStorageAuthHeaders(url, accessToken)),
+    );
+    const publicUrls = urls.filter((url) => !authenticatedUrls.includes(url));
+
+    if (publicUrls.length > 0) {
+      void Image.prefetch(publicUrls);
+    }
+
+    if (authenticatedUrls.length > 0 && accessToken) {
+      void Image.prefetch(authenticatedUrls, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    }
+  }, [session?.access_token, suitLeaderboardEntries]);
+
+  const handleReloadStandings = useCallback(() => {
+    void refetchLeaderboard({ throwOnError: false });
+    void refetchSuitLeaderboard({ throwOnError: false });
+
+    if (!userId || !selectedConventionId) {
+      return;
+    }
+
+    // Fire-and-forget: don't block UI on event emission
+    void emitGameplayEvent({
+      type: 'leaderboard_refreshed',
+      conventionId: selectedConventionId,
+      payload: {
+        convention_id: selectedConventionId,
+      },
+    }).catch((error) => {
+      captureHandledException(error, {
+        scope: 'home.handleReloadStandings',
+        conventionId: selectedConventionId,
+      });
+    });
+    void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+  }, [refetchLeaderboard, refetchSuitLeaderboard, userId, selectedConventionId, queryClient]);
 
   return (
     <View style={styles.wrapper}>
@@ -35,61 +445,455 @@ export default function HomeScreen() {
         pointerEvents="none"
       />
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.headerRow}>
+        <View style={[styles.headerRow, contentWidthStyle]}>
           <Text style={styles.brand}>TailTag</Text>
-          <Text style={styles.caption}>Trading in session</Text>
+          <Text style={styles.caption}>Tagging in session</Text>
         </View>
 
-        <View style={styles.heroBlock}>
-          <Text style={styles.badge}>MVP Preview</Text>
+        <View style={[styles.heroBlock, contentWidthStyle]}>
+          <Text style={styles.badge}>BETA</Text>
           <Text style={styles.title}>
-            Catch fursuits, grow your collection, and keep the con energy going.
+            Catch fursuits, grow your collection, and make new furry friends!
           </Text>
           <Text style={styles.subtitle}>
-            TailTag makes swapping bespoke suit codes effortless. Add your suits, trade tags on the floor, and watch your collection grow from your phone.
+            TailTag makes meeting fursuiters fun! Catch thier fursuit, learn about their likes and
+            interests, and start a furry friendship!
           </Text>
           <View style={styles.ctaRow}>
-            <View style={styles.ctaItem}>
-              <TailTagButton onPress={() => router.push('/catch')} size="lg">
-                Catch a suit
-              </TailTagButton>
-            </View>
-            <View style={styles.ctaItem}>
-              <TailTagButton
-                variant="outline"
-                onPress={() => router.push('/suits/add-fursuit')}
-                size="lg"
-              >
-                Add your suit
-              </TailTagButton>
-            </View>
+            <TailTagButton
+              onPress={() => router.push('/catch')}
+              size="lg"
+            >
+              Catch a fursuit
+            </TailTagButton>
+            <TailTagButton
+              variant="outline"
+              onPress={() => router.push('/suits/add-fursuit')}
+              size="lg"
+            >
+              Add your suit
+            </TailTagButton>
           </View>
         </View>
 
-        <TailTagCard style={styles.loopCard}>
-          <Text style={styles.sectionEyebrow}>Gameplay Loop</Text>
+        {nudgeDismissed === false && session && (
+          <TailTagCard style={[styles.nudgeCard, styles.nudgeCardAlert, contentWidthStyle]}>
+            <View style={styles.nudgeContent}>
+              <View style={styles.nudgeTextBlock}>
+                <Text style={[styles.nudgeText, styles.nudgeTextAlert]}>
+                  Your current username is{' '}
+                  <Text style={[styles.nudgeUsername, styles.nudgeUsernameAlert]}>
+                    {profile?.username ?? '...'}
+                  </Text>
+                  . Want to pick something better?
+                </Text>
+                <TailTagButton
+                  variant="destructive"
+                  size="sm"
+                  onPress={() => {
+                    handleDismissNudge();
+                    router.push('/settings');
+                  }}
+                >
+                  Change username
+                </TailTagButton>
+              </View>
+              <Pressable
+                onPress={handleDismissNudge}
+                hitSlop={12}
+                style={styles.nudgeDismiss}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={22}
+                  color="rgba(248,113,113,0.85)"
+                />
+              </Pressable>
+            </View>
+          </TailTagCard>
+        )}
+
+        <TailTagCard style={[styles.dailyCard, contentWidthStyle]}>
+          <Text style={styles.sectionEyebrow}>Daily tasks</Text>
+          <Text style={styles.sectionTitle}>Today's objectives</Text>
+
+          {!tier1Ready ? (
+            <DailyTasksSummarySkeleton />
+          ) : !selectedConventionId ? (
+            <Text style={styles.message}>Pick a convention to unlock daily tasks.</Text>
+          ) : !tier2Ready ? (
+            <DailyTasksSummarySkeleton />
+          ) : showDailyError ? (
+            <View style={styles.helper}>
+              <Text style={styles.error}>{dailyTasksErrorMessage}</Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => {
+                  void refetchDailyTasks({ throwOnError: false });
+                }}
+              >
+                Try again
+              </TailTagButton>
+            </View>
+          ) : !hasDailyAssignments ? (
+            <Text style={styles.message}>Tasks unlock once today's rotation goes live.</Text>
+          ) : (
+            <View style={styles.dailySummaryBlock}>
+              <View style={styles.dailySummaryHeader}>
+                <Text style={styles.dailySummaryText}>
+                  {dailyCompletedTasks} / {dailyTotalTasks} complete
+                </Text>
+                <Text style={styles.dailyCountdown}>Resets in {dailyCountdown}</Text>
+              </View>
+              <TailTagProgressBar
+                value={dailyProgressValue}
+                style={styles.dailyProgressBar}
+              />
+              <Text style={styles.dailySummaryText}>
+                {dailyAllComplete
+                  ? 'All tasks complete - bonus secured.'
+                  : `${dailyRemainingTasks} task${dailyRemainingTasks === 1 ? '' : 's'} remaining`}
+              </Text>
+              {dailyResetAtLabel ? (
+                <Text style={styles.dailyResetLabel}>Next reset at {dailyResetAtLabel}</Text>
+              ) : null}
+            </View>
+          )}
+
+          <TailTagButton
+            variant="outline"
+            onPress={() => router.push('/daily-tasks')}
+            style={styles.dailyCta}
+            disabled={!selectedConventionId}
+          >
+            View daily tasks
+          </TailTagButton>
+        </TailTagCard>
+
+        <TailTagCard style={[styles.achievementsCard, contentWidthStyle]}>
+          <Text style={styles.sectionEyebrow}>Achievements</Text>
+          <Text style={styles.sectionTitle}>Track your progress</Text>
+
+          {!tier1Ready || !tier2Ready ? (
+            <AchievementsSummarySkeleton />
+          ) : achievementsErrorMessage ? (
+            <View style={styles.helper}>
+              <Text style={styles.error}>{achievementsErrorMessage}</Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => {
+                  void refetchAchievements({ throwOnError: false });
+                }}
+              >
+                Try again
+              </TailTagButton>
+            </View>
+          ) : achievementsTotal === 0 ? (
+            <Text style={styles.message}>
+              Achievements will appear as soon as the first convention goes live.
+            </Text>
+          ) : (
+            <View style={styles.achievementSummary}>
+              <View style={styles.achievementSummaryHeader}>
+                <Text style={styles.achievementProgressLabel}>
+                  {achievementsUnlockedCount} / {achievementsTotal} unlocked
+                </Text>
+                <Text style={styles.sectionBody}>{achievementsProgressPercent}% complete</Text>
+              </View>
+              <View style={styles.achievementProgressBar}>
+                <View
+                  style={[
+                    styles.achievementProgressFill,
+                    {
+                      width: `${Math.min(Math.max(achievementsProgressPercent, 0), 100)}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.achievementFootnote}>
+                {latestUnlockedAchievement
+                  ? `Last unlock: ${latestUnlockedAchievement.name}`
+                  : 'Catch a suit to unlock your first badge.'}
+              </Text>
+            </View>
+          )}
+
+          <TailTagButton
+            variant="outline"
+            onPress={() => router.push('/achievements')}
+            style={styles.achievementCta}
+          >
+            View achievements
+          </TailTagButton>
+        </TailTagCard>
+
+        <TailTagCard style={[styles.leaderboardCard, contentWidthStyle]}>
+          <Text style={styles.sectionEyebrow}>Leaderboard</Text>
+          <Text style={styles.sectionTitle}>Catch standings</Text>
+
+          {!tier1Ready ? (
+            <View style={styles.leaderboardContent}>
+              <LeaderboardSectionSkeleton />
+              <View style={styles.leaderboardDivider} />
+              <LeaderboardSectionSkeleton />
+            </View>
+          ) : membershipErrorMessage ? (
+            <View style={styles.helper}>
+              <Text style={styles.error}>{membershipErrorMessage}</Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => {
+                  void refetchProfileConventions({ throwOnError: false });
+                  void refetchConventions({ throwOnError: false });
+                }}
+              >
+                Try again
+              </TailTagButton>
+            </View>
+          ) : hasConventionAccess ? (
+            <View style={styles.leaderboardContent}>
+              <Text style={styles.sectionBody}>
+                Showing top taggers for {selectedConvention?.name ?? 'your convention'}.
+              </Text>
+
+              {selectedConventionId ? (
+                <View style={styles.leaderboardStack}>
+                  <View>
+                    {!tier3Ready ? (
+                      <LeaderboardSectionSkeleton />
+                    ) : leaderboardError ? (
+                      <View style={styles.helper}>
+                        <Text style={styles.error}>{leaderboardError.message}</Text>
+                        <TailTagButton
+                          variant="outline"
+                          size="sm"
+                          onPress={() => {
+                            void refetchLeaderboard({ throwOnError: false });
+                          }}
+                        >
+                          Try again
+                        </TailTagButton>
+                      </View>
+                    ) : displayEntries.length > 0 ? (
+                      <View style={styles.leaderboardSection}>
+                        <View style={styles.leaderboardList}>
+                          {displayEntries.map((entry) => {
+                            const rank = rankByProfileId.get(entry.profileId) ?? 0;
+                            const isSelf = entry.profileId === userId;
+
+                            return (
+                              <Pressable
+                                key={`${entry.profileId}-${rank}`}
+                                style={({ pressed }) => [
+                                  styles.leaderboardRow,
+                                  isSelf && styles.leaderboardRowHighlight,
+                                  pressed && styles.leaderboardRowPressed,
+                                ]}
+                                onPress={() =>
+                                  router.push({
+                                    pathname: '/profile/[id]',
+                                    params: { id: entry.profileId },
+                                  })
+                                }
+                              >
+                                <Text style={styles.leaderboardRank}>#{rank}</Text>
+                                <View style={styles.leaderboardDetails}>
+                                  <Text
+                                    style={styles.leaderboardName}
+                                    numberOfLines={1}
+                                  >
+                                    {entry.username ?? 'Unnamed player'}
+                                  </Text>
+                                  <Text
+                                    style={styles.leaderboardCatchLabel}
+                                    numberOfLines={1}
+                                  >
+                                    {formatCatchCount(entry.catchCount)}
+                                    {isSelf ? ' · You' : ''}
+                                  </Text>
+                                </View>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                        {isSelfOutsideTop && selfEntry ? (
+                          <Text style={styles.leaderboardFootnote}>
+                            You're currently #{rankByProfileId.get(selfEntry.profileId)}. Keep
+                            hunting to climb the board.
+                          </Text>
+                        ) : null}
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.seeAllLink,
+                            pressed && styles.seeAllLinkPressed,
+                          ]}
+                          onPress={() =>
+                            router.push({
+                              pathname: '/leaderboard/[conventionId]',
+                              params: {
+                                conventionId: selectedConventionId!,
+                                conventionName: selectedConvention?.name ?? '',
+                                section: 'catchers',
+                              },
+                            })
+                          }
+                        >
+                          <Text style={styles.seeAllText}>See all catchers</Text>
+                          <Text style={styles.seeAllArrow}>→</Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <Text style={styles.message}>
+                        No catches yet. Be the first to tag a suit at this convention.
+                      </Text>
+                    )}
+                  </View>
+
+                  <View style={styles.leaderboardDivider} />
+
+                  <View style={styles.suitLeaderboardSection}>
+                    <Text style={styles.sectionSubheading}>Top fursuits</Text>
+                    {!tier3Ready ? (
+                      <LeaderboardSectionSkeleton />
+                    ) : suitErrorMessage ? (
+                      <View style={styles.helper}>
+                        <Text style={styles.error}>{suitErrorMessage}</Text>
+                        <TailTagButton
+                          variant="outline"
+                          size="sm"
+                          onPress={() => {
+                            void refetchSuitLeaderboard({
+                              throwOnError: false,
+                            });
+                          }}
+                        >
+                          Try again
+                        </TailTagButton>
+                      </View>
+                    ) : hasSuitEntries ? (
+                      <View style={styles.leaderboardSection}>
+                        <View style={styles.leaderboardList}>
+                          {topSuitEntries.map((entry, index) => (
+                            <Pressable
+                              key={entry.fursuitId}
+                              style={({ pressed }) => [
+                                styles.leaderboardRow,
+                                pressed && styles.leaderboardRowPressed,
+                              ]}
+                              onPress={() =>
+                                router.push({
+                                  pathname: '/fursuits/[id]',
+                                  params: { id: entry.fursuitId },
+                                })
+                              }
+                              accessibilityRole="button"
+                              accessibilityLabel={`View ${entry.name}'s fursuit profile`}
+                            >
+                              <Text style={styles.leaderboardRank}>#{index + 1}</Text>
+                              <AppAvatar
+                                url={entry.avatarUrl}
+                                size="xs"
+                                fallback="fursuit"
+                                style={styles.avatarMargin}
+                              />
+                              <View style={styles.leaderboardDetails}>
+                                <Text
+                                  style={styles.leaderboardName}
+                                  numberOfLines={1}
+                                >
+                                  {entry.name}
+                                </Text>
+                                <Text
+                                  style={styles.leaderboardCatchLabel}
+                                  numberOfLines={1}
+                                >
+                                  {formatCatchCount(entry.catchCount)}
+                                </Text>
+                              </View>
+                            </Pressable>
+                          ))}
+                        </View>
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.seeAllLink,
+                            pressed && styles.seeAllLinkPressed,
+                          ]}
+                          onPress={() =>
+                            router.push({
+                              pathname: '/leaderboard/[conventionId]',
+                              params: {
+                                conventionId: selectedConventionId!,
+                                conventionName: selectedConvention?.name ?? '',
+                                section: 'suits',
+                              },
+                            })
+                          }
+                        >
+                          <Text style={styles.seeAllText}>See all suits</Text>
+                          <Text style={styles.seeAllArrow}>→</Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <Text style={styles.message}>No fursuits have been caught yet.</Text>
+                    )}
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <View style={styles.helper}>
+              <Text style={styles.message}>
+                Opt into a convention to see its leaderboard standings.
+              </Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => router.push('/settings')}
+              >
+                Manage conventions
+              </TailTagButton>
+            </View>
+          )}
+
+          <TailTagButton
+            variant="outline"
+            onPress={handleReloadStandings}
+            style={styles.leaderboardCta}
+            disabled={!selectedConventionId}
+          >
+            Reload standings
+          </TailTagButton>
+        </TailTagCard>
+
+        <TailTagCard style={[styles.loopCard, contentWidthStyle]}>
+          <Text style={styles.sectionEyebrow}>How to Play</Text>
           <Text style={styles.sectionTitle}>Four quick steps</Text>
           <View>
             {[
               {
                 step: '1',
-                title: 'Register',
-                description: 'Create your TailTag profile in seconds with email login.',
+                title: 'Add your fursuit (if you have one)',
+                description: 'Each fursuit gets an auto-generated catch code to share.',
               },
               {
                 step: '2',
-                title: 'Add suits',
-                description: 'Give each fursuit a name, species, and a unique catch code.',
+                title: 'Start catching fursuiters',
+                description:
+                  'Tag fursuits with a selfie or catch code and watch your collection grow.',
               },
               {
                 step: '3',
-                title: 'Trade tags',
-                description: 'Swap codes with other players out at a convention.',
+                title: 'Complete tasks & earn achievements',
+                description:
+                  'Tackle daily challenges at conventions and unlock achievements along the way.',
               },
               {
                 step: '4',
-                title: 'Log catches',
-                description: 'Record new catches instantly and watch your collection fill out.',
+                title: 'Meet new furry friends',
+                description: 'Connect with cool new fursuiters while you play!',
               },
             ].map((item, index, array) => (
               <View
@@ -107,165 +911,7 @@ export default function HomeScreen() {
             ))}
           </View>
         </TailTagCard>
-
-        <View style={styles.featureGrid}>
-          {features.map((feature) => (
-            <TailTagCard key={feature.title} style={styles.featureCard}>
-              <Text style={styles.featureTitle}>{feature.title}</Text>
-              <Text style={styles.featureDescription}>{feature.description}</Text>
-            </TailTagCard>
-          ))}
-        </View>
       </ScrollView>
     </View>
   );
 }
-
-const { width } = Dimensions.get('window');
-const maxContentWidth = Math.min(width - spacing.lg * 2, 960);
-
-const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  backgroundGradient: {
-    position: 'absolute',
-    top: -120,
-    left: -60,
-    right: -60,
-    height: 320,
-    borderRadius: 240,
-    opacity: 0.6,
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
-    paddingTop: spacing.xxl,
-    alignItems: 'center',
-  },
-  headerRow: {
-    width: maxContentWidth,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  brand: {
-    color: '#38bdf8',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  caption: {
-    color: 'rgba(203,213,225,0.9)',
-    fontSize: 12,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-  heroBlock: {
-    width: maxContentWidth,
-    marginBottom: spacing.xl,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    color: '#bae6fd',
-    borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.4)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-    fontSize: 11,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    marginBottom: spacing.sm,
-  },
-  title: {
-    fontSize: 32,
-    color: colors.foreground,
-    fontWeight: '700',
-    marginBottom: spacing.md,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: 'rgba(203,213,225,0.9)',
-    marginBottom: spacing.lg,
-  },
-  ctaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  ctaItem: {
-    marginRight: spacing.md,
-    marginBottom: spacing.md,
-  },
-  sectionEyebrow: {
-    fontSize: 11,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    color: '#bae6fd',
-    marginBottom: spacing.xs,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    color: colors.foreground,
-    fontWeight: '600',
-    marginBottom: spacing.md,
-  },
-  loopCard: {
-    width: maxContentWidth,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  stepRowSpacing: {
-    marginBottom: spacing.md,
-  },
-  stepBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.4)',
-    backgroundColor: 'rgba(56,189,248,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepBadgeText: {
-    color: '#bae6fd',
-    fontWeight: '700',
-  },
-  stepDetails: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  stepTitle: {
-    color: colors.foreground,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  stepDescription: {
-    color: 'rgba(203,213,225,0.85)',
-    fontSize: 14,
-  },
-  featureGrid: {
-    width: maxContentWidth,
-    marginTop: spacing.xl,
-  },
-  featureCard: {
-    width: '100%',
-    marginBottom: spacing.md,
-  },
-  featureTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.foreground,
-    marginBottom: spacing.xs,
-  },
-  featureDescription: {
-    color: 'rgba(203,213,225,0.85)',
-    fontSize: 14,
-  },
-});
-

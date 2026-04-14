@@ -1,62 +1,146 @@
-import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform, Text, View } from 'react-native';
+
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
+import { PasswordInput } from '../../src/components/ui/PasswordInput';
+import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
+import { PasswordStrengthIndicator } from '../../src/features/auth/components/PasswordStrengthIndicator';
+import { useOAuthSignIn } from '../../src/features/auth/hooks/useOAuthSignIn';
+import { buildGeneratedUsername } from '../../src/features/profile';
 import { supabase } from '../../src/lib/supabase';
-import { colors, spacing } from '../../src/theme';
-
-const generateDefaultUsername = (rawEmail: string) => {
-  const [localPart] = rawEmail.split('@');
-  const cleaned = localPart?.toLowerCase().replace(/[^a-z0-9]+/g, '-') ?? 'pilot';
-  const suffix = Math.random().toString(36).slice(-4);
-  return `${cleaned}-${suffix}`;
-};
+import { isValidEmail, mapAuthError, validatePassword } from '../../src/utils/authValidation';
+import { styles } from '../../src/app-styles/(auth)/auth.styles';
 
 type AuthMode = 'sign_in' | 'sign_up';
 
-const formatError = (input: unknown) => {
-  if (input && typeof input === 'object') {
-    const maybeError = input as { message?: string };
-    if (maybeError.message) {
-      return maybeError.message;
-    }
-  }
-
-  return input instanceof Error ? input.message : 'Something went wrong. Try again later.';
-};
-
 export default function AuthScreen() {
-  const [mode, setMode] = useState<AuthMode>('sign_in');
+  const router = useRouter();
+  const [mode, setMode] = useState<AuthMode>('sign_up');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendError, setResendError] = useState<string | null>(null);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { signInWithProvider, activeProvider, error: oauthError } = useOAuthSignIn();
+
+  useEffect(() => {
+    return () => {
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
+    };
+  }, []);
+
+  const startCooldown = useCallback(() => {
+    setResendCooldown(60);
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          if (cooldownRef.current) clearInterval(cooldownRef.current);
+          cooldownRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  const handleResendEmail = useCallback(async () => {
+    if (resendCooldown > 0) return;
+    setResendError(null);
+    try {
+      const { error: resendErr } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim(),
+      });
+      if (resendErr) throw resendErr;
+      startCooldown();
+    } catch (caught) {
+      setResendError(mapAuthError(caught));
+    }
+  }, [email, resendCooldown, startCooldown]);
 
   const toggleMode = () => {
     setMode((current) => (current === 'sign_in' ? 'sign_up' : 'sign_in'));
     setError(null);
+    setConfirmPassword('');
+    setEmailSent(false);
+  };
+
+  useEffect(() => {
+    if (oauthError) {
+      setError(oauthError);
+    }
+  }, [oauthError]);
+
+  const handleDiscordSignIn = async () => {
+    if (isSubmitting) return;
+    setError(null);
+    try {
+      await signInWithProvider('discord');
+    } catch {
+      // Error state handled inside useOAuthSignIn
+    }
+  };
+
+  const isDiscordLoading = activeProvider === 'discord';
+  const isGoogleLoading = activeProvider === 'google';
+  const isAppleLoading = activeProvider === 'apple';
+
+  const handleGoogleSignIn = async () => {
+    if (isSubmitting) return;
+    setError(null);
+    try {
+      await signInWithProvider('google');
+    } catch {
+      // Error state is surfaced by the hook
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    if (isSubmitting) return;
+    setError(null);
+    try {
+      await signInWithProvider('apple');
+    } catch {
+      // Error state is surfaced by the hook
+    }
   };
 
   const handleSubmit = async () => {
-    if (isSubmitting) {
+    if (isSubmitting) return;
+
+    const trimmedEmail = email.trim();
+
+    if (trimmedEmail.length === 0 || password.length === 0) {
+      setError('Enter your email and password to continue.');
       return;
     }
 
-    const trimmedEmail = email.trim();
-    const trimmedPassword = password.trim();
-
-    if (trimmedEmail.length === 0 || trimmedPassword.length === 0) {
-      setError('Enter your email and password to continue.');
+    if (!isValidEmail(trimmedEmail)) {
+      setError('Please enter a valid email address.');
       return;
+    }
+
+    if (mode === 'sign_up') {
+      const validation = validatePassword(password);
+      if (!validation.isAcceptable) {
+        setError("Your password doesn't meet all the requirements shown below.");
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -66,10 +150,12 @@ export default function AuthScreen() {
       if (mode === 'sign_up') {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: trimmedEmail,
-          password: trimmedPassword,
+          password,
           options: {
             data: {
-              username: generateDefaultUsername(trimmedEmail),
+              username: buildGeneratedUsername(trimmedEmail.split('@')[0], {
+                forceSuffix: true,
+              }),
             },
           },
         });
@@ -79,14 +165,10 @@ export default function AuthScreen() {
         }
 
         if (!data.session) {
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email: trimmedEmail,
-            password: trimmedPassword,
-          });
-
-          if (signInError) {
-            throw signInError;
-          }
+          // Email confirmation is enabled — show confirmation message
+          setEmailSent(true);
+          startCooldown();
+          return;
         }
 
         return;
@@ -94,25 +176,70 @@ export default function AuthScreen() {
 
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
-        password: trimmedPassword,
+        password,
       });
 
       if (signInError) {
         throw signInError;
       }
     } catch (caught) {
-      setError(formatError(caught));
+      setError(mapAuthError(caught));
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  if (emailSent) {
+    return (
+      <SafeAreaView
+        style={styles.safeArea}
+        edges={['top', 'bottom']}
+      >
+        <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.eyebrow}>TailTag</Text>
+            <Text style={styles.title}>Check your email</Text>
+            <Text style={styles.subtitle}>
+              We sent a confirmation link to <Text style={styles.emailHighlight}>{email}</Text>. Tap
+              the link to activate your account, then come back and sign in.
+            </Text>
+          </View>
+
+          <TailTagCard style={styles.formCard}>
+            <TailTagButton
+              variant="outline"
+              onPress={handleResendEmail}
+              disabled={resendCooldown > 0}
+            >
+              {resendCooldown > 0
+                ? `Resend email (${resendCooldown}s)`
+                : 'Resend confirmation email'}
+            </TailTagButton>
+
+            {resendError ? <Text style={styles.errorText}>{resendError}</Text> : null}
+
+            <TailTagButton
+              variant="ghost"
+              onPress={() => {
+                setEmailSent(false);
+                setResendError(null);
+                setMode('sign_in');
+              }}
+            >
+              Back to sign in
+            </TailTagButton>
+          </TailTagCard>
+        </KeyboardAwareFormWrapper>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <KeyboardAvoidingView
-      style={styles.wrapper}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={['top', 'bottom']}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <Text style={styles.eyebrow}>TailTag</Text>
           <Text style={styles.title}>
@@ -142,100 +269,106 @@ export default function AuthScreen() {
 
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Password</Text>
-            <TailTagInput
+            <PasswordInput
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
               autoComplete={mode === 'sign_in' ? 'password' : 'password-new'}
-              placeholder="Enter at least 6 characters"
+              placeholder={
+                mode === 'sign_up' ? '8+ chars, mixed case, number, symbol' : 'Enter your password'
+              }
               editable={!isSubmitting}
-              returnKeyType="done"
-              onSubmitEditing={handleSubmit}
+              returnKeyType={mode === 'sign_up' ? 'next' : 'done'}
+              onSubmitEditing={mode === 'sign_in' ? handleSubmit : undefined}
             />
-            <Text style={styles.assistiveText}>
-              Keep it simple for now—TailTag uses straightforward email login.
-            </Text>
+            {mode === 'sign_up' && <PasswordStrengthIndicator password={password} />}
           </View>
+
+          {mode === 'sign_up' && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Confirm password</Text>
+              <PasswordInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                autoComplete="password-new"
+                placeholder="Re-enter your password"
+                editable={!isSubmitting}
+                returnKeyType="done"
+                onSubmitEditing={handleSubmit}
+              />
+            </View>
+          )}
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <TailTagButton onPress={handleSubmit} loading={isSubmitting}>
+          <TailTagButton
+            onPress={handleSubmit}
+            loading={isSubmitting}
+          >
             {mode === 'sign_in' ? 'Log in' : 'Sign up'}
           </TailTagButton>
 
-          <TailTagButton variant="ghost" onPress={toggleMode} disabled={isSubmitting}>
-            {mode === 'sign_in'
-              ? 'Need an account? Sign up'
-              : 'Already have an account? Log in'}
+          <TailTagButton
+            variant="ghost"
+            onPress={toggleMode}
+            disabled={isSubmitting}
+          >
+            {mode === 'sign_in' ? 'Need an account? Sign up' : 'Already have an account? Log in'}
+          </TailTagButton>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerLabel}>or continue with</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {Platform.OS === 'ios' && (
+            <TailTagButton
+              variant="outline"
+              onPress={handleAppleSignIn}
+              loading={isAppleLoading}
+              disabled={isSubmitting}
+              accessibilityLabel="Continue with Apple"
+              accessibilityHint="Signs in with your Apple ID."
+            >
+              Continue with Apple
+            </TailTagButton>
+          )}
+
+          <TailTagButton
+            variant="outline"
+            onPress={handleDiscordSignIn}
+            loading={isDiscordLoading}
+            disabled={isSubmitting}
+            accessibilityLabel="Continue with Discord"
+            accessibilityHint="Opens Discord to continue signing in."
+          >
+            Continue with Discord
+          </TailTagButton>
+
+          <TailTagButton
+            variant="outline"
+            onPress={handleGoogleSignIn}
+            loading={isGoogleLoading}
+            disabled={isSubmitting}
+            accessibilityLabel="Continue with Google"
+            accessibilityHint="Opens Google to continue signing in."
+          >
+            Continue with Google
           </TailTagButton>
         </TailTagCard>
 
         <View style={styles.footerHelper}>
           <Text style={styles.helperText}>
-            Problems signing in? Make sure email auth is enabled for your account.
+            Having trouble logging in?{' '}
+            <Text
+              style={styles.link}
+              onPress={() => router.push('/forgot-password')}
+            >
+              Reset password
+            </Text>
           </Text>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareFormWrapper>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-  },
-  header: {
-    marginBottom: spacing.lg,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: 'uppercase',
-    color: colors.primary,
-  },
-  title: {
-    color: colors.foreground,
-    fontSize: 26,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    color: 'rgba(203,213,225,0.9)',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  formCard: {
-    gap: spacing.lg,
-  },
-  fieldGroup: {
-    gap: spacing.sm,
-  },
-  label: {
-    color: colors.foreground,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  assistiveText: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 12,
-  },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
-  },
-  footerHelper: {
-    marginTop: spacing.lg,
-  },
-  helperText: {
-    color: 'rgba(148,163,184,0.9)',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-});
-

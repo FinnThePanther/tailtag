@@ -1,0 +1,97 @@
+name: Validate
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 20
+
+jobs:
+  validate:
+    name: Validate repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Validate mobile app
+        run: npm run ci:validate
+
+      - name: Check migration files are well-formed
+        run: |
+          MIGRATION_DIR="supabase/migrations"
+          if [ ! -d "$MIGRATION_DIR" ]; then
+            echo "No migrations directory found - skipping"
+            exit 0
+          fi
+
+          invalid=0
+          for f in "$MIGRATION_DIR"/*.sql; do
+            [ -e "$f" ] || continue
+            filename=$(basename "$f")
+            if ! echo "$filename" | grep -qE '^[0-9]{14}_.+\.sql$'; then
+              echo "ERROR: Invalid migration filename: $filename (expected: YYYYMMDDHHmmss_description.sql)"
+              invalid=1
+            fi
+          done
+
+          if [ "$invalid" -eq 1 ]; then
+            exit 1
+          fi
+
+          echo "All migration filenames are valid"
+
+      - name: Check for duplicate migration timestamps
+        run: |
+          MIGRATION_DIR="supabase/migrations"
+          if [ ! -d "$MIGRATION_DIR" ]; then
+            exit 0
+          fi
+
+          dupes=$(ls "$MIGRATION_DIR"/*.sql 2>/dev/null \
+            | xargs -I{} basename {} \
+            | cut -c1-14 \
+            | sort | uniq -d)
+
+          if [ -n "$dupes" ]; then
+            echo "ERROR: Duplicate migration timestamps detected:"
+            echo "$dupes"
+            exit 1
+          fi
+
+          echo "No duplicate migration timestamps"
+
+      - name: Generate types from dev schema
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase gen types typescript \
+            --project-id rtxbvjicfxgcouufumce \
+            > /tmp/generated-types.ts
+
+      - name: Compare generated types to committed file
+        run: python3 scripts/check-types.py /tmp/generated-types.ts
+
+      - name: Type-check achievement-rules package
+        run: |
+          cd packages/achievement-rules
+          npx tsc --noEmit --pretty

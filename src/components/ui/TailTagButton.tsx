@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, Text, ViewStyle } from 'react-native';
 import type { TextStyle } from 'react-native';
 import type { GestureResponderEvent } from 'react-native';
 
-import { colors, radius, spacing } from '../../theme';
+import { colors, spacing } from '../../theme';
+import { styles } from './TailTagButton.styles';
 
 type ButtonVariant = 'primary' | 'outline' | 'ghost' | 'destructive';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -16,6 +17,8 @@ type TailTagButtonProps = {
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle | ViewStyle[];
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 };
 
 const VARIANT_STYLES: Record<ButtonVariant, { container: ViewStyle; text: TextStyle }> = {
@@ -55,7 +58,10 @@ const VARIANT_STYLES: Record<ButtonVariant, { container: ViewStyle; text: TextSt
   },
 };
 
-const SIZE_STYLES: Record<ButtonSize, { paddingVertical: number; paddingHorizontal: number; fontSize: number }> = {
+const SIZE_STYLES: Record<
+  ButtonSize,
+  { paddingVertical: number; paddingHorizontal: number; fontSize: number }
+> = {
   sm: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
@@ -81,6 +87,8 @@ export function TailTagButton({
   loading = false,
   disabled = false,
   style,
+  accessibilityLabel,
+  accessibilityHint,
 }: TailTagButtonProps) {
   const sizeStyles = SIZE_STYLES[size];
   const variantStyles = VARIANT_STYLES[variant];
@@ -90,6 +98,9 @@ export function TailTagButton({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       style={({ pressed }) => [
         styles.base,
         {
@@ -106,6 +117,7 @@ export function TailTagButton({
         <ActivityIndicator color={variantStyles.text.color ?? colors.foreground} />
       ) : (
         <Text
+          numberOfLines={1}
           style={[
             styles.text,
             {
@@ -120,18 +132,3 @@ export function TailTagButton({
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-  },
-  text: {
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.6,
-  },
-});
