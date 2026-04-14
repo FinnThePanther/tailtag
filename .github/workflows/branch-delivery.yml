@@ -97,7 +97,7 @@ jobs:
         # After a DB reset/resync the vault's SERVICE_ROLE_KEY or SUPABASE_URL may
         # be missing or stale. The cron-triggered queue worker reads these vault
         # secrets to call Edge Functions, so keep them synced on every deploy.
-        # SUPABASE_URL is a reserved Edge Function env name, so only set it in vault.
+        # SUPABASE_URL is a reserved Edge Function env name, so sync it only through vault.
         run: |
           supabase db query --linked "
           DO \$\$
