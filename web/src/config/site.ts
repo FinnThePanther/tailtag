@@ -8,8 +8,8 @@ export const siteConfig = {
     ios: 'https://finnthepanther.com',
     android: 'https://finnthepanther.com',
     discord: 'https://discord.gg/Fv7NPJNTP2',
-    supportEmail: 'support@playtailtag.com',
-    deleteAccountMailto: 'mailto:support@playtailtag.com?subject=TailTag%20Account%20Deletion',
+    supportEmail: 'finn@finnthepanther.com',
+    deleteAccountMailto: 'mailto:finn@finnthepanther.com?subject=TailTag%20Account%20Deletion',
   },
 
   platforms: {

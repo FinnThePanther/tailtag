@@ -1,11 +1,11 @@
 # Account Deletion Requests (Support)
 
-Use this runbook for deletion requests received at `support@playtailtag.com` from users who cannot access in-app deletion.
+Use this runbook for deletion requests received at `finn@finnthepanther.com` from users who cannot access in-app deletion.
 
 ## Scope
 
 - Public request URL: `https://playtailtag.com/delete-account`
-- Request channel: `mailto:support@playtailtag.com?subject=TailTag%20Account%20Deletion`
+- Request channel: `mailto:finn@finnthepanther.com?subject=TailTag%20Account%20Deletion`
 - Fulfillment target: within 30 days after account ownership verification
 
 ## Support Workflow
