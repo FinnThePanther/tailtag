@@ -99,15 +99,16 @@ ok "Gameplay event queue ready."
 # ── 1b. Vault + edge function secrets ────────────────────────────────────────
 # After a DB reset/resync the vault's SERVICE_ROLE_KEY may contain a stale key
 # copied from another project. The cron-triggered queue worker
-# (process_gameplay_queue_if_active) reads this vault secret to authenticate
-# against the process-gameplay-queue edge function, so a wrong value causes
-# silent 401s and achievements never process.
+# (process_gameplay_queue_if_active) reads SERVICE_ROLE_KEY and SUPABASE_URL from
+# vault to call Edge Functions, so stale or missing values cause silent 401s or
+# skipped processing.
 
-step "Syncing SERVICE_ROLE_KEY vault secret and edge function secret"
+step "Syncing required vault secrets and edge function secrets"
 
 # Fetch this project's actual service role key from the Supabase API.
 SERVICE_ROLE_KEY=$(npx supabase projects api-keys --project-ref "$PROJECT_REF" 2>/dev/null \
   | awk -F'|' '/service_role/ {gsub(/ /, "", $2); print $2}')
+SUPABASE_URL="https://${PROJECT_REF}.supabase.co"
 
 if [[ -z "$SERVICE_ROLE_KEY" ]]; then
   warn "Could not fetch service role key — skipping vault update."
@@ -120,21 +121,30 @@ else
   DO \$\$
   DECLARE
     v_id uuid;
-    v_key text := '$SERVICE_ROLE_KEY';
+    v_service_role_key text := '$SERVICE_ROLE_KEY';
+    v_supabase_url text := '$SUPABASE_URL';
   BEGIN
     SELECT id INTO v_id FROM vault.secrets WHERE name = 'SERVICE_ROLE_KEY' LIMIT 1;
     IF v_id IS NOT NULL THEN
-      PERFORM vault.update_secret(v_id, v_key);
+      PERFORM vault.update_secret(v_id, v_service_role_key);
     ELSE
-      PERFORM vault.create_secret(v_key, 'SERVICE_ROLE_KEY', 'Service role key for edge function auth');
+      PERFORM vault.create_secret(v_service_role_key, 'SERVICE_ROLE_KEY', 'Service role key for edge function auth');
+    END IF;
+
+    SELECT id INTO v_id FROM vault.secrets WHERE name = 'SUPABASE_URL' LIMIT 1;
+    IF v_id IS NOT NULL THEN
+      PERFORM vault.update_secret(v_id, v_supabase_url);
+    ELSE
+      PERFORM vault.create_secret(v_supabase_url, 'SUPABASE_URL', 'Project URL for internal edge function calls');
     END IF;
   END;
   \$\$;
   " > /dev/null
-  # Also set as edge function secret so functions that read SERVICE_ROLE_KEY
-  # directly (events-ingress, process-gameplay-queue) get the right value.
+  # Also set as edge function secrets so functions that read these values
+  # directly get the right project-specific values.
   npx supabase secrets set SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" --project-ref "$PROJECT_REF" > /dev/null
-  ok "Vault and edge function SERVICE_ROLE_KEY updated."
+  npx supabase secrets set SUPABASE_URL="$SUPABASE_URL" --project-ref "$PROJECT_REF" > /dev/null
+  ok "Vault and edge function required secrets updated."
 fi
 
 # ── 1c. Derived vault secrets ────────────────────────────────────────────────
