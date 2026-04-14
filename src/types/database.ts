@@ -1492,7 +1492,7 @@ export type Database = {
           report_type: string
           reported_fursuit_id: string | null
           reported_user_id: string | null
-          reporter_id: string
+          reporter_id: string | null
           resolution_notes: string | null
           resolved_at: string | null
           resolved_by_user_id: string | null
@@ -1508,7 +1508,7 @@ export type Database = {
           report_type: string
           reported_fursuit_id?: string | null
           reported_user_id?: string | null
-          reporter_id: string
+          reporter_id?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by_user_id?: string | null
@@ -1524,7 +1524,7 @@ export type Database = {
           report_type?: string
           reported_fursuit_id?: string | null
           reported_user_id?: string | null
-          reporter_id?: string
+          reporter_id?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by_user_id?: string | null
