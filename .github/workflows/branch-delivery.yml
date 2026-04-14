@@ -38,6 +38,10 @@ jobs:
             backend:
               - 'supabase/**'
               - 'packages/achievement-rules/**'
+              - 'scripts/bootstrap-vault-secrets.sql'
+              - 'scripts/setup-environment.sh'
+              - 'scripts/verify-environment.sh'
+              - '.github/workflows/branch-delivery.yml'
             mobile:
               - 'app/**'
               - 'src/**'
@@ -89,22 +93,31 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      - name: Sync SERVICE_ROLE_KEY vault secret and edge function secret
-        # After a DB reset/resync the vault's SERVICE_ROLE_KEY may contain a stale
-        # key copied from another project, causing silent 401s in the queue worker.
-        # This step keeps the vault in sync on every backend deployment.
+      - name: Sync required vault and edge function secrets
+        # After a DB reset/resync the vault's SERVICE_ROLE_KEY or SUPABASE_URL may
+        # be missing or stale. The cron-triggered queue worker reads these vault
+        # secrets to call Edge Functions, so keep them synced on every deploy.
+        # SUPABASE_URL is a reserved Edge Function env name, so only set it in vault.
         run: |
           supabase db query --linked "
           DO \$\$
           DECLARE
             v_id uuid;
-            v_key text := '$SERVICE_ROLE_KEY';
+            v_service_role_key text := '$SERVICE_ROLE_KEY';
+            v_supabase_url text := '$SUPABASE_URL';
           BEGIN
             SELECT id INTO v_id FROM vault.secrets WHERE name = 'SERVICE_ROLE_KEY' LIMIT 1;
             IF v_id IS NOT NULL THEN
-              PERFORM vault.update_secret(v_id, v_key);
+              PERFORM vault.update_secret(v_id, v_service_role_key);
             ELSE
-              PERFORM vault.create_secret(v_key, 'SERVICE_ROLE_KEY', 'Service role key for edge function auth');
+              PERFORM vault.create_secret(v_service_role_key, 'SERVICE_ROLE_KEY', 'Service role key for edge function auth');
+            END IF;
+
+            SELECT id INTO v_id FROM vault.secrets WHERE name = 'SUPABASE_URL' LIMIT 1;
+            IF v_id IS NOT NULL THEN
+              PERFORM vault.update_secret(v_id, v_supabase_url);
+            ELSE
+              PERFORM vault.create_secret(v_supabase_url, 'SUPABASE_URL', 'Project URL for internal edge function calls');
             END IF;
           END;
           \$\$;
@@ -115,6 +128,7 @@ jobs:
           PROJECT_REF: ${{ github.ref_name == 'dev' && secrets.STAGING_PROJECT_REF || secrets.PROD_PROJECT_REF }}
           SUPABASE_DB_PASSWORD: ${{ github.ref_name == 'dev' && secrets.STAGING_DB_PASSWORD || secrets.PROD_DB_PASSWORD }}
           SERVICE_ROLE_KEY: ${{ github.ref_name == 'dev' && secrets.STAGING_SERVICE_ROLE_KEY || secrets.PROD_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: https://${{ github.ref_name == 'dev' && secrets.STAGING_PROJECT_REF || secrets.PROD_PROJECT_REF }}.supabase.co
 
       - name: Bootstrap derived vault secrets
         # Idempotently seeds the rest of the vault secrets the application
