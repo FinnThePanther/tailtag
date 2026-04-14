@@ -1,0 +1,63 @@
+{
+  "cli": {
+    "version": ">= 13.2.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "buildConfiguration": "Debug",
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      },
+      "env": {
+        "APP_ENV": "development",
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://rtxbvjicfxgcouufumce.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0eGJ2amljZnhnY291dWZ1bWNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxOTA1MDgsImV4cCI6MjA3NDc2NjUwOH0.5YA3PLhJqbek_Z8cf8CaRXJNZjl2ZvCSnkVpNrtLGww",
+        "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORMS_ENABLED": "false"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "buildConfiguration": "Release"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_ENV": "staging",
+        "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://yjsadmswobafychfpoxe.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlqc2FkbXN3b2JhZnljaGZwb3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMzczMjMsImV4cCI6MjA5MDgxMzMyM30.MDrOcAvO3fg1AOVZym-xXl3txtlkDnm4O8YNjTZihuI",
+        "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORMS_ENABLED": "false"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "ios": {
+        "buildConfiguration": "Release"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "APP_ENV": "production",
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dowtlhkzbxxmiflpswvd.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvd3RsaGt6Ynh4bWlmbHBzd3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMzc2MjIsImV4cCI6MjA5MDgxMzYyMn0.KIw5TF-tBq3NIKjpzkNGagLR0jwiYKP_s7RqchEhXHo",
+        "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORMS_ENABLED": "false"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

@@ -2,12 +2,9 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { createProfileQueryOptions, PROFILE_QUERY_KEY } from '../../profile';
-import {
-  createMySuitsQueryOptions,
-  MY_SUITS_QUERY_KEY,
-  createCaughtSuitsQueryOptions,
-  CAUGHT_SUITS_QUERY_KEY,
-} from '../../suits';
+import { createMySuitsQueryOptions, MY_SUITS_QUERY_KEY } from '../../suits/api/mySuits';
+import { createCaughtSuitsQueryOptions, CAUGHT_SUITS_QUERY_KEY } from '../../suits/api/caughtSuits';
+import { addMonitoringBreadcrumb, captureHandledException } from '../../../lib/sentry';
 
 const QUERY_PREFIXES_TO_CLEAR = [
   [PROFILE_QUERY_KEY] as const,
@@ -39,6 +36,12 @@ export function usePrimeUserData(userId: string | null) {
 
     const prime = async () => {
       try {
+        addMonitoringBreadcrumb({
+          category: 'data',
+          message: 'Priming user data',
+          data: { userId },
+        });
+
         await Promise.all([
           queryClient.prefetchQuery(createProfileQueryOptions(userId)),
           queryClient.prefetchQuery(createMySuitsQueryOptions(userId)),
@@ -49,7 +52,10 @@ export function usePrimeUserData(userId: string | null) {
           primedUserIdRef.current = userId;
         }
       } catch (caught) {
-        console.warn('Failed to preload user data', caught);
+        captureHandledException(caught, {
+          scope: 'auth.primeUserData',
+          userId,
+        });
       }
     };
 

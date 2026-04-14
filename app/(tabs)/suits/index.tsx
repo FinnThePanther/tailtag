@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-
+import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -8,17 +7,25 @@ import {
   FursuitCard,
   fetchMySuits,
   MY_SUITS_QUERY_KEY,
+  MY_SUITS_COUNT_QUERY_KEY,
   MY_SUITS_STALE_TIME,
 } from '../../../src/features/suits';
+import {
+  PendingCatchesList,
+  useConfirmCatch,
+  usePendingCatches,
+} from '../../../src/features/catch-confirmations';
+import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
 import type { FursuitSummary } from '../../../src/features/suits';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { FURSUIT_BUCKET } from '../../../src/constants/storage';
 import { useAuth } from '../../../src/features/auth';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, spacing } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { toDisplayDate } from '../../../src/utils/dates';
 import { deriveStoragePathFromPublicUrl } from '../../../src/utils/storage';
+import { styles } from '../../../src/app-styles/(tabs)/suits/index.styles';
 
 export default function MySuitsScreen() {
   const router = useRouter();
@@ -44,6 +51,32 @@ export default function MySuitsScreen() {
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
+
+  const { data: pendingCatches = [], refetch: refetchPendingCatches } = usePendingCatches();
+  const confirmCatchMutation = useConfirmCatch();
+
+  const handleAcceptCatch = useCallback(
+    (catchId: string, conventionId?: string) => {
+      setProcessingCatchId(catchId);
+      confirmCatchMutation.mutate(
+        { catchId, decision: 'accept', conventionId },
+        { onSettled: () => setProcessingCatchId(null) },
+      );
+    },
+    [confirmCatchMutation],
+  );
+
+  const handleRejectCatch = useCallback(
+    (catchId: string) => {
+      setProcessingCatchId(catchId);
+      confirmCatchMutation.mutate(
+        { catchId, decision: 'reject' },
+        { onSettled: () => setProcessingCatchId(null) },
+      );
+    },
+    [confirmCatchMutation],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -62,13 +95,13 @@ export default function MySuitsScreen() {
       ) {
         void refetch({ throwOnError: false });
       }
-    }, [queryClient, refetch, setActionError, suitsQueryKey, userId])
+    }, [queryClient, refetch, setActionError, suitsQueryKey, userId]),
   );
 
   const handleRefresh = useCallback(async () => {
     setActionError(null);
-    await refetch({ throwOnError: false });
-  }, [refetch]);
+    await Promise.all([refetch({ throwOnError: false }), refetchPendingCatches()]);
+  }, [refetch, refetchPendingCatches]);
 
   const handleDelete = useCallback(
     (suit: FursuitSummary) => {
@@ -112,8 +145,13 @@ export default function MySuitsScreen() {
                 }
 
                 queryClient.setQueryData<FursuitSummary[]>(suitsQueryKey, (current) =>
-                  (current ?? []).filter((item) => item.id !== suit.id)
+                  (current ?? []).filter((item) => item.id !== suit.id),
                 );
+
+                // Invalidate count cache so limit check updates immediately
+                void queryClient.invalidateQueries({
+                  queryKey: [MY_SUITS_COUNT_QUERY_KEY, userId],
+                });
               } catch (caught) {
                 const message =
                   caught instanceof Error
@@ -125,13 +163,15 @@ export default function MySuitsScreen() {
               }
             },
           },
-        ]
+        ],
       );
     },
-    [queryClient, suitsQueryKey, userId, deletingId]
+    [queryClient, suitsQueryKey, userId, deletingId],
   );
 
   const hasSuits = suits.length > 0;
+  const suitCount = suits.length;
+  const isAtFursuitLimit = suitCount >= MAX_FURSUITS_PER_USER;
   const combinedError = actionError ?? error?.message ?? null;
 
   return (
@@ -139,33 +179,47 @@ export default function MySuitsScreen() {
       style={styles.scroll}
       contentContainerStyle={styles.container}
       refreshControl={
-        <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={colors.primary} />
+        <RefreshControl
+          refreshing={isRefetching}
+          onRefresh={handleRefresh}
+          tintColor={colors.primary}
+        />
       }
     >
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Your suits</Text>
-        <Text style={styles.title}>Tag deck</Text>
+        <Text style={styles.title}>Suit deck</Text>
         <Text style={styles.subtitle}>
           Keep your suits up to date so other players know who they just tagged.
         </Text>
       </View>
 
-      <TailTagCard style={styles.cardSpacing}>
-        <View style={styles.helperRow}>
-          <Text style={styles.helperText}>Add a new suit before you head to the floor.</Text>
-          <TailTagButton onPress={() => router.push('/suits/add-fursuit')}>
-            Add a fursuit
-          </TailTagButton>
-        </View>
-      </TailTagCard>
+      {userId ? (
+        <PendingCatchesList
+          pendingCatches={pendingCatches}
+          processingCatchId={processingCatchId}
+          onAccept={handleAcceptCatch}
+          onReject={handleRejectCatch}
+        />
+      ) : null}
 
-      <TailTagCard>
+      <TailTagCard style={styles.cardSpacing}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Your fursuits</Text>
+          <Text style={styles.sectionMeta}>
+            {hasSuits ? `${suitCount} ${suitCount === 1 ? 'suit' : 'suits'}` : 'No suits yet'}
+          </Text>
+        </View>
         {isLoading ? (
           <Text style={styles.message}>Loading your suits…</Text>
         ) : combinedError ? (
           <View style={styles.helperColumn}>
             <Text style={styles.error}>{combinedError}</Text>
-            <TailTagButton variant="outline" size="sm" onPress={handleRefresh}>
+            <TailTagButton
+              variant="outline"
+              size="sm"
+              onPress={handleRefresh}
+            >
               Try again
             </TailTagButton>
           </View>
@@ -177,22 +231,42 @@ export default function MySuitsScreen() {
                 : null;
 
               return (
-                <View key={suit.id} style={index < suits.length - 1 ? styles.listItemSpacing : undefined}>
+                <View
+                  key={suit.id}
+                  style={index < suits.length - 1 ? styles.listItemSpacing : undefined}
+                >
                   <FursuitCard
                     name={suit.name}
                     species={suit.species}
+                    colors={suit.colors}
                     avatarUrl={suit.avatar_url}
                     uniqueCode={suit.unique_code}
                     timelineLabel={timelineLabel}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/fursuits/[id]',
+                        params: { id: suit.id },
+                      })
+                    }
                     actionSlot={
-                      <TailTagButton
-                        variant="destructive"
-                        size="sm"
+                      <Pressable
                         onPress={() => handleDelete(suit)}
-                        loading={deletingId === suit.id}
+                        disabled={deletingId === suit.id}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete fursuit"
+                        style={({ pressed }) => [
+                          {
+                            opacity: deletingId === suit.id ? 0.6 : pressed ? 0.8 : 1,
+                          },
+                        ]}
                       >
-                        Delete
-                      </TailTagButton>
+                        {deletingId === suit.id ? (
+                          <Text style={styles.deleteLink}>Deleting…</Text>
+                        ) : (
+                          <Text style={styles.deleteLink}>Delete</Text>
+                        )}
+                      </Pressable>
                     }
                   />
                 </View>
@@ -201,72 +275,26 @@ export default function MySuitsScreen() {
           </View>
         ) : (
           <Text style={styles.message}>
-            You haven&apos;t added any suits yet. Tap “Add a fursuit” to get started.
+            You haven&apos;t added any suits yet. Tap “Add a fursuit” below to get started.
           </Text>
         )}
+      </TailTagCard>
+
+      <TailTagCard style={styles.cardSpacing}>
+        <View style={styles.helperRow}>
+          <Text style={styles.helperText}>
+            {isAtFursuitLimit
+              ? `You have ${MAX_FURSUITS_PER_USER}/${MAX_FURSUITS_PER_USER} suits. Delete one to add another.`
+              : `Add a new suit before you head to the floor. (${suitCount}/${MAX_FURSUITS_PER_USER})`}
+          </Text>
+          <TailTagButton
+            onPress={() => router.push('/suits/add-fursuit')}
+            disabled={isAtFursuitLimit}
+          >
+            Add a fursuit
+          </TailTagButton>
+        </View>
       </TailTagCard>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-    gap: spacing.lg,
-  },
-  header: {
-    gap: spacing.xs,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: 'uppercase',
-    color: colors.primary,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.foreground,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: 'rgba(203,213,225,0.9)',
-  },
-  helperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  helperText: {
-    color: 'rgba(203,213,225,0.9)',
-    flex: 1,
-    fontSize: 14,
-  },
-  cardSpacing: {
-    marginBottom: spacing.lg,
-  },
-  message: {
-    color: 'rgba(203,213,225,0.9)',
-    fontSize: 14,
-  },
-  helperColumn: {
-    gap: spacing.sm,
-  },
-  error: {
-    color: '#fca5a5',
-    fontSize: 14,
-  },
-  list: {
-    marginTop: spacing.md,
-  },
-  listItemSpacing: {
-    marginBottom: spacing.md,
-  },
-});

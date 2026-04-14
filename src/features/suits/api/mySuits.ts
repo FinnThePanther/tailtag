@@ -1,20 +1,17 @@
 import { supabase } from '../../../lib/supabase';
 import type { ConventionSummary } from '../../conventions';
-
-export type FursuitSummary = {
-  id: string;
-  name: string;
-  species: string | null;
-  avatar_url: string | null;
-  unique_code: string | null;
-  created_at: string | null;
-  conventions: ConventionSummary[];
-};
+import type { FursuitSummary } from '../types';
+import type { CatchMode } from '../../catch-confirmations';
+import { mapFursuitColors, mapLatestFursuitBio } from './utils';
+import { FURSUIT_BUCKET } from '../../../constants/storage';
+import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
 export const MY_SUITS_QUERY_KEY = 'my-suits';
+export const MY_SUITS_COUNT_QUERY_KEY = 'my-suits-count';
 export const MY_SUITS_STALE_TIME = 2 * 60_000;
 
 export const mySuitsQueryKey = (userId: string) => [MY_SUITS_QUERY_KEY, userId] as const;
+export const mySuitsCountQueryKey = (userId: string) => [MY_SUITS_COUNT_QUERY_KEY, userId] as const;
 
 export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
   const client = supabase as any;
@@ -24,10 +21,27 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       `
       id,
       name,
-      species,
+      species_id,
+      avatar_path,
       avatar_url,
+      description,
       unique_code,
+      catch_count,
+      catch_mode,
       created_at,
+      species_entry:fursuit_species (
+        id,
+        name,
+        normalized_name
+      ),
+      color_assignments:fursuit_color_assignments (
+        position,
+        color:fursuit_colors (
+          id,
+          name,
+          normalized_name
+        )
+      ),
       fursuit_conventions:fursuit_conventions (
         convention:conventions (
           id,
@@ -35,12 +49,29 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
           name,
           location,
           start_date,
-          end_date
+          end_date,
+          timezone,
+          latitude,
+          longitude,
+          geofence_radius_meters,
+          geofence_enabled,
+          location_verification_required
         )
+      ),
+      fursuit_bios (
+        version,
+        owner_name,
+        pronouns,
+        likes_and_interests,
+        ask_me_about,
+        social_links,
+        created_at,
+        updated_at
       )
-    `
+    `,
     )
     .eq('owner_id', userId)
+    .eq('is_tutorial', false)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -58,16 +89,43 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
         location: convention.location ?? null,
         start_date: convention.start_date ?? null,
         end_date: convention.end_date ?? null,
+        timezone: convention.timezone ?? 'UTC',
+        latitude: convention.latitude ?? null,
+        longitude: convention.longitude ?? null,
+        geofence_radius_meters: convention.geofence_radius_meters ?? null,
+        geofence_enabled: Boolean(convention.geofence_enabled),
+        location_verification_required: Boolean(convention.location_verification_required),
       }));
+
+    const bio = mapLatestFursuitBio(item.fursuit_bios ?? null);
+    const speciesEntry = item.species_entry ?? null;
+    const speciesName = speciesEntry?.name ?? null;
+    const speciesId = speciesEntry?.id ?? item.species_id ?? null;
+    const colors = mapFursuitColors(item.color_assignments ?? null);
+
+    // Default to AUTO_ACCEPT if not set
+    const catchMode: CatchMode =
+      item.catch_mode === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
 
     return {
       id: item.id,
       name: item.name,
-      species: item.species ?? null,
-      avatar_url: item.avatar_url ?? null,
+      species: speciesName,
+      speciesId: speciesId,
+      colors,
+      avatar_path: item.avatar_path ?? null,
+      avatar_url: resolveStorageMediaUrl({
+        bucket: FURSUIT_BUCKET,
+        path: item.avatar_path ?? null,
+        legacyUrl: item.avatar_url ?? null,
+      }),
+      description: item.description ?? null,
       unique_code: item.unique_code ?? null,
+      catchCount: typeof item.catch_count === 'number' ? item.catch_count : 0,
+      catchMode,
       created_at: item.created_at ?? null,
       conventions,
+      bio,
     } satisfies FursuitSummary;
   });
 }
@@ -75,6 +133,29 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
 export const createMySuitsQueryOptions = (userId: string) => ({
   queryKey: mySuitsQueryKey(userId),
   queryFn: () => fetchMySuits(userId),
+  staleTime: MY_SUITS_STALE_TIME,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
+
+export async function fetchMySuitsCount(userId: string): Promise<number> {
+  const client = supabase as any;
+  const { count, error } = await client
+    .from('fursuits')
+    .select('id', { count: 'exact', head: true })
+    .eq('owner_id', userId)
+    .eq('is_tutorial', false);
+
+  if (error) {
+    throw new Error(`We couldn't count your suits: ${error.message}`);
+  }
+
+  return count ?? 0;
+}
+
+export const createMySuitsCountQueryOptions = (userId: string) => ({
+  queryKey: mySuitsCountQueryKey(userId),
+  queryFn: () => fetchMySuitsCount(userId),
   staleTime: MY_SUITS_STALE_TIME,
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
