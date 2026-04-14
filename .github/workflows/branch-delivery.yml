@@ -136,8 +136,10 @@ jobs:
             [ "$fn" = "_shared" ] && continue
             [ -f "$dir/index.ts" ] || continue
             echo "Deploying $fn..."
+            # These functions verify bearer/service-role tokens in function code.
+            # Keep this list aligned with supabase/config.toml and setup-environment.sh.
             case "$fn" in
-              delete-account|events-ingress)
+              create-catch|delete-account|events-ingress)
                 supabase functions deploy "$fn" --no-verify-jwt
                 ;;
               *)
