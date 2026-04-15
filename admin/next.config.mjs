@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   experimental: {
     serverActions: {
-      allowedOrigins: ['*'],
+      allowedOrigins: ['admin.playtailtag.com', 'localhost:3000'],
     },
   },
 };
