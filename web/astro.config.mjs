@@ -3,6 +3,7 @@ import tailwind from '@astrojs/tailwind';
 import icon from 'astro-icon';
 
 export default defineConfig({
+  site: 'https://playtailtag.com',
   integrations: [tailwind(), icon()],
   output: 'static',
 });
