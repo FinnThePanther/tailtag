@@ -4,6 +4,16 @@ import type { FursuitBio } from '../types';
 import { captureNonCriticalError } from '../../../lib/sentry';
 import { styles } from './FursuitBioDetails.styles';
 
+/** True when {@link FursuitBioDetails} would render at least one section (excludes owner-only bios). */
+export function fursuitBioHasDisplayableContent(bio: FursuitBio): boolean {
+  const hasPronouns = Boolean(bio.pronouns?.trim());
+  const hasLikesAndInterests = Boolean(bio.likesAndInterests?.trim());
+  const hasAskMeAbout = Boolean(bio.askMeAbout?.trim());
+  const hasLikesSection = hasLikesAndInterests || hasAskMeAbout;
+  const hasSocial = bio.socialLinks.length > 0;
+  return hasPronouns || hasLikesSection || hasSocial;
+}
+
 const openSocialLink = async (url: string) => {
   try {
     const canOpen = await Linking.canOpenURL(url);
@@ -28,6 +38,10 @@ type FursuitBioDetailsProps = {
 };
 
 export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
+  if (!fursuitBioHasDisplayableContent(bio)) {
+    return null;
+  }
+
   const hasPronouns = Boolean(bio.pronouns?.trim());
   const hasLikesAndInterests = Boolean(bio.likesAndInterests?.trim());
   const hasAskMeAbout = Boolean(bio.askMeAbout?.trim());

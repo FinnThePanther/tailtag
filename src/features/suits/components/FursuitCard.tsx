@@ -103,19 +103,19 @@ export function FursuitCard({
         <View style={styles.details}>
           <Text
             style={styles.name}
-            numberOfLines={1}
+            numberOfLines={2}
           >
             {name}
           </Text>
           <Text
             style={styles.species}
-            numberOfLines={1}
+            numberOfLines={2}
           >
             {displaySpecies}
           </Text>
           <Text
             style={styles.colors}
-            numberOfLines={1}
+            numberOfLines={3}
           >
             {displayColors}
           </Text>

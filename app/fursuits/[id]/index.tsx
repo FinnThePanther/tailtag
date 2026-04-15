@@ -13,6 +13,7 @@ import {
   CatchPhotosList,
   CatchPhotosListSkeleton,
   FursuitBioDetails,
+  fursuitBioHasDisplayableContent,
   FursuitDetailSkeleton,
   catchesByFursuitQueryKey,
   fetchCatchesByFursuit,
@@ -304,7 +305,7 @@ export default function FursuitDetailScreen() {
                       </View>
                     </Pressable>
                   ) : null}
-                  {detail.bio ? (
+                  {detail.bio && fursuitBioHasDisplayableContent(detail.bio) ? (
                     <FursuitBioDetails bio={detail.bio} />
                   ) : (
                     <Text style={styles.message}>This fursuit does not have a bio yet.</Text>
