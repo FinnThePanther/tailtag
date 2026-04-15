@@ -1,0 +1,108 @@
+---
+import Base from '../layouts/Base.astro';
+import Footer from '../components/Footer.astro';
+import { siteConfig } from '../config/site';
+
+const supportEmail = siteConfig.links.supportEmail;
+const childSafetyMailto = `mailto:${supportEmail}?subject=TailTag%20Child%20Safety%20Report`;
+---
+
+<Base
+  title="Child Safety Standards"
+  description="TailTag child safety standards and CSAE policy."
+>
+  <article class="flex-1 px-6 py-12 max-w-2xl mx-auto">
+    <h1 class="text-3xl font-bold text-foreground mb-8">TailTag Child Safety Standards</h1>
+
+    <div class="prose prose-invert prose-sm max-w-none space-y-6 text-foreground/80">
+      <p class="text-foreground/60 text-sm">Last updated: April 15, 2026</p>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Our Standard</h2>
+        <p>
+          TailTag does not allow child sexual abuse and exploitation (CSAE), child sexual abuse
+          material (CSAM), grooming, sextortion, trafficking, sexual exploitation of minors, or
+          content or conduct that endangers children.
+        </p>
+        <p>
+          These standards apply to all TailTag users, profiles, fursuit listings, photos, catch
+          submissions, report text, and other user-generated content.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">
+          Prohibited Content And Conduct
+        </h2>
+        <p>TailTag prohibits:</p>
+        <ul class="list-disc list-inside space-y-2">
+          <li>Any sexual content involving minors</li>
+          <li>Attempts to groom, coerce, exploit, or sexualize minors</li>
+          <li>Requests for, links to, or distribution of CSAM</li>
+          <li>Threats, harassment, or sexual exploitation involving minors</li>
+          <li>Using TailTag to facilitate abuse, exploitation, trafficking, or illegal activity</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Reporting In TailTag</h2>
+        <p>
+          Users can report profiles, fursuits, and catch content from inside the app. TailTag staff
+          review reports and may remove content, restrict features, suspend accounts, or take other
+          action when content or behavior violates these standards.
+        </p>
+        <p>
+          Users can also contact TailTag about urgent child safety concerns at{' '}
+          <a
+            href={childSafetyMailto}
+            class="text-primary hover:underline"
+            >{supportEmail}</a
+          >.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">How We Respond</h2>
+        <p>
+          When TailTag becomes aware of content or behavior that may involve CSAE or CSAM, we review
+          the report, preserve relevant information when appropriate, remove violating content, and
+          take action against accounts that violate these standards. TailTag also complies with
+          applicable child safety laws and reporting obligations.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Child Safety Contact</h2>
+        <p>
+          TailTag's child safety point of contact can be reached at{' '}
+          <a
+            href={childSafetyMailto}
+            class="text-primary hover:underline"
+            >{supportEmail}</a
+          >.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Related Policies</h2>
+        <p>
+          These standards are part of TailTag's broader safety rules. For more information, see our{
+            ' '
+          }
+          <a
+            href="/terms"
+            class="text-primary hover:underline"
+            >Terms of Service</a
+          >{' '}
+          and{' '}
+          <a
+            href="/privacy"
+            class="text-primary hover:underline"
+            >Privacy Policy</a
+          >.
+        </p>
+      </section>
+    </div>
+  </article>
+  <Footer />
+</Base>
