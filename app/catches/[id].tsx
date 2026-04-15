@@ -23,6 +23,7 @@ import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import {
   FursuitCard,
   FursuitBioDetails,
+  fursuitBioHasDisplayableContent,
   catchByIdQueryKey,
   caughtSuitsQueryKey,
   fetchCatchById,
@@ -199,7 +200,9 @@ export default function CatchDetailScreen() {
                 </TailTagButton>
               </View>
             ) : null}
-            {details.bio ? <FursuitBioDetails bio={details.bio} /> : null}
+            {details.bio && fursuitBioHasDisplayableContent(details.bio) ? (
+              <FursuitBioDetails bio={details.bio} />
+            ) : null}
           </View>
         </TailTagCard>
       </ScrollView>

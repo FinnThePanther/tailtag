@@ -45,6 +45,7 @@ export const styles = StyleSheet.create({
   },
   details: {
     flex: 1,
+    minWidth: 0,
   },
   name: {
     color: colors.foreground,

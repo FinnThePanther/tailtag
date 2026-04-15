@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   FursuitCard,
   FursuitBioDetails,
+  fursuitBioHasDisplayableContent,
   CAUGHT_SUITS_QUERY_KEY,
   mapLatestFursuitBio,
   mapFursuitColors,
@@ -719,7 +720,7 @@ export default function CatchScreen() {
               onCodeCopied={handleCatchCodeCopied}
             />
           </View>
-          {caughtFursuit.bio ? (
+          {caughtFursuit.bio && fursuitBioHasDisplayableContent(caughtFursuit.bio) ? (
             <View style={styles.bioSpacing}>
               <TailTagCard>
                 <FursuitBioDetails bio={caughtFursuit.bio} />

@@ -122,6 +122,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'react-native-nfc-manager',
       {
+        includeNdefEntitlement: false,
         nfcPermission: NFC_PERMISSION,
       },
     ],

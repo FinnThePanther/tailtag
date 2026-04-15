@@ -1,5 +1,5 @@
 export { FursuitCard } from './components/FursuitCard';
-export { FursuitBioDetails } from './components/FursuitBioDetails';
+export { FursuitBioDetails, fursuitBioHasDisplayableContent } from './components/FursuitBioDetails';
 export { CaughtSuitRow } from './components/CaughtSuitRow';
 export { CatchOfFursuitRow } from './components/CatchOfFursuitRow';
 export { CatchPhotosList } from './components/CatchPhotosList';
