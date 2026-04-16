@@ -64,7 +64,11 @@ export default function ChangePasswordScreen() {
       });
 
       if (signInError) {
-        setSubmitError('Current password is incorrect.');
+        const isCredentialsError =
+          signInError.message === 'Invalid login credentials' || signInError.status === 400;
+        setSubmitError(
+          isCredentialsError ? 'Current password is incorrect.' : mapAuthError(signInError),
+        );
         return;
       }
 
