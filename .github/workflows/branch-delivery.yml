@@ -48,18 +48,24 @@ jobs:
               - 'scripts/setup-environment.sh'
               - 'scripts/verify-environment.sh'
               - '.github/workflows/branch-delivery.yml'
+            # package.json / package-lock.json live under `js`, not `native`.
+            # Adding a pure JS dep (e.g. lodash) changes only those files and
+            # should ship via OTA without a rebuild or version bump. Adding a
+            # true native module requires `expo prebuild`, which dirties
+            # ios/ and android/ — those directories are the authoritative
+            # "this needs a native rebuild" signal.
             native:
               - 'ios/**'
               - 'android/**'
               - 'app.config.ts'
               - 'eas.json'
-              - 'package.json'
-              - 'package-lock.json'
             js:
               - 'app/**'
               - 'src/**'
               - 'assets/**'
               - 'packages/**'
+              - 'package.json'
+              - 'package-lock.json'
 
   validate:
     name: Validate merged commit
@@ -201,14 +207,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          # Full history so `github.event.before` is always resolvable,
+          # regardless of how many commits the PR brought in (rebase-and-merge
+          # can land N commits at once, so a shallow clone misses the pre-push
+          # tip).
+          fetch-depth: 0
 
       - name: Require package.json version bump on native changes
         if: >-
           needs.changes.outputs.native == 'true' &&
           !contains(github.event.head_commit.message, '[skip eas]')
+        # Compare against `github.event.before` — the branch tip before this
+        # push — rather than HEAD~1. HEAD~1 is wrong for rebase-and-merge PRs
+        # with multiple commits: it points at the second-to-last rebased
+        # commit (still inside the PR), so the guard would false-fail when
+        # the version bump happened in an earlier commit of the same PR.
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
         run: |
-          OLD=$(git show HEAD~1:package.json | jq -r '.version')
+          # Zero-SHA means branch creation / first push — no prior state to
+          # compare against, so let it through.
+          if [[ "$BEFORE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+            echo "Initial push to branch — skipping version-bump check."
+            exit 0
+          fi
+          OLD=$(git show "${BEFORE_SHA}:package.json" | jq -r '.version')
           NEW=$(jq -r '.version' package.json)
           if [[ "$OLD" == "$NEW" ]]; then
             echo "::error::Native files changed but package.json version is still ${NEW}."
