@@ -297,6 +297,6 @@ jobs:
       - name: Publish OTA update
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: |
-          BRANCH=${{ github.ref_name == 'dev' && 'staging' || 'production' }}
-          eas update --branch "$BRANCH" --message "${{ github.event.head_commit.message }}" --non-interactive
+          BRANCH: ${{ github.ref_name == 'dev' && 'staging' || 'production' }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: eas update --branch "$BRANCH" --message "$COMMIT_MESSAGE" --non-interactive
