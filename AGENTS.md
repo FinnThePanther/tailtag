@@ -47,6 +47,14 @@ There is no committed automated test suite yet. At minimum, run `npm run ci:vali
 ## Commit & Pull Request Guidelines
 Recent history uses short, imperative commit subjects such as `Remove Inngest implementation` and `Add cron-based achievement processor backup`, sometimes with issue references like `(#42)`. Follow that format. PRs should include a concise summary, linked issue if applicable, affected surfaces, and screenshots for UI changes.
 
+## Deploying Changes
+1. **Mobile app:** Build via EAS (`eas build --profile [profile] --platform [platform]`)
+2. **OTA updates:** Pushes to `dev` auto-publish to the `staging` EAS Update channel; pushes to `main` auto-publish to `production`. The CI splits mobile changes two ways: **JS-only** pushes (`app/`, `src/`, `assets/`, `packages/`) ship via OTA alone — no native rebuild, testers don't re-install. **Native** pushes (`ios/`, `android/`, `app.config.ts`, `eas.json`, `package.json`, `package-lock.json`) trigger both a full EAS Build and an OTA. Runtime version uses the `appVersion` policy, so **native pushes MUST include a `package.json` version bump** — the `guard_version_bump` job fails the workflow otherwise, preventing OTAs that would crash older binaries missing the new native modules. Add `[skip eas]` to the merge commit to opt out of both paths (and the guard).
+3. **Supabase Edge Functions:** `npx supabase functions deploy [function-name]`
+4. **Database changes:** Apply migrations via Supabase CLI or dashboard
+5. **Achievement rules:** Deploy edge function after updating `/packages/achievement-rules/`
+6. **CI validation:** Ensure `npm run ci:validate` passes before merging to `dev`
+
 ## Supabase Environments
 Unless explicitly stated, all changes, migrations, and Edge Function updates are to go to the **dev environment**:
 - **Supabase Project Ref:** `rtxbvjicfxgcouufumce`

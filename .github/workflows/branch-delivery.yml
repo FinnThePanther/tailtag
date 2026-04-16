@@ -22,7 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
-      mobile: ${{ steps.filter.outputs.mobile }}
+      native: ${{ steps.filter.outputs.native }}
+      js: ${{ steps.filter.outputs.js }}
 
     steps:
       - name: Checkout repository
@@ -30,7 +31,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Detect backend and mobile changes
+      # `native` changes require a new EAS Build (ios/android dirs, native
+      # config, or anything touching the native module graph). `js` changes
+      # are safe to ship via OTA alone. A push that only changes `js` skips
+      # the ~15 min rebuild; a push that changes `native` rebuilds AND
+      # publishes a matching OTA.
+      - name: Detect changed surfaces
         id: filter
         uses: dorny/paths-filter@v3
         with:
@@ -42,15 +48,18 @@ jobs:
               - 'scripts/setup-environment.sh'
               - 'scripts/verify-environment.sh'
               - '.github/workflows/branch-delivery.yml'
-            mobile:
-              - 'app/**'
-              - 'src/**'
-              - 'assets/**'
-              - 'packages/**'
+            native:
+              - 'ios/**'
+              - 'android/**'
               - 'app.config.ts'
               - 'eas.json'
               - 'package.json'
               - 'package-lock.json'
+            js:
+              - 'app/**'
+              - 'src/**'
+              - 'assets/**'
+              - 'packages/**'
 
   validate:
     name: Validate merged commit
@@ -178,16 +187,49 @@ jobs:
           echo "Deployed at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           echo "Branch: ${{ github.ref_name }}"
 
+  guard_version_bump:
+    name: Guard native version bump
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+    # Always runs so downstream jobs can safely depend on it; the actual
+    # check is skipped internally when native didn't change. Enforces the
+    # appVersion runtimeVersion policy: native changes MUST ship with a
+    # package.json version bump, otherwise an OTA built against the new JS
+    # would crash older binaries that lack matching native modules.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Require package.json version bump on native changes
+        if: >-
+          needs.changes.outputs.native == 'true' &&
+          !contains(github.event.head_commit.message, '[skip eas]')
+        run: |
+          OLD=$(git show HEAD~1:package.json | jq -r '.version')
+          NEW=$(jq -r '.version' package.json)
+          if [[ "$OLD" == "$NEW" ]]; then
+            echo "::error::Native files changed but package.json version is still ${NEW}."
+            echo "The appVersion runtimeVersion policy requires a bump so the OTA doesn't reach incompatible older binaries."
+            echo "Either bump the version, revert the native changes, or add [skip eas] to the merge commit if this is intentional."
+            exit 1
+          fi
+          echo "Version bumped: ${OLD} → ${NEW}"
+
   eas_build_staging:
     name: EAS Build (staging / preview)
     runs-on: ubuntu-latest
     needs:
       - changes
       - validate
-    # Add [skip eas] to the merge commit message for non-runtime changes
-    # such as repo-wide formatting.
+      - guard_version_bump
+    # Only rebuild the native binary when native surfaces actually changed.
+    # Pure JS/asset changes take the OTA-only path via eas_update below.
+    # Add [skip eas] to the merge commit message to opt out entirely.
     if: >-
-      needs.changes.outputs.mobile == 'true' &&
+      needs.changes.outputs.native == 'true' &&
       github.ref_name == 'dev' &&
       !contains(github.event.head_commit.message, '[skip eas]')
     environment: staging
@@ -221,14 +263,13 @@ jobs:
     needs:
       - changes
       - validate
-    # Publishes an OTA JS bundle to the matching channel. Uses the same
-    # mobile-change gate + [skip eas] opt-out as eas_build_staging so we
-    # don't republish for backend-only or formatting-only pushes. Note
-    # that OTAs only reach builds already shipped with a matching
-    # runtimeVersion (appVersion policy) — bump package.json version
-    # when shipping native-breaking changes.
+      - guard_version_bump
+    # Publishes an OTA JS bundle to the matching channel. Fires on either
+    # native or JS changes — the guard_version_bump job has already verified
+    # that native pushes include a version bump, so the OTA's runtimeVersion
+    # (appVersion policy) won't reach incompatible older binaries.
     if: >-
-      needs.changes.outputs.mobile == 'true' &&
+      (needs.changes.outputs.native == 'true' || needs.changes.outputs.js == 'true') &&
       !contains(github.event.head_commit.message, '[skip eas]')
     environment: ${{ github.ref_name == 'dev' && 'staging' || 'production' }}
     env:
