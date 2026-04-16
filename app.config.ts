@@ -62,10 +62,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: env.appDisplayName,
   slug: 'tailtag',
   version: rootPackage.version,
+  platforms: ['ios', 'android'],
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
   newArchEnabled: true,
+  runtimeVersion: { policy: 'appVersion' },
+  updates: {
+    url: 'https://u.expo.dev/3ae47a1a-6584-423d-b52d-90b5acd11048',
+    enabled: true,
+    checkAutomatically: 'ON_LOAD',
+    fallbackToCacheTimeout: 0,
+    requestHeaders: {
+      'expo-channel-name': APP_ENV === 'production' ? 'production' : 'staging',
+    },
+  },
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',

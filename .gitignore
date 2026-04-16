@@ -53,9 +53,7 @@ admin/.env.local
 
 # Local PRDs for feature development
 /prds
-CLAUDE.md
 .mcp.json
-AGENTS.md
 
 # Firebase / credentials
 google-services.json
