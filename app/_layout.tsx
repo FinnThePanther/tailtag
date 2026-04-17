@@ -289,6 +289,12 @@ function RootLayoutNav() {
         name="reset-password"
         options={{ headerShown: false }}
       />
+
+      {/* In-app password change (authenticated) */}
+      <Stack.Screen
+        name="change-password"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }
