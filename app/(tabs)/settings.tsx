@@ -83,6 +83,9 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { session, forceSignOut } = useAuth();
   const userId = session?.user.id ?? null;
+  const hasPasswordIdentity = Boolean(
+    session?.user?.identities?.some((i) => i.provider === 'email'),
+  );
 
   const queryClient = useQueryClient();
   const profileQueryKey = useMemo(() => [PROFILE_QUERY_KEY, userId] as const, [userId]);
@@ -1361,6 +1364,14 @@ export default function SettingsScreen() {
           <Text style={styles.sectionDescription}>
             Log out of TailTag or delete your account entirely.
           </Text>
+          {hasPasswordIdentity ? (
+            <TailTagButton
+              variant="outline"
+              onPress={() => router.push('/change-password')}
+            >
+              Change password
+            </TailTagButton>
+          ) : null}
           {signOutError ? <Text style={styles.error}>{signOutError}</Text> : null}
           <TailTagButton
             onPress={handleSignOut}
