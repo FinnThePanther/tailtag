@@ -326,6 +326,11 @@ export type Database = {
       }
       conventions: {
         Row: {
+          archived_at: string | null
+          canceled_at: string | null
+          closed_at: string | null
+          closeout_error: string | null
+          closeout_summary: Json
           config: Json
           created_at: string
           end_date: string | null
@@ -339,10 +344,17 @@ export type Database = {
           name: string
           slug: string
           start_date: string | null
+          started_at: string | null
+          status: string
           timezone: string
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          canceled_at?: string | null
+          closed_at?: string | null
+          closeout_error?: string | null
+          closeout_summary?: Json
           config?: Json
           created_at?: string
           end_date?: string | null
@@ -356,10 +368,17 @@ export type Database = {
           name: string
           slug: string
           start_date?: string | null
+          started_at?: string | null
+          status?: string
           timezone?: string
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          canceled_at?: string | null
+          closed_at?: string | null
+          closeout_error?: string | null
+          closeout_summary?: Json
           config?: Json
           created_at?: string
           end_date?: string | null
@@ -373,10 +392,87 @@ export type Database = {
           name?: string
           slug?: string
           start_date?: string | null
+          started_at?: string | null
+          status?: string
           timezone?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      convention_participant_recaps: {
+        Row: {
+          achievements_unlocked_count: number
+          catch_count: number
+          convention_id: string
+          created_at: string
+          daily_tasks_completed_count: number
+          final_rank: number | null
+          fursuits_caught_count: number
+          generated_at: string
+          id: string
+          joined_at: string | null
+          left_at: string | null
+          own_fursuits_caught_count: number
+          profile_id: string
+          summary: Json
+          unique_catchers_for_own_fursuits_count: number
+          unique_fursuits_caught_count: number
+          updated_at: string
+        }
+        Insert: {
+          achievements_unlocked_count?: number
+          catch_count?: number
+          convention_id: string
+          created_at?: string
+          daily_tasks_completed_count?: number
+          final_rank?: number | null
+          fursuits_caught_count?: number
+          generated_at?: string
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          own_fursuits_caught_count?: number
+          profile_id: string
+          summary?: Json
+          unique_catchers_for_own_fursuits_count?: number
+          unique_fursuits_caught_count?: number
+          updated_at?: string
+        }
+        Update: {
+          achievements_unlocked_count?: number
+          catch_count?: number
+          convention_id?: string
+          created_at?: string
+          daily_tasks_completed_count?: number
+          final_rank?: number | null
+          fursuits_caught_count?: number
+          generated_at?: string
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          own_fursuits_caught_count?: number
+          profile_id?: string
+          summary?: Json
+          unique_catchers_for_own_fursuits_count?: number
+          unique_fursuits_caught_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "convention_participant_recaps_convention_id_fkey"
+            columns: ["convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "convention_participant_recaps_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       daily_assignments: {
         Row: {
@@ -2344,6 +2440,9 @@ export type FursuitSocialLink = {
 export type FursuitsRow = Database['public']['Tables']['fursuits']['Row'];
 export type FursuitsInsert = Database['public']['Tables']['fursuits']['Insert'];
 export type FursuitBiosInsert = Database['public']['Tables']['fursuit_bios']['Insert'];
+export type ConventionStatus = Database['public']['Tables']['conventions']['Row']['status'];
+export type ConventionParticipantRecapRow =
+  Database['public']['Tables']['convention_participant_recaps']['Row'];
 export type AchievementCategory = Database['public']['Enums']['achievement_category'];
 export type AchievementRecipientRole = Database['public']['Enums']['achievement_recipient_role'];
 export type AchievementTriggerEvent = Database['public']['Enums']['achievement_trigger_event'];

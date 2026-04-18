@@ -37,6 +37,8 @@ export function CreateConventionForm() {
   const [endDate, setEndDate] = useState('');
   const [location, setLocation] = useState('');
   const [timezone, setTimezone] = useState('UTC');
+  const [createDefaultGameplayPack, setCreateDefaultGameplayPack] = useState(true);
+  const [startImmediately, setStartImmediately] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -64,6 +66,8 @@ export function CreateConventionForm() {
           endDate: endDate || null,
           location: location || null,
           timezone,
+          createDefaultGameplayPack,
+          startImmediately,
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Something went wrong.');
@@ -149,6 +153,38 @@ export function CreateConventionForm() {
             ))}
           </select>
         </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="flex items-start gap-3 rounded-lg border border-border bg-background/50 p-3 text-sm text-slate-200">
+          <input
+            type="checkbox"
+            checked={createDefaultGameplayPack}
+            onChange={(e) => setCreateDefaultGameplayPack(e.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            <span className="block font-semibold text-white">Create default gameplay pack</span>
+            <span className="text-xs text-muted">
+              Adds starter daily tasks and convention achievements.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 rounded-lg border border-border bg-background/50 p-3 text-sm text-slate-200">
+          <input
+            type="checkbox"
+            checked={startImmediately}
+            onChange={(e) => setStartImmediately(e.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            <span className="block font-semibold text-white">
+              Start immediately if within date window
+            </span>
+            <span className="text-xs text-muted">
+              Future conventions will be scheduled and still require a manual start.
+            </span>
+          </span>
+        </label>
       </div>
       <div className="flex items-center gap-3">
         <button

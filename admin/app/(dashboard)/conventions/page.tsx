@@ -27,7 +27,10 @@ export default async function ConventionsPage() {
             className="flex items-center justify-between gap-3 py-3"
           >
             <div className="space-y-1">
-              <p className="text-base font-semibold text-white">{convention.name}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-base font-semibold text-white">{convention.name}</p>
+                <StatusBadge status={convention.status} />
+              </div>
               <p className="text-sm text-muted">
                 {convention.start_date
                   ? `${convention.start_date} → ${convention.end_date ?? 'TBD'}`
@@ -52,5 +55,22 @@ export default async function ConventionsPage() {
         ) : null}
       </div>
     </Card>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const className =
+    status === 'live'
+      ? 'border-emerald-300/40 bg-emerald-400/10 text-emerald-200'
+      : status === 'scheduled'
+        ? 'border-sky-300/40 bg-sky-400/10 text-sky-200'
+        : status === 'draft'
+          ? 'border-slate-300/30 bg-white/5 text-slate-200'
+          : 'border-amber-300/40 bg-amber-400/10 text-amber-100';
+
+  return (
+    <span className={`rounded-lg border px-2 py-0.5 text-xs font-semibold capitalize ${className}`}>
+      {status}
+    </span>
   );
 }

@@ -138,6 +138,7 @@ export default function DailyTasksScreen() {
   const progressValue = totalCount > 0 ? Math.min(completedCount / totalCount, 1) : 0;
   const remainingCount = Math.max(totalCount - completedCount, 0);
   const timezone = data?.timezone ?? selectedConvention?.timezone ?? 'UTC';
+  const isDailyTasksUnavailable = data?.availability && data.availability !== 'available';
 
   const isRefreshing = isFetching && !isLoading;
 
@@ -265,14 +266,20 @@ export default function DailyTasksScreen() {
               <Text style={styles.progressHelper}>
                 {!selectedConventionId
                   ? 'Pick a convention to begin.'
-                  : totalCount === 0
-                    ? "Today's lineup is being prepared."
-                    : allComplete
-                      ? 'All tasks complete - great job!'
-                      : `${remainingCount} task${remainingCount === 1 ? '' : 's'} remaining`}
+                  : isDailyTasksUnavailable
+                    ? 'Daily tasks are only available while this convention is live.'
+                    : totalCount === 0
+                      ? "Today's lineup is being prepared."
+                      : allComplete
+                        ? 'All tasks complete - great job!'
+                        : `${remainingCount} task${remainingCount === 1 ? '' : 's'} remaining`}
               </Text>
               <Text style={styles.countdownLabel}>
-                {selectedConventionId ? `Resets in ${countdown}` : 'Select a convention to start'}
+                {!selectedConventionId
+                  ? 'Select a convention to start'
+                  : isDailyTasksUnavailable
+                    ? 'No reset scheduled'
+                    : `Resets in ${countdown}`}
               </Text>
             </View>
           </View>
@@ -305,6 +312,10 @@ export default function DailyTasksScreen() {
                 Try again
               </TailTagButton>
             </View>
+          ) : isDailyTasksUnavailable ? (
+            <Text style={styles.message}>
+              Daily tasks are only available while this convention is live.
+            </Text>
           ) : tasks.length === 0 ? (
             <Text style={styles.message}>No tasks available right now. Check back shortly.</Text>
           ) : (

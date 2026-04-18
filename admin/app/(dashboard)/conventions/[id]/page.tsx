@@ -9,22 +9,35 @@ import { ConventionConfigForm } from '@/components/convention-config-form';
 import { ConventionDetailsForm } from '@/components/convention-details-form';
 import { ConventionTasksCard } from '@/components/convention-tasks-card';
 import { ConventionAchievementsCard } from '@/components/convention-achievements-card';
+import { ConventionLifecycleCard } from '@/components/convention-lifecycle-card';
+import { fetchConventionReadiness } from '@/lib/convention-lifecycle';
 
 export default async function ConventionDetail({ params }: { params: { id: string } }) {
-  const [{ convention, staff }, tasks, achievements] = await Promise.all([
-    fetchConvention(params.id),
-    fetchConventionTasks(params.id),
-    fetchConventionAchievements(params.id),
-  ]);
+  const { convention, staff } = await fetchConvention(params.id);
 
   if (!convention) {
     notFound();
   }
 
+  const [tasks, achievements, readiness] = await Promise.all([
+    fetchConventionTasks(params.id),
+    fetchConventionAchievements(params.id),
+    fetchConventionReadiness(params.id),
+  ]);
+
   const config = normalizeConfig(convention.config);
 
   return (
     <div className="space-y-4">
+      <ConventionLifecycleCard
+        conventionId={convention.id}
+        status={convention.status}
+        startDate={convention.start_date ?? null}
+        endDate={convention.end_date ?? null}
+        timezone={convention.timezone ?? 'UTC'}
+        readiness={readiness}
+      />
+
       <Card
         title="Convention Details"
         subtitle="Basic information about this event"

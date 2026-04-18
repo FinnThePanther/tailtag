@@ -92,27 +92,135 @@ type AssignmentWithTask = {
 type ConventionRow = {
   id: string;
   timezone: string;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
 };
+
+type RotationSource = 'cron' | 'mobile_fallback' | 'manual' | 'admin_manual';
 
 type RotateOptions = {
   conventionId?: string;
   requestedCount?: number;
   force: boolean;
+  source: RotationSource;
 };
 
 type ConventionResult = {
   convention_id: string;
-  day: string;
+  day: string | null;
   refreshed: boolean;
   assignments: AssignmentWithTask[];
   seed_hash: string | null;
+  skipped?: boolean;
+  reason?: 'not_live' | 'outside_date_window';
+  status?: string;
 };
+
+type AuditContext = {
+  source: RotationSource;
+  requested_count: number | null;
+  force: boolean;
+  status: string | null;
+  eligible: boolean;
+  reason: string | null;
+  refreshed: boolean | null;
+  assignment_count: number | null;
+  error?: string;
+};
+
+class HttpError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'HttpError';
+    this.status = status;
+  }
+}
 
 function respondJson(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+function extractBearerToken(req: Request): string | null {
+  const authHeader = req.headers.get('Authorization') ?? req.headers.get('authorization');
+  if (!authHeader) return null;
+
+  const [scheme, token] = authHeader.split(' ');
+  if (scheme?.toLowerCase() !== 'bearer' || !token) return null;
+  return token;
+}
+
+async function resolveActorId(req: Request, url: URL): Promise<string | null> {
+  const token = extractBearerToken(req);
+  if (!token) return null;
+
+  if (token === serviceRoleKey) {
+    const actorId = url.searchParams.get('actor_id');
+    return actorId?.trim() || null;
+  }
+
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data.user) {
+    console.warn('[rotate-dailys] Unable to resolve actor from bearer token', {
+      error: error?.message ?? 'Unknown auth error',
+    });
+    return null;
+  }
+
+  return data.user.id;
+}
+
+function parseSource(sourceParam: string | null, hasTarget: boolean): RotationSource {
+  if (
+    sourceParam === 'cron' ||
+    sourceParam === 'mobile_fallback' ||
+    sourceParam === 'manual' ||
+    sourceParam === 'admin_manual'
+  ) {
+    return sourceParam;
+  }
+
+  return hasTarget ? 'manual' : 'cron';
+}
+
+function shouldAudit(source: RotationSource): boolean {
+  return source === 'manual' || source === 'admin_manual';
+}
+
+async function writeRotationAudit(
+  actorId: string | null,
+  conventionId: string | null,
+  context: AuditContext,
+): Promise<void> {
+  if (!actorId || !conventionId) {
+    console.warn('[rotate-dailys] Skipping manual rotation audit without actor or convention', {
+      actor_id_present: Boolean(actorId),
+      convention_id: conventionId,
+      ...context,
+    });
+    return;
+  }
+
+  const { error } = await supabaseAdmin.from('audit_log').insert({
+    actor_id: actorId,
+    action: 'rotate_daily_tasks_attempt',
+    entity_type: 'convention',
+    entity_id: conventionId,
+    context,
+  });
+
+  if (error) {
+    console.error('[rotate-dailys] Failed to write rotation audit row', {
+      convention_id: conventionId,
+      actor_id: actorId,
+      error: error.message,
+    });
+  }
 }
 
 const dateFormatterCache = new Map<string, Intl.DateTimeFormat>();
@@ -310,7 +418,9 @@ async function storeAssignments(conventionId: string, day: string, tasks: DailyT
 }
 
 async function fetchConventions(targetId?: string): Promise<ConventionRow[]> {
-  let query = supabaseAdmin.from('conventions').select('id, timezone').not('timezone', 'is', null);
+  let query = supabaseAdmin
+    .from('conventions')
+    .select('id, timezone, status, start_date, end_date');
 
   if (targetId) {
     query = query.eq('id', targetId);
@@ -324,7 +434,52 @@ async function fetchConventions(targetId?: string): Promise<ConventionRow[]> {
   return (data ?? []).map((row) => ({
     id: (row as { id: string }).id,
     timezone: (row as { timezone?: string | null }).timezone ?? 'UTC',
+    status: (row as { status?: string | null }).status ?? 'draft',
+    start_date: (row as { start_date?: string | null }).start_date ?? null,
+    end_date: (row as { end_date?: string | null }).end_date ?? null,
   }));
+}
+
+function getRotationEligibility(
+  convention: ConventionRow,
+  nowUtc: Date,
+): {
+  eligible: boolean;
+  day: string;
+  reason: 'not_live' | 'outside_date_window' | null;
+} {
+  const localInfo = getLocalDay(nowUtc, convention.timezone);
+  const localDay = localInfo.day;
+
+  if (convention.status !== 'live') {
+    return { eligible: false, day: localDay, reason: 'not_live' };
+  }
+
+  if (
+    (convention.start_date && localDay < convention.start_date) ||
+    (convention.end_date && localDay > convention.end_date)
+  ) {
+    return { eligible: false, day: localDay, reason: 'outside_date_window' };
+  }
+
+  return { eligible: true, day: localDay, reason: null };
+}
+
+function skippedResult(
+  convention: ConventionRow,
+  day: string,
+  reason: 'not_live' | 'outside_date_window',
+): ConventionResult {
+  return {
+    convention_id: convention.id,
+    day,
+    refreshed: false,
+    skipped: true,
+    reason,
+    status: convention.status,
+    assignments: [],
+    seed_hash: null,
+  };
 }
 
 async function rotateConvention(
@@ -333,8 +488,12 @@ async function rotateConvention(
   force: boolean,
 ): Promise<ConventionResult> {
   const nowUtc = new Date();
-  const localInfo = getLocalDay(nowUtc, convention.timezone);
-  const localDay = localInfo.day;
+  const eligibility = getRotationEligibility(convention, nowUtc);
+  const localDay = eligibility.day;
+
+  if (!eligibility.eligible && eligibility.reason) {
+    return skippedResult(convention, localDay, eligibility.reason);
+  }
 
   const existing = await fetchAssignments(convention.id, localDay);
 
@@ -345,6 +504,7 @@ async function rotateConvention(
       refreshed: false,
       assignments: existing,
       seed_hash: null,
+      status: convention.status,
     };
   }
 
@@ -373,6 +533,7 @@ async function rotateConvention(
     refreshed: true,
     assignments: finalAssignments,
     seed_hash: hashHex,
+    status: convention.status,
   };
 }
 
@@ -383,11 +544,20 @@ async function rotateDailyTasks({
 }: RotateOptions): Promise<ConventionResult[]> {
   const conventions = await fetchConventions(conventionId);
   if (conventions.length === 0) {
-    throw new Error('No conventions available to rotate');
+    if (conventionId) {
+      throw new HttpError('Convention not found.', 404);
+    }
+    return [];
   }
 
   const results: ConventionResult[] = [];
   for (const convention of conventions) {
+    if (!conventionId) {
+      const eligibility = getRotationEligibility(convention, new Date());
+      if (!eligibility.eligible) {
+        continue;
+      }
+    }
     const result = await rotateConvention(convention, requestedCount, force);
     results.push(result);
   }
@@ -410,17 +580,53 @@ Deno.serve(async (req) => {
 
   const requestedCount = sanitizeCount(countParam);
   const force = forceParam === 'true';
+  const source = parseSource(url.searchParams.get('source'), Boolean(conventionParam));
+  const auditEnabled = shouldAudit(source);
+  const actorId = auditEnabled ? await resolveActorId(req, url) : null;
 
   try {
     const results = await rotateDailyTasks({
       conventionId: conventionParam ?? undefined,
       requestedCount,
       force,
+      source,
     });
+
+    if (auditEnabled) {
+      for (const result of results) {
+        await writeRotationAudit(actorId, result.convention_id, {
+          source,
+          requested_count: requestedCount ?? null,
+          force,
+          status: result.status ?? null,
+          eligible: result.skipped !== true,
+          reason: result.reason ?? null,
+          refreshed: result.refreshed,
+          assignment_count: result.assignments.length,
+        });
+      }
+    }
 
     return respondJson({ results });
   } catch (error) {
     console.error('Failed rotating daily tasks', error);
-    return respondJson({ error: (error as Error).message ?? 'Unknown error' }, 500);
+    const message = (error as Error).message ?? 'Unknown error';
+    const status = error instanceof HttpError ? error.status : 500;
+
+    if (auditEnabled) {
+      await writeRotationAudit(actorId, conventionParam, {
+        source,
+        requested_count: requestedCount ?? null,
+        force,
+        status: null,
+        eligible: false,
+        reason: null,
+        refreshed: null,
+        assignment_count: null,
+        error: message,
+      });
+    }
+
+    return respondJson({ error: message }, status);
   }
 });

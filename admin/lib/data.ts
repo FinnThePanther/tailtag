@@ -129,6 +129,13 @@ export async function fetchConventions(): Promise<ConventionRow[]> {
         'geofence_radius_meters',
         'geofence_enabled',
         'location_verification_required',
+        'status',
+        'started_at',
+        'closed_at',
+        'archived_at',
+        'canceled_at',
+        'closeout_summary',
+        'closeout_error',
       ].join(', '),
     )
     .order('start_date', { ascending: false });
@@ -174,6 +181,13 @@ export async function fetchConvention(conventionId: string): Promise<{
         'geofence_radius_meters',
         'geofence_enabled',
         'location_verification_required',
+        'status',
+        'started_at',
+        'closed_at',
+        'archived_at',
+        'canceled_at',
+        'closeout_summary',
+        'closeout_error',
       ].join(', '),
     )
     .eq('id', conventionId)
