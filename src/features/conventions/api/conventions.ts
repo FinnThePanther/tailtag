@@ -229,6 +229,27 @@ export async function fetchActiveSharedConventionIds(
   return (data ?? []).map((row: any) => row.convention_id);
 }
 
+export async function fetchActiveFursuitConventionIds(fursuitId: string): Promise<string[]> {
+  const [{ data: fursuitConventions, error }, joinableConventions] = await Promise.all([
+    (supabase as any)
+      .from('fursuit_conventions')
+      .select('convention_id')
+      .eq('fursuit_id', fursuitId),
+    fetchJoinableConventions(),
+  ]);
+
+  if (error) {
+    throw new Error(`We couldn't load this fursuit's live conventions: ${error.message}`);
+  }
+
+  const joinableConventionIds = new Set(joinableConventions.map((convention) => convention.id));
+  return (fursuitConventions ?? [])
+    .map((row: any) => row.convention_id)
+    .filter((conventionId: string | null): conventionId is string =>
+      Boolean(conventionId && joinableConventionIds.has(conventionId)),
+    );
+}
+
 export async function optInToConvention(params: OptInParams): Promise<void> {
   const {
     profileId,

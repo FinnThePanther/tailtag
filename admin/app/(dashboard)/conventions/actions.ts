@@ -402,15 +402,34 @@ export async function deleteArchivedConventionInDevAction(conventionId: string) 
     ),
   ];
   if (ruleIds.length > 0) {
-    const { data: rules, error: ruleError } = await supabase
-      .from('achievement_rules')
-      .delete()
-      .in('rule_id', ruleIds)
-      .select('rule_id');
-    if (ruleError) throw ruleError;
-    counts.achievement_rules = countRows(rules);
+    const { data: retainedRuleRefs, error: retainedRuleError } = await supabase
+      .from('achievements')
+      .select('rule_id')
+      .in('rule_id', ruleIds);
+    if (retainedRuleError) throw retainedRuleError;
+
+    const retainedRuleIds = new Set(
+      (retainedRuleRefs ?? [])
+        .map((row) => row.rule_id)
+        .filter((ruleId): ruleId is string => typeof ruleId === 'string'),
+    );
+    const deletableRuleIds = ruleIds.filter((ruleId) => !retainedRuleIds.has(ruleId));
+
+    if (deletableRuleIds.length > 0) {
+      const { data: rules, error: ruleError } = await supabase
+        .from('achievement_rules')
+        .delete()
+        .in('rule_id', deletableRuleIds)
+        .select('rule_id');
+      if (ruleError) throw ruleError;
+      counts.achievement_rules = countRows(rules);
+    } else {
+      counts.achievement_rules = 0;
+    }
+    counts.achievement_rules_retained = retainedRuleIds.size;
   } else {
     counts.achievement_rules = 0;
+    counts.achievement_rules_retained = 0;
   }
 
   const { data: suitingSessions, error: suitingError } = await supabase

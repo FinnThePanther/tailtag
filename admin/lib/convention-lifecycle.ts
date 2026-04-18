@@ -432,65 +432,80 @@ export async function buildConventionLifecycleHealthList(
 
   const [
     { count: globalActiveTasks, error: globalTaskError },
-    { data: conventionTasks, error: conventionTaskError },
-    { data: todayAssignments, error: assignmentError },
-    { data: acceptedCatches, error: acceptedError },
-    { data: participantRecaps, error: recapError },
-    { data: auditRows, error: auditError },
+    conventionTasks,
+    todayAssignments,
+    acceptedCatches,
+    participantRecaps,
+    auditRows,
   ] = await Promise.all([
     supabase
       .from('daily_tasks')
       .select('id', { count: 'exact', head: true })
       .eq('is_active', true)
       .is('convention_id', null),
-    supabase
-      .from('daily_tasks')
-      .select('convention_id')
-      .eq('is_active', true)
-      .in('convention_id', conventionIds),
-    supabase
-      .from('daily_assignments')
-      .select('convention_id, day')
-      .in('convention_id', conventionIds)
-      .in('day', uniqueLocalDays),
-    supabase
-      .from('catches')
-      .select('convention_id')
-      .in('convention_id', conventionIds)
-      .eq('status', 'ACCEPTED')
-      .eq('is_tutorial', false),
-    supabase
-      .from('convention_participant_recaps')
-      .select('convention_id')
-      .in('convention_id', conventionIds),
-    supabase
-      .from('audit_log')
-      .select('entity_id, action, context, created_at')
-      .eq('entity_type', 'convention')
-      .in('entity_id', conventionIds)
-      .in('action', ['close_convention_attempt', 'close_convention_noop'])
-      .order('created_at', { ascending: false }),
+    fetchAllPages<{ convention_id: string | null }>((from, to) =>
+      supabase
+        .from('daily_tasks')
+        .select('convention_id')
+        .eq('is_active', true)
+        .in('convention_id', conventionIds)
+        .range(from, to),
+    ),
+    fetchAllPages<{ convention_id: string | null; day: string }>((from, to) =>
+      supabase
+        .from('daily_assignments')
+        .select('convention_id, day')
+        .in('convention_id', conventionIds)
+        .in('day', uniqueLocalDays)
+        .range(from, to),
+    ),
+    fetchAllPages<{ convention_id: string | null }>((from, to) =>
+      supabase
+        .from('catches')
+        .select('convention_id')
+        .in('convention_id', conventionIds)
+        .eq('status', 'ACCEPTED')
+        .eq('is_tutorial', false)
+        .range(from, to),
+    ),
+    fetchAllPages<{ convention_id: string | null }>((from, to) =>
+      supabase
+        .from('convention_participant_recaps')
+        .select('convention_id')
+        .in('convention_id', conventionIds)
+        .range(from, to),
+    ),
+    fetchAllPages<{
+      entity_id: string | null;
+      action: string;
+      context: unknown;
+      created_at: string;
+    }>((from, to) =>
+      supabase
+        .from('audit_log')
+        .select('entity_id, action, context, created_at')
+        .eq('entity_type', 'convention')
+        .in('entity_id', conventionIds)
+        .in('action', ['close_convention_attempt', 'close_convention_noop'])
+        .order('created_at', { ascending: false })
+        .range(from, to),
+    ),
   ]);
 
   if (globalTaskError) throw globalTaskError;
-  if (conventionTaskError) throw conventionTaskError;
-  if (assignmentError) throw assignmentError;
-  if (acceptedError) throw acceptedError;
-  if (recapError) throw recapError;
-  if (auditError) throw auditError;
 
-  const conventionTaskCounts = countByConvention(conventionTasks ?? []);
-  const acceptedCatchCounts = countByConvention(acceptedCatches ?? []);
-  const recapCounts = countByConvention(participantRecaps ?? []);
+  const conventionTaskCounts = countByConvention(conventionTasks);
+  const acceptedCatchCounts = countByConvention(acceptedCatches);
+  const recapCounts = countByConvention(participantRecaps);
   const assignmentCounts = new Map<string, number>();
-  for (const row of todayAssignments ?? []) {
+  for (const row of todayAssignments) {
     const conventionId = row.convention_id;
     if (!conventionId || row.day !== localDays.get(conventionId)) continue;
     assignmentCounts.set(conventionId, (assignmentCounts.get(conventionId) ?? 0) + 1);
   }
 
   const auditRowsByConvention = new Map<string, typeof auditRows>();
-  for (const row of auditRows ?? []) {
+  for (const row of auditRows) {
     if (!row.entity_id) continue;
     const rows = auditRowsByConvention.get(row.entity_id) ?? [];
     rows.push(row);
@@ -822,6 +837,28 @@ function countByConvention(rows: Array<{ convention_id?: string | null }>) {
     counts.set(row.convention_id, (counts.get(row.convention_id) ?? 0) + 1);
   }
   return counts;
+}
+
+const PAGE_SIZE = 1000;
+
+async function fetchAllPages<T>(
+  createQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+) {
+  const rows: T[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await createQuery(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+
+    const page = data ?? [];
+    rows.push(...page);
+
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return rows;
 }
 
 function getAutomationAuditSummary<
