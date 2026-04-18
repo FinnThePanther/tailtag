@@ -25,6 +25,7 @@ import {
   startConventionAction,
 } from '@/app/(dashboard)/conventions/actions';
 import { Card } from '@/components/card';
+import { formatRecommendedAction, StatusBadge } from '@/components/convention-lifecycle-ui';
 import type {
   ConventionLifecycleHealthResult,
   ConventionReadinessResult,
@@ -476,23 +477,6 @@ function ActionButton({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const className =
-    status === 'live'
-      ? 'border-emerald-300/40 bg-emerald-400/10 text-emerald-200'
-      : status === 'scheduled'
-        ? 'border-sky-300/40 bg-sky-400/10 text-sky-200'
-        : status === 'draft'
-          ? 'border-slate-300/30 bg-white/5 text-slate-200'
-          : 'border-amber-300/40 bg-amber-400/10 text-amber-100';
-
-  return (
-    <span className={`rounded-lg border px-2.5 py-1 text-xs font-semibold capitalize ${className}`}>
-      {status}
-    </span>
-  );
-}
-
 function getLifecycleCopy(status: string, readiness: ConventionReadinessResult) {
   if (status === 'archived') return 'Closeout is complete and recaps are available to players';
   if (status === 'closed') return 'Gameplay is stopped; retry closeout to finish archiving';
@@ -516,26 +500,6 @@ function formatDateTime(value: string) {
 function getNumber(summary: Record<string, unknown> | null, key: string) {
   const value = summary?.[key];
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function formatRecommendedAction(action: string) {
-  switch (action) {
-    case 'start_manually':
-      return 'Start manually';
-    case 'close_and_archive':
-      return 'Close and archive';
-    case 'retry_closeout':
-      return 'Retry closeout';
-    case 'regenerate_recaps':
-      return 'Regenerate recaps';
-    case 'review_dates':
-      return 'Review dates';
-    case 'rotate_dailies':
-      return "Rotate today's tasks";
-    case 'none':
-    default:
-      return 'No action needed';
-  }
 }
 
 function formatAutomationSource(source: string | null) {
