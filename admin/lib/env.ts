@@ -12,8 +12,9 @@ export const env = {
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
   ),
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  isDevProject: process.env.ADMIN_IS_DEV_PROJECT === 'true',
 };
 
 export function isDevSupabaseProject() {
-  return env.supabaseUrl === 'https://rtxbvjicfxgcouufumce.supabase.co';
+  return env.isDevProject;
 }

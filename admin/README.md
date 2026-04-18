@@ -24,6 +24,7 @@ npm install
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
   - `SUPABASE_SERVICE_ROLE_KEY` (server actions; never expose client-side)
+  - `ADMIN_IS_DEV_PROJECT=true` only for the dev Supabase project when enabling dev-only destructive cleanup actions
 
 ## Running locally
 
