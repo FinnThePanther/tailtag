@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { assertAdminAction } from '@/lib/auth';
 import { createServiceRoleClient } from '@/lib/supabase/service';
 import { logAudit } from '@/lib/audit';
+import { isDevSupabaseProject } from '@/lib/env';
 import {
   closeOutConvention,
   ensureConventionDailies,
@@ -26,6 +27,14 @@ function validateSlug(slug: string) {
   if (!slug.trim()) throw new Error('Slug is required.');
   if (!/^[a-z0-9-]+$/.test(slug))
     throw new Error('Slug must only contain lowercase letters, numbers, and hyphens.');
+}
+
+function isMissingSchemaRelationError(error: unknown) {
+  const maybeError = error as { code?: string; message?: string } | null;
+  return (
+    maybeError?.code === 'PGRST205' ||
+    maybeError?.message?.includes('Could not find the table') === true
+  );
 }
 
 export async function createConventionAction(input: {
@@ -342,6 +351,122 @@ export async function regenerateConventionRecapsAction(conventionId: string) {
     });
     throw error;
   }
+}
+
+export async function deleteArchivedConventionInDevAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+
+  if (!isDevSupabaseProject()) {
+    throw new Error('Archived convention deletion is only available in the dev Supabase project.');
+  }
+
+  const supabase = createServiceRoleClient();
+
+  const { data: convention, error: conventionError } = await supabase
+    .from('conventions')
+    .select('id, name, status')
+    .eq('id', conventionId)
+    .single();
+
+  if (conventionError) throw conventionError;
+  if (!convention) throw new Error('Convention not found.');
+  if (convention.status !== 'archived') {
+    throw new Error('Only archived conventions can be deleted from dev.');
+  }
+
+  const counts: Record<string, number> = {};
+  const cleanupNotes: string[] = [];
+  const countRows = (rows: unknown[] | null) => rows?.length ?? 0;
+
+  const { data: tasks, error: taskError } = await supabase
+    .from('daily_tasks')
+    .delete()
+    .eq('convention_id', conventionId)
+    .select('id');
+  if (taskError) throw taskError;
+  counts.daily_tasks = countRows(tasks);
+
+  const { data: achievements, error: achievementError } = await supabase
+    .from('achievements')
+    .delete()
+    .eq('convention_id', conventionId)
+    .select('id, rule_id');
+  if (achievementError) throw achievementError;
+  counts.achievements = countRows(achievements);
+
+  const ruleIds = [
+    ...new Set(
+      (achievements ?? [])
+        .map((row) => row.rule_id)
+        .filter((ruleId): ruleId is string => typeof ruleId === 'string'),
+    ),
+  ];
+  if (ruleIds.length > 0) {
+    const { data: rules, error: ruleError } = await supabase
+      .from('achievement_rules')
+      .delete()
+      .in('rule_id', ruleIds)
+      .select('rule_id');
+    if (ruleError) throw ruleError;
+    counts.achievement_rules = countRows(rules);
+  } else {
+    counts.achievement_rules = 0;
+  }
+
+  const { data: suitingSessions, error: suitingError } = await supabase
+    .from('suiting_sessions')
+    .delete()
+    .eq('convention_id', conventionId)
+    .select('id');
+  if (suitingError) {
+    if (!isMissingSchemaRelationError(suitingError)) throw suitingError;
+    cleanupNotes.push('suiting_sessions was not available in the dev API schema; skipped.');
+    counts.suiting_sessions = 0;
+  } else {
+    counts.suiting_sessions = countRows(suitingSessions);
+  }
+
+  const { data: tagActivity, error: tagActivityError } = await supabase
+    .from('tag_activity')
+    .update({ convention_id: null })
+    .eq('convention_id', conventionId)
+    .select('id');
+  if (tagActivityError) {
+    if (!isMissingSchemaRelationError(tagActivityError)) throw tagActivityError;
+    cleanupNotes.push('tag_activity was not available in the dev API schema; skipped.');
+    counts.tag_activity_unlinked = 0;
+  } else {
+    counts.tag_activity_unlinked = countRows(tagActivity);
+  }
+
+  const { data: deletedConvention, error: deleteError } = await supabase
+    .from('conventions')
+    .delete()
+    .eq('id', conventionId)
+    .eq('status', 'archived')
+    .select('id')
+    .single();
+
+  if (deleteError) throw deleteError;
+  if (!deletedConvention) throw new Error('Archived convention was not deleted.');
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'delete_archived_convention_dev',
+    entityType: 'convention',
+    entityId: conventionId,
+    context: {
+      convention_name: convention.name,
+      counts,
+      cleanup_notes: cleanupNotes,
+      dev_only: true,
+    },
+  });
+
+  revalidatePath('/conventions');
+  revalidatePath(`/conventions/${conventionId}`);
+
+  return { deleted: true, counts, cleanupNotes };
 }
 
 export async function updateConventionDetailsAction(input: {

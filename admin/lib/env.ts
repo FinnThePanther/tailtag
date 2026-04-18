@@ -13,3 +13,7 @@ export const env = {
   ),
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
 };
+
+export function isDevSupabaseProject() {
+  return env.supabaseUrl === 'https://rtxbvjicfxgcouufumce.supabase.co';
+}

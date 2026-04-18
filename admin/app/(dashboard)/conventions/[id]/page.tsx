@@ -14,6 +14,7 @@ import {
   fetchConventionLifecycleHealth,
   fetchConventionReadiness,
 } from '@/lib/convention-lifecycle';
+import { isDevSupabaseProject } from '@/lib/env';
 
 export default async function ConventionDetail({ params }: { params: { id: string } }) {
   const { convention, staff } = await fetchConvention(params.id);
@@ -45,6 +46,7 @@ export default async function ConventionDetail({ params }: { params: { id: strin
         closeoutSummary={(convention.closeout_summary as Record<string, unknown> | null) ?? null}
         readiness={readiness}
         health={health}
+        showDevDelete={isDevSupabaseProject()}
       />
 
       <Card

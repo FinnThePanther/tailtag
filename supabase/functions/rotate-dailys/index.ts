@@ -360,7 +360,11 @@ async function selectAssignments(conventionId: string, day: string, requestedCou
     fetchTaskPool(conventionId),
   ]);
 
-  const totalPool = globalTasks.length + conventionTasks.length;
+  const candidatePool =
+    conventionTasks.length >= MIN_TASKS
+      ? [...conventionTasks]
+      : [...conventionTasks, ...globalTasks];
+  const totalPool = candidatePool.length;
   if (totalPool < MIN_TASKS) {
     throw new Error(
       `Insufficient active daily tasks (${totalPool}); need at least ${MIN_TASKS} to rotate`,
@@ -375,16 +379,8 @@ async function selectAssignments(conventionId: string, day: string, requestedCou
     ? Math.min(maxAllowed, Math.max(MIN_TASKS, requestedCount))
     : MIN_TASKS + Math.floor(rng() * (maxAllowed - MIN_TASKS + 1));
 
-  let selected: DailyTaskRow[];
-  if (conventionTasks.length > 0) {
-    const pickedConventionTask = conventionTasks[Math.floor(rng() * conventionTasks.length)];
-    const remaining = globalTasks.filter((t) => t.id !== pickedConventionTask.id);
-    shuffleInPlace(remaining, rng);
-    selected = [pickedConventionTask, ...remaining.slice(0, desiredCount - 1)];
-  } else {
-    shuffleInPlace(globalTasks, rng);
-    selected = globalTasks.slice(0, desiredCount);
-  }
+  shuffleInPlace(candidatePool, rng);
+  const selected = candidatePool.slice(0, desiredCount);
 
   return { selected, desiredCount, hashHex };
 }

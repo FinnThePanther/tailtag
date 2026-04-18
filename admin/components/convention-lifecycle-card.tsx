@@ -10,11 +10,13 @@ import {
   Loader2,
   Play,
   RefreshCcw,
+  Trash2,
   Wand2,
 } from 'lucide-react';
 
 import {
   closeConventionAction,
+  deleteArchivedConventionInDevAction,
   generateConventionGameplayPackAction,
   regenerateConventionRecapsAction,
   rotateConventionDailiesAction,
@@ -40,6 +42,7 @@ type Props = {
   closeoutSummary: Record<string, unknown> | null;
   readiness: ConventionReadinessResult;
   health: ConventionLifecycleHealthResult;
+  showDevDelete: boolean;
 };
 
 export function ConventionLifecycleCard({
@@ -54,6 +57,7 @@ export function ConventionLifecycleCard({
   closeoutSummary,
   readiness,
   health,
+  showDevDelete,
 }: Props) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -94,6 +98,7 @@ export function ConventionLifecycleCard({
   const closeDisabled = isPending || status !== 'live';
   const retryCloseoutDisabled = isPending || status !== 'closed';
   const regenerateDisabled = isPending || status !== 'archived';
+  const devDeleteDisabled = isPending || status !== 'archived';
   const recapsGenerated = getNumber(closeoutSummary, 'recaps_generated');
   const expiredPendingCatches = getNumber(closeoutSummary, 'pending_catches_expired');
   const membershipsRemoved = getNumber(closeoutSummary, 'profile_memberships_removed');
@@ -351,6 +356,34 @@ export function ConventionLifecycleCard({
         >
           Regenerate recaps
         </ActionButton>
+        {showDevDelete ? (
+          <ActionButton
+            disabled={devDeleteDisabled}
+            loading={action === 'dev-delete'}
+            icon={<Trash2 size={14} />}
+            variant="danger"
+            onClick={() => {
+              const confirmed = window.confirm(
+                [
+                  'Delete this archived convention from the dev database?',
+                  '',
+                  'This removes convention-scoped tasks, achievements, recaps, daily progress, active rows, and other test data tied to this convention.',
+                  'Catches, events, reports, and admin errors may remain but lose this convention link.',
+                  '',
+                  'This is for dev cleanup only and cannot be undone.',
+                ].join('\n'),
+              );
+              if (!confirmed) return;
+              runAction('dev-delete', async () => {
+                await deleteArchivedConventionInDevAction(conventionId);
+                router.push('/conventions');
+                return 'Archived convention deleted from dev.';
+              });
+            }}
+          >
+            Delete from dev
+          </ActionButton>
+        ) : null}
       </div>
 
       {message ? <p className="mt-3 text-sm text-emerald-300">{message}</p> : null}
@@ -368,6 +401,11 @@ export function ConventionLifecycleCard({
       {regenerateDisabled && status !== 'archived' ? (
         <p className="mt-2 text-xs text-muted">
           Recap regeneration is available after the convention is archived.
+        </p>
+      ) : null}
+      {showDevDelete ? (
+        <p className="mt-2 text-xs text-muted">
+          Dev delete is available only for archived conventions and removes test data permanently.
         </p>
       ) : null}
     </Card>
@@ -404,19 +442,26 @@ function ActionButton({
   loading,
   icon,
   onClick,
+  variant = 'default',
 }: {
   children: React.ReactNode;
   disabled: boolean;
   loading: boolean;
   icon: React.ReactNode;
   onClick: () => void;
+  variant?: 'default' | 'danger';
 }) {
+  const className =
+    variant === 'danger'
+      ? 'inline-flex items-center gap-2 rounded-lg border border-red-400/50 px-3 py-2 text-xs font-semibold text-red-100 transition hover:border-red-300 disabled:cursor-not-allowed disabled:opacity-50'
+      : 'inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-slate-100 transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-50';
+
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-slate-100 transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+      className={className}
     >
       {loading ? (
         <Loader2

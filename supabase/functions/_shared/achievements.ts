@@ -310,6 +310,7 @@ async function processCatchEvent(
         primaryConventionId,
         'catch_performed',
         catchContext,
+        awards,
       )
     : [];
 
@@ -547,6 +548,7 @@ async function processSimpleEvent(
           context.conventionId,
           'convention_joined',
           context,
+          awards,
         )
       : [];
 
@@ -659,10 +661,11 @@ async function evaluateConventionAchievements(
   conventionId: string,
   triggerEvent: string,
   context: CatchEventContext | SimpleEventContext,
+  sourceAwards: AwardCandidate[] = [],
 ): Promise<AwardCandidate[]> {
   const { data, error } = await supabaseAdmin
     .from('achievements')
-    .select('key, achievement_rules(kind, rule)')
+    .select('key, achievement_rules(kind, rule, metadata)')
     .eq('convention_id', conventionId)
     .eq('trigger_event', triggerEvent)
     .eq('is_active', true);
@@ -682,10 +685,32 @@ async function evaluateConventionAchievements(
     const ruleRow = row.achievement_rules as unknown as {
       kind: string;
       rule: Record<string, unknown>;
+      metadata?: Record<string, unknown> | null;
     } | null;
     if (!ruleRow) continue;
 
-    const { kind, rule } = ruleRow;
+    const { kind, rule, metadata } = ruleRow;
+    const sourceAchievementKey =
+      typeof metadata?.sourceAchievementKey === 'string' ? metadata.sourceAchievementKey : null;
+
+    if (sourceAchievementKey) {
+      for (const sourceAward of sourceAwards) {
+        if (sourceAward.achievementKey !== sourceAchievementKey) continue;
+        candidates.push({
+          achievementKey: row.key,
+          userId: sourceAward.userId,
+          context: {
+            ...(sourceAward.context ?? {}),
+            convention_id: conventionId,
+            source_achievement_key: sourceAchievementKey,
+          },
+          windowKey: sourceAward.windowKey
+            ? `${sourceAward.windowKey}:convention:${conventionId}`
+            : undefined,
+        });
+      }
+      continue;
+    }
 
     if (triggerEvent === 'catch_performed') {
       const catchCtx = context as CatchEventContext;
