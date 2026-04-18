@@ -439,6 +439,14 @@ export async function deleteArchivedConventionInDevAction(conventionId: string) 
     counts.tag_activity_unlinked = countRows(tagActivity);
   }
 
+  const { data: participantRecaps, error: recapError } = await supabase
+    .from('convention_participant_recaps')
+    .delete()
+    .eq('convention_id', conventionId)
+    .select('id');
+  if (recapError) throw recapError;
+  counts.convention_participant_recaps = countRows(participantRecaps);
+
   const { data: deletedConvention, error: deleteError } = await supabase
     .from('conventions')
     .delete()
