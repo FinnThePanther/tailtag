@@ -7,6 +7,7 @@ import { assertAdminAction } from '@/lib/auth';
 import { createServiceRoleClient } from '@/lib/supabase/service';
 import { logAudit } from '@/lib/audit';
 import {
+  closeOutConvention,
   ensureConventionDailies,
   fetchConventionReadiness,
   generateDefaultGameplayPack,
@@ -260,6 +261,44 @@ export async function rotateConventionDailiesAction(conventionId: string) {
     context: { source: 'admin_detail', result },
   });
 
+  revalidatePath(`/conventions/${conventionId}`);
+
+  return result;
+}
+
+export async function closeConventionAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'request_convention_closeout',
+    entityType: 'convention',
+    entityId: conventionId,
+    context: { source: 'admin_close' },
+  });
+
+  const result = await closeOutConvention(conventionId, profile.id, 'admin_close');
+
+  revalidatePath('/conventions');
+  revalidatePath(`/conventions/${conventionId}`);
+
+  return result;
+}
+
+export async function retryConventionCloseoutAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'request_convention_closeout_retry',
+    entityType: 'convention',
+    entityId: conventionId,
+    context: { source: 'admin_retry' },
+  });
+
+  const result = await closeOutConvention(conventionId, profile.id, 'admin_retry');
+
+  revalidatePath('/conventions');
   revalidatePath(`/conventions/${conventionId}`);
 
   return result;

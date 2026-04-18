@@ -2,11 +2,22 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { CalendarClock, CheckCircle2, Loader2, Play, RefreshCcw, Wand2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Archive,
+  CalendarClock,
+  CheckCircle2,
+  Loader2,
+  Play,
+  RefreshCcw,
+  Wand2,
+} from 'lucide-react';
 
 import {
+  closeConventionAction,
   generateConventionGameplayPackAction,
   rotateConventionDailiesAction,
+  retryConventionCloseoutAction,
   runConventionReadinessCheckAction,
   startConventionAction,
 } from '@/app/(dashboard)/conventions/actions';
@@ -19,6 +30,10 @@ type Props = {
   startDate: string | null;
   endDate: string | null;
   timezone: string;
+  closedAt: string | null;
+  archivedAt: string | null;
+  closeoutError: string | null;
+  closeoutSummary: Record<string, unknown> | null;
   readiness: ConventionReadinessResult;
 };
 
@@ -28,6 +43,10 @@ export function ConventionLifecycleCard({
   startDate,
   endDate,
   timezone,
+  closedAt,
+  archivedAt,
+  closeoutError,
+  closeoutSummary,
   readiness,
 }: Props) {
   const router = useRouter();
@@ -62,6 +81,12 @@ export function ConventionLifecycleCard({
   const rotateDisabled = isPending || status !== 'live' || readiness.dateState !== 'inside_window';
   const startLabel =
     readiness.dateState === 'before_window' ? 'Schedule convention' : 'Start convention';
+  const closeDisabled = isPending || status !== 'live';
+  const retryCloseoutDisabled = isPending || status !== 'closed';
+  const recapsGenerated = getNumber(closeoutSummary, 'recaps_generated');
+  const expiredPendingCatches = getNumber(closeoutSummary, 'pending_catches_expired');
+  const membershipsRemoved = getNumber(closeoutSummary, 'profile_memberships_removed');
+  const rosterRemoved = getNumber(closeoutSummary, 'fursuit_assignments_removed');
 
   return (
     <Card
@@ -103,6 +128,35 @@ export function ConventionLifecycleCard({
         <Info label="Convention tasks">{readiness.counts.conventionTasks}</Info>
         <Info label="Convention achievements">{readiness.counts.conventionAchievements}</Info>
       </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-4">
+        <Info label="Closed at">{closedAt ? formatDateTime(closedAt) : 'Not closed'}</Info>
+        <Info label="Archived at">{archivedAt ? formatDateTime(archivedAt) : 'Not archived'}</Info>
+        <Info label="Recaps">{recapsGenerated === null ? 'Not generated' : recapsGenerated}</Info>
+        <Info label="Expired pending catches">
+          {expiredPendingCatches === null ? 'Not run' : expiredPendingCatches}
+        </Info>
+      </div>
+
+      {status === 'archived' ? (
+        <div className="mt-4 rounded-lg border border-emerald-300/30 bg-emerald-400/10 p-3">
+          <p className="text-sm font-semibold text-emerald-100">Archive complete</p>
+          <p className="mt-1 text-sm text-emerald-50">
+            {recapsGenerated ?? 0} participant recap(s), {membershipsRemoved ?? 0} active
+            membership(s), and {rosterRemoved ?? 0} fursuit roster assignment(s) were processed.
+          </p>
+        </div>
+      ) : null}
+
+      {closeoutError ? (
+        <div className="mt-4 rounded-lg border border-red-400/30 bg-red-500/10 p-3">
+          <p className="flex items-center gap-2 text-sm font-semibold text-red-200">
+            <AlertTriangle size={14} />
+            Closeout failed
+          </p>
+          <p className="mt-2 text-sm text-red-100">{closeoutError}</p>
+        </div>
+      ) : null}
 
       {readiness.blockingIssues.length > 0 ? (
         <div className="mt-4 rounded-lg border border-red-400/30 bg-red-500/10 p-3">
@@ -186,6 +240,49 @@ export function ConventionLifecycleCard({
         >
           Rotate today&apos;s tasks
         </ActionButton>
+        <ActionButton
+          disabled={closeDisabled}
+          loading={action === 'close'}
+          icon={<Archive size={14} />}
+          onClick={() => {
+            const confirmed = window.confirm(
+              [
+                'Close and archive this convention?',
+                '',
+                'Players will no longer be able to join or play in this convention.',
+                'Pending catches will expire.',
+                'Active player memberships and fursuit roster entries will be removed.',
+                'Catches, achievements, and recap data will be preserved.',
+                '',
+                'This is not a hard delete.',
+              ].join('\n'),
+            );
+            if (!confirmed) return;
+            runAction('close', async () => {
+              const result = await closeConventionAction(conventionId);
+              return result.already_archived
+                ? 'Convention was already archived.'
+                : `Convention archived with ${result.recaps_generated} recap(s).`;
+            });
+          }}
+        >
+          Close and archive convention
+        </ActionButton>
+        <ActionButton
+          disabled={retryCloseoutDisabled}
+          loading={action === 'retry-closeout'}
+          icon={<RefreshCcw size={14} />}
+          onClick={() =>
+            runAction('retry-closeout', async () => {
+              const result = await retryConventionCloseoutAction(conventionId);
+              return result.already_archived
+                ? 'Convention was already archived.'
+                : `Closeout retried and archived with ${result.recaps_generated} recap(s).`;
+            })
+          }
+        >
+          Retry closeout
+        </ActionButton>
       </div>
 
       {message ? <p className="mt-3 text-sm text-emerald-300">{message}</p> : null}
@@ -193,6 +290,11 @@ export function ConventionLifecycleCard({
       {rotateDisabled && status !== 'live' ? (
         <p className="mt-3 text-xs text-muted">
           Daily rotation is available after the convention is live.
+        </p>
+      ) : null}
+      {closeDisabled && status !== 'live' ? (
+        <p className="mt-2 text-xs text-muted">
+          Closeout is available only for live conventions. Closed conventions can be retried.
         </p>
       ) : null}
     </Card>
@@ -274,6 +376,9 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function getLifecycleCopy(status: string, readiness: ConventionReadinessResult) {
+  if (status === 'archived') return 'Closeout is complete and recaps are available to players';
+  if (status === 'closed') return 'Gameplay is stopped; retry closeout to finish archiving';
+  if (status === 'canceled') return 'This convention was canceled and is not playable';
   if (status === 'scheduled' && readiness.dateState === 'inside_window') {
     return 'Ready to start manually';
   }
@@ -284,4 +389,13 @@ function getLifecycleCopy(status: string, readiness: ConventionReadinessResult) 
   if (readiness.dateState === 'after_window')
     return 'This convention is past its local date window';
   return 'Complete required setup before startup';
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString();
+}
+
+function getNumber(summary: Record<string, unknown> | null, key: string) {
+  const value = summary?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }

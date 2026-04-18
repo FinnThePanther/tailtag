@@ -33,11 +33,30 @@ export type OptInParams = {
   overrideReason?: string | null;
 };
 
+export type PastConventionRecap = {
+  recapId: string;
+  conventionId: string;
+  conventionName: string;
+  location: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  generatedAt: string;
+  finalRank: number | null;
+  catchCount: number;
+  uniqueFursuitsCaughtCount: number;
+  ownFursuitsCaughtCount: number;
+  uniqueCatchersForOwnFursuitsCount: number;
+  dailyTasksCompletedCount: number;
+  achievementsUnlockedCount: number;
+  summary: Record<string, unknown>;
+};
+
 export const CONVENTIONS_QUERY_KEY = 'conventions';
 export const JOINABLE_CONVENTIONS_QUERY_KEY = 'joinable-conventions';
 export const CONVENTIONS_STALE_TIME = 5 * 60_000;
 export const PROFILE_CONVENTIONS_QUERY_KEY = 'profile-conventions';
 export const ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY = 'active-profile-conventions';
+export const PAST_CONVENTION_RECAPS_QUERY_KEY = 'past-convention-recaps';
 
 function mapConventionSummary(convention: any): ConventionSummary {
   return {
@@ -62,6 +81,29 @@ function mapConventionSummary(convention: any): ConventionSummary {
     geofence_radius_meters: convention.geofence_radius_meters ?? null,
     geofence_enabled: Boolean(convention.geofence_enabled),
     location_verification_required: Boolean(convention.location_verification_required),
+  };
+}
+
+function mapPastConventionRecap(row: any): PastConventionRecap {
+  return {
+    recapId: row.recap_id,
+    conventionId: row.convention_id,
+    conventionName: row.convention_name,
+    location: row.location ?? null,
+    startDate: row.start_date ?? null,
+    endDate: row.end_date ?? null,
+    generatedAt: row.generated_at,
+    finalRank: row.final_rank ?? null,
+    catchCount: Number(row.catch_count ?? 0),
+    uniqueFursuitsCaughtCount: Number(row.unique_fursuits_caught_count ?? 0),
+    ownFursuitsCaughtCount: Number(row.own_fursuits_caught_count ?? 0),
+    uniqueCatchersForOwnFursuitsCount: Number(row.unique_catchers_for_own_fursuits_count ?? 0),
+    dailyTasksCompletedCount: Number(row.daily_tasks_completed_count ?? 0),
+    achievementsUnlockedCount: Number(row.achievements_unlocked_count ?? 0),
+    summary:
+      row.summary && typeof row.summary === 'object'
+        ? (row.summary as Record<string, unknown>)
+        : {},
   };
 }
 
@@ -118,6 +160,25 @@ export const createConventionsQueryOptions = () => ({
 export const createJoinableConventionsQueryOptions = () => ({
   queryKey: [JOINABLE_CONVENTIONS_QUERY_KEY],
   queryFn: () => fetchJoinableConventions(),
+  staleTime: CONVENTIONS_STALE_TIME,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
+
+export async function fetchPastConventionRecaps(): Promise<PastConventionRecap[]> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('get_my_convention_recaps');
+
+  if (error) {
+    throw new Error(`We couldn't load your past conventions: ${error.message}`);
+  }
+
+  return (data ?? []).map(mapPastConventionRecap);
+}
+
+export const createPastConventionRecapsQueryOptions = () => ({
+  queryKey: [PAST_CONVENTION_RECAPS_QUERY_KEY],
+  queryFn: () => fetchPastConventionRecaps(),
   staleTime: CONVENTIONS_STALE_TIME,
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,

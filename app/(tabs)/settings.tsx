@@ -20,12 +20,18 @@ import {
   CONVENTIONS_STALE_TIME,
   fetchActiveProfileConventionIds,
   fetchJoinableConventions,
+  fetchPastConventionRecaps,
   JOINABLE_CONVENTIONS_QUERY_KEY,
   optInToConvention,
   optOutOfConvention,
+  PAST_CONVENTION_RECAPS_QUERY_KEY,
 } from '../../src/features/conventions';
 import { useAuth } from '../../src/features/auth';
-import type { ConventionSummary, VerifiedLocation } from '../../src/features/conventions';
+import type {
+  ConventionSummary,
+  PastConventionRecap,
+  VerifiedLocation,
+} from '../../src/features/conventions';
 import { ConventionToggle } from '../../src/components/conventions/ConventionToggle';
 import { supabase } from '../../src/lib/supabase';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../src/lib/runtimeConfig';
@@ -108,6 +114,10 @@ export default function SettingsScreen() {
     () => [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId] as const,
     [userId],
   );
+  const pastConventionRecapsQueryKey = useMemo(
+    () => [PAST_CONVENTION_RECAPS_QUERY_KEY, userId] as const,
+    [userId],
+  );
   const {
     data: conventions = [],
     error: conventionsError,
@@ -134,6 +144,20 @@ export default function SettingsScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryFn: () => fetchActiveProfileConventionIds(userId!),
+  });
+
+  const {
+    data: pastConventionRecaps = [],
+    error: pastConventionRecapsError,
+    isLoading: isPastConventionRecapsLoading,
+    refetch: refetchPastConventionRecaps,
+  } = useQuery<PastConventionRecap[], Error>({
+    queryKey: pastConventionRecapsQueryKey,
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchPastConventionRecaps(),
   });
 
   const caughtSuitsQueryKeyValue = useMemo(
@@ -293,6 +317,19 @@ export default function SettingsScreen() {
         void refetchProfileConventions({ throwOnError: false });
       }
 
+      const pastConventionRecapsState = queryClient.getQueryState<PastConventionRecap[]>(
+        pastConventionRecapsQueryKey,
+      );
+
+      if (
+        !pastConventionRecapsState ||
+        pastConventionRecapsState.isInvalidated ||
+        (pastConventionRecapsState.status === 'success' &&
+          Date.now() - pastConventionRecapsState.dataUpdatedAt > CONVENTIONS_STALE_TIME)
+      ) {
+        void refetchPastConventionRecaps({ throwOnError: false });
+      }
+
       const caughtSuitsState = queryClient.getQueryState<CaughtRecord[]>(caughtSuitsQueryKeyValue);
 
       if (
@@ -317,6 +354,8 @@ export default function SettingsScreen() {
       refetchConventions,
       profileConventionQueryKey,
       refetchProfileConventions,
+      pastConventionRecapsQueryKey,
+      refetchPastConventionRecaps,
       caughtSuitsQueryKeyValue,
       refetchCaughtSuits,
       refreshPushState,
@@ -421,10 +460,19 @@ export default function SettingsScreen() {
     conventionsError?.message ?? profileConventionsError?.message ?? null;
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
 
-  const statsError = caughtSuitsError?.message ?? profileConventionsError?.message ?? null;
-  const isStatsLoading = isCaughtSuitsLoading || isProfileConventionsLoading;
+  const statsError =
+    caughtSuitsError?.message ??
+    profileConventionsError?.message ??
+    pastConventionRecapsError?.message ??
+    null;
+  const isStatsLoading =
+    isCaughtSuitsLoading || isProfileConventionsLoading || isPastConventionRecapsLoading;
   const caughtSuitCount = caughtSuits.length;
-  const attendedConventionCount = profileConventionIds.length;
+  const attendedConventionCount = useMemo(() => {
+    const conventionIds = new Set(profileConventionIds);
+    pastConventionRecaps.forEach((recap) => conventionIds.add(recap.conventionId));
+    return conventionIds.size;
+  }, [pastConventionRecaps, profileConventionIds]);
   const staffModeAllowed = useMemo(
     () => STAFF_MODE_ENABLED && canUseStaffMode(profile?.role ?? null),
     [profile?.role],
@@ -927,6 +975,7 @@ export default function SettingsScreen() {
                 onPress={() => {
                   void refetchCaughtSuits({ throwOnError: false });
                   void refetchProfileConventions({ throwOnError: false });
+                  void refetchPastConventionRecaps({ throwOnError: false });
                 }}
               >
                 Try again
@@ -946,6 +995,59 @@ export default function SettingsScreen() {
           )}
         </View>
       </TailTagCard>
+
+      {pastConventionRecaps.length > 0 ? (
+        <TailTagCard>
+          <View style={styles.conventionSection}>
+            <Text style={styles.sectionTitle}>Past conventions</Text>
+            <Text style={styles.sectionDescription}>
+              Recaps from events you joined after they have been archived.
+            </Text>
+            <View style={styles.pastConventionList}>
+              {pastConventionRecaps.map((recap) => (
+                <View
+                  key={recap.recapId}
+                  style={styles.pastConventionCard}
+                >
+                  <View style={styles.pastConventionHeader}>
+                    <View style={styles.pastConventionTitleBlock}>
+                      <Text style={styles.pastConventionName}>{recap.conventionName}</Text>
+                      <Text style={styles.pastConventionMeta}>{formatRecapDateRange(recap)}</Text>
+                    </View>
+                    {recap.finalRank ? (
+                      <View style={styles.rankBadge}>
+                        <Text style={styles.rankBadgeText}>#{recap.finalRank}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <View style={styles.recapStatsGrid}>
+                    <RecapStat
+                      label="Catches"
+                      value={recap.catchCount}
+                    />
+                    <RecapStat
+                      label="Fursuits found"
+                      value={recap.uniqueFursuitsCaughtCount}
+                    />
+                    <RecapStat
+                      label="Your suits caught"
+                      value={recap.ownFursuitsCaughtCount}
+                    />
+                    <RecapStat
+                      label="Achievements"
+                      value={recap.achievementsUnlockedCount}
+                    />
+                    <RecapStat
+                      label="Daily tasks"
+                      value={recap.dailyTasksCompletedCount}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        </TailTagCard>
+      ) : null}
 
       <TailTagCard>
         {isProfileLoading ? (
@@ -1399,4 +1501,32 @@ export default function SettingsScreen() {
       </TailTagCard>
     </KeyboardAwareFormWrapper>
   );
+}
+
+function RecapStat({ label, value }: { label: string; value: number }) {
+  return (
+    <View style={styles.recapStat}>
+      <Text style={styles.recapStatValue}>{value.toLocaleString()}</Text>
+      <Text style={styles.recapStatLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function formatRecapDateRange(recap: PastConventionRecap) {
+  if (recap.startDate && recap.endDate) {
+    return `${formatShortDate(recap.startDate)} to ${formatShortDate(recap.endDate)}`;
+  }
+
+  if (recap.endDate) return formatShortDate(recap.endDate);
+  if (recap.startDate) return formatShortDate(recap.startDate);
+  return recap.location ?? 'Archived event';
+}
+
+function formatShortDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
 }

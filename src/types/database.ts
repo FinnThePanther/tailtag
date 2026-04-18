@@ -2119,6 +2119,26 @@ export type Database = {
           timezone: string
         }[]
       }
+      get_my_convention_recaps: {
+        Args: never
+        Returns: {
+          achievements_unlocked_count: number
+          catch_count: number
+          convention_id: string
+          convention_name: string
+          daily_tasks_completed_count: number
+          end_date: string
+          final_rank: number
+          generated_at: string
+          location: string
+          own_fursuits_caught_count: number
+          recap_id: string
+          start_date: string
+          summary: Json
+          unique_catchers_for_own_fursuits_count: number
+          unique_fursuits_caught_count: number
+        }[]
+      }
       get_pending_catch_count: { Args: { p_user_id: string }; Returns: number }
       get_pending_catches: {
         Args: { p_user_id: string }

@@ -35,6 +35,10 @@ export default async function ConventionDetail({ params }: { params: { id: strin
         startDate={convention.start_date ?? null}
         endDate={convention.end_date ?? null}
         timezone={convention.timezone ?? 'UTC'}
+        closedAt={convention.closed_at ?? null}
+        archivedAt={convention.archived_at ?? null}
+        closeoutError={convention.closeout_error ?? null}
+        closeoutSummary={(convention.closeout_summary as Record<string, unknown> | null) ?? null}
         readiness={readiness}
       />
 
