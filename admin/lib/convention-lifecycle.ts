@@ -33,7 +33,12 @@ export type GameplayPackResult = {
   achievements: { created: number; existing: number };
 };
 
-export type ConventionCloseoutSource = 'admin_close' | 'admin_retry' | 'admin_regenerate';
+export type ConventionCloseoutSource =
+  | 'admin_close'
+  | 'admin_retry'
+  | 'admin_regenerate'
+  | 'cron_close'
+  | 'cron_retry';
 
 export type ConventionCloseoutResult = {
   convention_id: string;
@@ -68,6 +73,11 @@ export type ConventionLifecycleDiagnostics = {
   archivedAt: string | null;
   closedAt: string | null;
   closeoutError: string | null;
+  lastAutomationAttemptAt: string | null;
+  lastAutomationSource: string | null;
+  automationRetryAttemptsLast7Days: number;
+  automationEligibleForAutoClose: boolean;
+  automationEligibleForRetry: boolean;
 };
 
 export type ConventionLifecycleHealthResult = {
@@ -218,6 +228,15 @@ export function getConventionLocalDay(timezone: string | null | undefined, now =
   }
 }
 
+export function getConventionLocalClock(timezone: string | null | undefined, now = new Date()) {
+  const timeZone = timezone?.trim() || 'UTC';
+  try {
+    return formatLocalClock(timeZone, now);
+  } catch {
+    return formatLocalClock('UTC', now);
+  }
+}
+
 export function getConventionDateState(
   convention: Pick<ConventionRow, 'start_date' | 'end_date'>,
   localDay: string,
@@ -356,7 +375,10 @@ export async function buildConventionLifecycleHealth(
   supabase = createServiceRoleClient(),
 ): Promise<ConventionLifecycleHealthResult> {
   const localDay = getConventionLocalDay(convention.timezone);
+  const localClock = getConventionLocalClock(convention.timezone);
   const dateState = getConventionDateState(convention, localDay);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
   const [
     { count: activeRotationTasks, error: rotationError },
     { count: todayAssignments, error: assignmentError },
@@ -365,6 +387,7 @@ export async function buildConventionLifecycleHealth(
     { count: activeProfileMemberships, error: membershipError },
     { count: activeFursuitAssignments, error: fursuitError },
     { count: participantRecaps, error: recapError },
+    { data: auditRows, error: auditError },
   ] = await Promise.all([
     supabase
       .from('daily_tasks')
@@ -399,6 +422,14 @@ export async function buildConventionLifecycleHealth(
       .from('convention_participant_recaps')
       .select('id', { count: 'exact', head: true })
       .eq('convention_id', convention.id),
+    supabase
+      .from('audit_log')
+      .select('action, context, created_at')
+      .eq('entity_type', 'convention')
+      .eq('entity_id', convention.id)
+      .in('action', ['close_convention_attempt', 'close_convention_noop'])
+      .order('created_at', { ascending: false })
+      .limit(100),
   ]);
 
   if (rotationError) throw rotationError;
@@ -408,6 +439,43 @@ export async function buildConventionLifecycleHealth(
   if (membershipError) throw membershipError;
   if (fursuitError) throw fursuitError;
   if (recapError) throw recapError;
+  if (auditError) throw auditError;
+
+  const automationAuditRows = (auditRows ?? []).filter((row) => {
+    const context = row.context as Record<string, unknown> | null;
+    return context?.source === 'cron_close' || context?.source === 'cron_retry';
+  });
+  const lastAutomationAttempt = automationAuditRows[0] ?? null;
+  const lastCronCloseAttempt = automationAuditRows.find((row) => {
+    const context = row.context as Record<string, unknown> | null;
+    return row.action === 'close_convention_attempt' && context?.source === 'cron_close';
+  });
+  const lastCronRetryAttempt = automationAuditRows.find((row) => {
+    const context = row.context as Record<string, unknown> | null;
+    return row.action === 'close_convention_attempt' && context?.source === 'cron_retry';
+  });
+  const retryAttemptsLast7Days = automationAuditRows.filter((row) => {
+    const context = row.context as Record<string, unknown> | null;
+    return (
+      row.action === 'close_convention_attempt' &&
+      context?.source === 'cron_retry' &&
+      row.created_at >= sevenDaysAgo
+    );
+  }).length;
+  const recentCronCloseAttempt =
+    lastCronCloseAttempt?.created_at && lastCronCloseAttempt.created_at >= sixHoursAgo;
+  const recentCronRetryAttempt =
+    lastCronRetryAttempt?.created_at && lastCronRetryAttempt.created_at >= sixHoursAgo;
+  const automationEligibleForAutoClose =
+    convention.status === 'live' &&
+    dateState === 'after_window' &&
+    localClock.hour >= 6 &&
+    !recentCronCloseAttempt;
+  const automationEligibleForRetry =
+    convention.status === 'closed' &&
+    (convention.closeout_error !== null || convention.archived_at === null) &&
+    retryAttemptsLast7Days < 5 &&
+    !recentCronRetryAttempt;
 
   const diagnostics: ConventionLifecycleDiagnostics = {
     activeRotationTasks: activeRotationTasks ?? 0,
@@ -420,6 +488,13 @@ export async function buildConventionLifecycleHealth(
     archivedAt: convention.archived_at ?? null,
     closedAt: convention.closed_at ?? null,
     closeoutError: convention.closeout_error ?? null,
+    lastAutomationAttemptAt: lastAutomationAttempt?.created_at ?? null,
+    lastAutomationSource:
+      ((lastAutomationAttempt?.context as Record<string, unknown> | null)?.source as string) ??
+      null,
+    automationRetryAttemptsLast7Days: retryAttemptsLast7Days,
+    automationEligibleForAutoClose,
+    automationEligibleForRetry,
   };
 
   const warnings: string[] = [];
@@ -440,11 +515,21 @@ export async function buildConventionLifecycleHealth(
 
   if (convention.status === 'live') {
     if (dateState === 'after_window') {
-      addWarning(
-        'The local convention date window has ended. Close and archive it manually.',
-        'close_and_archive',
-        'critical',
-      );
+      if (automationEligibleForAutoClose) {
+        addWarning('The local convention date window has ended. Auto-close scheduled.', 'none');
+      } else if (localClock.hour < 6) {
+        addWarning(
+          'The local convention date window has ended. Auto-close pending.',
+          'none',
+          'info',
+        );
+      } else {
+        addWarning(
+          'The local convention date window has ended. Close and archive it manually if automation does not finish.',
+          'close_and_archive',
+          'warning',
+        );
+      }
     } else if (dateState === 'inside_window' && diagnostics.todayAssignments === 0) {
       addWarning("Today's daily tasks have not been rotated.", 'rotate_dailies', 'warning');
     }
@@ -471,13 +556,23 @@ export async function buildConventionLifecycleHealth(
   }
 
   if (convention.status === 'closed') {
-    addWarning(
-      diagnostics.closeoutError
-        ? 'Closeout failed. Retry closeout after reviewing the error.'
-        : 'Closeout appears interrupted. Retry closeout to finish archiving.',
-      'retry_closeout',
-      diagnostics.closeoutError ? 'critical' : 'warning',
-    );
+    if (retryAttemptsLast7Days >= 5) {
+      addWarning(
+        'Manual retry required. Automation hit the retry cap.',
+        'retry_closeout',
+        'critical',
+      );
+    } else if (automationEligibleForRetry) {
+      addWarning('Auto-retry scheduled.', 'retry_closeout', 'warning');
+    } else {
+      addWarning(
+        diagnostics.closeoutError
+          ? 'Closeout failed. Auto-retry is throttled.'
+          : 'Closeout appears interrupted. Auto-retry is throttled.',
+        'retry_closeout',
+        diagnostics.closeoutError ? 'critical' : 'warning',
+      );
+    }
   }
 
   if (
@@ -737,6 +832,27 @@ function formatLocalDay(timeZone: string, date: Date) {
   }
 
   return `${year}-${month}-${day}`;
+}
+
+function formatLocalClock(timeZone: string, date: Date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+
+  const hour = parts.find((part) => part.type === 'hour')?.value;
+  const minute = parts.find((part) => part.type === 'minute')?.value;
+
+  if (!hour || !minute) {
+    throw new Error(`Could not resolve local time for ${timeZone}.`);
+  }
+
+  return {
+    hour: Number(hour),
+    minute: Number(minute),
+  };
 }
 
 function severityRank(severity: ConventionLifecycleHealthSeverity) {

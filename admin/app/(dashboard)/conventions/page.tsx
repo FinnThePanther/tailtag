@@ -57,10 +57,15 @@ export default async function ConventionsPage() {
                 </p>
                 {health && health.warnings.length > 0 ? (
                   <p className="text-xs text-amber-100">
-                    {health.warnings[0]}{' '}
-                    <span className="font-semibold">
-                      {formatRecommendedAction(health.recommendedAction)}
-                    </span>
+                    {health.warnings[0]}
+                    {formatRecommendedAction(health.recommendedAction) ? (
+                      <>
+                        {' '}
+                        <span className="font-semibold">
+                          {formatRecommendedAction(health.recommendedAction)}
+                        </span>
+                      </>
+                    ) : null}
                   </p>
                 ) : null}
               </div>

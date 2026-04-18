@@ -165,6 +165,23 @@ export function ConventionLifecycleCard({
         <Info label="Participant recap rows">{health.diagnostics.participantRecaps}</Info>
       </div>
 
+      <div className="mt-3 grid gap-3 md:grid-cols-4">
+        <Info label="Last automation attempt">
+          {health.diagnostics.lastAutomationAttemptAt
+            ? formatDateTime(health.diagnostics.lastAutomationAttemptAt)
+            : 'None'}
+        </Info>
+        <Info label="Automation source">
+          {formatAutomationSource(health.diagnostics.lastAutomationSource)}
+        </Info>
+        <Info label="Retry attempts, 7 days">
+          {health.diagnostics.automationRetryAttemptsLast7Days}
+        </Info>
+        <Info label="Automation eligibility">
+          {formatAutomationEligibility(health.diagnostics)}
+        </Info>
+      </div>
+
       {status === 'archived' ? (
         <div className="mt-4 rounded-lg border border-emerald-300/30 bg-emerald-400/10 p-3">
           <p className="text-sm font-semibold text-emerald-100">Archive complete</p>
@@ -474,6 +491,18 @@ function formatRecommendedAction(action: string) {
     default:
       return 'No action needed';
   }
+}
+
+function formatAutomationSource(source: string | null) {
+  if (source === 'cron_close') return 'Auto-close';
+  if (source === 'cron_retry') return 'Auto-retry';
+  return 'None';
+}
+
+function formatAutomationEligibility(health: ConventionLifecycleHealthResult['diagnostics']) {
+  if (health.automationEligibleForAutoClose) return 'Auto-close eligible';
+  if (health.automationEligibleForRetry) return 'Auto-retry eligible';
+  return 'Not eligible';
 }
 
 function getHealthBadge(severity: string) {

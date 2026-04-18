@@ -13,6 +13,8 @@ const UPSERT_CHUNK_SIZE = 500;
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const serviceRoleKey =
   Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const automationActorId =
+  Deno.env.get('LIFECYCLE_AUTOMATION_ACTOR_ID') ?? Deno.env.get('SYSTEM_EVENT_USER_ID') ?? '';
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error('Missing SUPABASE_URL or SERVICE_ROLE_KEY environment variables');
@@ -25,7 +27,12 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   },
 });
 
-type CloseoutSource = 'admin_close' | 'admin_retry' | 'admin_regenerate';
+type CloseoutSource =
+  | 'admin_close'
+  | 'admin_retry'
+  | 'admin_regenerate'
+  | 'cron_close'
+  | 'cron_retry';
 
 type CloseoutRequest = {
   convention_id?: string;
@@ -152,8 +159,14 @@ function assertServiceRole(req: Request) {
 }
 
 function normalizeSource(source: unknown): CloseoutSource {
+  if (source === 'cron_retry') return 'cron_retry';
+  if (source === 'cron_close') return 'cron_close';
   if (source === 'admin_regenerate') return 'admin_regenerate';
   return source === 'admin_retry' ? 'admin_retry' : 'admin_close';
+}
+
+function isAutomationSource(source: CloseoutSource) {
+  return source === 'cron_close' || source === 'cron_retry';
 }
 
 async function writeAudit(
@@ -483,19 +496,18 @@ async function upsertRecaps(recaps: RecapInsert[]) {
 
 async function closeOutConvention(request: CloseoutRequest) {
   const conventionId = request.convention_id?.trim();
-  const actorId = request.actor_id?.trim();
   const source = normalizeSource(request.source);
   const forceRegenerate = request.force_regenerate === true;
+  const automation = isAutomationSource(source);
+  const actorId = request.actor_id?.trim() || (automation ? automationActorId.trim() : '');
 
   if (!conventionId) throw new HttpError('convention_id is required.', 400);
-  if (!actorId) throw new HttpError('actor_id is required.', 400);
-
-  await writeAudit(
-    actorId,
-    conventionId,
-    forceRegenerate ? 'regenerate_convention_recaps_attempt' : 'close_convention_attempt',
-    { source, force_regenerate: forceRegenerate },
-  );
+  if (!actorId) {
+    throw new HttpError(
+      automation ? 'Automation actor is not configured.' : 'actor_id is required.',
+      automation ? 500 : 400,
+    );
+  }
 
   const { data: convention, error: conventionError } = await supabaseAdmin
     .from('conventions')
@@ -507,6 +519,20 @@ async function closeOutConvention(request: CloseoutRequest) {
   if (!convention) throw new HttpError('Convention not found.', 404);
 
   const current = convention as ConventionRow;
+
+  await writeAudit(
+    actorId,
+    conventionId,
+    forceRegenerate ? 'regenerate_convention_recaps_attempt' : 'close_convention_attempt',
+    {
+      source,
+      actor_id: actorId,
+      automation,
+      force_regenerate: forceRegenerate,
+      convention_id: conventionId,
+      previous_status: current.status,
+    },
+  );
 
   if (current.status === 'archived') {
     if (forceRegenerate) {
@@ -542,7 +568,13 @@ async function closeOutConvention(request: CloseoutRequest) {
 
         if (updateError) throw updateError;
 
-        await writeAudit(actorId, conventionId, 'regenerate_convention_recaps_complete', summary);
+        await writeAudit(actorId, conventionId, 'regenerate_convention_recaps_complete', {
+          ...summary,
+          actor_id: actorId,
+          automation,
+          previous_status: current.status,
+          final_status: 'archived',
+        });
 
         return {
           convention_id: conventionId,
@@ -558,6 +590,11 @@ async function closeOutConvention(request: CloseoutRequest) {
         const message = error instanceof Error ? error.message : 'Recap regeneration failed.';
         await writeAudit(actorId, conventionId, 'regenerate_convention_recaps_failed', {
           source,
+          actor_id: actorId,
+          automation,
+          convention_id: conventionId,
+          previous_status: current.status,
+          final_status: 'archived',
           error: message,
         });
         throw error;
@@ -567,7 +604,11 @@ async function closeOutConvention(request: CloseoutRequest) {
     const summary = current.closeout_summary ?? {};
     await writeAudit(actorId, conventionId, 'close_convention_noop', {
       source,
-      status: 'archived',
+      actor_id: actorId,
+      automation,
+      convention_id: conventionId,
+      previous_status: current.status,
+      final_status: 'archived',
       summary,
     });
     return {
@@ -583,6 +624,15 @@ async function closeOutConvention(request: CloseoutRequest) {
   }
 
   if (current.status !== 'live' && current.status !== 'closed') {
+    await writeAudit(actorId, conventionId, 'close_convention_failed', {
+      source,
+      actor_id: actorId,
+      automation,
+      convention_id: conventionId,
+      previous_status: current.status,
+      final_status: current.status,
+      error: `Cannot close a convention with status ${current.status}.`,
+    });
     throw new HttpError(`Cannot close a convention with status ${current.status}.`, 400);
   }
 
@@ -633,7 +683,13 @@ async function closeOutConvention(request: CloseoutRequest) {
 
     if (archiveError) throw archiveError;
 
-    await writeAudit(actorId, conventionId, 'close_convention_complete', summary);
+    await writeAudit(actorId, conventionId, 'close_convention_complete', {
+      ...summary,
+      actor_id: actorId,
+      automation,
+      previous_status: current.status,
+      final_status: 'archived',
+    });
 
     return {
       convention_id: conventionId,
@@ -657,6 +713,11 @@ async function closeOutConvention(request: CloseoutRequest) {
       .eq('id', conventionId);
     await writeAudit(actorId, conventionId, 'close_convention_failed', {
       source,
+      actor_id: actorId,
+      automation,
+      convention_id: conventionId,
+      previous_status: current.status,
+      final_status: 'closed',
       error: message,
     });
     throw error;
