@@ -46,8 +46,8 @@ export function FursuitPicker({
         />
         <Text style={styles.emptyTitle}>No fursuits found</Text>
         <Text style={styles.emptySubtitle}>
-          No other fursuits are registered at your conventions yet. Ask the fursuiter to join
-          TailTag and opt into the same convention, then try again!
+          No other fursuits are registered at your live conventions yet. Ask the fursuiter to join
+          the same live convention, then try again!
         </Text>
       </View>
     );

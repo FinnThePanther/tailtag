@@ -324,81 +324,6 @@ export type Database = {
           },
         ]
       }
-      conventions: {
-        Row: {
-          archived_at: string | null
-          canceled_at: string | null
-          closed_at: string | null
-          closeout_error: string | null
-          closeout_summary: Json
-          config: Json
-          created_at: string
-          end_date: string | null
-          geofence_enabled: boolean | null
-          geofence_radius_meters: number | null
-          id: string
-          latitude: number | null
-          location: string | null
-          location_verification_required: boolean | null
-          longitude: number | null
-          name: string
-          slug: string
-          start_date: string | null
-          started_at: string | null
-          status: string
-          timezone: string
-          updated_at: string
-        }
-        Insert: {
-          archived_at?: string | null
-          canceled_at?: string | null
-          closed_at?: string | null
-          closeout_error?: string | null
-          closeout_summary?: Json
-          config?: Json
-          created_at?: string
-          end_date?: string | null
-          geofence_enabled?: boolean | null
-          geofence_radius_meters?: number | null
-          id?: string
-          latitude?: number | null
-          location?: string | null
-          location_verification_required?: boolean | null
-          longitude?: number | null
-          name: string
-          slug: string
-          start_date?: string | null
-          started_at?: string | null
-          status?: string
-          timezone?: string
-          updated_at?: string
-        }
-        Update: {
-          archived_at?: string | null
-          canceled_at?: string | null
-          closed_at?: string | null
-          closeout_error?: string | null
-          closeout_summary?: Json
-          config?: Json
-          created_at?: string
-          end_date?: string | null
-          geofence_enabled?: boolean | null
-          geofence_radius_meters?: number | null
-          id?: string
-          latitude?: number | null
-          location?: string | null
-          location_verification_required?: boolean | null
-          longitude?: number | null
-          name?: string
-          slug?: string
-          start_date?: string | null
-          started_at?: string | null
-          status?: string
-          timezone?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       convention_participant_recaps: {
         Row: {
           achievements_unlocked_count: number
@@ -473,6 +398,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      conventions: {
+        Row: {
+          archived_at: string | null
+          canceled_at: string | null
+          closed_at: string | null
+          closeout_error: string | null
+          closeout_summary: Json
+          config: Json
+          created_at: string
+          end_date: string | null
+          geofence_enabled: boolean | null
+          geofence_radius_meters: number | null
+          id: string
+          latitude: number | null
+          location: string | null
+          location_verification_required: boolean | null
+          longitude: number | null
+          name: string
+          slug: string
+          start_date: string | null
+          started_at: string | null
+          status: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          canceled_at?: string | null
+          closed_at?: string | null
+          closeout_error?: string | null
+          closeout_summary?: Json
+          config?: Json
+          created_at?: string
+          end_date?: string | null
+          geofence_enabled?: boolean | null
+          geofence_radius_meters?: number | null
+          id?: string
+          latitude?: number | null
+          location?: string | null
+          location_verification_required?: boolean | null
+          longitude?: number | null
+          name: string
+          slug: string
+          start_date?: string | null
+          started_at?: string | null
+          status?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          canceled_at?: string | null
+          closed_at?: string | null
+          closeout_error?: string | null
+          closeout_summary?: Json
+          config?: Json
+          created_at?: string
+          end_date?: string | null
+          geofence_enabled?: boolean | null
+          geofence_radius_meters?: number | null
+          id?: string
+          latitude?: number | null
+          location?: string | null
+          location_verification_required?: boolean | null
+          longitude?: number | null
+          name?: string
+          slug?: string
+          start_date?: string | null
+          started_at?: string | null
+          status?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       daily_assignments: {
         Row: {
@@ -2032,6 +2032,18 @@ export type Database = {
         Args: { app_meta: Json; user_email: string; user_meta: Json }
         Returns: string
       }
+      get_active_profile_convention_ids: {
+        Args: { p_profile_id: string }
+        Returns: {
+          convention_id: string
+        }[]
+      }
+      get_active_shared_convention_ids: {
+        Args: { p_fursuit_id: string; p_profile_id: string }
+        Returns: {
+          convention_id: string
+        }[]
+      }
       get_blocked_users: {
         Args: { p_user_id: string }
         Returns: {
@@ -2087,6 +2099,26 @@ export type Database = {
           total_catches: number
         }[]
       }
+      get_joinable_conventions: {
+        Args: never
+        Returns: {
+          end_date: string
+          geofence_enabled: boolean
+          geofence_radius_meters: number
+          id: string
+          is_joinable: boolean
+          latitude: number
+          local_day: string
+          location: string
+          location_verification_required: boolean
+          longitude: number
+          name: string
+          slug: string
+          start_date: string
+          status: string
+          timezone: string
+        }[]
+      }
       get_pending_catch_count: { Args: { p_user_id: string }; Returns: number }
       get_pending_catches: {
         Args: { p_user_id: string }
@@ -2139,6 +2171,10 @@ export type Database = {
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean }
       is_blocked: {
         Args: { p_user_a: string; p_user_b: string }
+        Returns: boolean
+      }
+      is_convention_joinable: {
+        Args: { p_convention_id: string }
         Returns: boolean
       }
       is_event_staff: {

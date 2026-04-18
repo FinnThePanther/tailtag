@@ -9,6 +9,9 @@ export type ConventionSummary = {
   start_date: string | null;
   end_date: string | null;
   timezone: string;
+  status?: string;
+  local_day?: string | null;
+  is_joinable?: boolean;
   latitude: number | null;
   longitude: number | null;
   geofence_radius_meters: number | null;
@@ -31,8 +34,36 @@ export type OptInParams = {
 };
 
 export const CONVENTIONS_QUERY_KEY = 'conventions';
+export const JOINABLE_CONVENTIONS_QUERY_KEY = 'joinable-conventions';
 export const CONVENTIONS_STALE_TIME = 5 * 60_000;
 export const PROFILE_CONVENTIONS_QUERY_KEY = 'profile-conventions';
+export const ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY = 'active-profile-conventions';
+
+function mapConventionSummary(convention: any): ConventionSummary {
+  return {
+    id: convention.id,
+    slug: convention.slug,
+    name: convention.name,
+    location: convention.location ?? null,
+    start_date: convention.start_date ?? null,
+    end_date: convention.end_date ?? null,
+    timezone: convention.timezone ?? 'UTC',
+    status: convention.status ?? undefined,
+    local_day: convention.local_day ?? null,
+    is_joinable: typeof convention.is_joinable === 'boolean' ? convention.is_joinable : undefined,
+    latitude:
+      convention.latitude === null || convention.latitude === undefined
+        ? null
+        : Number(convention.latitude),
+    longitude:
+      convention.longitude === null || convention.longitude === undefined
+        ? null
+        : Number(convention.longitude),
+    geofence_radius_meters: convention.geofence_radius_meters ?? null,
+    geofence_enabled: Boolean(convention.geofence_enabled),
+    location_verification_required: Boolean(convention.location_verification_required),
+  };
+}
 
 export async function fetchConventions(): Promise<ConventionSummary[]> {
   const client = supabase as any;
@@ -47,6 +78,7 @@ export async function fetchConventions(): Promise<ConventionSummary[]> {
         'start_date',
         'end_date',
         'timezone',
+        'status',
         'latitude',
         'longitude',
         'geofence_radius_meters',
@@ -61,25 +93,31 @@ export async function fetchConventions(): Promise<ConventionSummary[]> {
     throw new Error(`We couldn't load conventions: ${error.message}`);
   }
 
-  return (data ?? []).map((convention: any) => ({
-    id: convention.id,
-    slug: convention.slug,
-    name: convention.name,
-    location: convention.location ?? null,
-    start_date: convention.start_date ?? null,
-    end_date: convention.end_date ?? null,
-    timezone: convention.timezone ?? 'UTC',
-    latitude: convention.latitude ?? null,
-    longitude: convention.longitude ?? null,
-    geofence_radius_meters: convention.geofence_radius_meters ?? null,
-    geofence_enabled: Boolean(convention.geofence_enabled),
-    location_verification_required: Boolean(convention.location_verification_required),
-  }));
+  return (data ?? []).map(mapConventionSummary);
+}
+
+export async function fetchJoinableConventions(): Promise<ConventionSummary[]> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('get_joinable_conventions');
+
+  if (error) {
+    throw new Error(`We couldn't load live conventions: ${error.message}`);
+  }
+
+  return (data ?? []).map(mapConventionSummary);
 }
 
 export const createConventionsQueryOptions = () => ({
   queryKey: [CONVENTIONS_QUERY_KEY],
   queryFn: () => fetchConventions(),
+  staleTime: CONVENTIONS_STALE_TIME,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
+
+export const createJoinableConventionsQueryOptions = () => ({
+  queryKey: [JOINABLE_CONVENTIONS_QUERY_KEY],
+  queryFn: () => fetchJoinableConventions(),
   staleTime: CONVENTIONS_STALE_TIME,
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
@@ -95,6 +133,36 @@ export async function fetchProfileConventionIds(profileId: string): Promise<stri
 
   if (error) {
     throw new Error(`We couldn't load your convention opt-ins: ${error.message}`);
+  }
+
+  return (data ?? []).map((row: any) => row.convention_id);
+}
+
+export async function fetchActiveProfileConventionIds(profileId: string): Promise<string[]> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('get_active_profile_convention_ids', {
+    p_profile_id: profileId,
+  });
+
+  if (error) {
+    throw new Error(`We couldn't load your live convention opt-ins: ${error.message}`);
+  }
+
+  return (data ?? []).map((row: any) => row.convention_id);
+}
+
+export async function fetchActiveSharedConventionIds(
+  profileId: string,
+  fursuitId: string,
+): Promise<string[]> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('get_active_shared_convention_ids', {
+    p_profile_id: profileId,
+    p_fursuit_id: fursuitId,
+  });
+
+  if (error) {
+    throw new Error(`We couldn't resolve your live shared conventions: ${error.message}`);
   }
 
   return (data ?? []).map((row: any) => row.convention_id);

@@ -29,11 +29,11 @@ import {
   socialLinksToSave,
 } from '../../../src/features/suits/forms/socialLinks';
 import {
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
-  createConventionsQueryOptions,
-  fetchProfileConventionIds,
-  PROFILE_CONVENTIONS_QUERY_KEY,
+  createJoinableConventionsQueryOptions,
+  fetchActiveProfileConventionIds,
   removeFursuitConvention,
 } from '../../../src/features/conventions';
 import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
@@ -129,7 +129,7 @@ export default function EditFursuitScreen() {
     staleTime: 0,
   });
 
-  const conventionsQueryOptions = useMemo(() => createConventionsQueryOptions(), []);
+  const conventionsQueryOptions = useMemo(() => createJoinableConventionsQueryOptions(), []);
   const {
     data: conventions = [],
     error: conventionsError,
@@ -151,12 +151,12 @@ export default function EditFursuitScreen() {
     isLoading: isProfileConventionsLoading,
     refetch: refetchProfileConventions,
   } = useQuery<string[], Error>({
-    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchProfileConventionIds(userId!),
+    queryFn: () => fetchActiveProfileConventionIds(userId!),
   });
 
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
@@ -1206,11 +1206,11 @@ export default function EditFursuitScreen() {
                   </View>
                 ) : conventions.length === 0 ? (
                   <Text style={styles.message}>
-                    No conventions are available yet. Check back soon.
+                    No live conventions are available right now. Check back when an event starts.
                   </Text>
                 ) : profileConventionIdSet.size === 0 ? (
                   <Text style={styles.message}>
-                    Opt into a convention from Settings before assigning this suit.
+                    Join a live convention in Settings before assigning this suit.
                   </Text>
                 ) : (
                   <View style={styles.conventionList}>

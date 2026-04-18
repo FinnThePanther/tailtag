@@ -13,6 +13,7 @@ import { loadUriAsUint8Array } from '../../../utils/files';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { buildAuthenticatedStorageObjectUrl } from '../../../utils/supabase-image';
 import { createCatch, updateCatchPhoto, fetchConventionFursuits } from '../api/confirmations';
+import { fetchActiveProfileConventionIds, fetchActiveSharedConventionIds } from '../../conventions';
 import { FursuitPicker } from './FursuitPicker';
 import type { FursuitPickerItem } from '../api';
 import type { CreateCatchResult } from '../types';
@@ -57,14 +58,9 @@ export function PhotoCatchCard({
 
   // Load user's conventions once mounted
   useEffect(() => {
-    const client = supabase as any;
-    client
-      .from('profile_conventions')
-      .select('convention_id')
-      .eq('profile_id', userId)
-      .then(({ data }: { data: { convention_id: string }[] | null }) => {
-        setConventionIds((data ?? []).map((r) => r.convention_id));
-      });
+    fetchActiveProfileConventionIds(userId)
+      .then(setConventionIds)
+      .catch(() => setConventionIds([]));
   }, [userId]);
 
   // Load convention fursuits when photo is taken
@@ -144,20 +140,12 @@ export function PhotoCatchCard({
     let sharedConventionId: string | null = null;
 
     try {
-      const { data: suitConventionRows } = await client
-        .from('fursuit_conventions')
-        .select('convention_id')
-        .eq('fursuit_id', selectedFursuit.id);
-
-      const suitConventionIds = new Set<string>(
-        (suitConventionRows ?? []).map((r: { convention_id: string }) => r.convention_id),
-      );
-
-      sharedConventionId = conventionIds.find((id) => suitConventionIds.has(id)) ?? null;
+      const sharedConventionIds = await fetchActiveSharedConventionIds(userId, selectedFursuit.id);
+      sharedConventionId = conventionIds.find((id) => sharedConventionIds.includes(id)) ?? null;
 
       if (!sharedConventionId) {
         setLocalError(
-          'You and this suit need to be at the same convention. Make sure both of you have opted into the same convention in Settings.',
+          'You and this suit need to be at the same live convention. Make sure both of you have joined the same live event in Settings.',
         );
         setIsUploadingPhoto(false);
         return;

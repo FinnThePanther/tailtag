@@ -425,6 +425,17 @@ async function processCatchConfirmedEvent(
   });
 
   const catchFursuit = Array.isArray(catchRow.fursuit) ? catchRow.fursuit[0] : catchRow.fursuit;
+  const speciesEntry = Array.isArray(catchFursuit?.species)
+    ? catchFursuit?.species[0]
+    : catchFursuit?.species;
+  const colorNames = ((catchFursuit?.color_assignments ?? []) as Array<{ color?: unknown }>)
+    .map((assignment) => {
+      const color = Array.isArray(assignment.color) ? assignment.color[0] : assignment.color;
+      return typeof color === 'object' && color !== null && 'name' in color
+        ? (color.name as string | null)
+        : null;
+    })
+    .filter((name): name is string => Boolean(name));
 
   // Create the catch_performed event that will be inserted into the database.
   // This is necessary because daily task processing queries the events table
@@ -441,10 +452,8 @@ async function processCatchConfirmedEvent(
       status: 'ACCEPTED',
       is_tutorial: false,
       source: 'catch_confirmed',
-      species: catchFursuit?.species?.name ?? null,
-      colors: (catchFursuit?.color_assignments ?? [])
-        .map((a: { color: { name: string } | null }) => a.color?.name)
-        .filter((n: string | undefined): n is string => !!n),
+      species: speciesEntry?.name ?? null,
+      colors: colorNames,
     },
     occurred_at: event.occurred_at, // Use confirmation timestamp
   };

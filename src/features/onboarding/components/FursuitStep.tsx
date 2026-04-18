@@ -13,12 +13,11 @@ import { SkipButton } from './SkipButton';
 import { createQuickFursuit, type FursuitPhotoCandidate } from '../../onboarding';
 import { MY_SUITS_QUERY_KEY } from '../../suits';
 import {
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
-  createConventionsQueryOptions,
-  fetchProfileConventionIds,
-  isConventionActive,
-  PROFILE_CONVENTIONS_QUERY_KEY,
+  createJoinableConventionsQueryOptions,
+  fetchActiveProfileConventionIds,
 } from '../../conventions';
 import { captureNonCriticalError } from '../../../lib/sentry';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
@@ -65,17 +64,17 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
   const isColorBusy = isColorLoading;
 
   const { data: conventions = [] } = useQuery({
-    ...createConventionsQueryOptions(),
+    ...createJoinableConventionsQueryOptions(),
     enabled: Boolean(userId),
   });
 
   const { data: profileConventionIds = [] } = useQuery<string[], Error>({
-    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchProfileConventionIds(userId),
+    queryFn: () => fetchActiveProfileConventionIds(userId),
   });
 
   const profileConventionIdSet = useMemo(
@@ -84,10 +83,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
   );
 
   const activeConventionIds = useMemo(
-    () =>
-      conventions
-        .filter((c) => profileConventionIdSet.has(c.id) && isConventionActive(c))
-        .map((c) => c.id),
+    () => conventions.filter((c) => profileConventionIdSet.has(c.id)).map((c) => c.id),
     [conventions, profileConventionIdSet],
   );
 

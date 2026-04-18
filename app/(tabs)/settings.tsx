@@ -16,13 +16,13 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { STAFF_MODE_ENABLED } from '../../src/constants/features';
 import {
-  CONVENTIONS_QUERY_KEY,
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
-  fetchConventions,
-  fetchProfileConventionIds,
+  fetchActiveProfileConventionIds,
+  fetchJoinableConventions,
+  JOINABLE_CONVENTIONS_QUERY_KEY,
   optInToConvention,
   optOutOfConvention,
-  PROFILE_CONVENTIONS_QUERY_KEY,
 } from '../../src/features/conventions';
 import { useAuth } from '../../src/features/auth';
 import type { ConventionSummary, VerifiedLocation } from '../../src/features/conventions';
@@ -103,9 +103,9 @@ export default function SettingsScreen() {
     queryFn: () => fetchProfile(userId!),
   });
 
-  const conventionsQueryKey = useMemo(() => [CONVENTIONS_QUERY_KEY] as const, []);
+  const conventionsQueryKey = useMemo(() => [JOINABLE_CONVENTIONS_QUERY_KEY] as const, []);
   const profileConventionQueryKey = useMemo(
-    () => [PROFILE_CONVENTIONS_QUERY_KEY, userId] as const,
+    () => [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId] as const,
     [userId],
   );
   const {
@@ -119,7 +119,7 @@ export default function SettingsScreen() {
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchConventions(),
+    queryFn: () => fetchJoinableConventions(),
   });
 
   const {
@@ -133,7 +133,7 @@ export default function SettingsScreen() {
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchProfileConventionIds(userId!),
+    queryFn: () => fetchActiveProfileConventionIds(userId!),
   });
 
   const caughtSuitsQueryKeyValue = useMemo(
@@ -1221,7 +1221,9 @@ export default function SettingsScreen() {
               </TailTagButton>
             </View>
           ) : conventions.length === 0 ? (
-            <Text style={styles.message}>No conventions are available yet. Check back soon.</Text>
+            <Text style={styles.message}>
+              No live conventions are available right now. Check back when an event starts.
+            </Text>
           ) : (
             <View style={styles.conventionList}>
               {conventions.map((convention) => {
