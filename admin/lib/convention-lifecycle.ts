@@ -33,7 +33,7 @@ export type GameplayPackResult = {
   achievements: { created: number; existing: number };
 };
 
-export type ConventionCloseoutSource = 'admin_close' | 'admin_retry';
+export type ConventionCloseoutSource = 'admin_close' | 'admin_retry' | 'admin_regenerate';
 
 export type ConventionCloseoutResult = {
   convention_id: string;
@@ -44,6 +44,40 @@ export type ConventionCloseoutResult = {
   pending_catches_expired: number;
   profile_memberships_removed: number;
   fursuit_assignments_removed: number;
+};
+
+export type ConventionLifecycleHealthSeverity = 'healthy' | 'info' | 'warning' | 'critical';
+
+export type ConventionLifecycleRecommendedAction =
+  | 'none'
+  | 'start_manually'
+  | 'close_and_archive'
+  | 'retry_closeout'
+  | 'regenerate_recaps'
+  | 'review_dates'
+  | 'rotate_dailies';
+
+export type ConventionLifecycleDiagnostics = {
+  activeRotationTasks: number;
+  todayAssignments: number;
+  acceptedConventionCatches: number;
+  pendingConventionCatches: number;
+  activeProfileMemberships: number;
+  activeFursuitAssignments: number;
+  participantRecaps: number;
+  archivedAt: string | null;
+  closedAt: string | null;
+  closeoutError: string | null;
+};
+
+export type ConventionLifecycleHealthResult = {
+  status: string;
+  severity: ConventionLifecycleHealthSeverity;
+  warnings: string[];
+  recommendedAction: ConventionLifecycleRecommendedAction;
+  diagnostics: ConventionLifecycleDiagnostics;
+  localDay: string;
+  dateState: ConventionDateState;
 };
 
 type DefaultTaskSpec = {
@@ -299,6 +333,176 @@ export async function fetchConventionReadiness(
   };
 }
 
+export async function fetchConventionLifecycleHealth(
+  conventionId: string,
+  supabase = createServiceRoleClient(),
+): Promise<ConventionLifecycleHealthResult> {
+  const convention = await fetchLifecycleConvention(supabase, conventionId);
+  return buildConventionLifecycleHealth(convention, supabase);
+}
+
+export async function buildConventionLifecycleHealth(
+  convention: Pick<
+    ConventionRow,
+    | 'id'
+    | 'status'
+    | 'start_date'
+    | 'end_date'
+    | 'timezone'
+    | 'closed_at'
+    | 'archived_at'
+    | 'closeout_error'
+  >,
+  supabase = createServiceRoleClient(),
+): Promise<ConventionLifecycleHealthResult> {
+  const localDay = getConventionLocalDay(convention.timezone);
+  const dateState = getConventionDateState(convention, localDay);
+  const [
+    { count: activeRotationTasks, error: rotationError },
+    { count: todayAssignments, error: assignmentError },
+    { count: acceptedConventionCatches, error: acceptedError },
+    { count: pendingConventionCatches, error: pendingError },
+    { count: activeProfileMemberships, error: membershipError },
+    { count: activeFursuitAssignments, error: fursuitError },
+    { count: participantRecaps, error: recapError },
+  ] = await Promise.all([
+    supabase
+      .from('daily_tasks')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_active', true)
+      .or(`convention_id.is.null,convention_id.eq.${convention.id}`),
+    supabase
+      .from('daily_assignments')
+      .select('id', { count: 'exact', head: true })
+      .eq('convention_id', convention.id)
+      .eq('day', localDay),
+    supabase
+      .from('catches')
+      .select('id', { count: 'exact', head: true })
+      .eq('convention_id', convention.id)
+      .eq('status', 'ACCEPTED')
+      .eq('is_tutorial', false),
+    supabase
+      .from('catches')
+      .select('id', { count: 'exact', head: true })
+      .eq('convention_id', convention.id)
+      .eq('status', 'PENDING'),
+    supabase
+      .from('profile_conventions')
+      .select('profile_id', { count: 'exact', head: true })
+      .eq('convention_id', convention.id),
+    supabase
+      .from('fursuit_conventions')
+      .select('fursuit_id', { count: 'exact', head: true })
+      .eq('convention_id', convention.id),
+    supabase
+      .from('convention_participant_recaps')
+      .select('id', { count: 'exact', head: true })
+      .eq('convention_id', convention.id),
+  ]);
+
+  if (rotationError) throw rotationError;
+  if (assignmentError) throw assignmentError;
+  if (acceptedError) throw acceptedError;
+  if (pendingError) throw pendingError;
+  if (membershipError) throw membershipError;
+  if (fursuitError) throw fursuitError;
+  if (recapError) throw recapError;
+
+  const diagnostics: ConventionLifecycleDiagnostics = {
+    activeRotationTasks: activeRotationTasks ?? 0,
+    todayAssignments: todayAssignments ?? 0,
+    acceptedConventionCatches: acceptedConventionCatches ?? 0,
+    pendingConventionCatches: pendingConventionCatches ?? 0,
+    activeProfileMemberships: activeProfileMemberships ?? 0,
+    activeFursuitAssignments: activeFursuitAssignments ?? 0,
+    participantRecaps: participantRecaps ?? 0,
+    archivedAt: convention.archived_at ?? null,
+    closedAt: convention.closed_at ?? null,
+    closeoutError: convention.closeout_error ?? null,
+  };
+
+  const warnings: string[] = [];
+  let severity: ConventionLifecycleHealthSeverity = 'healthy';
+  let recommendedAction: ConventionLifecycleRecommendedAction = 'none';
+
+  const addWarning = (
+    warning: string,
+    nextAction: ConventionLifecycleRecommendedAction,
+    nextSeverity: ConventionLifecycleHealthSeverity = 'warning',
+  ) => {
+    warnings.push(warning);
+    if (severityRank(nextSeverity) > severityRank(severity)) {
+      severity = nextSeverity;
+      recommendedAction = nextAction;
+    }
+  };
+
+  if (convention.status === 'live') {
+    if (dateState === 'after_window') {
+      addWarning(
+        'The local convention date window has ended. Close and archive it manually.',
+        'close_and_archive',
+        'critical',
+      );
+    } else if (dateState === 'inside_window' && diagnostics.todayAssignments === 0) {
+      addWarning("Today's daily tasks have not been rotated.", 'rotate_dailies', 'warning');
+    }
+
+    if (diagnostics.activeRotationTasks < 3) {
+      addWarning(
+        'Fewer than three active daily tasks are available for rotation.',
+        'rotate_dailies',
+        'warning',
+      );
+    }
+  }
+
+  if (convention.status === 'scheduled') {
+    if (dateState === 'inside_window') {
+      addWarning('Ready to start manually.', 'start_manually', 'info');
+    } else if (dateState === 'after_window') {
+      addWarning(
+        'The scheduled date window has passed. Review dates or cancel this convention.',
+        'review_dates',
+        'warning',
+      );
+    }
+  }
+
+  if (convention.status === 'closed') {
+    addWarning(
+      diagnostics.closeoutError
+        ? 'Closeout failed. Retry closeout after reviewing the error.'
+        : 'Closeout appears interrupted. Retry closeout to finish archiving.',
+      'retry_closeout',
+      diagnostics.closeoutError ? 'critical' : 'warning',
+    );
+  }
+
+  if (
+    convention.status === 'archived' &&
+    diagnostics.acceptedConventionCatches > 0 &&
+    diagnostics.participantRecaps === 0
+  ) {
+    addWarning(
+      'This archived convention has activity but no participant recaps. Regenerate recaps.',
+      'regenerate_recaps',
+      'critical',
+    );
+  }
+
+  return {
+    status: convention.status,
+    severity,
+    warnings,
+    recommendedAction,
+    diagnostics,
+    localDay,
+    dateState,
+  };
+}
+
 export async function generateDefaultGameplayPack(
   conventionId: string,
   supabase = createServiceRoleClient(),
@@ -346,6 +550,7 @@ export async function closeOutConvention(
   conventionId: string,
   actorId: string,
   source: ConventionCloseoutSource,
+  options: { forceRegenerate?: boolean } = {},
 ): Promise<ConventionCloseoutResult> {
   if (!env.supabaseServiceRoleKey) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY is required to close out conventions.');
@@ -361,6 +566,7 @@ export async function closeOutConvention(
       convention_id: conventionId,
       actor_id: actorId,
       source,
+      force_regenerate: options.forceRegenerate === true,
     }),
   });
 
@@ -387,6 +593,9 @@ async function fetchLifecycleConvention(supabase: ServiceClient, conventionId: s
         'start_date',
         'end_date',
         'timezone',
+        'closed_at',
+        'archived_at',
+        'closeout_error',
         'latitude',
         'longitude',
         'geofence_radius_meters',
@@ -528,4 +737,18 @@ function formatLocalDay(timeZone: string, date: Date) {
   }
 
   return `${year}-${month}-${day}`;
+}
+
+function severityRank(severity: ConventionLifecycleHealthSeverity) {
+  switch (severity) {
+    case 'critical':
+      return 3;
+    case 'warning':
+      return 2;
+    case 'info':
+      return 1;
+    case 'healthy':
+    default:
+      return 0;
+  }
 }

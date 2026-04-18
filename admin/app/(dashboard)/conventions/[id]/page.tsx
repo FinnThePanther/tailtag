@@ -10,7 +10,10 @@ import { ConventionDetailsForm } from '@/components/convention-details-form';
 import { ConventionTasksCard } from '@/components/convention-tasks-card';
 import { ConventionAchievementsCard } from '@/components/convention-achievements-card';
 import { ConventionLifecycleCard } from '@/components/convention-lifecycle-card';
-import { fetchConventionReadiness } from '@/lib/convention-lifecycle';
+import {
+  fetchConventionLifecycleHealth,
+  fetchConventionReadiness,
+} from '@/lib/convention-lifecycle';
 
 export default async function ConventionDetail({ params }: { params: { id: string } }) {
   const { convention, staff } = await fetchConvention(params.id);
@@ -19,10 +22,11 @@ export default async function ConventionDetail({ params }: { params: { id: strin
     notFound();
   }
 
-  const [tasks, achievements, readiness] = await Promise.all([
+  const [tasks, achievements, readiness, health] = await Promise.all([
     fetchConventionTasks(params.id),
     fetchConventionAchievements(params.id),
     fetchConventionReadiness(params.id),
+    fetchConventionLifecycleHealth(params.id),
   ]);
 
   const config = normalizeConfig(convention.config);
@@ -40,6 +44,7 @@ export default async function ConventionDetail({ params }: { params: { id: strin
         closeoutError={convention.closeout_error ?? null}
         closeoutSummary={(convention.closeout_summary as Record<string, unknown> | null) ?? null}
         readiness={readiness}
+        health={health}
       />
 
       <Card

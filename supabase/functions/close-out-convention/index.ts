@@ -25,12 +25,13 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   },
 });
 
-type CloseoutSource = 'admin_close' | 'admin_retry';
+type CloseoutSource = 'admin_close' | 'admin_retry' | 'admin_regenerate';
 
 type CloseoutRequest = {
   convention_id?: string;
   actor_id?: string;
   source?: CloseoutSource;
+  force_regenerate?: boolean;
 };
 
 type ConventionRow = {
@@ -151,6 +152,7 @@ function assertServiceRole(req: Request) {
 }
 
 function normalizeSource(source: unknown): CloseoutSource {
+  if (source === 'admin_regenerate') return 'admin_regenerate';
   return source === 'admin_retry' ? 'admin_retry' : 'admin_close';
 }
 
@@ -483,11 +485,17 @@ async function closeOutConvention(request: CloseoutRequest) {
   const conventionId = request.convention_id?.trim();
   const actorId = request.actor_id?.trim();
   const source = normalizeSource(request.source);
+  const forceRegenerate = request.force_regenerate === true;
 
   if (!conventionId) throw new HttpError('convention_id is required.', 400);
   if (!actorId) throw new HttpError('actor_id is required.', 400);
 
-  await writeAudit(actorId, conventionId, 'close_convention_attempt', { source });
+  await writeAudit(
+    actorId,
+    conventionId,
+    forceRegenerate ? 'regenerate_convention_recaps_attempt' : 'close_convention_attempt',
+    { source, force_regenerate: forceRegenerate },
+  );
 
   const { data: convention, error: conventionError } = await supabaseAdmin
     .from('conventions')
@@ -501,6 +509,61 @@ async function closeOutConvention(request: CloseoutRequest) {
   const current = convention as ConventionRow;
 
   if (current.status === 'archived') {
+    if (forceRegenerate) {
+      try {
+        const closedAt = current.closed_at ?? current.archived_at ?? new Date().toISOString();
+        const recapBuild = await buildRecaps(conventionId, closedAt);
+        await upsertRecaps(recapBuild.recaps);
+        const archivedAt = current.archived_at ?? new Date().toISOString();
+        const summary: CloseoutSummary = {
+          convention_id: conventionId,
+          source,
+          closed_at: closedAt,
+          archived_at: archivedAt,
+          participants_count: recapBuild.recaps.length,
+          recaps_generated: recapBuild.recaps.length,
+          pending_catches_expired: 0,
+          profile_memberships_removed: 0,
+          fursuit_assignments_removed: 0,
+          accepted_catches_count: recapBuild.acceptedCatchesCount,
+          unique_catchers_count: recapBuild.uniqueCatchersCount,
+          unique_fursuits_caught_count: recapBuild.uniqueFursuitsCaughtCount,
+        };
+
+        const { error: updateError } = await supabaseAdmin
+          .from('conventions')
+          .update({
+            status: 'archived',
+            archived_at: archivedAt,
+            closeout_error: null,
+            closeout_summary: summary,
+          })
+          .eq('id', conventionId);
+
+        if (updateError) throw updateError;
+
+        await writeAudit(actorId, conventionId, 'regenerate_convention_recaps_complete', summary);
+
+        return {
+          convention_id: conventionId,
+          status: 'archived',
+          already_archived: true,
+          summary,
+          recaps_generated: summary.recaps_generated,
+          pending_catches_expired: 0,
+          profile_memberships_removed: 0,
+          fursuit_assignments_removed: 0,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Recap regeneration failed.';
+        await writeAudit(actorId, conventionId, 'regenerate_convention_recaps_failed', {
+          source,
+          error: message,
+        });
+        throw error;
+      }
+    }
+
     const summary = current.closeout_summary ?? {};
     await writeAudit(actorId, conventionId, 'close_convention_noop', {
       source,

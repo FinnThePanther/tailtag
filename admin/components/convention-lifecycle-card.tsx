@@ -16,13 +16,17 @@ import {
 import {
   closeConventionAction,
   generateConventionGameplayPackAction,
+  regenerateConventionRecapsAction,
   rotateConventionDailiesAction,
   retryConventionCloseoutAction,
   runConventionReadinessCheckAction,
   startConventionAction,
 } from '@/app/(dashboard)/conventions/actions';
 import { Card } from '@/components/card';
-import type { ConventionReadinessResult } from '@/lib/convention-lifecycle';
+import type {
+  ConventionLifecycleHealthResult,
+  ConventionReadinessResult,
+} from '@/lib/convention-lifecycle';
 
 type Props = {
   conventionId: string;
@@ -35,6 +39,7 @@ type Props = {
   closeoutError: string | null;
   closeoutSummary: Record<string, unknown> | null;
   readiness: ConventionReadinessResult;
+  health: ConventionLifecycleHealthResult;
 };
 
 export function ConventionLifecycleCard({
@@ -48,6 +53,7 @@ export function ConventionLifecycleCard({
   closeoutError,
   closeoutSummary,
   readiness,
+  health,
 }: Props) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -80,13 +86,19 @@ export function ConventionLifecycleCard({
     (readiness.dateState !== 'before_window' && readiness.dateState !== 'inside_window');
   const rotateDisabled = isPending || status !== 'live' || readiness.dateState !== 'inside_window';
   const startLabel =
-    readiness.dateState === 'before_window' ? 'Schedule convention' : 'Start convention';
+    status === 'scheduled' && readiness.dateState === 'inside_window'
+      ? 'Start manually'
+      : readiness.dateState === 'before_window'
+        ? 'Schedule convention'
+        : 'Start convention';
   const closeDisabled = isPending || status !== 'live';
   const retryCloseoutDisabled = isPending || status !== 'closed';
+  const regenerateDisabled = isPending || status !== 'archived';
   const recapsGenerated = getNumber(closeoutSummary, 'recaps_generated');
   const expiredPendingCatches = getNumber(closeoutSummary, 'pending_catches_expired');
   const membershipsRemoved = getNumber(closeoutSummary, 'profile_memberships_removed');
   const rosterRemoved = getNumber(closeoutSummary, 'fursuit_assignments_removed');
+  const healthBadge = getHealthBadge(health.severity);
 
   return (
     <Card
@@ -138,6 +150,21 @@ export function ConventionLifecycleCard({
         </Info>
       </div>
 
+      <div className="mt-3 grid gap-3 md:grid-cols-4">
+        <Info label="Accepted catches">{health.diagnostics.acceptedConventionCatches}</Info>
+        <Info label="Pending catches">{health.diagnostics.pendingConventionCatches}</Info>
+        <Info label="Active memberships">{health.diagnostics.activeProfileMemberships}</Info>
+        <Info label="Fursuit roster">{health.diagnostics.activeFursuitAssignments}</Info>
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <Info label="Health">
+          <span className={healthBadge.className}>{healthBadge.label}</span>
+        </Info>
+        <Info label="Recommended action">{formatRecommendedAction(health.recommendedAction)}</Info>
+        <Info label="Participant recap rows">{health.diagnostics.participantRecaps}</Info>
+      </div>
+
       {status === 'archived' ? (
         <div className="mt-4 rounded-lg border border-emerald-300/30 bg-emerald-400/10 p-3">
           <p className="text-sm font-semibold text-emerald-100">Archive complete</p>
@@ -155,6 +182,17 @@ export function ConventionLifecycleCard({
             Closeout failed
           </p>
           <p className="mt-2 text-sm text-red-100">{closeoutError}</p>
+        </div>
+      ) : null}
+
+      {health.warnings.length > 0 ? (
+        <div className="mt-4 rounded-lg border border-amber-300/30 bg-amber-400/10 p-3">
+          <p className="text-sm font-semibold text-amber-100">Lifecycle health</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-50">
+            {health.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
         </div>
       ) : null}
 
@@ -283,6 +321,19 @@ export function ConventionLifecycleCard({
         >
           Retry closeout
         </ActionButton>
+        <ActionButton
+          disabled={regenerateDisabled}
+          loading={action === 'regenerate'}
+          icon={<RefreshCcw size={14} />}
+          onClick={() =>
+            runAction('regenerate', async () => {
+              const result = await regenerateConventionRecapsAction(conventionId);
+              return `Recaps regenerated with ${result.recaps_generated} participant recap(s).`;
+            })
+          }
+        >
+          Regenerate recaps
+        </ActionButton>
       </div>
 
       {message ? <p className="mt-3 text-sm text-emerald-300">{message}</p> : null}
@@ -295,6 +346,11 @@ export function ConventionLifecycleCard({
       {closeDisabled && status !== 'live' ? (
         <p className="mt-2 text-xs text-muted">
           Closeout is available only for live conventions. Closed conventions can be retried.
+        </p>
+      ) : null}
+      {regenerateDisabled && status !== 'archived' ? (
+        <p className="mt-2 text-xs text-muted">
+          Recap regeneration is available after the convention is archived.
         </p>
       ) : null}
     </Card>
@@ -398,4 +454,49 @@ function formatDateTime(value: string) {
 function getNumber(summary: Record<string, unknown> | null, key: string) {
   const value = summary?.[key];
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function formatRecommendedAction(action: string) {
+  switch (action) {
+    case 'start_manually':
+      return 'Start manually';
+    case 'close_and_archive':
+      return 'Close and archive';
+    case 'retry_closeout':
+      return 'Retry closeout';
+    case 'regenerate_recaps':
+      return 'Regenerate recaps';
+    case 'review_dates':
+      return 'Review dates';
+    case 'rotate_dailies':
+      return "Rotate today's tasks";
+    case 'none':
+    default:
+      return 'No action needed';
+  }
+}
+
+function getHealthBadge(severity: string) {
+  if (severity === 'critical') {
+    return {
+      label: 'Critical',
+      className: 'text-red-200',
+    };
+  }
+  if (severity === 'warning') {
+    return {
+      label: 'Warning',
+      className: 'text-amber-100',
+    };
+  }
+  if (severity === 'info') {
+    return {
+      label: 'Info',
+      className: 'text-sky-200',
+    };
+  }
+  return {
+    label: 'Healthy',
+    className: 'text-emerald-200',
+  };
 }

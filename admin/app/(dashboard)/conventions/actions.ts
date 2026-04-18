@@ -304,6 +304,46 @@ export async function retryConventionCloseoutAction(conventionId: string) {
   return result;
 }
 
+export async function regenerateConventionRecapsAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'regenerate_convention_recaps_attempt',
+    entityType: 'convention',
+    entityId: conventionId,
+    context: { source: 'admin_regenerate' },
+  });
+
+  try {
+    const result = await closeOutConvention(conventionId, profile.id, 'admin_regenerate', {
+      forceRegenerate: true,
+    });
+
+    await logAudit({
+      actorId: profile.id,
+      action: 'regenerate_convention_recaps_complete',
+      entityType: 'convention',
+      entityId: conventionId,
+      context: result,
+    });
+
+    revalidatePath('/conventions');
+    revalidatePath(`/conventions/${conventionId}`);
+
+    return result;
+  } catch (error) {
+    await logAudit({
+      actorId: profile.id,
+      action: 'regenerate_convention_recaps_failed',
+      entityType: 'convention',
+      entityId: conventionId,
+      context: { error: error instanceof Error ? error.message : 'Unknown error' },
+    });
+    throw error;
+  }
+}
+
 export async function updateConventionDetailsAction(input: {
   conventionId: string;
   name: string;
