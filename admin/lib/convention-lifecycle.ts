@@ -404,6 +404,138 @@ export async function fetchConventionLifecycleHealth(
   return buildConventionLifecycleHealth(convention, supabase);
 }
 
+export async function buildConventionLifecycleHealthList(
+  conventions: Array<
+    Pick<
+      ConventionRow,
+      | 'id'
+      | 'status'
+      | 'start_date'
+      | 'end_date'
+      | 'timezone'
+      | 'closed_at'
+      | 'archived_at'
+      | 'closeout_error'
+    >
+  >,
+  supabase = createServiceRoleClient(),
+): Promise<Map<string, ConventionLifecycleHealthResult>> {
+  if (conventions.length === 0) return new Map();
+
+  const conventionIds = conventions.map((convention) => convention.id);
+  const localDays = new Map(
+    conventions.map((convention) => [convention.id, getConventionLocalDay(convention.timezone)]),
+  );
+  const uniqueLocalDays = [...new Set(localDays.values())];
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+
+  const [
+    { count: globalActiveTasks, error: globalTaskError },
+    { data: conventionTasks, error: conventionTaskError },
+    { data: todayAssignments, error: assignmentError },
+    { data: acceptedCatches, error: acceptedError },
+    { data: participantRecaps, error: recapError },
+    { data: auditRows, error: auditError },
+  ] = await Promise.all([
+    supabase
+      .from('daily_tasks')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_active', true)
+      .is('convention_id', null),
+    supabase
+      .from('daily_tasks')
+      .select('convention_id')
+      .eq('is_active', true)
+      .in('convention_id', conventionIds),
+    supabase
+      .from('daily_assignments')
+      .select('convention_id, day')
+      .in('convention_id', conventionIds)
+      .in('day', uniqueLocalDays),
+    supabase
+      .from('catches')
+      .select('convention_id')
+      .in('convention_id', conventionIds)
+      .eq('status', 'ACCEPTED')
+      .eq('is_tutorial', false),
+    supabase
+      .from('convention_participant_recaps')
+      .select('convention_id')
+      .in('convention_id', conventionIds),
+    supabase
+      .from('audit_log')
+      .select('entity_id, action, context, created_at')
+      .eq('entity_type', 'convention')
+      .in('entity_id', conventionIds)
+      .in('action', ['close_convention_attempt', 'close_convention_noop'])
+      .order('created_at', { ascending: false }),
+  ]);
+
+  if (globalTaskError) throw globalTaskError;
+  if (conventionTaskError) throw conventionTaskError;
+  if (assignmentError) throw assignmentError;
+  if (acceptedError) throw acceptedError;
+  if (recapError) throw recapError;
+  if (auditError) throw auditError;
+
+  const conventionTaskCounts = countByConvention(conventionTasks ?? []);
+  const acceptedCatchCounts = countByConvention(acceptedCatches ?? []);
+  const recapCounts = countByConvention(participantRecaps ?? []);
+  const assignmentCounts = new Map<string, number>();
+  for (const row of todayAssignments ?? []) {
+    const conventionId = row.convention_id;
+    if (!conventionId || row.day !== localDays.get(conventionId)) continue;
+    assignmentCounts.set(conventionId, (assignmentCounts.get(conventionId) ?? 0) + 1);
+  }
+
+  const auditRowsByConvention = new Map<string, typeof auditRows>();
+  for (const row of auditRows ?? []) {
+    if (!row.entity_id) continue;
+    const rows = auditRowsByConvention.get(row.entity_id) ?? [];
+    rows.push(row);
+    auditRowsByConvention.set(row.entity_id, rows);
+  }
+
+  const healthByConvention = new Map<string, ConventionLifecycleHealthResult>();
+  for (const convention of conventions) {
+    const localDay = localDays.get(convention.id) ?? getConventionLocalDay(convention.timezone);
+    const localClock = getConventionLocalClock(convention.timezone);
+    const dateState = getConventionDateState(convention, localDay);
+    const automation = getAutomationAuditSummary(
+      auditRowsByConvention.get(convention.id) ?? [],
+      sevenDaysAgo,
+      sixHoursAgo,
+    );
+    const diagnostics = createLifecycleDiagnostics(convention, {
+      activeRotationTasks:
+        (globalActiveTasks ?? 0) + (conventionTaskCounts.get(convention.id) ?? 0),
+      todayAssignments: assignmentCounts.get(convention.id) ?? 0,
+      acceptedConventionCatches: acceptedCatchCounts.get(convention.id) ?? 0,
+      participantRecaps: recapCounts.get(convention.id) ?? 0,
+      lastAutomationAttemptAt: automation.lastAutomationAttemptAt,
+      lastAutomationSource: automation.lastAutomationSource,
+      automationRetryAttemptsLast7Days: automation.retryAttemptsLast7Days,
+    });
+
+    healthByConvention.set(
+      convention.id,
+      buildLifecycleHealthResult({
+        convention,
+        diagnostics,
+        localDay,
+        localClock,
+        dateState,
+        retryAttemptsLast7Days: automation.retryAttemptsLast7Days,
+        recentCronCloseAttempt: automation.recentCronCloseAttempt,
+        recentCronRetryAttempt: automation.recentCronRetryAttempt,
+      }),
+    );
+  }
+
+  return healthByConvention;
+}
+
 export async function buildConventionLifecycleHealth(
   convention: Pick<
     ConventionRow,
@@ -485,31 +617,61 @@ export async function buildConventionLifecycleHealth(
   if (recapError) throw recapError;
   if (auditError) throw auditError;
 
-  const automationAuditRows = (auditRows ?? []).filter((row) => {
-    const context = row.context as Record<string, unknown> | null;
-    return context?.source === 'cron_close' || context?.source === 'cron_retry';
+  const automation = getAutomationAuditSummary(auditRows ?? [], sevenDaysAgo, sixHoursAgo);
+  const diagnostics = createLifecycleDiagnostics(convention, {
+    activeRotationTasks: activeRotationTasks ?? 0,
+    todayAssignments: todayAssignments ?? 0,
+    acceptedConventionCatches: acceptedConventionCatches ?? 0,
+    pendingConventionCatches: pendingConventionCatches ?? 0,
+    activeProfileMemberships: activeProfileMemberships ?? 0,
+    activeFursuitAssignments: activeFursuitAssignments ?? 0,
+    participantRecaps: participantRecaps ?? 0,
+    lastAutomationAttemptAt: automation.lastAutomationAttemptAt,
+    lastAutomationSource: automation.lastAutomationSource,
+    automationRetryAttemptsLast7Days: automation.retryAttemptsLast7Days,
   });
-  const lastAutomationAttempt = automationAuditRows[0] ?? null;
-  const lastCronCloseAttempt = automationAuditRows.find((row) => {
-    const context = row.context as Record<string, unknown> | null;
-    return row.action === 'close_convention_attempt' && context?.source === 'cron_close';
+
+  return buildLifecycleHealthResult({
+    convention,
+    diagnostics,
+    localDay,
+    localClock,
+    dateState,
+    retryAttemptsLast7Days: automation.retryAttemptsLast7Days,
+    recentCronCloseAttempt: automation.recentCronCloseAttempt,
+    recentCronRetryAttempt: automation.recentCronRetryAttempt,
   });
-  const lastCronRetryAttempt = automationAuditRows.find((row) => {
-    const context = row.context as Record<string, unknown> | null;
-    return row.action === 'close_convention_attempt' && context?.source === 'cron_retry';
-  });
-  const retryAttemptsLast7Days = automationAuditRows.filter((row) => {
-    const context = row.context as Record<string, unknown> | null;
-    return (
-      row.action === 'close_convention_attempt' &&
-      context?.source === 'cron_retry' &&
-      row.created_at >= sevenDaysAgo
-    );
-  }).length;
-  const recentCronCloseAttempt =
-    lastCronCloseAttempt?.created_at && lastCronCloseAttempt.created_at >= sixHoursAgo;
-  const recentCronRetryAttempt =
-    lastCronRetryAttempt?.created_at && lastCronRetryAttempt.created_at >= sixHoursAgo;
+}
+
+function buildLifecycleHealthResult({
+  convention,
+  diagnostics,
+  localDay,
+  localClock,
+  dateState,
+  retryAttemptsLast7Days,
+  recentCronCloseAttempt,
+  recentCronRetryAttempt,
+}: {
+  convention: Pick<
+    ConventionRow,
+    | 'id'
+    | 'status'
+    | 'start_date'
+    | 'end_date'
+    | 'timezone'
+    | 'closed_at'
+    | 'archived_at'
+    | 'closeout_error'
+  >;
+  diagnostics: ConventionLifecycleDiagnostics;
+  localDay: string;
+  localClock: { hour: number; minute: number };
+  dateState: ConventionDateState;
+  retryAttemptsLast7Days: number;
+  recentCronCloseAttempt: boolean;
+  recentCronRetryAttempt: boolean;
+}): ConventionLifecycleHealthResult {
   const automationEligibleForAutoClose =
     convention.status === 'live' &&
     dateState === 'after_window' &&
@@ -521,25 +683,8 @@ export async function buildConventionLifecycleHealth(
     retryAttemptsLast7Days < 5 &&
     !recentCronRetryAttempt;
 
-  const diagnostics: ConventionLifecycleDiagnostics = {
-    activeRotationTasks: activeRotationTasks ?? 0,
-    todayAssignments: todayAssignments ?? 0,
-    acceptedConventionCatches: acceptedConventionCatches ?? 0,
-    pendingConventionCatches: pendingConventionCatches ?? 0,
-    activeProfileMemberships: activeProfileMemberships ?? 0,
-    activeFursuitAssignments: activeFursuitAssignments ?? 0,
-    participantRecaps: participantRecaps ?? 0,
-    archivedAt: convention.archived_at ?? null,
-    closedAt: convention.closed_at ?? null,
-    closeoutError: convention.closeout_error ?? null,
-    lastAutomationAttemptAt: lastAutomationAttempt?.created_at ?? null,
-    lastAutomationSource:
-      ((lastAutomationAttempt?.context as Record<string, unknown> | null)?.source as string) ??
-      null,
-    automationRetryAttemptsLast7Days: retryAttemptsLast7Days,
-    automationEligibleForAutoClose,
-    automationEligibleForRetry,
-  };
+  diagnostics.automationEligibleForAutoClose = automationEligibleForAutoClose;
+  diagnostics.automationEligibleForRetry = automationEligibleForRetry;
 
   const warnings: string[] = [];
   let severity: ConventionLifecycleHealthSeverity = 'healthy';
@@ -643,6 +788,81 @@ export async function buildConventionLifecycleHealth(
     diagnostics,
     localDay,
     dateState,
+  };
+}
+
+function createLifecycleDiagnostics(
+  convention: Pick<ConventionRow, 'closed_at' | 'archived_at' | 'closeout_error'>,
+  overrides: Partial<ConventionLifecycleDiagnostics>,
+): ConventionLifecycleDiagnostics {
+  return {
+    activeRotationTasks: 0,
+    todayAssignments: 0,
+    acceptedConventionCatches: 0,
+    pendingConventionCatches: 0,
+    activeProfileMemberships: 0,
+    activeFursuitAssignments: 0,
+    participantRecaps: 0,
+    archivedAt: convention.archived_at ?? null,
+    closedAt: convention.closed_at ?? null,
+    closeoutError: convention.closeout_error ?? null,
+    lastAutomationAttemptAt: null,
+    lastAutomationSource: null,
+    automationRetryAttemptsLast7Days: 0,
+    automationEligibleForAutoClose: false,
+    automationEligibleForRetry: false,
+    ...overrides,
+  };
+}
+
+function countByConvention(rows: Array<{ convention_id?: string | null }>) {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (!row.convention_id) continue;
+    counts.set(row.convention_id, (counts.get(row.convention_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function getAutomationAuditSummary<
+  T extends {
+    action: string;
+    context: unknown;
+    created_at: string;
+  },
+>(auditRows: T[], sevenDaysAgo: string, sixHoursAgo: string) {
+  const automationAuditRows = auditRows.filter((row) => {
+    const context = row.context as Record<string, unknown> | null;
+    return context?.source === 'cron_close' || context?.source === 'cron_retry';
+  });
+  const lastAutomationAttempt = automationAuditRows[0] ?? null;
+  const lastCronCloseAttempt = automationAuditRows.find((row) => {
+    const context = row.context as Record<string, unknown> | null;
+    return row.action === 'close_convention_attempt' && context?.source === 'cron_close';
+  });
+  const lastCronRetryAttempt = automationAuditRows.find((row) => {
+    const context = row.context as Record<string, unknown> | null;
+    return row.action === 'close_convention_attempt' && context?.source === 'cron_retry';
+  });
+  const retryAttemptsLast7Days = automationAuditRows.filter((row) => {
+    const context = row.context as Record<string, unknown> | null;
+    return (
+      row.action === 'close_convention_attempt' &&
+      context?.source === 'cron_retry' &&
+      row.created_at >= sevenDaysAgo
+    );
+  }).length;
+
+  return {
+    lastAutomationAttemptAt: lastAutomationAttempt?.created_at ?? null,
+    lastAutomationSource:
+      ((lastAutomationAttempt?.context as Record<string, unknown> | null)?.source as string) ??
+      null,
+    retryAttemptsLast7Days,
+    recentCronCloseAttempt:
+      Boolean(lastCronCloseAttempt?.created_at) && lastCronCloseAttempt!.created_at >= sixHoursAgo,
+    recentCronRetryAttempt:
+      Boolean(lastCronRetryAttempt?.created_at) && lastCronRetryAttempt!.created_at >= sixHoursAgo,
   };
 }
 

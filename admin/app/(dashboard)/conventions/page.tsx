@@ -8,20 +8,13 @@ import {
   StatusBadge,
 } from '@/components/convention-lifecycle-ui';
 import { fetchConventions } from '@/lib/data';
-import { buildConventionLifecycleHealth } from '@/lib/convention-lifecycle';
+import { buildConventionLifecycleHealthList } from '@/lib/convention-lifecycle';
 import { createServiceRoleClient } from '@/lib/supabase/service';
 
 export default async function ConventionsPage() {
   const conventions = await fetchConventions();
   const supabase = createServiceRoleClient();
-  const healthByConvention = new Map(
-    await Promise.all(
-      conventions.map(
-        async (convention) =>
-          [convention.id, await buildConventionLifecycleHealth(convention, supabase)] as const,
-      ),
-    ),
-  );
+  const healthByConvention = await buildConventionLifecycleHealthList(conventions, supabase);
 
   return (
     <Card
