@@ -560,7 +560,11 @@ export async function buildConventionLifecycleHealth(
   if (convention.status === 'live') {
     if (dateState === 'after_window') {
       if (automationEligibleForAutoClose) {
-        addWarning('The local convention date window has ended. Auto-close scheduled.', 'none');
+        addWarning(
+          'The local convention date window has ended. Auto-close scheduled.',
+          'none',
+          'info',
+        );
       } else if (localClock.hour < 6) {
         addWarning(
           'The local convention date window has ended. Auto-close pending.',
