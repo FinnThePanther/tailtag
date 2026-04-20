@@ -742,7 +742,14 @@ function buildLifecycleHealthResult({
     nextSeverity: ConventionLifecycleHealthSeverity = 'warning',
   ) => {
     warnings.push(warning);
-    if (severityRank(nextSeverity) > severityRank(severity)) {
+    const nextSeverityRank = severityRank(nextSeverity);
+    const currentSeverityRank = severityRank(severity);
+    // Break same-severity ties with an explicit action priority instead of relying on call order.
+    if (
+      nextSeverityRank > currentSeverityRank ||
+      (nextSeverityRank === currentSeverityRank &&
+        recommendedActionRank(nextAction) > recommendedActionRank(recommendedAction))
+    ) {
       severity = nextSeverity;
       recommendedAction = nextAction;
     }
@@ -1411,6 +1418,26 @@ function severityRank(severity: ConventionLifecycleHealthSeverity) {
     case 'info':
       return 1;
     case 'healthy':
+    default:
+      return 0;
+  }
+}
+
+function recommendedActionRank(action: ConventionLifecycleRecommendedAction) {
+  switch (action) {
+    case 'retry_closeout':
+      return 6;
+    case 'regenerate_recaps':
+      return 5;
+    case 'close_and_archive':
+      return 4;
+    case 'review_dates':
+      return 3;
+    case 'rotate_dailies':
+      return 2;
+    case 'start_manually':
+      return 1;
+    case 'none':
     default:
       return 0;
   }
