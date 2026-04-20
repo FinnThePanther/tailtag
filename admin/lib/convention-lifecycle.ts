@@ -242,7 +242,7 @@ export async function buildConventionReadiness(
 
   return {
     ready,
-    canSchedule: ready && dateState === 'before_window' && convention.status !== 'live',
+    canSchedule: ready && dateState === 'before_window' && convention.status === 'draft',
     canStart: ready && dateState === 'inside_window' && convention.status !== 'live',
     blockingIssues,
     warnings,

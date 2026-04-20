@@ -88,15 +88,18 @@ export function ConventionLifecycleCard({
   const startDisabled =
     isPending ||
     status === 'live' ||
+    (status === 'scheduled' && readiness.dateState === 'before_window') ||
     !readiness.ready ||
     (readiness.dateState !== 'before_window' && readiness.dateState !== 'inside_window');
   const rotateDisabled = isPending || status !== 'live' || readiness.dateState !== 'inside_window';
   const startLabel =
     status === 'scheduled' && readiness.dateState === 'inside_window'
       ? 'Start manually'
-      : readiness.dateState === 'before_window'
-        ? 'Schedule convention'
-        : 'Start convention';
+      : status === 'scheduled' && readiness.dateState === 'before_window'
+        ? 'Scheduled'
+        : readiness.dateState === 'before_window'
+          ? 'Schedule convention'
+          : 'Start convention';
   const closeDisabled = isPending || status !== 'live';
   const retryCloseoutDisabled = isPending || status !== 'closed';
   const regenerateDisabled = isPending || status !== 'archived';
@@ -490,6 +493,9 @@ function getLifecycleCopy(status: string, readiness: ConventionReadinessResult) 
   if (status === 'canceled') return 'This convention was canceled and is not playable';
   if (status === 'scheduled' && readiness.dateState === 'inside_window') {
     return 'Ready to start manually';
+  }
+  if (status === 'scheduled' && readiness.dateState === 'before_window') {
+    return 'Scheduled for a future local date';
   }
   if (status === 'live')
     return 'Players can join while the convention remains inside its date window';

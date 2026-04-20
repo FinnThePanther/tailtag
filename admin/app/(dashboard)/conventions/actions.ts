@@ -238,11 +238,18 @@ export async function startConventionAction(conventionId: string) {
   }
 
   if (readiness.dateState === 'before_window') {
+    if (current.status === 'scheduled') {
+      revalidatePath('/conventions');
+      revalidatePath(`/conventions/${conventionId}`);
+
+      return { status: 'scheduled' as const, readiness };
+    }
+
     const { data: updatedConvention, error } = await supabase
       .from('conventions')
       .update({ status: 'scheduled' })
       .eq('id', conventionId)
-      .in('status', ['draft', 'scheduled'])
+      .eq('status', 'draft')
       .select('id')
       .maybeSingle();
     if (error) throw error;
