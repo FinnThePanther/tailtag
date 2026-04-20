@@ -287,7 +287,8 @@ async function handlePost(req: Request): Promise<Response> {
     let speciesName: string | null = null;
     let colorNames: string[] = [];
     const shouldNotifyPendingCatch = result.requires_approval && !body.force_pending;
-    const shouldNotifyAcceptedCatch = !result.requires_approval && !body.is_tutorial;
+    const shouldNotifyAcceptedCatch =
+      !result.requires_approval && !body.force_pending && !body.is_tutorial;
 
     try {
       const fursuitPromise = (async () =>
