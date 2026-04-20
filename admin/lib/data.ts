@@ -143,7 +143,7 @@ export async function fetchConventions(): Promise<ConventionListRow[]> {
   if (error) {
     throw error;
   }
-  return (data ?? []) as ConventionListRow[];
+  return (data ?? []) as unknown as ConventionListRow[];
 }
 
 type EventStaffAssignment = {
@@ -201,7 +201,7 @@ export async function fetchConvention(conventionId: string): Promise<{
     } satisfies EventStaffAssignment;
   });
 
-  const convention = (conventionData ?? null) as ConventionListRow | null;
+  const convention = (conventionData ?? null) as unknown as ConventionListRow | null;
 
   return { convention, staff };
 }
