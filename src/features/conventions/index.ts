@@ -7,7 +7,6 @@ export {
   CONVENTIONS_STALE_TIME,
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   createJoinableConventionsQueryOptions,
-  createPastConventionRecapsQueryOptions,
   fetchActiveProfileConventionIds,
   fetchActiveSharedConventionIds,
   optInToConvention,

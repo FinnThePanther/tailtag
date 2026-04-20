@@ -29,14 +29,6 @@ function validateSlug(slug: string) {
     throw new Error('Slug must only contain lowercase letters, numbers, and hyphens.');
 }
 
-function isMissingSchemaRelationError(error: unknown) {
-  const maybeError = error as { code?: string; message?: string } | null;
-  return (
-    maybeError?.code === 'PGRST205' ||
-    maybeError?.message?.includes('Could not find the table') === true
-  );
-}
-
 export async function createConventionAction(input: {
   name: string;
   slug: string;
@@ -362,187 +354,23 @@ export async function deleteArchivedConventionInDevAction(conventionId: string) 
 
   const supabase = createServiceRoleClient();
 
-  const { data: convention, error: conventionError } = await supabase
-    .from('conventions')
-    .select('id, name, status')
-    .eq('id', conventionId)
+  const { data: result, error } = await (supabase as any)
+    .rpc('delete_archived_convention_in_dev', {
+      p_actor_id: profile.id,
+      p_convention_id: conventionId,
+    })
     .single();
 
-  if (conventionError) throw conventionError;
-  if (!convention) throw new Error('Convention not found.');
-  if (convention.status !== 'archived') {
-    throw new Error('Only archived conventions can be deleted from dev.');
-  }
-
-  const counts: Record<string, number> = {};
-  const cleanupNotes: string[] = [];
-  const countRows = (rows: unknown[] | null) => rows?.length ?? 0;
-
-  const { data: dailyAssignments, error: dailyAssignmentsError } = await supabase
-    .from('daily_assignments')
-    .delete()
-    .eq('convention_id', conventionId)
-    .select('id');
-  if (dailyAssignmentsError) throw dailyAssignmentsError;
-  counts.daily_assignments = countRows(dailyAssignments);
-
-  const { data: dailyProgress, error: dailyProgressError } = await supabase
-    .from('user_daily_progress')
-    .delete()
-    .eq('convention_id', conventionId)
-    .select('user_id');
-  if (dailyProgressError) throw dailyProgressError;
-  counts.user_daily_progress = countRows(dailyProgress);
-
-  const { data: dailyStreaks, error: dailyStreaksError } = await supabase
-    .from('user_daily_streaks')
-    .delete()
-    .eq('convention_id', conventionId)
-    .select('user_id');
-  if (dailyStreaksError) throw dailyStreaksError;
-  counts.user_daily_streaks = countRows(dailyStreaks);
-
-  const { data: tasks, error: taskError } = await supabase
-    .from('daily_tasks')
-    .delete()
-    .eq('convention_id', conventionId)
-    .select('id');
-  if (taskError) throw taskError;
-  counts.daily_tasks = countRows(tasks);
-
-  const { data: conventionAchievements, error: conventionAchievementsError } = await supabase
-    .from('achievements')
-    .select('id, rule_id')
-    .eq('convention_id', conventionId);
-  if (conventionAchievementsError) throw conventionAchievementsError;
-
-  const achievementIds = [
-    ...new Set(
-      (conventionAchievements ?? [])
-        .map((row) => row.id)
-        .filter((achievementId): achievementId is string => typeof achievementId === 'string'),
-    ),
-  ];
-  if (achievementIds.length > 0) {
-    const { data: userAchievements, error: userAchievementError } = await supabase
-      .from('user_achievements')
-      .delete()
-      .in('achievement_id', achievementIds)
-      .select('id');
-    if (userAchievementError) throw userAchievementError;
-    counts.user_achievements = countRows(userAchievements);
-  } else {
-    counts.user_achievements = 0;
-  }
-
-  const { data: achievements, error: achievementError } = await supabase
-    .from('achievements')
-    .delete()
-    .eq('convention_id', conventionId)
-    .select('id, rule_id');
-  if (achievementError) throw achievementError;
-  counts.achievements = countRows(achievements);
-
-  const ruleIds = [
-    ...new Set(
-      (conventionAchievements ?? [])
-        .map((row) => row.rule_id)
-        .filter((ruleId): ruleId is string => typeof ruleId === 'string'),
-    ),
-  ];
-  if (ruleIds.length > 0) {
-    const { data: retainedRuleRefs, error: retainedRuleError } = await supabase
-      .from('achievements')
-      .select('rule_id')
-      .in('rule_id', ruleIds);
-    if (retainedRuleError) throw retainedRuleError;
-
-    const retainedRuleIds = new Set(
-      (retainedRuleRefs ?? [])
-        .map((row) => row.rule_id)
-        .filter((ruleId): ruleId is string => typeof ruleId === 'string'),
-    );
-    const deletableRuleIds = ruleIds.filter((ruleId) => !retainedRuleIds.has(ruleId));
-
-    if (deletableRuleIds.length > 0) {
-      const { data: rules, error: ruleError } = await supabase
-        .from('achievement_rules')
-        .delete()
-        .in('rule_id', deletableRuleIds)
-        .select('rule_id');
-      if (ruleError) throw ruleError;
-      counts.achievement_rules = countRows(rules);
-    } else {
-      counts.achievement_rules = 0;
-    }
-    counts.achievement_rules_retained = retainedRuleIds.size;
-  } else {
-    counts.achievement_rules = 0;
-    counts.achievement_rules_retained = 0;
-  }
-
-  const { data: suitingSessions, error: suitingError } = await supabase
-    .from('suiting_sessions')
-    .delete()
-    .eq('convention_id', conventionId)
-    .select('id');
-  if (suitingError) {
-    if (!isMissingSchemaRelationError(suitingError)) throw suitingError;
-    cleanupNotes.push('suiting_sessions was not available in the dev API schema; skipped.');
-    counts.suiting_sessions = 0;
-  } else {
-    counts.suiting_sessions = countRows(suitingSessions);
-  }
-
-  const { data: tagActivity, error: tagActivityError } = await supabase
-    .from('tag_activity')
-    .update({ convention_id: null })
-    .eq('convention_id', conventionId)
-    .select('id');
-  if (tagActivityError) {
-    if (!isMissingSchemaRelationError(tagActivityError)) throw tagActivityError;
-    cleanupNotes.push('tag_activity was not available in the dev API schema; skipped.');
-    counts.tag_activity_unlinked = 0;
-  } else {
-    counts.tag_activity_unlinked = countRows(tagActivity);
-  }
-
-  const { data: participantRecaps, error: recapError } = await supabase
-    .from('convention_participant_recaps')
-    .delete()
-    .eq('convention_id', conventionId)
-    .select('id');
-  if (recapError) throw recapError;
-  counts.convention_participant_recaps = countRows(participantRecaps);
-
-  const { data: deletedConvention, error: deleteError } = await supabase
-    .from('conventions')
-    .delete()
-    .eq('id', conventionId)
-    .eq('status', 'archived')
-    .select('id')
-    .single();
-
-  if (deleteError) throw deleteError;
-  if (!deletedConvention) throw new Error('Archived convention was not deleted.');
-
-  await logAudit({
-    actorId: profile.id,
-    action: 'delete_archived_convention_dev',
-    entityType: 'convention',
-    entityId: conventionId,
-    context: {
-      convention_name: convention.name,
-      counts,
-      cleanup_notes: cleanupNotes,
-      dev_only: true,
-    },
-  });
+  if (error) throw error;
 
   revalidatePath('/conventions');
   revalidatePath(`/conventions/${conventionId}`);
 
-  return { deleted: true, counts, cleanupNotes };
+  return {
+    deleted: Boolean(result?.deleted),
+    counts: (result?.counts ?? {}) as Record<string, number>,
+    cleanupNotes: (result?.cleanup_notes ?? []) as string[],
+  };
 }
 
 export async function updateConventionDetailsAction(input: {

@@ -135,14 +135,6 @@ export async function fetchPastConventionRecaps(): Promise<PastConventionRecap[]
   return (data ?? []).map(mapPastConventionRecap);
 }
 
-export const createPastConventionRecapsQueryOptions = () => ({
-  queryKey: [PAST_CONVENTION_RECAPS_QUERY_KEY],
-  queryFn: () => fetchPastConventionRecaps(),
-  staleTime: CONVENTIONS_STALE_TIME,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
-});
-
 export async function fetchActiveProfileConventionIds(profileId: string): Promise<string[]> {
   const client = supabase as any;
   const { data, error } = await client.rpc('get_active_profile_convention_ids', {
