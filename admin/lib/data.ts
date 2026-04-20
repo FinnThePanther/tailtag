@@ -18,6 +18,30 @@ type PlayerSearchResult = {
 };
 
 type ConventionRow = Database['public']['Tables']['conventions']['Row'];
+const CONVENTION_LIST_COLUMNS = [
+  'id',
+  'name',
+  'slug',
+  'start_date',
+  'end_date',
+  'location',
+  'timezone',
+  'config',
+  'latitude',
+  'longitude',
+  'geofence_radius_meters',
+  'geofence_enabled',
+  'location_verification_required',
+  'status',
+  'started_at',
+  'closed_at',
+  'archived_at',
+  'canceled_at',
+  'closeout_summary',
+  'closeout_error',
+] as const satisfies ReadonlyArray<keyof ConventionRow>;
+
+export type ConventionListRow = Pick<ConventionRow, (typeof CONVENTION_LIST_COLUMNS)[number]>;
 
 export async function fetchDashboardSummary() {
   const supabase = createServiceRoleClient();
@@ -110,39 +134,16 @@ export async function fetchPlayerProfile(userId: string) {
   };
 }
 
-export async function fetchConventions(): Promise<ConventionRow[]> {
+export async function fetchConventions(): Promise<ConventionListRow[]> {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from('conventions')
-    .select(
-      [
-        'id',
-        'name',
-        'slug',
-        'start_date',
-        'end_date',
-        'location',
-        'timezone',
-        'config',
-        'latitude',
-        'longitude',
-        'geofence_radius_meters',
-        'geofence_enabled',
-        'location_verification_required',
-        'status',
-        'started_at',
-        'closed_at',
-        'archived_at',
-        'canceled_at',
-        'closeout_summary',
-        'closeout_error',
-      ].join(', '),
-    )
+    .select(CONVENTION_LIST_COLUMNS.join(', '))
     .order('start_date', { ascending: false });
   if (error) {
     throw error;
   }
-  return (data ?? []) as unknown as ConventionRow[];
+  return (data ?? []) as ConventionListRow[];
 }
 
 type EventStaffAssignment = {
@@ -158,7 +159,7 @@ type EventStaffAssignment = {
 };
 
 export async function fetchConvention(conventionId: string): Promise<{
-  convention: ConventionRow | null;
+  convention: ConventionListRow | null;
   staff: EventStaffAssignment[];
 }> {
   const supabase = createServiceRoleClient();
@@ -166,30 +167,7 @@ export async function fetchConvention(conventionId: string): Promise<{
   // TODO: Create event_staff table in database
   const { data: conventionData, error: conventionError } = await supabase
     .from('conventions')
-    .select(
-      [
-        'id',
-        'name',
-        'slug',
-        'start_date',
-        'end_date',
-        'location',
-        'timezone',
-        'config',
-        'latitude',
-        'longitude',
-        'geofence_radius_meters',
-        'geofence_enabled',
-        'location_verification_required',
-        'status',
-        'started_at',
-        'closed_at',
-        'archived_at',
-        'canceled_at',
-        'closeout_summary',
-        'closeout_error',
-      ].join(', '),
-    )
+    .select(CONVENTION_LIST_COLUMNS.join(', '))
     .eq('id', conventionId)
     .single();
 
@@ -223,7 +201,7 @@ export async function fetchConvention(conventionId: string): Promise<{
     } satisfies EventStaffAssignment;
   });
 
-  const convention = (conventionData ?? null) as unknown as ConventionRow | null;
+  const convention = (conventionData ?? null) as ConventionListRow | null;
 
   return { convention, staff };
 }
