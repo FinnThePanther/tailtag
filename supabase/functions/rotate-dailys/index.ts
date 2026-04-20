@@ -97,7 +97,14 @@ type ConventionRow = {
   end_date: string | null;
 };
 
-type RotationSource = 'cron' | 'mobile_fallback' | 'manual' | 'admin_manual';
+type RotationSource =
+  | 'cron'
+  | 'mobile_fallback'
+  | 'manual'
+  | 'admin_manual'
+  | 'admin_detail'
+  | 'create_convention'
+  | 'start_convention';
 
 type RotateOptions = {
   conventionId?: string;
@@ -180,7 +187,10 @@ function parseSource(sourceParam: string | null, hasTarget: boolean): RotationSo
     sourceParam === 'cron' ||
     sourceParam === 'mobile_fallback' ||
     sourceParam === 'manual' ||
-    sourceParam === 'admin_manual'
+    sourceParam === 'admin_manual' ||
+    sourceParam === 'admin_detail' ||
+    sourceParam === 'create_convention' ||
+    sourceParam === 'start_convention'
   ) {
     return sourceParam;
   }
@@ -189,7 +199,13 @@ function parseSource(sourceParam: string | null, hasTarget: boolean): RotationSo
 }
 
 function shouldAudit(source: RotationSource): boolean {
-  return source === 'manual' || source === 'admin_manual';
+  return (
+    source === 'manual' ||
+    source === 'admin_manual' ||
+    source === 'admin_detail' ||
+    source === 'create_convention' ||
+    source === 'start_convention'
+  );
 }
 
 async function writeRotationAudit(

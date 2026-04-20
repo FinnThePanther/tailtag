@@ -40,6 +40,12 @@ export type ConventionCloseoutSource =
   | 'cron_close'
   | 'cron_retry';
 
+export type ConventionDailiesSource =
+  | 'admin_manual'
+  | 'admin_detail'
+  | 'create_convention'
+  | 'start_convention';
+
 export type ConventionCloseoutResult = {
   convention_id: string;
   status: 'archived';
@@ -853,14 +859,18 @@ export async function generateDefaultGameplayPack(
   };
 }
 
-export async function ensureConventionDailies(conventionId: string, actorId: string) {
+export async function ensureConventionDailies(
+  conventionId: string,
+  actorId: string,
+  source: ConventionDailiesSource = 'admin_manual',
+) {
   if (!env.supabaseServiceRoleKey) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY is required to rotate daily tasks.');
   }
 
   const params = new URLSearchParams({
     convention_id: conventionId,
-    source: 'admin_manual',
+    source,
     actor_id: actorId,
   });
 

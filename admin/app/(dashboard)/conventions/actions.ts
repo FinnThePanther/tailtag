@@ -101,7 +101,7 @@ export async function createConventionAction(input: {
       .eq('id', data.id);
     if (statusError) throw statusError;
 
-    rotationResult = await ensureConventionDailies(data.id, profile.id);
+    rotationResult = await ensureConventionDailies(data.id, profile.id, 'create_convention');
     await logAudit({
       actorId: profile.id,
       action: 'rotate_convention_dailies',
@@ -220,7 +220,11 @@ export async function startConventionAction(conventionId: string) {
     .eq('id', conventionId);
   if (error) throw error;
 
-  const rotationResult = await ensureConventionDailies(conventionId, profile.id);
+  const rotationResult = await ensureConventionDailies(
+    conventionId,
+    profile.id,
+    'start_convention',
+  );
 
   await logAudit({
     actorId: profile.id,
@@ -247,7 +251,7 @@ export async function startConventionAction(conventionId: string) {
 export async function rotateConventionDailiesAction(conventionId: string) {
   const { profile } = await assertAdminAction([...CONTENT_ROLES]);
 
-  const result = await ensureConventionDailies(conventionId, profile.id);
+  const result = await ensureConventionDailies(conventionId, profile.id, 'admin_detail');
 
   await logAudit({
     actorId: profile.id,
