@@ -9,12 +9,12 @@ import { TailTagProgressBar } from '../../src/components/ui/TailTagProgressBar';
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader';
 import { useAuth } from '../../src/features/auth';
 import {
-  CONVENTIONS_QUERY_KEY,
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
-  PROFILE_CONVENTIONS_QUERY_KEY,
   type ConventionSummary,
-  fetchConventions,
-  fetchProfileConventionIds,
+  fetchActiveProfileConventionIds,
+  fetchJoinableConventions,
+  JOINABLE_CONVENTIONS_QUERY_KEY,
 } from '../../src/features/conventions';
 import { useDailyTasks } from '../../src/features/daily-tasks';
 import { colors } from '../../src/theme';
@@ -78,8 +78,8 @@ export default function DailyTasksScreen() {
     isLoading: isConventionsLoading,
     error: conventionsError,
   } = useQuery<ConventionSummary[], Error>({
-    queryKey: [CONVENTIONS_QUERY_KEY],
-    queryFn: () => fetchConventions(),
+    queryKey: [JOINABLE_CONVENTIONS_QUERY_KEY],
+    queryFn: () => fetchJoinableConventions(),
     staleTime: CONVENTIONS_STALE_TIME,
     enabled: Boolean(userId),
     refetchOnReconnect: false,
@@ -91,8 +91,8 @@ export default function DailyTasksScreen() {
     isLoading: isProfileConventionsLoading,
     error: profileConventionsError,
   } = useQuery<string[], Error>({
-    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
-    queryFn: () => fetchProfileConventionIds(userId!),
+    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    queryFn: () => fetchActiveProfileConventionIds(userId!),
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnReconnect: false,
@@ -138,6 +138,7 @@ export default function DailyTasksScreen() {
   const progressValue = totalCount > 0 ? Math.min(completedCount / totalCount, 1) : 0;
   const remainingCount = Math.max(totalCount - completedCount, 0);
   const timezone = data?.timezone ?? selectedConvention?.timezone ?? 'UTC';
+  const isDailyTasksUnavailable = data?.availability && data.availability !== 'available';
 
   const isRefreshing = isFetching && !isLoading;
 
@@ -188,7 +189,7 @@ export default function DailyTasksScreen() {
               </TailTagButton>
             </View>
           ) : availableConventions.length === 0 ? (
-            <Text style={styles.message}>Opt into a convention to unlock daily tasks.</Text>
+            <Text style={styles.message}>Join a live convention to use convention features.</Text>
           ) : (
             <View style={styles.selectorRow}>
               {availableConventions.map((convention) => (
@@ -264,15 +265,21 @@ export default function DailyTasksScreen() {
             <View style={styles.progressFooter}>
               <Text style={styles.progressHelper}>
                 {!selectedConventionId
-                  ? 'Pick a convention to begin.'
-                  : totalCount === 0
-                    ? "Today's lineup is being prepared."
-                    : allComplete
-                      ? 'All tasks complete - great job!'
-                      : `${remainingCount} task${remainingCount === 1 ? '' : 's'} remaining`}
+                  ? 'Join a live convention to begin.'
+                  : isDailyTasksUnavailable
+                    ? 'Daily tasks are only available while this convention is live.'
+                    : totalCount === 0
+                      ? "Today's lineup is being prepared."
+                      : allComplete
+                        ? 'All tasks complete - great job!'
+                        : `${remainingCount} task${remainingCount === 1 ? '' : 's'} remaining`}
               </Text>
               <Text style={styles.countdownLabel}>
-                {selectedConventionId ? `Resets in ${countdown}` : 'Select a convention to start'}
+                {!selectedConventionId
+                  ? 'No reset scheduled'
+                  : isDailyTasksUnavailable
+                    ? 'No reset scheduled'
+                    : `Resets in ${countdown}`}
               </Text>
             </View>
           </View>
@@ -283,7 +290,7 @@ export default function DailyTasksScreen() {
 
           {!selectedConventionId ? (
             <View style={styles.helper}>
-              <Text style={styles.message}>Select a convention to view tasks.</Text>
+              <Text style={styles.message}>Join a live convention to use convention features.</Text>
               <TailTagButton
                 variant="outline"
                 size="sm"
@@ -305,6 +312,10 @@ export default function DailyTasksScreen() {
                 Try again
               </TailTagButton>
             </View>
+          ) : isDailyTasksUnavailable ? (
+            <Text style={styles.message}>
+              Daily tasks are only available while this convention is live.
+            </Text>
           ) : tasks.length === 0 ? (
             <Text style={styles.message}>No tasks available right now. Check back shortly.</Text>
           ) : (

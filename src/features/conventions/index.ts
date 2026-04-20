@@ -1,11 +1,14 @@
-export type { ConventionSummary, VerifiedLocation } from './api/conventions';
+export type { ConventionSummary, PastConventionRecap, VerifiedLocation } from './api/conventions';
 export {
-  fetchConventions,
-  CONVENTIONS_QUERY_KEY,
+  fetchJoinableConventions,
+  fetchPastConventionRecaps,
+  JOINABLE_CONVENTIONS_QUERY_KEY,
+  PAST_CONVENTION_RECAPS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
-  PROFILE_CONVENTIONS_QUERY_KEY,
-  createConventionsQueryOptions,
-  fetchProfileConventionIds,
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
+  createJoinableConventionsQueryOptions,
+  fetchActiveProfileConventionIds,
+  fetchActiveSharedConventionIds,
   optInToConvention,
   optOutOfConvention,
   addFursuitConvention,
@@ -16,4 +19,4 @@ export {
   type LocationVerificationRequest,
   type LocationVerificationResponse,
 } from './api/geoVerification';
-export { formatConventionDateRange, isConventionEnded, isConventionActive } from './utils';
+export { formatConventionDateRange, isConventionEnded } from './utils';

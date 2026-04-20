@@ -27,6 +27,8 @@ export type DailyTaskProgress = DailyTaskRecord & {
   completedAt: string | null;
 };
 
+export type DailyTasksAvailability = 'available' | 'not_live' | 'outside_date_window';
+
 export type DailyTasksSummary = {
   day: string;
   tasks: DailyTaskProgress[];
@@ -42,6 +44,7 @@ export type DailyTasksSummary = {
     best: number;
     lastCompletedDay: string | null;
   };
+  availability: DailyTasksAvailability;
 };
 
 type FetchDailyTasksParams = {
@@ -66,9 +69,12 @@ const EMPTY_STREAK = {
   lastCompletedDay: null as string | null,
 };
 
-type ConventionTimezoneRow = {
+type ConventionDailyTasksRow = {
   id: string;
   timezone: string;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
 };
 
 type AssignmentsQueryResult = {
@@ -242,6 +248,47 @@ function computeResetMetadata(timezone: string, nowUtc: Date) {
   };
 }
 
+function getDailyTasksAvailability(
+  convention: ConventionDailyTasksRow,
+  localDay: string,
+): DailyTasksAvailability {
+  if (convention.status !== 'live') {
+    return 'not_live';
+  }
+
+  if (
+    (convention.start_date && localDay < convention.start_date) ||
+    (convention.end_date && localDay > convention.end_date)
+  ) {
+    return 'outside_date_window';
+  }
+
+  return 'available';
+}
+
+function buildUnavailableSummary(
+  conventionId: string,
+  timezone: string,
+  day: string,
+  resetAt: string,
+  millisecondsUntilReset: number,
+  availability: Exclude<DailyTasksAvailability, 'available'>,
+): DailyTasksSummary {
+  return {
+    day,
+    tasks: [],
+    totalCount: 0,
+    completedCount: 0,
+    remainingCount: 0,
+    conventionId,
+    timezone,
+    resetAt,
+    millisecondsUntilReset,
+    streak: { ...EMPTY_STREAK },
+    availability,
+  };
+}
+
 async function loadAssignments(conventionId: string, day: string): Promise<AssignmentsQueryResult> {
   const result = await supabase
     .from('daily_assignments')
@@ -291,18 +338,20 @@ async function ensureAssignmentsForDay(
   }
 
   try {
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/rotate-dailys?convention_id=${encodeURIComponent(conventionId)}`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          apikey: supabaseKey,
-          'Content-Type': 'application/json',
-        },
-        body: '{}',
+    const params = new URLSearchParams({
+      convention_id: conventionId,
+      source: 'mobile_fallback',
+    });
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/rotate-dailys?${params.toString()}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        apikey: supabaseKey,
+        'Content-Type': 'application/json',
       },
-    );
+      body: '{}',
+    });
 
     if (!response.ok) {
       const responseBody = await response.text().catch(() => null);
@@ -355,7 +404,7 @@ export async function fetchDailyTasks({
 }: FetchDailyTasksParams): Promise<DailyTasksSummary> {
   const { data: conventionRow, error: conventionError } = await supabase
     .from('conventions')
-    .select('id, timezone')
+    .select('id, timezone, status, start_date, end_date')
     .eq('id', conventionId)
     .maybeSingle();
 
@@ -376,14 +425,26 @@ export async function fetchDailyTasks({
     throw new Error('That convention is no longer available.');
   }
 
-  const convention = conventionRow as ConventionTimezoneRow;
-  const timezone = convention.timezone ?? 'UTC';
+  const convention = conventionRow as ConventionDailyTasksRow;
+  const timezone = convention.timezone || 'UTC';
   const nowUtc = new Date();
   const {
     day: localDay,
     resetAtIso,
     millisecondsUntilReset,
   } = computeResetMetadata(timezone, nowUtc);
+
+  const availability = getDailyTasksAvailability(convention, localDay);
+  if (availability !== 'available') {
+    return buildUnavailableSummary(
+      conventionId,
+      timezone,
+      localDay,
+      resetAtIso,
+      millisecondsUntilReset,
+      availability,
+    );
+  }
 
   const progressPromise = supabase
     .from('user_daily_progress')
@@ -488,5 +549,6 @@ export async function fetchDailyTasks({
     resetAt: resetAtIso,
     millisecondsUntilReset,
     streak,
+    availability: 'available',
   } satisfies DailyTasksSummary;
 }

@@ -324,8 +324,88 @@ export type Database = {
           },
         ]
       }
+      convention_participant_recaps: {
+        Row: {
+          achievements_unlocked_count: number
+          catch_count: number
+          convention_id: string
+          created_at: string
+          daily_tasks_completed_count: number
+          final_rank: number | null
+          fursuits_caught_count: number
+          generated_at: string
+          id: string
+          joined_at: string | null
+          left_at: string | null
+          own_fursuits_caught_count: number
+          profile_id: string
+          summary: Json
+          unique_catchers_for_own_fursuits_count: number
+          unique_fursuits_caught_count: number
+          updated_at: string
+        }
+        Insert: {
+          achievements_unlocked_count?: number
+          catch_count?: number
+          convention_id: string
+          created_at?: string
+          daily_tasks_completed_count?: number
+          final_rank?: number | null
+          fursuits_caught_count?: number
+          generated_at?: string
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          own_fursuits_caught_count?: number
+          profile_id: string
+          summary?: Json
+          unique_catchers_for_own_fursuits_count?: number
+          unique_fursuits_caught_count?: number
+          updated_at?: string
+        }
+        Update: {
+          achievements_unlocked_count?: number
+          catch_count?: number
+          convention_id?: string
+          created_at?: string
+          daily_tasks_completed_count?: number
+          final_rank?: number | null
+          fursuits_caught_count?: number
+          generated_at?: string
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          own_fursuits_caught_count?: number
+          profile_id?: string
+          summary?: Json
+          unique_catchers_for_own_fursuits_count?: number
+          unique_fursuits_caught_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "convention_participant_recaps_convention_id_fkey"
+            columns: ["convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "convention_participant_recaps_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conventions: {
         Row: {
+          archived_at: string | null
+          canceled_at: string | null
+          closed_at: string | null
+          closeout_error: string | null
+          closeout_summary: Json
           config: Json
           created_at: string
           end_date: string | null
@@ -339,10 +419,17 @@ export type Database = {
           name: string
           slug: string
           start_date: string | null
+          started_at: string | null
+          status: string
           timezone: string
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          canceled_at?: string | null
+          closed_at?: string | null
+          closeout_error?: string | null
+          closeout_summary?: Json
           config?: Json
           created_at?: string
           end_date?: string | null
@@ -356,10 +443,17 @@ export type Database = {
           name: string
           slug: string
           start_date?: string | null
+          started_at?: string | null
+          status?: string
           timezone?: string
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          canceled_at?: string | null
+          closed_at?: string | null
+          closeout_error?: string | null
+          closeout_summary?: Json
           config?: Json
           created_at?: string
           end_date?: string | null
@@ -373,6 +467,8 @@ export type Database = {
           name?: string
           slug?: string
           start_date?: string | null
+          started_at?: string | null
+          status?: string
           timezone?: string
           updated_at?: string
         }
@@ -1898,6 +1994,15 @@ export type Database = {
             }
             Returns: Json
           }
+      delete_archived_convention_in_dev: {
+        Args: { p_actor_id: string; p_convention_id: string }
+        Returns: {
+          cleanup_notes: string[]
+          convention_name: string
+          counts: Json
+          deleted: boolean
+        }[]
+      }
       delete_gameplay_event_queue_message: {
         Args: { p_message_id: number }
         Returns: boolean
@@ -1936,6 +2041,18 @@ export type Database = {
         Args: { app_meta: Json; user_email: string; user_meta: Json }
         Returns: string
       }
+      get_active_profile_convention_ids: {
+        Args: { p_profile_id: string }
+        Returns: {
+          convention_id: string
+        }[]
+      }
+      get_active_shared_convention_ids: {
+        Args: { p_fursuit_id: string; p_profile_id: string }
+        Returns: {
+          convention_id: string
+        }[]
+      }
       get_blocked_users: {
         Args: { p_user_id: string }
         Returns: {
@@ -1958,6 +2075,29 @@ export type Database = {
           unique_fursuits: number
           unique_species: number
           username: string
+        }[]
+      }
+      get_convention_lifecycle_health_counts: {
+        Args: {
+          p_convention_ids: string[]
+          p_local_days?: Json
+          p_retry_window_start?: string
+          p_throttle_window_start?: string
+        }
+        Returns: {
+          accepted_convention_catches_count: number
+          active_fursuit_assignments_count: number
+          active_profile_memberships_count: number
+          automation_retry_attempts_last_7_days: number
+          convention_id: string
+          convention_tasks_count: number
+          last_automation_attempt_at: string
+          last_automation_source: string
+          participant_recaps_count: number
+          pending_convention_catches_count: number
+          recent_cron_close_attempt: boolean
+          recent_cron_retry_attempt: boolean
+          today_assignments_count: number
         }[]
       }
       get_event_dashboard_summary: {
@@ -1989,6 +2129,46 @@ export type Database = {
           pending_approval: number
           total_achievements: number
           total_catches: number
+        }[]
+      }
+      get_joinable_conventions: {
+        Args: never
+        Returns: {
+          end_date: string
+          geofence_enabled: boolean
+          geofence_radius_meters: number
+          id: string
+          is_joinable: boolean
+          latitude: number
+          local_day: string
+          location: string
+          location_verification_required: boolean
+          longitude: number
+          name: string
+          slug: string
+          start_date: string
+          status: string
+          timezone: string
+        }[]
+      }
+      get_my_convention_recaps: {
+        Args: never
+        Returns: {
+          achievements_unlocked_count: number
+          catch_count: number
+          convention_id: string
+          convention_name: string
+          daily_tasks_completed_count: number
+          end_date: string
+          final_rank: number
+          generated_at: string
+          location: string
+          own_fursuits_caught_count: number
+          recap_id: string
+          start_date: string
+          summary: Json
+          unique_catchers_for_own_fursuits_count: number
+          unique_fursuits_caught_count: number
         }[]
       }
       get_pending_catch_count: { Args: { p_user_id: string }; Returns: number }
@@ -2043,6 +2223,10 @@ export type Database = {
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean }
       is_blocked: {
         Args: { p_user_a: string; p_user_b: string }
+        Returns: boolean
+      }
+      is_convention_joinable: {
+        Args: { p_convention_id: string }
         Returns: boolean
       }
       is_event_staff: {
@@ -2344,6 +2528,9 @@ export type FursuitSocialLink = {
 export type FursuitsRow = Database['public']['Tables']['fursuits']['Row'];
 export type FursuitsInsert = Database['public']['Tables']['fursuits']['Insert'];
 export type FursuitBiosInsert = Database['public']['Tables']['fursuit_bios']['Insert'];
+export type ConventionStatus = Database['public']['Tables']['conventions']['Row']['status'];
+export type ConventionParticipantRecapRow =
+  Database['public']['Tables']['convention_participant_recaps']['Row'];
 export type AchievementCategory = Database['public']['Enums']['achievement_category'];
 export type AchievementRecipientRole = Database['public']['Enums']['achievement_recipient_role'];
 export type AchievementTriggerEvent = Database['public']['Enums']['achievement_trigger_event'];

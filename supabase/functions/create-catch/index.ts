@@ -260,6 +260,17 @@ async function handlePost(req: Request): Promise<Response> {
       if (error.message?.includes('already caught')) {
         return jsonResponse(400, { error: 'Fursuit already caught at this convention' });
       }
+      if (error.message?.includes('Convention is not live')) {
+        return jsonResponse(400, { error: 'Convention is not live' });
+      }
+      if (
+        error.message?.includes('Catcher must join the live convention') ||
+        error.message?.includes('Fursuit must be assigned to the live convention')
+      ) {
+        return jsonResponse(400, {
+          error: 'You and this fursuit must share a live convention before catching.',
+        });
+      }
       if (error.message?.includes('not found')) {
         return jsonResponse(404, { error: 'Fursuit not found' });
       }

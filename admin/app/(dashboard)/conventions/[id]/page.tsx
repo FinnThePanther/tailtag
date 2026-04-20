@@ -9,22 +9,61 @@ import { ConventionConfigForm } from '@/components/convention-config-form';
 import { ConventionDetailsForm } from '@/components/convention-details-form';
 import { ConventionTasksCard } from '@/components/convention-tasks-card';
 import { ConventionAchievementsCard } from '@/components/convention-achievements-card';
+import { ConventionLifecycleCard } from '@/components/convention-lifecycle-card';
+import {
+  buildConventionLifecycleHealth,
+  buildConventionReadiness,
+} from '@/lib/convention-lifecycle';
+import { isDevSupabaseProject } from '@/lib/env';
+import { createServiceRoleClient } from '@/lib/supabase/service';
 
-export default async function ConventionDetail({ params }: { params: { id: string } }) {
-  const [{ convention, staff }, tasks, achievements] = await Promise.all([
-    fetchConvention(params.id),
-    fetchConventionTasks(params.id),
-    fetchConventionAchievements(params.id),
-  ]);
+export default async function ConventionDetail({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { startSkipped?: string };
+}) {
+  const { convention, staff } = await fetchConvention(params.id);
 
   if (!convention) {
     notFound();
   }
 
+  const supabase = createServiceRoleClient();
+  const [tasks, achievements, readiness, health] = await Promise.all([
+    fetchConventionTasks(params.id),
+    fetchConventionAchievements(params.id),
+    buildConventionReadiness(convention, supabase),
+    buildConventionLifecycleHealth(convention, supabase),
+  ]);
+
   const config = normalizeConfig(convention.config);
+  const startSkippedCopy = getStartSkippedCopy(searchParams?.startSkipped);
 
   return (
     <div className="space-y-4">
+      {startSkippedCopy ? (
+        <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+          {startSkippedCopy}
+        </div>
+      ) : null}
+
+      <ConventionLifecycleCard
+        conventionId={convention.id}
+        status={convention.status}
+        startDate={convention.start_date ?? null}
+        endDate={convention.end_date ?? null}
+        timezone={convention.timezone ?? 'UTC'}
+        closedAt={convention.closed_at ?? null}
+        archivedAt={convention.archived_at ?? null}
+        closeoutError={convention.closeout_error ?? null}
+        closeoutSummary={(convention.closeout_summary as Record<string, unknown> | null) ?? null}
+        readiness={readiness}
+        health={health}
+        showDevDelete={isDevSupabaseProject()}
+      />
+
       <Card
         title="Convention Details"
         subtitle="Basic information about this event"
@@ -154,6 +193,19 @@ export default async function ConventionDetail({ params }: { params: { id: strin
       />
     </div>
   );
+}
+
+function getStartSkippedCopy(reason: string | undefined) {
+  switch (reason) {
+    case 'before_window':
+      return 'Convention created. It was not started because its local start date is still in the future.';
+    case 'after_window':
+      return 'Convention created. It was not started because its local date window has already ended.';
+    case 'not_ready':
+      return 'Convention created. It was not started because readiness checks still need attention.';
+    default:
+      return null;
+  }
 }
 
 function Info({

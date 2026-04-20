@@ -6,6 +6,13 @@ import { revalidatePath } from 'next/cache';
 import { assertAdminAction } from '@/lib/auth';
 import { createServiceRoleClient } from '@/lib/supabase/service';
 import { logAudit } from '@/lib/audit';
+import { isDevSupabaseProject } from '@/lib/env';
+import {
+  closeOutConvention,
+  ensureConventionDailies,
+  fetchConventionReadiness,
+  generateDefaultGameplayPack,
+} from '@/lib/convention-lifecycle';
 
 const CONFIG_ROLES = ['owner', 'organizer'] as const;
 const CONTENT_ROLES = ['owner', 'organizer'] as const;
@@ -16,10 +23,16 @@ const DEFAULT_CONFIG = {
   feature_flags: { staff_mode: true },
 };
 
+type StartSkippedReason = 'before_window' | 'after_window' | 'not_ready';
+
 function validateSlug(slug: string) {
   if (!slug.trim()) throw new Error('Slug is required.');
   if (!/^[a-z0-9-]+$/.test(slug))
     throw new Error('Slug must only contain lowercase letters, numbers, and hyphens.');
+}
+
+function actionErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Unknown error';
 }
 
 export async function createConventionAction(input: {
@@ -29,6 +42,8 @@ export async function createConventionAction(input: {
   endDate: string | null;
   location: string | null;
   timezone: string;
+  createDefaultGameplayPack: boolean;
+  startImmediately: boolean;
 }) {
   const { profile } = await assertAdminAction([...CONFIG_ROLES]);
   const supabase = createServiceRoleClient();
@@ -46,6 +61,7 @@ export async function createConventionAction(input: {
       location: input.location?.trim() || null,
       timezone: input.timezone || 'UTC',
       config: DEFAULT_CONFIG,
+      status: 'draft',
     })
     .select('id')
     .single();
@@ -57,10 +73,404 @@ export async function createConventionAction(input: {
     action: 'create_convention',
     entityType: 'convention',
     entityId: data.id,
-    context: { name: input.name, slug: input.slug },
+    context: {
+      name: input.name,
+      slug: input.slug,
+      create_default_gameplay_pack: input.createDefaultGameplayPack,
+      start_immediately: input.startImmediately,
+    },
   });
 
-  redirect(`/conventions/${data.id}`);
+  let packResult = null;
+  if (input.createDefaultGameplayPack) {
+    packResult = await generateDefaultGameplayPack(data.id, supabase);
+    await logAudit({
+      actorId: profile.id,
+      action: 'generate_convention_gameplay_pack',
+      entityType: 'convention',
+      entityId: data.id,
+      context: { ...packResult, during_create: true },
+    });
+  }
+
+  const readiness = await fetchConventionReadiness(data.id, supabase);
+  let finalStatus = 'draft';
+  let rotationResult = null;
+  let startSkippedReason: StartSkippedReason | null = null;
+
+  if (input.startImmediately && readiness.canStart) {
+    const { data: updatedConvention, error: statusError } = await supabase
+      .from('conventions')
+      .update({ status: 'live', started_at: new Date().toISOString() })
+      .eq('id', data.id)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle();
+    if (statusError) throw statusError;
+    if (!updatedConvention) {
+      throw new Error(
+        'Convention status changed before it could be started. Refresh and try again.',
+      );
+    }
+
+    finalStatus = 'live';
+
+    try {
+      rotationResult = await ensureConventionDailies(data.id, profile.id, 'create_convention');
+      await logAudit({
+        actorId: profile.id,
+        action: 'rotate_convention_dailies',
+        entityType: 'convention',
+        entityId: data.id,
+        context: { source: 'create_convention', result: rotationResult },
+      });
+    } catch (error) {
+      const message = actionErrorMessage(error);
+      rotationResult = { error: message };
+      await logAudit({
+        actorId: profile.id,
+        action: 'rotate_convention_dailies_failed',
+        entityType: 'convention',
+        entityId: data.id,
+        context: { source: 'create_convention', error: message },
+      });
+    }
+  } else if (readiness.canSchedule) {
+    const { data: updatedConvention, error: statusError } = await supabase
+      .from('conventions')
+      .update({ status: 'scheduled' })
+      .eq('id', data.id)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle();
+    if (statusError) throw statusError;
+    if (!updatedConvention) {
+      throw new Error(
+        'Convention status changed before it could be scheduled. Refresh and try again.',
+      );
+    }
+
+    finalStatus = 'scheduled';
+    if (input.startImmediately && readiness.dateState === 'before_window') {
+      startSkippedReason = 'before_window';
+    }
+  } else if (input.startImmediately) {
+    startSkippedReason = readiness.dateState === 'after_window' ? 'after_window' : 'not_ready';
+
+    await logAudit({
+      actorId: profile.id,
+      action: 'start_convention_skipped',
+      entityType: 'convention',
+      entityId: data.id,
+      context: {
+        source: 'create_convention',
+        reason: startSkippedReason,
+        readiness,
+      },
+    });
+  }
+
+  if (finalStatus !== 'draft') {
+    await logAudit({
+      actorId: profile.id,
+      action: 'update_convention_lifecycle',
+      entityType: 'convention',
+      entityId: data.id,
+      context: {
+        from: 'draft',
+        to: finalStatus,
+        readiness,
+        pack_result: packResult,
+        rotation_result: rotationResult,
+      },
+    });
+  }
+
+  revalidatePath('/conventions');
+  revalidatePath(`/conventions/${data.id}`);
+
+  const redirectPath = startSkippedReason
+    ? `/conventions/${data.id}?startSkipped=${startSkippedReason}`
+    : `/conventions/${data.id}`;
+
+  redirect(redirectPath);
+}
+
+export async function generateConventionGameplayPackAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  const result = await generateDefaultGameplayPack(conventionId, supabase);
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'generate_convention_gameplay_pack',
+    entityType: 'convention',
+    entityId: conventionId,
+    context: result,
+  });
+
+  revalidatePath(`/conventions/${conventionId}`);
+
+  return result;
+}
+
+export async function runConventionReadinessCheckAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  const readiness = await fetchConventionReadiness(conventionId, supabase);
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'run_convention_readiness_check',
+    entityType: 'convention',
+    entityId: conventionId,
+    context: readiness,
+  });
+
+  revalidatePath(`/conventions/${conventionId}`);
+
+  return readiness;
+}
+
+export async function startConventionAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+  const supabase = createServiceRoleClient();
+
+  const { data: current, error: currentError } = await supabase
+    .from('conventions')
+    .select('status, started_at')
+    .eq('id', conventionId)
+    .single();
+
+  if (currentError) throw currentError;
+  if (!current) throw new Error('Convention not found.');
+  if (current.status === 'live') throw new Error('Convention is already live.');
+
+  const readiness = await fetchConventionReadiness(conventionId, supabase);
+  if (!readiness.ready) {
+    throw new Error(readiness.blockingIssues.join(' '));
+  }
+
+  if (readiness.dateState === 'before_window') {
+    if (current.status === 'scheduled') {
+      revalidatePath('/conventions');
+      revalidatePath(`/conventions/${conventionId}`);
+
+      return { status: 'scheduled' as const, readiness };
+    }
+
+    const { data: updatedConvention, error } = await supabase
+      .from('conventions')
+      .update({ status: 'scheduled' })
+      .eq('id', conventionId)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle();
+    if (error) throw error;
+    if (!updatedConvention) {
+      throw new Error(
+        'Convention status changed before it could be scheduled. Refresh and try again.',
+      );
+    }
+
+    await logAudit({
+      actorId: profile.id,
+      action: 'update_convention_lifecycle',
+      entityType: 'convention',
+      entityId: conventionId,
+      context: { from: current.status, to: 'scheduled', readiness },
+    });
+
+    revalidatePath('/conventions');
+    revalidatePath(`/conventions/${conventionId}`);
+
+    return { status: 'scheduled' as const, readiness };
+  }
+
+  if (readiness.dateState !== 'inside_window') {
+    throw new Error('Convention can only be started inside its local date window.');
+  }
+
+  const { data: updatedConvention, error } = await supabase
+    .from('conventions')
+    .update({
+      status: 'live',
+      started_at: current.started_at ?? new Date().toISOString(),
+    })
+    .eq('id', conventionId)
+    .in('status', ['draft', 'scheduled'])
+    .select('id')
+    .maybeSingle();
+  if (error) throw error;
+  if (!updatedConvention) {
+    throw new Error('Convention status changed before it could be started. Refresh and try again.');
+  }
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'update_convention_lifecycle',
+    entityType: 'convention',
+    entityId: conventionId,
+    context: { from: current.status, to: 'live', readiness },
+  });
+
+  let rotationResult;
+  try {
+    rotationResult = await ensureConventionDailies(conventionId, profile.id, 'start_convention');
+  } catch (error) {
+    const message = actionErrorMessage(error);
+    await logAudit({
+      actorId: profile.id,
+      action: 'rotate_convention_dailies_failed',
+      entityType: 'convention',
+      entityId: conventionId,
+      context: { source: 'start_convention', error: message },
+    });
+
+    revalidatePath('/conventions');
+    revalidatePath(`/conventions/${conventionId}`);
+
+    throw new Error(`Convention started, but daily task rotation failed: ${message}`);
+  }
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'rotate_convention_dailies',
+    entityType: 'convention',
+    entityId: conventionId,
+    context: { source: 'start_convention', result: rotationResult },
+  });
+
+  revalidatePath('/conventions');
+  revalidatePath(`/conventions/${conventionId}`);
+
+  return { status: 'live' as const, readiness, rotationResult };
+}
+
+export async function rotateConventionDailiesAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
+
+  const result = await ensureConventionDailies(conventionId, profile.id, 'admin_detail');
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'rotate_convention_dailies',
+    entityType: 'convention',
+    entityId: conventionId,
+    context: { source: 'admin_detail', result },
+  });
+
+  revalidatePath(`/conventions/${conventionId}`);
+
+  return result;
+}
+
+export async function closeConventionAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'request_convention_closeout',
+    entityType: 'convention',
+    entityId: conventionId,
+    context: { source: 'admin_close' },
+  });
+
+  const result = await closeOutConvention(conventionId, profile.id, 'admin_close');
+
+  revalidatePath('/conventions');
+  revalidatePath(`/conventions/${conventionId}`);
+
+  return result;
+}
+
+export async function retryConventionCloseoutAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'request_convention_closeout_retry',
+    entityType: 'convention',
+    entityId: conventionId,
+    context: { source: 'admin_retry' },
+  });
+
+  const result = await closeOutConvention(conventionId, profile.id, 'admin_retry');
+
+  revalidatePath('/conventions');
+  revalidatePath(`/conventions/${conventionId}`);
+
+  return result;
+}
+
+export async function regenerateConventionRecapsAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+
+  await logAudit({
+    actorId: profile.id,
+    action: 'regenerate_convention_recaps_attempt',
+    entityType: 'convention',
+    entityId: conventionId,
+    context: { source: 'admin_regenerate' },
+  });
+
+  try {
+    const result = await closeOutConvention(conventionId, profile.id, 'admin_regenerate', {
+      forceRegenerate: true,
+    });
+
+    await logAudit({
+      actorId: profile.id,
+      action: 'regenerate_convention_recaps_complete',
+      entityType: 'convention',
+      entityId: conventionId,
+      context: result,
+    });
+
+    revalidatePath('/conventions');
+    revalidatePath(`/conventions/${conventionId}`);
+
+    return result;
+  } catch (error) {
+    await logAudit({
+      actorId: profile.id,
+      action: 'regenerate_convention_recaps_failed',
+      entityType: 'convention',
+      entityId: conventionId,
+      context: { error: error instanceof Error ? error.message : 'Unknown error' },
+    });
+    throw error;
+  }
+}
+
+export async function deleteArchivedConventionInDevAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+
+  if (!isDevSupabaseProject()) {
+    throw new Error('Archived convention deletion is only available in the dev Supabase project.');
+  }
+
+  const supabase = createServiceRoleClient();
+
+  const { data: result, error } = await (supabase as any)
+    .rpc('delete_archived_convention_in_dev', {
+      p_actor_id: profile.id,
+      p_convention_id: conventionId,
+    })
+    .single();
+
+  if (error) throw error;
+
+  revalidatePath('/conventions');
+  revalidatePath(`/conventions/${conventionId}`);
+
+  return {
+    deleted: Boolean(result?.deleted),
+    counts: (result?.counts ?? {}) as Record<string, number>,
+    cleanupNotes: (result?.cleanup_notes ?? []) as string[],
+  };
 }
 
 export async function updateConventionDetailsAction(input: {

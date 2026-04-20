@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '../../auth';
 import {
-  PROFILE_CONVENTIONS_QUERY_KEY,
-  fetchProfileConventionIds,
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
+  fetchActiveProfileConventionIds,
 } from '../../conventions/api/conventions';
 import { useDailyTasks } from '../hooks';
 
@@ -23,8 +23,10 @@ export function DailyTaskToastManager() {
   const userId = session?.user.id ?? null;
 
   const { data: conventionIds = [] } = useQuery({
-    queryKey: userId ? [PROFILE_CONVENTIONS_QUERY_KEY, userId] : ['profile-conventions', 'anon'],
-    queryFn: () => fetchProfileConventionIds(userId ?? ''),
+    queryKey: userId
+      ? [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId]
+      : ['active-profile-conventions', 'anon'],
+    queryFn: () => fetchActiveProfileConventionIds(userId ?? ''),
     enabled: Boolean(userId),
     staleTime: 5 * 60 * 1000,
     refetchOnReconnect: false,
