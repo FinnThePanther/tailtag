@@ -187,11 +187,19 @@ export async function startConventionAction(conventionId: string) {
   }
 
   if (readiness.dateState === 'before_window') {
-    const { error } = await supabase
+    const { data: updatedConvention, error } = await supabase
       .from('conventions')
       .update({ status: 'scheduled' })
-      .eq('id', conventionId);
+      .eq('id', conventionId)
+      .in('status', ['draft', 'scheduled'])
+      .select('id')
+      .maybeSingle();
     if (error) throw error;
+    if (!updatedConvention) {
+      throw new Error(
+        'Convention status changed before it could be scheduled. Refresh and try again.',
+      );
+    }
 
     await logAudit({
       actorId: profile.id,
@@ -211,14 +219,20 @@ export async function startConventionAction(conventionId: string) {
     throw new Error('Convention can only be started inside its local date window.');
   }
 
-  const { error } = await supabase
+  const { data: updatedConvention, error } = await supabase
     .from('conventions')
     .update({
       status: 'live',
       started_at: current.started_at ?? new Date().toISOString(),
     })
-    .eq('id', conventionId);
+    .eq('id', conventionId)
+    .in('status', ['draft', 'scheduled'])
+    .select('id')
+    .maybeSingle();
   if (error) throw error;
+  if (!updatedConvention) {
+    throw new Error('Convention status changed before it could be started. Refresh and try again.');
+  }
 
   const rotationResult = await ensureConventionDailies(
     conventionId,

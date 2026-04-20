@@ -986,12 +986,14 @@ async function ensureDefaultTasks(supabase: ServiceClient, conventionId: string)
     metadata: Record<string, unknown>;
     ruleId?: string | null;
   }) => {
+    const sourceTaskId =
+      typeof task.metadata.sourceTaskId === 'string' ? task.metadata.sourceTaskId : null;
     const match = trackedTasks.find((existingTask) => {
       const metadata = metadataRecord(existingTask.metadata);
       return (
         existingTask.name === task.name ||
         metadata.defaultPackKey === task.key ||
-        metadata.sourceTaskId === task.key
+        (sourceTaskId !== null && metadata.sourceTaskId === sourceTaskId)
       );
     });
 
