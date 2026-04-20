@@ -141,7 +141,7 @@ export function PhotoCatchCard({
 
     try {
       const sharedConventionIds = await fetchActiveSharedConventionIds(userId, selectedFursuit.id);
-      sharedConventionId = conventionIds.find((id) => sharedConventionIds.includes(id)) ?? null;
+      sharedConventionId = sharedConventionIds[0] ?? null;
 
       if (!sharedConventionId) {
         setLocalError(
