@@ -415,7 +415,11 @@ export async function buildConventionLifecycleHealth(
       .select('action, context, created_at')
       .eq('entity_type', 'convention')
       .eq('entity_id', convention.id)
-      .in('action', ['close_convention_attempt', 'close_convention_noop'])
+      .in('action', [
+        'close_convention_attempt',
+        'close_convention_noop',
+        'regenerate_convention_recaps_attempt',
+      ])
       .order('created_at', { ascending: false })
       .limit(100),
   ]);
@@ -648,16 +652,26 @@ function getAutomationAuditSummary<
     created_at: string;
   },
 >(auditRows: T[], sevenDaysAgo: string, sixHoursAgo: string) {
-  const automationAuditRows = auditRows.filter((row) => {
+  const closeoutAuditRows = auditRows.filter((row) => {
+    const context = row.context as Record<string, unknown> | null;
+    return (
+      context?.source === 'cron_close' ||
+      context?.source === 'cron_retry' ||
+      context?.source === 'admin_close' ||
+      context?.source === 'admin_retry' ||
+      context?.source === 'admin_regenerate'
+    );
+  });
+  const automationAuditRows = closeoutAuditRows.filter((row) => {
     const context = row.context as Record<string, unknown> | null;
     return context?.source === 'cron_close' || context?.source === 'cron_retry';
   });
-  const lastAutomationAttempt = automationAuditRows[0] ?? null;
-  const lastCronCloseAttempt = automationAuditRows.find((row) => {
+  const lastCloseoutAttempt = closeoutAuditRows[0] ?? null;
+  const lastCronCloseAttempt = closeoutAuditRows.find((row) => {
     const context = row.context as Record<string, unknown> | null;
     return row.action === 'close_convention_attempt' && context?.source === 'cron_close';
   });
-  const lastCronRetryAttempt = automationAuditRows.find((row) => {
+  const lastCronRetryAttempt = closeoutAuditRows.find((row) => {
     const context = row.context as Record<string, unknown> | null;
     return row.action === 'close_convention_attempt' && context?.source === 'cron_retry';
   });
@@ -671,10 +685,9 @@ function getAutomationAuditSummary<
   }).length;
 
   return {
-    lastAutomationAttemptAt: lastAutomationAttempt?.created_at ?? null,
+    lastAutomationAttemptAt: lastCloseoutAttempt?.created_at ?? null,
     lastAutomationSource:
-      ((lastAutomationAttempt?.context as Record<string, unknown> | null)?.source as string) ??
-      null,
+      ((lastCloseoutAttempt?.context as Record<string, unknown> | null)?.source as string) ?? null,
     retryAttemptsLast7Days,
     recentCronCloseAttempt:
       Boolean(lastCronCloseAttempt?.created_at) && lastCronCloseAttempt!.created_at >= sixHoursAgo,

@@ -85,12 +85,18 @@ export function ConventionLifecycleCard({
   };
 
   const lifecycleCopy = getLifecycleCopy(status, readiness);
+  const dateAllowsStartAction =
+    readiness.dateState === 'before_window' || readiness.dateState === 'inside_window';
+  const scheduledForFuture = status === 'scheduled' && readiness.dateState === 'before_window';
+  const hasStartupBlockers = readiness.blockingIssues.some(
+    (issue) => issue !== 'The local convention date window has already ended.',
+  );
   const startDisabled =
     isPending ||
     status === 'live' ||
-    (status === 'scheduled' && readiness.dateState === 'before_window') ||
-    !readiness.ready ||
-    (readiness.dateState !== 'before_window' && readiness.dateState !== 'inside_window');
+    scheduledForFuture ||
+    !dateAllowsStartAction ||
+    hasStartupBlockers;
   const rotateDisabled = isPending || status !== 'live' || readiness.dateState !== 'inside_window';
   const startLabel =
     status === 'scheduled' && readiness.dateState === 'inside_window'
@@ -182,12 +188,12 @@ export function ConventionLifecycleCard({
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-4">
-        <Info label="Last automation attempt">
+        <Info label="Last closeout attempt">
           {health.diagnostics.lastAutomationAttemptAt
             ? formatDateTime(health.diagnostics.lastAutomationAttemptAt)
             : 'None'}
         </Info>
-        <Info label="Automation source">
+        <Info label="Closeout source">
           {formatAutomationSource(health.diagnostics.lastAutomationSource)}
         </Info>
         <Info label="Retry attempts, 7 days">
@@ -518,6 +524,9 @@ function getNumber(summary: Record<string, unknown> | null, key: string) {
 function formatAutomationSource(source: string | null) {
   if (source === 'cron_close') return 'Auto-close';
   if (source === 'cron_retry') return 'Auto-retry';
+  if (source === 'admin_close') return 'Admin close';
+  if (source === 'admin_retry') return 'Admin retry';
+  if (source === 'admin_regenerate') return 'Admin regenerate';
   return 'None';
 }
 

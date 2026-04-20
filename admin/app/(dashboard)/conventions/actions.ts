@@ -135,6 +135,22 @@ export async function createConventionAction(input: {
         context: { source: 'create_convention', error: message },
       });
     }
+  } else if (readiness.canSchedule) {
+    const { data: updatedConvention, error: statusError } = await supabase
+      .from('conventions')
+      .update({ status: 'scheduled' })
+      .eq('id', data.id)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle();
+    if (statusError) throw statusError;
+    if (!updatedConvention) {
+      throw new Error(
+        'Convention status changed before it could be scheduled. Refresh and try again.',
+      );
+    }
+
+    finalStatus = 'scheduled';
   } else if (input.startImmediately) {
     startSkippedReason =
       readiness.dateState === 'before_window' || readiness.dateState === 'after_window'

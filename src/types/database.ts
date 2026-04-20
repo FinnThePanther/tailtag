@@ -1994,6 +1994,15 @@ export type Database = {
             }
             Returns: Json
           }
+      delete_archived_convention_in_dev: {
+        Args: { p_actor_id: string; p_convention_id: string }
+        Returns: {
+          cleanup_notes: string[]
+          convention_name: string
+          counts: Json
+          deleted: boolean
+        }[]
+      }
       delete_gameplay_event_queue_message: {
         Args: { p_message_id: number }
         Returns: boolean
