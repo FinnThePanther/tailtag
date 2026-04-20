@@ -151,6 +151,9 @@ export async function createConventionAction(input: {
     }
 
     finalStatus = 'scheduled';
+    if (input.startImmediately && readiness.dateState === 'before_window') {
+      startSkippedReason = 'before_window';
+    }
   } else if (input.startImmediately) {
     startSkippedReason = readiness.dateState === 'after_window' ? 'after_window' : 'not_ready';
 
