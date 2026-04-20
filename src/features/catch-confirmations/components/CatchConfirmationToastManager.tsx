@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../../auth';
@@ -15,6 +16,23 @@ import {
 } from '../../suits';
 import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks/hooks';
 import { achievementsStatusQueryKey } from '../../achievements';
+
+const CATCH_NOTIFICATION_CATCHUP_LOOKBACK_MS = 60_000;
+const CATCH_NOTIFICATION_TYPES = [
+  'fursuit_caught',
+  'catch_pending',
+  'catch_confirmed',
+  'catch_rejected',
+  'catch_expired',
+] as const;
+
+type CatchNotificationRow = {
+  id: string;
+  created_at: string;
+  type: string;
+  payload: unknown;
+  user_id: string;
+};
 
 /**
  * Mount once inside the app shell so catch confirmation notifications raise toasts in real time.
@@ -45,6 +63,9 @@ export function CatchConfirmationToastManager() {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const activeUserRef = useRef<string | null>(null);
   const processedNotificationIdsRef = useRef<Set<string>>(new Set());
+  const notificationCatchupCursorRef = useRef<string>(
+    new Date(Date.now() - CATCH_NOTIFICATION_CATCHUP_LOOKBACK_MS).toISOString(),
+  );
 
   useEffect(() => {
     const teardown = () => {
@@ -86,6 +107,9 @@ export function CatchConfirmationToastManager() {
 
     teardown();
     processedNotificationIdsRef.current.clear();
+    notificationCatchupCursorRef.current = new Date(
+      Date.now() - CATCH_NOTIFICATION_CATCHUP_LOOKBACK_MS,
+    ).toISOString();
 
     const instanceId = Math.random().toString(36).slice(2, 10);
     activeUserRef.current = userId;
@@ -114,9 +138,16 @@ export function CatchConfirmationToastManager() {
         data: { userId, catcherUsername, fursuitName },
       });
 
-      // Invalidate pending catches query
-      void queryClient.invalidateQueries({
+      void refreshOwnerPendingCatches();
+    };
+
+    const refreshOwnerPendingCatches = async () => {
+      await queryClient.invalidateQueries({
         queryKey: pendingCatchesQueryKey(userId),
+      });
+      await queryClient.refetchQueries({
+        queryKey: pendingCatchesQueryKey(userId),
+        type: 'active',
       });
     };
 
@@ -225,16 +256,98 @@ export function CatchConfirmationToastManager() {
         data: { userId, fursuitName },
       });
 
-      // Invalidate both pending catches (for owners) and caught suits (for catchers)
-      void queryClient.invalidateQueries({
-        queryKey: pendingCatchesQueryKey(userId),
-      });
+      void refreshOwnerPendingCatches();
       void queryClient.invalidateQueries({
         queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
       });
       void queryClient.invalidateQueries({
         queryKey: myPendingCatchesQueryKey(userId),
       });
+    };
+
+    const processNotificationRow = (row: Record<string, unknown> | null) => {
+      if (!row || typeof row !== 'object') {
+        return;
+      }
+
+      const idRaw = (row as { id?: unknown }).id ?? null;
+      const notificationId = typeof idRaw === 'string' ? idRaw : null;
+
+      if (notificationId) {
+        const processedIds = processedNotificationIdsRef.current;
+        if (processedIds.has(notificationId)) {
+          return;
+        }
+        processedIds.add(notificationId);
+        if (processedIds.size > 200) {
+          const iterator = processedIds.values().next();
+          if (!iterator.done && iterator.value) {
+            processedIds.delete(iterator.value);
+          }
+        }
+      }
+
+      const typeRaw = (row as { type?: unknown }).type ?? null;
+      const type = typeof typeRaw === 'string' ? typeRaw : null;
+      if (!type) {
+        return;
+      }
+
+      const payloadRaw = (row as { payload?: unknown }).payload ?? null;
+      const notificationPayload =
+        typeof payloadRaw === 'object' && payloadRaw !== null
+          ? (payloadRaw as Record<string, unknown>)
+          : null;
+
+      switch (type) {
+        case 'fursuit_caught':
+          handleFursuitCaught(notificationPayload);
+          break;
+        case 'catch_pending':
+          handleCatchPending(notificationPayload);
+          break;
+        case 'catch_confirmed':
+          handleCatchConfirmed(notificationPayload);
+          break;
+        case 'catch_rejected':
+          handleCatchRejected(notificationPayload);
+          break;
+        case 'catch_expired':
+          handleCatchExpired(notificationPayload);
+          break;
+        default:
+          break;
+      }
+    };
+
+    const catchUpCatchNotifications = async () => {
+      const catchupStartedAt = new Date().toISOString();
+      const since = notificationCatchupCursorRef.current;
+
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('id, created_at, type, payload, user_id')
+          .eq('user_id', userId)
+          .in('type', [...CATCH_NOTIFICATION_TYPES])
+          .gte('created_at', since)
+          .order('created_at', { ascending: true })
+          .limit(20);
+
+        if (error) {
+          throw error;
+        }
+
+        const rows = (data ?? []) as CatchNotificationRow[];
+        rows.forEach((row) => processNotificationRow(row as Record<string, unknown>));
+        notificationCatchupCursorRef.current = catchupStartedAt;
+      } catch (catchupError) {
+        captureHandledException(catchupError, {
+          scope: 'catch-confirmations.realtime',
+          action: 'catchup',
+          userId,
+        });
+      }
     };
 
     channel.on(
@@ -246,60 +359,7 @@ export function CatchConfirmationToastManager() {
         filter: `user_id=eq.${userId}`,
       },
       (payload) => {
-        const newRow = payload.new as Record<string, unknown> | null;
-        if (!newRow || typeof newRow !== 'object') {
-          return;
-        }
-
-        const idRaw = (newRow as { id?: unknown }).id ?? null;
-        const notificationId = typeof idRaw === 'string' ? idRaw : null;
-
-        if (notificationId) {
-          const processedIds = processedNotificationIdsRef.current;
-          if (processedIds.has(notificationId)) {
-            return;
-          }
-          processedIds.add(notificationId);
-          if (processedIds.size > 200) {
-            const iterator = processedIds.values().next();
-            if (!iterator.done && iterator.value) {
-              processedIds.delete(iterator.value);
-            }
-          }
-        }
-
-        const typeRaw = (newRow as { type?: unknown }).type ?? null;
-        const type = typeof typeRaw === 'string' ? typeRaw : null;
-        if (!type) {
-          return;
-        }
-
-        const payloadRaw = (newRow as { payload?: unknown }).payload ?? null;
-        const notificationPayload =
-          typeof payloadRaw === 'object' && payloadRaw !== null
-            ? (payloadRaw as Record<string, unknown>)
-            : null;
-
-        switch (type) {
-          case 'fursuit_caught':
-            handleFursuitCaught(notificationPayload);
-            break;
-          case 'catch_pending':
-            handleCatchPending(notificationPayload);
-            break;
-          case 'catch_confirmed':
-            handleCatchConfirmed(notificationPayload);
-            break;
-          case 'catch_rejected':
-            handleCatchRejected(notificationPayload);
-            break;
-          case 'catch_expired':
-            handleCatchExpired(notificationPayload);
-            break;
-          default:
-            // Not a catch confirmation notification, ignore
-            break;
-        }
+        processNotificationRow(payload.new as Record<string, unknown> | null);
       },
     );
 
@@ -310,6 +370,7 @@ export function CatchConfirmationToastManager() {
           message: 'Catch confirmations channel subscribed',
           data: { userId, channelName, instanceId },
         });
+        void catchUpCatchNotifications();
       } else if (status === 'CHANNEL_ERROR' && error) {
         captureHandledException(error, {
           scope: 'catch-confirmations.realtime',
@@ -322,7 +383,17 @@ export function CatchConfirmationToastManager() {
 
     channel.subscribe(handleChannelStatus);
 
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') {
+        return;
+      }
+
+      void catchUpCatchNotifications();
+      void refreshOwnerPendingCatches();
+    });
+
     return () => {
+      appStateSubscription.remove();
       teardown();
       activeUserRef.current = null;
     };
