@@ -45,6 +45,7 @@ export async function ensureConventionDailies(
       Authorization: `Bearer ${env.supabaseServiceRoleKey}`,
       'Content-Type': 'application/json',
     },
+    body: '{}',
   });
 
   const body = await response.json().catch(() => null);
