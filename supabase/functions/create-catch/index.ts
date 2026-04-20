@@ -282,10 +282,12 @@ async function handlePost(req: Request): Promise<Response> {
     const result = data as CreateCatchResponse;
 
     // Fetch fursuit metadata (species + colors) for enriching the event payload.
-    // Also fetch fursuit name + catcher username for notifications if approval is needed.
+    // Also fetch fursuit name + catcher username for owner-facing notifications.
     // These run in parallel so we don't add latency.
     let speciesName: string | null = null;
     let colorNames: string[] = [];
+    const shouldNotifyPendingCatch = result.requires_approval && !body.force_pending;
+    const shouldNotifyAcceptedCatch = !result.requires_approval && !body.is_tutorial;
 
     try {
       const fursuitPromise = (async () =>
@@ -303,7 +305,7 @@ async function handlePost(req: Request): Promise<Response> {
       // For photo catches (force_pending = true), the notification is sent after the
       // photo URL is attached (PATCH handler), so we skip fetching catcher here.
       const catcherPromise =
-        result.requires_approval && !body.force_pending
+        shouldNotifyPendingCatch || shouldNotifyAcceptedCatch
           ? (async () =>
               await supabaseAdmin.from('profiles').select('username').eq('id', userId).single())()
           : Promise.resolve(undefined);
@@ -329,12 +331,7 @@ async function handlePost(req: Request): Promise<Response> {
       // Send approval notification for non-photo catches only.
       // Photo catches (force_pending = true) delay notification until after the photo URL
       // is attached in the PATCH handler, so the owner sees the photo immediately.
-      if (
-        result.requires_approval &&
-        !body.force_pending &&
-        fursuitResult.data &&
-        catcherResult?.data
-      ) {
+      if (shouldNotifyPendingCatch && fursuitResult.data && catcherResult?.data) {
         const { error: notifError } = await supabaseAdmin.rpc('notify_catch_pending', {
           p_catch_id: result.catch_id,
           p_fursuit_owner_id: result.fursuit_owner_id,
@@ -345,6 +342,25 @@ async function handlePost(req: Request): Promise<Response> {
 
         if (notifError) {
           console.error('[create-catch] Failed to send notification:', notifError);
+        }
+      }
+
+      if (shouldNotifyAcceptedCatch && fursuitResult.data && catcherResult?.data) {
+        const { error: notifError } = await supabaseAdmin.from('notifications').insert({
+          user_id: result.fursuit_owner_id,
+          type: 'fursuit_caught',
+          payload: {
+            catch_id: result.catch_id,
+            catcher_id: userId,
+            fursuit_id: body.fursuit_id,
+            fursuit_name: fursuitResult.data.name,
+            catcher_username: catcherResult.data.username || 'Someone',
+            convention_id: body.convention_id ?? null,
+          },
+        });
+
+        if (notifError) {
+          console.error('[create-catch] Failed to send accepted catch notification:', notifError);
         }
       }
     } catch (metadataError) {

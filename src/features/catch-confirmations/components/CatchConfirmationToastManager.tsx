@@ -7,13 +7,19 @@ import { supabase } from '../../../lib/supabase';
 import { addMonitoringBreadcrumb, captureHandledException } from '../../../lib/sentry';
 import { pendingCatchesQueryKey } from '../api/confirmations';
 import { myPendingCatchesQueryKey } from '../api/myPendingCatches';
-import { CAUGHT_SUITS_QUERY_KEY } from '../../suits';
+import {
+  CAUGHT_SUITS_QUERY_KEY,
+  catchesByFursuitQueryKey,
+  fursuitDetailQueryKey,
+  mySuitsQueryKey,
+} from '../../suits';
 import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks/hooks';
 import { achievementsStatusQueryKey } from '../../achievements';
 
 /**
  * Mount once inside the app shell so catch confirmation notifications raise toasts in real time.
  * Handles notifications for:
+ * - fursuit_caught: When someone catches your auto-accept fursuit
  * - catch_pending: When someone wants to catch your fursuit
  * - catch_confirmed: When your catch was approved
  * - catch_rejected: When your catch was declined
@@ -112,6 +118,43 @@ export function CatchConfirmationToastManager() {
       void queryClient.invalidateQueries({
         queryKey: pendingCatchesQueryKey(userId),
       });
+    };
+
+    const handleFursuitCaught = (payload: Record<string, unknown> | null) => {
+      const catcherUsername =
+        typeof payload?.catcher_username === 'string' ? payload.catcher_username : 'Someone';
+      const fursuitName =
+        typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'your fursuit';
+      const fursuitId = typeof payload?.fursuit_id === 'string' ? payload.fursuit_id : null;
+
+      showToast(`${catcherUsername} caught ${fursuitName}`);
+
+      addMonitoringBreadcrumb({
+        category: 'catch-confirmations',
+        message: 'Fursuit caught notification received',
+        data: { userId, catcherUsername, fursuitName, fursuitId },
+      });
+
+      void queryClient.invalidateQueries({
+        queryKey: mySuitsQueryKey(userId),
+      });
+
+      void queryClient.invalidateQueries({
+        queryKey: [DAILY_TASKS_QUERY_KEY],
+      });
+
+      void queryClient.invalidateQueries({
+        queryKey: achievementsStatusQueryKey(userId),
+      });
+
+      if (fursuitId) {
+        void queryClient.invalidateQueries({
+          queryKey: fursuitDetailQueryKey(fursuitId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: catchesByFursuitQueryKey(fursuitId),
+        });
+      }
     };
 
     const handleCatchConfirmed = (payload: Record<string, unknown> | null) => {
@@ -238,6 +281,9 @@ export function CatchConfirmationToastManager() {
             : null;
 
         switch (type) {
+          case 'fursuit_caught':
+            handleFursuitCaught(notificationPayload);
+            break;
           case 'catch_pending':
             handleCatchPending(notificationPayload);
             break;

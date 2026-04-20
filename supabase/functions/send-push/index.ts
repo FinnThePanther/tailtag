@@ -31,6 +31,7 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 const SUPPORTED_TYPES = new Set([
   'achievement_awarded',
+  'fursuit_caught',
   'catch_pending',
   'catch_confirmed',
   'catch_rejected',
@@ -157,6 +158,14 @@ async function buildMessage(
       return {
         title: 'Catch Request',
         body: `${catcherUsername} wants to catch ${fursuitName}`,
+      };
+    }
+    case 'fursuit_caught': {
+      const catcherUsername = extractString(payload.catcher_username) ?? 'Someone';
+      const fursuitName = extractString(payload.fursuit_name) ?? 'your fursuit';
+      return {
+        title: 'Your Fursuit Was Caught!',
+        body: `${catcherUsername} caught ${fursuitName}`,
       };
     }
     case 'catch_confirmed': {
