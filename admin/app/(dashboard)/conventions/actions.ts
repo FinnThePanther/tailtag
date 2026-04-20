@@ -378,6 +378,30 @@ export async function deleteArchivedConventionInDevAction(conventionId: string) 
   const cleanupNotes: string[] = [];
   const countRows = (rows: unknown[] | null) => rows?.length ?? 0;
 
+  const { data: dailyAssignments, error: dailyAssignmentsError } = await supabase
+    .from('daily_assignments')
+    .delete()
+    .eq('convention_id', conventionId)
+    .select('id');
+  if (dailyAssignmentsError) throw dailyAssignmentsError;
+  counts.daily_assignments = countRows(dailyAssignments);
+
+  const { data: dailyProgress, error: dailyProgressError } = await supabase
+    .from('user_daily_progress')
+    .delete()
+    .eq('convention_id', conventionId)
+    .select('user_id');
+  if (dailyProgressError) throw dailyProgressError;
+  counts.user_daily_progress = countRows(dailyProgress);
+
+  const { data: dailyStreaks, error: dailyStreaksError } = await supabase
+    .from('user_daily_streaks')
+    .delete()
+    .eq('convention_id', conventionId)
+    .select('user_id');
+  if (dailyStreaksError) throw dailyStreaksError;
+  counts.user_daily_streaks = countRows(dailyStreaks);
+
   const { data: tasks, error: taskError } = await supabase
     .from('daily_tasks')
     .delete()
