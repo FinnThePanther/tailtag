@@ -253,14 +253,6 @@ export async function buildConventionReadiness(
   };
 }
 
-export async function fetchConventionLifecycleHealth(
-  conventionId: string,
-  supabase = createServiceRoleClient(),
-): Promise<ConventionLifecycleHealthResult> {
-  const convention = await fetchLifecycleConvention(supabase, conventionId);
-  return buildConventionLifecycleHealth(convention, supabase);
-}
-
 export async function buildConventionLifecycleHealthList(
   conventions: Array<
     Pick<
