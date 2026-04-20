@@ -77,6 +77,7 @@ export function ConventionLifecycleCard({
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Action failed.');
+        router.refresh();
       } finally {
         setAction(null);
       }

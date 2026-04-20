@@ -29,6 +29,10 @@ function validateSlug(slug: string) {
     throw new Error('Slug must only contain lowercase letters, numbers, and hyphens.');
 }
 
+function actionErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Unknown error';
+}
+
 export async function createConventionAction(input: {
   name: string;
   slug: string;
@@ -101,14 +105,26 @@ export async function createConventionAction(input: {
       .eq('id', data.id);
     if (statusError) throw statusError;
 
-    rotationResult = await ensureConventionDailies(data.id, profile.id, 'create_convention');
-    await logAudit({
-      actorId: profile.id,
-      action: 'rotate_convention_dailies',
-      entityType: 'convention',
-      entityId: data.id,
-      context: { source: 'create_convention', result: rotationResult },
-    });
+    try {
+      rotationResult = await ensureConventionDailies(data.id, profile.id, 'create_convention');
+      await logAudit({
+        actorId: profile.id,
+        action: 'rotate_convention_dailies',
+        entityType: 'convention',
+        entityId: data.id,
+        context: { source: 'create_convention', result: rotationResult },
+      });
+    } catch (error) {
+      const message = actionErrorMessage(error);
+      rotationResult = { error: message };
+      await logAudit({
+        actorId: profile.id,
+        action: 'rotate_convention_dailies_failed',
+        entityType: 'convention',
+        entityId: data.id,
+        context: { source: 'create_convention', error: message },
+      });
+    }
   }
 
   if (finalStatus !== 'draft') {
@@ -122,9 +138,13 @@ export async function createConventionAction(input: {
         to: finalStatus,
         readiness,
         pack_result: packResult,
+        rotation_result: rotationResult,
       },
     });
   }
+
+  revalidatePath('/conventions');
+  revalidatePath(`/conventions/${data.id}`);
 
   redirect(`/conventions/${data.id}`);
 }
@@ -234,12 +254,6 @@ export async function startConventionAction(conventionId: string) {
     throw new Error('Convention status changed before it could be started. Refresh and try again.');
   }
 
-  const rotationResult = await ensureConventionDailies(
-    conventionId,
-    profile.id,
-    'start_convention',
-  );
-
   await logAudit({
     actorId: profile.id,
     action: 'update_convention_lifecycle',
@@ -247,6 +261,25 @@ export async function startConventionAction(conventionId: string) {
     entityId: conventionId,
     context: { from: current.status, to: 'live', readiness },
   });
+
+  let rotationResult;
+  try {
+    rotationResult = await ensureConventionDailies(conventionId, profile.id, 'start_convention');
+  } catch (error) {
+    const message = actionErrorMessage(error);
+    await logAudit({
+      actorId: profile.id,
+      action: 'rotate_convention_dailies_failed',
+      entityType: 'convention',
+      entityId: conventionId,
+      context: { source: 'start_convention', error: message },
+    });
+
+    revalidatePath('/conventions');
+    revalidatePath(`/conventions/${conventionId}`);
+
+    throw new Error(`Convention started, but daily task rotation failed: ${message}`);
+  }
 
   await logAudit({
     actorId: profile.id,
