@@ -152,10 +152,7 @@ export async function createConventionAction(input: {
 
     finalStatus = 'scheduled';
   } else if (input.startImmediately) {
-    startSkippedReason =
-      readiness.dateState === 'before_window' || readiness.dateState === 'after_window'
-        ? readiness.dateState
-        : 'not_ready';
+    startSkippedReason = readiness.dateState === 'after_window' ? 'after_window' : 'not_ready';
 
     await logAudit({
       actorId: profile.id,
