@@ -181,7 +181,7 @@ export function CreateConventionForm() {
               Start immediately if within date window
             </span>
             <span className="text-xs text-muted">
-              Future conventions will be scheduled and still require a manual start.
+              Future conventions stay in draft until staff schedules them manually.
             </span>
           </span>
         </label>

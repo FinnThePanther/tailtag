@@ -91,14 +91,9 @@ export async function createConventionAction(input: {
   let finalStatus = 'draft';
   let rotationResult = null;
 
-  if (readiness.canSchedule) {
-    finalStatus = 'scheduled';
-    const { error: statusError } = await supabase
-      .from('conventions')
-      .update({ status: finalStatus })
-      .eq('id', data.id);
-    if (statusError) throw statusError;
-  } else if (input.startImmediately && readiness.canStart) {
+  // Creating a convention should not auto-schedule future events.
+  // Scheduling and starting are separate lifecycle actions once setup is complete.
+  if (input.startImmediately && readiness.canStart) {
     finalStatus = 'live';
     const { error: statusError } = await supabase
       .from('conventions')
