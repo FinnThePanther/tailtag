@@ -91,6 +91,22 @@ type LifecycleHealthCountsRow = {
   recent_cron_retry_attempt: boolean | null;
 };
 
+type ReadinessConvention = Pick<
+  ConventionRow,
+  | 'id'
+  | 'name'
+  | 'slug'
+  | 'status'
+  | 'start_date'
+  | 'end_date'
+  | 'timezone'
+  | 'latitude'
+  | 'longitude'
+  | 'geofence_radius_meters'
+  | 'geofence_enabled'
+  | 'location_verification_required'
+>;
+
 const CLOSED_STATUSES = new Set(['closed', 'archived', 'canceled']);
 
 export function getConventionLocalDay(timezone: string | null | undefined, now = new Date()) {
@@ -126,6 +142,14 @@ export async function fetchConventionReadiness(
   supabase = createServiceRoleClient(),
 ): Promise<ConventionReadinessResult> {
   const convention = await fetchLifecycleConvention(supabase, conventionId);
+  return buildConventionReadiness(convention, supabase);
+}
+
+export async function buildConventionReadiness(
+  convention: ReadinessConvention,
+  supabase = createServiceRoleClient(),
+): Promise<ConventionReadinessResult> {
+  const conventionId = convention.id;
   const localDay = getConventionLocalDay(convention.timezone);
   const dateState = getConventionDateState(convention, localDay);
 

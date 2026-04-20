@@ -99,12 +99,21 @@ export async function createConventionAction(input: {
   let startSkippedReason: StartSkippedReason | null = null;
 
   if (input.startImmediately && readiness.canStart) {
-    finalStatus = 'live';
-    const { error: statusError } = await supabase
+    const { data: updatedConvention, error: statusError } = await supabase
       .from('conventions')
-      .update({ status: finalStatus, started_at: new Date().toISOString() })
-      .eq('id', data.id);
+      .update({ status: 'live', started_at: new Date().toISOString() })
+      .eq('id', data.id)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle();
     if (statusError) throw statusError;
+    if (!updatedConvention) {
+      throw new Error(
+        'Convention status changed before it could be started. Refresh and try again.',
+      );
+    }
+
+    finalStatus = 'live';
 
     try {
       rotationResult = await ensureConventionDailies(data.id, profile.id, 'create_convention');

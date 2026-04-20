@@ -11,10 +11,11 @@ import { ConventionTasksCard } from '@/components/convention-tasks-card';
 import { ConventionAchievementsCard } from '@/components/convention-achievements-card';
 import { ConventionLifecycleCard } from '@/components/convention-lifecycle-card';
 import {
-  fetchConventionLifecycleHealth,
-  fetchConventionReadiness,
+  buildConventionLifecycleHealth,
+  buildConventionReadiness,
 } from '@/lib/convention-lifecycle';
 import { isDevSupabaseProject } from '@/lib/env';
+import { createServiceRoleClient } from '@/lib/supabase/service';
 
 export default async function ConventionDetail({
   params,
@@ -29,11 +30,12 @@ export default async function ConventionDetail({
     notFound();
   }
 
+  const supabase = createServiceRoleClient();
   const [tasks, achievements, readiness, health] = await Promise.all([
     fetchConventionTasks(params.id),
     fetchConventionAchievements(params.id),
-    fetchConventionReadiness(params.id),
-    fetchConventionLifecycleHealth(params.id),
+    buildConventionReadiness(convention, supabase),
+    buildConventionLifecycleHealth(convention, supabase),
   ]);
 
   const config = normalizeConfig(convention.config);
