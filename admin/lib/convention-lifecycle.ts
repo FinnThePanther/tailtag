@@ -183,6 +183,9 @@ export async function fetchConventionReadiness(
   if (CLOSED_STATUSES.has(convention.status)) {
     blockingIssues.push(`Convention status is ${convention.status}; it cannot be started.`);
   }
+  if (convention.status === 'live') {
+    blockingIssues.push('Convention is already live.');
+  }
   if (dateState === 'after_window') {
     blockingIssues.push('The local convention date window has already ended.');
   }

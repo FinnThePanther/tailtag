@@ -12,9 +12,21 @@ export const env = {
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
   ),
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  isDevProject: process.env.ADMIN_IS_DEV_PROJECT === 'true',
 };
 
 export function isDevSupabaseProject() {
-  return env.isDevProject;
+  if (process.env.ADMIN_IS_DEV_PROJECT !== 'true') {
+    return false;
+  }
+
+  const expectedProjectRef = process.env.ADMIN_DEV_SUPABASE_PROJECT_REF?.trim();
+  if (!expectedProjectRef) {
+    return false;
+  }
+
+  try {
+    return new URL(env.supabaseUrl).hostname === `${expectedProjectRef}.supabase.co`;
+  } catch {
+    return false;
+  }
 }

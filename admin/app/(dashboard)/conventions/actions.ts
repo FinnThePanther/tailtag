@@ -23,6 +23,8 @@ const DEFAULT_CONFIG = {
   feature_flags: { staff_mode: true },
 };
 
+type StartSkippedReason = 'before_window' | 'after_window' | 'not_ready';
+
 function validateSlug(slug: string) {
   if (!slug.trim()) throw new Error('Slug is required.');
   if (!/^[a-z0-9-]+$/.test(slug))
@@ -94,9 +96,8 @@ export async function createConventionAction(input: {
   const readiness = await fetchConventionReadiness(data.id, supabase);
   let finalStatus = 'draft';
   let rotationResult = null;
+  let startSkippedReason: StartSkippedReason | null = null;
 
-  // Creating a convention should not auto-schedule future events.
-  // Scheduling and starting are separate lifecycle actions once setup is complete.
   if (input.startImmediately && readiness.canStart) {
     finalStatus = 'live';
     const { error: statusError } = await supabase
@@ -125,6 +126,23 @@ export async function createConventionAction(input: {
         context: { source: 'create_convention', error: message },
       });
     }
+  } else if (input.startImmediately) {
+    startSkippedReason =
+      readiness.dateState === 'before_window' || readiness.dateState === 'after_window'
+        ? readiness.dateState
+        : 'not_ready';
+
+    await logAudit({
+      actorId: profile.id,
+      action: 'start_convention_skipped',
+      entityType: 'convention',
+      entityId: data.id,
+      context: {
+        source: 'create_convention',
+        reason: startSkippedReason,
+        readiness,
+      },
+    });
   }
 
   if (finalStatus !== 'draft') {
@@ -146,7 +164,11 @@ export async function createConventionAction(input: {
   revalidatePath('/conventions');
   revalidatePath(`/conventions/${data.id}`);
 
-  redirect(`/conventions/${data.id}`);
+  const redirectPath = startSkippedReason
+    ? `/conventions/${data.id}?startSkipped=${startSkippedReason}`
+    : `/conventions/${data.id}`;
+
+  redirect(redirectPath);
 }
 
 export async function generateConventionGameplayPackAction(conventionId: string) {

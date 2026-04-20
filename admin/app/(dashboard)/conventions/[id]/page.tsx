@@ -16,7 +16,13 @@ import {
 } from '@/lib/convention-lifecycle';
 import { isDevSupabaseProject } from '@/lib/env';
 
-export default async function ConventionDetail({ params }: { params: { id: string } }) {
+export default async function ConventionDetail({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { startSkipped?: string };
+}) {
   const { convention, staff } = await fetchConvention(params.id);
 
   if (!convention) {
@@ -31,9 +37,16 @@ export default async function ConventionDetail({ params }: { params: { id: strin
   ]);
 
   const config = normalizeConfig(convention.config);
+  const startSkippedCopy = getStartSkippedCopy(searchParams?.startSkipped);
 
   return (
     <div className="space-y-4">
+      {startSkippedCopy ? (
+        <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+          {startSkippedCopy}
+        </div>
+      ) : null}
+
       <ConventionLifecycleCard
         conventionId={convention.id}
         status={convention.status}
@@ -178,6 +191,19 @@ export default async function ConventionDetail({ params }: { params: { id: strin
       />
     </div>
   );
+}
+
+function getStartSkippedCopy(reason: string | undefined) {
+  switch (reason) {
+    case 'before_window':
+      return 'Convention created. It was not started because its local start date is still in the future.';
+    case 'after_window':
+      return 'Convention created. It was not started because its local date window has already ended.';
+    case 'not_ready':
+      return 'Convention created. It was not started because readiness checks still need attention.';
+    default:
+      return null;
+  }
 }
 
 function Info({
