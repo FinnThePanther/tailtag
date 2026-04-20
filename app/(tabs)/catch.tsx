@@ -33,7 +33,6 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { useAuth } from '../../src/features/auth';
 import {
-  fetchActiveFursuitConventionIds,
   fetchActiveProfileConventionIds,
   fetchActiveSharedConventionIds,
 } from '../../src/features/conventions';
@@ -262,24 +261,14 @@ export default function CatchScreen() {
         return;
       }
 
-      const [activeProfileConventions, activeFursuitConventions, sharedConventions] =
-        await Promise.all([
-          fetchActiveProfileConventionIds(userId),
-          fetchActiveFursuitConventionIds(normalizedFursuit.id),
-          fetchActiveSharedConventionIds(userId, normalizedFursuit.id),
-        ]);
+      const [activeProfileConventions, sharedConventions] = await Promise.all([
+        fetchActiveProfileConventionIds(userId),
+        fetchActiveSharedConventionIds(userId, normalizedFursuit.id),
+      ]);
 
       if (activeProfileConventions.length === 0) {
         resetCatchState();
         setSubmitError('Join a live convention in Settings before catching fursuits.');
-        return;
-      }
-
-      if (activeFursuitConventions.length === 0) {
-        resetCatchState();
-        setSubmitError(
-          'This fursuit is not assigned to a live convention yet. Ask the owner to join a live event and add this suit.',
-        );
         return;
       }
 

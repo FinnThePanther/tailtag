@@ -13,7 +13,6 @@ export {
   createJoinableConventionsQueryOptions,
   createPastConventionRecapsQueryOptions,
   fetchProfileConventionIds,
-  fetchActiveFursuitConventionIds,
   fetchActiveProfileConventionIds,
   fetchActiveSharedConventionIds,
   optInToConvention,
