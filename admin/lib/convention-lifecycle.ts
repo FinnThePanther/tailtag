@@ -435,6 +435,9 @@ export async function buildConventionLifecycleHealthList(
     conventionTasks,
     todayAssignments,
     acceptedCatches,
+    pendingCatches,
+    activeProfileMemberships,
+    activeFursuitAssignments,
     participantRecaps,
     auditRows,
   ] = await Promise.all([
@@ -470,6 +473,28 @@ export async function buildConventionLifecycleHealthList(
     ),
     fetchAllPages<{ convention_id: string | null }>((from, to) =>
       supabase
+        .from('catches')
+        .select('convention_id')
+        .in('convention_id', conventionIds)
+        .eq('status', 'PENDING')
+        .range(from, to),
+    ),
+    fetchAllPages<{ convention_id: string | null }>((from, to) =>
+      supabase
+        .from('profile_conventions')
+        .select('convention_id')
+        .in('convention_id', conventionIds)
+        .range(from, to),
+    ),
+    fetchAllPages<{ convention_id: string | null }>((from, to) =>
+      supabase
+        .from('fursuit_conventions')
+        .select('convention_id')
+        .in('convention_id', conventionIds)
+        .range(from, to),
+    ),
+    fetchAllPages<{ convention_id: string | null }>((from, to) =>
+      supabase
         .from('convention_participant_recaps')
         .select('convention_id')
         .in('convention_id', conventionIds)
@@ -496,6 +521,9 @@ export async function buildConventionLifecycleHealthList(
 
   const conventionTaskCounts = countByConvention(conventionTasks);
   const acceptedCatchCounts = countByConvention(acceptedCatches);
+  const pendingCatchCounts = countByConvention(pendingCatches);
+  const membershipCounts = countByConvention(activeProfileMemberships);
+  const fursuitAssignmentCounts = countByConvention(activeFursuitAssignments);
   const recapCounts = countByConvention(participantRecaps);
   const assignmentCounts = new Map<string, number>();
   for (const row of todayAssignments) {
@@ -527,6 +555,9 @@ export async function buildConventionLifecycleHealthList(
         (globalActiveTasks ?? 0) + (conventionTaskCounts.get(convention.id) ?? 0),
       todayAssignments: assignmentCounts.get(convention.id) ?? 0,
       acceptedConventionCatches: acceptedCatchCounts.get(convention.id) ?? 0,
+      pendingConventionCatches: pendingCatchCounts.get(convention.id) ?? 0,
+      activeProfileMemberships: membershipCounts.get(convention.id) ?? 0,
+      activeFursuitAssignments: fursuitAssignmentCounts.get(convention.id) ?? 0,
       participantRecaps: recapCounts.get(convention.id) ?? 0,
       lastAutomationAttemptAt: automation.lastAutomationAttemptAt,
       lastAutomationSource: automation.lastAutomationSource,
