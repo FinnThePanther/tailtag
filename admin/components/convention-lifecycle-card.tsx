@@ -106,6 +106,12 @@ export function ConventionLifecycleCard({
   const membershipsRemoved = getNumber(closeoutSummary, 'profile_memberships_removed');
   const rosterRemoved = getNumber(closeoutSummary, 'fursuit_assignments_removed');
   const healthBadge = getHealthBadge(health.severity);
+  const showStartupReadiness = status === 'draft' || status === 'scheduled';
+  const readinessLabel = showStartupReadiness
+    ? readiness.ready
+      ? 'Ready'
+      : `${readiness.blockingIssues.length} blocker(s)`
+    : 'Not applicable';
 
   return (
     <Card
@@ -130,7 +136,7 @@ export function ConventionLifecycleCard({
           icon={<CheckCircle2 size={14} />}
           label="Readiness"
         >
-          {readiness.ready ? 'Ready' : `${readiness.blockingIssues.length} blocker(s)`}
+          {readinessLabel}
         </Info>
         <Info
           icon={<RefreshCcw size={14} />}
@@ -220,7 +226,7 @@ export function ConventionLifecycleCard({
         </div>
       ) : null}
 
-      {readiness.blockingIssues.length > 0 ? (
+      {showStartupReadiness && readiness.blockingIssues.length > 0 ? (
         <div className="mt-4 rounded-lg border border-red-400/30 bg-red-500/10 p-3">
           <p className="text-sm font-semibold text-red-200">Startup blockers</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-100">

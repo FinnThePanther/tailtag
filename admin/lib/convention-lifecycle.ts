@@ -471,8 +471,11 @@ function buildLifecycleHealthResult({
     retryAttemptsLast7Days < 5 &&
     !recentCronRetryAttempt;
 
-  diagnostics.automationEligibleForAutoClose = automationEligibleForAutoClose;
-  diagnostics.automationEligibleForRetry = automationEligibleForRetry;
+  const diagnosticsWithAutomationFlags = {
+    ...diagnostics,
+    automationEligibleForAutoClose,
+    automationEligibleForRetry,
+  };
 
   const warnings: string[] = [];
   let severity: ConventionLifecycleHealthSeverity = 'healthy';
@@ -580,7 +583,7 @@ function buildLifecycleHealthResult({
     severity,
     warnings,
     recommendedAction,
-    diagnostics,
+    diagnostics: diagnosticsWithAutomationFlags,
     localDay,
     dateState,
   };
