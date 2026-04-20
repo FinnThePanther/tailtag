@@ -51,10 +51,8 @@ export type PastConventionRecap = {
   summary: Record<string, unknown>;
 };
 
-export const CONVENTIONS_QUERY_KEY = 'conventions';
 export const JOINABLE_CONVENTIONS_QUERY_KEY = 'joinable-conventions';
 export const CONVENTIONS_STALE_TIME = 5 * 60_000;
-export const PROFILE_CONVENTIONS_QUERY_KEY = 'profile-conventions';
 export const ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY = 'active-profile-conventions';
 export const PAST_CONVENTION_RECAPS_QUERY_KEY = 'past-convention-recaps';
 
@@ -107,37 +105,6 @@ function mapPastConventionRecap(row: any): PastConventionRecap {
   };
 }
 
-export async function fetchConventions(): Promise<ConventionSummary[]> {
-  const client = supabase as any;
-  const { data, error } = await client
-    .from('conventions')
-    .select(
-      [
-        'id',
-        'slug',
-        'name',
-        'location',
-        'start_date',
-        'end_date',
-        'timezone',
-        'status',
-        'latitude',
-        'longitude',
-        'geofence_radius_meters',
-        'geofence_enabled',
-        'location_verification_required',
-      ].join(', '),
-    )
-    .order('start_date', { ascending: true, nullsFirst: false })
-    .order('name', { ascending: true });
-
-  if (error) {
-    throw new Error(`We couldn't load conventions: ${error.message}`);
-  }
-
-  return (data ?? []).map(mapConventionSummary);
-}
-
 export async function fetchJoinableConventions(): Promise<ConventionSummary[]> {
   const client = supabase as any;
   const { data, error } = await client.rpc('get_joinable_conventions');
@@ -148,14 +115,6 @@ export async function fetchJoinableConventions(): Promise<ConventionSummary[]> {
 
   return (data ?? []).map(mapConventionSummary);
 }
-
-export const createConventionsQueryOptions = () => ({
-  queryKey: [CONVENTIONS_QUERY_KEY],
-  queryFn: () => fetchConventions(),
-  staleTime: CONVENTIONS_STALE_TIME,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
-});
 
 export const createJoinableConventionsQueryOptions = () => ({
   queryKey: [JOINABLE_CONVENTIONS_QUERY_KEY],
@@ -183,21 +142,6 @@ export const createPastConventionRecapsQueryOptions = () => ({
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
 });
-
-export async function fetchProfileConventionIds(profileId: string): Promise<string[]> {
-  const client = supabase as any;
-  const { data, error } = await client
-    .from('profile_conventions')
-    .select('convention_id')
-    .eq('profile_id', profileId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    throw new Error(`We couldn't load your convention opt-ins: ${error.message}`);
-  }
-
-  return (data ?? []).map((row: any) => row.convention_id);
-}
 
 export async function fetchActiveProfileConventionIds(profileId: string): Promise<string[]> {
   const client = supabase as any;
