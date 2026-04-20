@@ -17,18 +17,17 @@ import {
 import { isDevSupabaseProject } from '@/lib/env';
 
 export default async function ConventionDetail({ params }: { params: { id: string } }) {
-  const { convention, staff } = await fetchConvention(params.id);
-
-  if (!convention) {
-    notFound();
-  }
-
-  const [tasks, achievements, readiness, health] = await Promise.all([
+  const [{ convention, staff }, tasks, achievements, readiness, health] = await Promise.all([
+    fetchConvention(params.id),
     fetchConventionTasks(params.id),
     fetchConventionAchievements(params.id),
     fetchConventionReadiness(params.id),
     fetchConventionLifecycleHealth(params.id),
   ]);
+
+  if (!convention) {
+    notFound();
+  }
 
   const config = normalizeConfig(convention.config);
 
