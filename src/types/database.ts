@@ -2068,6 +2068,29 @@ export type Database = {
           username: string
         }[]
       }
+      get_convention_lifecycle_health_counts: {
+        Args: {
+          p_convention_ids: string[]
+          p_local_days?: Json
+          p_retry_window_start?: string
+          p_throttle_window_start?: string
+        }
+        Returns: {
+          accepted_convention_catches_count: number
+          active_fursuit_assignments_count: number
+          active_profile_memberships_count: number
+          automation_retry_attempts_last_7_days: number
+          convention_id: string
+          convention_tasks_count: number
+          last_automation_attempt_at: string
+          last_automation_source: string
+          participant_recaps_count: number
+          pending_convention_catches_count: number
+          recent_cron_close_attempt: boolean
+          recent_cron_retry_attempt: boolean
+          today_assignments_count: number
+        }[]
+      }
       get_event_dashboard_summary: {
         Args: { p_convention_id: string }
         Returns: {

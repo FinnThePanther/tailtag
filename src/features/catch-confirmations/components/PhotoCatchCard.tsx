@@ -136,7 +136,6 @@ export function PhotoCatchCard({
     setIsUploadingPhoto(true);
 
     // Step 1: Validate shared convention before doing any uploads
-    const client = supabase as any;
     let sharedConventionId: string | null = null;
 
     try {
@@ -196,9 +195,9 @@ export function PhotoCatchCard({
       photoUrl = buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, storagePath);
     } catch {
       // Roll back the catch so it doesn't sit in the owner's pending queue without a photo
-      await Promise.resolve(
-        (client as typeof supabase).from('catches').delete().eq('id', catchResult.catchId),
-      ).catch(() => {});
+      await Promise.resolve(supabase.from('catches').delete().eq('id', catchResult.catchId)).catch(
+        () => {},
+      );
       setLocalError("Couldn't upload your photo. Please check your connection and try again.");
       setIsUploadingPhoto(false);
       return;
@@ -211,9 +210,9 @@ export function PhotoCatchCard({
         photoUrl,
       });
     } catch {
-      await Promise.resolve(
-        (client as typeof supabase).from('catches').delete().eq('id', catchResult.catchId),
-      ).catch(() => {});
+      await Promise.resolve(supabase.from('catches').delete().eq('id', catchResult.catchId)).catch(
+        () => {},
+      );
       await supabase.storage
         .from(CATCH_PHOTO_BUCKET)
         .remove([storagePath])

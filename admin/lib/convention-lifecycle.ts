@@ -155,6 +155,22 @@ type CatalogAchievementRow = Pick<
   achievement_rules: CatalogAchievementRuleRow | CatalogAchievementRuleRow[] | null;
 };
 
+type LifecycleHealthCountsRow = {
+  convention_id: string;
+  convention_tasks_count: number | string | null;
+  today_assignments_count: number | string | null;
+  accepted_convention_catches_count: number | string | null;
+  pending_convention_catches_count: number | string | null;
+  active_profile_memberships_count: number | string | null;
+  active_fursuit_assignments_count: number | string | null;
+  participant_recaps_count: number | string | null;
+  last_automation_attempt_at: string | null;
+  last_automation_source: string | null;
+  automation_retry_attempts_last_7_days: number | string | null;
+  recent_cron_close_attempt: boolean | null;
+  recent_cron_retry_attempt: boolean | null;
+};
+
 const CLOSED_STATUSES = new Set(['closed', 'archived', 'canceled']);
 
 const DEFAULT_TASKS: DefaultTaskSpec[] = [
@@ -426,142 +442,51 @@ export async function buildConventionLifecycleHealthList(
   const localDays = new Map(
     conventions.map((convention) => [convention.id, getConventionLocalDay(convention.timezone)]),
   );
-  const uniqueLocalDays = [...new Set(localDays.values())];
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+  const localDaysByConvention = Object.fromEntries(localDays);
 
-  const [
-    { count: globalActiveTasks, error: globalTaskError },
-    conventionTasks,
-    todayAssignments,
-    acceptedCatches,
-    pendingCatches,
-    activeProfileMemberships,
-    activeFursuitAssignments,
-    participantRecaps,
-    auditRows,
-  ] = await Promise.all([
-    supabase
-      .from('daily_tasks')
-      .select('id', { count: 'exact', head: true })
-      .eq('is_active', true)
-      .is('convention_id', null),
-    fetchAllPages<{ convention_id: string | null }>((from, to) =>
+  const [{ count: globalActiveTasks, error: globalTaskError }, { data: healthCounts, error }] =
+    await Promise.all([
       supabase
         .from('daily_tasks')
-        .select('convention_id')
+        .select('id', { count: 'exact', head: true })
         .eq('is_active', true)
-        .in('convention_id', conventionIds)
-        .range(from, to),
-    ),
-    fetchAllPages<{ convention_id: string | null; day: string }>((from, to) =>
-      supabase
-        .from('daily_assignments')
-        .select('convention_id, day')
-        .in('convention_id', conventionIds)
-        .in('day', uniqueLocalDays)
-        .range(from, to),
-    ),
-    fetchAllPages<{ convention_id: string | null }>((from, to) =>
-      supabase
-        .from('catches')
-        .select('convention_id')
-        .in('convention_id', conventionIds)
-        .eq('status', 'ACCEPTED')
-        .eq('is_tutorial', false)
-        .range(from, to),
-    ),
-    fetchAllPages<{ convention_id: string | null }>((from, to) =>
-      supabase
-        .from('catches')
-        .select('convention_id')
-        .in('convention_id', conventionIds)
-        .eq('status', 'PENDING')
-        .range(from, to),
-    ),
-    fetchAllPages<{ convention_id: string | null }>((from, to) =>
-      supabase
-        .from('profile_conventions')
-        .select('convention_id')
-        .in('convention_id', conventionIds)
-        .range(from, to),
-    ),
-    fetchAllPages<{ convention_id: string | null }>((from, to) =>
-      supabase
-        .from('fursuit_conventions')
-        .select('convention_id')
-        .in('convention_id', conventionIds)
-        .range(from, to),
-    ),
-    fetchAllPages<{ convention_id: string | null }>((from, to) =>
-      supabase
-        .from('convention_participant_recaps')
-        .select('convention_id')
-        .in('convention_id', conventionIds)
-        .range(from, to),
-    ),
-    fetchAllPages<{
-      entity_id: string | null;
-      action: string;
-      context: unknown;
-      created_at: string;
-    }>((from, to) =>
-      supabase
-        .from('audit_log')
-        .select('entity_id, action, context, created_at')
-        .eq('entity_type', 'convention')
-        .in('entity_id', conventionIds)
-        .in('action', ['close_convention_attempt', 'close_convention_noop'])
-        .order('created_at', { ascending: false })
-        .range(from, to),
-    ),
-  ]);
+        .is('convention_id', null),
+      (supabase as any).rpc('get_convention_lifecycle_health_counts', {
+        p_convention_ids: conventionIds,
+        p_local_days: localDaysByConvention,
+        p_retry_window_start: sevenDaysAgo,
+        p_throttle_window_start: sixHoursAgo,
+      }),
+    ]);
 
   if (globalTaskError) throw globalTaskError;
+  if (error) throw error;
 
-  const conventionTaskCounts = countByConvention(conventionTasks);
-  const acceptedCatchCounts = countByConvention(acceptedCatches);
-  const pendingCatchCounts = countByConvention(pendingCatches);
-  const membershipCounts = countByConvention(activeProfileMemberships);
-  const fursuitAssignmentCounts = countByConvention(activeFursuitAssignments);
-  const recapCounts = countByConvention(participantRecaps);
-  const assignmentCounts = new Map<string, number>();
-  for (const row of todayAssignments) {
-    const conventionId = row.convention_id;
-    if (!conventionId || row.day !== localDays.get(conventionId)) continue;
-    assignmentCounts.set(conventionId, (assignmentCounts.get(conventionId) ?? 0) + 1);
-  }
-
-  const auditRowsByConvention = new Map<string, typeof auditRows>();
-  for (const row of auditRows) {
-    if (!row.entity_id) continue;
-    const rows = auditRowsByConvention.get(row.entity_id) ?? [];
-    rows.push(row);
-    auditRowsByConvention.set(row.entity_id, rows);
-  }
+  const healthCountsByConvention = new Map(
+    ((healthCounts ?? []) as LifecycleHealthCountsRow[]).map((row) => [row.convention_id, row]),
+  );
 
   const healthByConvention = new Map<string, ConventionLifecycleHealthResult>();
   for (const convention of conventions) {
     const localDay = localDays.get(convention.id) ?? getConventionLocalDay(convention.timezone);
     const localClock = getConventionLocalClock(convention.timezone);
     const dateState = getConventionDateState(convention, localDay);
-    const automation = getAutomationAuditSummary(
-      auditRowsByConvention.get(convention.id) ?? [],
-      sevenDaysAgo,
-      sixHoursAgo,
-    );
+    const counts = healthCountsByConvention.get(convention.id);
+    const retryAttemptsLast7Days = numberFromCount(counts?.automation_retry_attempts_last_7_days);
     const diagnostics = createLifecycleDiagnostics(convention, {
       activeRotationTasks:
-        (globalActiveTasks ?? 0) + (conventionTaskCounts.get(convention.id) ?? 0),
-      todayAssignments: assignmentCounts.get(convention.id) ?? 0,
-      acceptedConventionCatches: acceptedCatchCounts.get(convention.id) ?? 0,
-      pendingConventionCatches: pendingCatchCounts.get(convention.id) ?? 0,
-      activeProfileMemberships: membershipCounts.get(convention.id) ?? 0,
-      activeFursuitAssignments: fursuitAssignmentCounts.get(convention.id) ?? 0,
-      participantRecaps: recapCounts.get(convention.id) ?? 0,
-      lastAutomationAttemptAt: automation.lastAutomationAttemptAt,
-      lastAutomationSource: automation.lastAutomationSource,
-      automationRetryAttemptsLast7Days: automation.retryAttemptsLast7Days,
+        (globalActiveTasks ?? 0) + numberFromCount(counts?.convention_tasks_count),
+      todayAssignments: numberFromCount(counts?.today_assignments_count),
+      acceptedConventionCatches: numberFromCount(counts?.accepted_convention_catches_count),
+      pendingConventionCatches: numberFromCount(counts?.pending_convention_catches_count),
+      activeProfileMemberships: numberFromCount(counts?.active_profile_memberships_count),
+      activeFursuitAssignments: numberFromCount(counts?.active_fursuit_assignments_count),
+      participantRecaps: numberFromCount(counts?.participant_recaps_count),
+      lastAutomationAttemptAt: counts?.last_automation_attempt_at ?? null,
+      lastAutomationSource: counts?.last_automation_source ?? null,
+      automationRetryAttemptsLast7Days: retryAttemptsLast7Days,
     });
 
     healthByConvention.set(
@@ -572,9 +497,9 @@ export async function buildConventionLifecycleHealthList(
         localDay,
         localClock,
         dateState,
-        retryAttemptsLast7Days: automation.retryAttemptsLast7Days,
-        recentCronCloseAttempt: automation.recentCronCloseAttempt,
-        recentCronRetryAttempt: automation.recentCronRetryAttempt,
+        retryAttemptsLast7Days,
+        recentCronCloseAttempt: Boolean(counts?.recent_cron_close_attempt),
+        recentCronRetryAttempt: Boolean(counts?.recent_cron_retry_attempt),
       }),
     );
   }
@@ -868,35 +793,8 @@ function createLifecycleDiagnostics(
   };
 }
 
-function countByConvention(rows: Array<{ convention_id?: string | null }>) {
-  const counts = new Map<string, number>();
-  for (const row of rows) {
-    if (!row.convention_id) continue;
-    counts.set(row.convention_id, (counts.get(row.convention_id) ?? 0) + 1);
-  }
-  return counts;
-}
-
-const PAGE_SIZE = 1000;
-
-async function fetchAllPages<T>(
-  createQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
-) {
-  const rows: T[] = [];
-  let from = 0;
-
-  while (true) {
-    const { data, error } = await createQuery(from, from + PAGE_SIZE - 1);
-    if (error) throw error;
-
-    const page = data ?? [];
-    rows.push(...page);
-
-    if (page.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
-
-  return rows;
+function numberFromCount(value: number | string | null | undefined) {
+  return Number(value ?? 0);
 }
 
 function getAutomationAuditSummary<

@@ -99,14 +99,14 @@ export async function createConventionAction(input: {
   let finalStatus = 'draft';
   let rotationResult = null;
 
-  if (readiness.ready && readiness.dateState === 'before_window') {
+  if (readiness.canSchedule) {
     finalStatus = 'scheduled';
     const { error: statusError } = await supabase
       .from('conventions')
       .update({ status: finalStatus })
       .eq('id', data.id);
     if (statusError) throw statusError;
-  } else if (readiness.ready && input.startImmediately && readiness.dateState === 'inside_window') {
+  } else if (input.startImmediately && readiness.canStart) {
     finalStatus = 'live';
     const { error: statusError } = await supabase
       .from('conventions')
@@ -410,6 +410,31 @@ export async function deleteArchivedConventionInDevAction(conventionId: string) 
   if (taskError) throw taskError;
   counts.daily_tasks = countRows(tasks);
 
+  const { data: conventionAchievements, error: conventionAchievementsError } = await supabase
+    .from('achievements')
+    .select('id, rule_id')
+    .eq('convention_id', conventionId);
+  if (conventionAchievementsError) throw conventionAchievementsError;
+
+  const achievementIds = [
+    ...new Set(
+      (conventionAchievements ?? [])
+        .map((row) => row.id)
+        .filter((achievementId): achievementId is string => typeof achievementId === 'string'),
+    ),
+  ];
+  if (achievementIds.length > 0) {
+    const { data: userAchievements, error: userAchievementError } = await supabase
+      .from('user_achievements')
+      .delete()
+      .in('achievement_id', achievementIds)
+      .select('id');
+    if (userAchievementError) throw userAchievementError;
+    counts.user_achievements = countRows(userAchievements);
+  } else {
+    counts.user_achievements = 0;
+  }
+
   const { data: achievements, error: achievementError } = await supabase
     .from('achievements')
     .delete()
@@ -420,7 +445,7 @@ export async function deleteArchivedConventionInDevAction(conventionId: string) 
 
   const ruleIds = [
     ...new Set(
-      (achievements ?? [])
+      (conventionAchievements ?? [])
         .map((row) => row.rule_id)
         .filter((ruleId): ruleId is string => typeof ruleId === 'string'),
     ),
