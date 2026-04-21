@@ -60,3 +60,5 @@ Database schema changes should be made through migrations under `supabase/migrat
 ## Delivery
 
 CI validates the repository with `.github/workflows/ci.yml`. Branch delivery in `.github/workflows/branch-delivery.yml` deploys backend changes to the appropriate Supabase environment and can trigger EAS builds for mobile changes.
+
+Branch protection rules and required CI checks for `dev` and `main` are defined in `docs/ci-cd-policy.md`.
