@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PixelRatio, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -116,6 +116,9 @@ export default function HomeScreen() {
   const [recapBannerState, setRecapBannerState] =
     useState<RecapBannerState>(EMPTY_RECAP_BANNER_STATE);
   const [isRecapBannerStateReady, setRecapBannerStateReady] = useState(false);
+  const recapBannerStateRef = useRef<RecapBannerState>(EMPTY_RECAP_BANNER_STATE);
+  const hasRecapBannerStateHydratedRef = useRef(false);
+  const isRecapBannerStateDirtyRef = useRef(false);
 
   useEffect(() => {
     let isActive = true;
@@ -156,16 +159,25 @@ export default function HomeScreen() {
   }, [userId]);
 
   useEffect(() => {
+    recapBannerStateRef.current = recapBannerState;
+  }, [recapBannerState]);
+
+  useEffect(() => {
     let isActive = true;
 
     if (!userId) {
       setRecapBannerState(EMPTY_RECAP_BANNER_STATE);
+      recapBannerStateRef.current = EMPTY_RECAP_BANNER_STATE;
+      hasRecapBannerStateHydratedRef.current = false;
+      isRecapBannerStateDirtyRef.current = false;
       setRecapBannerStateReady(false);
       return () => {
         isActive = false;
       };
     }
 
+    hasRecapBannerStateHydratedRef.current = false;
+    isRecapBannerStateDirtyRef.current = false;
     setRecapBannerStateReady(false);
 
     AsyncStorage.getItem(recapBannerStateKey(userId))
@@ -174,15 +186,19 @@ export default function HomeScreen() {
           return;
         }
 
-        setRecapBannerState(parseRecapBannerState(storedValue));
+        const parsedState = parseRecapBannerState(storedValue);
+        recapBannerStateRef.current = parsedState;
+        setRecapBannerState(parsedState);
       })
       .catch(() => {
         if (isActive) {
           setRecapBannerState(EMPTY_RECAP_BANNER_STATE);
+          recapBannerStateRef.current = EMPTY_RECAP_BANNER_STATE;
         }
       })
       .finally(() => {
         if (isActive) {
+          hasRecapBannerStateHydratedRef.current = true;
           setRecapBannerStateReady(true);
         }
       });
@@ -193,13 +209,22 @@ export default function HomeScreen() {
   }, [userId]);
 
   useEffect(() => {
-    if (!userId || !isRecapBannerStateReady) {
+    if (
+      !userId ||
+      !isRecapBannerStateReady ||
+      !hasRecapBannerStateHydratedRef.current ||
+      !isRecapBannerStateDirtyRef.current
+    ) {
       return;
     }
 
-    AsyncStorage.setItem(recapBannerStateKey(userId), JSON.stringify(recapBannerState)).catch(
-      () => undefined,
-    );
+    isRecapBannerStateDirtyRef.current = false;
+    AsyncStorage.setItem(
+      recapBannerStateKey(userId),
+      JSON.stringify(recapBannerStateRef.current),
+    ).catch(() => {
+      isRecapBannerStateDirtyRef.current = true;
+    });
   }, [isRecapBannerStateReady, recapBannerState, userId]);
 
   const updateRecapBannerState = useCallback(
@@ -208,7 +233,15 @@ export default function HomeScreen() {
         return;
       }
 
-      setRecapBannerState((current) => updater(current));
+      const currentState = recapBannerStateRef.current;
+      const nextState = updater(currentState);
+      if (nextState === currentState) {
+        return;
+      }
+
+      recapBannerStateRef.current = nextState;
+      isRecapBannerStateDirtyRef.current = true;
+      setRecapBannerState(nextState);
     },
     [userId],
   );
