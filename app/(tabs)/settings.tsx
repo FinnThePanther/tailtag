@@ -1033,9 +1033,7 @@ export default function SettingsScreen() {
                     ? recap.achievementsUnlockedCount
                     : summary.achievementIds.length;
                 const fallbackDailyTasksCompletedCount =
-                  recap.dailyTasksCompletedCount > 0
-                    ? recap.dailyTasksCompletedCount
-                    : summary.dailyTaskDaysCompleted;
+                  recap.dailyTasksCompletedCount > 0 ? recap.dailyTasksCompletedCount : 0;
 
                 return (
                   <Pressable
