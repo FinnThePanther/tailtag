@@ -123,6 +123,7 @@ npm run lint
 - `docs/environment-setup.md` covers backend and Supabase environment setup.
 - `docs/backend-overview.md` explains the Supabase backend, Edge Functions, migrations, seeds, cron jobs, and operational scripts.
 - `docs/mobile-overview.md` explains the Expo app structure, routing, state/data patterns, and native capabilities.
+- `docs/ci-cd-policy.md` defines required branch protection settings, required checks, and CI/CD delivery rules.
 - `docs/RELEASE_READINESS.md` tracks release readiness work.
 - `docs/runbooks/sync-environments.md` covers environment sync operations.
 - `docs/runbooks/rollback.md` covers rollback operations.
