@@ -9,6 +9,10 @@ permissions:
 
 env:
   NODE_VERSION: 20
+  NODE24_VERSION: 24
+  # Opt in now so JavaScript-based actions execute on Node 24 ahead of
+  # GitHub's forced migration window.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   validate:
@@ -92,6 +96,34 @@ jobs:
         run: python3 scripts/check-types.py /tmp/generated-types.ts
 
       - name: Type-check achievement-rules package
+        run: |
+          cd packages/achievement-rules
+          npx tsc --noEmit --pretty
+
+  validate_node24_readiness:
+    name: Validate repository (Node 24 readiness)
+    runs-on: ubuntu-latest
+    # Readiness signal only for now: surfaces incompatibilities without
+    # blocking merges while we complete full migration hardening.
+    continue-on-error: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ env.NODE24_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE24_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate mobile app (Node 24)
+        run: npm run ci:validate
+
+      - name: Type-check achievement-rules package (Node 24)
         run: |
           cd packages/achievement-rules
           npx tsc --noEmit --pretty

@@ -11,10 +11,14 @@ permissions:
 
 concurrency:
   group: branch-delivery-${{ github.ref }}
-  cancel-in-progress: false
+  # Keep main releases serialized, but auto-cancel stale dev runs.
+  cancel-in-progress: ${{ github.ref_name == 'dev' }}
 
 env:
   NODE_VERSION: 20
+  # Opt in now so JavaScript-based actions execute on Node 24 ahead of
+  # GitHub's forced migration window.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   changes:
@@ -24,6 +28,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       native: ${{ steps.filter.outputs.native }}
       js: ${{ steps.filter.outputs.js }}
+      skip_eas: ${{ steps.skip_eas.outputs.value }}
 
     steps:
       - name: Checkout repository
@@ -67,6 +72,19 @@ jobs:
               - 'package.json'
               - 'package-lock.json'
 
+      - name: Detect EAS skip directive
+        id: skip_eas
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          # Support historical marker variants used in this repo:
+          # [skip eas], [skip-eas], [eas skip], [no eas], [no-eas].
+          if printf '%s' "$COMMIT_MESSAGE" | tr '[:upper:]' '[:lower:]' | grep -Eq '\[(skip[ -]?eas|eas[ -]?skip|no[ -]?eas)\]'; then
+            echo "value=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=false" >> "$GITHUB_OUTPUT"
+          fi
+
   validate:
     name: Validate merged commit
     needs: changes
@@ -96,6 +114,55 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ github.ref_name == 'dev' && secrets.STAGING_PROJECT_REF || secrets.PROD_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ github.ref_name == 'dev' && secrets.STAGING_DB_PASSWORD || secrets.PROD_DB_PASSWORD }}
+
+      - name: Preflight migration drift check
+        # Fail fast with a clear error if the remote migration history
+        # references versions that don't exist in this commit's
+        # supabase/migrations directory.
+        run: |
+          set -euo pipefail
+
+          MIGRATION_DIR="supabase/migrations"
+          if [ ! -d "$MIGRATION_DIR" ]; then
+            echo "No migrations directory found - skipping drift check."
+            exit 0
+          fi
+
+          LOCAL_VERSIONS="$(ls "$MIGRATION_DIR"/*.sql 2>/dev/null \
+            | xargs -I{} basename {} \
+            | cut -c1-14 \
+            | grep -E '^[0-9]{14}$' \
+            | sort -u || true)"
+
+          REMOTE_VERSIONS="$(supabase db query --linked --output csv \
+            "SELECT version::text FROM supabase_migrations.schema_migrations ORDER BY version" \
+            | tail -n +2 \
+            | tr -d '\r' \
+            | sed '/^$/d' \
+            | sort -u)"
+
+          REMOTE_MISSING_LOCALLY="$(comm -23 \
+            <(printf '%s\n' "$REMOTE_VERSIONS") \
+            <(printf '%s\n' "$LOCAL_VERSIONS"))"
+
+          if [ -n "$REMOTE_MISSING_LOCALLY" ]; then
+            echo "::error::Migration drift detected: remote has versions missing from supabase/migrations."
+            echo ""
+            echo "Remote-only versions:"
+            printf '  - %s\n' $REMOTE_MISSING_LOCALLY
+            echo ""
+            echo "Remediation:"
+            echo "  1) Sync this branch with the latest migrations."
+            echo "  2) If versions were intentionally removed/renamed, repair remote history:"
+            echo "     supabase migration repair --status reverted <version> [<version> ...]"
+            echo "  3) Re-run branch delivery once local and remote migration histories match."
+            exit 1
+          fi
+
+          echo "Migration history preflight passed: remote versions exist locally."
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ github.ref_name == 'dev' && secrets.STAGING_DB_PASSWORD || secrets.PROD_DB_PASSWORD }}
 
       - name: Apply migrations
@@ -156,26 +223,9 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ github.ref_name == 'dev' && secrets.STAGING_DB_PASSWORD || secrets.PROD_DB_PASSWORD }}
 
       - name: Deploy edge functions
-        # Deploys every directory under supabase/functions/ that contains an
-        # index.ts. Adding a new function only requires creating its directory
-        # — no workflow edits needed.
-        run: |
-          for dir in supabase/functions/*/; do
-            fn="$(basename "$dir")"
-            [ "$fn" = "_shared" ] && continue
-            [ -f "$dir/index.ts" ] || continue
-            echo "Deploying $fn..."
-            # These functions verify bearer/service-role tokens in function code.
-            # Keep this list aligned with supabase/config.toml and setup-environment.sh.
-            case "$fn" in
-              create-catch|delete-account|events-ingress)
-                supabase functions deploy "$fn" --no-verify-jwt
-                ;;
-              *)
-                supabase functions deploy "$fn"
-                ;;
-            esac
-          done
+        # Deploys all Edge Functions and honors per-function config from
+        # supabase/config.toml (for example, verify_jwt toggles).
+        run: supabase functions deploy
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
@@ -216,7 +266,7 @@ jobs:
       - name: Require package.json version bump on native changes
         if: >-
           needs.changes.outputs.native == 'true' &&
-          !contains(github.event.head_commit.message, '[skip eas]')
+          needs.changes.outputs.skip_eas != 'true'
         # Compare against `github.event.before` — the branch tip before this
         # push — rather than HEAD~1. HEAD~1 is wrong for rebase-and-merge PRs
         # with multiple commits: it points at the second-to-last rebased
@@ -254,7 +304,7 @@ jobs:
     if: >-
       needs.changes.outputs.native == 'true' &&
       github.ref_name == 'dev' &&
-      !contains(github.event.head_commit.message, '[skip eas]')
+      needs.changes.outputs.skip_eas != 'true'
     environment: staging
     steps:
       - name: Checkout repository
@@ -293,7 +343,7 @@ jobs:
     # (appVersion policy) won't reach incompatible older binaries.
     if: >-
       (needs.changes.outputs.native == 'true' || needs.changes.outputs.js == 'true') &&
-      !contains(github.event.head_commit.message, '[skip eas]')
+      needs.changes.outputs.skip_eas != 'true'
     environment: ${{ github.ref_name == 'dev' && 'staging' || 'production' }}
     env:
       APP_ENV: ${{ github.ref_name == 'dev' && 'staging' || 'production' }}
