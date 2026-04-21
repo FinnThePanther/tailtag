@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { emitGameplayEvent } from '../../events';
+import type { FursuitSocialLink } from '../../../types/database';
 
 export type ConventionSummary = {
   id: string;
@@ -51,10 +52,352 @@ export type PastConventionRecap = {
   summary: Record<string, unknown>;
 };
 
+export type PastConventionRecapSummaryCaughtFursuit = {
+  fursuitId: string;
+  name: string | null;
+  catchCount: number;
+};
+
+export type PastConventionRecapSummaryOwnedFursuit = {
+  fursuitId: string;
+  name: string | null;
+  timesCaught: number;
+  uniqueCatchers: number;
+};
+
+export type PastConventionRecapSummary = {
+  fursuitsCaught: PastConventionRecapSummaryCaughtFursuit[];
+  ownFursuits: PastConventionRecapSummaryOwnedFursuit[];
+  achievementIds: string[];
+  dailyTaskDaysCompleted: number;
+};
+
+export type ConventionRecapHeader = {
+  recapId: string;
+  conventionId: string;
+  conventionName: string;
+  location: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  generatedAt: string;
+  joinedAt: string | null;
+  leftAt: string | null;
+  finalRank: number | null;
+  catchCount: number;
+  uniqueFursuitsCaughtCount: number;
+  ownFursuitsCaughtCount: number;
+  uniqueCatchersForOwnFursuitsCount: number;
+  dailyTasksCompletedCount: number;
+  achievementsUnlockedCount: number;
+};
+
+export type ConventionRecapCaughtFursuit = {
+  fursuitId: string;
+  name: string | null;
+  catchCount: number;
+  firstCaughtAt: string | null;
+  mostRecentCaughtAt: string | null;
+  avatarUrl: string | null;
+  species: string | null;
+  colors: string[];
+  ownerId: string | null;
+  ownerUsername: string | null;
+  ownerName: string | null;
+  pronouns: string | null;
+  askMeAbout: string | null;
+  likesAndInterests: string | null;
+  socialLinks: FursuitSocialLink[];
+};
+
+export type ConventionRecapOwnedFursuit = {
+  fursuitId: string;
+  name: string | null;
+  timesCaught: number;
+  uniqueCatchers: number;
+  firstCaughtAt: string | null;
+  mostRecentCaughtAt: string | null;
+  avatarUrl: string | null;
+  species: string | null;
+  colors: string[];
+};
+
+export type ConventionRecapAchievement = {
+  achievementId: string;
+  key: string | null;
+  name: string | null;
+  description: string | null;
+  category: string | null;
+  unlockedAt: string | null;
+};
+
+export type ConventionRecapDailySummary = {
+  completedTasksCount: number;
+  completedDaysCount: number;
+  completedDays: string[];
+  conventionTotalDays: number | null;
+};
+
+export type ConventionRecapAward = {
+  code: string;
+  title: string;
+  description: string;
+};
+
+export type ConventionRecapDetail = {
+  recap: ConventionRecapHeader;
+  caughtFursuits: ConventionRecapCaughtFursuit[];
+  ownedFursuits: ConventionRecapOwnedFursuit[];
+  achievements: ConventionRecapAchievement[];
+  dailySummary: ConventionRecapDailySummary;
+  awards: ConventionRecapAward[];
+};
+
 export const JOINABLE_CONVENTIONS_QUERY_KEY = 'joinable-conventions';
 export const CONVENTIONS_STALE_TIME = 5 * 60_000;
 export const ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY = 'active-profile-conventions';
 export const PAST_CONVENTION_RECAPS_QUERY_KEY = 'past-convention-recaps';
+export const CONVENTION_RECAP_DETAIL_QUERY_KEY = 'convention-recap-detail';
+
+export const conventionRecapDetailQueryKey = (userId: string, recapId: string) =>
+  [CONVENTION_RECAP_DETAIL_QUERY_KEY, userId, recapId] as const;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const asNullableString = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+};
+
+const asString = (value: unknown, fallback = ''): string => asNullableString(value) ?? fallback;
+
+const asNonNegativeInteger = (value: unknown): number => {
+  const normalized =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  if (!Number.isFinite(normalized)) return 0;
+  return Math.max(0, Math.trunc(normalized));
+};
+
+const asPositiveIntegerOrNull = (value: unknown): number | null => {
+  const normalized =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  if (!Number.isFinite(normalized)) return null;
+  const integer = Math.trunc(normalized);
+  return integer > 0 ? integer : null;
+};
+
+const asStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => asNullableString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+};
+
+const asRecordArray = (value: unknown): Record<string, unknown>[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(isRecord);
+};
+
+const parseSocialLinks = (value: unknown): FursuitSocialLink[] => {
+  return asRecordArray(value)
+    .map((entry) => {
+      const label = asNullableString(entry.label);
+      const url = asNullableString(entry.url);
+      if (!label || !url) return null;
+
+      return {
+        label,
+        url,
+      } satisfies FursuitSocialLink;
+    })
+    .filter((entry): entry is FursuitSocialLink => Boolean(entry));
+};
+
+function mapConventionRecapHeader(raw: unknown): ConventionRecapHeader {
+  const source = isRecord(raw) ? raw : {};
+
+  return {
+    recapId: asString(source.recap_id),
+    conventionId: asString(source.convention_id),
+    conventionName: asString(source.convention_name),
+    location: asNullableString(source.location),
+    startDate: asNullableString(source.start_date),
+    endDate: asNullableString(source.end_date),
+    generatedAt: asString(source.generated_at),
+    joinedAt: asNullableString(source.joined_at),
+    leftAt: asNullableString(source.left_at),
+    finalRank: asPositiveIntegerOrNull(source.final_rank),
+    catchCount: asNonNegativeInteger(source.catch_count),
+    uniqueFursuitsCaughtCount: asNonNegativeInteger(source.unique_fursuits_caught_count),
+    ownFursuitsCaughtCount: asNonNegativeInteger(source.own_fursuits_caught_count),
+    uniqueCatchersForOwnFursuitsCount: asNonNegativeInteger(
+      source.unique_catchers_for_own_fursuits_count,
+    ),
+    dailyTasksCompletedCount: asNonNegativeInteger(source.daily_tasks_completed_count),
+    achievementsUnlockedCount: asNonNegativeInteger(source.achievements_unlocked_count),
+  };
+}
+
+function mapConventionRecapCaughtFursuits(raw: unknown): ConventionRecapCaughtFursuit[] {
+  return asRecordArray(raw)
+    .map((entry) => {
+      const fursuitId = asNullableString(entry.fursuit_id);
+      if (!fursuitId) return null;
+
+      return {
+        fursuitId,
+        name: asNullableString(entry.name),
+        catchCount: asNonNegativeInteger(entry.catch_count),
+        firstCaughtAt: asNullableString(entry.first_caught_at),
+        mostRecentCaughtAt: asNullableString(entry.most_recent_caught_at),
+        avatarUrl: asNullableString(entry.avatar_url),
+        species: asNullableString(entry.species),
+        colors: asStringArray(entry.colors),
+        ownerId: asNullableString(entry.owner_id),
+        ownerUsername: asNullableString(entry.owner_username),
+        ownerName: asNullableString(entry.owner_name),
+        pronouns: asNullableString(entry.pronouns),
+        askMeAbout: asNullableString(entry.ask_me_about),
+        likesAndInterests: asNullableString(entry.likes_and_interests),
+        socialLinks: parseSocialLinks(entry.social_links),
+      } satisfies ConventionRecapCaughtFursuit;
+    })
+    .filter((entry): entry is ConventionRecapCaughtFursuit => Boolean(entry));
+}
+
+function mapConventionRecapOwnedFursuits(raw: unknown): ConventionRecapOwnedFursuit[] {
+  return asRecordArray(raw)
+    .map((entry) => {
+      const fursuitId = asNullableString(entry.fursuit_id);
+      if (!fursuitId) return null;
+
+      return {
+        fursuitId,
+        name: asNullableString(entry.name),
+        timesCaught: asNonNegativeInteger(entry.times_caught),
+        uniqueCatchers: asNonNegativeInteger(entry.unique_catchers),
+        firstCaughtAt: asNullableString(entry.first_caught_at),
+        mostRecentCaughtAt: asNullableString(entry.most_recent_caught_at),
+        avatarUrl: asNullableString(entry.avatar_url),
+        species: asNullableString(entry.species),
+        colors: asStringArray(entry.colors),
+      } satisfies ConventionRecapOwnedFursuit;
+    })
+    .filter((entry): entry is ConventionRecapOwnedFursuit => Boolean(entry));
+}
+
+function mapConventionRecapAchievements(raw: unknown): ConventionRecapAchievement[] {
+  return asRecordArray(raw)
+    .map((entry) => {
+      const achievementId = asNullableString(entry.achievement_id);
+      if (!achievementId) return null;
+
+      return {
+        achievementId,
+        key: asNullableString(entry.key),
+        name: asNullableString(entry.name),
+        description: asNullableString(entry.description),
+        category: asNullableString(entry.category),
+        unlockedAt: asNullableString(entry.unlocked_at),
+      } satisfies ConventionRecapAchievement;
+    })
+    .filter((entry): entry is ConventionRecapAchievement => Boolean(entry));
+}
+
+function mapConventionRecapDailySummary(raw: unknown): ConventionRecapDailySummary {
+  const source = isRecord(raw) ? raw : {};
+  const conventionTotalDays =
+    source.convention_total_days === null
+      ? null
+      : asPositiveIntegerOrNull(source.convention_total_days);
+
+  return {
+    completedTasksCount: asNonNegativeInteger(source.completed_tasks_count),
+    completedDaysCount: asNonNegativeInteger(source.completed_days_count),
+    completedDays: asStringArray(source.completed_days),
+    conventionTotalDays,
+  };
+}
+
+function mapConventionRecapAwards(raw: unknown): ConventionRecapAward[] {
+  return asRecordArray(raw)
+    .map((entry) => {
+      const code = asNullableString(entry.code);
+      const title = asNullableString(entry.title);
+      const description = asNullableString(entry.description);
+
+      if (!code || !title || !description) {
+        return null;
+      }
+
+      return {
+        code,
+        title,
+        description,
+      } satisfies ConventionRecapAward;
+    })
+    .filter((entry): entry is ConventionRecapAward => Boolean(entry));
+}
+
+function mapConventionRecapDetail(raw: unknown): ConventionRecapDetail {
+  const source = isRecord(raw) ? raw : {};
+
+  return {
+    recap: mapConventionRecapHeader(source.recap),
+    caughtFursuits: mapConventionRecapCaughtFursuits(source.caught_fursuits),
+    ownedFursuits: mapConventionRecapOwnedFursuits(source.owned_fursuits),
+    achievements: mapConventionRecapAchievements(source.achievements),
+    dailySummary: mapConventionRecapDailySummary(source.daily_summary),
+    awards: mapConventionRecapAwards(source.awards),
+  };
+}
+
+export function parsePastConventionRecapSummary(
+  summary: Record<string, unknown>,
+): PastConventionRecapSummary {
+  const fursuitsCaught = asRecordArray(summary.fursuits_caught)
+    .map((entry) => {
+      const fursuitId = asNullableString(entry.fursuit_id);
+      if (!fursuitId) return null;
+
+      return {
+        fursuitId,
+        name: asNullableString(entry.name),
+        catchCount: asNonNegativeInteger(entry.catch_count),
+      } satisfies PastConventionRecapSummaryCaughtFursuit;
+    })
+    .filter((entry): entry is PastConventionRecapSummaryCaughtFursuit => Boolean(entry));
+
+  const ownFursuits = asRecordArray(summary.own_fursuits)
+    .map((entry) => {
+      const fursuitId = asNullableString(entry.fursuit_id);
+      if (!fursuitId) return null;
+
+      return {
+        fursuitId,
+        name: asNullableString(entry.name),
+        timesCaught: asNonNegativeInteger(entry.times_caught),
+        uniqueCatchers: asNonNegativeInteger(entry.unique_catchers),
+      } satisfies PastConventionRecapSummaryOwnedFursuit;
+    })
+    .filter((entry): entry is PastConventionRecapSummaryOwnedFursuit => Boolean(entry));
+
+  const achievementIds = Array.from(new Set(asStringArray(summary.achievement_ids)));
+
+  return {
+    fursuitsCaught,
+    ownFursuits,
+    achievementIds,
+    dailyTaskDaysCompleted: asNonNegativeInteger(summary.daily_task_days_completed),
+  };
+}
 
 function mapConventionSummary(convention: any): ConventionSummary {
   return {
@@ -98,10 +441,7 @@ function mapPastConventionRecap(row: any): PastConventionRecap {
     uniqueCatchersForOwnFursuitsCount: Number(row.unique_catchers_for_own_fursuits_count ?? 0),
     dailyTasksCompletedCount: Number(row.daily_tasks_completed_count ?? 0),
     achievementsUnlockedCount: Number(row.achievements_unlocked_count ?? 0),
-    summary:
-      row.summary && typeof row.summary === 'object'
-        ? (row.summary as Record<string, unknown>)
-        : {},
+    summary: isRecord(row.summary) ? (row.summary as Record<string, unknown>) : {},
   };
 }
 
@@ -134,6 +474,33 @@ export async function fetchPastConventionRecaps(): Promise<PastConventionRecap[]
 
   return (data ?? []).map(mapPastConventionRecap);
 }
+
+export async function fetchConventionRecapDetail(
+  recapId: string,
+): Promise<ConventionRecapDetail | null> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('get_my_convention_recap_detail', {
+    p_recap_id: recapId,
+  });
+
+  if (error) {
+    throw new Error(`We couldn't load that convention recap: ${error.message}`);
+  }
+
+  if (!Array.isArray(data) || data.length === 0) {
+    return null;
+  }
+
+  return mapConventionRecapDetail(data[0]);
+}
+
+export const createConventionRecapDetailQueryOptions = (userId: string, recapId: string) => ({
+  queryKey: conventionRecapDetailQueryKey(userId, recapId),
+  queryFn: () => fetchConventionRecapDetail(recapId),
+  staleTime: CONVENTIONS_STALE_TIME,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
 
 export async function fetchActiveProfileConventionIds(profileId: string): Promise<string[]> {
   const client = supabase as any;

@@ -25,6 +25,7 @@ import {
   optInToConvention,
   optOutOfConvention,
   PAST_CONVENTION_RECAPS_QUERY_KEY,
+  parsePastConventionRecapSummary,
 } from '../../src/features/conventions';
 import { useAuth } from '../../src/features/auth';
 import type {
@@ -534,6 +535,16 @@ export default function SettingsScreen() {
     await WebBrowser.openBrowserAsync(url);
   }, []);
 
+  const handleOpenConventionRecap = useCallback(
+    (recapId: string) => {
+      router.push({
+        pathname: '/convention-recaps/[recapId]',
+        params: { recapId },
+      });
+    },
+    [router],
+  );
+
   const isUsernameTaken = usernameCheckStatus === 'taken';
   const isUsernameChecking = usernameCheckStatus === 'checking';
 
@@ -1004,46 +1015,82 @@ export default function SettingsScreen() {
               Recaps from events you joined after they have been archived.
             </Text>
             <View style={styles.pastConventionList}>
-              {pastConventionRecaps.map((recap) => (
-                <View
-                  key={recap.recapId}
-                  style={styles.pastConventionCard}
-                >
-                  <View style={styles.pastConventionHeader}>
-                    <View style={styles.pastConventionTitleBlock}>
-                      <Text style={styles.pastConventionName}>{recap.conventionName}</Text>
-                      <Text style={styles.pastConventionMeta}>{formatRecapDateRange(recap)}</Text>
-                    </View>
-                    {recap.finalRank ? (
-                      <View style={styles.rankBadge}>
-                        <Text style={styles.rankBadgeText}>#{recap.finalRank}</Text>
+              {pastConventionRecaps.map((recap) => {
+                const summary = parsePastConventionRecapSummary(recap.summary);
+                const fallbackUniqueFursuitsCaughtCount =
+                  recap.uniqueFursuitsCaughtCount > 0
+                    ? recap.uniqueFursuitsCaughtCount
+                    : summary.fursuitsCaught.length;
+                const fallbackOwnFursuitsCaughtCount =
+                  recap.ownFursuitsCaughtCount > 0
+                    ? recap.ownFursuitsCaughtCount
+                    : summary.ownFursuits.reduce(
+                        (total, fursuit) => total + fursuit.timesCaught,
+                        0,
+                      );
+                const fallbackAchievementsUnlockedCount =
+                  recap.achievementsUnlockedCount > 0
+                    ? recap.achievementsUnlockedCount
+                    : summary.achievementIds.length;
+                const fallbackDailyTasksCompletedCount =
+                  recap.dailyTasksCompletedCount > 0 ? recap.dailyTasksCompletedCount : 0;
+
+                return (
+                  <Pressable
+                    key={recap.recapId}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View recap for ${recap.conventionName}`}
+                    accessibilityHint="Opens convention recap details"
+                    onPress={() => handleOpenConventionRecap(recap.recapId)}
+                    style={({ pressed }) => [
+                      styles.pastConventionCard,
+                      pressed && styles.pastConventionCardPressed,
+                    ]}
+                  >
+                    <View style={styles.pastConventionHeader}>
+                      <View style={styles.pastConventionTitleBlock}>
+                        <Text style={styles.pastConventionName}>{recap.conventionName}</Text>
+                        <Text style={styles.pastConventionMeta}>{formatRecapDateRange(recap)}</Text>
                       </View>
-                    ) : null}
-                  </View>
-                  <View style={styles.recapStatsGrid}>
-                    <RecapStat
-                      label="Catches"
-                      value={recap.catchCount}
-                    />
-                    <RecapStat
-                      label="Fursuits found"
-                      value={recap.uniqueFursuitsCaughtCount}
-                    />
-                    <RecapStat
-                      label="Your suits caught"
-                      value={recap.ownFursuitsCaughtCount}
-                    />
-                    <RecapStat
-                      label="Achievements"
-                      value={recap.achievementsUnlockedCount}
-                    />
-                    <RecapStat
-                      label="Daily tasks"
-                      value={recap.dailyTasksCompletedCount}
-                    />
-                  </View>
-                </View>
-              ))}
+                      {recap.finalRank ? (
+                        <View style={styles.rankBadge}>
+                          <Text style={styles.rankBadgeText}>#{recap.finalRank}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.recapStatsGrid}>
+                      <RecapStat
+                        label="Catches"
+                        value={recap.catchCount}
+                      />
+                      <RecapStat
+                        label="Fursuits found"
+                        value={fallbackUniqueFursuitsCaughtCount}
+                      />
+                      <RecapStat
+                        label="Your suits caught"
+                        value={fallbackOwnFursuitsCaughtCount}
+                      />
+                      <RecapStat
+                        label="Achievements"
+                        value={fallbackAchievementsUnlockedCount}
+                      />
+                      <RecapStat
+                        label="Daily tasks"
+                        value={fallbackDailyTasksCompletedCount}
+                      />
+                    </View>
+                    <View style={styles.recapCtaRow}>
+                      <Text style={styles.recapCtaText}>View recap</Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         </TailTagCard>

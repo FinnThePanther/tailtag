@@ -272,6 +272,12 @@ function RootLayoutNav() {
         options={{ headerShown: false }}
       />
 
+      {/* Convention recaps */}
+      <Stack.Screen
+        name="convention-recaps"
+        options={{ headerShown: false }}
+      />
+
       {/* Blocked users management */}
       <Stack.Screen
         name="blocked-users"
@@ -303,6 +309,7 @@ function RootLayoutNav() {
 const NON_CRITICAL_KEY_PREFIXES = [
   'convention-leaderboard',
   'convention-suit-leaderboard',
+  'convention-recap-detail',
   'fursuit-species',
   'fursuit-colors',
 ];
