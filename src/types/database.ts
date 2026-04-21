@@ -2151,6 +2151,17 @@ export type Database = {
           timezone: string
         }[]
       }
+      get_my_convention_recap_detail: {
+        Args: { p_recap_id: string }
+        Returns: {
+          achievements: Json
+          awards: Json
+          caught_fursuits: Json
+          daily_summary: Json
+          owned_fursuits: Json
+          recap: Json
+        }[]
+      }
       get_my_convention_recaps: {
         Args: never
         Returns: {
