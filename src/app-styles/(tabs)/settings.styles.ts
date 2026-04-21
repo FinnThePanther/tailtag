@@ -133,6 +133,9 @@ export const styles = StyleSheet.create({
     borderColor: colors.borderMuted,
     padding: spacing.md,
   },
+  pastConventionCardPressed: {
+    opacity: 0.72,
+  },
   pastConventionHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -183,6 +186,17 @@ export const styles = StyleSheet.create({
   recapStatLabel: {
     color: colors.textSubtle,
     fontSize: 11,
+  },
+  recapCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  recapCtaText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
   },
   error: {
     color: '#fca5a5',

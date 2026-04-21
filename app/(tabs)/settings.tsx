@@ -534,6 +534,16 @@ export default function SettingsScreen() {
     await WebBrowser.openBrowserAsync(url);
   }, []);
 
+  const handleOpenConventionRecap = useCallback(
+    (recapId: string) => {
+      router.push({
+        pathname: '/convention-recaps/[recapId]',
+        params: { recapId },
+      });
+    },
+    [router],
+  );
+
   const isUsernameTaken = usernameCheckStatus === 'taken';
   const isUsernameChecking = usernameCheckStatus === 'checking';
 
@@ -1005,9 +1015,16 @@ export default function SettingsScreen() {
             </Text>
             <View style={styles.pastConventionList}>
               {pastConventionRecaps.map((recap) => (
-                <View
+                <Pressable
                   key={recap.recapId}
-                  style={styles.pastConventionCard}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View recap for ${recap.conventionName}`}
+                  accessibilityHint="Opens convention recap details"
+                  onPress={() => handleOpenConventionRecap(recap.recapId)}
+                  style={({ pressed }) => [
+                    styles.pastConventionCard,
+                    pressed && styles.pastConventionCardPressed,
+                  ]}
                 >
                   <View style={styles.pastConventionHeader}>
                     <View style={styles.pastConventionTitleBlock}>
@@ -1042,7 +1059,15 @@ export default function SettingsScreen() {
                       value={recap.dailyTasksCompletedCount}
                     />
                   </View>
-                </View>
+                  <View style={styles.recapCtaRow}>
+                    <Text style={styles.recapCtaText}>View recap</Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={colors.primary}
+                    />
+                  </View>
+                </Pressable>
               ))}
             </View>
           </View>
