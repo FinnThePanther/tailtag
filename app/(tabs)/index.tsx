@@ -20,9 +20,12 @@ import {
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
   type ConventionSummary,
+  type PastConventionRecap,
   fetchActiveProfileConventionIds,
   fetchJoinableConventions,
+  fetchPastConventionRecaps,
   JOINABLE_CONVENTIONS_QUERY_KEY,
+  PAST_CONVENTION_RECAPS_QUERY_KEY,
 } from '../../src/features/conventions';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
@@ -52,8 +55,54 @@ import { styles } from '../../src/app-styles/(tabs)/index.styles';
 
 const MAX_LEADERBOARD_ENTRIES = 5;
 const usernameNudgeDismissedKey = (userId: string) => `tailtag:username-nudge-dismissed:${userId}`;
+const recapBannerStateKey = (userId: string) => `tailtag:recap-banner-state:${userId}`;
 
 const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);
+
+type RecapBannerState = {
+  seenRecapIds: string[];
+  dismissedRecapIds: string[];
+};
+
+const EMPTY_RECAP_BANNER_STATE: RecapBannerState = {
+  seenRecapIds: [],
+  dismissedRecapIds: [],
+};
+
+const asRecapIdList = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value.filter(
+        (entry): entry is string => typeof entry === 'string' && entry.trim().length > 0,
+      ),
+    ),
+  );
+};
+
+const parseRecapBannerState = (rawValue: string | null): RecapBannerState => {
+  if (!rawValue) {
+    return EMPTY_RECAP_BANNER_STATE;
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return EMPTY_RECAP_BANNER_STATE;
+    }
+
+    const source = parsed as Record<string, unknown>;
+    return {
+      seenRecapIds: asRecapIdList(source.seenRecapIds),
+      dismissedRecapIds: asRecapIdList(source.dismissedRecapIds),
+    };
+  } catch {
+    return EMPTY_RECAP_BANNER_STATE;
+  }
+};
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -64,6 +113,9 @@ export default function HomeScreen() {
 
   // Username change nudge
   const [nudgeDismissed, setNudgeDismissed] = useState<boolean | null>(null);
+  const [recapBannerState, setRecapBannerState] =
+    useState<RecapBannerState>(EMPTY_RECAP_BANNER_STATE);
+  const [isRecapBannerStateReady, setRecapBannerStateReady] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -102,6 +154,78 @@ export default function HomeScreen() {
     setNudgeDismissed(true);
     AsyncStorage.setItem(usernameNudgeDismissedKey(userId), 'true').catch(() => undefined);
   }, [userId]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!userId) {
+      setRecapBannerState(EMPTY_RECAP_BANNER_STATE);
+      setRecapBannerStateReady(false);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    setRecapBannerStateReady(false);
+
+    AsyncStorage.getItem(recapBannerStateKey(userId))
+      .then((storedValue) => {
+        if (!isActive) {
+          return;
+        }
+
+        setRecapBannerState(parseRecapBannerState(storedValue));
+      })
+      .catch(() => {
+        if (isActive) {
+          setRecapBannerState(EMPTY_RECAP_BANNER_STATE);
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setRecapBannerStateReady(true);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [userId]);
+
+  const persistRecapBannerState = useCallback(
+    (nextState: RecapBannerState) => {
+      if (!userId) {
+        return;
+      }
+
+      AsyncStorage.setItem(recapBannerStateKey(userId), JSON.stringify(nextState)).catch(
+        () => undefined,
+      );
+    },
+    [userId],
+  );
+
+  const updateRecapBannerState = useCallback(
+    (updater: (current: RecapBannerState) => RecapBannerState) => {
+      if (!userId) {
+        return;
+      }
+
+      setRecapBannerState((current) => {
+        const next = updater(current);
+        if (
+          next.seenRecapIds === current.seenRecapIds &&
+          next.dismissedRecapIds === current.dismissedRecapIds
+        ) {
+          return current;
+        }
+
+        persistRecapBannerState(next);
+        return next;
+      });
+    },
+    [persistRecapBannerState, userId],
+  );
 
   const { data: profile } = useQuery({
     queryKey: userId ? profileQueryKey(userId) : ['profile', 'guest'],
@@ -145,6 +269,16 @@ export default function HomeScreen() {
     error: profileConventionsError,
     refetch: refetchProfileConventions,
   } = profileConventionsQuery;
+
+  const pastConventionRecapsQuery = useQuery<PastConventionRecap[], Error>({
+    queryKey: [PAST_CONVENTION_RECAPS_QUERY_KEY, userId],
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchPastConventionRecaps(),
+  });
+  const { data: pastConventionRecaps = [] } = pastConventionRecapsQuery;
 
   const achievementsQueryKey = useMemo(
     () =>
@@ -367,6 +501,22 @@ export default function HomeScreen() {
   const topSuitEntries = suitLeaderboardEntries.slice(0, MAX_LEADERBOARD_ENTRIES);
   const suitErrorMessage = suitLeaderboardError?.message ?? null;
   const hasSuitEntries = topSuitEntries.length > 0;
+  const seenRecapIdSet = useMemo(() => new Set(recapBannerState.seenRecapIds), [recapBannerState]);
+  const dismissedRecapIdSet = useMemo(
+    () => new Set(recapBannerState.dismissedRecapIds),
+    [recapBannerState],
+  );
+  const newestUnseenRecap = useMemo(() => {
+    if (!userId || !isRecapBannerStateReady) {
+      return null;
+    }
+
+    return (
+      pastConventionRecaps.find(
+        (recap) => !seenRecapIdSet.has(recap.recapId) && !dismissedRecapIdSet.has(recap.recapId),
+      ) ?? null
+    );
+  }, [dismissedRecapIdSet, isRecapBannerStateReady, pastConventionRecaps, seenRecapIdSet, userId]);
 
   const tier1Ready = useAllDataReady([conventionsQuery, profileConventionsQuery]);
   const rawTier2Ready = useAllDataReady([dailyTasksQuery, achievementsQuery]);
@@ -436,6 +586,47 @@ export default function HomeScreen() {
     });
     void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
   }, [refetchLeaderboard, refetchSuitLeaderboard, userId, selectedConventionId, queryClient]);
+
+  const handleViewRecapBanner = useCallback(() => {
+    if (!newestUnseenRecap) {
+      return;
+    }
+
+    const targetRecapId = newestUnseenRecap.recapId;
+    updateRecapBannerState((current) => {
+      if (current.seenRecapIds.includes(targetRecapId)) {
+        return current;
+      }
+
+      return {
+        ...current,
+        seenRecapIds: [...current.seenRecapIds, targetRecapId],
+      };
+    });
+
+    router.push({
+      pathname: '/convention-recaps/[recapId]',
+      params: { recapId: targetRecapId },
+    });
+  }, [newestUnseenRecap, router, updateRecapBannerState]);
+
+  const handleDismissRecapBanner = useCallback(() => {
+    if (!newestUnseenRecap) {
+      return;
+    }
+
+    const targetRecapId = newestUnseenRecap.recapId;
+    updateRecapBannerState((current) => {
+      if (current.dismissedRecapIds.includes(targetRecapId)) {
+        return current;
+      }
+
+      return {
+        ...current,
+        dismissedRecapIds: [...current.dismissedRecapIds, targetRecapId],
+      };
+    });
+  }, [newestUnseenRecap, updateRecapBannerState]);
 
   return (
     <View style={styles.wrapper}>
@@ -512,6 +703,43 @@ export default function HomeScreen() {
             </View>
           </TailTagCard>
         )}
+
+        {newestUnseenRecap ? (
+          <TailTagCard style={[styles.recapBannerCard, contentWidthStyle]}>
+            <View style={styles.recapBannerContent}>
+              <View style={styles.recapBannerTextBlock}>
+                <Text style={styles.recapBannerTitle}>
+                  Your {newestUnseenRecap.conventionName} recap is ready
+                </Text>
+                <Text style={styles.recapBannerBody}>
+                  See your catches, rank, awards, and fursuit stats.
+                </Text>
+                <View style={styles.recapBannerActionRow}>
+                  <TailTagButton
+                    size="sm"
+                    onPress={handleViewRecapBanner}
+                    accessibilityLabel={`View recap for ${newestUnseenRecap.conventionName}`}
+                    accessibilityHint="Opens your convention recap details"
+                  >
+                    View recap
+                  </TailTagButton>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Dismiss recap for ${newestUnseenRecap.conventionName}`}
+                    accessibilityHint="Hides this recap banner"
+                    onPress={handleDismissRecapBanner}
+                    style={({ pressed }) => [
+                      styles.recapBannerDismissAction,
+                      pressed && styles.recapBannerDismissActionPressed,
+                    ]}
+                  >
+                    <Text style={styles.recapBannerDismissText}>Dismiss</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </TailTagCard>
+        ) : null}
 
         <TailTagCard style={[styles.dailyCard, contentWidthStyle]}>
           <Text style={styles.sectionEyebrow}>Daily tasks</Text>

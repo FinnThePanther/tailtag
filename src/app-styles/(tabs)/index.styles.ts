@@ -77,6 +77,49 @@ export const styles = StyleSheet.create({
   nudgeDismiss: {
     paddingTop: 2,
   },
+  recapBannerCard: {
+    marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySurface,
+  },
+  recapBannerContent: {
+    gap: spacing.sm,
+  },
+  recapBannerTextBlock: {
+    gap: spacing.sm,
+  },
+  recapBannerTitle: {
+    color: colors.foreground,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  recapBannerBody: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  recapBannerActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  recapBannerDismissAction: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primaryMuted,
+  },
+  recapBannerDismissActionPressed: {
+    opacity: 0.7,
+  },
+  recapBannerDismissText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
   dailyCard: {
     marginBottom: spacing.xl,
     gap: spacing.md,
