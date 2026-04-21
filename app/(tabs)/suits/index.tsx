@@ -11,7 +11,9 @@ import {
   MY_SUITS_STALE_TIME,
 } from '../../../src/features/suits';
 import {
+  PENDING_CATCHES_STALE_TIME,
   PendingCatchesList,
+  pendingCatchesQueryKey,
   useConfirmCatch,
   usePendingCatches,
 } from '../../../src/features/catch-confirmations';
@@ -32,6 +34,7 @@ export default function MySuitsScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const suitsQueryKey = useMemo(() => [MY_SUITS_QUERY_KEY, userId] as const, [userId]);
+  const pendingCatchesKey = useMemo(() => pendingCatchesQueryKey(userId ?? ''), [userId]);
 
   const queryClient = useQueryClient();
   const {
@@ -53,7 +56,11 @@ export default function MySuitsScreen() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
 
-  const { data: pendingCatches = [], refetch: refetchPendingCatches } = usePendingCatches();
+  const {
+    data: pendingCatches = [],
+    isRefetching: isPendingCatchesRefetching,
+    refetch: refetchPendingCatches,
+  } = usePendingCatches();
   const confirmCatchMutation = useConfirmCatch();
 
   const handleAcceptCatch = useCallback(
@@ -95,7 +102,25 @@ export default function MySuitsScreen() {
       ) {
         void refetch({ throwOnError: false });
       }
-    }, [queryClient, refetch, setActionError, suitsQueryKey, userId]),
+
+      const pendingState = queryClient.getQueryState(pendingCatchesKey);
+      if (
+        !pendingState ||
+        pendingState.isInvalidated ||
+        (pendingState.status === 'success' &&
+          Date.now() - pendingState.dataUpdatedAt > PENDING_CATCHES_STALE_TIME)
+      ) {
+        void refetchPendingCatches();
+      }
+    }, [
+      pendingCatchesKey,
+      queryClient,
+      refetch,
+      refetchPendingCatches,
+      setActionError,
+      suitsQueryKey,
+      userId,
+    ]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -178,9 +203,10 @@ export default function MySuitsScreen() {
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={styles.container}
+      alwaysBounceVertical
       refreshControl={
         <RefreshControl
-          refreshing={isRefetching}
+          refreshing={isRefetching || isPendingCatchesRefetching}
           onRefresh={handleRefresh}
           tintColor={colors.primary}
         />
