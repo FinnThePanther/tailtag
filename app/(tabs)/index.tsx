@@ -192,18 +192,15 @@ export default function HomeScreen() {
     };
   }, [userId]);
 
-  const persistRecapBannerState = useCallback(
-    (nextState: RecapBannerState) => {
-      if (!userId) {
-        return;
-      }
+  useEffect(() => {
+    if (!userId || !isRecapBannerStateReady) {
+      return;
+    }
 
-      AsyncStorage.setItem(recapBannerStateKey(userId), JSON.stringify(nextState)).catch(
-        () => undefined,
-      );
-    },
-    [userId],
-  );
+    AsyncStorage.setItem(recapBannerStateKey(userId), JSON.stringify(recapBannerState)).catch(
+      () => undefined,
+    );
+  }, [isRecapBannerStateReady, recapBannerState, userId]);
 
   const updateRecapBannerState = useCallback(
     (updater: (current: RecapBannerState) => RecapBannerState) => {
@@ -211,20 +208,9 @@ export default function HomeScreen() {
         return;
       }
 
-      setRecapBannerState((current) => {
-        const next = updater(current);
-        if (
-          next.seenRecapIds === current.seenRecapIds &&
-          next.dismissedRecapIds === current.dismissedRecapIds
-        ) {
-          return current;
-        }
-
-        persistRecapBannerState(next);
-        return next;
-      });
+      setRecapBannerState((current) => updater(current));
     },
-    [persistRecapBannerState, userId],
+    [userId],
   );
 
   const { data: profile } = useQuery({
