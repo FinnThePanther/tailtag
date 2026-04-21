@@ -15,7 +15,7 @@ import type { ConventionTaskRow } from '@/lib/data';
 const TASK_KINDS = [
   { value: 'catch', label: 'Catch' },
   { value: 'leaderboard', label: 'Leaderboard' },
-  { value: 'profile', label: 'Profile' },
+  { value: 'view_bio', label: 'View bio' },
 ] as const;
 
 const METRIC_OPTIONS = [
@@ -70,6 +70,30 @@ function formStateFromTask(task: ConventionTaskRow): TaskFormState {
 
 function buildMetadata(form: TaskFormState) {
   const filters: { path: string; equals?: string; in?: string[] }[] = [];
+
+  if (form.kind === 'leaderboard') {
+    return {
+      eventType: 'leaderboard_refreshed',
+      metric: 'total',
+      includeTutorialCatches: false,
+      filters: [],
+    };
+  }
+
+  if (form.kind === 'view_bio') {
+    const metadata: Record<string, unknown> = {
+      eventType: 'fursuit_bio_viewed',
+      metric: form.metric,
+      includeTutorialCatches: false,
+      filters: [{ path: 'payload.owner_id', notEqualsUserId: true }],
+    };
+
+    if (form.metric === 'unique' && form.uniqueBy.trim()) {
+      metadata.uniqueBy = form.uniqueBy.trim();
+    }
+
+    return metadata;
+  }
 
   if (form.speciesFilter.trim()) {
     filters.push({ path: 'payload.species', equals: form.speciesFilter.trim() });

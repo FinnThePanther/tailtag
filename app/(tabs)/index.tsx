@@ -17,12 +17,12 @@ import { fetchProfile, profileQueryKey } from '../../src/features/profile';
 import { supabase } from '../../src/lib/supabase';
 import { captureHandledException } from '../../src/lib/sentry';
 import {
-  CONVENTIONS_QUERY_KEY,
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
   type ConventionSummary,
-  fetchConventions,
-  fetchProfileConventionIds,
-  PROFILE_CONVENTIONS_QUERY_KEY,
+  fetchActiveProfileConventionIds,
+  fetchJoinableConventions,
+  JOINABLE_CONVENTIONS_QUERY_KEY,
 } from '../../src/features/conventions';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
@@ -119,12 +119,12 @@ export default function HomeScreen() {
   const contentWidthStyle = useMemo(() => ({ width: maxContentWidth }), [maxContentWidth]);
 
   const conventionsQuery = useQuery<ConventionSummary[], Error>({
-    queryKey: [CONVENTIONS_QUERY_KEY],
+    queryKey: [JOINABLE_CONVENTIONS_QUERY_KEY],
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchConventions(),
+    queryFn: () => fetchJoinableConventions(),
   });
   const {
     data: conventions = [],
@@ -133,12 +133,12 @@ export default function HomeScreen() {
   } = conventionsQuery;
 
   const profileConventionsQuery = useQuery<string[], Error>({
-    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchProfileConventionIds(userId!),
+    queryFn: () => fetchActiveProfileConventionIds(userId!),
   });
   const {
     data: profileConventionIds = [],
@@ -520,7 +520,7 @@ export default function HomeScreen() {
           {!tier1Ready ? (
             <DailyTasksSummarySkeleton />
           ) : !selectedConventionId ? (
-            <Text style={styles.message}>Pick a convention to unlock daily tasks.</Text>
+            <Text style={styles.message}>Join a live convention to use convention features.</Text>
           ) : !tier2Ready ? (
             <DailyTasksSummarySkeleton />
           ) : showDailyError ? (
@@ -845,9 +845,7 @@ export default function HomeScreen() {
             </View>
           ) : (
             <View style={styles.helper}>
-              <Text style={styles.message}>
-                Opt into a convention to see its leaderboard standings.
-              </Text>
+              <Text style={styles.message}>Join a live convention to use convention features.</Text>
               <TailTagButton
                 variant="outline"
                 size="sm"
