@@ -23,9 +23,9 @@ import {
 import { useAuth } from '../../../src/features/auth';
 import { ContentActionMenu } from '../../../src/features/moderation';
 import {
-  PROFILE_CONVENTIONS_QUERY_KEY,
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
-  fetchProfileConventionIds,
+  fetchActiveProfileConventionIds,
 } from '../../../src/features/conventions';
 import { emitGameplayEvent } from '../../../src/features/events';
 import { colors } from '../../../src/theme';
@@ -103,12 +103,12 @@ export default function FursuitDetailScreen() {
   const { data: catchesOfFursuit = [] } = catchesQuery;
 
   const { data: profileConventionIds = [] } = useQuery<string[], Error>({
-    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchProfileConventionIds(userId!),
+    queryFn: () => fetchActiveProfileConventionIds(userId!),
   });
 
   const primaryConventionId = useMemo(

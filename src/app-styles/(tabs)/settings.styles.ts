@@ -122,6 +122,68 @@ export const styles = StyleSheet.create({
   conventionList: {
     gap: spacing.sm,
   },
+  pastConventionList: {
+    gap: spacing.sm,
+  },
+  pastConventionCard: {
+    gap: spacing.md,
+    backgroundColor: colors.surfaceMutedSoft,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderMuted,
+    padding: spacing.md,
+  },
+  pastConventionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  pastConventionTitleBlock: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  pastConventionName: {
+    color: colors.foreground,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  pastConventionMeta: {
+    color: colors.textSubtle,
+    fontSize: 12,
+  },
+  rankBadge: {
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryMuted,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  rankBadgeText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  recapStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  recapStat: {
+    flexGrow: 1,
+    flexBasis: 96,
+    gap: 2,
+  },
+  recapStatValue: {
+    color: colors.foreground,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  recapStatLabel: {
+    color: colors.textSubtle,
+    fontSize: 11,
+  },
   error: {
     color: '#fca5a5',
     fontSize: 14,

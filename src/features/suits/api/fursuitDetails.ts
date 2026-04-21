@@ -107,7 +107,8 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     const { count: fallbackCount, error: fallbackError } = await client
       .from('catches')
       .select('id', { head: true, count: 'exact' })
-      .eq('fursuit_id', data.id);
+      .eq('fursuit_id', data.id)
+      .eq('status', 'ACCEPTED');
 
     if (fallbackError) {
       // Non-critical: fallback count is best-effort

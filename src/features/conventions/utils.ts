@@ -30,25 +30,3 @@ export const isConventionEnded = (endDate: string | null): boolean => {
   const now = new Date();
   return end < now;
 };
-
-/**
- * Check if a convention is currently active (started and not yet ended)
- * @param convention - Object with start_date and end_date fields
- * @returns true if today falls within the convention's date range
- */
-export const isConventionActive = (convention: {
-  start_date: string | null;
-  end_date: string | null;
-}): boolean => {
-  if (isConventionEnded(convention.end_date)) return false;
-
-  if (convention.start_date) {
-    const start = /^\d{4}-\d{2}-\d{2}$/.test(convention.start_date)
-      ? parseDateOnlyAsLocal(convention.start_date)
-      : new Date(convention.start_date);
-    start.setHours(0, 0, 0, 0);
-    if (start > new Date()) return false;
-  }
-
-  return true;
-};

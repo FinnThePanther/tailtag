@@ -7,11 +7,11 @@ import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { TailTagInput } from '../../../components/ui/TailTagInput';
 import {
-  createConventionsQueryOptions,
-  fetchProfileConventionIds,
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
+  createJoinableConventionsQueryOptions,
+  fetchActiveProfileConventionIds,
   optInToConvention,
   optOutOfConvention,
-  PROFILE_CONVENTIONS_QUERY_KEY,
   type ConventionSummary,
   type VerifiedLocation,
 } from '../../conventions';
@@ -34,7 +34,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const conventionsQueryOptions = useMemo(() => createConventionsQueryOptions(), []);
+  const conventionsQueryOptions = useMemo(() => createJoinableConventionsQueryOptions(), []);
   const {
     data: conventions = [],
     error,
@@ -50,8 +50,8 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
     string[],
     Error
   >({
-    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
-    queryFn: () => fetchProfileConventionIds(userId),
+    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    queryFn: () => fetchActiveProfileConventionIds(userId),
     staleTime: 0, // Always fetch fresh data during onboarding
     refetchOnMount: true,
     refetchOnWindowFocus: false, // Don't refetch while user is editing selections
@@ -150,7 +150,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
 
       // Optimistically update cache with final state
       queryClient.setQueryData<string[] | undefined>(
-        [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+        [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
         selections,
       );
 
@@ -214,7 +214,11 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
           ) : error ? (
             <Text style={styles.error}>{error.message}</Text>
           ) : filteredConventions.length === 0 ? (
-            <Text style={styles.message}>No conventions matched your search yet.</Text>
+            <Text style={styles.message}>
+              {conventions.length === 0
+                ? 'No live conventions are available right now. Check back when an event starts.'
+                : 'No live conventions matched your search yet.'}
+            </Text>
           ) : (
             filteredConventions.map((convention) => {
               const selected = selectedConventionIds.has(convention.id);

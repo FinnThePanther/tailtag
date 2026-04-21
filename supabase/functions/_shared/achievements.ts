@@ -310,6 +310,7 @@ async function processCatchEvent(
         primaryConventionId,
         'catch_performed',
         catchContext,
+        awards,
       )
     : [];
 
@@ -425,6 +426,17 @@ async function processCatchConfirmedEvent(
   });
 
   const catchFursuit = Array.isArray(catchRow.fursuit) ? catchRow.fursuit[0] : catchRow.fursuit;
+  const speciesEntry = Array.isArray(catchFursuit?.species)
+    ? catchFursuit?.species[0]
+    : catchFursuit?.species;
+  const colorNames = ((catchFursuit?.color_assignments ?? []) as Array<{ color?: unknown }>)
+    .map((assignment) => {
+      const color = Array.isArray(assignment.color) ? assignment.color[0] : assignment.color;
+      return typeof color === 'object' && color !== null && 'name' in color
+        ? (color.name as string | null)
+        : null;
+    })
+    .filter((name): name is string => Boolean(name));
 
   // Create the catch_performed event that will be inserted into the database.
   // This is necessary because daily task processing queries the events table
@@ -441,10 +453,8 @@ async function processCatchConfirmedEvent(
       status: 'ACCEPTED',
       is_tutorial: false,
       source: 'catch_confirmed',
-      species: catchFursuit?.species?.name ?? null,
-      colors: (catchFursuit?.color_assignments ?? [])
-        .map((a: { color: { name: string } | null }) => a.color?.name)
-        .filter((n: string | undefined): n is string => !!n),
+      species: speciesEntry?.name ?? null,
+      colors: colorNames,
     },
     occurred_at: event.occurred_at, // Use confirmation timestamp
   };
@@ -538,6 +548,7 @@ async function processSimpleEvent(
           context.conventionId,
           'convention_joined',
           context,
+          awards,
         )
       : [];
 
@@ -650,10 +661,11 @@ async function evaluateConventionAchievements(
   conventionId: string,
   triggerEvent: string,
   context: CatchEventContext | SimpleEventContext,
+  sourceAwards: AwardCandidate[] = [],
 ): Promise<AwardCandidate[]> {
   const { data, error } = await supabaseAdmin
     .from('achievements')
-    .select('key, achievement_rules(kind, rule)')
+    .select('key, achievement_rules(kind, rule, metadata)')
     .eq('convention_id', conventionId)
     .eq('trigger_event', triggerEvent)
     .eq('is_active', true);
@@ -673,10 +685,32 @@ async function evaluateConventionAchievements(
     const ruleRow = row.achievement_rules as unknown as {
       kind: string;
       rule: Record<string, unknown>;
+      metadata?: Record<string, unknown> | null;
     } | null;
     if (!ruleRow) continue;
 
-    const { kind, rule } = ruleRow;
+    const { kind, rule, metadata } = ruleRow;
+    const sourceAchievementKey =
+      typeof metadata?.sourceAchievementKey === 'string' ? metadata.sourceAchievementKey : null;
+
+    if (sourceAchievementKey) {
+      for (const sourceAward of sourceAwards) {
+        if (sourceAward.achievementKey !== sourceAchievementKey) continue;
+        candidates.push({
+          achievementKey: row.key,
+          userId: sourceAward.userId,
+          context: {
+            ...(sourceAward.context ?? {}),
+            convention_id: conventionId,
+            source_achievement_key: sourceAchievementKey,
+          },
+          windowKey: sourceAward.windowKey
+            ? `${sourceAward.windowKey}:convention:${conventionId}`
+            : undefined,
+        });
+      }
+      continue;
+    }
 
     if (triggerEvent === 'catch_performed') {
       const catchCtx = context as CatchEventContext;

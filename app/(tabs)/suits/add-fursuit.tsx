@@ -43,12 +43,11 @@ import {
   type FursuitColorOption,
 } from '../../../src/features/colors';
 import {
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
-  createConventionsQueryOptions,
-  fetchProfileConventionIds,
-  isConventionActive,
-  PROFILE_CONVENTIONS_QUERY_KEY,
+  createJoinableConventionsQueryOptions,
+  fetchActiveProfileConventionIds,
 } from '../../../src/features/conventions';
 import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
 import { createProfileQueryOptions } from '../../../src/features/profile';
@@ -217,7 +216,7 @@ export default function AddFursuitScreen() {
     });
   }, []);
 
-  const conventionsQueryOptions = useMemo(() => createConventionsQueryOptions(), []);
+  const conventionsQueryOptions = useMemo(() => createJoinableConventionsQueryOptions(), []);
   const {
     data: conventions = [],
     error: conventionsError,
@@ -234,12 +233,12 @@ export default function AddFursuitScreen() {
     isLoading: isProfileConventionsLoading,
     refetch: refetchProfileConventions,
   } = useQuery<string[], Error>({
-    queryKey: [PROFILE_CONVENTIONS_QUERY_KEY, userId],
+    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchProfileConventionIds(userId!),
+    queryFn: () => fetchActiveProfileConventionIds(userId!),
   });
 
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
@@ -256,10 +255,7 @@ export default function AddFursuitScreen() {
   );
 
   const activeProfileConventionIds = useMemo(
-    () =>
-      conventions
-        .filter((c) => profileConventionIdSet.has(c.id) && isConventionActive(c))
-        .map((c) => c.id),
+    () => conventions.filter((c) => profileConventionIdSet.has(c.id)).map((c) => c.id),
     [conventions, profileConventionIdSet],
   );
 
@@ -1126,10 +1122,12 @@ export default function AddFursuitScreen() {
                 </TailTagButton>
               </View>
             ) : conventions.length === 0 ? (
-              <Text style={styles.message}>No conventions are available yet. Check back soon.</Text>
+              <Text style={styles.message}>
+                No live conventions are available right now. Check back when an event starts.
+              </Text>
             ) : profileConventionIdSet.size === 0 ? (
               <Text style={styles.message}>
-                Opt into a convention from Settings before assigning this suit.
+                Join a live convention in Settings before assigning this suit.
               </Text>
             ) : (
               <View style={styles.conventionList}>

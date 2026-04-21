@@ -32,6 +32,10 @@ import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { useAuth } from '../../src/features/auth';
+import {
+  fetchActiveProfileConventionIds,
+  fetchActiveSharedConventionIds,
+} from '../../src/features/conventions';
 import { emitGameplayEvent } from '../../src/features/events';
 import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import { achievementsStatusQueryKey } from '../../src/features/achievements';
@@ -257,60 +261,26 @@ export default function CatchScreen() {
         return;
       }
 
-      // Get shared conventions between catcher and fursuit
-      const { data: suitConventionRows, error: suitConventionError } = await client
-        .from('fursuit_conventions')
-        .select('convention_id')
-        .eq('fursuit_id', normalizedFursuit.id);
+      const [activeProfileConventions, sharedConventions] = await Promise.all([
+        fetchActiveProfileConventionIds(userId),
+        fetchActiveSharedConventionIds(userId, normalizedFursuit.id),
+      ]);
 
-      if (suitConventionError) {
-        throw suitConventionError;
-      }
-
-      const { data: playerConventionRows, error: playerConventionError } = await client
-        .from('profile_conventions')
-        .select('convention_id')
-        .eq('profile_id', userId);
-
-      if (playerConventionError) {
-        throw playerConventionError;
-      }
-
-      const suitConventionIds = new Set<string>(
-        (suitConventionRows ?? []).map((row: { convention_id: string }) => row.convention_id),
-      );
-      const playerConventionIds = new Set<string>(
-        (playerConventionRows ?? []).map((row: { convention_id: string }) => row.convention_id),
-      );
-
-      if (playerConventionIds.size === 0) {
+      if (activeProfileConventions.length === 0) {
         resetCatchState();
-        setSubmitError(
-          "You haven't joined a convention yet. Go to Settings → Conventions to opt in, then try again.",
-        );
+        setSubmitError('Join a live convention in Settings before catching fursuits.');
         return;
       }
-
-      if (suitConventionIds.size === 0) {
-        resetCatchState();
-        setSubmitError(
-          "This fursuit hasn't opted into any conventions yet. Ask the owner to join a convention in their Settings so you can log the catch.",
-        );
-        return;
-      }
-
-      const sharedConventions: string[] = [...playerConventionIds]
-        .filter((id) => suitConventionIds.has(id))
-        .sort();
-      const primaryConventionId = sharedConventions[0] ?? null;
 
       if (sharedConventions.length === 0) {
         resetCatchState();
         setSubmitError(
-          "You and this fursuit aren't at the same convention. Check Settings → Conventions to make sure you're both opted into the same one.",
+          "You and this fursuit aren't at the same live convention. Check Settings → Conventions and make sure you're both joined to the same live event.",
         );
         return;
       }
+
+      const primaryConventionId = sharedConventions[0] ?? null;
 
       // Use the Edge Function to create the catch
       // This handles approval mode logic server-side
