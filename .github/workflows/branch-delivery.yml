@@ -107,7 +107,7 @@ jobs:
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.90.0
 
       - name: Link to target project
         run: supabase link --project-ref "$PROJECT_REF"
@@ -181,12 +181,16 @@ jobs:
         # secrets to call Edge Functions, so keep them synced on every deploy.
         # SUPABASE_URL is a reserved Edge Function env name, so sync it only through vault.
         run: |
+          # Escape single quotes for safe SQL interpolation.
+          safe_key=$(printf '%s' "$SERVICE_ROLE_KEY" | sed "s/'/''/g")
+          safe_url=$(printf '%s' "$SUPABASE_URL" | sed "s/'/''/g")
+
           supabase db query --linked "
           DO \$\$
           DECLARE
             v_id uuid;
-            v_service_role_key text := '$SERVICE_ROLE_KEY';
-            v_supabase_url text := '$SUPABASE_URL';
+            v_service_role_key text := '${safe_key}';
+            v_supabase_url text := '${safe_url}';
           BEGIN
             SELECT id INTO v_id FROM vault.secrets WHERE name = 'SERVICE_ROLE_KEY' LIMIT 1;
             IF v_id IS NOT NULL THEN
@@ -292,7 +296,7 @@ jobs:
           echo "Version bumped: ${OLD} → ${NEW}"
 
   eas_build_staging:
-    name: EAS Build (staging / preview)
+    name: EAS Build (staging)
     runs-on: ubuntu-latest
     needs:
       - changes
@@ -328,7 +332,43 @@ jobs:
       - name: Submit staging build (iOS + Android)
         # Builds run on EAS infrastructure. --no-wait returns immediately;
         # track progress at expo.dev or with `eas build:list`.
-        run: eas build --profile preview --platform all --non-interactive --no-wait
+        run: eas build --profile staging --platform all --non-interactive --no-wait
+
+  eas_build_production:
+    name: EAS Build (production)
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - validate
+      - guard_version_bump
+    if: >-
+      needs.changes.outputs.native == 'true' &&
+      github.ref_name == 'main' &&
+      needs.changes.outputs.skip_eas != 'true'
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Submit production build (iOS + Android)
+        # Builds run on EAS infrastructure. --no-wait returns immediately;
+        # track progress at expo.dev or with `eas build:list`.
+        run: eas build --profile production --platform all --non-interactive --no-wait
 
   eas_update:
     name: EAS Update (${{ github.ref_name == 'dev' && 'staging' || 'production' }})

@@ -121,7 +121,7 @@ EAS builds are immutable — you cannot modify a published build.
 1. Do not promote or distribute the bad build further.
 2. Fix the code, commit, and trigger a new EAS build:
    ```bash
-   eas build --profile <development|preview|production> --platform <ios|android|all>
+   eas build --profile <development|staging|production> --platform <ios|android|all>
    ```
 3. Distribute the new build to testers/reviewers.
 
@@ -159,7 +159,7 @@ If staging becomes corrupted or diverges from a known-good state:
    - Redeploy all edge functions
 4. Manually verify storage buckets, realtime, secrets, and cron jobs are
    present (the script prints the checklist).
-5. Install the latest preview build and smoke-test the critical path.
+5. Install the latest staging build and smoke-test the critical path.
 
 If the staging Supabase project is irrecoverably broken, create a new Supabase
 project, update the project ref in `eas.json` and `scripts/setup-environment.sh`,
