@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { KeyboardAwareFormWrapper } from '../src/components/ui/KeyboardAwareFormWrapper';
 import { PasswordInput } from '../src/components/ui/PasswordInput';
@@ -25,6 +25,7 @@ const PASSWORD_CREDENTIAL_STALE_TIME = 60_000;
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const fallbackHasPasswordCredential = inferPasswordCredentialFromSession(session?.user);
@@ -79,10 +80,12 @@ export default function ChangePasswordScreen() {
     }
 
     let hasPasswordCredentialAtSubmit =
-      hasPasswordCredentialFromServer ?? fallbackHasPasswordCredential;
+      forceRequireCurrentPassword ||
+      (hasPasswordCredentialFromServer ?? fallbackHasPasswordCredential);
     if (!hasPasswordCredentialAtSubmit) {
       try {
         hasPasswordCredentialAtSubmit = await fetchCurrentUserHasPasswordCredential();
+        queryClient.setQueryData(passwordCredentialQueryKey, hasPasswordCredentialAtSubmit);
       } catch {
         // Keep using the best available local signal.
       }
@@ -132,6 +135,8 @@ export default function ChangePasswordScreen() {
         throw updateError;
       }
 
+      queryClient.setQueryData(passwordCredentialQueryKey, true);
+      void queryClient.invalidateQueries({ queryKey: passwordCredentialQueryKey });
       setSuccessMode(modeAtSubmit);
       setSuccess(true);
     } catch (caught) {
