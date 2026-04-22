@@ -1994,6 +1994,7 @@ export type Database = {
             }
             Returns: Json
           }
+      current_user_has_password_credential: { Args: never; Returns: boolean }
       delete_archived_convention_in_dev: {
         Args: { p_actor_id: string; p_convention_id: string }
         Returns: {

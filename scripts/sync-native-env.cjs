@@ -160,6 +160,18 @@ if (
 }
 
 if (
+  syncTextFile('android/app/src/main/java/com/finnthepanther/tailtag/dev/MainActivity.kt', [
+    {
+      label: 'Android MainActivity package',
+      pattern: /^package\s+com\.finnthepanther\.tailtag(?:\.dev|\.staging)?$/m,
+      value: `package ${config.androidApplicationId}`,
+    },
+  ])
+) {
+  changedFiles.push('android/app/src/main/java/com/finnthepanther/tailtag/dev/MainActivity.kt');
+}
+
+if (
   syncTextFile('android/app/src/main/java/com/finnthepanther/tailtag/staging/MainApplication.kt', [
     {
       label: 'Android MainApplication package',
@@ -171,6 +183,18 @@ if (
   changedFiles.push(
     'android/app/src/main/java/com/finnthepanther/tailtag/staging/MainApplication.kt',
   );
+}
+
+if (
+  syncTextFile('android/app/src/main/java/com/finnthepanther/tailtag/dev/MainApplication.kt', [
+    {
+      label: 'Android MainApplication package',
+      pattern: /^package\s+com\.finnthepanther\.tailtag(?:\.dev|\.staging)?$/m,
+      value: `package ${config.androidApplicationId}`,
+    },
+  ])
+) {
+  changedFiles.push('android/app/src/main/java/com/finnthepanther/tailtag/dev/MainApplication.kt');
 }
 
 if (

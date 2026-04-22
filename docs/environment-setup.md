@@ -168,8 +168,14 @@ Configure in the Supabase dashboard under **Authentication > Providers**.
 
 ### Auth URL Configuration
 
-- **Site URL**: Set to the appropriate deep link or app scheme per environment
-- **Redirect URLs**: Add environment-specific allowed redirect URLs
+- **Dev project (`rtxbvjicfxgcouufumce`)**
+  - **Site URL**: `https://playtailtag.com`
+  - **Redirect URLs** must include:
+    - `tailtag://auth/callback`
+    - `tailtag://reset-password`
+    - `https://playtailtag.com/reset-password`
+- **Promotion to staging/production**: after validating password reset and OAuth callback in dev,
+  copy the same URL rules to staging and production Supabase Auth settings.
 
 ---
 
