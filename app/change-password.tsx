@@ -42,7 +42,8 @@ export default function ChangePasswordScreen() {
   });
   const [forceRequireCurrentPassword, setForceRequireCurrentPassword] = useState(false);
   const hasPasswordCredential =
-    forceRequireCurrentPassword || hasPasswordCredentialFromServer || fallbackHasPasswordCredential;
+    forceRequireCurrentPassword ||
+    (hasPasswordCredentialFromServer ?? fallbackHasPasswordCredential);
   const email = session?.user?.email?.trim() ?? '';
   const hasEmailAddress = email.length > 0;
   const screenTitle = hasPasswordCredential ? 'Change password' : 'Set password';
