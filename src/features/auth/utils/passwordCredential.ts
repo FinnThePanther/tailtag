@@ -5,6 +5,19 @@ import { supabase } from '../../../lib/supabase';
 const EMAIL_PROVIDER = 'email';
 export const CURRENT_USER_HAS_PASSWORD_CREDENTIAL_QUERY_KEY =
   'current-user-has-password-credential';
+export const PASSWORD_CREDENTIAL_STALE_TIME = 60_000;
+
+export const currentUserHasPasswordCredentialQueryKey = (userId: string | null) =>
+  [CURRENT_USER_HAS_PASSWORD_CREDENTIAL_QUERY_KEY, userId] as const;
+
+export const createCurrentUserHasPasswordCredentialQueryOptions = (userId: string | null) => ({
+  queryKey: currentUserHasPasswordCredentialQueryKey(userId),
+  enabled: Boolean(userId),
+  staleTime: PASSWORD_CREDENTIAL_STALE_TIME,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+  queryFn: () => fetchCurrentUserHasPasswordCredential(),
+});
 
 export function inferPasswordCredentialFromSession(user: User | null | undefined): boolean {
   if (!user) {

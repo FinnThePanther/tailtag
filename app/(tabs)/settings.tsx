@@ -69,8 +69,7 @@ import {
 } from '../../src/features/suits/forms/socialLinks';
 import { canUseStaffMode } from '../../src/features/staff-mode/constants';
 import {
-  CURRENT_USER_HAS_PASSWORD_CREDENTIAL_QUERY_KEY,
-  fetchCurrentUserHasPasswordCredential,
+  createCurrentUserHasPasswordCredentialQueryOptions,
   inferPasswordCredentialFromSession,
 } from '../../src/features/auth/utils/passwordCredential';
 import {
@@ -90,8 +89,6 @@ const TERMS_URL = 'https://playtailtag.com/terms';
 const DELETE_ACCOUNT_URL = 'https://playtailtag.com/delete-account';
 const SUPPORT_EMAIL_URL = 'mailto:finn@finnthepanther.com';
 const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
-const PASSWORD_CREDENTIAL_STALE_TIME = 60_000;
-
 export default function SettingsScreen() {
   const router = useRouter();
   const { session, forceSignOut } = useAuth();
@@ -99,18 +96,9 @@ export default function SettingsScreen() {
   const accountEmail = session?.user?.email?.trim() ?? '';
   const hasEmailAddress = accountEmail.length > 0;
   const fallbackHasPasswordCredential = inferPasswordCredentialFromSession(session?.user);
-  const passwordCredentialQueryKey = useMemo(
-    () => [CURRENT_USER_HAS_PASSWORD_CREDENTIAL_QUERY_KEY, userId] as const,
-    [userId],
+  const { data: hasPasswordCredentialFromServer = null } = useQuery<boolean | null, Error>(
+    createCurrentUserHasPasswordCredentialQueryOptions(userId),
   );
-  const { data: hasPasswordCredentialFromServer = null } = useQuery<boolean | null, Error>({
-    queryKey: passwordCredentialQueryKey,
-    enabled: Boolean(userId),
-    staleTime: PASSWORD_CREDENTIAL_STALE_TIME,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    queryFn: async () => fetchCurrentUserHasPasswordCredential(),
-  });
   const hasPasswordCredential = hasPasswordCredentialFromServer ?? fallbackHasPasswordCredential;
   const passwordActionLabel = hasPasswordCredential ? 'Change password' : 'Set password';
 

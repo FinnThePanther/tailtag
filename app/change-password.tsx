@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,16 +12,15 @@ import { TailTagCard } from '../src/components/ui/TailTagCard';
 import { PasswordStrengthIndicator } from '../src/features/auth/components/PasswordStrengthIndicator';
 import { useAuth } from '../src/features/auth';
 import {
-  CURRENT_USER_HAS_PASSWORD_CREDENTIAL_QUERY_KEY,
+  createCurrentUserHasPasswordCredentialQueryOptions,
   fetchCurrentUserHasPasswordCredential,
   inferPasswordCredentialFromSession,
+  currentUserHasPasswordCredentialQueryKey,
 } from '../src/features/auth/utils/passwordCredential';
 import { supabase } from '../src/lib/supabase';
 import { captureHandledException } from '../src/lib/sentry';
 import { mapAuthError, validatePassword } from '../src/utils/authValidation';
 import { styles } from '../src/app-styles/reset-password.styles';
-
-const PASSWORD_CREDENTIAL_STALE_TIME = 60_000;
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
@@ -29,18 +28,10 @@ export default function ChangePasswordScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const fallbackHasPasswordCredential = inferPasswordCredentialFromSession(session?.user);
-  const passwordCredentialQueryKey = useMemo(
-    () => [CURRENT_USER_HAS_PASSWORD_CREDENTIAL_QUERY_KEY, userId] as const,
-    [userId],
+  const passwordCredentialQueryKey = currentUserHasPasswordCredentialQueryKey(userId);
+  const { data: hasPasswordCredentialFromServer = null } = useQuery<boolean | null, Error>(
+    createCurrentUserHasPasswordCredentialQueryOptions(userId),
   );
-  const { data: hasPasswordCredentialFromServer = null } = useQuery<boolean | null, Error>({
-    queryKey: passwordCredentialQueryKey,
-    enabled: Boolean(userId),
-    staleTime: PASSWORD_CREDENTIAL_STALE_TIME,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    queryFn: async () => fetchCurrentUserHasPasswordCredential(),
-  });
   const [forceRequireCurrentPassword, setForceRequireCurrentPassword] = useState(false);
   const hasPasswordCredential =
     forceRequireCurrentPassword ||
