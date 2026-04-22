@@ -81,7 +81,18 @@ check() {
 
 echo ""
 echo "Verifying environment: $ENV ($PROJECT_REF)"
-$SUPABASE_CLI link --project-ref "$PROJECT_REF" 2>/dev/null
+
+# Skip linking if already linked to the correct project (e.g. when called
+# from a CI job that already ran `supabase link`).
+LINKED_REF=""
+if [[ -f supabase/.temp/linked-project.json ]]; then
+  LINKED_REF=$(python3 -c "import json; print(json.load(open('supabase/.temp/linked-project.json')).get('ref',''))" 2>/dev/null || true)
+fi
+if [[ "$LINKED_REF" == "$PROJECT_REF" ]]; then
+  echo "Already linked to $PROJECT_REF — skipping link step."
+else
+  $SUPABASE_CLI link --project-ref "$PROJECT_REF" 2>/dev/null
+fi
 echo ""
 
 # ── 1. Realtime ──────────────────────────────────────────────────────────────

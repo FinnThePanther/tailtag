@@ -39,7 +39,7 @@ jobs:
       - name: Validate mobile app
         run: npm run ci:validate
 
-      - name: Check migration files are well-formed
+      - name: Validate migration files
         run: |
           MIGRATION_DIR="supabase/migrations"
           if [ ! -d "$MIGRATION_DIR" ]; then
@@ -47,29 +47,19 @@ jobs:
             exit 0
           fi
 
-          invalid=0
+          errors=0
+
+          # Check filenames match expected format.
           for f in "$MIGRATION_DIR"/*.sql; do
             [ -e "$f" ] || continue
             filename=$(basename "$f")
             if ! echo "$filename" | grep -qE '^[0-9]{14}_.+\.sql$'; then
               echo "ERROR: Invalid migration filename: $filename (expected: YYYYMMDDHHmmss_description.sql)"
-              invalid=1
+              errors=1
             fi
           done
 
-          if [ "$invalid" -eq 1 ]; then
-            exit 1
-          fi
-
-          echo "All migration filenames are valid"
-
-      - name: Check for duplicate migration timestamps
-        run: |
-          MIGRATION_DIR="supabase/migrations"
-          if [ ! -d "$MIGRATION_DIR" ]; then
-            exit 0
-          fi
-
+          # Check for duplicate timestamps.
           dupes=$(ls "$MIGRATION_DIR"/*.sql 2>/dev/null \
             | xargs -I{} basename {} \
             | cut -c1-14 \
@@ -77,11 +67,15 @@ jobs:
 
           if [ -n "$dupes" ]; then
             echo "ERROR: Duplicate migration timestamps detected:"
-            echo "$dupes"
+            printf '  %s\n' $dupes
+            errors=1
+          fi
+
+          if [ "$errors" -eq 1 ]; then
             exit 1
           fi
 
-          echo "No duplicate migration timestamps"
+          echo "All migration files are valid"
 
       - name: Generate types from dev schema
         env:
