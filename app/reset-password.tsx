@@ -118,6 +118,10 @@ export default function ResetPasswordScreen() {
     try {
       const { error: updateError } = await supabase.auth.updateUser({
         password,
+        data: {
+          has_password: true,
+          password_set_at: new Date().toISOString(),
+        },
       });
 
       if (updateError) {

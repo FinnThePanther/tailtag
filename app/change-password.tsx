@@ -26,10 +26,6 @@ export default function ChangePasswordScreen() {
   const email = session?.user?.email?.trim() ?? '';
   const hasEmailAddress = email.length > 0;
   const screenTitle = hasPasswordCredential ? 'Change password' : 'Set password';
-  const successTitle = hasPasswordCredential ? 'Password changed' : 'Password set';
-  const successSubtitle = hasPasswordCredential
-    ? 'Your password has been updated successfully.'
-    : 'You can now sign in with email and password.';
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -37,9 +33,11 @@ export default function ChangePasswordScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [successMode, setSuccessMode] = useState<'set' | 'change' | null>(null);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
+    const modeAtSubmit: 'set' | 'change' = hasPasswordCredential ? 'change' : 'set';
 
     const validation = validatePassword(newPassword);
     if (!validation.isAcceptable) {
@@ -102,6 +100,7 @@ export default function ChangePasswordScreen() {
         throw updateError;
       }
 
+      setSuccessMode(modeAtSubmit);
       setSuccess(true);
     } catch (caught) {
       captureHandledException(caught, { scope: 'auth.changePassword' });
@@ -112,19 +111,26 @@ export default function ChangePasswordScreen() {
   };
 
   if (success) {
+    const successHeaderTitle = successMode === 'set' ? 'Set password' : 'Change password';
+    const successScreenTitle = successMode === 'set' ? 'Password set' : 'Password changed';
+    const successScreenSubtitle =
+      successMode === 'set'
+        ? 'You can now sign in with email and password.'
+        : 'Your password has been updated successfully.';
+
     return (
       <SafeAreaView
         style={styles.safeArea}
         edges={['bottom']}
       >
         <ScreenHeader
-          title={screenTitle}
+          title={successHeaderTitle}
           onBack={() => router.back()}
         />
         <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
           <View style={styles.header}>
-            <Text style={styles.title}>{successTitle}</Text>
-            <Text style={styles.subtitle}>{successSubtitle}</Text>
+            <Text style={styles.title}>{successScreenTitle}</Text>
+            <Text style={styles.subtitle}>{successScreenSubtitle}</Text>
           </View>
 
           <TailTagCard style={styles.formCard}>
