@@ -69,6 +69,10 @@ import {
 } from '../../src/features/suits/forms/socialLinks';
 import { canUseStaffMode } from '../../src/features/staff-mode/constants';
 import {
+  createCurrentUserHasPasswordCredentialQueryOptions,
+  inferPasswordCredentialFromSession,
+} from '../../src/features/auth/utils/passwordCredential';
+import {
   CAUGHT_SUITS_QUERY_KEY,
   CAUGHT_SUITS_STALE_TIME,
   caughtSuitsQueryKey,
@@ -85,14 +89,18 @@ const TERMS_URL = 'https://playtailtag.com/terms';
 const DELETE_ACCOUNT_URL = 'https://playtailtag.com/delete-account';
 const SUPPORT_EMAIL_URL = 'mailto:finn@finnthepanther.com';
 const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
-
 export default function SettingsScreen() {
   const router = useRouter();
   const { session, forceSignOut } = useAuth();
   const userId = session?.user.id ?? null;
-  const hasPasswordIdentity = Boolean(
-    session?.user?.identities?.some((i) => i.provider === 'email'),
+  const accountEmail = session?.user?.email?.trim() ?? '';
+  const hasEmailAddress = accountEmail.length > 0;
+  const fallbackHasPasswordCredential = inferPasswordCredentialFromSession(session?.user);
+  const { data: hasPasswordCredentialFromServer = null } = useQuery<boolean | null, Error>(
+    createCurrentUserHasPasswordCredentialQueryOptions(userId),
   );
+  const hasPasswordCredential = hasPasswordCredentialFromServer ?? fallbackHasPasswordCredential;
+  const passwordActionLabel = hasPasswordCredential ? 'Change password' : 'Set password';
 
   const queryClient = useQueryClient();
   const profileQueryKey = useMemo(() => [PROFILE_QUERY_KEY, userId] as const, [userId]);
@@ -1515,14 +1523,26 @@ export default function SettingsScreen() {
           <Text style={styles.sectionDescription}>
             Log out of TailTag or delete your account entirely.
           </Text>
-          {hasPasswordIdentity ? (
+          {hasEmailAddress ? (
             <TailTagButton
               variant="outline"
               onPress={() => router.push('/change-password')}
             >
-              Change password
+              {passwordActionLabel}
             </TailTagButton>
-          ) : null}
+          ) : (
+            <>
+              <TailTagButton
+                variant="outline"
+                disabled
+              >
+                Set password
+              </TailTagButton>
+              <Text style={styles.sectionHint}>
+                Password sign-in is unavailable because this account does not have an email address.
+              </Text>
+            </>
+          )}
           {signOutError ? <Text style={styles.error}>{signOutError}</Text> : null}
           <TailTagButton
             onPress={handleSignOut}
