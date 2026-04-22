@@ -68,7 +68,11 @@ import {
   socialLinksToSave,
 } from '../../src/features/suits/forms/socialLinks';
 import { canUseStaffMode } from '../../src/features/staff-mode/constants';
-import { hasPasswordCredential as userHasPasswordCredential } from '../../src/features/auth/utils/passwordCredential';
+import {
+  CURRENT_USER_HAS_PASSWORD_CREDENTIAL_QUERY_KEY,
+  fetchCurrentUserHasPasswordCredential,
+  inferPasswordCredentialFromSession,
+} from '../../src/features/auth/utils/passwordCredential';
 import {
   CAUGHT_SUITS_QUERY_KEY,
   CAUGHT_SUITS_STALE_TIME,
@@ -86,6 +90,7 @@ const TERMS_URL = 'https://playtailtag.com/terms';
 const DELETE_ACCOUNT_URL = 'https://playtailtag.com/delete-account';
 const SUPPORT_EMAIL_URL = 'mailto:finn@finnthepanther.com';
 const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
+const PASSWORD_CREDENTIAL_STALE_TIME = 60_000;
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -93,7 +98,20 @@ export default function SettingsScreen() {
   const userId = session?.user.id ?? null;
   const accountEmail = session?.user?.email?.trim() ?? '';
   const hasEmailAddress = accountEmail.length > 0;
-  const hasPasswordCredential = userHasPasswordCredential(session?.user);
+  const fallbackHasPasswordCredential = inferPasswordCredentialFromSession(session?.user);
+  const passwordCredentialQueryKey = useMemo(
+    () => [CURRENT_USER_HAS_PASSWORD_CREDENTIAL_QUERY_KEY, userId] as const,
+    [userId],
+  );
+  const { data: hasPasswordCredentialFromServer = null } = useQuery<boolean | null, Error>({
+    queryKey: passwordCredentialQueryKey,
+    enabled: Boolean(userId),
+    staleTime: PASSWORD_CREDENTIAL_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: async () => fetchCurrentUserHasPasswordCredential(),
+  });
+  const hasPasswordCredential = hasPasswordCredentialFromServer ?? fallbackHasPasswordCredential;
   const passwordActionLabel = hasPasswordCredential ? 'Change password' : 'Set password';
 
   const queryClient = useQueryClient();

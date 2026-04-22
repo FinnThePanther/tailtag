@@ -1,17 +1,29 @@
 import type { User } from '@supabase/supabase-js';
 
-const HAS_PASSWORD_METADATA_KEY = 'has_password';
-const EMAIL_PROVIDER = 'email';
+import { supabase } from '../../../lib/supabase';
 
-export function hasPasswordCredential(user: User | null | undefined): boolean {
+const EMAIL_PROVIDER = 'email';
+export const CURRENT_USER_HAS_PASSWORD_CREDENTIAL_QUERY_KEY =
+  'current-user-has-password-credential';
+
+export function inferPasswordCredentialFromSession(user: User | null | undefined): boolean {
   if (!user) {
     return false;
   }
 
-  const hasPasswordCredentialMetadata = user.user_metadata?.[HAS_PASSWORD_METADATA_KEY] === true;
   const hasPasswordIdentity = user.identities?.some(
     (identity) => identity.provider === EMAIL_PROVIDER,
   );
 
-  return Boolean(hasPasswordIdentity) || hasPasswordCredentialMetadata;
+  return Boolean(hasPasswordIdentity);
+}
+
+export async function fetchCurrentUserHasPasswordCredential(): Promise<boolean> {
+  const { data, error } = await (supabase as any).rpc('current_user_has_password_credential');
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data === true;
 }
