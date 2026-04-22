@@ -90,9 +90,12 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { session, forceSignOut } = useAuth();
   const userId = session?.user.id ?? null;
+  const accountEmail = session?.user?.email?.trim() ?? '';
+  const hasEmailAddress = accountEmail.length > 0;
   const hasPasswordIdentity = Boolean(
     session?.user?.identities?.some((i) => i.provider === 'email'),
   );
+  const passwordActionLabel = hasPasswordIdentity ? 'Change password' : 'Set password';
 
   const queryClient = useQueryClient();
   const profileQueryKey = useMemo(() => [PROFILE_QUERY_KEY, userId] as const, [userId]);
@@ -1515,14 +1518,26 @@ export default function SettingsScreen() {
           <Text style={styles.sectionDescription}>
             Log out of TailTag or delete your account entirely.
           </Text>
-          {hasPasswordIdentity ? (
+          {hasEmailAddress ? (
             <TailTagButton
               variant="outline"
               onPress={() => router.push('/change-password')}
             >
-              Change password
+              {passwordActionLabel}
             </TailTagButton>
-          ) : null}
+          ) : (
+            <>
+              <TailTagButton
+                variant="outline"
+                disabled
+              >
+                Set password
+              </TailTagButton>
+              <Text style={styles.sectionHint}>
+                Password sign-in is unavailable because this account does not have an email address.
+              </Text>
+            </>
+          )}
           {signOutError ? <Text style={styles.error}>{signOutError}</Text> : null}
           <TailTagButton
             onPress={handleSignOut}

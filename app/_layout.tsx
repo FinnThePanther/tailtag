@@ -62,9 +62,13 @@ function RootLayoutNav() {
   const router = useRouter();
   const { status, session } = useAuth();
   const segments = useSegments();
-  const inAuthGroup = segments.length > 0 && segments[0] === '(auth)';
-  const inOnboardingFlow = segments.length > 0 && segments[0] === 'onboarding';
-  const inResetPasswordFlow = segments.length > 0 && segments[0] === 'reset-password';
+  const firstSegment = segments[0];
+  const secondSegment = segments.at(1);
+  const inAuthGroup = firstSegment === '(auth)';
+  const inAuthCallbackFlow = firstSegment === 'auth' && secondSegment === 'callback';
+  const inOnboardingFlow = firstSegment === 'onboarding';
+  const inResetPasswordFlow = firstSegment === 'reset-password';
+  const inPublicAuthFlow = inAuthGroup || inAuthCallbackFlow || inResetPasswordFlow;
   const userId = session?.user.id ?? null;
   const setNavigationReady = useSetNavigationReady();
 
@@ -107,7 +111,7 @@ function RootLayoutNav() {
 
   let redirectHref: '/' | '/auth' | '/onboarding' | null = null;
 
-  if (!session && !inAuthGroup) {
+  if (!session && !inPublicAuthFlow) {
     redirectHref = '/auth';
   } else if (session && inAuthGroup && !shouldResolvePostAuthDestination) {
     redirectHref = shouldGateOnboarding ? '/onboarding' : '/';
@@ -152,7 +156,7 @@ function RootLayoutNav() {
   }
 
   // Not signed in: ensure we're in the auth stack.
-  if (!session && !inAuthGroup) {
+  if (!session && !inPublicAuthFlow) {
     return <Redirect href="/auth" />;
   }
 

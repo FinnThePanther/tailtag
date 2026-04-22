@@ -18,6 +18,16 @@ import { styles } from '../src/app-styles/reset-password.styles';
 export default function ChangePasswordScreen() {
   const router = useRouter();
   const { session } = useAuth();
+  const hasPasswordIdentity = Boolean(
+    session?.user?.identities?.some((identity) => identity.provider === 'email'),
+  );
+  const email = session?.user?.email?.trim() ?? '';
+  const hasEmailAddress = email.length > 0;
+  const screenTitle = hasPasswordIdentity ? 'Change password' : 'Set password';
+  const successTitle = hasPasswordIdentity ? 'Password changed' : 'Password set';
+  const successSubtitle = hasPasswordIdentity
+    ? 'Your password has been updated successfully.'
+    : 'You can now sign in with email and password.';
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -40,17 +50,21 @@ export default function ChangePasswordScreen() {
       return;
     }
 
-    if (newPassword === currentPassword) {
+    if (hasPasswordIdentity && currentPassword.trim().length === 0) {
+      setSubmitError('Enter your current password to continue.');
+      return;
+    }
+
+    if (hasPasswordIdentity && newPassword === currentPassword) {
       setSubmitError('New password must be different from your current password.');
       return;
     }
 
-    const email = session?.user?.email;
-    if (!email) {
+    if (!hasEmailAddress) {
       captureHandledException(new Error('Change password: no email on session'), {
         scope: 'auth.changePassword',
       });
-      setSubmitError('Something went wrong. Please try again.');
+      setSubmitError('Password sign-in is unavailable because this account has no email address.');
       return;
     }
 
@@ -58,18 +72,20 @@ export default function ChangePasswordScreen() {
     setSubmitError(null);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password: currentPassword,
-      });
+      if (hasPasswordIdentity) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password: currentPassword,
+        });
 
-      if (signInError) {
-        const isCredentialsError =
-          signInError.message === 'Invalid login credentials' || signInError.status === 400;
-        setSubmitError(
-          isCredentialsError ? 'Current password is incorrect.' : mapAuthError(signInError),
-        );
-        return;
+        if (signInError) {
+          const isCredentialsError =
+            signInError.message === 'Invalid login credentials' || signInError.status === 400;
+          setSubmitError(
+            isCredentialsError ? 'Current password is incorrect.' : mapAuthError(signInError),
+          );
+          return;
+        }
       }
 
       const { error: updateError } = await supabase.auth.updateUser({
@@ -96,16 +112,38 @@ export default function ChangePasswordScreen() {
         edges={['bottom']}
       >
         <ScreenHeader
-          title="Change password"
+          title={screenTitle}
           onBack={() => router.back()}
         />
         <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
           <View style={styles.header}>
-            <Text style={styles.title}>Password changed</Text>
-            <Text style={styles.subtitle}>Your password has been updated successfully.</Text>
+            <Text style={styles.title}>{successTitle}</Text>
+            <Text style={styles.subtitle}>{successSubtitle}</Text>
           </View>
 
           <TailTagCard style={styles.formCard}>
+            <TailTagButton onPress={() => router.back()}>Back to settings</TailTagButton>
+          </TailTagCard>
+        </KeyboardAwareFormWrapper>
+      </SafeAreaView>
+    );
+  }
+
+  if (!hasEmailAddress) {
+    return (
+      <SafeAreaView
+        style={styles.safeArea}
+        edges={['bottom']}
+      >
+        <ScreenHeader
+          title={screenTitle}
+          onBack={() => router.back()}
+        />
+        <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+          <TailTagCard style={styles.formCard}>
+            <Text style={styles.errorText}>
+              Password sign-in is unavailable because this account does not have an email address.
+            </Text>
             <TailTagButton onPress={() => router.back()}>Back to settings</TailTagButton>
           </TailTagCard>
         </KeyboardAwareFormWrapper>
@@ -119,22 +157,24 @@ export default function ChangePasswordScreen() {
       edges={['bottom']}
     >
       <ScreenHeader
-        title="Change password"
+        title={screenTitle}
         onBack={() => router.back()}
       />
       <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
         <TailTagCard style={styles.formCard}>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Current password</Text>
-            <PasswordInput
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              autoComplete="password"
-              placeholder="Enter your current password"
-              editable={!isSubmitting}
-              returnKeyType="next"
-            />
-          </View>
+          {hasPasswordIdentity ? (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Current password</Text>
+              <PasswordInput
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                autoComplete="password"
+                placeholder="Enter your current password"
+                editable={!isSubmitting}
+                returnKeyType="next"
+              />
+            </View>
+          ) : null}
 
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>New password</Text>
@@ -144,7 +184,8 @@ export default function ChangePasswordScreen() {
               autoComplete="password-new"
               placeholder="8+ chars, mixed case, number, symbol"
               editable={!isSubmitting}
-              returnKeyType="next"
+              returnKeyType={hasPasswordIdentity ? 'next' : 'done'}
+              onSubmitEditing={hasPasswordIdentity ? undefined : handleSubmit}
             />
             <PasswordStrengthIndicator password={newPassword} />
           </View>
