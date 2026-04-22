@@ -80,6 +80,6 @@ Use EAS build scripts for cloud builds:
 
 ```bash
 npm run build:dev:all
-npm run build:preview:all
+npm run build:staging:all
 npm run build:prod:all
 ```
