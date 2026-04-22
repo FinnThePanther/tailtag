@@ -184,8 +184,7 @@ export default function ChangePasswordScreen() {
               autoComplete="password-new"
               placeholder="8+ chars, mixed case, number, symbol"
               editable={!isSubmitting}
-              returnKeyType={hasPasswordIdentity ? 'next' : 'done'}
-              onSubmitEditing={hasPasswordIdentity ? undefined : handleSubmit}
+              returnKeyType="next"
             />
             <PasswordStrengthIndicator password={newPassword} />
           </View>
