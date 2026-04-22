@@ -68,6 +68,7 @@ import {
   socialLinksToSave,
 } from '../../src/features/suits/forms/socialLinks';
 import { canUseStaffMode } from '../../src/features/staff-mode/constants';
+import { hasPasswordCredential as userHasPasswordCredential } from '../../src/features/auth/utils/passwordCredential';
 import {
   CAUGHT_SUITS_QUERY_KEY,
   CAUGHT_SUITS_STALE_TIME,
@@ -92,11 +93,7 @@ export default function SettingsScreen() {
   const userId = session?.user.id ?? null;
   const accountEmail = session?.user?.email?.trim() ?? '';
   const hasEmailAddress = accountEmail.length > 0;
-  const hasPasswordCredentialMetadata = session?.user?.user_metadata?.has_password === true;
-  const hasPasswordIdentity = Boolean(
-    session?.user?.identities?.some((i) => i.provider === 'email'),
-  );
-  const hasPasswordCredential = hasPasswordIdentity || hasPasswordCredentialMetadata;
+  const hasPasswordCredential = userHasPasswordCredential(session?.user);
   const passwordActionLabel = hasPasswordCredential ? 'Change password' : 'Set password';
 
   const queryClient = useQueryClient();

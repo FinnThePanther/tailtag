@@ -10,6 +10,7 @@ import { TailTagButton } from '../src/components/ui/TailTagButton';
 import { TailTagCard } from '../src/components/ui/TailTagCard';
 import { PasswordStrengthIndicator } from '../src/features/auth/components/PasswordStrengthIndicator';
 import { useAuth } from '../src/features/auth';
+import { hasPasswordCredential as userHasPasswordCredential } from '../src/features/auth/utils/passwordCredential';
 import { supabase } from '../src/lib/supabase';
 import { captureHandledException } from '../src/lib/sentry';
 import { mapAuthError, validatePassword } from '../src/utils/authValidation';
@@ -18,11 +19,7 @@ import { styles } from '../src/app-styles/reset-password.styles';
 export default function ChangePasswordScreen() {
   const router = useRouter();
   const { session } = useAuth();
-  const hasPasswordCredentialMetadata = session?.user?.user_metadata?.has_password === true;
-  const hasPasswordIdentity = Boolean(
-    session?.user?.identities?.some((identity) => identity.provider === 'email'),
-  );
-  const hasPasswordCredential = hasPasswordIdentity || hasPasswordCredentialMetadata;
+  const hasPasswordCredential = userHasPasswordCredential(session?.user);
   const email = session?.user?.email?.trim() ?? '';
   const hasEmailAddress = email.length > 0;
   const screenTitle = hasPasswordCredential ? 'Change password' : 'Set password';
