@@ -7,7 +7,6 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development",
       "ios": {
         "buildConfiguration": "Debug",
         "simulator": false
@@ -24,7 +23,7 @@
         "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORMS_ENABLED": "false"
       }
     },
-    "preview": {
+    "staging": {
       "distribution": "internal",
       "channel": "staging",
       "ios": {

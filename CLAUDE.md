@@ -34,7 +34,7 @@ npm run prebuild      # Generate native project files
 
 # EAS builds
 eas build --profile development --platform ios
-eas build --profile preview --platform android
+eas build --profile staging --platform android
 eas build --profile production --platform all
 ```
 
@@ -422,9 +422,9 @@ Non-critical operations (like event emission) should return `null` on error, not
 - Metro bundler wrapped via `@sentry/react-native/metro`
 
 ### Build & Deployment
-- **EAS Build:** Three build profiles (development, preview, production)
+- **EAS Build:** Three build profiles (development, staging, production)
   - Development: Debug builds with simulator support (iOS) and APK (Android)
-  - Preview: Internal release builds (APK for Android)
+  - Staging: Internal release builds (APK for Android)
   - Production: Store distribution (app-bundle for Android, release for iOS)
 - **CI Pipeline:** GitHub Actions workflow (`.github/workflows/ci.yml`)
   - Runs on pushes to `dev` branch and all pull requests

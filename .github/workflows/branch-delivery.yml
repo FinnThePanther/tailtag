@@ -292,7 +292,7 @@ jobs:
           echo "Version bumped: ${OLD} → ${NEW}"
 
   eas_build_staging:
-    name: EAS Build (staging / preview)
+    name: EAS Build (staging)
     runs-on: ubuntu-latest
     needs:
       - changes
@@ -328,7 +328,7 @@ jobs:
       - name: Submit staging build (iOS + Android)
         # Builds run on EAS infrastructure. --no-wait returns immediately;
         # track progress at expo.dev or with `eas build:list`.
-        run: eas build --profile preview --platform all --non-interactive --no-wait
+        run: eas build --profile staging --platform all --non-interactive --no-wait
 
   eas_build_production:
     name: EAS Build (production)
