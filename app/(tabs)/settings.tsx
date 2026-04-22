@@ -92,10 +92,12 @@ export default function SettingsScreen() {
   const userId = session?.user.id ?? null;
   const accountEmail = session?.user?.email?.trim() ?? '';
   const hasEmailAddress = accountEmail.length > 0;
+  const hasPasswordCredentialMetadata = session?.user?.user_metadata?.has_password === true;
   const hasPasswordIdentity = Boolean(
     session?.user?.identities?.some((i) => i.provider === 'email'),
   );
-  const passwordActionLabel = hasPasswordIdentity ? 'Change password' : 'Set password';
+  const hasPasswordCredential = hasPasswordIdentity || hasPasswordCredentialMetadata;
+  const passwordActionLabel = hasPasswordCredential ? 'Change password' : 'Set password';
 
   const queryClient = useQueryClient();
   const profileQueryKey = useMemo(() => [PROFILE_QUERY_KEY, userId] as const, [userId]);

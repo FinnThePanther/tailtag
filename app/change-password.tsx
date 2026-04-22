@@ -18,14 +18,16 @@ import { styles } from '../src/app-styles/reset-password.styles';
 export default function ChangePasswordScreen() {
   const router = useRouter();
   const { session } = useAuth();
+  const hasPasswordCredentialMetadata = session?.user?.user_metadata?.has_password === true;
   const hasPasswordIdentity = Boolean(
     session?.user?.identities?.some((identity) => identity.provider === 'email'),
   );
+  const hasPasswordCredential = hasPasswordIdentity || hasPasswordCredentialMetadata;
   const email = session?.user?.email?.trim() ?? '';
   const hasEmailAddress = email.length > 0;
-  const screenTitle = hasPasswordIdentity ? 'Change password' : 'Set password';
-  const successTitle = hasPasswordIdentity ? 'Password changed' : 'Password set';
-  const successSubtitle = hasPasswordIdentity
+  const screenTitle = hasPasswordCredential ? 'Change password' : 'Set password';
+  const successTitle = hasPasswordCredential ? 'Password changed' : 'Password set';
+  const successSubtitle = hasPasswordCredential
     ? 'Your password has been updated successfully.'
     : 'You can now sign in with email and password.';
 
@@ -50,12 +52,12 @@ export default function ChangePasswordScreen() {
       return;
     }
 
-    if (hasPasswordIdentity && currentPassword.trim().length === 0) {
+    if (hasPasswordCredential && currentPassword.trim().length === 0) {
       setSubmitError('Enter your current password to continue.');
       return;
     }
 
-    if (hasPasswordIdentity && newPassword === currentPassword) {
+    if (hasPasswordCredential && newPassword === currentPassword) {
       setSubmitError('New password must be different from your current password.');
       return;
     }
@@ -72,7 +74,7 @@ export default function ChangePasswordScreen() {
     setSubmitError(null);
 
     try {
-      if (hasPasswordIdentity) {
+      if (hasPasswordCredential) {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password: currentPassword,
@@ -90,6 +92,10 @@ export default function ChangePasswordScreen() {
 
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
+        data: {
+          has_password: true,
+          password_set_at: new Date().toISOString(),
+        },
       });
 
       if (updateError) {
@@ -162,7 +168,7 @@ export default function ChangePasswordScreen() {
       />
       <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
         <TailTagCard style={styles.formCard}>
-          {hasPasswordIdentity ? (
+          {hasPasswordCredential ? (
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Current password</Text>
               <PasswordInput
