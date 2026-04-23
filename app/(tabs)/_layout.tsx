@@ -6,9 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '../../src/theme';
 import { TabBadge } from '../../src/components/TabBadge';
+import { TabNotificationDot } from '../../src/components/TabNotificationDot';
 import { usePendingCatches } from '../../src/features/catch-confirmations';
+import { useOtaUpdateCheck } from '../../src/hooks/useOtaUpdateCheck';
 
 type IconOptions = {
+  isUpdateReady?: boolean;
   pendingCatchCount?: number;
 };
 
@@ -53,11 +56,14 @@ const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => 
       );
     case 'settings':
       return (
-        <Ionicons
-          name={focused ? 'settings' : 'settings-outline'}
-          size={22}
-          color={color}
-        />
+        <View>
+          <Ionicons
+            name={focused ? 'settings' : 'settings-outline'}
+            size={22}
+            color={color}
+          />
+          <TabNotificationDot visible={options?.isUpdateReady === true} />
+        </View>
       );
     default:
       return (
@@ -71,6 +77,7 @@ const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => 
 };
 
 export default function TabsLayout() {
+  const { isUpdateReady } = useOtaUpdateCheck();
   const { data: pendingCatches = [] } = usePendingCatches();
   const pendingCatchCount = pendingCatches.length;
   const insets = useSafeAreaInsets();
@@ -85,7 +92,8 @@ export default function TabsLayout() {
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: 'rgba(203,213,225,0.8)',
-        tabBarIcon: ({ focused }) => iconForRoute(route.name, focused, { pendingCatchCount }),
+        tabBarIcon: ({ focused }) =>
+          iconForRoute(route.name, focused, { isUpdateReady, pendingCatchCount }),
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
