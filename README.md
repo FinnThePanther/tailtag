@@ -125,6 +125,7 @@ npm run lint
 - `docs/mobile-overview.md` explains the Expo app structure, routing, state/data patterns, and native capabilities.
 - `docs/ci-cd-policy.md` defines required branch protection settings, required checks, and CI/CD delivery rules.
 - `docs/RELEASE_READINESS.md` tracks release readiness work.
+- `docs/runbooks/release-management.md` covers production release versioning, tags, and branch sync.
 - `docs/runbooks/sync-environments.md` covers environment sync operations.
 - `docs/runbooks/rollback.md` covers rollback operations.
 - `admin/README.md` has more detail about the admin dashboard.

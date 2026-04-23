@@ -13,9 +13,9 @@ and how to deploy from one to the next.
 
 ## Continuous sync (the happy path)
 
-The [Branch Delivery workflow](../../.github/workflows/branch-delivery.yml) is
-triggered on every push to `dev` and `main`. It performs the same backend
-deployment for the matching environment:
+The [Delivery workflow](../../.github/workflows/branch-delivery.yml) is
+triggered on every push to `dev` and `main`. When backend surfaces change, it
+performs the same backend deployment for the matching environment:
 
 1. **Apply migrations** — `supabase db push --linked`
 2. **Apply reference seed data** — `supabase/seeds/reference.sql`
@@ -29,8 +29,8 @@ deployment for the matching environment:
 6. **Verify environment** — runs `scripts/verify-environment.sh` as a smoke
    test (realtime publication, cron jobs, queue, vault, storage)
 
-The workflow only fires when files under `supabase/**` or
-`packages/achievement-rules/**` change.
+The backend deployment job only runs when files under `supabase/**`,
+`packages/achievement-rules/**`, or supporting deployment scripts change.
 
 ### Required GitHub secrets
 
@@ -54,6 +54,9 @@ The workflow needs these secrets per environment (already configured in the
 Production deploys are triggered by pushes to `main`. The mechanics are
 identical to staging — same workflow, different environment secrets.
 
+For mobile release versioning, tag naming, and `dev`/`main` sync rules, use
+[`release-management.md`](./release-management.md).
+
 ### Standard release
 
 ```bash
@@ -63,7 +66,7 @@ identical to staging — same workflow, different environment secrets.
 # 2. Open a PR from dev → main
 gh pr create --base main --head dev --title "Release: <date>" --body "..."
 
-# 3. Merge after review. Branch Delivery picks up the push to main and
+# 3. Merge after review. Delivery picks up the push to main and
 #    deploys to production automatically.
 ```
 
@@ -84,16 +87,16 @@ gh pr create --base main --title "hotfix: …"
 ```
 
 After the hotfix merges to `main` and is auto-deployed to production,
-**immediately back-port to `dev`**:
+**immediately back-port or fast-forward to `dev`**:
 
 ```bash
-git checkout dev && git pull
-git merge main
-git push
+git checkout dev && git pull --ff-only origin dev
+git merge --ff-only origin/main || git merge origin/main
+git push origin dev
 ```
 
-This keeps `dev` ahead of `main` so the next regular release doesn't roll
-back the hotfix.
+This keeps `dev` from missing production-only commits so the next regular
+release doesn't roll back the hotfix.
 
 ### Pre-flight checklist
 
