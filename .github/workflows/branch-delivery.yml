@@ -257,8 +257,8 @@ jobs:
             exit 0
           fi
 
-          LOCAL_VERSIONS="$(ls "$MIGRATION_DIR"/*.sql 2>/dev/null \
-            | xargs -I{} basename {} \
+          LOCAL_VERSIONS="$(find "$MIGRATION_DIR" -maxdepth 1 -type f -name '*.sql' -print \
+            | while IFS= read -r file; do basename "$file"; done \
             | cut -c1-14 \
             | grep -E '^[0-9]{14}$' \
             | sort -u || true)"
@@ -278,7 +278,7 @@ jobs:
             echo "::error::Migration drift detected: remote has versions missing from supabase/migrations."
             echo ""
             echo "Remote-only versions:"
-            printf '  - %s\n' $REMOTE_MISSING_LOCALLY
+            printf '%s\n' "$REMOTE_MISSING_LOCALLY" | sed 's/^/  - /'
             echo ""
             echo "Remediation:"
             echo "  1) Sync this branch with the latest migrations."

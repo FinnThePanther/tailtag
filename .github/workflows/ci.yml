@@ -124,14 +124,14 @@ jobs:
           done
 
           # Check for duplicate timestamps.
-          dupes=$(ls "$MIGRATION_DIR"/*.sql 2>/dev/null \
-            | xargs -I{} basename {} \
+          dupes=$(find "$MIGRATION_DIR" -maxdepth 1 -type f -name '*.sql' -print \
+            | while IFS= read -r file; do basename "$file"; done \
             | cut -c1-14 \
             | sort | uniq -d)
 
           if [ -n "$dupes" ]; then
             echo "ERROR: Duplicate migration timestamps detected:"
-            printf '  %s\n' $dupes
+            printf '%s\n' "$dupes" | sed 's/^/  /'
             errors=1
           fi
 
