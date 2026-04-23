@@ -35,7 +35,7 @@ import type {
 } from '../../src/features/conventions';
 import { ConventionToggle } from '../../src/components/conventions/ConventionToggle';
 import { supabase } from '../../src/lib/supabase';
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../src/lib/runtimeConfig';
+import { APP_ENV, SUPABASE_ANON_KEY, SUPABASE_URL } from '../../src/lib/runtimeConfig';
 import { captureHandledException } from '../../src/lib/sentry';
 import { colors } from '../../src/theme';
 import { buildImageUploadCandidate, extractStoragePath } from '../../src/utils/images';
@@ -93,6 +93,7 @@ const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
 export default function SettingsScreen() {
   const router = useRouter();
   const { isUpdateReady, isRestarting, restartError, restartToApplyUpdate } = useOtaUpdateCheck();
+  const showStagingOtaTestMarker = APP_ENV === 'staging';
   const { session, forceSignOut } = useAuth();
   const userId = session?.user.id ?? null;
   const accountEmail = session?.user?.email?.trim() ?? '';
@@ -953,6 +954,16 @@ export default function SettingsScreen() {
           <Text style={styles.subtitle}>
             Update your settings, sign out, or delete your account.
           </Text>
+          {showStagingOtaTestMarker ? (
+            <View style={styles.stagingOtaMarker}>
+              <Ionicons
+                name="flask-outline"
+                size={14}
+                color={colors.amber}
+              />
+              <Text style={styles.stagingOtaMarkerText}>Staging OTA test marker: April 23</Text>
+            </View>
+          ) : null}
         </View>
         <MenuView
           title="More options"
