@@ -1,0 +1,49 @@
+name: Branch Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 15 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  check_dev_contains_main:
+    name: Check dev contains main
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify branch ancestry
+        run: |
+          set -euo pipefail
+
+          git fetch origin main dev
+
+          if git merge-base --is-ancestor origin/main origin/dev; then
+            echo "origin/dev contains origin/main."
+            exit 0
+          fi
+
+          cat <<'MESSAGE' >> "$GITHUB_STEP_SUMMARY"
+          ## dev is missing production commits
+
+          `origin/main` is not an ancestor of `origin/dev`. After a production
+          release, fast-forward `dev` to `main` so the next release does not
+          reintroduce already-shipped changes as divergent history.
+
+          ```bash
+          git switch dev
+          git pull --ff-only origin dev
+          git merge --ff-only origin/main
+          git push origin dev
+          ```
+          MESSAGE
+
+          echo "::error::origin/main is not an ancestor of origin/dev. Fast-forward dev to main."
+          exit 1
