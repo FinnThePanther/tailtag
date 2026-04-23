@@ -37,6 +37,47 @@ export const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textMuted,
   },
+  updateNotice: {
+    gap: spacing.md,
+    backgroundColor: colors.surfaceMutedSoft,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    padding: spacing.lg,
+  },
+  updateNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  updateNoticeIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySurface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primaryBorder,
+  },
+  updateNoticeText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  updateNoticeTitle: {
+    color: colors.foreground,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  updateNoticeBody: {
+    color: colors.textSubtle,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  updateNoticeError: {
+    color: '#fca5a5',
+    fontSize: 12,
+  },
   message: {
     color: colors.textMuted,
     fontSize: 14,

@@ -81,6 +81,7 @@ import {
 import type { CaughtRecord } from '../../src/features/suits/api/caughtSuits';
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../src/features/leaderboard/api/leaderboard';
 import { usePushNotifications } from '../../src/features/push-notifications';
+import { useOtaUpdateCheck } from '../../src/hooks/useOtaUpdateCheck';
 import { styles } from '../../src/app-styles/(tabs)/settings.styles';
 
 const FEEDBACK_FORM_URL = 'https://forms.gle/e65DqKt1VsuvoFTx8';
@@ -91,6 +92,7 @@ const SUPPORT_EMAIL_URL = 'mailto:finn@finnthepanther.com';
 const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
 export default function SettingsScreen() {
   const router = useRouter();
+  const { isUpdateReady, isRestarting, restartError, restartToApplyUpdate } = useOtaUpdateCheck();
   const { session, forceSignOut } = useAuth();
   const userId = session?.user.id ?? null;
   const accountEmail = session?.user?.email?.trim() ?? '';
@@ -979,6 +981,38 @@ export default function SettingsScreen() {
           </Pressable>
         </MenuView>
       </View>
+
+      {isUpdateReady ? (
+        <View style={styles.updateNotice}>
+          <View style={styles.updateNoticeHeader}>
+            <View style={styles.updateNoticeIcon}>
+              <Ionicons
+                name="cloud-download-outline"
+                size={18}
+                color={colors.primary}
+              />
+            </View>
+            <View style={styles.updateNoticeText}>
+              <Text style={styles.updateNoticeTitle}>Update ready</Text>
+              <Text style={styles.updateNoticeBody}>
+                Restart TailTag to apply the latest update.
+              </Text>
+            </View>
+          </View>
+
+          <TailTagButton
+            onPress={() => void restartToApplyUpdate()}
+            loading={isRestarting}
+            disabled={isRestarting}
+            accessibilityLabel="Restart TailTag"
+            accessibilityHint="Restarts the app to apply the latest update."
+          >
+            Restart TailTag
+          </TailTagButton>
+
+          {restartError ? <Text style={styles.updateNoticeError}>{restartError}</Text> : null}
+        </View>
+      ) : null}
 
       <TailTagCard>
         <View style={styles.statsSection}>
