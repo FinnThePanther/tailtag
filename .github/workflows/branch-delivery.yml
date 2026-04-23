@@ -151,65 +151,10 @@ jobs:
           fetch-depth: 0
 
       - name: Require native diff for native dependency changes
-        if: >-
-          needs.changes.outputs.native != 'true' &&
-          needs.changes.outputs.skip_eas != 'true'
+        if: needs.changes.outputs.skip_eas != 'true'
         env:
           BEFORE_SHA: ${{ github.event.before }}
-        run: |
-          set -euo pipefail
-
-          if [[ "$BEFORE_SHA" == "0000000000000000000000000000000000000000" ]]; then
-            echo "Initial push to branch - skipping native dependency guard."
-            exit 0
-          fi
-
-          if git diff --quiet "$BEFORE_SHA" HEAD -- package.json; then
-            echo "package.json did not change."
-            exit 0
-          fi
-
-          node <<'NODE'
-          const { execFileSync } = require('node:child_process');
-          const fs = require('node:fs');
-
-          const before = JSON.parse(
-            execFileSync('git', ['show', `${process.env.BEFORE_SHA}:package.json`], {
-              encoding: 'utf8',
-            }),
-          );
-          const after = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          const sections = ['dependencies', 'devDependencies', 'optionalDependencies'];
-          const nativePackagePattern =
-            /^(expo($|-)|@expo\/|react-native($|-)|@react-native\/)/;
-
-          const changed = [];
-          for (const section of sections) {
-            const beforeDeps = before[section] ?? {};
-            const afterDeps = after[section] ?? {};
-            const names = new Set([...Object.keys(beforeDeps), ...Object.keys(afterDeps)]);
-
-            for (const name of names) {
-              if (beforeDeps[name] !== afterDeps[name] && nativePackagePattern.test(name)) {
-                changed.push(`${name} (${section})`);
-              }
-            }
-          }
-
-          if (changed.length === 0) {
-            console.log('No native-looking dependency changes detected.');
-            process.exit(0);
-          }
-
-          console.error('Native-looking dependency changes require native project changes:');
-          for (const name of changed) {
-            console.error(`  - ${name}`);
-          }
-          console.error('');
-          console.error('Run expo prebuild for the affected environment and commit the resulting ios/ or android/ changes,');
-          console.error('or add an EAS skip directive if this is an intentional exception.');
-          process.exit(1);
-          NODE
+        run: node scripts/check-native-dependency-changes.cjs "$BEFORE_SHA"
 
   validate:
     name: Validate
