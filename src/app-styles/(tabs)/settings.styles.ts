@@ -37,23 +37,6 @@ export const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textMuted,
   },
-  stagingOtaMarker: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: spacing.xs,
-    backgroundColor: colors.surfaceMutedSoft,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderMuted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-  },
-  stagingOtaMarkerText: {
-    color: colors.textMutedStrong,
-    fontSize: 12,
-    fontWeight: '600',
-  },
   updateNotice: {
     gap: spacing.md,
     backgroundColor: colors.surfaceMutedSoft,
