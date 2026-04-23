@@ -46,6 +46,12 @@ jobs:
         id: filter
         uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
         with:
+          # On push events, compare the pushed commit range directly. The
+          # action's branch-vs-branch fallback can report no changes on
+          # merge-commit releases to main because main already contains dev's
+          # tree at the merge point.
+          base: ${{ github.event.before }}
+          ref: ${{ github.sha }}
           filters: |
             backend:
               - 'supabase/**'
