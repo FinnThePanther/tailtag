@@ -16,7 +16,7 @@ import {
 
 import { AuthProvider, useAuth, usePrimeUserData } from '../src/features/auth';
 import { NavigationReadyProvider, useSetNavigationReady } from '../src/hooks/useNavigationReady';
-import { useOtaUpdateCheck } from '../src/hooks/useOtaUpdateCheck';
+import { OtaUpdateProvider } from '../src/hooks/useOtaUpdateCheck';
 import { createProfileQueryOptions } from '../src/features/profile';
 import { colors } from '../src/theme';
 import { ToastProvider } from '../src/hooks/useToast';
@@ -84,7 +84,6 @@ function RootLayoutNav() {
   });
 
   usePrimeUserData(session?.user.id ?? null);
-  useOtaUpdateCheck();
 
   const hasCompletedOnboarding = profile?.onboarding_completed === true;
   const shouldGateOnboarding =
@@ -411,11 +410,13 @@ function Layout() {
             <AuthProvider>
               <NavigationReadyProvider>
                 <ToastProvider>
-                  <PushNotificationManager />
-                  <AchievementToastManager />
-                  <DailyTaskToastManager />
-                  <CatchConfirmationToastManager />
-                  <RootLayoutNav />
+                  <OtaUpdateProvider>
+                    <PushNotificationManager />
+                    <AchievementToastManager />
+                    <DailyTaskToastManager />
+                    <CatchConfirmationToastManager />
+                    <RootLayoutNav />
+                  </OtaUpdateProvider>
                 </ToastProvider>
               </NavigationReadyProvider>
             </AuthProvider>
