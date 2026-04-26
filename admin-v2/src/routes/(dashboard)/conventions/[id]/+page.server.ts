@@ -1,4 +1,4 @@
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, isRedirect, redirect } from '@sveltejs/kit';
 import {
   buildConventionLifecycleHealth,
   buildConventionReadiness,
@@ -25,8 +25,10 @@ import {
   startConventionAction,
   toggleConventionAchievementAction,
   toggleConventionTaskAction,
+  updateConventionAchievementAction,
   updateConventionConfigAction,
   updateConventionDetailsAction,
+  updateConventionTaskAction,
 } from '$lib/server/actions/conventions';
 
 export async function load({ params, url }) {
@@ -53,9 +55,10 @@ export async function load({ params, url }) {
 
 const ok = async (run: () => Promise<unknown>, message: string) => {
   try {
-    await run();
-    return { message };
+    const result = await run();
+    return { message: typeof result === 'string' ? result : message };
   } catch (error) {
+    if (isRedirect(error)) throw error;
     return fail(400, { error: error instanceof Error ? error.message : 'Action failed.' });
   }
 };
@@ -92,15 +95,50 @@ export const actions = {
   },
   lifecycle: async ({ cookies, params, request }) => {
     const action = String((await request.formData()).get('action') ?? '');
-    const map: Record<string, () => Promise<unknown>> = {
-      readiness: () => runConventionReadinessCheckAction(cookies, params.id),
-      start: () => startConventionAction(cookies, params.id),
-      rotate: () => rotateConventionDailiesAction(cookies, params.id),
-      close: () => closeConventionAction(cookies, params.id),
-      retry: () => retryConventionCloseoutAction(cookies, params.id),
-      regenerate: () => regenerateConventionRecapsAction(cookies, params.id),
-      delete: () => deleteArchivedConventionInDevAction(cookies, params.id),
-      pack: () => generateConventionGameplayPackAction(cookies, params.id),
+    const map: Record<string, () => Promise<string>> = {
+      readiness: async () => {
+        const result = await runConventionReadinessCheckAction(cookies, params.id);
+        return result.ready
+          ? 'Readiness check passed.'
+          : `Readiness check found ${result.blockingIssues.length} blocker(s).`;
+      },
+      start: async () => {
+        const result = await startConventionAction(cookies, params.id);
+        return result.status === 'live'
+          ? 'Convention started and daily tasks were ensured.'
+          : 'Convention scheduled. It still needs a manual start when the event begins.';
+      },
+      rotate: async () => {
+        const result = await rotateConventionDailiesAction(cookies, params.id);
+        const firstResult = Array.isArray(result?.results) ? result.results[0] : null;
+        if (firstResult?.skipped) return `Rotation skipped: ${firstResult.reason}.`;
+        if (firstResult?.refreshed === false) return 'Daily tasks were already rotated.';
+        return 'Daily tasks rotated.';
+      },
+      close: async () => {
+        const result = await closeConventionAction(cookies, params.id);
+        return result.already_archived
+          ? 'Convention was already archived.'
+          : `Convention archived with ${result.recaps_generated} recap(s).`;
+      },
+      retry: async () => {
+        const result = await retryConventionCloseoutAction(cookies, params.id);
+        return result.already_archived
+          ? 'Convention was already archived.'
+          : `Closeout retried and archived with ${result.recaps_generated} recap(s).`;
+      },
+      regenerate: async () => {
+        const result = await regenerateConventionRecapsAction(cookies, params.id);
+        return `Recaps regenerated with ${result.recaps_generated} participant recap(s).`;
+      },
+      delete: async () => {
+        await deleteArchivedConventionInDevAction(cookies, params.id);
+        redirect(303, '/conventions');
+      },
+      pack: async () => {
+        const result = await generateConventionGameplayPackAction(cookies, params.id);
+        return `Gameplay pack ready: ${result.tasks.created} task(s) and ${result.achievements.created} achievement(s) created.`;
+      },
     };
     return ok(map[action] ?? map.readiness, 'Convention action completed.');
   },
@@ -112,11 +150,27 @@ export const actions = {
           conventionId: params.id,
           name: String(form.get('name') ?? ''),
           description: String(form.get('description') ?? ''),
-          kind: String(form.get('kind') ?? 'catch_count'),
+          kind: String(form.get('kind') ?? 'catch'),
           requirement: Number(form.get('requirement') ?? 1),
-          metadata: null,
+          metadata: parseJsonObject(String(form.get('metadata') ?? '{}')),
         }),
       'Task created.',
+    );
+  },
+  updateTask: async ({ cookies, params, request }) => {
+    const form = await request.formData();
+    return ok(
+      () =>
+        updateConventionTaskAction(cookies, {
+          conventionId: params.id,
+          taskId: String(form.get('taskId') ?? ''),
+          name: String(form.get('name') ?? ''),
+          description: String(form.get('description') ?? ''),
+          kind: String(form.get('kind') ?? 'catch'),
+          requirement: Number(form.get('requirement') ?? 1),
+          metadata: parseJsonObject(String(form.get('metadata') ?? '{}')),
+        }),
+      'Task updated.',
     );
   },
   toggleTask: async ({ cookies, params, request }) => {
@@ -151,11 +205,28 @@ export const actions = {
           key: String(form.get('key') ?? ''),
           name: String(form.get('name') ?? ''),
           description: String(form.get('description') ?? ''),
-          category: String(form.get('category') ?? 'convention'),
-          kind: String(form.get('kind') ?? 'convention_joined'),
-          rule: {},
+          category: String(form.get('category') ?? 'catching'),
+          kind: String(form.get('kind') ?? 'fursuit_caught_count_at_convention'),
+          rule: parseJsonObject(String(form.get('rule') ?? '{}')),
         }),
       'Achievement created.',
+    );
+  },
+  updateAchievement: async ({ cookies, params, request }) => {
+    const form = await request.formData();
+    return ok(
+      () =>
+        updateConventionAchievementAction(cookies, {
+          conventionId: params.id,
+          achievementId: String(form.get('achievementId') ?? ''),
+          name: String(form.get('name') ?? ''),
+          description: String(form.get('description') ?? ''),
+          category: String(form.get('category') ?? 'catching'),
+          kind: String(form.get('kind') ?? 'fursuit_caught_count_at_convention'),
+          rule: parseJsonObject(String(form.get('rule') ?? '{}')),
+          ruleId: String(form.get('ruleId') ?? '') || null,
+        }),
+      'Achievement updated.',
     );
   },
   toggleAchievement: async ({ cookies, params, request }) => {
@@ -183,3 +254,11 @@ export const actions = {
     );
   },
 };
+
+function parseJsonObject(value: string): Record<string, unknown> {
+  const parsed = JSON.parse(value || '{}') as unknown;
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') {
+    throw new Error('Expected JSON object.');
+  }
+  return parsed as Record<string, unknown>;
+}
