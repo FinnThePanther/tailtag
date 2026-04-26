@@ -1,0 +1,40 @@
+{
+  "name": "admin-v2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json",
+    "format": "prettier --write --ignore-unknown"
+  },
+  "dependencies": {
+    "@sveltejs/adapter-vercel": "^5.10.2",
+    "@sveltejs/kit": "^2.49.1",
+    "@sveltejs/vite-plugin-svelte": "^6.2.1",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.58.0",
+    "clsx": "^2.1.0",
+    "lucide-svelte": "^0.468.0",
+    "maplibre-gl": "^4.4.0",
+    "svelte": "^5.43.14",
+    "vite": "^7.2.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "autoprefixer": "^10.4.23",
+    "eslint": "^9.39.1",
+    "eslint-plugin-svelte": "^3.13.0",
+    "postcss": "^8.5.6",
+    "prettier": "^3.8.2",
+    "prettier-plugin-svelte": "^3.4.0",
+    "svelte-check": "^4.3.4",
+    "tailwindcss": "^3.4.18",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.49.0"
+  }
+}
