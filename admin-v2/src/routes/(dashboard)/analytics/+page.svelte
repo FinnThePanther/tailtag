@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { enhance } from '$app/forms';
   import Card from '$lib/components/Card.svelte';
   import Table from '$lib/components/Table.svelte';
 
   let { data, form } = $props();
+  let pendingConventionId = $state<string | null>(null);
 </script>
 
 <div class="space-y-4">
@@ -23,13 +25,35 @@
   </Card>
 
   {#if form?.error}<div class="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">{form.error}</div>{/if}
+  {#if form?.message}
+    <p class="text-xs text-primary">{form.message}</p>
+  {/if}
   {#each data.rows as row}
     <Card title={`Simulate catch - ${row.name}`} subtitle="Creates an accepted catch for testing (audit logged)">
-      <form class="grid gap-3 md:grid-cols-[1fr_1fr_auto]" method="POST" action="?/simulate">
+      <form
+        class="grid gap-3 md:grid-cols-[1fr_1fr_auto]"
+        method="POST"
+        action="?/simulate"
+        use:enhance={({ formElement }) => {
+          pendingConventionId = row.id;
+          return async ({ result, update }) => {
+            pendingConventionId = null;
+            await update();
+            if (result.type === 'success') {
+              formElement.reset();
+            }
+          };
+        }}
+      >
         <input type="hidden" name="conventionId" value={row.id} />
         <input name="catcherId" required placeholder="Catcher profile ID" class="rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary" />
         <input name="fursuitId" required placeholder="Fursuit ID" class="rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary" />
-        <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-accent">Simulate catch</button>
+        <button
+          disabled={pendingConventionId === row.id}
+          class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-accent disabled:opacity-50"
+        >
+          {pendingConventionId === row.id ? 'Simulating...' : 'Simulate catch'}
+        </button>
       </form>
     </Card>
   {/each}

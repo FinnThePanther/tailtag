@@ -23,7 +23,7 @@ export const actions = {
         catcherId: String(form.get('catcherId') ?? ''),
         fursuitId: String(form.get('fursuitId') ?? ''),
       });
-      return { message: 'Catch simulated.' };
+      return { message: 'Simulated catch created.' };
     } catch (error) {
       return fail(400, {
         error: error instanceof Error ? error.message : 'Unable to simulate catch.',
