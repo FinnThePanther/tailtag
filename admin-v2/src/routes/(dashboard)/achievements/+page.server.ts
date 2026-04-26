@@ -14,7 +14,7 @@ export const actions = {
         userId: String(form.get('userId') ?? ''),
         achievementId: String(form.get('achievementId') ?? ''),
       });
-      return { message: 'Achievement granted.' };
+      return { message: 'Granted' };
     } catch (error) {
       return fail(400, {
         error: error instanceof Error ? error.message : 'Unable to grant achievement.',
@@ -28,7 +28,7 @@ export const actions = {
         userId: String(form.get('userId') ?? ''),
         achievementId: String(form.get('achievementId') ?? ''),
       });
-      return { message: 'Achievement revoked.' };
+      return { message: 'Revoked' };
     } catch (error) {
       return fail(400, {
         error: error instanceof Error ? error.message : 'Unable to revoke achievement.',
