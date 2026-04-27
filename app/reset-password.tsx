@@ -14,6 +14,8 @@ import {
   completeRecoverySessionFromUrl,
   consumeCompletedRecoverySessionMarker,
   getRecoverySessionTokens,
+  RECOVERY_SESSION_ERROR_PARAM,
+  RECOVERY_SESSION_ERROR_VALUE,
   RECOVERY_SESSION_READY_PARAM,
 } from '../src/features/auth/utils/recovery';
 import { supabase } from '../src/lib/supabase';
@@ -31,6 +33,10 @@ export default function ResetPasswordScreen() {
   const recoverySessionMarker = Array.isArray(recoverySessionParam)
     ? (recoverySessionParam[0] ?? null)
     : (recoverySessionParam ?? null);
+  const recoveryErrorParam = params[RECOVERY_SESSION_ERROR_PARAM];
+  const recoveryError = Array.isArray(recoveryErrorParam)
+    ? (recoveryErrorParam[0] ?? null)
+    : (recoveryErrorParam ?? null);
   const [sessionState, setSessionState] = useState<SessionState>('loading');
   const [sessionError, setSessionError] = useState<string | null>(null);
 
@@ -47,6 +53,12 @@ export default function ResetPasswordScreen() {
       if (!isMounted) return;
 
       try {
+        if (recoveryError === RECOVERY_SESSION_ERROR_VALUE) {
+          setSessionState('error');
+          setSessionError('This reset link has expired or is invalid. Please request a new one.');
+          return;
+        }
+
         if (recoverySessionMarker) {
           if (!consumeCompletedRecoverySessionMarker(recoverySessionMarker)) {
             setSessionState('error');
@@ -103,7 +115,7 @@ export default function ResetPasswordScreen() {
     return () => {
       isMounted = false;
     };
-  }, [recoverySessionMarker, url]);
+  }, [recoveryError, recoverySessionMarker, url]);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
