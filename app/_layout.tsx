@@ -38,6 +38,9 @@ import { EnvironmentBanner } from '../src/components/EnvironmentBanner';
 import {
   completeRecoverySessionFromUrl,
   getCompletedRecoverySessionMarker,
+  getRecoverySessionTokens,
+  RECOVERY_SESSION_ERROR_PARAM,
+  RECOVERY_SESSION_ERROR_VALUE,
   RECOVERY_SESSION_READY_PARAM,
 } from '../src/features/auth/utils/recovery';
 
@@ -169,12 +172,35 @@ function RootLayoutNav() {
       });
     };
 
+    const routeToResetPasswordError = () => {
+      router.replace({
+        pathname: '/reset-password',
+        params: {
+          [RECOVERY_SESSION_ERROR_PARAM]: RECOVERY_SESSION_ERROR_VALUE,
+        },
+      });
+    };
+
     const handleRecoveryUrl = async (incomingUrl: string | null | undefined) => {
       if (!incomingUrl || inResetPasswordFlow) {
         return;
       }
 
       try {
+        const hasRecoveryTokens = Boolean(getRecoverySessionTokens(incomingUrl));
+
+        if (!hasRecoveryTokens) {
+          return;
+        }
+
+        if (session) {
+          if (isMounted) {
+            routeToResetPasswordError();
+          }
+
+          return;
+        }
+
         const handled = await completeRecoverySessionFromUrl(incomingUrl);
 
         const marker = getCompletedRecoverySessionMarker();
@@ -187,6 +213,10 @@ function RootLayoutNav() {
           scope: 'auth.passwordRecoveryLink',
           action: 'setSession',
         });
+
+        if (isMounted) {
+          routeToResetPasswordError();
+        }
       }
     };
 
@@ -211,7 +241,7 @@ function RootLayoutNav() {
       isMounted = false;
       subscription.remove();
     };
-  }, [inResetPasswordFlow, router]);
+  }, [inResetPasswordFlow, router, session]);
 
   if (status === 'loading') {
     return <LoadingScreen />;

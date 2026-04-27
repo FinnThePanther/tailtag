@@ -8,6 +8,8 @@ type RecoverySessionTokens = {
 };
 
 export const RECOVERY_SESSION_READY_PARAM = 'recoverySession';
+export const RECOVERY_SESSION_ERROR_PARAM = 'recoveryError';
+export const RECOVERY_SESSION_ERROR_VALUE = 'invalid';
 
 let completedRecoverySessionMarker: string | null = null;
 
