@@ -1,5 +1,5 @@
 // app/_layout.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useSegments, Stack, Redirect, useNavigationContainerRef, useRouter } from 'expo-router';
@@ -77,6 +77,7 @@ function RootLayoutNav() {
   const inPublicAuthFlow = inAuthGroup || inAuthCallbackFlow || inResetPasswordFlow;
   const userId = session?.user.id ?? null;
   const setNavigationReady = useSetNavigationReady();
+  const didCheckInitialRecoveryUrlRef = useRef(false);
 
   const {
     data: profile,
@@ -191,14 +192,18 @@ function RootLayoutNav() {
       void handleRecoveryUrl(event.url);
     });
 
-    void Linking.getInitialURL()
-      .then((initialUrl) => handleRecoveryUrl(initialUrl))
-      .catch((caught) => {
-        captureNonCriticalError(caught, {
-          scope: 'auth.passwordRecoveryLink',
-          action: 'getInitialURL',
+    if (!didCheckInitialRecoveryUrlRef.current) {
+      didCheckInitialRecoveryUrlRef.current = true;
+
+      void Linking.getInitialURL()
+        .then((initialUrl) => handleRecoveryUrl(initialUrl))
+        .catch((caught) => {
+          captureNonCriticalError(caught, {
+            scope: 'auth.passwordRecoveryLink',
+            action: 'getInitialURL',
+          });
         });
-      });
+    }
 
     return () => {
       isMounted = false;
