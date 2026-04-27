@@ -8,12 +8,20 @@ type RecoverySessionTokens = {
 };
 
 export const RECOVERY_SESSION_READY_PARAM = 'recoverySession';
-export const RECOVERY_SESSION_READY_VALUE = 'ready';
 
-let completedRecoverySessionInRuntime = false;
+let completedRecoverySessionMarker: string | null = null;
 
-export function hasCompletedRecoverySessionInRuntime() {
-  return completedRecoverySessionInRuntime;
+export function getCompletedRecoverySessionMarker() {
+  return completedRecoverySessionMarker;
+}
+
+export function consumeCompletedRecoverySessionMarker(marker: string | null) {
+  if (!marker || marker !== completedRecoverySessionMarker) {
+    return false;
+  }
+
+  completedRecoverySessionMarker = null;
+  return true;
 }
 
 export function getRecoverySessionTokens(
@@ -59,7 +67,7 @@ export async function completeRecoverySessionFromUrl(url: string | null | undefi
     throw error;
   }
 
-  completedRecoverySessionInRuntime = true;
+  completedRecoverySessionMarker = `${Date.now()}:${Math.random().toString(36).slice(2)}`;
 
   return true;
 }

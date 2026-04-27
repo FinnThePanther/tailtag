@@ -37,8 +37,8 @@ import { SuspensionGate } from '../src/features/moderation';
 import { EnvironmentBanner } from '../src/components/EnvironmentBanner';
 import {
   completeRecoverySessionFromUrl,
+  getCompletedRecoverySessionMarker,
   RECOVERY_SESSION_READY_PARAM,
-  RECOVERY_SESSION_READY_VALUE,
 } from '../src/features/auth/utils/recovery';
 
 function LoadingScreen() {
@@ -160,11 +160,11 @@ function RootLayoutNav() {
   useEffect(() => {
     let isMounted = true;
 
-    const routeToResetPassword = () => {
+    const routeToResetPassword = (marker: string) => {
       router.replace({
         pathname: '/reset-password',
         params: {
-          [RECOVERY_SESSION_READY_PARAM]: RECOVERY_SESSION_READY_VALUE,
+          [RECOVERY_SESSION_READY_PARAM]: marker,
         },
       });
     };
@@ -177,8 +177,10 @@ function RootLayoutNav() {
       try {
         const handled = await completeRecoverySessionFromUrl(incomingUrl);
 
-        if (handled && isMounted) {
-          routeToResetPassword();
+        const marker = getCompletedRecoverySessionMarker();
+
+        if (handled && marker && isMounted) {
+          routeToResetPassword(marker);
         }
       } catch (caught) {
         captureFeatureError(caught, {
