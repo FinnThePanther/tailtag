@@ -12,10 +12,9 @@ import { TailTagCard } from '../src/components/ui/TailTagCard';
 import { PasswordStrengthIndicator } from '../src/features/auth/components/PasswordStrengthIndicator';
 import {
   completeRecoverySessionFromUrl,
+  consumeCompletedRecoverySessionMarker,
   getRecoverySessionTokens,
-  hasCompletedRecoverySessionInRuntime,
   RECOVERY_SESSION_READY_PARAM,
-  RECOVERY_SESSION_READY_VALUE,
 } from '../src/features/auth/utils/recovery';
 import { supabase } from '../src/lib/supabase';
 import { colors } from '../src/theme';
@@ -29,10 +28,9 @@ export default function ResetPasswordScreen() {
   const url = Linking.useURL();
   const params = useLocalSearchParams();
   const recoverySessionParam = params[RECOVERY_SESSION_READY_PARAM];
-  const hasReadyRecoverySessionParam =
-    recoverySessionParam === RECOVERY_SESSION_READY_VALUE ||
-    (Array.isArray(recoverySessionParam) &&
-      recoverySessionParam.includes(RECOVERY_SESSION_READY_VALUE));
+  const recoverySessionMarker = Array.isArray(recoverySessionParam)
+    ? (recoverySessionParam[0] ?? null)
+    : (recoverySessionParam ?? null);
   const [sessionState, setSessionState] = useState<SessionState>('loading');
   const [sessionError, setSessionError] = useState<string | null>(null);
 
@@ -49,8 +47,8 @@ export default function ResetPasswordScreen() {
       if (!isMounted) return;
 
       try {
-        if (hasReadyRecoverySessionParam) {
-          if (!hasCompletedRecoverySessionInRuntime()) {
+        if (recoverySessionMarker) {
+          if (!consumeCompletedRecoverySessionMarker(recoverySessionMarker)) {
             setSessionState('error');
             setSessionError('This reset link has expired. Please request a new password reset.');
             return;
@@ -105,7 +103,7 @@ export default function ResetPasswordScreen() {
     return () => {
       isMounted = false;
     };
-  }, [hasReadyRecoverySessionParam, url]);
+  }, [recoverySessionMarker, url]);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
