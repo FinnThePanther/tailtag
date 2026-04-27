@@ -10,6 +10,12 @@ type RecoverySessionTokens = {
 export const RECOVERY_SESSION_READY_PARAM = 'recoverySession';
 export const RECOVERY_SESSION_READY_VALUE = 'ready';
 
+let completedRecoverySessionInRuntime = false;
+
+export function hasCompletedRecoverySessionInRuntime() {
+  return completedRecoverySessionInRuntime;
+}
+
 export function getRecoverySessionTokens(
   url: string | null | undefined,
 ): RecoverySessionTokens | null {
@@ -52,6 +58,8 @@ export async function completeRecoverySessionFromUrl(url: string | null | undefi
   if (error) {
     throw error;
   }
+
+  completedRecoverySessionInRuntime = true;
 
   return true;
 }

@@ -13,6 +13,7 @@ import { PasswordStrengthIndicator } from '../src/features/auth/components/Passw
 import {
   completeRecoverySessionFromUrl,
   getRecoverySessionTokens,
+  hasCompletedRecoverySessionInRuntime,
   RECOVERY_SESSION_READY_PARAM,
   RECOVERY_SESSION_READY_VALUE,
 } from '../src/features/auth/utils/recovery';
@@ -48,19 +49,13 @@ export default function ResetPasswordScreen() {
       if (!isMounted) return;
 
       try {
-        const hasRecoveryTokens = Boolean(getRecoverySessionTokens(incomingUrl));
-
-        if (hasRecoveryTokens) {
-          await completeRecoverySessionFromUrl(incomingUrl);
-
-          if (isMounted) {
-            setSessionState('ready');
+        if (hasReadyRecoverySessionParam) {
+          if (!hasCompletedRecoverySessionInRuntime()) {
+            setSessionState('error');
+            setSessionError('This reset link has expired. Please request a new password reset.');
+            return;
           }
 
-          return;
-        }
-
-        if (hasReadyRecoverySessionParam) {
           const {
             data: { session },
           } = await supabase.auth.getSession();
@@ -73,10 +68,24 @@ export default function ResetPasswordScreen() {
             setSessionState('error');
             setSessionError('This reset link has expired. Please request a new password reset.');
           }
-        } else {
-          setSessionState('error');
-          setSessionError('This reset link has expired or is invalid. Please request a new one.');
+
+          return;
         }
+
+        const hasRecoveryTokens = Boolean(getRecoverySessionTokens(incomingUrl));
+
+        if (hasRecoveryTokens) {
+          await completeRecoverySessionFromUrl(incomingUrl);
+
+          if (isMounted) {
+            setSessionState('ready');
+          }
+
+          return;
+        }
+
+        setSessionState('error');
+        setSessionError('This reset link has expired or is invalid. Please request a new one.');
       } catch {
         if (isMounted) {
           setSessionState('error');
