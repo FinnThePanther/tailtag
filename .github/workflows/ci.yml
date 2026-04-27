@@ -50,6 +50,17 @@ jobs:
       - name: Validate mobile app
         run: npm run ci:validate
 
+      - name: Install admin-v2 dependencies
+        run: npm ci
+        working-directory: admin-v2
+
+      - name: Validate admin-v2
+        working-directory: admin-v2
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run build
+
       - name: Validate migration files
         run: |
           MIGRATION_DIR="supabase/migrations"
