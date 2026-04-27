@@ -161,6 +161,10 @@ function RootLayoutNav() {
   }, [inAuthGroup, router, session, shouldGateOnboarding, shouldResolvePostAuthDestination]);
 
   useEffect(() => {
+    if (status === 'loading') {
+      return;
+    }
+
     let isMounted = true;
 
     const routeToResetPassword = (marker: string) => {
@@ -241,7 +245,7 @@ function RootLayoutNav() {
       isMounted = false;
       subscription.remove();
     };
-  }, [inResetPasswordFlow, router, session]);
+  }, [inResetPasswordFlow, router, session, status]);
 
   if (status === 'loading') {
     return <LoadingScreen />;

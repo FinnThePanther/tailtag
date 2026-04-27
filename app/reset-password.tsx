@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import * as Linking from 'expo-linking';
@@ -45,6 +45,7 @@ export default function ResetPasswordScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const acceptedRecoverySessionMarkerRef = useRef<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -60,7 +61,13 @@ export default function ResetPasswordScreen() {
         }
 
         if (recoverySessionMarker) {
-          if (!consumeCompletedRecoverySessionMarker(recoverySessionMarker)) {
+          const markerAlreadyAccepted =
+            acceptedRecoverySessionMarkerRef.current === recoverySessionMarker;
+
+          if (
+            !markerAlreadyAccepted &&
+            !consumeCompletedRecoverySessionMarker(recoverySessionMarker)
+          ) {
             setSessionState('error');
             setSessionError('This reset link has expired. Please request a new password reset.');
             return;
@@ -73,6 +80,7 @@ export default function ResetPasswordScreen() {
           if (!isMounted) return;
 
           if (session) {
+            acceptedRecoverySessionMarkerRef.current = recoverySessionMarker;
             setSessionState('ready');
           } else {
             setSessionState('error');
