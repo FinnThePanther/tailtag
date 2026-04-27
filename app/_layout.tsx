@@ -1,6 +1,7 @@
 // app/_layout.tsx
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import * as Linking from 'expo-linking';
 import { useSegments, Stack, Redirect, useNavigationContainerRef, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -34,6 +35,11 @@ import {
 import { handleAuthError } from '../src/lib/authErrorHandler';
 import { SuspensionGate } from '../src/features/moderation';
 import { EnvironmentBanner } from '../src/components/EnvironmentBanner';
+import {
+  completeRecoverySessionFromUrl,
+  RECOVERY_SESSION_READY_PARAM,
+  RECOVERY_SESSION_READY_VALUE,
+} from '../src/features/auth/utils/recovery';
 
 function LoadingScreen() {
   return (
@@ -149,6 +155,60 @@ function RootLayoutNav() {
 
     router.replace(shouldGateOnboarding ? '/onboarding' : '/');
   }, [inAuthGroup, router, session, shouldGateOnboarding, shouldResolvePostAuthDestination]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const routeToResetPassword = () => {
+      router.replace({
+        pathname: '/reset-password',
+        params: {
+          [RECOVERY_SESSION_READY_PARAM]: RECOVERY_SESSION_READY_VALUE,
+        },
+      });
+    };
+
+    const handleRecoveryUrl = async (incomingUrl: string | null | undefined) => {
+      if (!incomingUrl || inResetPasswordFlow) {
+        return;
+      }
+
+      try {
+        const handled = await completeRecoverySessionFromUrl(incomingUrl);
+
+        if (handled && isMounted) {
+          routeToResetPassword();
+        }
+      } catch (caught) {
+        captureFeatureError(caught, {
+          scope: 'auth.passwordRecoveryLink',
+          action: 'setSession',
+        });
+
+        if (isMounted) {
+          routeToResetPassword();
+        }
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      void handleRecoveryUrl(event.url);
+    });
+
+    void Linking.getInitialURL()
+      .then((initialUrl) => handleRecoveryUrl(initialUrl))
+      .catch((caught) => {
+        captureNonCriticalError(caught, {
+          scope: 'auth.passwordRecoveryLink',
+          action: 'getInitialURL',
+        });
+      });
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+    };
+  }, [inResetPasswordFlow, router]);
 
   if (status === 'loading') {
     return <LoadingScreen />;
