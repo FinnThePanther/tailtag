@@ -16,7 +16,10 @@ ios/
 android/
 
 admin/.next/
+admin-v2/.svelte-kit/
+admin-v2/.vercel/
 web/dist/
+.vercel/
 
 *.tsbuildinfo
 package-lock.json
