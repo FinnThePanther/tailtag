@@ -184,10 +184,6 @@ function RootLayoutNav() {
           scope: 'auth.passwordRecoveryLink',
           action: 'setSession',
         });
-
-        if (isMounted) {
-          routeToResetPassword();
-        }
       }
     };
 
