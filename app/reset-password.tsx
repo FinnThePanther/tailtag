@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import * as Linking from 'expo-linking';
-import { useRouter } from 'expo-router';
-import * as QueryParams from 'expo-auth-session/build/QueryParams';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { KeyboardAwareFormWrapper } from '../src/components/ui/KeyboardAwareFormWrapper';
@@ -11,6 +10,12 @@ import { PasswordInput } from '../src/components/ui/PasswordInput';
 import { TailTagButton } from '../src/components/ui/TailTagButton';
 import { TailTagCard } from '../src/components/ui/TailTagCard';
 import { PasswordStrengthIndicator } from '../src/features/auth/components/PasswordStrengthIndicator';
+import {
+  completeRecoverySessionFromUrl,
+  getRecoverySessionTokens,
+  RECOVERY_SESSION_READY_PARAM,
+  RECOVERY_SESSION_READY_VALUE,
+} from '../src/features/auth/utils/recovery';
 import { supabase } from '../src/lib/supabase';
 import { colors } from '../src/theme';
 import { mapAuthError, validatePassword } from '../src/utils/authValidation';
@@ -21,6 +26,12 @@ type SessionState = 'loading' | 'ready' | 'error';
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const url = Linking.useURL();
+  const params = useLocalSearchParams();
+  const recoverySessionParam = params[RECOVERY_SESSION_READY_PARAM];
+  const hasReadyRecoverySessionParam =
+    recoverySessionParam === RECOVERY_SESSION_READY_VALUE ||
+    (Array.isArray(recoverySessionParam) &&
+      recoverySessionParam.includes(RECOVERY_SESSION_READY_VALUE));
   const [sessionState, setSessionState] = useState<SessionState>('loading');
   const [sessionError, setSessionError] = useState<string | null>(null);
 
@@ -36,46 +47,35 @@ export default function ResetPasswordScreen() {
     const resolveSession = async (incomingUrl: string | null | undefined) => {
       if (!isMounted) return;
 
-      if (!incomingUrl) {
-        setSessionState('error');
-        setSessionError('No reset link found. Please request a new password reset.');
-        return;
-      }
+      try {
+        const hasRecoveryTokens = Boolean(getRecoverySessionTokens(incomingUrl));
 
-      const { params, errorCode } = QueryParams.getQueryParams(incomingUrl);
+        if (hasRecoveryTokens) {
+          await completeRecoverySessionFromUrl(incomingUrl);
 
-      if (errorCode) {
-        if (isMounted) {
-          setSessionState('error');
-          setSessionError('This reset link is invalid. Please request a new one.');
+          if (isMounted) {
+            setSessionState('ready');
+          }
+
+          return;
         }
-        return;
-      }
 
-      const accessToken = typeof params.access_token === 'string' ? params.access_token : null;
-      const refreshToken = typeof params.refresh_token === 'string' ? params.refresh_token : null;
+        if (hasReadyRecoverySessionParam) {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
 
-      if (!accessToken || !refreshToken) {
-        if (isMounted) {
+          if (!isMounted) return;
+
+          if (session) {
+            setSessionState('ready');
+          } else {
+            setSessionState('error');
+            setSessionError('This reset link has expired. Please request a new password reset.');
+          }
+        } else {
           setSessionState('error');
           setSessionError('This reset link has expired or is invalid. Please request a new one.');
-        }
-        return;
-      }
-
-      try {
-        const { error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-
-        if (!isMounted) return;
-
-        if (error) {
-          setSessionState('error');
-          setSessionError('This reset link has expired. Please request a new password reset.');
-        } else {
-          setSessionState('ready');
         }
       } catch {
         if (isMounted) {
@@ -96,7 +96,7 @@ export default function ResetPasswordScreen() {
     return () => {
       isMounted = false;
     };
-  }, [url]);
+  }, [hasReadyRecoverySessionParam, url]);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
