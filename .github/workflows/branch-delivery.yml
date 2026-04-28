@@ -450,7 +450,8 @@ jobs:
 
       - name: Build production app (iOS + Android)
         # Production waits for EAS to finish before release tags are created.
-        run: eas build --profile production --platform all --non-interactive
+        # --auto-submit sends successful store builds to App Store Connect / Play Console.
+        run: eas build --profile production --platform all --non-interactive --auto-submit
 
   eas_update:
     name: Publish EAS update
