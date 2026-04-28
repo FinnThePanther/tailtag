@@ -1,6 +1,7 @@
 // app/_layout.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import * as Linking from 'expo-linking';
 import { useSegments, Stack, Redirect, useNavigationContainerRef, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -34,6 +35,14 @@ import {
 import { handleAuthError } from '../src/lib/authErrorHandler';
 import { SuspensionGate } from '../src/features/moderation';
 import { EnvironmentBanner } from '../src/components/EnvironmentBanner';
+import {
+  completeRecoverySessionFromUrl,
+  getCompletedRecoverySessionMarker,
+  getRecoverySessionTokens,
+  RECOVERY_SESSION_ERROR_PARAM,
+  RECOVERY_SESSION_ERROR_VALUE,
+  RECOVERY_SESSION_READY_PARAM,
+} from '../src/features/auth/utils/recovery';
 
 function LoadingScreen() {
   return (
@@ -71,6 +80,8 @@ function RootLayoutNav() {
   const inPublicAuthFlow = inAuthGroup || inAuthCallbackFlow || inResetPasswordFlow;
   const userId = session?.user.id ?? null;
   const setNavigationReady = useSetNavigationReady();
+  const initialRecoveryUrlCheckKeyRef = useRef<string | null>(null);
+  const completedInitialRecoveryUrlRef = useRef<string | null>(null);
 
   const {
     data: profile,
@@ -149,6 +160,100 @@ function RootLayoutNav() {
 
     router.replace(shouldGateOnboarding ? '/onboarding' : '/');
   }, [inAuthGroup, router, session, shouldGateOnboarding, shouldResolvePostAuthDestination]);
+
+  useEffect(() => {
+    if (status === 'loading') {
+      return;
+    }
+
+    let isMounted = true;
+
+    const routeToResetPassword = (marker: string) => {
+      router.replace({
+        pathname: '/reset-password',
+        params: {
+          [RECOVERY_SESSION_READY_PARAM]: marker,
+        },
+      });
+    };
+
+    const routeToResetPasswordError = () => {
+      router.replace({
+        pathname: '/reset-password',
+        params: {
+          [RECOVERY_SESSION_ERROR_PARAM]: RECOVERY_SESSION_ERROR_VALUE,
+        },
+      });
+    };
+
+    const handleRecoveryUrl = async (incomingUrl: string | null | undefined) => {
+      if (!incomingUrl || inResetPasswordFlow) {
+        return;
+      }
+
+      try {
+        const hasRecoveryTokens = Boolean(getRecoverySessionTokens(incomingUrl));
+
+        if (!hasRecoveryTokens) {
+          return;
+        }
+
+        if (completedInitialRecoveryUrlRef.current === incomingUrl) {
+          return;
+        }
+
+        if (session) {
+          if (isMounted) {
+            routeToResetPasswordError();
+          }
+
+          return;
+        }
+
+        const handled = await completeRecoverySessionFromUrl(incomingUrl);
+
+        const marker = getCompletedRecoverySessionMarker();
+
+        if (handled && marker && isMounted) {
+          completedInitialRecoveryUrlRef.current = incomingUrl;
+          routeToResetPassword(marker);
+        }
+      } catch (caught) {
+        captureFeatureError(caught, {
+          scope: 'auth.passwordRecoveryLink',
+          action: 'setSession',
+        });
+
+        if (isMounted) {
+          routeToResetPasswordError();
+        }
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      void handleRecoveryUrl(event.url);
+    });
+
+    const initialUrlCheckKey = session ? 'signed_in' : 'signed_out';
+
+    if (initialRecoveryUrlCheckKeyRef.current !== initialUrlCheckKey) {
+      initialRecoveryUrlCheckKeyRef.current = initialUrlCheckKey;
+
+      void Linking.getInitialURL()
+        .then((initialUrl) => handleRecoveryUrl(initialUrl))
+        .catch((caught) => {
+          captureNonCriticalError(caught, {
+            scope: 'auth.passwordRecoveryLink',
+            action: 'getInitialURL',
+          });
+        });
+    }
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+    };
+  }, [inResetPasswordFlow, router, session, status]);
 
   if (status === 'loading') {
     return <LoadingScreen />;

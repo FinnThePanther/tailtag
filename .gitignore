@@ -68,3 +68,4 @@ GoogleService-Info.production.plist
 service-account*.json
 credentials.json
 .npmrc
+.vercel
