@@ -81,6 +81,7 @@ function RootLayoutNav() {
   const userId = session?.user.id ?? null;
   const setNavigationReady = useSetNavigationReady();
   const initialRecoveryUrlCheckKeyRef = useRef<string | null>(null);
+  const completedInitialRecoveryUrlRef = useRef<string | null>(null);
 
   const {
     data: profile,
@@ -197,6 +198,10 @@ function RootLayoutNav() {
           return;
         }
 
+        if (completedInitialRecoveryUrlRef.current === incomingUrl) {
+          return;
+        }
+
         if (session) {
           if (isMounted) {
             routeToResetPasswordError();
@@ -210,6 +215,7 @@ function RootLayoutNav() {
         const marker = getCompletedRecoverySessionMarker();
 
         if (handled && marker && isMounted) {
+          completedInitialRecoveryUrlRef.current = incomingUrl;
           routeToResetPassword(marker);
         }
       } catch (caught) {
@@ -228,7 +234,7 @@ function RootLayoutNav() {
       void handleRecoveryUrl(event.url);
     });
 
-    const initialUrlCheckKey = `${status}:${session?.user.id ?? 'signed_out'}`;
+    const initialUrlCheckKey = session ? 'signed_in' : 'signed_out';
 
     if (initialRecoveryUrlCheckKeyRef.current !== initialUrlCheckKey) {
       initialRecoveryUrlCheckKeyRef.current = initialUrlCheckKey;
