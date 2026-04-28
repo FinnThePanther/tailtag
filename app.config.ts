@@ -61,6 +61,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: env.appDisplayName,
   slug: 'tailtag',
+  // Keep native runtimeVersion aligned with package.json for EAS updates.
   version: rootPackage.version,
   platforms: ['ios', 'android'],
   orientation: 'portrait',
