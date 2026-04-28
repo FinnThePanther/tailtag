@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import * as Linking from 'expo-linking';
-import { useRouter } from 'expo-router';
-import * as QueryParams from 'expo-auth-session/build/QueryParams';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { KeyboardAwareFormWrapper } from '../src/components/ui/KeyboardAwareFormWrapper';
@@ -11,6 +10,14 @@ import { PasswordInput } from '../src/components/ui/PasswordInput';
 import { TailTagButton } from '../src/components/ui/TailTagButton';
 import { TailTagCard } from '../src/components/ui/TailTagCard';
 import { PasswordStrengthIndicator } from '../src/features/auth/components/PasswordStrengthIndicator';
+import {
+  completeRecoverySessionFromUrl,
+  consumeCompletedRecoverySessionMarker,
+  getRecoverySessionTokens,
+  RECOVERY_SESSION_ERROR_PARAM,
+  RECOVERY_SESSION_ERROR_VALUE,
+  RECOVERY_SESSION_READY_PARAM,
+} from '../src/features/auth/utils/recovery';
 import { supabase } from '../src/lib/supabase';
 import { colors } from '../src/theme';
 import { mapAuthError, validatePassword } from '../src/utils/authValidation';
@@ -21,6 +28,15 @@ type SessionState = 'loading' | 'ready' | 'error';
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const url = Linking.useURL();
+  const params = useLocalSearchParams();
+  const recoverySessionParam = params[RECOVERY_SESSION_READY_PARAM];
+  const recoverySessionMarker = Array.isArray(recoverySessionParam)
+    ? (recoverySessionParam[0] ?? null)
+    : (recoverySessionParam ?? null);
+  const recoveryErrorParam = params[RECOVERY_SESSION_ERROR_PARAM];
+  const recoveryError = Array.isArray(recoveryErrorParam)
+    ? (recoveryErrorParam[0] ?? null)
+    : (recoveryErrorParam ?? null);
   const [sessionState, setSessionState] = useState<SessionState>('loading');
   const [sessionError, setSessionError] = useState<string | null>(null);
 
@@ -29,6 +45,7 @@ export default function ResetPasswordScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const acceptedRecoverySessionMarkerRef = useRef<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -36,47 +53,57 @@ export default function ResetPasswordScreen() {
     const resolveSession = async (incomingUrl: string | null | undefined) => {
       if (!isMounted) return;
 
-      if (!incomingUrl) {
-        setSessionState('error');
-        setSessionError('No reset link found. Please request a new password reset.');
-        return;
-      }
-
-      const { params, errorCode } = QueryParams.getQueryParams(incomingUrl);
-
-      if (errorCode) {
-        if (isMounted) {
-          setSessionState('error');
-          setSessionError('This reset link is invalid. Please request a new one.');
-        }
-        return;
-      }
-
-      const accessToken = typeof params.access_token === 'string' ? params.access_token : null;
-      const refreshToken = typeof params.refresh_token === 'string' ? params.refresh_token : null;
-
-      if (!accessToken || !refreshToken) {
-        if (isMounted) {
+      try {
+        if (recoveryError === RECOVERY_SESSION_ERROR_VALUE) {
           setSessionState('error');
           setSessionError('This reset link has expired or is invalid. Please request a new one.');
+          return;
         }
-        return;
-      }
 
-      try {
-        const { error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
+        if (recoverySessionMarker) {
+          const markerAlreadyAccepted =
+            acceptedRecoverySessionMarkerRef.current === recoverySessionMarker;
 
-        if (!isMounted) return;
+          if (
+            !markerAlreadyAccepted &&
+            !consumeCompletedRecoverySessionMarker(recoverySessionMarker)
+          ) {
+            setSessionState('error');
+            setSessionError('This reset link has expired. Please request a new password reset.');
+            return;
+          }
 
-        if (error) {
-          setSessionState('error');
-          setSessionError('This reset link has expired. Please request a new password reset.');
-        } else {
-          setSessionState('ready');
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
+          if (!isMounted) return;
+
+          if (session) {
+            acceptedRecoverySessionMarkerRef.current = recoverySessionMarker;
+            setSessionState('ready');
+          } else {
+            setSessionState('error');
+            setSessionError('This reset link has expired. Please request a new password reset.');
+          }
+
+          return;
         }
+
+        const hasRecoveryTokens = Boolean(getRecoverySessionTokens(incomingUrl));
+
+        if (hasRecoveryTokens) {
+          await completeRecoverySessionFromUrl(incomingUrl);
+
+          if (isMounted) {
+            setSessionState('ready');
+          }
+
+          return;
+        }
+
+        setSessionState('error');
+        setSessionError('This reset link has expired or is invalid. Please request a new one.');
       } catch {
         if (isMounted) {
           setSessionState('error');
@@ -96,7 +123,7 @@ export default function ResetPasswordScreen() {
     return () => {
       isMounted = false;
     };
-  }, [url]);
+  }, [recoveryError, recoverySessionMarker, url]);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
