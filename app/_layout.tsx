@@ -80,7 +80,7 @@ function RootLayoutNav() {
   const inPublicAuthFlow = inAuthGroup || inAuthCallbackFlow || inResetPasswordFlow;
   const userId = session?.user.id ?? null;
   const setNavigationReady = useSetNavigationReady();
-  const didCheckInitialRecoveryUrlRef = useRef(false);
+  const initialRecoveryUrlCheckKeyRef = useRef<string | null>(null);
 
   const {
     data: profile,
@@ -228,8 +228,10 @@ function RootLayoutNav() {
       void handleRecoveryUrl(event.url);
     });
 
-    if (!didCheckInitialRecoveryUrlRef.current) {
-      didCheckInitialRecoveryUrlRef.current = true;
+    const initialUrlCheckKey = `${status}:${session?.user.id ?? 'signed_out'}`;
+
+    if (initialRecoveryUrlCheckKeyRef.current !== initialUrlCheckKey) {
+      initialRecoveryUrlCheckKeyRef.current = initialUrlCheckKey;
 
       void Linking.getInitialURL()
         .then((initialUrl) => handleRecoveryUrl(initialUrl))
