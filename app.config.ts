@@ -170,6 +170,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         color: '#7c3aed',
       },
     ],
+    'expo-web-browser',
     'expo-apple-authentication',
   ],
   scheme: 'tailtag',
