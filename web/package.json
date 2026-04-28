@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@iconify-json/simple-icons": "^1.2.63",
+    "@supabase/supabase-js": "^2.105.0",
     "astro": "^5.1.1",
     "astro-icon": "^1.1.5"
   },

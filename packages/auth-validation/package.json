@@ -1,0 +1,17 @@
+{
+  "name": "@tailtag/auth-validation",
+  "version": "0.1.0",
+  "description": "Shared auth validation helpers for TailTag clients.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "lint": "tsc --noEmit --pretty"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}
