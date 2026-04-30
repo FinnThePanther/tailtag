@@ -422,7 +422,7 @@ async function ensureDefaultAchievements(
         category: achievement.category,
         recipient_role: achievement.recipientRole,
         trigger_event: achievement.triggerEvent,
-        reset_mode: achievement.resetMode ?? 'permanent',
+        reset_mode: achievement.resetMode ?? 'none',
         reset_timezone: achievement.resetTimezone ?? 'UTC',
         reset_grace_minutes: achievement.resetGraceMinutes ?? 0,
         is_active: true,
