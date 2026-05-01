@@ -305,8 +305,11 @@ export default function FursuitDetailScreen() {
                       </View>
                     </Pressable>
                   ) : null}
-                  {detail.bio && fursuitBioHasDisplayableContent(detail.bio) ? (
-                    <FursuitBioDetails bio={detail.bio} />
+                  {fursuitBioHasDisplayableContent(detail.bio, detail.makers) ? (
+                    <FursuitBioDetails
+                      bio={detail.bio}
+                      makers={detail.makers}
+                    />
                   ) : (
                     <Text style={styles.message}>This fursuit does not have a bio yet.</Text>
                   )}

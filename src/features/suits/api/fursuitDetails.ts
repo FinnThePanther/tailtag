@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
+import { fetchFursuitMakersByFursuitIds } from './makers';
 import type { FursuitDetail } from '../types';
 import type { CatchMode } from '../../catch-confirmations';
 import { captureHandledMessage } from '../../../lib/sentry';
@@ -100,6 +101,8 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
   const speciesName = speciesEntry?.name ?? null;
   const speciesId = speciesEntry?.id ?? data.species_id ?? null;
   const colors = mapFursuitColors(data.color_assignments ?? null);
+  const makersByFursuitId = await fetchFursuitMakersByFursuitIds([data.id]);
+  const makers = makersByFursuitId.get(data.id) ?? [];
 
   let resolvedCatchCount = typeof data.catch_count === 'number' ? data.catch_count : 0;
 
@@ -140,6 +143,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
     catchMode,
     created_at: data.created_at ?? null,
     conventions,
+    makers,
     bio,
   } satisfies FursuitDetail;
 }

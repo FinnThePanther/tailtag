@@ -441,6 +441,44 @@ export type Database = {
           },
         ];
       };
+      fursuit_makers: {
+        Row: {
+          created_at: string;
+          fursuit_id: string;
+          id: string;
+          maker_name: string;
+          normalized_maker_name: string;
+          position: number;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          fursuit_id: string;
+          id?: string;
+          maker_name: string;
+          normalized_maker_name: string;
+          position: number;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          fursuit_id?: string;
+          id?: string;
+          maker_name?: string;
+          normalized_maker_name?: string;
+          position?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'fursuit_makers_fursuit_id_fkey';
+            columns: ['fursuit_id'];
+            isOneToOne: false;
+            referencedRelation: 'fursuits';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       fursuit_colors: {
         Row: {
           created_at: string;
