@@ -72,7 +72,7 @@ import {
 } from '../../../src/utils/images';
 import { buildAuthenticatedStorageObjectUrl } from '../../../src/utils/supabase-image';
 import { colors } from '../../../src/theme';
-import type { FursuitMakersInsert, Json } from '../../../src/types/database';
+import type { Json } from '../../../src/types/database';
 import { styles } from '../../../src/app-styles/fursuits/[id]/edit.styles';
 
 const PRONOUN_OPTIONS = [
@@ -521,10 +521,9 @@ export default function EditFursuitScreen() {
     const previousCatchMode = initialCatchMode;
     const previousAvatarPath = detail.avatar_path ?? null;
     const previousAvatarUrl = detail.avatar_url;
-    const previousMakers = fursuitMakersToSave(initialMakers);
+    const initialNormalizedMakers = fursuitMakersToSave(initialMakers);
     let updatedCoreRecord = false;
     let replacedColors = false;
-    let replacedMakers = false;
     const addedConventionIds: string[] = [];
     const removedConventionIds: string[] = [];
 
@@ -645,38 +644,21 @@ export default function EditFursuitScreen() {
       }
 
       const makersChanged =
-        previousMakers.length !== normalizedMakers.length ||
-        previousMakers.some(
+        initialNormalizedMakers.length !== normalizedMakers.length ||
+        initialNormalizedMakers.some(
           (maker, index) =>
             maker.maker_name !== normalizedMakers[index]?.maker_name ||
             maker.normalized_maker_name !== normalizedMakers[index]?.normalized_maker_name,
         );
 
       if (makersChanged) {
-        const { error: clearMakersError } = await client
-          .from('fursuit_makers')
-          .delete()
-          .eq('fursuit_id', fursuitId);
+        const { error: replaceMakersError } = await client.rpc('replace_fursuit_makers', {
+          fursuit_id: fursuitId,
+          makers: normalizedMakers,
+        });
 
-        if (clearMakersError) {
-          throw clearMakersError;
-        }
-
-        replacedMakers = true;
-
-        if (normalizedMakers.length > 0) {
-          const makerPayload: FursuitMakersInsert[] = normalizedMakers.map((maker) => ({
-            fursuit_id: fursuitId,
-            ...maker,
-          }));
-
-          const { error: insertMakersError } = await client
-            .from('fursuit_makers')
-            .insert(makerPayload);
-
-          if (insertMakersError) {
-            throw insertMakersError;
-          }
+        if (replaceMakersError) {
+          throw replaceMakersError;
         }
       }
 
@@ -773,35 +755,6 @@ export default function EditFursuitScreen() {
 
         setSelectedColors(previousColors);
         setInitialColors(previousColors);
-      }
-
-      if (replacedMakers) {
-        const { error: revertClearMakersError } = await client
-          .from('fursuit_makers')
-          .delete()
-          .eq('fursuit_id', fursuitId);
-
-        if (revertClearMakersError) {
-          console.warn('Failed to clear maker assignments after error', revertClearMakersError);
-        } else if (previousMakers.length > 0) {
-          const revertMakers: FursuitMakersInsert[] = previousMakers.map((maker) => ({
-            fursuit_id: fursuitId,
-            ...maker,
-          }));
-
-          const { error: revertInsertMakersError } = await client
-            .from('fursuit_makers')
-            .insert(revertMakers);
-
-          if (revertInsertMakersError) {
-            console.warn(
-              'Failed to restore maker assignments after error',
-              revertInsertMakersError,
-            );
-          }
-        }
-
-        setMakers(initialMakers.length > 0 ? initialMakers : createInitialFursuitMakers());
       }
 
       if (updatedCoreRecord) {

@@ -2361,6 +2361,10 @@ export type Database = {
         Args: { convention_uuid?: string }
         Returns: undefined
       }
+      replace_fursuit_makers: {
+        Args: { fursuit_id: string; makers?: Json }
+        Returns: undefined
+      }
       search_players: {
         Args: {
           convention_filter?: string

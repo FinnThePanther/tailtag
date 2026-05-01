@@ -60,7 +60,7 @@ Unless explicitly stated, all changes, migrations, and Edge Function updates are
 - **Supabase Project Ref:** `rtxbvjicfxgcouufumce`
 - **Project URL:** `https://rtxbvjicfxgcouufumce.supabase.co`
 
-For any work that requires database changes, apply those changes to the dev environment using the Supabase CLI or the MCP if it is already configured. Verify the CLI/MCP target before pushing migrations or schema changes. Never push database changes to staging or production unless explicitly instructed to do so.
+For any work that requires database changes, apply those changes to the dev environment using the Supabase CLI or the MCP (Model Context Protocol) tooling if it is already configured for database/migration access. Verify the Supabase CLI or MCP target before pushing migrations or schema changes. Never push database changes to staging or production unless explicitly instructed to do so.
 
 Only apply changes to other environments (staging, production) if explicitly instructed or after approval.
 
