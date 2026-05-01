@@ -1,17 +1,21 @@
 import { Alert, Linking, Pressable, Text, View } from 'react-native';
 
-import type { FursuitBio } from '../types';
+import type { FursuitBio, FursuitMaker } from '../types';
 import { captureNonCriticalError } from '../../../lib/sentry';
 import { styles } from './FursuitBioDetails.styles';
 
 /** True when {@link FursuitBioDetails} would render at least one section (excludes owner-only bios). */
-export function fursuitBioHasDisplayableContent(bio: FursuitBio): boolean {
-  const hasPronouns = Boolean(bio.pronouns?.trim());
-  const hasLikesAndInterests = Boolean(bio.likesAndInterests?.trim());
-  const hasAskMeAbout = Boolean(bio.askMeAbout?.trim());
+export function fursuitBioHasDisplayableContent(
+  bio: FursuitBio | null | undefined,
+  makers: FursuitMaker[] = [],
+): boolean {
+  const hasPronouns = Boolean(bio?.pronouns?.trim());
+  const hasLikesAndInterests = Boolean(bio?.likesAndInterests?.trim());
+  const hasAskMeAbout = Boolean(bio?.askMeAbout?.trim());
   const hasLikesSection = hasLikesAndInterests || hasAskMeAbout;
-  const hasSocial = bio.socialLinks.length > 0;
-  return hasPronouns || hasLikesSection || hasSocial;
+  const hasSocial = (bio?.socialLinks ?? []).length > 0;
+  const hasMakers = makers.length > 0;
+  return hasPronouns || hasLikesSection || hasSocial || hasMakers;
 }
 
 const openSocialLink = async (url: string) => {
@@ -34,25 +38,43 @@ const openSocialLink = async (url: string) => {
 };
 
 type FursuitBioDetailsProps = {
-  bio: FursuitBio;
+  bio: FursuitBio | null;
+  makers?: FursuitMaker[];
 };
 
-export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
-  if (!fursuitBioHasDisplayableContent(bio)) {
+export function FursuitBioDetails({ bio, makers = [] }: FursuitBioDetailsProps) {
+  if (!fursuitBioHasDisplayableContent(bio, makers)) {
     return null;
   }
 
-  const hasPronouns = Boolean(bio.pronouns?.trim());
-  const hasLikesAndInterests = Boolean(bio.likesAndInterests?.trim());
-  const hasAskMeAbout = Boolean(bio.askMeAbout?.trim());
+  const hasPronouns = Boolean(bio?.pronouns?.trim());
+  const hasLikesAndInterests = Boolean(bio?.likesAndInterests?.trim());
+  const hasAskMeAbout = Boolean(bio?.askMeAbout?.trim());
   const hasLikesSection = hasLikesAndInterests || hasAskMeAbout;
+  const socialLinks = bio?.socialLinks ?? [];
 
   return (
     <View style={styles.sections}>
+      {makers.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Fursuit Maker</Text>
+          <View style={styles.makerList}>
+            {makers.map((maker) => (
+              <Text
+                key={maker.id}
+                style={styles.makerName}
+              >
+                {maker.name}
+              </Text>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       {hasPronouns ? (
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Pronouns</Text>
-          <Text style={styles.sectionBody}>{bio.pronouns!.trim()}</Text>
+          <Text style={styles.sectionBody}>{bio?.pronouns.trim()}</Text>
         </View>
       ) : null}
 
@@ -61,23 +83,23 @@ export function FursuitBioDetails({ bio }: FursuitBioDetailsProps) {
           {hasLikesAndInterests ? (
             <>
               <Text style={styles.sectionLabel}>Likes & interests</Text>
-              <Text style={styles.sectionBody}>{bio.likesAndInterests!.trim()}</Text>
+              <Text style={styles.sectionBody}>{bio?.likesAndInterests.trim()}</Text>
             </>
           ) : null}
           {hasAskMeAbout ? (
             <>
               <Text style={styles.sectionLabel}>Ask me about…</Text>
-              <Text style={styles.sectionBody}>{bio.askMeAbout!.trim()}</Text>
+              <Text style={styles.sectionBody}>{bio?.askMeAbout.trim()}</Text>
             </>
           ) : null}
         </View>
       ) : null}
 
-      {bio.socialLinks.length > 0 ? (
+      {socialLinks.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Social links</Text>
           <View style={styles.socialList}>
-            {bio.socialLinks.map((link) => (
+            {socialLinks.map((link) => (
               <Pressable
                 key={`${link.label}-${link.url}`}
                 style={styles.socialLink}

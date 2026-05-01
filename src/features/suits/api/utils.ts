@@ -1,4 +1,4 @@
-import type { FursuitBio } from '../types';
+import type { FursuitBio, FursuitMaker } from '../types';
 import type { FursuitColorOption } from '../../colors';
 import type { FursuitSocialLink } from '../../../types/database';
 
@@ -25,6 +25,13 @@ type RawColorAssignment = {
     name?: unknown;
     normalized_name?: unknown;
   } | null;
+};
+
+type RawFursuitMaker = {
+  id?: unknown;
+  maker_name?: unknown;
+  normalized_maker_name?: unknown;
+  position?: unknown;
 };
 
 const coerceString = (value: unknown): string => {
@@ -153,6 +160,49 @@ export const mapFursuitColors = (raw: unknown): FursuitColorOption[] => {
       };
     })
     .filter((entry): entry is { option: FursuitColorOption; order: number } => Boolean(entry));
+
+  return mapped
+    .sort((a, b) => {
+      if (a.order !== b.order) {
+        return a.order - b.order;
+      }
+      return a.option.name.localeCompare(b.option.name, undefined, { sensitivity: 'base' });
+    })
+    .map((entry) => entry.option);
+};
+
+export const mapFursuitMakers = (raw: unknown): FursuitMaker[] => {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const mapped = raw
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+
+      const source = entry as RawFursuitMaker;
+      const id = coerceString(source.id).trim();
+      const name = coerceString(source.maker_name).trim();
+      const normalizedName = coerceString(source.normalized_maker_name).trim();
+      const positionNumber = Number(source.position);
+
+      if (!id || !name || !normalizedName) {
+        return null;
+      }
+
+      return {
+        option: {
+          id,
+          name,
+          normalizedName,
+          position: Number.isFinite(positionNumber) ? positionNumber : Number.MAX_SAFE_INTEGER,
+        } satisfies FursuitMaker,
+        order: Number.isFinite(positionNumber) ? positionNumber : Number.MAX_SAFE_INTEGER,
+      };
+    })
+    .filter((entry): entry is { option: FursuitMaker; order: number } => Boolean(entry));
 
   return mapped
     .sort((a, b) => {

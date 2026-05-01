@@ -2,6 +2,7 @@ import { supabase } from '../../../lib/supabase';
 import type { FursuitSummary } from '../types';
 import type { CatchMode } from '../../catch-confirmations';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
+import { fetchFursuitMakersByFursuitIds } from './makers';
 import type { CaughtRecord } from './caughtSuits';
 import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
@@ -81,6 +82,9 @@ export async function fetchCatchById(catchId: string): Promise<CaughtRecord | nu
 
   const catchMode: CatchMode =
     rawFursuit?.catch_mode === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
+  const makersByFursuitId = await fetchFursuitMakersByFursuitIds(
+    rawFursuit?.id ? [rawFursuit.id] : [],
+  );
 
   const fursuit: FursuitSummary | null = rawFursuit
     ? {
@@ -102,6 +106,7 @@ export async function fetchCatchById(catchId: string): Promise<CaughtRecord | nu
         catchMode,
         created_at: rawFursuit.created_at ?? null,
         conventions: [],
+        makers: makersByFursuitId.get(rawFursuit.id) ?? [],
         bio: mapLatestFursuitBio(rawFursuit.fursuit_bios ?? null),
       }
     : null;

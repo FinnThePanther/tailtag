@@ -12,9 +12,10 @@ import {
   CAUGHT_SUITS_QUERY_KEY,
   mapLatestFursuitBio,
   mapFursuitColors,
+  fetchFursuitMakersByFursuitIds,
   fursuitDetailQueryKey,
 } from '../../src/features/suits';
-import type { FursuitBio } from '../../src/features/suits';
+import type { FursuitBio, FursuitMaker } from '../../src/features/suits';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
   CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
@@ -68,6 +69,7 @@ type FursuitDetails = Pick<
   species: string | null;
   bio: FursuitBio | null;
   colors: FursuitColorOption[];
+  makers: FursuitMaker[];
 };
 
 type CatchRecord = {
@@ -226,6 +228,8 @@ export default function CatchScreen() {
         return;
       }
 
+      const makersByFursuitId = await fetchFursuitMakersByFursuitIds([fursuit.id]);
+
       const initialCatchCount =
         typeof (fursuit as any)?.catch_count === 'number' ? (fursuit as any).catch_count : 0;
 
@@ -246,6 +250,7 @@ export default function CatchScreen() {
         created_at: fursuit.created_at ?? null,
         bio: mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
         colors: mapFursuitColors((fursuit as any)?.color_assignments ?? null),
+        makers: makersByFursuitId.get(fursuit.id) ?? [],
         is_tutorial: fursuit.is_tutorial === true,
       };
 
@@ -473,6 +478,8 @@ export default function CatchScreen() {
         return;
       }
 
+      const makersByFursuitId = await fetchFursuitMakersByFursuitIds([fursuit.id]);
+
       const normalizedFursuit: FursuitDetails = {
         id: fursuit.id,
         name: fursuit.name,
@@ -491,6 +498,7 @@ export default function CatchScreen() {
         created_at: fursuit.created_at ?? null,
         bio: mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
         colors: mapFursuitColors((fursuit as any)?.color_assignments ?? null),
+        makers: makersByFursuitId.get(fursuit.id) ?? [],
         is_tutorial: false,
       };
 
@@ -690,10 +698,13 @@ export default function CatchScreen() {
               onCodeCopied={handleCatchCodeCopied}
             />
           </View>
-          {caughtFursuit.bio && fursuitBioHasDisplayableContent(caughtFursuit.bio) ? (
+          {fursuitBioHasDisplayableContent(caughtFursuit.bio, caughtFursuit.makers) ? (
             <View style={styles.bioSpacing}>
               <TailTagCard>
-                <FursuitBioDetails bio={caughtFursuit.bio} />
+                <FursuitBioDetails
+                  bio={caughtFursuit.bio}
+                  makers={caughtFursuit.makers}
+                />
               </TailTagCard>
             </View>
           ) : null}
