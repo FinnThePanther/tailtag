@@ -2,6 +2,7 @@ import { supabase } from '../../../lib/supabase';
 import type { FursuitSummary } from '../types';
 import type { CatchMode } from '../../catch-confirmations';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
+import { fetchFursuitMakersByFursuitIds } from './makers';
 import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
@@ -77,6 +78,10 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
     throw new Error(`We couldn't load your catches: ${error.message}`);
   }
 
+  const makersByFursuitId = await fetchFursuitMakersByFursuitIds(
+    (data ?? []).map((record: any) => record.fursuit?.id).filter(Boolean),
+  );
+
   return (data ?? [])
     .map((record: any) => {
       const rawFursuit = record.fursuit;
@@ -109,6 +114,7 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
             catchMode,
             created_at: rawFursuit.created_at ?? null,
             conventions: [],
+            makers: makersByFursuitId.get(rawFursuit.id) ?? [],
             bio: mapLatestFursuitBio(rawFursuit.fursuit_bios ?? null),
           } satisfies FursuitSummary)
         : null;

@@ -920,6 +920,51 @@ export type Database = {
           },
         ]
       }
+      fursuit_makers: {
+        Row: {
+          created_at: string
+          fursuit_id: string
+          id: string
+          maker_name: string
+          normalized_maker_name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fursuit_id: string
+          id?: string
+          maker_name: string
+          normalized_maker_name: string
+          position: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fursuit_id?: string
+          id?: string
+          maker_name?: string
+          normalized_maker_name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fursuit_makers_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fursuit_makers_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fursuit_species: {
         Row: {
           created_at: string
@@ -2316,6 +2361,10 @@ export type Database = {
         Args: { convention_uuid?: string }
         Returns: undefined
       }
+      replace_fursuit_makers: {
+        Args: { fursuit_id: string; makers?: Json }
+        Returns: undefined
+      }
       search_players: {
         Args: {
           convention_filter?: string
@@ -2540,6 +2589,7 @@ export type FursuitSocialLink = {
 export type FursuitsRow = Database['public']['Tables']['fursuits']['Row'];
 export type FursuitsInsert = Database['public']['Tables']['fursuits']['Insert'];
 export type FursuitBiosInsert = Database['public']['Tables']['fursuit_bios']['Insert'];
+export type FursuitMakersInsert = Database['public']['Tables']['fursuit_makers']['Insert'];
 export type ConventionStatus = Database['public']['Tables']['conventions']['Row']['status'];
 export type ConventionParticipantRecapRow =
   Database['public']['Tables']['convention_participant_recaps']['Row'];

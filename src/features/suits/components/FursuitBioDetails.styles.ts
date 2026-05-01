@@ -21,6 +21,15 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  makerList: {
+    gap: spacing.xs,
+  },
+  makerName: {
+    color: colors.foreground,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
   socialList: {
     gap: spacing.sm,
   },

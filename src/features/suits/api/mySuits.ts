@@ -3,6 +3,7 @@ import type { ConventionSummary } from '../../conventions';
 import type { FursuitSummary } from '../types';
 import type { CatchMode } from '../../catch-confirmations';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
+import { fetchFursuitMakersByFursuitIds } from './makers';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
@@ -78,6 +79,10 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
     throw new Error(`We couldn't load your suits: ${error.message}`);
   }
 
+  const makersByFursuitId = await fetchFursuitMakersByFursuitIds(
+    (data ?? []).map((item: any) => item.id),
+  );
+
   return (data ?? []).map((item: any) => {
     const conventions: ConventionSummary[] = (item.fursuit_conventions ?? [])
       .map((entry: any) => entry?.convention)
@@ -102,6 +107,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
     const speciesName = speciesEntry?.name ?? null;
     const speciesId = speciesEntry?.id ?? item.species_id ?? null;
     const colors = mapFursuitColors(item.color_assignments ?? null);
+    const makers = makersByFursuitId.get(item.id) ?? [];
 
     // Default to AUTO_ACCEPT if not set
     const catchMode: CatchMode =
@@ -125,6 +131,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       catchMode,
       created_at: item.created_at ?? null,
       conventions,
+      makers,
       bio,
     } satisfies FursuitSummary;
   });

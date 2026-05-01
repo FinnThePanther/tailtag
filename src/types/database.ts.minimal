@@ -558,6 +558,44 @@ export type Database = {
           },
         ]
       }
+      fursuit_makers: {
+        Row: {
+          created_at: string
+          fursuit_id: string
+          id: string
+          maker_name: string
+          normalized_maker_name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fursuit_id: string
+          id?: string
+          maker_name: string
+          normalized_maker_name: string
+          position: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fursuit_id?: string
+          id?: string
+          maker_name?: string
+          normalized_maker_name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fursuit_makers_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fursuit_colors: {
         Row: {
           created_at: string
@@ -1389,6 +1427,7 @@ export type DailyTaskKind = string // "catch" | "view_bio" | "share" | "leaderbo
 export type FursuitsRow = Tables<"fursuits">
 export type FursuitsInsert = TablesInsert<"fursuits">
 export type FursuitBiosInsert = TablesInsert<"fursuit_bios">
+export type FursuitMakersInsert = TablesInsert<"fursuit_makers">
 
 // Legacy removed type - no longer exists in database
 export type AchievementEventsRow = never

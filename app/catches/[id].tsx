@@ -200,8 +200,11 @@ export default function CatchDetailScreen() {
                 </TailTagButton>
               </View>
             ) : null}
-            {details.bio && fursuitBioHasDisplayableContent(details.bio) ? (
-              <FursuitBioDetails bio={details.bio} />
+            {fursuitBioHasDisplayableContent(details.bio, details.makers) ? (
+              <FursuitBioDetails
+                bio={details.bio}
+                makers={details.makers}
+              />
             ) : null}
           </View>
         </TailTagCard>
