@@ -55,7 +55,6 @@ grant insert on table "public"."fursuit_makers" to "anon";
 grant references on table "public"."fursuit_makers" to "anon";
 grant select on table "public"."fursuit_makers" to "anon";
 grant trigger on table "public"."fursuit_makers" to "anon";
-grant truncate on table "public"."fursuit_makers" to "anon";
 grant update on table "public"."fursuit_makers" to "anon";
 
 grant delete on table "public"."fursuit_makers" to "authenticated";
@@ -63,7 +62,6 @@ grant insert on table "public"."fursuit_makers" to "authenticated";
 grant references on table "public"."fursuit_makers" to "authenticated";
 grant select on table "public"."fursuit_makers" to "authenticated";
 grant trigger on table "public"."fursuit_makers" to "authenticated";
-grant truncate on table "public"."fursuit_makers" to "authenticated";
 grant update on table "public"."fursuit_makers" to "authenticated";
 
 grant delete on table "public"."fursuit_makers" to "service_role";
