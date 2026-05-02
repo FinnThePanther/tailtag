@@ -59,7 +59,7 @@ export function createProfileGuidanceState(options: {
     {
       id: 'fursuit-profile',
       title: 'Update your fursuit profile',
-      description: 'Answer the "Ask me About" prompt so people know how to start a conversation.',
+      description: 'Add "Ask me about" prompts and choose how catches should work.',
       isComplete: fursuitProfileComplete,
     },
     {
