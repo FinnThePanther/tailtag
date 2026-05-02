@@ -63,6 +63,25 @@ interface CreateCatchResponse {
   fursuit_owner_id: string;
 }
 
+type FursuitMakerMetadata = {
+  makerNames: string[];
+  normalizedMakerNames: string[];
+  hasSelfMadeMaker: boolean;
+};
+
+const SELF_MADE_MAKER_ALIASES = [
+  'self-made',
+  'self made',
+  'selfmade',
+  'handmade',
+  'hand made',
+  'owner-made',
+  'owner made',
+  'made by me',
+  'me',
+  'myself',
+];
+
 type InlineEventRow = {
   event_id: string;
   user_id: string;
@@ -176,6 +195,100 @@ function jsonResponse(status: number, payload: unknown) {
   });
 }
 
+async function fetchFursuitMakerMetadata(fursuitId: string): Promise<FursuitMakerMetadata> {
+  const { data, error } = await supabaseAdmin
+    .from('fursuit_makers')
+    .select('maker_name,normalized_maker_name')
+    .eq('fursuit_id', fursuitId)
+    .order('position', { ascending: true });
+
+  if (error) {
+    console.error('[create-catch] Failed loading fursuit makers:', error);
+    return { makerNames: [], normalizedMakerNames: [], hasSelfMadeMaker: false };
+  }
+
+  const makerNames: string[] = [];
+  const normalizedMakerNames: string[] = [];
+  for (const row of data ?? []) {
+    if (typeof row.maker_name === 'string' && row.maker_name.trim().length > 0) {
+      makerNames.push(row.maker_name);
+    }
+    if (
+      typeof row.normalized_maker_name === 'string' &&
+      row.normalized_maker_name.trim().length > 0
+    ) {
+      normalizedMakerNames.push(row.normalized_maker_name.trim().toLowerCase());
+    }
+  }
+
+  return {
+    makerNames,
+    normalizedMakerNames,
+    hasSelfMadeMaker: normalizedMakerNames.some((maker) => SELF_MADE_MAKER_ALIASES.includes(maker)),
+  };
+}
+
+async function hasCatcherOwnedMakerMatch(
+  catcherId: string,
+  normalizedMakerNames: string[],
+): Promise<boolean> {
+  if (normalizedMakerNames.length === 0) {
+    return false;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('fursuits')
+    .select('id,makers:fursuit_makers(normalized_maker_name)')
+    .eq('owner_id', catcherId)
+    .limit(20000);
+
+  if (error) {
+    console.error('[create-catch] Failed loading catcher-owned makers:', error);
+    return false;
+  }
+
+  const targetMakers = new Set(normalizedMakerNames);
+  for (const suit of data ?? []) {
+    const makers = (suit.makers ?? []) as Array<{ normalized_maker_name?: unknown }>;
+    for (const maker of makers) {
+      const normalizedMakerName =
+        typeof maker.normalized_maker_name === 'string'
+          ? maker.normalized_maker_name.trim().toLowerCase()
+          : '';
+      if (targetMakers.has(normalizedMakerName)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+async function hasNewMakerForCatcherAtConvention(options: {
+  catcherId: string;
+  conventionId: string | null;
+  catchId: string;
+  normalizedMakerNames: string[];
+}): Promise<boolean> {
+  if (!options.conventionId || options.normalizedMakerNames.length === 0) {
+    return false;
+  }
+
+  const { data, error } = await supabaseAdmin.rpc('has_new_maker_for_catcher_at_convention', {
+    p_catcher_id: options.catcherId,
+    p_convention_id: options.conventionId,
+    p_catch_id: options.catchId,
+    p_normalized_maker_names: options.normalizedMakerNames,
+  });
+
+  if (error) {
+    console.error('[create-catch] Failed checking previous maker catch:', error);
+    return false;
+  }
+
+  return data === true;
+}
+
 function extractBearerToken(req: Request): string | null {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
@@ -286,6 +399,13 @@ async function handlePost(req: Request): Promise<Response> {
     // These run in parallel so we don't add latency.
     let speciesName: string | null = null;
     let colorNames: string[] = [];
+    let makerMetadata: FursuitMakerMetadata = {
+      makerNames: [],
+      normalizedMakerNames: [],
+      hasSelfMadeMaker: false,
+    };
+    let hasMakerMatchWithCatcherOwnedSuit = false;
+    let isNewMakerForCatcherAtConvention = false;
     const shouldNotifyPendingCatch = result.requires_approval && !body.force_pending;
     const shouldNotifyAcceptedCatch =
       !result.requires_approval && !body.force_pending && !body.is_tutorial;
@@ -303,6 +423,7 @@ async function handlePost(req: Request): Promise<Response> {
           .select('color:fursuit_colors(name)')
           .eq('fursuit_id', body.fursuit_id)
           .order('position', { ascending: true }))();
+      const makersPromise = fetchFursuitMakerMetadata(body.fursuit_id);
       // For photo catches (force_pending = true), the notification is sent after the
       // photo URL is attached (PATCH handler), so we skip fetching catcher here.
       const catcherPromise =
@@ -311,9 +432,10 @@ async function handlePost(req: Request): Promise<Response> {
               await supabaseAdmin.from('profiles').select('username').eq('id', userId).single())()
           : Promise.resolve(undefined);
 
-      const [fursuitResult, colorsResult, catcherResult] = await Promise.all([
+      const [fursuitResult, colorsResult, makerResult, catcherResult] = await Promise.all([
         fursuitPromise,
         colorsPromise,
+        makersPromise,
         catcherPromise,
       ]);
 
@@ -328,6 +450,18 @@ async function handlePost(req: Request): Promise<Response> {
           return colorRow?.name;
         })
         .filter((name): name is string => !!name);
+      makerMetadata = makerResult;
+      const [makerMatch, hasNewMaker] = await Promise.all([
+        hasCatcherOwnedMakerMatch(userId, makerMetadata.normalizedMakerNames),
+        hasNewMakerForCatcherAtConvention({
+          catcherId: userId,
+          conventionId: body.convention_id ?? null,
+          catchId: result.catch_id,
+          normalizedMakerNames: makerMetadata.normalizedMakerNames,
+        }),
+      ]);
+      hasMakerMatchWithCatcherOwnedSuit = makerMatch;
+      isNewMakerForCatcherAtConvention = hasNewMaker;
 
       // Send approval notification for non-photo catches only.
       // Photo catches (force_pending = true) delay notification until after the photo URL
@@ -378,11 +512,19 @@ async function handlePost(req: Request): Promise<Response> {
       payload: {
         catch_id: result.catch_id,
         fursuit_id: body.fursuit_id,
+        catcher_id: userId,
+        fursuit_owner_id: result.fursuit_owner_id,
         convention_id: body.convention_id ?? null,
         is_tutorial: body.is_tutorial ?? false,
         status: result.status,
         species: speciesName,
         colors: colorNames,
+        maker_names: makerMetadata.makerNames,
+        normalized_maker_names: makerMetadata.normalizedMakerNames,
+        has_maker: makerMetadata.normalizedMakerNames.length > 0,
+        is_self_made: makerMetadata.hasSelfMadeMaker,
+        has_catcher_owned_maker_match: hasMakerMatchWithCatcherOwnedSuit,
+        is_new_maker_for_catcher_at_convention: isNewMakerForCatcherAtConvention,
       },
       occurredAt: new Date().toISOString(),
       idempotencyKey: `catch:${result.catch_id}:${eventType}`,

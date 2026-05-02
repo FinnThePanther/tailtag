@@ -3,6 +3,16 @@
 ## Project Structure & Module Organization
 `tailtag` is a TypeScript monorepo. The mobile app lives in `app/` and `src/`. The admin dashboard is in `admin/`, the landing site is in `web/`, shared rule logic is in `packages/achievement-rules/`, and backend work is in `supabase/` with migrations in `supabase/migrations/` and Edge Functions in `supabase/functions/`.
 
+## Product Phase & Decision Bar
+TailTag is past MVP. Current work should target the first beta and near-term V1 release quality, not throwaway prototype behavior. Default design and implementation decisions should optimize for beta/V1 readiness:
+
+- Prefer complete, user-facing flows over temporary MVP shortcuts.
+- Keep UX polished, clear, and resilient for real staging/beta users.
+- Treat onboarding, profile completion, catches, daily tasks, achievements, notifications, and admin moderation as production-facing surfaces.
+- Favor maintainable feature foundations that can ship through beta into V1 without immediate rewrites.
+- Avoid introducing placeholder copy, incomplete states, hidden debug-only behavior, or brittle local-only assumptions unless explicitly scoped as temporary.
+- Preserve release safety: validate changes, keep migrations reversible where practical, and consider OTA/native build implications before changing app/runtime dependencies.
+
 ## Build, Test, and Development Commands
 Use `npm install` at the repo root, then run commands from the relevant app directory.
 
