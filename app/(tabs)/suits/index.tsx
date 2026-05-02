@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -23,6 +23,7 @@ import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { FURSUIT_BUCKET } from '../../../src/constants/storage';
 import { useAuth } from '../../../src/features/auth';
+import { getIncompleteFursuitProfiles } from '../../../src/features/profile-guidance';
 import { supabase } from '../../../src/lib/supabase';
 import { colors } from '../../../src/theme';
 import { toDisplayDate } from '../../../src/utils/dates';
@@ -31,6 +32,7 @@ import { styles } from '../../../src/app-styles/(tabs)/suits/index.styles';
 
 export default function MySuitsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ guidance?: string }>();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const suitsQueryKey = useMemo(() => [MY_SUITS_QUERY_KEY, userId] as const, [userId]);
@@ -198,6 +200,9 @@ export default function MySuitsScreen() {
   const suitCount = suits.length;
   const isAtFursuitLimit = suitCount >= MAX_FURSUITS_PER_USER;
   const combinedError = actionError ?? error?.message ?? null;
+  const incompleteGuidanceSuits = useMemo(() => getIncompleteFursuitProfiles(suits), [suits]);
+  const showFursuitGuidance =
+    params.guidance === 'fursuit-profile' && incompleteGuidanceSuits.length > 0;
 
   return (
     <ScrollView
@@ -219,6 +224,42 @@ export default function MySuitsScreen() {
           Keep your suits up to date so other players know who they just tagged.
         </Text>
       </View>
+
+      {showFursuitGuidance ? (
+        <TailTagCard style={styles.guidanceCard}>
+          <Text style={styles.guidanceEyebrow}>Next step</Text>
+          <Text style={styles.guidanceTitle}>Add Ask me about prompts</Text>
+          <Text style={styles.guidanceBody}>
+            Review each suit's conversation starter and catch settings before this step is complete.
+          </Text>
+          <View style={styles.guidanceSuitList}>
+            {incompleteGuidanceSuits.map((suit) => (
+              <Pressable
+                key={suit.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${suit.name}`}
+                accessibilityHint="Opens the fursuit editor"
+                onPress={() =>
+                  router.push({
+                    pathname: '/fursuits/[id]/edit',
+                    params: { id: suit.id },
+                  })
+                }
+                style={({ pressed }) => [
+                  styles.guidanceSuitRow,
+                  pressed ? styles.guidanceSuitRowPressed : null,
+                ]}
+              >
+                <View style={styles.guidanceSuitTextBlock}>
+                  <Text style={styles.guidanceSuitName}>{suit.name}</Text>
+                  <Text style={styles.guidanceSuitMeta}>Finish profile details</Text>
+                </View>
+                <Text style={styles.guidanceSuitAction}>Edit</Text>
+              </Pressable>
+            ))}
+          </View>
+        </TailTagCard>
+      ) : null}
 
       {userId ? (
         <PendingCatchesList
