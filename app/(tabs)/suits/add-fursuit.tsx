@@ -1021,20 +1021,6 @@ export default function AddFursuitScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Likes & interests</Text>
-            <TailTagInput
-              value={likesInput}
-              onChangeText={setLikesInput}
-              placeholder="Games, hobbies, music - whatever makes you light up"
-              editable={!isSubmitting}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              style={styles.textArea}
-            />
-          </View>
-
-          <View style={styles.fieldGroup}>
             <Text style={styles.label}>Ask me about...</Text>
             <TailTagInput
               value={askMeAboutInput}
@@ -1043,6 +1029,20 @@ export default function AddFursuitScreen() {
               editable={!isSubmitting}
               multiline
               numberOfLines={2}
+              textAlignVertical="top"
+              style={styles.textArea}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Likes & interests</Text>
+            <TailTagInput
+              value={likesInput}
+              onChangeText={setLikesInput}
+              placeholder="Games, hobbies, music - whatever makes you light up"
+              editable={!isSubmitting}
+              multiline
+              numberOfLines={3}
               textAlignVertical="top"
               style={styles.textArea}
             />

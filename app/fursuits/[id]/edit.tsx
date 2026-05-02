@@ -6,7 +6,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { AppImage } from '../../../src/components/ui/AppImage';
-import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
 import { TailTagInput } from '../../../src/components/ui/TailTagInput';
@@ -82,6 +81,16 @@ const PRONOUN_OPTIONS = [
   'he/they',
   'she/they',
   'any pronouns',
+] as const;
+
+const ASK_ME_ABOUT_SUGGESTIONS = [
+  'My suit',
+  'Suit making',
+  'Photography',
+  'Local cons',
+  'Gaming',
+  'Character lore',
+  'Good food nearby',
 ] as const;
 
 type UploadCandidate = {
@@ -805,6 +814,26 @@ export default function EditFursuitScreen() {
     [disableForm, profileConventionIdSet],
   );
 
+  const handleAskMeAboutSuggestion = useCallback((suggestion: string) => {
+    setAskMeAboutInput((current) => {
+      const trimmed = current.trim();
+      if (!trimmed) {
+        return suggestion;
+      }
+
+      const existingTopics = trimmed
+        .split(',')
+        .map((topic) => topic.trim().toLowerCase())
+        .filter((topic) => topic.length > 0);
+
+      if (existingTopics.includes(suggestion.toLowerCase())) {
+        return current;
+      }
+
+      return `${trimmed}, ${suggestion}`;
+    });
+  }, []);
+
   return (
     <View style={styles.screen}>
       <ScreenHeader
@@ -812,15 +841,7 @@ export default function EditFursuitScreen() {
         onBack={() => router.back()}
       />
       <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>Edit bio</Text>
-          <Text style={styles.title}>Refresh your fursuit entry</Text>
-          <Text style={styles.subtitle}>
-            Update your bio and social links so players know how to say hi.
-          </Text>
-        </View>
-
-        <TailTagCard>
+        <View style={styles.formCard}>
           {isLoading ? (
             <Text style={styles.message}>Loading your fursuit details…</Text>
           ) : error ? (
@@ -841,7 +862,7 @@ export default function EditFursuitScreen() {
               You can only edit suits you own. Switch accounts and try again.
             </Text>
           ) : (
-            <View style={styles.formStack}>
+            <>
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Suit photo</Text>
                 <View style={styles.photoRow}>
@@ -890,7 +911,7 @@ export default function EditFursuitScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Fursuit name</Text>
+                <Text style={styles.label}>Name</Text>
                 <TailTagInput
                   value={nameInput}
                   onChangeText={setNameInput}
@@ -898,6 +919,67 @@ export default function EditFursuitScreen() {
                   editable={!disableForm}
                   returnKeyType="next"
                 />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Species</Text>
+                <TailTagInput
+                  value={speciesInput}
+                  onChangeText={handleSpeciesInputChange}
+                  placeholder="Sergal, Dutch Angel Dragon, etc."
+                  editable={!disableForm}
+                  returnKeyType="next"
+                  autoCapitalize="words"
+                />
+                <Text style={styles.helperLabel}>
+                  Tap a suggestion or keep typing to add a new species to the shared list.
+                </Text>
+                {isSpeciesBusy ? (
+                  <Text style={styles.helperLabel}>Loading species…</Text>
+                ) : speciesLoadError ? (
+                  <View style={styles.helperColumn}>
+                    <Text style={styles.errorText}>{speciesLoadError}</Text>
+                    <TailTagButton
+                      variant="outline"
+                      size="sm"
+                      onPress={() => {
+                        void refetchSpecies({ throwOnError: false });
+                      }}
+                      disabled={disableForm}
+                    >
+                      Try again
+                    </TailTagButton>
+                  </View>
+                ) : speciesSuggestions.length > 0 ? (
+                  <View style={styles.speciesSuggestionSection}>
+                    <Text style={styles.helperLabel}>
+                      {normalizedSpeciesInput ? 'Matching species' : 'Popular species'}
+                    </Text>
+                    <View style={styles.speciesSuggestionList}>
+                      {speciesSuggestions.map((option) => {
+                        const isSelected = selectedSpecies?.id === option.id;
+                        return (
+                          <Pressable
+                            key={option.id}
+                            accessibilityRole="button"
+                            onPress={() => handleSpeciesSelect(option)}
+                            style={[styles.colorChip, isSelected ? styles.colorChipSelected : null]}
+                            disabled={disableForm}
+                          >
+                            <Text
+                              style={[
+                                styles.colorChipLabel,
+                                isSelected ? styles.colorChipLabelSelected : null,
+                              ]}
+                            >
+                              {option.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ) : null}
               </View>
 
               <View style={styles.fieldGroup}>
@@ -977,89 +1059,6 @@ export default function EditFursuitScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Species</Text>
-                <TailTagInput
-                  value={speciesInput}
-                  onChangeText={handleSpeciesInputChange}
-                  placeholder="Sergal, Dutch Angel Dragon, etc."
-                  editable={!disableForm}
-                  returnKeyType="next"
-                  autoCapitalize="words"
-                />
-                <Text style={styles.helperLabel}>
-                  Tap a suggestion or keep typing to add a new species to the shared list.
-                </Text>
-                {isSpeciesBusy ? (
-                  <Text style={styles.helperLabel}>Loading species…</Text>
-                ) : speciesLoadError ? (
-                  <View style={styles.helperColumn}>
-                    <Text style={styles.errorText}>{speciesLoadError}</Text>
-                    <TailTagButton
-                      variant="outline"
-                      size="sm"
-                      onPress={() => {
-                        void refetchSpecies({ throwOnError: false });
-                      }}
-                      disabled={disableForm}
-                    >
-                      Try again
-                    </TailTagButton>
-                  </View>
-                ) : speciesSuggestions.length > 0 ? (
-                  <View style={styles.speciesSuggestionSection}>
-                    <Text style={styles.helperLabel}>
-                      {normalizedSpeciesInput ? 'Matching species' : 'Popular species'}
-                    </Text>
-                    <View style={styles.speciesSuggestionList}>
-                      {speciesSuggestions.map((option) => {
-                        const isSelected = selectedSpecies?.id === option.id;
-                        return (
-                          <TailTagButton
-                            key={option.id}
-                            variant={isSelected ? 'primary' : 'ghost'}
-                            size="sm"
-                            onPress={() => handleSpeciesSelect(option)}
-                            disabled={disableForm}
-                            style={styles.speciesChip}
-                          >
-                            {option.name}
-                          </TailTagButton>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ) : null}
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Pronouns</Text>
-                <Text style={styles.helperLabel}>Select all pronouns that fit your fursuit.</Text>
-                <View style={styles.pronounChipList}>
-                  {PRONOUN_OPTIONS.map((option) => {
-                    const isSelected = selectedPronouns.includes(option);
-                    return (
-                      <Pressable
-                        key={option}
-                        accessibilityRole="button"
-                        onPress={() => handleTogglePronoun(option)}
-                        style={[styles.colorChip, isSelected ? styles.colorChipSelected : null]}
-                        disabled={disableForm}
-                      >
-                        <Text
-                          style={[
-                            styles.colorChipLabel,
-                            isSelected ? styles.colorChipLabelSelected : null,
-                          ]}
-                        >
-                          {option}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Fursuit Maker</Text>
                 <Text style={styles.helperLabel}>
                   Add the maker names catchers should see. You can add more than one.
@@ -1107,6 +1106,67 @@ export default function EditFursuitScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Fursuit Pronouns</Text>
+                <Text style={styles.helperLabel}>Select all pronouns that fit your fursuit.</Text>
+                <View style={styles.pronounChipList}>
+                  {PRONOUN_OPTIONS.map((option) => {
+                    const isSelected = selectedPronouns.includes(option);
+                    return (
+                      <Pressable
+                        key={option}
+                        accessibilityRole="button"
+                        onPress={() => handleTogglePronoun(option)}
+                        style={[styles.colorChip, isSelected ? styles.colorChipSelected : null]}
+                        disabled={disableForm}
+                      >
+                        <Text
+                          style={[
+                            styles.colorChipLabel,
+                            isSelected ? styles.colorChipLabelSelected : null,
+                          ]}
+                        >
+                          {option}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Ask me about...</Text>
+                <Text style={styles.helperLabel}>
+                  Add a few easy conversation starters for people who catch your suit.
+                </Text>
+                <View style={styles.askMeAboutSuggestionList}>
+                  {ASK_ME_ABOUT_SUGGESTIONS.map((suggestion) => (
+                    <Pressable
+                      key={suggestion}
+                      accessibilityRole="button"
+                      onPress={() => handleAskMeAboutSuggestion(suggestion)}
+                      disabled={disableForm}
+                      style={({ pressed }) => [
+                        styles.askMeAboutSuggestionChip,
+                        pressed ? styles.askMeAboutSuggestionChipPressed : null,
+                      ]}
+                    >
+                      <Text style={styles.askMeAboutSuggestionText}>{suggestion}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <TailTagInput
+                  value={askMeAboutInput}
+                  onChangeText={setAskMeAboutInput}
+                  placeholder="Give catchers a question to break the ice"
+                  editable={!disableForm}
+                  multiline
+                  numberOfLines={2}
+                  textAlignVertical="top"
+                  style={styles.textArea}
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Likes & interests</Text>
                 <TailTagInput
                   value={likesInput}
@@ -1115,20 +1175,6 @@ export default function EditFursuitScreen() {
                   editable={!disableForm}
                   multiline
                   numberOfLines={3}
-                  textAlignVertical="top"
-                  style={styles.textArea}
-                />
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Ask me about...</Text>
-                <TailTagInput
-                  value={askMeAboutInput}
-                  onChangeText={setAskMeAboutInput}
-                  placeholder="Give catchers a question to break the ice"
-                  editable={!disableForm}
-                  multiline
-                  numberOfLines={2}
                   textAlignVertical="top"
                   style={styles.textArea}
                 />
@@ -1379,9 +1425,9 @@ export default function EditFursuitScreen() {
                   Save changes
                 </TailTagButton>
               </View>
-            </View>
+            </>
           )}
-        </TailTagCard>
+        </View>
       </KeyboardAwareFormWrapper>
     </View>
   );
