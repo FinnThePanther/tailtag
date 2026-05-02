@@ -7,6 +7,8 @@ function baseCatchContext(context: CatchEventContext, extra?: Record<string, unk
     fursuit_id: context.fursuitId,
     convention_id: context.conventionId ?? null,
     fursuit_owner_id: context.fursuitOwnerId ?? null,
+    maker_names: context.makers.names,
+    normalized_maker_names: context.makers.normalizedNames,
     ...extra,
   };
 }
@@ -586,6 +588,83 @@ export const catchRules: CatchRuleDefinition[] = [
             context.catcherId,
             {
               catches_today: context.stats.catchesByCatcherToday,
+            },
+          )
+        : [];
+    },
+  },
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.MAKER_MATCH,
+    achievementKey: 'MAKER_MATCH',
+    eventType: 'catch_performed',
+    metadata: {
+      displayName: 'Maker Match',
+      description: 'Catch a fursuit from a maker that also made one of your suits.',
+      category: 'variety',
+      recipientRole: 'catcher',
+      canEvaluateClient: false,
+      resetMode: 'none',
+    },
+    requiredStats: ['hasMakerMatchWithCatcherOwnedSuit'],
+    evaluate(context) {
+      if (context.isTutorial) return [];
+      return context.flags.hasMakerMatchWithCatcherOwnedSuit
+        ? awardSingle(context, ACHIEVEMENT_RULE_IDS.MAKER_MATCH, 'MAKER_MATCH', context.catcherId)
+        : [];
+    },
+  },
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.CON_FLOOR_COLLECTOR,
+    achievementKey: 'CON_FLOOR_COLLECTOR',
+    eventType: 'catch_performed',
+    metadata: {
+      displayName: 'Con Floor Collector',
+      description: 'At one convention, catch fursuits from 5 different makers.',
+      category: 'variety',
+      recipientRole: 'catcher',
+      canEvaluateClient: false,
+      resetMode: 'none',
+    },
+    requiredStats: ['distinctMakersCaughtAtConvention'],
+    evaluate(context) {
+      if (context.isTutorial) return [];
+      if (!context.conventionId) return [];
+      return context.stats.distinctMakersCaughtAtConvention >= 5
+        ? awardSingle(
+            context,
+            ACHIEVEMENT_RULE_IDS.CON_FLOOR_COLLECTOR,
+            'CON_FLOOR_COLLECTOR',
+            context.catcherId,
+            {
+              distinct_makers_at_convention: context.stats.distinctMakersCaughtAtConvention,
+            },
+          )
+        : [];
+    },
+  },
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.SELF_MADE_SUPPORTER,
+    achievementKey: 'SELF_MADE_SUPPORTER',
+    eventType: 'catch_performed',
+    metadata: {
+      displayName: 'Self-Made Supporter',
+      description: 'Catch 3 distinct self-made fursuits.',
+      category: 'variety',
+      recipientRole: 'catcher',
+      canEvaluateClient: false,
+      resetMode: 'none',
+    },
+    requiredStats: ['distinctSelfMadeFursuitsCaught'],
+    evaluate(context) {
+      if (context.isTutorial) return [];
+      return context.stats.distinctSelfMadeFursuitsCaught >= 3
+        ? awardSingle(
+            context,
+            ACHIEVEMENT_RULE_IDS.SELF_MADE_SUPPORTER,
+            'SELF_MADE_SUPPORTER',
+            context.catcherId,
+            {
+              distinct_self_made_fursuits: context.stats.distinctSelfMadeFursuitsCaught,
             },
           )
         : [];
