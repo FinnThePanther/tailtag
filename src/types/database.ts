@@ -2006,6 +2006,14 @@ export type Database = {
         }
         Returns: number
       }
+      count_distinct_makers_caught_at_convention: {
+        Args: { p_catcher_id: string; p_convention_id: string }
+        Returns: number
+      }
+      count_distinct_self_made_fursuits_caught: {
+        Args: { p_catcher_id: string; p_self_made_aliases: string[] }
+        Returns: number
+      }
       count_distinct_species_caught: {
         Args: { user_id: string }
         Returns: number
@@ -2256,6 +2264,15 @@ export type Database = {
         Returns: Database["public"]["Enums"]["user_role"]
       }
       grant_achievements_batch: { Args: { awards: Json }; Returns: Json }
+      has_new_maker_for_catcher_at_convention: {
+        Args: {
+          p_catch_id: string
+          p_catcher_id: string
+          p_convention_id: string
+          p_normalized_maker_names: string[]
+        }
+        Returns: boolean
+      }
       has_visible_gameplay_event_queue_messages: {
         Args: never
         Returns: boolean
