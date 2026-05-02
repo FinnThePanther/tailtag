@@ -161,9 +161,9 @@ export default function HomeScreen() {
     ])
       .then(([usernameReviewed, goalsViewed, readyConfirmationSeen]) => {
         if (isActive) {
-          setHasReviewedUsername(usernameReviewed);
-          setHasViewedGoals(goalsViewed);
-          setHasSeenReadyConfirmation(readyConfirmationSeen);
+          setHasReviewedUsername(usernameReviewed ?? false);
+          setHasViewedGoals(goalsViewed ?? false);
+          setHasSeenReadyConfirmation(readyConfirmationSeen ?? false);
         }
       })
       .catch(() => {
@@ -199,9 +199,9 @@ export default function HomeScreen() {
       ])
         .then(([usernameReviewed, goalsViewed, readyConfirmationSeen]) => {
           if (isActive) {
-            setHasReviewedUsername(usernameReviewed);
-            setHasViewedGoals(goalsViewed);
-            setHasSeenReadyConfirmation(readyConfirmationSeen);
+            setHasReviewedUsername(usernameReviewed ?? false);
+            setHasViewedGoals(goalsViewed ?? false);
+            setHasSeenReadyConfirmation(readyConfirmationSeen ?? false);
           }
         })
         .catch(() => undefined);
@@ -314,7 +314,10 @@ export default function HomeScreen() {
     refetchOnReconnect: false,
     queryFn: () => fetchMySuits(userId!),
   });
-  const { data: mySuits = [] } = mySuitsQuery;
+  const mySuits = useMemo(
+    () => mySuitsQuery.data ?? (mySuitsQuery.isError ? undefined : []),
+    [mySuitsQuery.data, mySuitsQuery.isError],
+  );
 
   const maxContentWidth = useMemo(() => {
     const safeWidth = Number.isFinite(windowWidth) ? windowWidth : 0;
@@ -329,11 +332,12 @@ export default function HomeScreen() {
     hasReviewedUsername !== null &&
     hasViewedGoals !== null &&
     hasSeenReadyConfirmation !== null &&
-    !mySuitsQuery.isLoading;
+    !mySuitsQuery.isLoading &&
+    !mySuitsQuery.isError;
   const profileGuidance = useMemo(
     () =>
       createProfileGuidanceState({
-        suits: mySuits,
+        suits: mySuits ?? [],
         usernameReviewed: hasReviewedUsername === true,
         goalsViewed: hasViewedGoals === true,
       }),
@@ -755,22 +759,26 @@ export default function HomeScreen() {
     }
 
     setHasViewedGoals(true);
-    await writeProfileGuidanceFlag(goalsViewedStorageKey(userId)).catch(() => undefined);
+    await writeProfileGuidanceFlag(goalsViewedStorageKey(userId));
   }, [userId]);
 
-  const handleOpenDailyTasksFromGuidance = useCallback(() => {
-    void markGoalsViewed();
+  const handleOpenDailyTasksFromGuidance = useCallback(async () => {
+    await markGoalsViewed();
     router.push('/daily-tasks');
   }, [markGoalsViewed, router]);
 
-  const handleOpenAchievementsFromGuidance = useCallback(() => {
-    void markGoalsViewed();
+  const handleOpenAchievementsFromGuidance = useCallback(async () => {
+    await markGoalsViewed();
     router.push('/achievements');
   }, [markGoalsViewed, router]);
 
   const handleProfileGuidanceTaskPress = useCallback(
     (taskId: ProfileGuidanceTaskId) => {
       if (taskId === 'fursuit-profile') {
+        if (!mySuits) {
+          return;
+        }
+
         if (mySuits.length === 0) {
           router.push('/suits/add-fursuit');
           return;
@@ -800,7 +808,7 @@ export default function HomeScreen() {
         return;
       }
 
-      handleOpenDailyTasksFromGuidance();
+      void handleOpenDailyTasksFromGuidance();
     },
     [handleOpenDailyTasksFromGuidance, mySuits, profileGuidance.incompleteFursuits, router],
   );
@@ -989,7 +997,7 @@ export default function HomeScreen() {
 
           <TailTagButton
             variant="outline"
-            onPress={() => router.push('/daily-tasks')}
+            onPress={handleOpenDailyTasksFromGuidance}
             style={styles.dailyCta}
             disabled={!selectedConventionId}
           >
@@ -1048,7 +1056,7 @@ export default function HomeScreen() {
 
           <TailTagButton
             variant="outline"
-            onPress={() => router.push('/achievements')}
+            onPress={handleOpenAchievementsFromGuidance}
             style={styles.achievementCta}
           >
             View achievements

@@ -816,21 +816,17 @@ export default function EditFursuitScreen() {
 
   const handleAskMeAboutSuggestion = useCallback((suggestion: string) => {
     setAskMeAboutInput((current) => {
-      const trimmed = current.trim();
-      if (!trimmed) {
-        return suggestion;
-      }
-
-      const existingTopics = trimmed
+      const existingTopics = current
         .split(',')
-        .map((topic) => topic.trim().toLowerCase())
+        .map((topic) => topic.trim())
         .filter((topic) => topic.length > 0);
+      const normalizedExistingTopics = existingTopics.map((topic) => topic.toLowerCase());
 
-      if (existingTopics.includes(suggestion.toLowerCase())) {
-        return current;
+      if (normalizedExistingTopics.includes(suggestion.toLowerCase())) {
+        return existingTopics.join(', ');
       }
 
-      return `${trimmed}, ${suggestion}`;
+      return existingTopics.concat(suggestion).join(', ');
     });
   }, []);
 
