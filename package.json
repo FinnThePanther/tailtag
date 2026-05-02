@@ -21,7 +21,7 @@
     "ios": "npm run sync:native-env && ulimit -n 65536 && CI=1 expo run:ios --device",
     "ios:watch": "npm run sync:native-env && ulimit -n 65536 && expo run:ios --device",
     "ios:development": "APP_ENV=development npm run ios:watch",
-    "ios:staging": "APP_ENV=staging npm run ios",
+    "ios:staging": "APP_ENV=staging npm run ios:watch",
     "ios:production": "APP_ENV=production npm run ios",
     "web": "ulimit -n 65536 && CI=1 expo start --web",
     "web:watch": "ulimit -n 65536 && expo start --web",
