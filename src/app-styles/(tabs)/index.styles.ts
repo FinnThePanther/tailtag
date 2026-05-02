@@ -42,41 +42,6 @@ export const styles = StyleSheet.create({
   heroBlock: {
     marginBottom: spacing.xl,
   },
-  nudgeCard: {
-    marginBottom: spacing.xl,
-  },
-  nudgeCardAlert: {
-    borderWidth: 1,
-    borderColor: 'rgba(248,113,113,0.5)',
-    backgroundColor: 'rgba(127,29,29,0.35)',
-  },
-  nudgeContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  nudgeTextBlock: {
-    flex: 1,
-    gap: spacing.sm,
-  },
-  nudgeText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  nudgeTextAlert: {
-    color: '#fecaca',
-  },
-  nudgeUsername: {
-    fontWeight: '700',
-    color: colors.foreground,
-  },
-  nudgeUsernameAlert: {
-    color: '#fca5a5',
-  },
-  nudgeDismiss: {
-    paddingTop: 2,
-  },
   recapBannerCard: {
     marginBottom: spacing.xl,
     borderWidth: 1,
@@ -119,6 +84,82 @@ export const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 13,
     fontWeight: '600',
+  },
+  guidanceCard: {
+    marginBottom: spacing.xl,
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.surfaceMutedSoft,
+  },
+  guidanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  guidanceTitleBlock: {
+    flex: 1,
+  },
+  guidanceBody: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  guidanceProgressPill: {
+    minWidth: 48,
+    alignItems: 'center',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primaryMuted,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  guidanceProgressText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  guidanceTaskList: {
+    gap: spacing.sm,
+  },
+  guidanceTaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderMuted,
+    backgroundColor: colors.surfaceInset,
+    padding: spacing.md,
+  },
+  guidanceTaskRowComplete: {
+    opacity: 0.75,
+  },
+  guidanceTaskRowPressed: {
+    opacity: 0.82,
+  },
+  guidanceTaskTextBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  guidanceTaskTitle: {
+    color: colors.foreground,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  guidanceTaskDescription: {
+    color: colors.textSubtle,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  guidanceGoalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  guidanceGoalButton: {
+    flex: 1,
   },
   dailyCard: {
     marginBottom: spacing.xl,

@@ -272,6 +272,36 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: spacing.xs,
   },
+  usernameGuidance: {
+    gap: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySurface,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  usernameGuidanceTextBlock: {
+    gap: spacing.xs,
+  },
+  usernameGuidanceEyebrow: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  usernameGuidanceTitle: {
+    color: colors.foreground,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  usernameGuidanceBody: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  keepUsernameButton: {},
   avatarSection: {
     alignItems: 'center',
     gap: spacing.sm,
