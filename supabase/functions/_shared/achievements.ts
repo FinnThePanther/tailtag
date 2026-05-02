@@ -42,6 +42,25 @@ export type ProcessedAchievementResult = {
 };
 
 const MAX_QUERY_LIMIT = 20000;
+const SELF_MADE_MAKER_ALIASES = [
+  'self-made',
+  'self made',
+  'selfmade',
+  'handmade',
+  'hand made',
+  'owner-made',
+  'owner made',
+  'made by me',
+  'me',
+  'myself',
+];
+const GENERIC_MAKER_MATCH_EXCLUSIONS = ['self-made', 'made by me'];
+
+type FursuitMakerMetadata = {
+  makerNames: string[];
+  normalizedMakerNames: string[];
+  hasSelfMadeMaker: boolean;
+};
 
 function hasUploadedProfileAvatar(avatarUrl: unknown, avatarPath: unknown): boolean {
   if (typeof avatarPath === 'string' && avatarPath.trim().length > 0) {
@@ -196,6 +215,7 @@ async function processCatchEvent(
       : event.occurred_at;
 
   // gather stats
+  const makerMetadata = await fetchFursuitMakerMetadata(supabaseAdmin, fursuitId);
   const [
     totalCatches,
     totalFursuitCatches,
@@ -203,6 +223,8 @@ async function processCatchEvent(
     distinctConventions,
     uniqueCatchersForFursuitLifetime,
     distinctConventionsForFursuit,
+    hasMakerMatchWithCatcherOwnedSuit,
+    distinctSelfMadeFursuitsCaught,
   ] = await Promise.all([
     countCatchesByUser(supabaseAdmin, catcherId),
     fursuitOwnerId ? countCatchesByFursuit(supabaseAdmin, fursuitId, true) : Promise.resolve(0),
@@ -214,6 +236,8 @@ async function processCatchEvent(
     fursuitOwnerId
       ? countDistinctConventionsForFursuit(supabaseAdmin, fursuitId)
       : Promise.resolve(0),
+    hasCatcherOwnedMakerMatch(supabaseAdmin, catcherId, makerMetadata.normalizedMakerNames),
+    countDistinctSelfMadeFursuitsCaught(supabaseAdmin, catcherId),
   ]);
 
   const [isHybrid, hasDoubleCatch] = await Promise.all([
@@ -223,14 +247,15 @@ async function processCatchEvent(
 
   let catchesAtConvention = 0;
   let uniqueCatchersAtConvention = 0;
+  let distinctMakersCaughtAtConvention = 0;
   if (primaryConventionId) {
-    const stats = await fetchCatchEventsForFursuitAtConvention(
-      supabaseAdmin,
-      fursuitId,
-      primaryConventionId,
-    );
+    const [stats, makerCount] = await Promise.all([
+      fetchCatchEventsForFursuitAtConvention(supabaseAdmin, fursuitId, primaryConventionId),
+      countDistinctMakersCaughtAtConvention(supabaseAdmin, catcherId, primaryConventionId),
+    ]);
     catchesAtConvention = stats.totalCatches;
     uniqueCatchersAtConvention = stats.uniqueCatchers;
+    distinctMakersCaughtAtConvention = makerCount;
   }
 
   const localParts =
@@ -294,11 +319,19 @@ async function processCatchEvent(
       distinctLocalDaysForFursuitAtConvention,
       distinctConventionsForFursuit,
       catchesByCatcherToday,
+      distinctMakersCaughtAtConvention,
+      distinctSelfMadeFursuitsCaught,
     },
     flags: {
       hybridFursuit: isHybrid,
       doubleCatchWithinMinute: hasDoubleCatch,
       catchHasPhoto,
+      hasSelfMadeMaker: makerMetadata.hasSelfMadeMaker,
+      hasMakerMatchWithCatcherOwnedSuit,
+    },
+    makers: {
+      names: makerMetadata.makerNames,
+      normalizedNames: makerMetadata.normalizedMakerNames,
     },
   };
 
@@ -396,11 +429,18 @@ async function processCatchConfirmedEvent(
     return { awards: [] };
   }
 
+  const catcherId = catchRow.catcher_id ?? event.user_id;
+  if (!catcherId || !catchRow.fursuit_id) {
+    console.error('[events-ingress] catch_confirmed event missing catcher or fursuit', { catchId });
+    return { awards: [] };
+  }
+  const resolvedConventionId = catchRow.convention_id ?? event.convention_id ?? null;
+
   const { data: existingCatchPerformed, error: existingCatchPerformedError } = await supabaseAdmin
     .from('events')
     .select('event_id')
     .eq('type', 'catch_performed')
-    .eq('user_id', event.user_id)
+    .eq('user_id', catcherId)
     .contains('payload', { catch_id: catchId })
     .limit(1)
     .maybeSingle();
@@ -437,24 +477,48 @@ async function processCatchConfirmedEvent(
         : null;
     })
     .filter((name): name is string => Boolean(name));
+  const makerMetadata = await fetchFursuitMakerMetadata(supabaseAdmin, catchRow.fursuit_id);
+  const hasMakerMatchWithCatcherOwnedSuit = await hasCatcherOwnedMakerMatch(
+    supabaseAdmin,
+    catcherId,
+    makerMetadata.normalizedMakerNames,
+  );
+  const isNewMakerForCatcherAtConvention =
+    resolvedConventionId && makerMetadata.normalizedMakerNames.length > 0
+      ? await hasNewMakerForCatcherAtConvention(
+          supabaseAdmin,
+          catcherId,
+          resolvedConventionId,
+          catchId,
+          makerMetadata.normalizedMakerNames,
+        )
+      : false;
 
   // Create the catch_performed event that will be inserted into the database.
   // This is necessary because daily task processing queries the events table
   // for catch_performed events - without this insert, daily tasks won't update.
   const catchPerformedEvent: InsertableEventRow = {
     event_id: generateUuidV7(),
-    user_id: event.user_id,
+    user_id: catcherId,
     type: 'catch_performed',
-    convention_id: event.convention_id,
+    convention_id: resolvedConventionId,
     payload: {
       catch_id: catchId,
       fursuit_id: catchRow.fursuit_id,
+      catcher_id: catcherId,
       fursuit_owner_id: catchFursuit?.owner_id ?? null,
+      convention_id: resolvedConventionId,
       status: 'ACCEPTED',
       is_tutorial: false,
       source: 'catch_confirmed',
       species: speciesEntry?.name ?? null,
       colors: colorNames,
+      maker_names: makerMetadata.makerNames,
+      normalized_maker_names: makerMetadata.normalizedMakerNames,
+      has_maker: makerMetadata.normalizedMakerNames.length > 0,
+      is_self_made: makerMetadata.hasSelfMadeMaker,
+      has_catcher_owned_maker_match: hasMakerMatchWithCatcherOwnedSuit,
+      is_new_maker_for_catcher_at_convention: isNewMakerForCatcherAtConvention,
     },
     occurred_at: event.occurred_at, // Use confirmation timestamp
   };
@@ -917,6 +981,155 @@ async function countDistinctSpeciesCaught(
   }
 
   return data ?? 0;
+}
+
+async function fetchFursuitMakerMetadata(
+  supabaseAdmin: SupabaseClient<any, 'public', any>,
+  fursuitId: string,
+): Promise<FursuitMakerMetadata> {
+  const { data, error } = await supabaseAdmin
+    .from('fursuit_makers')
+    .select('maker_name,normalized_maker_name')
+    .eq('fursuit_id', fursuitId)
+    .order('position', { ascending: true });
+
+  if (error) {
+    console.error('[events-ingress] Failed loading fursuit makers', { fursuitId, error });
+    return { makerNames: [], normalizedMakerNames: [], hasSelfMadeMaker: false };
+  }
+
+  const makerNames: string[] = [];
+  const normalizedMakerNames: string[] = [];
+  for (const row of data ?? []) {
+    if (typeof row.maker_name === 'string' && row.maker_name.trim().length > 0) {
+      makerNames.push(row.maker_name);
+    }
+    if (
+      typeof row.normalized_maker_name === 'string' &&
+      row.normalized_maker_name.trim().length > 0
+    ) {
+      normalizedMakerNames.push(row.normalized_maker_name.trim().toLowerCase());
+    }
+  }
+
+  return {
+    makerNames,
+    normalizedMakerNames,
+    hasSelfMadeMaker: normalizedMakerNames.some((maker) => SELF_MADE_MAKER_ALIASES.includes(maker)),
+  };
+}
+
+async function hasCatcherOwnedMakerMatch(
+  supabaseAdmin: SupabaseClient<any, 'public', any>,
+  catcherId: string,
+  normalizedMakerNames: string[],
+): Promise<boolean> {
+  if (normalizedMakerNames.length === 0) {
+    return false;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('fursuits')
+    .select('id,makers:fursuit_makers(normalized_maker_name)')
+    .eq('owner_id', catcherId)
+    .limit(MAX_QUERY_LIMIT);
+
+  if (error) {
+    console.error('[events-ingress] Failed loading catcher-owned makers', { catcherId, error });
+    return false;
+  }
+
+  const targetMakers = new Set(normalizedMakerNames);
+  for (const suit of data ?? []) {
+    const makers = (suit.makers ?? []) as Array<{ normalized_maker_name?: unknown }>;
+    for (const maker of makers) {
+      const normalizedMakerName =
+        typeof maker.normalized_maker_name === 'string'
+          ? maker.normalized_maker_name.trim().toLowerCase()
+          : '';
+      if (GENERIC_MAKER_MATCH_EXCLUSIONS.includes(normalizedMakerName)) {
+        continue;
+      }
+      if (targetMakers.has(normalizedMakerName)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+async function countDistinctMakersCaughtAtConvention(
+  supabaseAdmin: SupabaseClient<any, 'public', any>,
+  catcherId: string,
+  conventionId: string,
+): Promise<number> {
+  const { data, error } = await supabaseAdmin.rpc('count_distinct_makers_caught_at_convention', {
+    p_catcher_id: catcherId,
+    p_convention_id: conventionId,
+  });
+
+  if (error) {
+    console.error('[events-ingress] Failed counting makers caught at convention', {
+      catcherId,
+      conventionId,
+      error,
+    });
+    return 0;
+  }
+
+  return Number(data ?? 0);
+}
+
+async function countDistinctSelfMadeFursuitsCaught(
+  supabaseAdmin: SupabaseClient<any, 'public', any>,
+  catcherId: string,
+): Promise<number> {
+  const { data, error } = await supabaseAdmin.rpc('count_distinct_self_made_fursuits_caught', {
+    p_catcher_id: catcherId,
+    p_self_made_aliases: SELF_MADE_MAKER_ALIASES,
+  });
+
+  if (error) {
+    console.error('[events-ingress] Failed counting self-made fursuits caught', {
+      catcherId,
+      error,
+    });
+    return 0;
+  }
+
+  return Number(data ?? 0);
+}
+
+async function hasNewMakerForCatcherAtConvention(
+  supabaseAdmin: SupabaseClient<any, 'public', any>,
+  catcherId: string,
+  conventionId: string,
+  catchId: string,
+  normalizedMakerNames: string[],
+): Promise<boolean> {
+  if (normalizedMakerNames.length === 0) {
+    return false;
+  }
+
+  const { data, error } = await supabaseAdmin.rpc('has_new_maker_for_catcher_at_convention', {
+    p_catcher_id: catcherId,
+    p_convention_id: conventionId,
+    p_catch_id: catchId,
+    p_normalized_maker_names: normalizedMakerNames,
+  });
+
+  if (error) {
+    console.error('[events-ingress] Failed checking previous maker catch at convention', {
+      catcherId,
+      conventionId,
+      catchId,
+      error,
+    });
+    return false;
+  }
+
+  return data === true;
 }
 
 async function hasHybridOrMultiSpecies(

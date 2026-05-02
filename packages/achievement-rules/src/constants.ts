@@ -27,6 +27,10 @@ export const ACHIEVEMENT_RULE_IDS = {
   SOCIAL_BUTTERFLY: 'f1a7b000-0000-4000-8000-000000000008',
   // Expansion: meta achievement
   ACHIEVEMENT_HUNTER: 'f1a7b000-0000-4000-8000-000000000009',
+  // Expansion: maker achievements
+  MAKER_MATCH: 'f0229fa6-015b-4b72-a563-90257a6db4ca',
+  CON_FLOOR_COLLECTOR: '738249c7-0b59-43d0-ae31-734787ff3781',
+  SELF_MADE_SUPPORTER: 'dacb8bdd-38bd-4a03-bfd4-ad317e931b18',
 } as const;
 
 export type AchievementRuleId = (typeof ACHIEVEMENT_RULE_IDS)[keyof typeof ACHIEVEMENT_RULE_IDS];
