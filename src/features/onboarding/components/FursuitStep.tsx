@@ -16,7 +16,7 @@ import {
   createQuickFursuit,
   type FursuitPhotoCandidate,
   type OnboardingFursuitDraft,
-} from '../../onboarding';
+} from '@/features/onboarding';
 import { MY_SUITS_QUERY_KEY } from '../../suits';
 import {
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
@@ -25,7 +25,7 @@ import {
   createJoinableConventionsQueryOptions,
   fetchActiveProfileConventionIds,
 } from '../../conventions';
-import { captureNonCriticalError } from '../../../lib/sentry';
+import { captureHandledException } from '../../../lib/sentry';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { colors } from '../../../theme';
 import {
@@ -71,7 +71,7 @@ const deleteDraftPhoto = async (userId: string, photo: FursuitPhotoCandidate | n
   try {
     await FileSystem.deleteAsync(uri, { idempotent: true });
   } catch (error) {
-    captureNonCriticalError(error, {
+    captureHandledException(error, {
       scope: 'onboarding.fursuitStep.deleteDraftPhoto',
       userId,
       uri,
@@ -254,12 +254,21 @@ export function FursuitStep({
         });
         await deleteDraftPhoto(userId, selectedPhoto);
         setSelectedPhoto(draftPhoto);
-      } catch {
+      } catch (error) {
+        captureHandledException(error, {
+          scope: 'onboarding.fursuitStep.copyPhoto',
+          userId,
+          assetUri: asset.uri,
+        });
         setPhotoError('We could not process that photo. Please try another.');
       } finally {
         setIsProcessingPhoto(false);
       }
     } catch (caught) {
+      captureHandledException(caught, {
+        scope: 'onboarding.fursuitStep.pickPhoto',
+        userId,
+      });
       const message =
         caught instanceof Error
           ? caught.message
@@ -269,6 +278,10 @@ export function FursuitStep({
   };
 
   const handleClearPhoto = () => {
+    if (isProcessingPhoto) {
+      return;
+    }
+
     void deleteDraftPhoto(userId, selectedPhoto);
     setSelectedPhoto(null);
     setPhotoError(null);
@@ -288,13 +301,17 @@ export function FursuitStep({
   };
 
   const handleSkip = () => {
+    if (isProcessingPhoto) {
+      return;
+    }
+
     void deleteDraftPhoto(userId, selectedPhoto);
     resetForm();
     onSkip();
   };
 
   const handleSubmit = async () => {
-    if (isSubmitting) {
+    if (isSubmitting || isProcessingPhoto) {
       return;
     }
 
@@ -340,7 +357,7 @@ export function FursuitStep({
         void Promise.all(
           activeConventionIds.map((conventionId) =>
             addFursuitConvention(fursuitId, conventionId).catch((error) => {
-              captureNonCriticalError(error, {
+              captureHandledException(error, {
                 scope: 'onboarding.fursuitStep.attachConvention',
                 userId,
                 fursuitId,
@@ -357,6 +374,10 @@ export function FursuitStep({
       resetForm();
       onComplete({ created: true });
     } catch (caught) {
+      captureHandledException(caught, {
+        scope: 'onboarding.fursuitStep.submitPhoto',
+        userId,
+      });
       const message =
         caught instanceof Error
           ? caught.message
@@ -387,6 +408,7 @@ export function FursuitStep({
             <SkipButton
               style={styles.fullWidthCta}
               onPress={handleSkip}
+              disabled={isProcessingPhoto}
             />
           </View>
         ) : (
@@ -510,7 +532,7 @@ export function FursuitStep({
                     variant="outline"
                     size="sm"
                     onPress={handleClearPhoto}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isProcessingPhoto}
                   >
                     Remove photo
                   </TailTagButton>
@@ -534,14 +556,14 @@ export function FursuitStep({
               <TailTagButton
                 onPress={handleSubmit}
                 loading={isSubmitting}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isProcessingPhoto}
                 style={styles.fullWidthCta}
               >
                 Continue
               </TailTagButton>
               <SkipButton
                 onPress={handleSkip}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isProcessingPhoto}
                 style={styles.fullWidthCta}
               />
             </View>

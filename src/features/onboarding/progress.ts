@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 
-import { captureNonCriticalError } from '../../lib/sentry';
-import type { FursuitPhotoCandidate } from './api/onboarding';
+import { captureHandledException } from '@/lib/sentry';
+import type { FursuitPhotoCandidate } from '@/features/onboarding/api/onboarding';
 
 export const ONBOARDING_STEPS = [
   'welcome',
@@ -49,6 +49,25 @@ export const createInitialOnboardingProgress = (): OnboardingProgress => ({
 });
 
 const storageKeyForUser = (userId: string) => `tailtag:onboardingProgress:v1:${userId}`;
+const mutationQueuesByUser = new Map<string, Promise<void>>();
+
+const enqueueProgressMutation = (userId: string, operation: () => Promise<void>) => {
+  const previousMutation = mutationQueuesByUser.get(userId) ?? Promise.resolve();
+  const mutation = previousMutation
+    .catch(() => {
+      // Individual operations report their own errors. Keep the queue alive.
+    })
+    .then(operation);
+
+  mutationQueuesByUser.set(
+    userId,
+    mutation.catch(() => {
+      // Keep later mutations chained even after an operation fails.
+    }),
+  );
+
+  return mutation;
+};
 
 const draftPhotoDirectory = (userId: string) => {
   if (!FileSystem.documentDirectory) {
@@ -77,7 +96,7 @@ const deleteOnboardingDraftPhoto = async (userId: string, photo: FursuitPhotoCan
   try {
     await FileSystem.deleteAsync(uri, { idempotent: true });
   } catch (error) {
-    captureNonCriticalError(error, {
+    captureHandledException(error, {
       scope: 'onboarding.progress.deleteDraftPhoto',
       userId,
       uri,
@@ -166,7 +185,7 @@ export async function loadOnboardingProgress(userId: string): Promise<Onboarding
 
     return progress;
   } catch (error) {
-    captureNonCriticalError(error, {
+    captureHandledException(error, {
       scope: 'onboarding.progress.load',
       userId,
     });
@@ -178,28 +197,32 @@ export async function saveOnboardingProgress(
   userId: string,
   progress: OnboardingProgress,
 ): Promise<void> {
-  try {
-    await AsyncStorage.setItem(storageKeyForUser(userId), JSON.stringify(progress));
-  } catch (error) {
-    captureNonCriticalError(error, {
-      scope: 'onboarding.progress.save',
-      userId,
-    });
-  }
+  await enqueueProgressMutation(userId, async () => {
+    try {
+      await AsyncStorage.setItem(storageKeyForUser(userId), JSON.stringify(progress));
+    } catch (error) {
+      captureHandledException(error, {
+        scope: 'onboarding.progress.save',
+        userId,
+      });
+    }
+  });
 }
 
 export async function clearOnboardingProgress(userId: string): Promise<void> {
-  try {
-    const key = storageKeyForUser(userId);
-    const raw = await AsyncStorage.getItem(key);
-    const progress = raw ? normalizeProgress(JSON.parse(raw)) : null;
+  await enqueueProgressMutation(userId, async () => {
+    try {
+      const key = storageKeyForUser(userId);
+      const raw = await AsyncStorage.getItem(key);
+      const progress = raw ? normalizeProgress(JSON.parse(raw)) : null;
 
-    await deleteOnboardingDraftPhoto(userId, progress?.fursuitDraft.selectedPhoto ?? null);
-    await AsyncStorage.removeItem(key);
-  } catch (error) {
-    captureNonCriticalError(error, {
-      scope: 'onboarding.progress.clear',
-      userId,
-    });
-  }
+      await deleteOnboardingDraftPhoto(userId, progress?.fursuitDraft.selectedPhoto ?? null);
+      await AsyncStorage.removeItem(key);
+    } catch (error) {
+      captureHandledException(error, {
+        scope: 'onboarding.progress.clear',
+        userId,
+      });
+    }
+  });
 }
