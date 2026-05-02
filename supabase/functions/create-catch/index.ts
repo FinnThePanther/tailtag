@@ -61,6 +61,7 @@ interface CreateCatchResponse {
   catch_number: number | null;
   requires_approval: boolean;
   fursuit_owner_id: string;
+  convention_id?: string | null;
 }
 
 type FursuitMakerMetadata = {
@@ -81,6 +82,7 @@ const SELF_MADE_MAKER_ALIASES = [
   'me',
   'myself',
 ];
+const GENERIC_MAKER_MATCH_EXCLUSIONS = ['self-made', 'made by me'];
 
 type InlineEventRow = {
   event_id: string;
@@ -255,6 +257,9 @@ async function hasCatcherOwnedMakerMatch(
         typeof maker.normalized_maker_name === 'string'
           ? maker.normalized_maker_name.trim().toLowerCase()
           : '';
+      if (GENERIC_MAKER_MATCH_EXCLUSIONS.includes(normalizedMakerName)) {
+        continue;
+      }
       if (targetMakers.has(normalizedMakerName)) {
         return true;
       }
@@ -287,6 +292,28 @@ async function hasNewMakerForCatcherAtConvention(options: {
   }
 
   return data === true;
+}
+
+async function resolveCreatedCatchConventionId(
+  result: CreateCatchResponse,
+  fallbackConventionId: string | null,
+): Promise<string | null> {
+  if (typeof result.convention_id === 'string' && result.convention_id.length > 0) {
+    return result.convention_id;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('catches')
+    .select('convention_id')
+    .eq('id', result.catch_id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[create-catch] Failed resolving created catch convention:', error);
+    return fallbackConventionId;
+  }
+
+  return data?.convention_id ?? fallbackConventionId;
 }
 
 function extractBearerToken(req: Request): string | null {
@@ -393,6 +420,10 @@ async function handlePost(req: Request): Promise<Response> {
     }
 
     const result = data as CreateCatchResponse;
+    const resolvedConventionId = await resolveCreatedCatchConventionId(
+      result,
+      body.convention_id ?? null,
+    );
 
     // Fetch fursuit metadata (species + colors) for enriching the event payload.
     // Also fetch fursuit name + catcher username for owner-facing notifications.
@@ -455,7 +486,7 @@ async function handlePost(req: Request): Promise<Response> {
         hasCatcherOwnedMakerMatch(userId, makerMetadata.normalizedMakerNames),
         hasNewMakerForCatcherAtConvention({
           catcherId: userId,
-          conventionId: body.convention_id ?? null,
+          conventionId: resolvedConventionId,
           catchId: result.catch_id,
           normalizedMakerNames: makerMetadata.normalizedMakerNames,
         }),
@@ -490,7 +521,7 @@ async function handlePost(req: Request): Promise<Response> {
             fursuit_id: body.fursuit_id,
             fursuit_name: fursuitResult.data.name,
             catcher_username: catcherResult.data.username || 'Someone',
-            convention_id: body.convention_id ?? null,
+            convention_id: resolvedConventionId,
           },
         });
 
@@ -508,13 +539,13 @@ async function handlePost(req: Request): Promise<Response> {
     const ingestResult = await ingestGameplayEvent(supabaseAdmin, {
       type: eventType,
       userId,
-      conventionId: body.convention_id ?? null,
+      conventionId: resolvedConventionId,
       payload: {
         catch_id: result.catch_id,
         fursuit_id: body.fursuit_id,
         catcher_id: userId,
         fursuit_owner_id: result.fursuit_owner_id,
-        convention_id: body.convention_id ?? null,
+        convention_id: resolvedConventionId,
         is_tutorial: body.is_tutorial ?? false,
         status: result.status,
         species: speciesName,

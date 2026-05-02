@@ -54,6 +54,7 @@ const SELF_MADE_MAKER_ALIASES = [
   'me',
   'myself',
 ];
+const GENERIC_MAKER_MATCH_EXCLUSIONS = ['self-made', 'made by me'];
 
 type FursuitMakerMetadata = {
   makerNames: string[];
@@ -433,12 +434,13 @@ async function processCatchConfirmedEvent(
     console.error('[events-ingress] catch_confirmed event missing catcher or fursuit', { catchId });
     return { awards: [] };
   }
+  const resolvedConventionId = catchRow.convention_id ?? event.convention_id ?? null;
 
   const { data: existingCatchPerformed, error: existingCatchPerformedError } = await supabaseAdmin
     .from('events')
     .select('event_id')
     .eq('type', 'catch_performed')
-    .eq('user_id', event.user_id)
+    .eq('user_id', catcherId)
     .contains('payload', { catch_id: catchId })
     .limit(1)
     .maybeSingle();
@@ -482,11 +484,11 @@ async function processCatchConfirmedEvent(
     makerMetadata.normalizedMakerNames,
   );
   const isNewMakerForCatcherAtConvention =
-    event.convention_id && makerMetadata.normalizedMakerNames.length > 0
+    resolvedConventionId && makerMetadata.normalizedMakerNames.length > 0
       ? await hasNewMakerForCatcherAtConvention(
           supabaseAdmin,
           catcherId,
-          event.convention_id,
+          resolvedConventionId,
           catchId,
           makerMetadata.normalizedMakerNames,
         )
@@ -497,14 +499,15 @@ async function processCatchConfirmedEvent(
   // for catch_performed events - without this insert, daily tasks won't update.
   const catchPerformedEvent: InsertableEventRow = {
     event_id: generateUuidV7(),
-    user_id: event.user_id,
+    user_id: catcherId,
     type: 'catch_performed',
-    convention_id: event.convention_id,
+    convention_id: resolvedConventionId,
     payload: {
       catch_id: catchId,
       fursuit_id: catchRow.fursuit_id,
       catcher_id: catcherId,
       fursuit_owner_id: catchFursuit?.owner_id ?? null,
+      convention_id: resolvedConventionId,
       status: 'ACCEPTED',
       is_tutorial: false,
       source: 'catch_confirmed',
@@ -1044,6 +1047,9 @@ async function hasCatcherOwnedMakerMatch(
         typeof maker.normalized_maker_name === 'string'
           ? maker.normalized_maker_name.trim().toLowerCase()
           : '';
+      if (GENERIC_MAKER_MATCH_EXCLUSIONS.includes(normalizedMakerName)) {
+        continue;
+      }
       if (targetMakers.has(normalizedMakerName)) {
         return true;
       }
