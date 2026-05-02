@@ -1035,6 +1035,15 @@ export default function AddFursuitScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Catch settings</Text>
+            <CatchModeSwitch
+              value={catchMode}
+              onChange={setCatchMode}
+              disabled={isSubmitting}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
             <Text style={styles.label}>Likes & interests</Text>
             <TailTagInput
               value={likesInput}
@@ -1195,15 +1204,6 @@ export default function AddFursuitScreen() {
             ) : (
               <Text style={styles.helperLabel}>You can add up to {SOCIAL_LINK_LIMIT} links.</Text>
             )}
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Catch settings</Text>
-            <CatchModeSwitch
-              value={catchMode}
-              onChange={setCatchMode}
-              disabled={isSubmitting}
-            />
           </View>
 
           <View style={styles.fieldGroup}>
