@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -10,7 +11,12 @@ import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { TailTagInput } from '../../../components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../../components/ui/KeyboardAwareFormWrapper';
 import { SkipButton } from './SkipButton';
-import { createQuickFursuit, type FursuitPhotoCandidate } from '../../onboarding';
+import {
+  createEmptyFursuitDraft,
+  createQuickFursuit,
+  type FursuitPhotoCandidate,
+  type OnboardingFursuitDraft,
+} from '../../onboarding';
 import { MY_SUITS_QUERY_KEY } from '../../suits';
 import {
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
@@ -34,9 +40,78 @@ type FursuitStepProps = {
   userId: string;
   onSkip: () => void;
   onComplete: (options: { created: boolean }) => void;
+  draft: OnboardingFursuitDraft;
+  onDraftChange: (draft: OnboardingFursuitDraft) => void;
 };
 
-export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
+const draftPhotoDirectory = (userId: string) => {
+  if (!FileSystem.documentDirectory) {
+    return null;
+  }
+
+  return `${FileSystem.documentDirectory}onboarding-drafts/${userId}/`;
+};
+
+const isOnboardingDraftPhoto = (userId: string, photo: FursuitPhotoCandidate | null) => {
+  const directory = draftPhotoDirectory(userId);
+  return Boolean(directory && photo?.uri.startsWith(directory));
+};
+
+const deleteDraftPhoto = async (userId: string, photo: FursuitPhotoCandidate | null) => {
+  if (!isOnboardingDraftPhoto(userId, photo)) {
+    return;
+  }
+
+  const uri = photo?.uri;
+
+  if (!uri) {
+    return;
+  }
+
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch (error) {
+    captureNonCriticalError(error, {
+      scope: 'onboarding.fursuitStep.deleteDraftPhoto',
+      userId,
+      uri,
+    });
+  }
+};
+
+const copyDraftPhoto = async (
+  userId: string,
+  photo: FursuitPhotoCandidate,
+): Promise<FursuitPhotoCandidate> => {
+  const directory = draftPhotoDirectory(userId);
+
+  if (!directory) {
+    throw new Error('We could not save that photo for onboarding. Please try another.');
+  }
+
+  await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
+
+  const fileName = `fursuit-${Date.now()}.jpg`;
+  const uri = `${directory}${fileName}`;
+  await FileSystem.copyAsync({
+    from: photo.uri,
+    to: uri,
+  });
+
+  return {
+    ...photo,
+    uri,
+    fileName,
+  };
+};
+
+export function FursuitStep({
+  userId,
+  onSkip,
+  onComplete,
+  draft,
+  onDraftChange,
+}: FursuitStepProps) {
   const queryClient = useQueryClient();
   const {
     data: colorOptions = [],
@@ -50,16 +125,18 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [nameInput, setNameInput] = useState('');
-  const [speciesInput, setSpeciesInput] = useState('');
-  const [descriptionInput, setDescriptionInput] = useState('');
-  const [selectedPhoto, setSelectedPhoto] = useState<FursuitPhotoCandidate | null>(null);
+  const [isExpanded, setIsExpanded] = useState(draft.isExpanded);
+  const [nameInput, setNameInput] = useState(draft.nameInput);
+  const [speciesInput, setSpeciesInput] = useState(draft.speciesInput);
+  const [descriptionInput, setDescriptionInput] = useState(draft.descriptionInput);
+  const [selectedPhoto, setSelectedPhoto] = useState<FursuitPhotoCandidate | null>(
+    draft.selectedPhoto,
+  );
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
+  const [selectedColorIds, setSelectedColorIds] = useState<string[]>(draft.selectedColorIds);
   const colorLoadError = colorError?.message ?? null;
   const isColorBusy = isColorLoading;
 
@@ -87,24 +164,51 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
     [conventions, profileConventionIdSet],
   );
 
+  const selectedColors = useMemo(
+    () =>
+      selectedColorIds
+        .map((colorId) => colorOptions.find((option) => option.id === colorId))
+        .filter((option): option is FursuitColorOption => Boolean(option)),
+    [colorOptions, selectedColorIds],
+  );
+
+  useEffect(() => {
+    onDraftChange({
+      isExpanded,
+      nameInput,
+      speciesInput,
+      descriptionInput,
+      selectedColorIds,
+      selectedPhoto,
+    });
+  }, [
+    descriptionInput,
+    isExpanded,
+    nameInput,
+    onDraftChange,
+    selectedColorIds,
+    selectedPhoto,
+    speciesInput,
+  ]);
+
   const handleOpenForm = () => {
     setIsExpanded(true);
   };
 
   const handleToggleColor = useCallback((option: FursuitColorOption) => {
     Keyboard.dismiss();
-    setSelectedColors((current) => {
-      const exists = current.some((entry) => entry.id === option.id);
+    setSelectedColorIds((current) => {
+      const exists = current.includes(option.id);
 
       if (exists) {
-        return current.filter((entry) => entry.id !== option.id);
+        return current.filter((colorId) => colorId !== option.id);
       }
 
       if (current.length >= MAX_FURSUIT_COLORS) {
         return current;
       }
 
-      return [...current, option];
+      return [...current, option.id];
     });
   }, []);
 
@@ -142,12 +246,14 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
           asset.uri,
           IMAGE_UPLOAD_PRESETS.fursuitAvatar,
         );
-        setSelectedPhoto({
+        const draftPhoto = await copyDraftPhoto(userId, {
           uri: processed.uri,
           mimeType: 'image/jpeg',
           fileName: `fursuit-${Date.now()}.jpg`,
           fileSize: 0,
         });
+        await deleteDraftPhoto(userId, selectedPhoto);
+        setSelectedPhoto(draftPhoto);
       } catch {
         setPhotoError('We could not process that photo. Please try another.');
       } finally {
@@ -163,18 +269,28 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
   };
 
   const handleClearPhoto = () => {
+    void deleteDraftPhoto(userId, selectedPhoto);
     setSelectedPhoto(null);
     setPhotoError(null);
   };
 
   const resetForm = () => {
-    setNameInput('');
-    setSpeciesInput('');
-    setDescriptionInput('');
-    setSelectedColors([]);
+    const emptyDraft = createEmptyFursuitDraft();
+    setIsExpanded(emptyDraft.isExpanded);
+    setNameInput(emptyDraft.nameInput);
+    setSpeciesInput(emptyDraft.speciesInput);
+    setDescriptionInput(emptyDraft.descriptionInput);
+    setSelectedColorIds(emptyDraft.selectedColorIds);
     setSelectedPhoto(null);
     setPhotoError(null);
     setSubmitError(null);
+    onDraftChange(emptyDraft);
+  };
+
+  const handleSkip = () => {
+    void deleteDraftPhoto(userId, selectedPhoto);
+    resetForm();
+    onSkip();
   };
 
   const handleSubmit = async () => {
@@ -185,7 +301,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
     const trimmedName = nameInput.trim();
     const trimmedSpecies = speciesInput.trim();
     const trimmedDescription = descriptionInput.trim();
-    const colorIds = selectedColors.map((color) => color.id);
+    const colorIds = selectedColorIds;
 
     if (!trimmedName) {
       setSubmitError('Give your fursuit a name before saving.');
@@ -237,6 +353,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
 
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
 
+      await deleteDraftPhoto(userId, selectedPhoto);
       resetForm();
       onComplete({ created: true });
     } catch (caught) {
@@ -269,7 +386,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
             </TailTagButton>
             <SkipButton
               style={styles.fullWidthCta}
-              onPress={onSkip}
+              onPress={handleSkip}
             />
           </View>
         ) : (
@@ -423,7 +540,7 @@ export function FursuitStep({ userId, onSkip, onComplete }: FursuitStepProps) {
                 Continue
               </TailTagButton>
               <SkipButton
-                onPress={onSkip}
+                onPress={handleSkip}
                 disabled={isSubmitting}
                 style={styles.fullWidthCta}
               />
