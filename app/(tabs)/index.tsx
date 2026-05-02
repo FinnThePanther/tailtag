@@ -4,7 +4,7 @@ import { PixelRatio, Pressable, ScrollView, Text, View, useWindowDimensions } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Image } from 'expo-image';
@@ -41,6 +41,16 @@ import {
   type AchievementWithStatus,
   AchievementsSummarySkeleton,
 } from '../../src/features/achievements';
+import {
+  createProfileGuidanceState,
+  goalsViewedStorageKey,
+  readyConfirmationSeenStorageKey,
+  readProfileGuidanceFlag,
+  usernameReviewedStorageKey,
+  writeProfileGuidanceFlag,
+  type ProfileGuidanceTask,
+  type ProfileGuidanceTaskId,
+} from '../../src/features/profile-guidance';
 import { emitGameplayEvent } from '../../src/features/events';
 import {
   useDailyTasks,
@@ -48,13 +58,19 @@ import {
   DailyTasksSummarySkeleton,
 } from '../../src/features/daily-tasks';
 import { LeaderboardSectionSkeleton } from '../../src/features/leaderboard';
+import {
+  fetchMySuits,
+  mySuitsQueryKey,
+  MY_SUITS_STALE_TIME,
+  type FursuitSummary,
+} from '../../src/features/suits';
 import { useAllDataReady } from '../../src/hooks/useAllDataReady';
-import { spacing } from '../../src/theme';
+import { useToast } from '../../src/hooks/useToast';
+import { colors, spacing } from '../../src/theme';
 import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/(tabs)/index.styles';
 
 const MAX_LEADERBOARD_ENTRIES = 5;
-const usernameNudgeDismissedKey = (userId: string) => `tailtag:username-nudge-dismissed:${userId}`;
 const recapBannerStateKey = (userId: string) => `tailtag:recap-banner-state:${userId}`;
 
 const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);
@@ -109,10 +125,12 @@ export default function HomeScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const { width: windowWidth } = useWindowDimensions();
 
-  // Username change nudge
-  const [nudgeDismissed, setNudgeDismissed] = useState<boolean | null>(null);
+  const [hasReviewedUsername, setHasReviewedUsername] = useState<boolean | null>(null);
+  const [hasViewedGoals, setHasViewedGoals] = useState<boolean | null>(null);
+  const [hasSeenReadyConfirmation, setHasSeenReadyConfirmation] = useState<boolean | null>(null);
   const [recapBannerState, setRecapBannerState] =
     useState<RecapBannerState>(EMPTY_RECAP_BANNER_STATE);
   const [isRecapBannerStateReady, setRecapBannerStateReady] = useState(false);
@@ -124,23 +142,35 @@ export default function HomeScreen() {
     let isActive = true;
 
     if (!userId) {
-      setNudgeDismissed(true);
+      setHasReviewedUsername(true);
+      setHasViewedGoals(true);
+      setHasSeenReadyConfirmation(true);
       return () => {
         isActive = false;
       };
     }
 
-    setNudgeDismissed(null);
+    setHasReviewedUsername(null);
+    setHasViewedGoals(null);
+    setHasSeenReadyConfirmation(null);
 
-    AsyncStorage.getItem(usernameNudgeDismissedKey(userId))
-      .then((value) => {
+    Promise.all([
+      readProfileGuidanceFlag(usernameReviewedStorageKey(userId)),
+      readProfileGuidanceFlag(goalsViewedStorageKey(userId)),
+      readProfileGuidanceFlag(readyConfirmationSeenStorageKey(userId)),
+    ])
+      .then(([usernameReviewed, goalsViewed, readyConfirmationSeen]) => {
         if (isActive) {
-          setNudgeDismissed(value === 'true');
+          setHasReviewedUsername(usernameReviewed ?? false);
+          setHasViewedGoals(goalsViewed ?? false);
+          setHasSeenReadyConfirmation(readyConfirmationSeen ?? false);
         }
       })
       .catch(() => {
         if (isActive) {
-          setNudgeDismissed(false);
+          setHasReviewedUsername(false);
+          setHasViewedGoals(false);
+          setHasSeenReadyConfirmation(false);
         }
       });
 
@@ -149,14 +179,38 @@ export default function HomeScreen() {
     };
   }, [userId]);
 
-  const handleDismissNudge = useCallback(() => {
-    if (!userId) {
-      return;
-    }
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
 
-    setNudgeDismissed(true);
-    AsyncStorage.setItem(usernameNudgeDismissedKey(userId), 'true').catch(() => undefined);
-  }, [userId]);
+      if (!userId) {
+        setHasReviewedUsername(true);
+        setHasViewedGoals(true);
+        setHasSeenReadyConfirmation(true);
+        return () => {
+          isActive = false;
+        };
+      }
+
+      Promise.all([
+        readProfileGuidanceFlag(usernameReviewedStorageKey(userId)),
+        readProfileGuidanceFlag(goalsViewedStorageKey(userId)),
+        readProfileGuidanceFlag(readyConfirmationSeenStorageKey(userId)),
+      ])
+        .then(([usernameReviewed, goalsViewed, readyConfirmationSeen]) => {
+          if (isActive) {
+            setHasReviewedUsername(usernameReviewed ?? false);
+            setHasViewedGoals(goalsViewed ?? false);
+            setHasSeenReadyConfirmation(readyConfirmationSeen ?? false);
+          }
+        })
+        .catch(() => undefined);
+
+      return () => {
+        isActive = false;
+      };
+    }, [userId]),
+  );
 
   useEffect(() => {
     recapBannerStateRef.current = recapBannerState;
@@ -246,11 +300,24 @@ export default function HomeScreen() {
     [userId],
   );
 
-  const { data: profile } = useQuery({
+  useQuery({
     queryKey: userId ? profileQueryKey(userId) : ['profile', 'guest'],
-    enabled: Boolean(userId) && nudgeDismissed === false,
+    enabled: Boolean(userId),
     queryFn: () => fetchProfile(userId!),
   });
+
+  const mySuitsQuery = useQuery<FursuitSummary[], Error>({
+    queryKey: userId ? mySuitsQueryKey(userId) : ['my-suits', 'guest'],
+    enabled: Boolean(userId),
+    staleTime: MY_SUITS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchMySuits(userId!),
+  });
+  const mySuits = useMemo(
+    () => mySuitsQuery.data ?? (mySuitsQuery.isError ? undefined : []),
+    [mySuitsQuery.data, mySuitsQuery.isError],
+  );
 
   const maxContentWidth = useMemo(() => {
     const safeWidth = Number.isFinite(windowWidth) ? windowWidth : 0;
@@ -260,6 +327,45 @@ export default function HomeScreen() {
   }, [windowWidth]);
 
   const contentWidthStyle = useMemo(() => ({ width: maxContentWidth }), [maxContentWidth]);
+
+  const isProfileGuidanceReady =
+    hasReviewedUsername !== null &&
+    hasViewedGoals !== null &&
+    hasSeenReadyConfirmation !== null &&
+    !mySuitsQuery.isLoading &&
+    !mySuitsQuery.isError;
+  const profileGuidance = useMemo(
+    () =>
+      createProfileGuidanceState({
+        suits: mySuits ?? [],
+        usernameReviewed: hasReviewedUsername === true,
+        goalsViewed: hasViewedGoals === true,
+      }),
+    [hasReviewedUsername, hasViewedGoals, mySuits],
+  );
+  const shouldShowProfileGuidance =
+    Boolean(userId) && isProfileGuidanceReady && !profileGuidance.isComplete;
+
+  useEffect(() => {
+    if (
+      !userId ||
+      !isProfileGuidanceReady ||
+      !profileGuidance.isComplete ||
+      hasSeenReadyConfirmation
+    ) {
+      return;
+    }
+
+    setHasSeenReadyConfirmation(true);
+    showToast("You're ready to play! Go catch a fursuit or check today's goals.");
+    void writeProfileGuidanceFlag(readyConfirmationSeenStorageKey(userId)).catch(() => undefined);
+  }, [
+    hasSeenReadyConfirmation,
+    isProfileGuidanceReady,
+    profileGuidance.isComplete,
+    showToast,
+    userId,
+  ]);
 
   const conventionsQuery = useQuery<ConventionSummary[], Error>({
     queryKey: [JOINABLE_CONVENTIONS_QUERY_KEY],
@@ -647,6 +753,74 @@ export default function HomeScreen() {
     });
   }, [newestUnseenRecap, updateRecapBannerState]);
 
+  const markGoalsViewed = useCallback(async () => {
+    if (!userId) {
+      return;
+    }
+
+    setHasViewedGoals(true);
+    await writeProfileGuidanceFlag(goalsViewedStorageKey(userId));
+  }, [userId]);
+
+  const handleOpenDailyTasksFromGuidance = useCallback(async () => {
+    await markGoalsViewed();
+    router.push('/daily-tasks');
+  }, [markGoalsViewed, router]);
+
+  const handleOpenAchievementsFromGuidance = useCallback(async () => {
+    await markGoalsViewed();
+    router.push('/achievements');
+  }, [markGoalsViewed, router]);
+
+  const handleProfileGuidanceTaskPress = useCallback(
+    (taskId: ProfileGuidanceTaskId) => {
+      if (taskId === 'fursuit-profile') {
+        if (!mySuits) {
+          return;
+        }
+
+        if (mySuits.length === 0) {
+          router.push('/suits/add-fursuit');
+          return;
+        }
+
+        const incompleteFursuits = profileGuidance.incompleteFursuits;
+        if (incompleteFursuits.length === 1) {
+          router.push({
+            pathname: '/fursuits/[id]/edit',
+            params: { id: incompleteFursuits[0].id },
+          });
+          return;
+        }
+
+        router.push({
+          pathname: '/suits',
+          params: { guidance: 'fursuit-profile' },
+        });
+        return;
+      }
+
+      if (taskId === 'username') {
+        router.push({
+          pathname: '/settings',
+          params: { focus: 'username' },
+        });
+        return;
+      }
+
+      void handleOpenDailyTasksFromGuidance();
+    },
+    [handleOpenDailyTasksFromGuidance, mySuits, profileGuidance.incompleteFursuits, router],
+  );
+
+  const handleContinueProfileGuidance = useCallback(() => {
+    if (!profileGuidance.nextTask) {
+      return;
+    }
+
+    handleProfileGuidanceTaskPress(profileGuidance.nextTask.id);
+  }, [handleProfileGuidanceTaskPress, profileGuidance.nextTask]);
+
   return (
     <View style={styles.wrapper}>
       <LinearGradient
@@ -686,42 +860,55 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {nudgeDismissed === false && session && (
-          <TailTagCard style={[styles.nudgeCard, styles.nudgeCardAlert, contentWidthStyle]}>
-            <View style={styles.nudgeContent}>
-              <View style={styles.nudgeTextBlock}>
-                <Text style={[styles.nudgeText, styles.nudgeTextAlert]}>
-                  Your current username is{' '}
-                  <Text style={[styles.nudgeUsername, styles.nudgeUsernameAlert]}>
-                    {profile?.username ?? '...'}
-                  </Text>
-                  . Want to pick something better?
+        {shouldShowProfileGuidance ? (
+          <TailTagCard style={[styles.guidanceCard, contentWidthStyle]}>
+            <View style={styles.guidanceHeader}>
+              <View style={styles.guidanceTitleBlock}>
+                <Text style={styles.sectionEyebrow}>Next steps</Text>
+                <Text style={styles.sectionTitle}>Get ready to play!</Text>
+                <Text style={styles.guidanceBody}>
+                  Finish a few quick steps so people know who you are and what to ask you about.
                 </Text>
-                <TailTagButton
-                  variant="destructive"
-                  size="sm"
-                  onPress={() => {
-                    handleDismissNudge();
-                    router.push('/settings');
-                  }}
-                >
-                  Change username
-                </TailTagButton>
               </View>
-              <Pressable
-                onPress={handleDismissNudge}
-                hitSlop={12}
-                style={styles.nudgeDismiss}
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={22}
-                  color="rgba(248,113,113,0.85)"
-                />
-              </Pressable>
+              <View style={styles.guidanceProgressPill}>
+                <Text style={styles.guidanceProgressText}>
+                  {profileGuidance.completedCount}/{profileGuidance.totalCount}
+                </Text>
+              </View>
             </View>
+
+            <View style={styles.guidanceTaskList}>
+              {profileGuidance.tasks.map((task) => (
+                <ProfileGuidanceTaskRow
+                  key={task.id}
+                  task={task}
+                  onPress={() => handleProfileGuidanceTaskPress(task.id)}
+                />
+              ))}
+            </View>
+
+            <View style={styles.guidanceGoalActions}>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={handleOpenDailyTasksFromGuidance}
+                style={styles.guidanceGoalButton}
+              >
+                Daily Tasks
+              </TailTagButton>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={handleOpenAchievementsFromGuidance}
+                style={styles.guidanceGoalButton}
+              >
+                Achievements
+              </TailTagButton>
+            </View>
+
+            <TailTagButton onPress={handleContinueProfileGuidance}>Continue</TailTagButton>
           </TailTagCard>
-        )}
+        ) : null}
 
         {newestUnseenRecap ? (
           <TailTagCard style={[styles.recapBannerCard, contentWidthStyle]}>
@@ -810,7 +997,7 @@ export default function HomeScreen() {
 
           <TailTagButton
             variant="outline"
-            onPress={() => router.push('/daily-tasks')}
+            onPress={handleOpenDailyTasksFromGuidance}
             style={styles.dailyCta}
             disabled={!selectedConventionId}
           >
@@ -869,7 +1056,7 @@ export default function HomeScreen() {
 
           <TailTagButton
             variant="outline"
-            onPress={() => router.push('/achievements')}
+            onPress={handleOpenAchievementsFromGuidance}
             style={styles.achievementCta}
           >
             View achievements
@@ -1158,5 +1345,44 @@ export default function HomeScreen() {
         </TailTagCard>
       </ScrollView>
     </View>
+  );
+}
+
+function ProfileGuidanceTaskRow({
+  task,
+  onPress,
+}: {
+  task: ProfileGuidanceTask;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={task.title}
+      accessibilityHint={task.description}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.guidanceTaskRow,
+        task.isComplete ? styles.guidanceTaskRowComplete : null,
+        pressed ? styles.guidanceTaskRowPressed : null,
+      ]}
+    >
+      <Ionicons
+        name={task.isComplete ? 'checkmark-circle' : 'ellipse-outline'}
+        size={22}
+        color={task.isComplete ? '#4ade80' : colors.primary}
+      />
+      <View style={styles.guidanceTaskTextBlock}>
+        <Text style={styles.guidanceTaskTitle}>{task.title}</Text>
+        <Text style={styles.guidanceTaskDescription}>{task.description}</Text>
+      </View>
+      {!task.isComplete ? (
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color="rgba(203,213,225,0.7)"
+        />
+      ) : null}
+    </Pressable>
   );
 }
