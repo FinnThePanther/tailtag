@@ -408,7 +408,7 @@ export default function SettingsScreen() {
     readProfileGuidanceFlag(usernameReviewedStorageKey(userId))
       .then((value) => {
         if (isActive) {
-          setHasReviewedUsername(value);
+          setHasReviewedUsername(value ?? false);
         }
       })
       .catch(() => {

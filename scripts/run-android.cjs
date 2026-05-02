@@ -18,7 +18,7 @@ function getConnectedAndroidDevices() {
         .find((part) => part.startsWith('model:'))
         ?.replace('model:', '');
 
-      return { id, model, name: model ?? `Device ${id}`, status, label: line };
+      return { id, model, name: model ?? id, status, label: line };
     })
     .filter((device) => device.status === 'device');
 }
@@ -32,7 +32,15 @@ function resolveAndroidDevice() {
       (device) => device.id === requestedDevice || device.name === requestedDevice,
     );
 
-    return matchingDevice?.name ?? requestedDevice;
+    if (!matchingDevice) {
+      console.error(
+        `[run-android] Could not find device matching ANDROID_DEVICE=${requestedDevice}.`,
+      );
+      devices.forEach((device) => console.error(`  ${device.label}`));
+      process.exit(1);
+    }
+
+    return matchingDevice.name;
   }
 
   if (devices.length === 1) {

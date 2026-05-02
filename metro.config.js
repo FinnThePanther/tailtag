@@ -14,7 +14,8 @@ const ignoredPaths = [
   'web/dist',
   'web/node_modules',
 ].map(
-  (relativePath) => new RegExp(`^${escapePathForRegex(path.join(__dirname, relativePath))}\\/.*`),
+  (relativePath) =>
+    new RegExp(`^${escapePathForRegex(path.join(__dirname, relativePath))}[\\\\/].*`),
 );
 
 const existingBlockList = config.resolver?.blockList

@@ -29,17 +29,33 @@ export const goalsViewedStorageKey = (userId: string) =>
 export const readyConfirmationSeenStorageKey = (userId: string) =>
   `tailtag:profile-guidance:ready-confirmation-seen:${userId}`;
 
-export async function readProfileGuidanceFlag(key: string): Promise<boolean> {
-  const value = await AsyncStorage.getItem(key);
-  return value === 'true';
+export async function readProfileGuidanceFlag(key: string): Promise<boolean | null> {
+  try {
+    const value = await AsyncStorage.getItem(key);
+    return value === 'true';
+  } catch (error) {
+    console.warn('Failed to read profile guidance flag', error);
+    return null;
+  }
 }
 
-export async function writeProfileGuidanceFlag(key: string): Promise<void> {
-  await AsyncStorage.setItem(key, 'true');
+export async function writeProfileGuidanceFlag(key: string): Promise<void | null> {
+  try {
+    await AsyncStorage.setItem(key, 'true');
+  } catch (error) {
+    console.warn('Failed to write profile guidance flag', error);
+    return null;
+  }
 }
 
 export function hasAskMeAboutContent(suit: FursuitSummary): boolean {
-  return Boolean(suit.bio?.askMeAbout?.trim());
+  const topics =
+    suit.bio?.askMeAbout
+      ?.split(/[,;\n]+/)
+      .map((topic) => topic.trim())
+      .filter((topic) => topic.length > 0) ?? [];
+
+  return topics.length > 0;
 }
 
 export function getIncompleteFursuitProfiles(suits: FursuitSummary[]): FursuitSummary[] {
