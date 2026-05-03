@@ -6,7 +6,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { AppImage } from '../../../src/components/ui/AppImage';
-import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
 import { TailTagInput } from '../../../src/components/ui/TailTagInput';
@@ -28,6 +27,14 @@ import {
   SOCIAL_LINK_LIMIT,
   socialLinksToSave,
 } from '../../../src/features/suits/forms/socialLinks';
+import {
+  createEmptyFursuitMaker,
+  createInitialFursuitMakers,
+  FURSUIT_MAKER_LIMIT,
+  fursuitMakersToSave,
+  hasDuplicateFursuitMakers,
+  type EditableFursuitMaker,
+} from '../../../src/features/suits/forms/makers';
 import {
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   addFursuitConvention,
@@ -74,6 +81,16 @@ const PRONOUN_OPTIONS = [
   'he/they',
   'she/they',
   'any pronouns',
+] as const;
+
+const ASK_ME_ABOUT_SUGGESTIONS = [
+  'My suit',
+  'Suit making',
+  'Photography',
+  'Local cons',
+  'Gaming',
+  'Character lore',
+  'Good food nearby',
 ] as const;
 
 type UploadCandidate = {
@@ -177,6 +194,8 @@ export default function EditFursuitScreen() {
   const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
   const [likesInput, setLikesInput] = useState('');
   const [askMeAboutInput, setAskMeAboutInput] = useState('');
+  const [makers, setMakers] = useState<EditableFursuitMaker[]>(() => createInitialFursuitMakers());
+  const [initialMakers, setInitialMakers] = useState<EditableFursuitMaker[]>([]);
   const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(() =>
     createInitialSocialLinks(),
   );
@@ -289,6 +308,16 @@ export default function EditFursuitScreen() {
     setLikesInput(bio?.likesAndInterests ?? '');
     setAskMeAboutInput(bio?.askMeAbout ?? '');
 
+    const mappedMakers =
+      detail.makers.length > 0
+        ? detail.makers.map((maker) => ({
+            id: maker.id,
+            name: maker.name,
+          }))
+        : createInitialFursuitMakers();
+    setMakers(mappedMakers);
+    setInitialMakers(mappedMakers);
+
     const existingLinks = bio?.socialLinks ?? [];
     const linksToMap = existingLinks
       .filter((e) => (e.label?.trim() ?? '') && (e.url?.trim() ?? ''))
@@ -321,6 +350,7 @@ export default function EditFursuitScreen() {
     () => socialLinks.length < SOCIAL_LINK_LIMIT,
     [socialLinks.length],
   );
+  const makersCanAddMore = useMemo(() => makers.length < FURSUIT_MAKER_LIMIT, [makers.length]);
 
   const handleSocialLinkChange = (
     id: string,
@@ -341,6 +371,24 @@ export default function EditFursuitScreen() {
     setSocialLinks((current) => {
       const next = current.filter((entry) => entry.id !== id);
       return next.length > 0 ? next : [createEmptySocialLink()];
+    });
+  };
+
+  const handleMakerNameChange = useCallback((id: string, value: string) => {
+    setMakers((current) =>
+      current.map((entry) => (entry.id === id ? { ...entry, name: value } : entry)),
+    );
+  }, []);
+
+  const handleAddMaker = () => {
+    if (!makersCanAddMore) return;
+    setMakers((current) => [...current, createEmptyFursuitMaker()]);
+  };
+
+  const handleRemoveMaker = (id: string) => {
+    setMakers((current) => {
+      const next = current.filter((entry) => entry.id !== id);
+      return next.length > 0 ? next : [createEmptyFursuitMaker()];
     });
   };
 
@@ -420,6 +468,7 @@ export default function EditFursuitScreen() {
     const normalizedSpeciesValue = normalizeSpeciesName(trimmedSpecies);
 
     const normalizedSocialLinks = socialLinksToSave(socialLinks);
+    const normalizedMakers = fursuitMakersToSave(makers);
     const selectedColorIds = selectedColors.map((color) => color.id);
     const previousColors = initialColors;
     const previousColorIds = previousColors.map((color) => color.id);
@@ -441,6 +490,16 @@ export default function EditFursuitScreen() {
 
     if (selectedColorIds.length > MAX_FURSUIT_COLORS) {
       setSubmitError('You can choose up to three colors. Remove one to add another.');
+      return;
+    }
+
+    if (normalizedMakers.length > FURSUIT_MAKER_LIMIT) {
+      setSubmitError(`You can add up to ${FURSUIT_MAKER_LIMIT} fursuit makers.`);
+      return;
+    }
+
+    if (hasDuplicateFursuitMakers(normalizedMakers)) {
+      setSubmitError('Remove duplicate fursuit maker names before saving.');
       return;
     }
 
@@ -471,6 +530,7 @@ export default function EditFursuitScreen() {
     const previousCatchMode = initialCatchMode;
     const previousAvatarPath = detail.avatar_path ?? null;
     const previousAvatarUrl = detail.avatar_url;
+    const initialNormalizedMakers = fursuitMakersToSave(initialMakers);
     let updatedCoreRecord = false;
     let replacedColors = false;
     const addedConventionIds: string[] = [];
@@ -592,6 +652,25 @@ export default function EditFursuitScreen() {
         }
       }
 
+      const makersChanged =
+        initialNormalizedMakers.length !== normalizedMakers.length ||
+        initialNormalizedMakers.some(
+          (maker, index) =>
+            maker.maker_name !== normalizedMakers[index]?.maker_name ||
+            maker.normalized_maker_name !== normalizedMakers[index]?.normalized_maker_name,
+        );
+
+      if (makersChanged) {
+        const { error: replaceMakersError } = await client.rpc('replace_fursuit_makers', {
+          fursuit_id: fursuitId,
+          makers: normalizedMakers,
+        });
+
+        if (replaceMakersError) {
+          throw replaceMakersError;
+        }
+      }
+
       const nextVersion = (detail.bio?.version ?? 0) + 1;
 
       const { error: bioError } = await client.from('fursuit_bios').insert({
@@ -628,6 +707,7 @@ export default function EditFursuitScreen() {
 
       setInitialConventionIds(new Set(selectedConventionIds));
       setInitialColors(selectedColors);
+      setInitialMakers(makers);
       setInitialCatchMode(catchMode);
 
       router.back();
@@ -734,6 +814,22 @@ export default function EditFursuitScreen() {
     [disableForm, profileConventionIdSet],
   );
 
+  const handleAskMeAboutSuggestion = useCallback((suggestion: string) => {
+    setAskMeAboutInput((current) => {
+      const existingTopics = current
+        .split(',')
+        .map((topic) => topic.trim())
+        .filter((topic) => topic.length > 0);
+      const normalizedExistingTopics = existingTopics.map((topic) => topic.toLowerCase());
+
+      if (normalizedExistingTopics.includes(suggestion.toLowerCase())) {
+        return existingTopics.join(', ');
+      }
+
+      return existingTopics.concat(suggestion).join(', ');
+    });
+  }, []);
+
   return (
     <View style={styles.screen}>
       <ScreenHeader
@@ -741,15 +837,7 @@ export default function EditFursuitScreen() {
         onBack={() => router.back()}
       />
       <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>Edit bio</Text>
-          <Text style={styles.title}>Refresh your fursuit entry</Text>
-          <Text style={styles.subtitle}>
-            Update your bio and social links so players know how to say hi.
-          </Text>
-        </View>
-
-        <TailTagCard>
+        <View style={styles.formCard}>
           {isLoading ? (
             <Text style={styles.message}>Loading your fursuit details…</Text>
           ) : error ? (
@@ -770,7 +858,7 @@ export default function EditFursuitScreen() {
               You can only edit suits you own. Switch accounts and try again.
             </Text>
           ) : (
-            <View style={styles.formStack}>
+            <>
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Suit photo</Text>
                 <View style={styles.photoRow}>
@@ -819,7 +907,7 @@ export default function EditFursuitScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Fursuit name</Text>
+                <Text style={styles.label}>Name</Text>
                 <TailTagInput
                   value={nameInput}
                   onChangeText={setNameInput}
@@ -827,6 +915,67 @@ export default function EditFursuitScreen() {
                   editable={!disableForm}
                   returnKeyType="next"
                 />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Species</Text>
+                <TailTagInput
+                  value={speciesInput}
+                  onChangeText={handleSpeciesInputChange}
+                  placeholder="Sergal, Dutch Angel Dragon, etc."
+                  editable={!disableForm}
+                  returnKeyType="next"
+                  autoCapitalize="words"
+                />
+                <Text style={styles.helperLabel}>
+                  Tap a suggestion or keep typing to add a new species to the shared list.
+                </Text>
+                {isSpeciesBusy ? (
+                  <Text style={styles.helperLabel}>Loading species…</Text>
+                ) : speciesLoadError ? (
+                  <View style={styles.helperColumn}>
+                    <Text style={styles.errorText}>{speciesLoadError}</Text>
+                    <TailTagButton
+                      variant="outline"
+                      size="sm"
+                      onPress={() => {
+                        void refetchSpecies({ throwOnError: false });
+                      }}
+                      disabled={disableForm}
+                    >
+                      Try again
+                    </TailTagButton>
+                  </View>
+                ) : speciesSuggestions.length > 0 ? (
+                  <View style={styles.speciesSuggestionSection}>
+                    <Text style={styles.helperLabel}>
+                      {normalizedSpeciesInput ? 'Matching species' : 'Popular species'}
+                    </Text>
+                    <View style={styles.speciesSuggestionList}>
+                      {speciesSuggestions.map((option) => {
+                        const isSelected = selectedSpecies?.id === option.id;
+                        return (
+                          <Pressable
+                            key={option.id}
+                            accessibilityRole="button"
+                            onPress={() => handleSpeciesSelect(option)}
+                            style={[styles.colorChip, isSelected ? styles.colorChipSelected : null]}
+                            disabled={disableForm}
+                          >
+                            <Text
+                              style={[
+                                styles.colorChipLabel,
+                                isSelected ? styles.colorChipLabelSelected : null,
+                              ]}
+                            >
+                              {option.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ) : null}
               </View>
 
               <View style={styles.fieldGroup}>
@@ -906,62 +1055,54 @@ export default function EditFursuitScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Species</Text>
-                <TailTagInput
-                  value={speciesInput}
-                  onChangeText={handleSpeciesInputChange}
-                  placeholder="Sergal, Dutch Angel Dragon, etc."
-                  editable={!disableForm}
-                  returnKeyType="next"
-                  autoCapitalize="words"
-                />
+                <Text style={styles.label}>Fursuit Maker</Text>
                 <Text style={styles.helperLabel}>
-                  Tap a suggestion or keep typing to add a new species to the shared list.
+                  Add the maker names catchers should see. You can add more than one.
                 </Text>
-                {isSpeciesBusy ? (
-                  <Text style={styles.helperLabel}>Loading species…</Text>
-                ) : speciesLoadError ? (
-                  <View style={styles.helperColumn}>
-                    <Text style={styles.errorText}>{speciesLoadError}</Text>
-                    <TailTagButton
-                      variant="outline"
-                      size="sm"
-                      onPress={() => {
-                        void refetchSpecies({ throwOnError: false });
-                      }}
-                      disabled={disableForm}
+                <View style={styles.makerList}>
+                  {makers.map((maker, index) => (
+                    <View
+                      key={maker.id}
+                      style={styles.makerRow}
                     >
-                      Try again
-                    </TailTagButton>
-                  </View>
-                ) : speciesSuggestions.length > 0 ? (
-                  <View style={styles.speciesSuggestionSection}>
-                    <Text style={styles.helperLabel}>
-                      {normalizedSpeciesInput ? 'Matching species' : 'Popular species'}
-                    </Text>
-                    <View style={styles.speciesSuggestionList}>
-                      {speciesSuggestions.map((option) => {
-                        const isSelected = selectedSpecies?.id === option.id;
-                        return (
-                          <TailTagButton
-                            key={option.id}
-                            variant={isSelected ? 'primary' : 'ghost'}
-                            size="sm"
-                            onPress={() => handleSpeciesSelect(option)}
-                            disabled={disableForm}
-                            style={styles.speciesChip}
-                          >
-                            {option.name}
-                          </TailTagButton>
-                        );
-                      })}
+                      <TailTagInput
+                        value={maker.name}
+                        onChangeText={(value) => handleMakerNameChange(maker.id, value)}
+                        placeholder={index === 0 ? 'Maker name' : 'Another maker'}
+                        editable={!disableForm}
+                        returnKeyType={index === makers.length - 1 ? 'done' : 'next'}
+                        style={styles.makerInput}
+                      />
+                      <TailTagButton
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => handleRemoveMaker(maker.id)}
+                        disabled={disableForm}
+                        style={styles.makerRemoveButton}
+                      >
+                        Remove
+                      </TailTagButton>
                     </View>
-                  </View>
-                ) : null}
+                  ))}
+                </View>
+                {makersCanAddMore ? (
+                  <TailTagButton
+                    variant="outline"
+                    size="sm"
+                    onPress={handleAddMaker}
+                    disabled={disableForm}
+                  >
+                    Add another maker
+                  </TailTagButton>
+                ) : (
+                  <Text style={styles.helperLabel}>
+                    You can add up to {FURSUIT_MAKER_LIMIT} makers.
+                  </Text>
+                )}
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Pronouns</Text>
+                <Text style={styles.label}>Fursuit Pronouns</Text>
                 <Text style={styles.helperLabel}>Select all pronouns that fit your fursuit.</Text>
                 <View style={styles.pronounChipList}>
                   {PRONOUN_OPTIONS.map((option) => {
@@ -989,6 +1130,48 @@ export default function EditFursuitScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Ask me about...</Text>
+                <Text style={styles.helperLabel}>
+                  Add a few easy conversation starters for people who catch your suit.
+                </Text>
+                <View style={styles.askMeAboutSuggestionList}>
+                  {ASK_ME_ABOUT_SUGGESTIONS.map((suggestion) => (
+                    <Pressable
+                      key={suggestion}
+                      accessibilityRole="button"
+                      onPress={() => handleAskMeAboutSuggestion(suggestion)}
+                      disabled={disableForm}
+                      style={({ pressed }) => [
+                        styles.askMeAboutSuggestionChip,
+                        pressed ? styles.askMeAboutSuggestionChipPressed : null,
+                      ]}
+                    >
+                      <Text style={styles.askMeAboutSuggestionText}>{suggestion}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <TailTagInput
+                  value={askMeAboutInput}
+                  onChangeText={setAskMeAboutInput}
+                  placeholder="Give catchers a question to break the ice"
+                  editable={!disableForm}
+                  multiline
+                  numberOfLines={2}
+                  textAlignVertical="top"
+                  style={styles.textArea}
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Catch settings</Text>
+                <CatchModeSwitch
+                  value={catchMode}
+                  onChange={setCatchMode}
+                  disabled={disableForm}
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Likes & interests</Text>
                 <TailTagInput
                   value={likesInput}
@@ -997,20 +1180,6 @@ export default function EditFursuitScreen() {
                   editable={!disableForm}
                   multiline
                   numberOfLines={3}
-                  textAlignVertical="top"
-                  style={styles.textArea}
-                />
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Ask me about...</Text>
-                <TailTagInput
-                  value={askMeAboutInput}
-                  onChangeText={setAskMeAboutInput}
-                  placeholder="Give catchers a question to break the ice"
-                  editable={!disableForm}
-                  multiline
-                  numberOfLines={2}
                   textAlignVertical="top"
                   style={styles.textArea}
                 />
@@ -1174,15 +1343,6 @@ export default function EditFursuitScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Catch settings</Text>
-                <CatchModeSwitch
-                  value={catchMode}
-                  onChange={setCatchMode}
-                  disabled={disableForm}
-                />
-              </View>
-
-              <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Conventions</Text>
                 <Text style={styles.helperLabel}>
                   Update where catchers can trade tags with this suit.
@@ -1261,9 +1421,9 @@ export default function EditFursuitScreen() {
                   Save changes
                 </TailTagButton>
               </View>
-            </View>
+            </>
           )}
-        </TailTagCard>
+        </View>
       </KeyboardAwareFormWrapper>
     </View>
   );

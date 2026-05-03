@@ -68,11 +68,19 @@ export interface CatchEventContext {
     distinctLocalDaysForFursuitAtConvention: number;
     distinctConventionsForFursuit: number;
     catchesByCatcherToday: number;
+    distinctMakersCaughtAtConvention: number;
+    distinctSelfMadeFursuitsCaught: number;
   };
   flags: {
     hybridFursuit: boolean;
     doubleCatchWithinMinute: boolean;
     catchHasPhoto: boolean;
+    hasSelfMadeMaker: boolean;
+    hasMakerMatchWithCatcherOwnedSuit: boolean;
+  };
+  makers: {
+    names: string[];
+    normalizedNames: string[];
   };
 }
 

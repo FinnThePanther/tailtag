@@ -14,6 +14,13 @@ export type FursuitBio = {
   updatedAt: string | null;
 };
 
+export type FursuitMaker = {
+  id: string;
+  name: string;
+  normalizedName: string;
+  position: number;
+};
+
 export type FursuitSummary = {
   id: string;
   owner_id?: string | null;
@@ -29,6 +36,7 @@ export type FursuitSummary = {
   catchMode: CatchMode;
   created_at: string | null;
   conventions: ConventionSummary[];
+  makers: FursuitMaker[];
   bio: FursuitBio | null;
 };
 

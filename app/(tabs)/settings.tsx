@@ -6,7 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 
 import * as Linking from 'expo-linking';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { AppAvatar } from '../../src/components/ui/AppAvatar';
@@ -28,6 +28,11 @@ import {
   parsePastConventionRecapSummary,
 } from '../../src/features/conventions';
 import { useAuth } from '../../src/features/auth';
+import {
+  readProfileGuidanceFlag,
+  usernameReviewedStorageKey,
+  writeProfileGuidanceFlag,
+} from '../../src/features/profile-guidance';
 import type {
   ConventionSummary,
   PastConventionRecap,
@@ -92,6 +97,7 @@ const SUPPORT_EMAIL_URL = 'mailto:finn@finnthepanther.com';
 const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
 export default function SettingsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ focus?: string }>();
   const { isUpdateReady, isRestarting, restartError, restartToApplyUpdate } = useOtaUpdateCheck();
   const { session, forceSignOut } = useAuth();
   const userId = session?.user.id ?? null;
@@ -222,6 +228,7 @@ export default function SettingsScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [hasReviewedUsername, setHasReviewedUsername] = useState<boolean | null>(null);
   const [hasEditedDraft, setHasEditedDraft] = useState(false);
   const saveMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -375,6 +382,7 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     if (!userId) {
+      setHasReviewedUsername(null);
       resetDraftFromProfile(null);
       setHasEditedDraft(false);
       return;
@@ -386,6 +394,33 @@ export default function SettingsScreen() {
 
     resetDraftFromProfile(profile, { resetMessages: false });
   }, [hasEditedDraft, isSaving, profile, resetDraftFromProfile, userId]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!userId) {
+      setHasReviewedUsername(null);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    readProfileGuidanceFlag(usernameReviewedStorageKey(userId))
+      .then((value) => {
+        if (isActive) {
+          setHasReviewedUsername(value ?? false);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setHasReviewedUsername(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!isDirty && hasEditedDraft) {
@@ -492,6 +527,17 @@ export default function SettingsScreen() {
   const canTogglePush = isPushSupported && !isPushRegistering;
   const isPushToggleOn = isPushSupported && permissionStatus === 'granted' && isPushEnabled;
   const displayPushToggleOn = optimisticPushEnabled ?? isPushToggleOn;
+  const showUsernameGuidance =
+    params.focus === 'username' &&
+    hasReviewedUsername === false &&
+    normalizedCurrentUsername.length > 0 &&
+    validateUsername(normalizedCurrentUsername).isValid;
+  const canKeepCurrentUsername =
+    showUsernameGuidance &&
+    !isDirty &&
+    !isSaving &&
+    !isProfileLoading &&
+    usernameCheckStatus !== 'checking';
 
   const handleTogglePush = useCallback(
     async (nextValue: boolean) => {
@@ -544,6 +590,15 @@ export default function SettingsScreen() {
 
     await WebBrowser.openBrowserAsync(url);
   }, []);
+
+  const markUsernameReviewed = useCallback(async () => {
+    if (!userId) {
+      return;
+    }
+
+    setHasReviewedUsername(true);
+    await writeProfileGuidanceFlag(usernameReviewedStorageKey(userId)).catch(() => undefined);
+  }, [userId]);
 
   const handleOpenConventionRecap = useCallback(
     (recapId: string) => {
@@ -619,6 +674,10 @@ export default function SettingsScreen() {
       setHasEditedDraft(false);
       setSaveMessage('Profile saved');
 
+      if (normalizedUsername && validateUsername(normalizedUsername).isValid) {
+        void markUsernameReviewed();
+      }
+
       // Fire-and-forget: don't block UI on event emission
       void emitGameplayEvent({
         type: 'profile_updated',
@@ -653,6 +712,7 @@ export default function SettingsScreen() {
     profile?.avatar_url,
     profileQueryKey,
     queryClient,
+    markUsernameReviewed,
   ]);
 
   const handlePickAvatar = useCallback(async () => {
@@ -1174,6 +1234,28 @@ export default function SettingsScreen() {
               {avatarError ? <Text style={styles.error}>{avatarError}</Text> : null}
             </View>
             <View style={styles.fieldGroup}>
+              {showUsernameGuidance ? (
+                <View style={styles.usernameGuidance}>
+                  <View style={styles.usernameGuidanceTextBlock}>
+                    <Text style={styles.usernameGuidanceEyebrow}>Next step</Text>
+                    <Text style={styles.usernameGuidanceTitle}>Review your username</Text>
+                    <Text style={styles.usernameGuidanceBody}>
+                      Keep this username if it feels right, or edit it and save your profile.
+                    </Text>
+                  </View>
+                  <TailTagButton
+                    variant="outline"
+                    size="sm"
+                    onPress={() => {
+                      void markUsernameReviewed();
+                    }}
+                    disabled={!canKeepCurrentUsername}
+                    style={styles.keepUsernameButton}
+                  >
+                    Keep this username
+                  </TailTagButton>
+                </View>
+              ) : null}
               <Text style={styles.sectionTitle}>Username</Text>
               <TailTagInput
                 value={usernameInput}

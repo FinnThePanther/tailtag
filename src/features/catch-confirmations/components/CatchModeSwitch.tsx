@@ -13,7 +13,7 @@ type CatchModeSwitchProps = {
 
 export function CatchModeSwitch({ value, onChange, disabled = false }: CatchModeSwitchProps) {
   const [isUpdating, setIsUpdating] = useState(false);
-  const isManualApproval = value === 'MANUAL_APPROVAL';
+  const isAutoCatchingEnabled = value === 'AUTO_ACCEPT';
 
   const handleToggle = useCallback(
     async (newValue: boolean) => {
@@ -23,7 +23,7 @@ export function CatchModeSwitch({ value, onChange, disabled = false }: CatchMode
 
       setIsUpdating(true);
       try {
-        const newMode: CatchMode = newValue ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
+        const newMode: CatchMode = newValue ? 'AUTO_ACCEPT' : 'MANUAL_APPROVAL';
         await onChange(newMode);
       } finally {
         setIsUpdating(false);
@@ -35,32 +35,32 @@ export function CatchModeSwitch({ value, onChange, disabled = false }: CatchMode
   return (
     <View style={styles.container}>
       <View style={styles.textContainer}>
-        <Text style={styles.label}>Require approval for catches</Text>
+        <Text style={styles.label}>Auto-catching</Text>
         <Text style={styles.description}>
-          {isManualApproval
-            ? 'Players must wait for you to approve their catch before it counts.'
-            : 'Catches are recorded instantly without requiring your approval.'}
+          {isAutoCatchingEnabled
+            ? 'Catches are recorded instantly without requiring your approval.'
+            : 'Players must wait for you to approve their catch before it counts.'}
         </Text>
       </View>
       <Switch
-        value={isManualApproval}
+        value={isAutoCatchingEnabled}
         onValueChange={handleToggle}
         disabled={disabled || isUpdating}
         trackColor={{
           false: 'rgba(148,163,184,0.3)',
           true: colors.primaryDark,
         }}
-        thumbColor={isManualApproval ? colors.primary : 'rgba(203,213,225,0.9)'}
+        thumbColor={isAutoCatchingEnabled ? colors.primary : 'rgba(203,213,225,0.9)'}
         ios_backgroundColor="rgba(148,163,184,0.3)"
         accessibilityRole="switch"
-        accessibilityLabel="Require approval for catches"
+        accessibilityLabel="Auto-catching"
         accessibilityHint={
-          isManualApproval
-            ? 'Currently enabled. Players must wait for approval. Toggle to auto-accept catches.'
-            : 'Currently disabled. Catches are recorded instantly. Toggle to require manual approval.'
+          isAutoCatchingEnabled
+            ? 'Currently enabled. Catches are recorded instantly. Toggle to require manual approval.'
+            : 'Currently disabled. Players must wait for approval. Toggle to auto-accept catches.'
         }
         accessibilityState={{
-          checked: isManualApproval,
+          checked: isAutoCatchingEnabled,
           disabled: disabled || isUpdating,
         }}
       />

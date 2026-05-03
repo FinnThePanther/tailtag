@@ -9,7 +9,7 @@ export const styles = StyleSheet.create({
   },
   container: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
   },
@@ -31,8 +31,8 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 15,
   },
-  formStack: {
-    gap: spacing.md,
+  formCard: {
+    gap: spacing.lg,
   },
   fieldGroup: {
     gap: spacing.sm,
@@ -128,6 +128,18 @@ export const styles = StyleSheet.create({
   socialList: {
     gap: spacing.md,
   },
+  makerList: {
+    gap: spacing.sm,
+  },
+  makerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  makerInput: {
+    flex: 1,
+  },
+  makerRemoveButton: {},
   socialRow: {
     flexDirection: 'column',
     gap: spacing.sm,
@@ -181,6 +193,27 @@ export const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
   },
+  askMeAboutSuggestionList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  askMeAboutSuggestionChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primaryMuted,
+  },
+  askMeAboutSuggestionChipPressed: {
+    opacity: 0.75,
+  },
+  askMeAboutSuggestionText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
   buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -199,10 +232,10 @@ export const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   photoRow: {
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   photoPreview: {
-    width: '50%',
+    width: '100%',
     aspectRatio: 1,
     borderRadius: radius.xl,
     borderWidth: 1,
@@ -214,7 +247,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
   },
   photoPlaceholder: {
-    width: '50%',
+    width: '100%',
     aspectRatio: 1,
     borderRadius: radius.xl,
     borderWidth: 1,

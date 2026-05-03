@@ -31,7 +31,7 @@ export {
   createMySuitsQueryOptions,
   createMySuitsCountQueryOptions,
 } from './api/mySuits';
-export type { FursuitSummary, FursuitBio } from './types';
+export type { FursuitSummary, FursuitBio, FursuitMaker } from './types';
 export {
   fetchCaughtSuits,
   CAUGHT_SUITS_QUERY_KEY,
@@ -40,7 +40,13 @@ export {
   createCaughtSuitsQueryOptions,
 } from './api/caughtSuits';
 export type { CaughtRecord } from './api/caughtSuits';
-export { mapFursuitBio, mapLatestFursuitBio, mapFursuitColors } from './api/utils';
+export {
+  mapFursuitBio,
+  mapLatestFursuitBio,
+  mapFursuitColors,
+  mapFursuitMakers,
+} from './api/utils';
+export { fetchFursuitMakersByFursuitIds } from './api/makers';
 export {
   fetchFursuitDetail,
   FURSUIT_DETAIL_QUERY_KEY,

@@ -7,19 +7,31 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../src/features/auth';
 import { createProfileQueryOptions, type ProfileSummary } from '../../src/features/profile';
+import {
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
+  fetchActiveProfileConventionIds,
+} from '../../src/features/conventions';
+import { createMySuitsQueryOptions } from '../../src/features/suits';
 import { ProgressDots } from '../../src/features/onboarding/components/ProgressDots';
 import { WelcomeStep } from '../../src/features/onboarding/components/WelcomeStep';
 import { ConventionStep } from '../../src/features/onboarding/components/ConventionStep';
 import { FursuitStep } from '../../src/features/onboarding/components/FursuitStep';
 import { AchievementStep } from '../../src/features/onboarding/components/AchievementStep';
 import { NotificationsStep } from '../../src/features/onboarding/components/NotificationsStep';
+import {
+  ONBOARDING_STEPS,
+  clearOnboardingProgress,
+  createEmptyFursuitDraft,
+  createInitialOnboardingProgress,
+  loadOnboardingProgress,
+  saveOnboardingProgress,
+  type OnboardingFursuitDraft,
+  type OnboardingStepId,
+} from '../../src/features/onboarding';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/onboarding/index.styles';
 
-const STEPS = ['welcome', 'convention', 'fursuit', 'notifications', 'achievement'] as const;
-type StepId = (typeof STEPS)[number];
-
-const stepIndex = (step: StepId) => STEPS.indexOf(step);
+const stepIndex = (step: OnboardingStepId) => ONBOARDING_STEPS.indexOf(step);
 
 const LoadingView = () => (
   <View style={styles.loadingContainer}>
@@ -35,10 +47,12 @@ export default function OnboardingScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
 
-  const [currentStep, setCurrentStep] = useState<StepId>('welcome');
+  const [currentStep, setCurrentStep] = useState<OnboardingStepId>('welcome');
   const [hasJoinedConvention, setHasJoinedConvention] = useState(false);
   const [hasRegisteredFursuit, setHasRegisteredFursuit] = useState(false);
   const [hasEnabledNotifications, setHasEnabledNotifications] = useState(false);
+  const [fursuitDraft, setFursuitDraft] = useState<OnboardingFursuitDraft>(createEmptyFursuitDraft);
+  const [isHydratingProgress, setIsHydratingProgress] = useState(true);
 
   const profileQueryOptions = useMemo(
     () => (userId ? createProfileQueryOptions(userId) : null),
@@ -53,6 +67,56 @@ export default function OnboardingScreen() {
     enabled: Boolean(userId),
   });
 
+  const { data: existingConventionIds = [] } = useQuery<string[], Error>({
+    queryKey: userId
+      ? [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId]
+      : ['active-conventions', 'guest'],
+    queryFn: () => fetchActiveProfileConventionIds(userId ?? ''),
+    enabled: Boolean(userId),
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
+  const { data: mySuits = [] } = useQuery({
+    ...(userId
+      ? createMySuitsQueryOptions(userId)
+      : {
+          queryKey: ['my-suits', 'guest'],
+          queryFn: async () => [],
+        }),
+    enabled: Boolean(userId),
+  });
+
+  useEffect(() => {
+    if (!userId) {
+      setIsHydratingProgress(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    setIsHydratingProgress(true);
+    void loadOnboardingProgress(userId).then((savedProgress) => {
+      if (!isMounted) {
+        return;
+      }
+
+      const progress = savedProgress ?? createInitialOnboardingProgress();
+      setCurrentStep(progress.currentStep);
+      setHasJoinedConvention(progress.hasJoinedConvention);
+      setHasRegisteredFursuit(progress.hasRegisteredFursuit);
+      setHasEnabledNotifications(progress.hasEnabledNotifications);
+      setFursuitDraft(progress.fursuitDraft);
+      setIsHydratingProgress(false);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
+
   useEffect(() => {
     if (!userId) {
       router.replace('/auth');
@@ -60,25 +124,74 @@ export default function OnboardingScreen() {
     }
 
     if (profile?.onboarding_completed) {
+      void clearOnboardingProgress(userId);
       router.replace('/');
     }
   }, [profile?.onboarding_completed, router, userId]);
 
+  useEffect(() => {
+    if (existingConventionIds.length > 0) {
+      setHasJoinedConvention(true);
+    }
+  }, [existingConventionIds.length]);
+
+  useEffect(() => {
+    if (mySuits.length > 0) {
+      setHasRegisteredFursuit(true);
+    }
+  }, [mySuits.length]);
+
+  useEffect(() => {
+    if (profile?.push_notifications_enabled) {
+      setHasEnabledNotifications(true);
+    }
+  }, [profile?.push_notifications_enabled]);
+
+  useEffect(() => {
+    if (!userId || isHydratingProgress || profile?.onboarding_completed) {
+      return;
+    }
+
+    void saveOnboardingProgress(userId, {
+      currentStep,
+      hasJoinedConvention,
+      hasRegisteredFursuit,
+      hasEnabledNotifications,
+      fursuitDraft,
+    });
+  }, [
+    currentStep,
+    fursuitDraft,
+    hasEnabledNotifications,
+    hasJoinedConvention,
+    hasRegisteredFursuit,
+    isHydratingProgress,
+    profile?.onboarding_completed,
+    userId,
+  ]);
+
   const goToNextStep = useCallback(() => {
     setCurrentStep((current) => {
       const currentIdx = stepIndex(current);
-      const nextIdx = Math.min(currentIdx + 1, STEPS.length - 1);
-      return STEPS[nextIdx];
+      const nextIdx = Math.min(currentIdx + 1, ONBOARDING_STEPS.length - 1);
+      return ONBOARDING_STEPS[nextIdx];
     });
   }, []);
 
   const handleFinish = useCallback(() => {
+    if (userId) {
+      void clearOnboardingProgress(userId);
+    }
     router.replace('/');
-  }, [router]);
+  }, [router, userId]);
 
   const currentIndex = stepIndex(currentStep);
+  const hasJoinedConventionForSummary = hasJoinedConvention || existingConventionIds.length > 0;
+  const hasFursuitForSummary = hasRegisteredFursuit || mySuits.length > 0;
+  const hasEnabledNotificationsForSummary =
+    hasEnabledNotifications || profile?.push_notifications_enabled === true;
 
-  if (!userId) {
+  if (!userId || isHydratingProgress) {
     return <LoadingView />;
   }
 
@@ -95,7 +208,7 @@ export default function OnboardingScreen() {
         <Text style={styles.header}>New player onboarding</Text>
         <ProgressDots
           currentIndex={currentIndex}
-          total={STEPS.length}
+          total={ONBOARDING_STEPS.length}
         />
 
         {currentStep === 'welcome' ? (
@@ -113,28 +226,32 @@ export default function OnboardingScreen() {
           <FursuitStep
             userId={userId}
             onSkip={() => {
-              setHasRegisteredFursuit(false);
+              setHasRegisteredFursuit(mySuits.length > 0);
+              setFursuitDraft(createEmptyFursuitDraft());
               goToNextStep();
             }}
             onComplete={({ created }) => {
               setHasRegisteredFursuit(created);
+              setFursuitDraft(createEmptyFursuitDraft());
               goToNextStep();
             }}
+            draft={fursuitDraft}
+            onDraftChange={setFursuitDraft}
           />
         ) : currentStep === 'notifications' ? (
           <NotificationsStep
             userId={userId}
             onComplete={(enabled) => {
-              setHasEnabledNotifications(enabled);
+              setHasEnabledNotifications(enabled || profile?.push_notifications_enabled === true);
               goToNextStep();
             }}
           />
         ) : (
           <AchievementStep
             userId={userId}
-            hasJoinedConvention={hasJoinedConvention}
-            hasFursuit={hasRegisteredFursuit}
-            hasEnabledNotifications={hasEnabledNotifications}
+            hasJoinedConvention={hasJoinedConventionForSummary}
+            hasFursuit={hasFursuitForSummary}
+            hasEnabledNotifications={hasEnabledNotificationsForSummary}
             onFinish={handleFinish}
           />
         )}

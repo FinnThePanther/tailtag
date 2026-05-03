@@ -3,6 +3,16 @@
 ## Project Structure & Module Organization
 `tailtag` is a TypeScript monorepo. The mobile app lives in `app/` and `src/`. The admin dashboard is in `admin/`, the landing site is in `web/`, shared rule logic is in `packages/achievement-rules/`, and backend work is in `supabase/` with migrations in `supabase/migrations/` and Edge Functions in `supabase/functions/`.
 
+## Product Phase & Decision Bar
+TailTag is past MVP. Current work should target the first beta and near-term V1 release quality, not throwaway prototype behavior. Default design and implementation decisions should optimize for beta/V1 readiness:
+
+- Prefer complete, user-facing flows over temporary MVP shortcuts.
+- Keep UX polished, clear, and resilient for real staging/beta users.
+- Treat onboarding, profile completion, catches, daily tasks, achievements, notifications, and admin moderation as production-facing surfaces.
+- Favor maintainable feature foundations that can ship through beta into V1 without immediate rewrites.
+- Avoid introducing placeholder copy, incomplete states, hidden debug-only behavior, or brittle local-only assumptions unless explicitly scoped as temporary.
+- Preserve release safety: validate changes, keep migrations reversible where practical, and consider OTA/native build implications before changing app/runtime dependencies.
+
 ## Build, Test, and Development Commands
 Use `npm install` at the repo root, then run commands from the relevant app directory.
 
@@ -10,6 +20,8 @@ Use `npm install` at the repo root, then run commands from the relevant app dire
 - `npm run ios` / `npm run android` from the root run native Expo builds locally.
 - `npm run lint` and `npm run typecheck` from the root validate the mobile app.
 - `npm run ci:validate` from the root runs Expo doctor, lint, and type checking together.
+- `npm run gen:types` from the root regenerates Supabase database types in `src/types/database.ts`.
+- `npx supabase gen types typescript --project-id rtxbvjicfxgcouufumce > /tmp/generated-types.ts && python3 scripts/check-types.py /tmp/generated-types.ts` verifies committed database types match the dev schema.
 - `cd admin && npm run dev` starts the admin dashboard.
 - `cd admin && npm run build` or `npm run lint` validates the admin app.
 - `cd web && npm run dev` or `npm run build` runs the Astro landing site.
@@ -51,7 +63,7 @@ Recent history uses short, imperative commit subjects such as `Remove Inngest im
 1. **Mobile app:** Build via EAS (`eas build --profile [profile] --platform [platform]`)
 2. **OTA updates:** Pushes to `dev` auto-publish to the `staging` EAS Update channel; pushes to `main` auto-publish to `production`. The CI splits mobile changes two ways: **JS-only** pushes (`app/`, `src/`, `assets/`, `packages/`, `package.json`, `package-lock.json`) ship via OTA alone when they do not require native project changes. **Native** pushes (`ios/`, `android/`, `app.config.ts`, `eas.json`) trigger both a full EAS Build and an OTA. Runtime version uses the `appVersion` policy, so **native pushes MUST include a `package.json` version bump** — the native version guard fails the workflow otherwise, preventing OTAs that would crash older binaries missing the new native modules. Changes to native-looking packages (`expo-*`, `@expo/*`, `react-native-*`, `@react-native/*`) must include generated native project changes from `expo prebuild` or an intentional EAS skip. Add `[skip eas]` to the merge commit to opt out of both paths and guards.
 3. **Supabase Edge Functions:** `npx supabase functions deploy [function-name]`
-4. **Database changes:** Apply migrations via Supabase CLI or dashboard
+4. **Database changes:** Apply migrations via Supabase CLI or dashboard. After any schema-affecting change (tables, views, functions/RPCs, enums, or generated-type-impacting policy changes), run `npm run gen:types` so `src/types/database.ts` stays in sync. If you believe types do not need to change, verify before finishing with `npx supabase gen types typescript --project-id rtxbvjicfxgcouufumce > /tmp/generated-types.ts && python3 scripts/check-types.py /tmp/generated-types.ts`.
 5. **Achievement rules:** Deploy edge function after updating `/packages/achievement-rules/`
 6. **CI validation:** Ensure `npm run ci:validate` passes before merging to `dev`
 
@@ -59,6 +71,10 @@ Recent history uses short, imperative commit subjects such as `Remove Inngest im
 Unless explicitly stated, all changes, migrations, and Edge Function updates are to go to the **dev environment**:
 - **Supabase Project Ref:** `rtxbvjicfxgcouufumce`
 - **Project URL:** `https://rtxbvjicfxgcouufumce.supabase.co`
+
+For any work that requires database changes, apply those changes to the dev environment using the Supabase CLI or the MCP (Model Context Protocol) tooling if it is already configured for database/migration access. Verify the Supabase CLI or MCP target before pushing migrations or schema changes. Never push database changes to staging or production unless explicitly instructed to do so.
+
+Database changes must leave generated types current before final validation or PR handoff. Prefer `npm run gen:types`, which preserves the manual aliases at the bottom of `src/types/database.ts`; otherwise run the explicit `supabase gen types` plus `scripts/check-types.py` verification command and note why no type update was needed.
 
 Only apply changes to other environments (staging, production) if explicitly instructed or after approval.
 
