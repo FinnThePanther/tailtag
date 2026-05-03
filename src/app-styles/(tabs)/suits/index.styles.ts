@@ -1,6 +1,6 @@
 import { Dimensions, StyleSheet } from 'react-native';
 
-import { colors, spacing } from '../../../theme';
+import { colors, radius, spacing } from '../../../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const IS_SMALL_SCREEN = SCREEN_WIDTH <= 375;
@@ -44,6 +44,64 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
     flex: IS_SMALL_SCREEN ? 0 : 1,
     fontSize: 14,
+  },
+  guidanceCard: {
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySurface,
+  },
+  guidanceEyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  guidanceTitle: {
+    color: colors.foreground,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  guidanceBody: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  guidanceSuitList: {
+    gap: spacing.sm,
+  },
+  guidanceSuitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.surfaceInset,
+    padding: spacing.md,
+  },
+  guidanceSuitRowPressed: {
+    opacity: 0.75,
+  },
+  guidanceSuitTextBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  guidanceSuitName: {
+    color: colors.foreground,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  guidanceSuitMeta: {
+    color: colors.textSubtle,
+    fontSize: 12,
+  },
+  guidanceSuitAction: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   cardSpacing: {
     marginBottom: spacing.lg,

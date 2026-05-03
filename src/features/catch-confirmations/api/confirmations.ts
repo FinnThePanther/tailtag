@@ -32,6 +32,7 @@ export const pendingCatchesQueryKey = (userId: string) =>
 
 // Stale times
 export const PENDING_CATCHES_STALE_TIME = 15 * 1000; // 15 seconds
+const EDGE_FUNCTION_TIMEOUT_MS = 15 * 1000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -255,9 +256,9 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
     throw new Error('Supabase configuration not set.');
   }
 
-  // Create AbortController for 5-second timeout
+  // Edge Functions can commit the catch before slower notification/achievement work finishes.
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), EDGE_FUNCTION_TIMEOUT_MS);
 
   try {
     const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
@@ -372,10 +373,11 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
 
     // Handle timeout/abort
     if (error instanceof Error && error.name === 'AbortError') {
-      captureFeatureError(new Error('Create catch request timed out after 5 seconds'), {
+      captureFeatureError(new Error('Create catch request timed out'), {
         scope: 'catch-confirmations.createCatch',
         action: 'timeout',
         fursuitId: params.fursuitId,
+        timeoutMs: EDGE_FUNCTION_TIMEOUT_MS,
       });
       throw new Error('The request took too long. Please check your connection and try again.');
     }
@@ -407,7 +409,7 @@ export async function updateCatchPhoto(
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), EDGE_FUNCTION_TIMEOUT_MS);
 
   try {
     const resolvedPhotoUrl =

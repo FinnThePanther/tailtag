@@ -162,6 +162,18 @@ export const styles = StyleSheet.create({
   socialList: {
     gap: spacing.md,
   },
+  makerList: {
+    gap: spacing.sm,
+  },
+  makerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  makerInput: {
+    flex: 1,
+  },
+  makerRemoveButton: {},
   socialRow: {
     flexDirection: 'column',
     gap: spacing.sm,

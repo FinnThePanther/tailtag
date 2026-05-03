@@ -920,6 +920,51 @@ export type Database = {
           },
         ]
       }
+      fursuit_makers: {
+        Row: {
+          created_at: string
+          fursuit_id: string
+          id: string
+          maker_name: string
+          normalized_maker_name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fursuit_id: string
+          id?: string
+          maker_name: string
+          normalized_maker_name: string
+          position: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fursuit_id?: string
+          id?: string
+          maker_name?: string
+          normalized_maker_name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fursuit_makers_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fursuit_makers_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fursuit_species: {
         Row: {
           created_at: string
@@ -1961,6 +2006,14 @@ export type Database = {
         }
         Returns: number
       }
+      count_distinct_makers_caught_at_convention: {
+        Args: { p_catcher_id: string; p_convention_id: string }
+        Returns: number
+      }
+      count_distinct_self_made_fursuits_caught: {
+        Args: { p_catcher_id: string; p_self_made_aliases: string[] }
+        Returns: number
+      }
       count_distinct_species_caught: {
         Args: { user_id: string }
         Returns: number
@@ -2211,6 +2264,15 @@ export type Database = {
         Returns: Database["public"]["Enums"]["user_role"]
       }
       grant_achievements_batch: { Args: { awards: Json }; Returns: Json }
+      has_new_maker_for_catcher_at_convention: {
+        Args: {
+          p_catch_id: string
+          p_catcher_id: string
+          p_convention_id: string
+          p_normalized_maker_names: string[]
+        }
+        Returns: boolean
+      }
       has_visible_gameplay_event_queue_messages: {
         Args: never
         Returns: boolean
@@ -2314,6 +2376,10 @@ export type Database = {
       refresh_analytics_views: { Args: never; Returns: undefined }
       refresh_fursuit_popularity: {
         Args: { convention_uuid?: string }
+        Returns: undefined
+      }
+      replace_fursuit_makers: {
+        Args: { fursuit_id: string; makers?: Json }
         Returns: undefined
       }
       search_players: {
@@ -2540,6 +2606,7 @@ export type FursuitSocialLink = {
 export type FursuitsRow = Database['public']['Tables']['fursuits']['Row'];
 export type FursuitsInsert = Database['public']['Tables']['fursuits']['Insert'];
 export type FursuitBiosInsert = Database['public']['Tables']['fursuit_bios']['Insert'];
+export type FursuitMakersInsert = Database['public']['Tables']['fursuit_makers']['Insert'];
 export type ConventionStatus = Database['public']['Tables']['conventions']['Row']['status'];
 export type ConventionParticipantRecapRow =
   Database['public']['Tables']['convention_participant_recaps']['Row'];

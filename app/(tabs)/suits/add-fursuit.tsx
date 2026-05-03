@@ -53,7 +53,12 @@ import { ConventionToggle } from '../../../src/components/conventions/Convention
 import { createProfileQueryOptions } from '../../../src/features/profile';
 import { emitGameplayEvent } from '../../../src/features/events';
 import { DAILY_TASKS_QUERY_KEY } from '../../../src/features/daily-tasks/hooks';
-import type { FursuitBiosInsert, FursuitsInsert, Json } from '../../../src/types/database';
+import type {
+  FursuitBiosInsert,
+  FursuitMakersInsert,
+  FursuitsInsert,
+  Json,
+} from '../../../src/types/database';
 import {
   ALLOWED_SOCIAL_PLATFORMS,
   CUSTOM_PLATFORM_ID,
@@ -63,6 +68,14 @@ import {
   socialLinksToSave,
 } from '../../../src/features/suits/forms/socialLinks';
 import type { EditableSocialLink } from '../../../src/features/suits/forms/socialLinks';
+import {
+  createEmptyFursuitMaker,
+  createInitialFursuitMakers,
+  FURSUIT_MAKER_LIMIT,
+  fursuitMakersToSave,
+  hasDuplicateFursuitMakers,
+  type EditableFursuitMaker,
+} from '../../../src/features/suits/forms/makers';
 import { styles } from '../../../src/app-styles/(tabs)/suits/add-fursuit.styles';
 
 type UploadCandidate = {
@@ -132,6 +145,7 @@ export default function AddFursuitScreen() {
   const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
   const [likesInput, setLikesInput] = useState('');
   const [askMeAboutInput, setAskMeAboutInput] = useState('');
+  const [makers, setMakers] = useState<EditableFursuitMaker[]>(() => createInitialFursuitMakers());
   const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(() =>
     createInitialSocialLinks(),
   );
@@ -248,6 +262,7 @@ export default function AddFursuitScreen() {
     () => socialLinks.length < SOCIAL_LINK_LIMIT,
     [socialLinks.length],
   );
+  const makersCanAddMore = useMemo(() => makers.length < FURSUIT_MAKER_LIMIT, [makers.length]);
 
   const profileConventionIdSet = useMemo(
     () => new Set(profileConventionIds),
@@ -413,6 +428,7 @@ export default function AddFursuitScreen() {
     const trimmedAskMeAbout = askMeAboutInput.trim();
     const normalizedSpeciesValue = normalizeSpeciesName(trimmedSpecies);
     const normalizedSocialLinks = socialLinksToSave(socialLinks);
+    const normalizedMakers = fursuitMakersToSave(makers);
     const selectedColorIds = selectedColors.map((color) => color.id);
 
     if (!trimmedName) {
@@ -432,6 +448,16 @@ export default function AddFursuitScreen() {
 
     if (selectedColorIds.length > MAX_FURSUIT_COLORS) {
       setSubmitError('You can choose up to three colors. Remove one to add another.');
+      return;
+    }
+
+    if (normalizedMakers.length > FURSUIT_MAKER_LIMIT) {
+      setSubmitError(`You can add up to ${FURSUIT_MAKER_LIMIT} fursuit makers.`);
+      return;
+    }
+
+    if (hasDuplicateFursuitMakers(normalizedMakers)) {
+      setSubmitError('Remove duplicate fursuit maker names before saving.');
       return;
     }
 
@@ -558,6 +584,21 @@ export default function AddFursuitScreen() {
         }
       }
 
+      if (normalizedMakers.length > 0) {
+        const makerPayload: FursuitMakersInsert[] = normalizedMakers.map((maker) => ({
+          fursuit_id: createdFursuitId!,
+          ...maker,
+        }));
+
+        const { error: makerError } = await (supabase as any)
+          .from('fursuit_makers')
+          .insert(makerPayload);
+
+        if (makerError) {
+          throw makerError;
+        }
+      }
+
       if (allowedConventionIds.length > 0) {
         await Promise.all(
           allowedConventionIds.map((conventionId) =>
@@ -589,6 +630,7 @@ export default function AddFursuitScreen() {
       setSelectedPronouns([]);
       setLikesInput('');
       setAskMeAboutInput('');
+      setMakers(createInitialFursuitMakers());
       setSocialLinks(createInitialSocialLinks());
       setCatchMode('AUTO_ACCEPT');
       setSelectedConventionIds(new Set(activeProfileConventionIds));
@@ -672,6 +714,24 @@ export default function AddFursuitScreen() {
     setSocialLinks((current) => {
       const next = current.filter((entry) => entry.id !== id);
       return next.length > 0 ? next : [createEmptySocialLink()];
+    });
+  };
+
+  const handleMakerNameChange = useCallback((id: string, value: string) => {
+    setMakers((current) =>
+      current.map((entry) => (entry.id === id ? { ...entry, name: value } : entry)),
+    );
+  }, []);
+
+  const handleAddMaker = () => {
+    if (!makersCanAddMore) return;
+    setMakers((current) => [...current, createEmptyFursuitMaker()]);
+  };
+
+  const handleRemoveMaker = (id: string) => {
+    setMakers((current) => {
+      const next = current.filter((entry) => entry.id !== id);
+      return next.length > 0 ? next : [createEmptyFursuitMaker()];
     });
   };
 
@@ -886,6 +946,53 @@ export default function AddFursuitScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Fursuit Maker</Text>
+            <Text style={styles.helperLabel}>
+              Add the maker names catchers should see. You can add more than one.
+            </Text>
+            <View style={styles.makerList}>
+              {makers.map((maker, index) => (
+                <View
+                  key={maker.id}
+                  style={styles.makerRow}
+                >
+                  <TailTagInput
+                    value={maker.name}
+                    onChangeText={(value) => handleMakerNameChange(maker.id, value)}
+                    placeholder={index === 0 ? 'Maker name' : 'Another maker'}
+                    editable={!isSubmitting}
+                    returnKeyType={index === makers.length - 1 ? 'done' : 'next'}
+                    style={styles.makerInput}
+                  />
+                  <TailTagButton
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => handleRemoveMaker(maker.id)}
+                    disabled={isSubmitting}
+                    style={styles.makerRemoveButton}
+                  >
+                    Remove
+                  </TailTagButton>
+                </View>
+              ))}
+            </View>
+            {makersCanAddMore ? (
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={handleAddMaker}
+                disabled={isSubmitting}
+              >
+                Add another maker
+              </TailTagButton>
+            ) : (
+              <Text style={styles.helperLabel}>
+                You can add up to {FURSUIT_MAKER_LIMIT} makers.
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.fieldGroup}>
             <Text style={styles.label}>Fursuit Pronouns</Text>
             <Text style={styles.helperLabel}>Select all pronouns that fit your fursuit.</Text>
             <View style={styles.pronounChipList}>
@@ -914,20 +1021,6 @@ export default function AddFursuitScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Likes & interests</Text>
-            <TailTagInput
-              value={likesInput}
-              onChangeText={setLikesInput}
-              placeholder="Games, hobbies, music - whatever makes you light up"
-              editable={!isSubmitting}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              style={styles.textArea}
-            />
-          </View>
-
-          <View style={styles.fieldGroup}>
             <Text style={styles.label}>Ask me about...</Text>
             <TailTagInput
               value={askMeAboutInput}
@@ -936,6 +1029,29 @@ export default function AddFursuitScreen() {
               editable={!isSubmitting}
               multiline
               numberOfLines={2}
+              textAlignVertical="top"
+              style={styles.textArea}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Catch settings</Text>
+            <CatchModeSwitch
+              value={catchMode}
+              onChange={setCatchMode}
+              disabled={isSubmitting}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Likes & interests</Text>
+            <TailTagInput
+              value={likesInput}
+              onChangeText={setLikesInput}
+              placeholder="Games, hobbies, music - whatever makes you light up"
+              editable={!isSubmitting}
+              multiline
+              numberOfLines={3}
               textAlignVertical="top"
               style={styles.textArea}
             />
@@ -1088,15 +1204,6 @@ export default function AddFursuitScreen() {
             ) : (
               <Text style={styles.helperLabel}>You can add up to {SOCIAL_LINK_LIMIT} links.</Text>
             )}
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Catch settings</Text>
-            <CatchModeSwitch
-              value={catchMode}
-              onChange={setCatchMode}
-              disabled={isSubmitting}
-            />
           </View>
 
           <View style={styles.fieldGroup}>
