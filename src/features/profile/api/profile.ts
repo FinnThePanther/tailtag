@@ -7,7 +7,7 @@ import {
   resolveStorageMediaUrl,
 } from '../../../utils/supabase-image';
 import type { FursuitPhotoCandidate } from '../../onboarding/api/onboarding';
-import type { FursuitSocialLink } from '../../../types/database';
+import type { Database, FursuitSocialLink } from '../../../types/database';
 import {
   buildGeneratedUsername,
   normalizeUsernameInput,
@@ -16,6 +16,25 @@ import {
 } from '../usernameRules';
 
 type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
+export type CatchMode = Database['public']['Enums']['catch_mode'];
+export type CatchModePreferenceSource =
+  | 'system_default'
+  | 'migrated_from_suits'
+  | 'experiment_default'
+  | 'user_selected';
+
+export type CatchModeExperimentAssignment = {
+  experimentKey: string;
+  variant: 'auto_default' | 'manual_default';
+  profileId: string;
+  previousCatchMode: CatchMode;
+  currentCatchMode: CatchMode;
+  previousPreferenceSource: CatchModePreferenceSource;
+  currentPreferenceSource: CatchModePreferenceSource;
+  assignmentCreated: boolean;
+  defaultApplied: boolean;
+  exposedAt: string;
+};
 
 export type ProfileSummary = {
   username: string | null;
@@ -23,6 +42,8 @@ export type ProfileSummary = {
   avatar_path?: string | null;
   avatar_url: string | null;
   social_links: FursuitSocialLink[];
+  default_catch_mode: CatchMode;
+  catch_mode_preference_source: CatchModePreferenceSource;
   is_new: boolean;
   onboarding_completed: boolean;
   role?: UserRole;
@@ -41,8 +62,22 @@ export const profileQueryKey = (userId: string) => [PROFILE_QUERY_KEY, userId] a
 // Stable columns that have always existed — used as fallback when new columns aren't migrated yet.
 const STABLE_COLUMNS =
   'username, bio, is_new, onboarding_completed, role, push_notifications_enabled, push_notifications_prompted';
-const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, avatar_path, social_links, is_suspended, suspended_until, suspension_reason`;
+const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, avatar_path, social_links, default_catch_mode, catch_mode_preference_source, is_suspended, suspended_until, suspension_reason`;
 const NEW_USER_PROFILE_RETRY_DELAYS_MS = [150, 500] as const;
+
+const normalizeCatchMode = (value: unknown): CatchMode =>
+  value === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
+
+const normalizeCatchModePreferenceSource = (value: unknown): CatchModePreferenceSource => {
+  switch (value) {
+    case 'migrated_from_suits':
+    case 'experiment_default':
+    case 'user_selected':
+      return value;
+    default:
+      return 'system_default';
+  }
+};
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -134,6 +169,10 @@ function mapProfileData(data: any, overrides: Partial<ProfileSummary> = {}): Pro
     social_links: Array.isArray(data.social_links)
       ? (data.social_links as FursuitSocialLink[])
       : [],
+    default_catch_mode: normalizeCatchMode(data.default_catch_mode),
+    catch_mode_preference_source: normalizeCatchModePreferenceSource(
+      data.catch_mode_preference_source,
+    ),
     is_new: data.is_new === true,
     onboarding_completed: data.onboarding_completed === true,
     role: data.role ?? undefined,
@@ -253,6 +292,56 @@ export async function updateProfileSocialLinks(
   if (error) {
     throw new Error(`Could not save social links: ${error.message}`);
   }
+}
+
+export async function updateProfileCatchMode(userId: string, catchMode: CatchMode): Promise<void> {
+  const { error } = await (supabase as any)
+    .from('profiles')
+    .update({
+      default_catch_mode: catchMode,
+      catch_mode_preference_source: 'user_selected',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId);
+
+  if (error) {
+    throw new Error(`Could not save catch settings: ${error.message}`);
+  }
+}
+
+function mapCatchModeExperimentAssignment(raw: any): CatchModeExperimentAssignment {
+  return {
+    experimentKey: String(raw.experiment_key ?? 'catch_mode_default_v1'),
+    variant: raw.variant === 'manual_default' ? 'manual_default' : 'auto_default',
+    profileId: String(raw.profile_id ?? ''),
+    previousCatchMode: normalizeCatchMode(raw.previous_catch_mode),
+    currentCatchMode: normalizeCatchMode(raw.current_catch_mode),
+    previousPreferenceSource: normalizeCatchModePreferenceSource(raw.previous_preference_source),
+    currentPreferenceSource: normalizeCatchModePreferenceSource(raw.current_preference_source),
+    assignmentCreated: raw.assignment_created === true,
+    defaultApplied: raw.default_applied === true,
+    exposedAt:
+      typeof raw.exposed_at === 'string' && raw.exposed_at.length > 0
+        ? raw.exposed_at
+        : new Date().toISOString(),
+  };
+}
+
+export async function getOrAssignCatchModeDefaultExperiment(): Promise<CatchModeExperimentAssignment | null> {
+  const { data, error } = await (supabase as any).rpc(
+    'get_or_assign_catch_mode_default_experiment',
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    return null;
+  }
+
+  return mapCatchModeExperimentAssignment(row);
 }
 
 export async function checkUsernameAvailability(

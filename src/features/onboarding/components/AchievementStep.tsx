@@ -40,15 +40,15 @@ export function AchievementStep({
     try {
       await completeOnboarding(userId);
 
-      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey(userId), (current) => ({
-        username: current?.username ?? null,
-        bio: current?.bio ?? null,
-        avatar_url: current?.avatar_url ?? null,
-        social_links: current?.social_links ?? [],
-        onboarding_completed: true,
-        is_new: false,
-        role: current?.role,
-      }));
+      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey(userId), (current) =>
+        current
+          ? {
+              ...current,
+              onboarding_completed: true,
+              is_new: false,
+            }
+          : current,
+      );
 
       await queryClient.invalidateQueries({
         queryKey: profileQueryKey(userId),

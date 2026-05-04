@@ -3,7 +3,7 @@
  * Supabase Edge Function: create-catch
  *
  * Handles catch creation with approval mode support.
- * Creates catches with appropriate status based on fursuit settings.
+ * Creates catches with appropriate status based on the owner's profile settings.
  */
 
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
@@ -383,7 +383,8 @@ async function handlePost(req: Request): Promise<Response> {
       }
     }
 
-    // Call the create_catch_with_approval function
+    // Call the create_catch_with_approval function. The RPC reads the fursuit owner's
+    // profile-level catch mode preference.
     const { data, error } = await supabaseAdmin.rpc('create_catch_with_approval', {
       p_fursuit_id: body.fursuit_id,
       p_catcher_id: userId,
