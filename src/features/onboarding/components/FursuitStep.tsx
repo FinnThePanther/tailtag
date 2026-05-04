@@ -26,8 +26,14 @@ import {
   fetchActiveProfileConventionIds,
 } from '../../conventions';
 import { captureHandledException } from '../../../lib/sentry';
+import { emitGameplayEvent } from '../../events';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { colors } from '../../../theme';
+import {
+  getOrAssignCatchModeDefaultExperiment,
+  PROFILE_QUERY_KEY,
+  type ProfileSummary,
+} from '../../profile';
 import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
@@ -171,6 +177,80 @@ export function FursuitStep({
         .filter((option): option is FursuitColorOption => Boolean(option)),
     [colorOptions, selectedColorIds],
   );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const exposeCatchModeExperiment = async () => {
+      try {
+        const assignment = await getOrAssignCatchModeDefaultExperiment();
+
+        if (!isMounted || !assignment) {
+          return;
+        }
+
+        queryClient.setQueryData<ProfileSummary | null>([PROFILE_QUERY_KEY, userId], (current) =>
+          current
+            ? {
+                ...current,
+                default_catch_mode: assignment.currentCatchMode,
+                catch_mode_preference_source: assignment.currentPreferenceSource,
+              }
+            : current,
+        );
+
+        const commonPayload = {
+          experiment_key: assignment.experimentKey,
+          variant: assignment.variant,
+          previous_catch_mode: assignment.previousCatchMode,
+          current_catch_mode: assignment.currentCatchMode,
+          previous_preference_source: assignment.previousPreferenceSource,
+          preference_source: assignment.currentPreferenceSource,
+          default_applied: assignment.defaultApplied,
+          source: 'onboarding_fursuit',
+        };
+
+        if (assignment.assignmentCreated) {
+          void emitGameplayEvent({
+            type: 'experiment_assigned',
+            payload: commonPayload,
+            occurredAt: assignment.exposedAt,
+            idempotencyKey: `${assignment.experimentKey}:${userId}:assigned`,
+          });
+        }
+
+        void emitGameplayEvent({
+          type: 'experiment_exposed',
+          payload: commonPayload,
+          occurredAt: assignment.exposedAt,
+          idempotencyKey: `${assignment.experimentKey}:${userId}:exposed:${assignment.exposedAt}`,
+        });
+
+        if (assignment.defaultApplied) {
+          void emitGameplayEvent({
+            type: 'catch_mode_default_applied',
+            payload: {
+              ...commonPayload,
+              new_catch_mode: assignment.currentCatchMode,
+            },
+            occurredAt: assignment.exposedAt,
+            idempotencyKey: `${assignment.experimentKey}:${userId}:default-applied`,
+          });
+        }
+      } catch (error) {
+        captureHandledException(error, {
+          scope: 'onboarding.fursuitStep.catchModeExperiment',
+          userId,
+        });
+      }
+    };
+
+    void exposeCatchModeExperiment();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [queryClient, userId]);
 
   useEffect(() => {
     onDraftChange({

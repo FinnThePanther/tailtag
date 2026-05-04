@@ -756,6 +756,51 @@ export type Database = {
           },
         ]
       }
+      experiment_assignments: {
+        Row: {
+          assigned_at: string
+          created_at: string
+          default_applied_at: string | null
+          experiment_key: string
+          exposure_count: number
+          first_exposed_at: string | null
+          last_exposed_at: string | null
+          metadata: Json
+          subject_id: string
+          subject_type: string
+          updated_at: string
+          variant: string
+        }
+        Insert: {
+          assigned_at?: string
+          created_at?: string
+          default_applied_at?: string | null
+          experiment_key: string
+          exposure_count?: number
+          first_exposed_at?: string | null
+          last_exposed_at?: string | null
+          metadata?: Json
+          subject_id: string
+          subject_type: string
+          updated_at?: string
+          variant: string
+        }
+        Update: {
+          assigned_at?: string
+          created_at?: string
+          default_applied_at?: string | null
+          experiment_key?: string
+          exposure_count?: number
+          first_exposed_at?: string | null
+          last_exposed_at?: string | null
+          metadata?: Json
+          subject_id?: string
+          subject_type?: string
+          updated_at?: string
+          variant?: string
+        }
+        Relationships: []
+      }
       fursuit_bios: {
         Row: {
           ask_me_about: string
@@ -1145,6 +1190,7 @@ export type Database = {
           avatar_path: string | null
           avatar_url: string | null
           bio: string | null
+          catch_mode_preference_source: string
           created_at: string | null
           default_catch_mode: string
           expo_push_token: string | null
@@ -1168,6 +1214,7 @@ export type Database = {
           avatar_path?: string | null
           avatar_url?: string | null
           bio?: string | null
+          catch_mode_preference_source?: string
           created_at?: string | null
           default_catch_mode?: string
           expo_push_token?: string | null
@@ -1191,6 +1238,7 @@ export type Database = {
           avatar_path?: string | null
           avatar_url?: string | null
           bio?: string | null
+          catch_mode_preference_source?: string
           created_at?: string | null
           default_catch_mode?: string
           expo_push_token?: string | null
@@ -1768,6 +1816,24 @@ export type Database = {
       }
     }
     Views: {
+      catch_mode_default_experiment_results: {
+        Row: {
+          accepted_catches_after_exposure: number | null
+          assigned_profiles: number | null
+          catches_after_exposure: number | null
+          current_auto_profiles: number | null
+          current_manual_profiles: number | null
+          defaults_applied: number | null
+          experiment_key: string | null
+          exposed_profiles: number | null
+          fursuits_created_after_exposure: number | null
+          pending_catches_after_exposure: number | null
+          switch_away_rate: number | null
+          switched_away_profiles: number | null
+          variant: string | null
+        }
+        Relationships: []
+      }
       fursuits_moderation: {
         Row: {
           created_at: string | null
@@ -2234,6 +2300,21 @@ export type Database = {
           summary: Json
           unique_catchers_for_own_fursuits_count: number
           unique_fursuits_caught_count: number
+        }[]
+      }
+      get_or_assign_catch_mode_default_experiment: {
+        Args: never
+        Returns: {
+          assignment_created: boolean
+          current_catch_mode: string
+          current_preference_source: string
+          default_applied: boolean
+          experiment_key: string
+          exposed_at: string
+          previous_catch_mode: string
+          previous_preference_source: string
+          profile_id: string
+          variant: string
         }[]
       }
       get_pending_catch_count: { Args: { p_user_id: string }; Returns: number }

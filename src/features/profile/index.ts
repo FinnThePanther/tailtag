@@ -3,6 +3,8 @@ export {
   uploadProfileAvatar,
   updateProfileAvatar,
   updateProfileSocialLinks,
+  updateProfileCatchMode,
+  getOrAssignCatchModeDefaultExperiment,
   hasUploadedProfileAvatar,
   checkUsernameAvailability,
   PROFILE_QUERY_KEY,
@@ -20,5 +22,10 @@ export {
   toValidUsernameOrNull,
   buildGeneratedUsername,
 } from './usernameRules';
-export type { ProfileSummary } from './api/profile';
+export type {
+  CatchMode,
+  CatchModeExperimentAssignment,
+  CatchModePreferenceSource,
+  ProfileSummary,
+} from './api/profile';
 export type { UsernameValidationCode, UsernameValidationResult } from './usernameRules';

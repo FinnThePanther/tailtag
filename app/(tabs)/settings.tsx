@@ -55,13 +55,15 @@ import {
   normalizeUsernameInput,
   USERNAME_MAX_LENGTH,
   uploadProfileAvatar,
+  updateProfileCatchMode,
   updateProfileAvatar,
   updateProfileSocialLinks,
   validateUsername,
   PROFILE_QUERY_KEY,
   PROFILE_STALE_TIME,
 } from '../../src/features/profile';
-import type { ProfileSummary } from '../../src/features/profile';
+import type { CatchMode, ProfileSummary } from '../../src/features/profile';
+import { CatchModeSwitch } from '../../src/features/catch-confirmations';
 import type { FursuitPhotoCandidate } from '../../src/features/onboarding/api/onboarding';
 import type { EditableSocialLink } from '../../src/features/suits/forms/socialLinks';
 import {
@@ -223,6 +225,9 @@ export default function SettingsScreen() {
   const [isSavingSocialLinks, setIsSavingSocialLinks] = useState(false);
   const [socialLinksError, setSocialLinksError] = useState<string | null>(null);
   const [socialLinksMessage, setSocialLinksMessage] = useState<string | null>(null);
+  const [isSavingCatchMode, setIsSavingCatchMode] = useState(false);
+  const [catchModeError, setCatchModeError] = useState<string | null>(null);
+  const [catchModeMessage, setCatchModeMessage] = useState<string | null>(null);
   const [hasHydratedSocialLinks, setHasHydratedSocialLinks] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -665,6 +670,8 @@ export default function SettingsScreen() {
               avatar_path: null,
               avatar_url: null,
               social_links: [],
+              default_catch_mode: 'AUTO_ACCEPT',
+              catch_mode_preference_source: 'system_default',
               is_new: false,
               onboarding_completed: false,
             },
@@ -780,6 +787,73 @@ export default function SettingsScreen() {
       setIsUploadingAvatar(false);
     }
   }, [userId, isUploadingAvatar, profile?.bio, profile?.username, profileQueryKey, queryClient]);
+
+  const handleCatchModeChange = useCallback(
+    async (nextCatchMode: CatchMode) => {
+      if (!userId || isSavingCatchMode) {
+        return;
+      }
+
+      const previousCatchMode = profile?.default_catch_mode ?? 'AUTO_ACCEPT';
+      if (previousCatchMode === nextCatchMode) {
+        return;
+      }
+
+      setIsSavingCatchMode(true);
+      setCatchModeError(null);
+      setCatchModeMessage(null);
+
+      try {
+        await updateProfileCatchMode(userId, nextCatchMode);
+
+        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+          current
+            ? {
+                ...current,
+                default_catch_mode: nextCatchMode,
+                catch_mode_preference_source: 'user_selected',
+              }
+            : current,
+        );
+
+        setCatchModeMessage('Catch settings saved');
+
+        void emitGameplayEvent({
+          type: 'profile_catch_mode_changed',
+          payload: {
+            previous_catch_mode: previousCatchMode,
+            new_catch_mode: nextCatchMode,
+            previous_preference_source: profile?.catch_mode_preference_source ?? 'system_default',
+            preference_source: 'user_selected',
+            source: 'settings',
+          },
+          idempotencyKey: `profile-catch-mode:${userId}:${Date.now()}`,
+        }).catch((error) => {
+          captureHandledException(error, {
+            scope: 'settings.handleCatchModeChange.event',
+            userId,
+          });
+        });
+      } catch (caught) {
+        setCatchModeError(
+          caught instanceof Error ? caught.message : 'Could not save catch settings. Try again.',
+        );
+        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+          current ? { ...current, default_catch_mode: previousCatchMode } : current,
+        );
+      } finally {
+        setIsSavingCatchMode(false);
+      }
+    },
+    [
+      userId,
+      isSavingCatchMode,
+      profile?.default_catch_mode,
+      profile?.catch_mode_preference_source,
+      profileQueryKey,
+      queryClient,
+    ],
+  );
 
   const socialLinksCanAddMore = socialLinks.length < SOCIAL_LINK_LIMIT;
 
@@ -1300,6 +1374,17 @@ export default function SettingsScreen() {
                 style={styles.bioInput}
                 placeholder="Share species, favorite cons, or a quick hello."
               />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.sectionTitle}>Catch settings</Text>
+              <CatchModeSwitch
+                value={profile?.default_catch_mode ?? 'AUTO_ACCEPT'}
+                onChange={handleCatchModeChange}
+                disabled={isProfileLoading || isSavingCatchMode}
+                scope="profile"
+              />
+              {catchModeError ? <Text style={styles.error}>{catchModeError}</Text> : null}
+              {catchModeMessage ? <Text style={styles.success}>{catchModeMessage}</Text> : null}
             </View>
             {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
             <TailTagButton
