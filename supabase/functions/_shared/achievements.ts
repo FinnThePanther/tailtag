@@ -758,7 +758,7 @@ async function evaluateConventionAchievements(
       typeof metadata?.sourceAchievementKey === 'string' ? metadata.sourceAchievementKey : null;
 
     if (sourceAchievementKey) {
-      if (triggerEvent === 'convention_joined') {
+      if (triggerEvent === 'convention_joined' && sourceAchievementKey === 'EXPLORER') {
         continue;
       }
 
