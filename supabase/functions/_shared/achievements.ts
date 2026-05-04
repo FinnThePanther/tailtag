@@ -758,12 +758,15 @@ async function evaluateConventionAchievements(
       typeof metadata?.sourceAchievementKey === 'string' ? metadata.sourceAchievementKey : null;
 
     if (sourceAchievementKey) {
-      if (triggerEvent === 'convention_joined' && sourceAchievementKey === 'EXPLORER') {
-        continue;
-      }
-
       for (const sourceAward of sourceAwards) {
         if (sourceAward.achievementKey !== sourceAchievementKey) continue;
+        if (
+          triggerEvent === 'convention_joined' &&
+          sourceAchievementKey === 'EXPLORER' &&
+          sourceAward.userId === (context as SimpleEventContext).userId
+        ) {
+          continue;
+        }
         candidates.push({
           achievementKey: row.key,
           userId: sourceAward.userId,
