@@ -40,17 +40,15 @@ export function AchievementStep({
     try {
       await completeOnboarding(userId);
 
-      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey(userId), (current) => ({
-        username: current?.username ?? null,
-        bio: current?.bio ?? null,
-        avatar_url: current?.avatar_url ?? null,
-        social_links: current?.social_links ?? [],
-        default_catch_mode: current?.default_catch_mode ?? 'AUTO_ACCEPT',
-        catch_mode_preference_source: current?.catch_mode_preference_source ?? 'system_default',
-        onboarding_completed: true,
-        is_new: false,
-        role: current?.role,
-      }));
+      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey(userId), (current) =>
+        current
+          ? {
+              ...current,
+              onboarding_completed: true,
+              is_new: false,
+            }
+          : current,
+      );
 
       await queryClient.invalidateQueries({
         queryKey: profileQueryKey(userId),

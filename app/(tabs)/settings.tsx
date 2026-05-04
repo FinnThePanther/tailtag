@@ -795,6 +795,7 @@ export default function SettingsScreen() {
       }
 
       const previousCatchMode = profile?.default_catch_mode ?? 'AUTO_ACCEPT';
+      const previousPreferenceSource = profile?.catch_mode_preference_source ?? 'system_default';
       if (previousCatchMode === nextCatchMode) {
         return;
       }
@@ -839,7 +840,13 @@ export default function SettingsScreen() {
           caught instanceof Error ? caught.message : 'Could not save catch settings. Try again.',
         );
         queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
-          current ? { ...current, default_catch_mode: previousCatchMode } : current,
+          current
+            ? {
+                ...current,
+                default_catch_mode: previousCatchMode,
+                catch_mode_preference_source: previousPreferenceSource,
+              }
+            : current,
         );
       } finally {
         setIsSavingCatchMode(false);
