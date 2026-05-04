@@ -760,6 +760,13 @@ async function evaluateConventionAchievements(
     if (sourceAchievementKey) {
       for (const sourceAward of sourceAwards) {
         if (sourceAward.achievementKey !== sourceAchievementKey) continue;
+        if (
+          triggerEvent === 'convention_joined' &&
+          sourceAchievementKey === 'EXPLORER' &&
+          sourceAward.userId === (context as SimpleEventContext).userId
+        ) {
+          continue;
+        }
         candidates.push({
           achievementKey: row.key,
           userId: sourceAward.userId,
@@ -846,16 +853,46 @@ async function insertNotificationsForAwards(
   results: RpcAwardResult[],
 ) {
   const notifications: NotificationInsert[] = [];
+  const awardedAchievementIds = Array.from(
+    new Set(
+      results
+        .filter((summary) => summary.awarded && summary.achievement_id)
+        .map((summary) => summary.achievement_id as string),
+    ),
+  );
+  const achievementNamesById = new Map<string, string>();
+
+  if (awardedAchievementIds.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from('achievements')
+      .select('id, name')
+      .in('id', awardedAchievementIds);
+
+    if (error) {
+      console.error('[events-ingress] Failed resolving achievement notification names', { error });
+    } else {
+      for (const row of data ?? []) {
+        const achievementId = typeof row.id === 'string' ? row.id : null;
+        const achievementName = typeof row.name === 'string' ? row.name.trim() : '';
+        if (achievementId && achievementName.length > 0) {
+          achievementNamesById.set(achievementId, achievementName);
+        }
+      }
+    }
+  }
+
   for (const summary of results) {
     if (!summary.awarded || !summary.achievement_id) {
       continue;
     }
+    const achievementName = achievementNamesById.get(summary.achievement_id) ?? null;
     notifications.push({
       user_id: summary.user_id,
       type: 'achievement_awarded',
       payload: {
         achievement_id: summary.achievement_id,
         achievement_key: summary.achievement_key,
+        achievement_name: achievementName,
         awarded_at: summary.awarded_at,
         context: summary.context ?? {},
         source_event_id: summary.source_event_id ?? null,

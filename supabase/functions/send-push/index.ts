@@ -105,9 +105,16 @@ function extractString(value: unknown): string | null {
   return null;
 }
 
+function isUserFacingAchievementName(value: string): boolean {
+  const looksLikeInternalKey = /^[A-Z0-9_]+$/.test(value) || /^[a-z0-9_]+$/.test(value);
+  const containsUuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(value);
+
+  return !looksLikeInternalKey && !containsUuid;
+}
+
 async function resolveAchievementName(payload: Record<string, unknown>): Promise<string> {
   const existing = extractString(payload.achievement_name);
-  if (existing) {
+  if (existing && isUserFacingAchievementName(existing)) {
     return existing;
   }
 
@@ -118,7 +125,7 @@ async function resolveAchievementName(payload: Record<string, unknown>): Promise
       .select('name')
       .eq('id', achievementId)
       .maybeSingle();
-    if (!error && data?.name) {
+    if (!error && data?.name && isUserFacingAchievementName(data.name)) {
       payload.achievement_name = data.name;
       return data.name;
     }
@@ -131,13 +138,13 @@ async function resolveAchievementName(payload: Record<string, unknown>): Promise
       .select('name')
       .eq('key', achievementKey)
       .maybeSingle();
-    if (!error && data?.name) {
+    if (!error && data?.name && isUserFacingAchievementName(data.name)) {
       payload.achievement_name = data.name;
       return data.name;
     }
   }
 
-  return achievementKey ?? 'achievement';
+  return 'achievement';
 }
 
 async function buildMessage(
