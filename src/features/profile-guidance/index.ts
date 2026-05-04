@@ -75,19 +75,19 @@ export function createProfileGuidanceState(options: {
     {
       id: 'fursuit-profile',
       title: 'Update your fursuit profile',
-      description: 'Add "Ask me about" prompts and choose how catches should work.',
+      description: 'Add "Ask Me About..." prompts and other profile details.',
       isComplete: fursuitProfileComplete,
     },
     {
       id: 'username',
       title: 'Review your username',
-      description: 'Keep the generated name or pick one that other players will recognize.',
+      description: 'Keep the generated username or pick one that others will recognize.',
       isComplete: usernameReviewed,
     },
     {
       id: 'goals',
       title: "View today's goals",
-      description: 'Check daily tasks and achievements you can work toward.',
+      description: 'Check daily tasks and achievements you can work on today.',
       isComplete: goalsViewed,
     },
   ];

@@ -103,6 +103,26 @@ function normalizeDailyTaskMetadata(raw: unknown): DailyTaskMetadata | null {
   };
 }
 
+function normalizeUserFacingAchievementName(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const name = value.trim();
+  if (name.length === 0) {
+    return null;
+  }
+
+  const looksLikeInternalKey = /^[A-Z0-9_]+$/.test(name) || /^[a-z0-9_]+$/.test(name);
+  const containsUuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(name);
+
+  if (looksLikeInternalKey || containsUuid) {
+    return null;
+  }
+
+  return name;
+}
+
 function matchesLocalDailyTaskFilters(
   metadata: DailyTaskMetadata,
   eventPayload: Record<string, unknown>,
@@ -858,10 +878,7 @@ export function AchievementToastManager() {
         }
 
         const fallbackName =
-          (typeof payload?.achievement_key === 'string' &&
-          payload?.achievement_key.trim().length > 0
-            ? payload?.achievement_key
-            : null) ?? 'achievement';
+          normalizeUserFacingAchievementName(payload?.achievement_name) ?? 'achievement';
 
         const toastDisplayedAt = Date.now();
         const latencyMs = toastDisplayedAt - notificationReceivedAt;
