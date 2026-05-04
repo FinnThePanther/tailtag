@@ -4,7 +4,6 @@ export {
   pendingCatchesQueryKey,
   fetchPendingCatches,
   confirmCatch,
-  updateFursuitCatchMode,
   createCatch,
   updateCatchPhoto,
   fetchConventionFursuits,

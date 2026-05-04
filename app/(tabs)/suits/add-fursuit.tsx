@@ -27,7 +27,6 @@ import {
   createMySuitsCountQueryOptions,
 } from '../../../src/features/suits';
 import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
-import { CatchModeSwitch, type CatchMode } from '../../../src/features/catch-confirmations';
 import {
   ensureSpeciesEntry,
   fetchFursuitSpecies,
@@ -50,7 +49,12 @@ import {
   fetchActiveProfileConventionIds,
 } from '../../../src/features/conventions';
 import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
-import { createProfileQueryOptions } from '../../../src/features/profile';
+import {
+  createProfileQueryOptions,
+  getOrAssignCatchModeDefaultExperiment,
+  PROFILE_QUERY_KEY,
+} from '../../../src/features/profile';
+import type { ProfileSummary } from '../../../src/features/profile';
 import { emitGameplayEvent } from '../../../src/features/events';
 import { DAILY_TASKS_QUERY_KEY } from '../../../src/features/daily-tasks/hooks';
 import type {
@@ -149,7 +153,6 @@ export default function AddFursuitScreen() {
   const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(() =>
     createInitialSocialLinks(),
   );
-  const [catchMode, setCatchMode] = useState<CatchMode>('AUTO_ACCEPT');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -177,6 +180,84 @@ export default function AddFursuitScreen() {
       .filter((option) => option.normalizedName.includes(normalizedSpeciesInput))
       .slice(0, 12);
   }, [normalizedSpeciesInput, speciesOptions]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const exposeCatchModeExperiment = async () => {
+      try {
+        const assignment = await getOrAssignCatchModeDefaultExperiment();
+
+        if (!isMounted || !assignment) {
+          return;
+        }
+
+        queryClient.setQueryData<ProfileSummary | null>([PROFILE_QUERY_KEY, userId], (current) =>
+          current
+            ? {
+                ...current,
+                default_catch_mode: assignment.currentCatchMode,
+                catch_mode_preference_source: assignment.currentPreferenceSource,
+              }
+            : current,
+        );
+
+        const commonPayload = {
+          experiment_key: assignment.experimentKey,
+          variant: assignment.variant,
+          previous_catch_mode: assignment.previousCatchMode,
+          current_catch_mode: assignment.currentCatchMode,
+          previous_preference_source: assignment.previousPreferenceSource,
+          preference_source: assignment.currentPreferenceSource,
+          default_applied: assignment.defaultApplied,
+          source: 'add_fursuit',
+        };
+
+        if (assignment.assignmentCreated) {
+          void emitGameplayEvent({
+            type: 'experiment_assigned',
+            payload: commonPayload,
+            occurredAt: assignment.exposedAt,
+            idempotencyKey: `${assignment.experimentKey}:${userId}:assigned`,
+          });
+        }
+
+        void emitGameplayEvent({
+          type: 'experiment_exposed',
+          payload: commonPayload,
+          occurredAt: assignment.exposedAt,
+          idempotencyKey: `${assignment.experimentKey}:${userId}:exposed:${assignment.exposedAt}`,
+        });
+
+        if (assignment.defaultApplied) {
+          void emitGameplayEvent({
+            type: 'catch_mode_default_applied',
+            payload: {
+              ...commonPayload,
+              new_catch_mode: assignment.currentCatchMode,
+            },
+            occurredAt: assignment.exposedAt,
+            idempotencyKey: `${assignment.experimentKey}:${userId}:default-applied`,
+          });
+        }
+      } catch (error) {
+        captureNonCriticalError(error, {
+          scope: 'add-fursuit.catchModeExperiment',
+          userId,
+        });
+      }
+    };
+
+    void exposeCatchModeExperiment();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [queryClient, userId]);
 
   const handleSpeciesInputChange = useCallback(
     (value: string) => {
@@ -542,7 +623,6 @@ export default function AddFursuitScreen() {
           avatar_path: avatarPath,
           avatar_url: avatarUrl,
           unique_code: uniqueCode,
-          catch_mode: catchMode,
         };
         const { data: inserted, error } = await (supabase as any)
           .from('fursuits')
@@ -632,7 +712,6 @@ export default function AddFursuitScreen() {
       setAskMeAboutInput('');
       setMakers(createInitialFursuitMakers());
       setSocialLinks(createInitialSocialLinks());
-      setCatchMode('AUTO_ACCEPT');
       setSelectedConventionIds(new Set(activeProfileConventionIds));
       setHasHydratedConventions(true);
       setSelectedPhoto(null);
@@ -1031,15 +1110,6 @@ export default function AddFursuitScreen() {
               numberOfLines={2}
               textAlignVertical="top"
               style={styles.textArea}
-            />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Catch settings</Text>
-            <CatchModeSwitch
-              value={catchMode}
-              onChange={setCatchMode}
-              disabled={isSubmitting}
             />
           </View>
 
