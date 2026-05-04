@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
@@ -159,6 +159,7 @@ export default function AddFursuitScreen() {
   const [selectedPhoto, setSelectedPhoto] = useState<UploadCandidate>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
 
   const speciesLoadError = speciesError?.message ?? null;
   const isSpeciesBusy = isSpeciesLoading;
@@ -182,81 +183,86 @@ export default function AddFursuitScreen() {
   }, [normalizedSpeciesInput, speciesOptions]);
 
   useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const exposeCatchModeExperiment = useCallback(async () => {
     if (!userId) {
       return;
     }
 
-    let isMounted = true;
+    try {
+      const assignment = await getOrAssignCatchModeDefaultExperiment();
 
-    const exposeCatchModeExperiment = async () => {
-      try {
-        const assignment = await getOrAssignCatchModeDefaultExperiment();
+      if (!isMountedRef.current || !assignment) {
+        return;
+      }
 
-        if (!isMounted || !assignment) {
-          return;
-        }
+      queryClient.setQueryData<ProfileSummary | null>([PROFILE_QUERY_KEY, userId], (current) =>
+        current
+          ? {
+              ...current,
+              default_catch_mode: assignment.currentCatchMode,
+              catch_mode_preference_source: assignment.currentPreferenceSource,
+            }
+          : current,
+      );
 
-        queryClient.setQueryData<ProfileSummary | null>([PROFILE_QUERY_KEY, userId], (current) =>
-          current
-            ? {
-                ...current,
-                default_catch_mode: assignment.currentCatchMode,
-                catch_mode_preference_source: assignment.currentPreferenceSource,
-              }
-            : current,
-        );
+      const commonPayload = {
+        experiment_key: assignment.experimentKey,
+        variant: assignment.variant,
+        previous_catch_mode: assignment.previousCatchMode,
+        current_catch_mode: assignment.currentCatchMode,
+        previous_preference_source: assignment.previousPreferenceSource,
+        preference_source: assignment.currentPreferenceSource,
+        default_applied: assignment.defaultApplied,
+        source: 'add_fursuit',
+      };
 
-        const commonPayload = {
-          experiment_key: assignment.experimentKey,
-          variant: assignment.variant,
-          previous_catch_mode: assignment.previousCatchMode,
-          current_catch_mode: assignment.currentCatchMode,
-          previous_preference_source: assignment.previousPreferenceSource,
-          preference_source: assignment.currentPreferenceSource,
-          default_applied: assignment.defaultApplied,
-          source: 'add_fursuit',
-        };
-
-        if (assignment.assignmentCreated) {
-          void emitGameplayEvent({
-            type: 'experiment_assigned',
-            payload: commonPayload,
-            occurredAt: assignment.exposedAt,
-            idempotencyKey: `${assignment.experimentKey}:${userId}:assigned`,
-          });
-        }
-
-        void emitGameplayEvent({
-          type: 'experiment_exposed',
-          payload: commonPayload,
-          occurredAt: assignment.exposedAt,
-          idempotencyKey: `${assignment.experimentKey}:${userId}:exposed:${assignment.exposedAt}`,
-        });
-
-        if (assignment.defaultApplied) {
-          void emitGameplayEvent({
-            type: 'catch_mode_default_applied',
-            payload: {
-              ...commonPayload,
-              new_catch_mode: assignment.currentCatchMode,
-            },
-            occurredAt: assignment.exposedAt,
-            idempotencyKey: `${assignment.experimentKey}:${userId}:default-applied`,
-          });
-        }
-      } catch (error) {
+      const captureExperimentEventError = (eventType: string) => (error: unknown) => {
         captureNonCriticalError(error, {
-          scope: 'add-fursuit.catchModeExperiment',
+          scope: 'add-fursuit.catchModeExperiment.event',
+          eventType,
+          experimentKey: assignment.experimentKey,
           userId,
         });
+      };
+
+      if (assignment.assignmentCreated) {
+        void emitGameplayEvent({
+          type: 'experiment_assigned',
+          payload: commonPayload,
+          occurredAt: assignment.exposedAt,
+          idempotencyKey: `${assignment.experimentKey}:${userId}:assigned`,
+        }).catch(captureExperimentEventError('experiment_assigned'));
       }
-    };
 
-    void exposeCatchModeExperiment();
+      void emitGameplayEvent({
+        type: 'experiment_exposed',
+        payload: commonPayload,
+        occurredAt: assignment.exposedAt,
+        idempotencyKey: `${assignment.experimentKey}:${userId}:exposed:${assignment.exposedAt}`,
+      }).catch(captureExperimentEventError('experiment_exposed'));
 
-    return () => {
-      isMounted = false;
-    };
+      if (assignment.defaultApplied) {
+        void emitGameplayEvent({
+          type: 'catch_mode_default_applied',
+          payload: {
+            ...commonPayload,
+            new_catch_mode: assignment.currentCatchMode,
+          },
+          occurredAt: assignment.exposedAt,
+          idempotencyKey: `${assignment.experimentKey}:${userId}:default-applied`,
+        }).catch(captureExperimentEventError('catch_mode_default_applied'));
+      }
+    } catch (error) {
+      captureNonCriticalError(error, {
+        scope: 'add-fursuit.catchModeExperiment',
+        userId,
+      });
+    }
   }, [queryClient, userId]);
 
   const handleSpeciesInputChange = useCallback(
@@ -723,6 +729,7 @@ export default function AddFursuitScreen() {
         queryKey: [MY_SUITS_COUNT_QUERY_KEY, userId],
       });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      void exposeCatchModeExperiment();
 
       // Navigate immediately
       router.replace('/suits');
