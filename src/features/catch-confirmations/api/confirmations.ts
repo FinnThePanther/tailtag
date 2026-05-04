@@ -17,7 +17,6 @@ import {
 import { emitLocalGameplayEvent } from '../../events/localGameplayEventsBus';
 import type { Json } from '../../../types/database';
 import type {
-  CatchMode,
   PendingCatch,
   ConfirmCatchResult,
   CreateCatchResult,
@@ -217,29 +216,8 @@ export async function confirmCatch(
 }
 
 /**
- * Update fursuit catch mode
- */
-export async function updateFursuitCatchMode(
-  fursuitId: string,
-  userId: string,
-  catchMode: CatchMode,
-): Promise<void> {
-  const client = supabase as any;
-
-  const { error } = await client
-    .from('fursuits')
-    .update({ catch_mode: catchMode })
-    .eq('id', fursuitId)
-    .eq('owner_id', userId);
-
-  if (error) {
-    throw new Error("We couldn't update the catch mode. Please try again.");
-  }
-}
-
-/**
  * Create a catch via the Edge Function.
- * Handles auto-accept vs manual approval based on fursuit settings.
+ * Handles auto-accept vs manual approval based on the owner's profile settings.
  */
 export async function createCatch(params: CreateCatchParams): Promise<CreateCatchResult> {
   const { data: sessionData } = await supabase.auth.getSession();
