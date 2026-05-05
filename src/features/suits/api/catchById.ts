@@ -1,6 +1,5 @@
 import { supabase } from '../../../lib/supabase';
 import type { FursuitSummary } from '../types';
-import type { CatchMode } from '../../catch-confirmations';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
 import { fetchFursuitMakersByFursuitIds } from './makers';
 import type { CaughtRecord } from './caughtSuits';
@@ -26,7 +25,6 @@ const CATCH_SELECT = `
     avatar_path,
     avatar_url,
     catch_count,
-    catch_mode,
     is_tutorial,
     description,
     unique_code,
@@ -80,8 +78,6 @@ export async function fetchCatchById(catchId: string): Promise<CaughtRecord | nu
     return null;
   }
 
-  const catchMode: CatchMode =
-    rawFursuit?.catch_mode === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
   const makersByFursuitId = await fetchFursuitMakersByFursuitIds(
     rawFursuit?.id ? [rawFursuit.id] : [],
   );
@@ -103,7 +99,6 @@ export async function fetchCatchById(catchId: string): Promise<CaughtRecord | nu
         description: rawFursuit.description ?? null,
         unique_code: rawFursuit.unique_code ?? null,
         catchCount: typeof rawFursuit.catch_count === 'number' ? rawFursuit.catch_count : 0,
-        catchMode,
         created_at: rawFursuit.created_at ?? null,
         conventions: [],
         makers: makersByFursuitId.get(rawFursuit.id) ?? [],

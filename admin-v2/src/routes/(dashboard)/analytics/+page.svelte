@@ -1,10 +1,27 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import Card from '$lib/components/Card.svelte';
+  import Metric from '$lib/components/Metric.svelte';
   import Table from '$lib/components/Table.svelte';
 
   let { data, form } = $props();
   let pendingConventionId = $state<string | null>(null);
+  let experimentTotals = $derived(
+    data.catchModeExperimentResults.reduce(
+      (totals, row) => ({
+        assignedProfiles: totals.assignedProfiles + row.assignedProfiles,
+        exposedProfiles: totals.exposedProfiles + row.exposedProfiles,
+        defaultsApplied: totals.defaultsApplied + row.defaultsApplied,
+        switchedAwayProfiles: totals.switchedAwayProfiles + row.switchedAwayProfiles,
+      }),
+      {
+        assignedProfiles: 0,
+        exposedProfiles: 0,
+        defaultsApplied: 0,
+        switchedAwayProfiles: 0,
+      },
+    ),
+  );
 </script>
 
 <div class="space-y-4">
@@ -20,6 +37,68 @@
         </tr>
       {:else}
         <tr><td class="px-4 py-3 text-sm text-muted" colspan="5">No conventions found.</td></tr>
+      {/each}
+    </Table>
+  </Card>
+
+  <Card
+    title="Catch mode default experiment"
+    subtitle="Profile-level auto-catching vs manual approval defaults"
+  >
+    <div class="mb-4 grid gap-3 md:grid-cols-4">
+      <Metric label="Assigned" value={experimentTotals.assignedProfiles} />
+      <Metric label="Exposed" value={experimentTotals.exposedProfiles} />
+      <Metric label="Defaults applied" value={experimentTotals.defaultsApplied} />
+      <Metric label="Switched away" value={experimentTotals.switchedAwayProfiles} />
+    </div>
+    <Table
+      headers={[
+        'Variant',
+        'Assigned',
+        'Exposed',
+        'Applied',
+        'Current auto/manual',
+        'Switch away',
+        'Fursuits',
+        'Catches',
+      ]}
+    >
+      {#each data.catchModeExperimentResults as row}
+        <tr>
+          <td class="px-4 py-3 text-slate-200">
+            <div class="flex flex-col">
+              <span class="font-semibold text-white">
+                {row.variant === 'manual_default' ? 'Manual default' : 'Auto default'}
+              </span>
+              <span class="text-xs text-muted">{row.experimentKey}</span>
+            </div>
+          </td>
+          <td class="px-4 py-3 text-white">{row.assignedProfiles}</td>
+          <td class="px-4 py-3 text-white">{row.exposedProfiles}</td>
+          <td class="px-4 py-3 text-white">{row.defaultsApplied}</td>
+          <td class="px-4 py-3 text-white">
+            {row.currentAutoProfiles} / {row.currentManualProfiles}
+          </td>
+          <td class="px-4 py-3 text-white">
+            {row.switchedAwayProfiles} ({row.switchAwayRate}%)
+          </td>
+          <td class="px-4 py-3 text-white">{row.fursuitsCreatedAfterExposure}</td>
+          <td class="px-4 py-3 text-white">
+            <div class="flex flex-col">
+              <span>{row.catchesAfterExposure}</span>
+              <span class="text-xs text-muted">
+                {row.acceptedCatchesAfterExposure} accepted / {row.pendingCatchesAfterExposure}
+                pending
+              </span>
+            </div>
+          </td>
+        </tr>
+      {:else}
+        <tr>
+          <td class="px-4 py-3 text-sm text-muted" colspan="8">
+            No experiment assignments yet.
+          </td>
+        </tr>
       {/each}
     </Table>
   </Card>

@@ -62,10 +62,9 @@ jobs:
               - '.github/workflows/branch-delivery.yml'
             # package.json / package-lock.json live under `js`, not `native`.
             # Adding a pure JS dep (e.g. lodash) changes only those files and
-            # should ship via OTA without a rebuild or version bump. Adding a
-            # true native module requires `expo prebuild`, which dirties
-            # ios/ and android/ — those directories are the authoritative
-            # "this needs a native rebuild" signal.
+            # should ship via OTA without a rebuild or version bump. Generated
+            # native directories and native config files are the authoritative
+            # "this needs a native rebuild" signals.
             native:
               - 'ios/**'
               - 'android/**'
@@ -362,6 +361,11 @@ jobs:
           # compare against, so let it through.
           if [[ "$BEFORE_SHA" == "0000000000000000000000000000000000000000" ]]; then
             echo "Initial push to branch — skipping version-bump check."
+            exit 0
+          fi
+          if ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+            echo "::warning::Base commit ${BEFORE_SHA} is not available in this checkout; skipping version-bump check."
+            echo "This can happen after a force-push that rewrites branch history."
             exit 0
           fi
           OLD=$(git show "${BEFORE_SHA}:package.json" | jq -r '.version')

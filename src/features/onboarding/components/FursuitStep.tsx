@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
@@ -26,8 +26,14 @@ import {
   fetchActiveProfileConventionIds,
 } from '../../conventions';
 import { captureHandledException } from '../../../lib/sentry';
+import { emitGameplayEvent } from '../../events';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { colors } from '../../../theme';
+import {
+  getOrAssignCatchModeDefaultExperiment,
+  PROFILE_QUERY_KEY,
+  type ProfileSummary,
+} from '../../profile';
 import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
@@ -35,6 +41,8 @@ import {
   type FursuitColorOption,
 } from '../../colors';
 import { styles } from './FursuitStep.styles';
+
+const EXPERIMENT_EVENT_TIMEOUT_MS = 5000;
 
 type FursuitStepProps = {
   userId: string;
@@ -137,6 +145,7 @@ export function FursuitStep({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedColorIds, setSelectedColorIds] = useState<string[]>(draft.selectedColorIds);
+  const isMountedRef = useRef(true);
   const colorLoadError = colorError?.message ?? null;
   const isColorBusy = isColorLoading;
 
@@ -171,6 +180,105 @@ export function FursuitStep({
         .filter((option): option is FursuitColorOption => Boolean(option)),
     [colorOptions, selectedColorIds],
   );
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const createTimeoutPromise = useCallback(
+    (eventType: string) =>
+      new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(
+            new Error(
+              `Catch mode experiment event timed out after ${EXPERIMENT_EVENT_TIMEOUT_MS}ms (${eventType})`,
+            ),
+          );
+        }, EXPERIMENT_EVENT_TIMEOUT_MS);
+      }),
+    [],
+  );
+
+  const exposeCatchModeExperiment = useCallback(async () => {
+    try {
+      const assignment = await getOrAssignCatchModeDefaultExperiment();
+
+      if (!isMountedRef.current || !assignment) {
+        return;
+      }
+
+      queryClient.setQueryData<ProfileSummary | null>([PROFILE_QUERY_KEY, userId], (current) =>
+        current
+          ? {
+              ...current,
+              default_catch_mode: assignment.currentCatchMode,
+              catch_mode_preference_source: assignment.currentPreferenceSource,
+            }
+          : current,
+      );
+
+      const commonPayload = {
+        experiment_key: assignment.experimentKey,
+        variant: assignment.variant,
+        previous_catch_mode: assignment.previousCatchMode,
+        current_catch_mode: assignment.currentCatchMode,
+        previous_preference_source: assignment.previousPreferenceSource,
+        preference_source: assignment.currentPreferenceSource,
+        default_applied: assignment.defaultApplied,
+        source: 'onboarding_fursuit',
+      };
+
+      const emitExperimentEvent = (input: Parameters<typeof emitGameplayEvent>[0]) => {
+        const eventType = input.type;
+
+        void Promise.race([emitGameplayEvent(input), createTimeoutPromise(eventType)]).catch(
+          (error) => {
+            captureHandledException(error, {
+              scope: 'onboarding.fursuitStep.catchModeExperiment.event',
+              eventType,
+              experimentKey: assignment.experimentKey,
+              userId,
+            });
+          },
+        );
+      };
+
+      if (assignment.assignmentCreated) {
+        emitExperimentEvent({
+          type: 'experiment_assigned',
+          payload: commonPayload,
+          occurredAt: assignment.exposedAt,
+          idempotencyKey: `${assignment.experimentKey}:${userId}:assigned`,
+        });
+      }
+
+      emitExperimentEvent({
+        type: 'experiment_exposed',
+        payload: commonPayload,
+        occurredAt: assignment.exposedAt,
+        idempotencyKey: `${assignment.experimentKey}:${userId}:exposed:${assignment.exposedAt}`,
+      });
+
+      if (assignment.defaultApplied) {
+        emitExperimentEvent({
+          type: 'catch_mode_default_applied',
+          payload: {
+            ...commonPayload,
+            new_catch_mode: assignment.currentCatchMode,
+          },
+          occurredAt: assignment.exposedAt,
+          idempotencyKey: `${assignment.experimentKey}:${userId}:default-applied`,
+        });
+      }
+    } catch (error) {
+      captureHandledException(error, {
+        scope: 'onboarding.fursuitStep.catchModeExperiment',
+        userId,
+      });
+    }
+  }, [createTimeoutPromise, queryClient, userId]);
 
   useEffect(() => {
     onDraftChange({
@@ -369,6 +477,7 @@ export function FursuitStep({
       }
 
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
+      void exposeCatchModeExperiment();
 
       await deleteDraftPhoto(userId, selectedPhoto);
       resetForm();

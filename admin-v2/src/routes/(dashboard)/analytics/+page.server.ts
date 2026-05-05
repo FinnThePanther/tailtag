@@ -1,16 +1,24 @@
 import { fail } from '@sveltejs/kit';
-import { fetchAllConventionAnalytics } from '$lib/server/analytics';
+import {
+  fetchAllConventionAnalytics,
+  fetchCatchModeExperimentResults,
+} from '$lib/server/analytics';
 import { fetchConventions } from '$lib/server/data';
 import { simulateCatchAction } from '$lib/server/actions/analytics';
 
 export async function load() {
   const conventions = await fetchConventions();
-  const analytics = await fetchAllConventionAnalytics(conventions.map((c) => c.id));
+  const [analytics, catchModeExperimentResults] = await Promise.all([
+    fetchAllConventionAnalytics(conventions.map((c) => c.id)),
+    fetchCatchModeExperimentResults(),
+  ]);
+
   return {
     rows: conventions.map((convention) => ({
       ...convention,
       stats: analytics.find((entry) => entry.conventionId === convention.id),
     })),
+    catchModeExperimentResults,
   };
 }
 

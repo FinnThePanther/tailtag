@@ -15,6 +15,18 @@ if (/^0{40}$/.test(baseSha)) {
   process.exit(0);
 }
 
+const baseExists = spawnSync('git', ['cat-file', '-e', `${baseSha}^{commit}`], {
+  stdio: 'ignore',
+});
+
+if (baseExists.status !== 0) {
+  console.warn(
+    `::warning::Base commit ${baseSha} is not available in this checkout; skipping native dependency guard.`,
+  );
+  console.warn('This can happen after a force-push that rewrites branch history.');
+  process.exit(0);
+}
+
 const hasDiff = (paths) => {
   const result = spawnSync('git', ['diff', '--quiet', baseSha, 'HEAD', '--', ...paths], {
     stdio: 'inherit',

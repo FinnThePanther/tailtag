@@ -230,7 +230,7 @@ export default function MySuitsScreen() {
           <Text style={styles.guidanceEyebrow}>Next step</Text>
           <Text style={styles.guidanceTitle}>Add Ask me about prompts</Text>
           <Text style={styles.guidanceBody}>
-            Review each suit's conversation starter and catch settings before this step is complete.
+            Review each suit's conversation starter before this step is complete.
           </Text>
           <View style={styles.guidanceSuitList}>
             {incompleteGuidanceSuits.map((suit) => (

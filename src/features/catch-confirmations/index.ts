@@ -29,7 +29,6 @@ export {
   pendingCatchesQueryKey,
   fetchPendingCatches,
   confirmCatch,
-  updateFursuitCatchMode,
   createCatch,
   fetchConventionFursuits,
   MY_PENDING_CATCHES_QUERY_KEY,

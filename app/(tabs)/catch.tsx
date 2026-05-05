@@ -621,8 +621,8 @@ export default function CatchScreen() {
           />
           <Text style={styles.helpText}>Letters only, {codeInput.length}/8 characters.</Text>
           <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
-            Some fursuits require manual approval. If so, the owner will be notified and your catch
-            will count once approved.
+            Some owners require manual approval. If so, they will be notified and your catch will
+            count once approved.
           </Text>
         </View>
 
