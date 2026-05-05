@@ -35,14 +35,6 @@ const maybeResolveExistingFile = (relativePath) => {
   const absolutePath = path.resolve(__dirname, relativePath);
   return fs.existsSync(absolutePath) ? relativePath : undefined;
 };
-const resolveRequiredExistingFile = (relativePath, label) => {
-  const absolutePath = path.resolve(__dirname, relativePath);
-  if (fs.existsSync(absolutePath)) {
-    return relativePath;
-  }
-
-  throw new Error(`Missing ${label} for APP_ENV=${APP_ENV}. Expected file at ${relativePath}.`);
-};
 const resolveAndroidGoogleServicesFile = () => {
   const envSpecificFile = maybeResolveExistingFile(env.googleServicesFile);
   if (envSpecificFile) {
@@ -54,7 +46,7 @@ const resolveAndroidGoogleServicesFile = () => {
     return sharedGoogleServicesFile;
   }
 
-  return resolveRequiredExistingFile(env.googleServicesFile, 'Android Firebase config');
+  return undefined;
 };
 
 module.exports = ({ config }) => ({
