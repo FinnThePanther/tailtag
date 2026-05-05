@@ -999,23 +999,24 @@ export default function SettingsScreen() {
             verificationMethod: verifiedLocation ? 'gps' : 'none',
           });
         }
-        void queryClient.invalidateQueries({
-          queryKey: profileConventionMembershipsQueryKey,
-        });
-        void queryClient.invalidateQueries({
-          queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
-        });
-        void queryClient.invalidateQueries({
-          queryKey: [DAILY_TASKS_QUERY_KEY],
-        });
-        void queryClient.invalidateQueries({
-          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
-        });
-        previouslySelectedConventionIds.forEach((id) => {
-          void queryClient.invalidateQueries({
-            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, id],
-          });
-        });
+
+        await Promise.all([
+          refetchProfileConventions({ throwOnError: false }),
+          queryClient.invalidateQueries({
+            queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: [DAILY_TASKS_QUERY_KEY],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
+          }),
+          ...previouslySelectedConventionIds.map((id) =>
+            queryClient.invalidateQueries({
+              queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, id],
+            }),
+          ),
+        ]);
       } catch (caught) {
         const fallbackMessage =
           caught instanceof Error
@@ -1030,13 +1031,7 @@ export default function SettingsScreen() {
         });
       }
     },
-    [
-      pendingMemberships,
-      profileConventionMembershipsQueryKey,
-      queryClient,
-      selectedConventionIdSet,
-      userId,
-    ],
+    [pendingMemberships, queryClient, refetchProfileConventions, selectedConventionIdSet, userId],
   );
 
   const handleSignOut = useCallback(async () => {
