@@ -564,7 +564,10 @@ export default function SettingsScreen() {
   const attendedConventionCount = useMemo(() => {
     const conventionIds = new Set(
       profileConventionMemberships
-        .filter((membership) => membership.membership_state === 'active')
+        .filter(
+          (membership) =>
+            membership.membership_state === 'active' || membership.membership_state === 'past',
+        )
         .map((membership) => membership.convention_id),
     );
     pastConventionRecaps.forEach((recap) => conventionIds.add(recap.conventionId));
