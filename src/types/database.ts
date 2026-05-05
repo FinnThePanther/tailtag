@@ -2278,27 +2278,27 @@ export type Database = {
         Args: never
         Returns: {
           convention_id: string
-          end_date: string | null
+          end_date: string
           geofence_enabled: boolean
-          geofence_radius_meters: number | null
+          geofence_radius_meters: number
           id: string
           is_joinable: boolean
           joined_at: string
-          latitude: number | null
+          latitude: number
           local_day: string
-          location: string | null
+          location: string
           location_verification_required: boolean
-          longitude: number | null
+          longitude: number
           membership_state: string
           name: string
-          override_at: string | null
-          playable_notified_at: string | null
+          override_at: string
+          playable_notified_at: string
           slug: string
-          start_date: string | null
+          start_date: string
           status: string
           timezone: string
-          verification_method: string | null
-          verified_at: string | null
+          verification_method: string
+          verified_at: string
         }[]
       }
       get_my_convention_recap_detail: {
