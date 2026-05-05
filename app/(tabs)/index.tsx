@@ -835,7 +835,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={[styles.heroBlock, contentWidthStyle]}>
-          <Text style={styles.badge}>BETA</Text>
+          <Text style={styles.badge}>PRERELEASE</Text>
           <Text style={styles.title}>
             Catch fursuits, grow your collection, and make new furry friends!
           </Text>
