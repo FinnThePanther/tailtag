@@ -1,21 +1,8 @@
-import type { ConfigContext, ExpoConfig } from 'expo/config';
-import fs from 'fs';
-import path from 'path';
+const fs = require('fs');
+const path = require('path');
 
-const { envConfigs, resolveAppEnv } = require('./scripts/native-env.config.cjs') as {
-  envConfigs: Record<
-    'development' | 'staging' | 'production',
-    {
-      appDisplayName: string;
-      iosBundleId: string;
-      androidApplicationId: string;
-      googleServicesFile: string;
-      iosGoogleServicesFile: string;
-    }
-  >;
-  resolveAppEnv: (input?: string) => 'development' | 'staging' | 'production';
-};
-const rootPackage = require('./package.json') as { version: string };
+const { envConfigs, resolveAppEnv } = require('./scripts/native-env.config.cjs');
+const rootPackage = require('./package.json');
 
 const APP_ENV = resolveAppEnv(process.env.APP_ENV);
 const env = envConfigs[APP_ENV];
@@ -35,7 +22,7 @@ const publicEnvConfig = {
     supabaseAnonKey:
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvd3RsaGt6Ynh4bWlmbHBzd3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMzc2MjIsImV4cCI6MjA5MDgxMzYyMn0.KIw5TF-tBq3NIKjpzkNGagLR0jwiYKP_s7RqchEhXHo',
   },
-} as const;
+};
 const publicEnv = publicEnvConfig[APP_ENV];
 const CAMERA_PERMISSION =
   'TailTag needs camera access so you can take fursuit, profile, and catch photos.';
@@ -44,11 +31,11 @@ const PHOTO_LIBRARY_PERMISSION =
 const LOCATION_WHEN_IN_USE_PERMISSION =
   'TailTag uses your location only when you choose to verify that you are at a convention. TailTag does not continuously track your location.';
 const NFC_PERMISSION = 'TailTag needs NFC access to scan fursuit tags.';
-const maybeResolveExistingFile = (relativePath: string) => {
+const maybeResolveExistingFile = (relativePath) => {
   const absolutePath = path.resolve(__dirname, relativePath);
   return fs.existsSync(absolutePath) ? relativePath : undefined;
 };
-const resolveRequiredExistingFile = (relativePath: string, label: string) => {
+const resolveRequiredExistingFile = (relativePath, label) => {
   const absolutePath = path.resolve(__dirname, relativePath);
   if (fs.existsSync(absolutePath)) {
     return relativePath;
@@ -62,17 +49,15 @@ const resolveAndroidGoogleServicesFile = () => {
     return envSpecificFile;
   }
 
-  if (APP_ENV === 'development') {
-    const developmentFallback = maybeResolveExistingFile('google-services.json');
-    if (developmentFallback) {
-      return developmentFallback;
-    }
+  const sharedGoogleServicesFile = maybeResolveExistingFile('google-services.json');
+  if (sharedGoogleServicesFile) {
+    return sharedGoogleServicesFile;
   }
 
   return resolveRequiredExistingFile(env.googleServicesFile, 'Android Firebase config');
 };
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
+module.exports = ({ config }) => ({
   ...config,
   name: env.appDisplayName,
   slug: 'tailtag',
