@@ -77,11 +77,11 @@ import { siteConfig } from '../config/site';
       <section>
         <h2 class="text-xl font-semibold text-foreground mt-8 mb-4">Contact</h2>
         <p>
-          For questions about these terms, please reach out via our{' '}
+          For questions about these terms, email{' '}
           <a
-            href={siteConfig.links.discord}
+            href={`mailto:${siteConfig.links.supportEmail}`}
             class="text-primary hover:underline"
-            >Discord server</a
+            >{siteConfig.links.supportEmail}</a
           >.
         </p>
       </section>
