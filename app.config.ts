@@ -160,7 +160,7 @@ module.exports = ({ config }) => ({
         color: '#7c3aed',
       },
     ],
-    // Firebase config is generated for EAS builds when local service files are absent.
+    // Firebase initialization depends on the environment-specific service files above.
     './plugins/withFirebaseAndroidInit.cjs',
     'expo-web-browser',
     'expo-apple-authentication',
