@@ -56,6 +56,21 @@ const resolveRequiredExistingFile = (relativePath: string, label: string) => {
 
   throw new Error(`Missing ${label} for APP_ENV=${APP_ENV}. Expected file at ${relativePath}.`);
 };
+const resolveAndroidGoogleServicesFile = () => {
+  const envSpecificFile = maybeResolveExistingFile(env.googleServicesFile);
+  if (envSpecificFile) {
+    return envSpecificFile;
+  }
+
+  if (APP_ENV === 'development') {
+    const developmentFallback = maybeResolveExistingFile('google-services.json');
+    if (developmentFallback) {
+      return developmentFallback;
+    }
+  }
+
+  return resolveRequiredExistingFile(env.googleServicesFile, 'Android Firebase config');
+};
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -104,10 +119,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidApplicationId,
-    googleServicesFile: resolveRequiredExistingFile(
-      env.googleServicesFile,
-      'Android Firebase config',
-    ),
+    googleServicesFile: resolveAndroidGoogleServicesFile(),
     blockedPermissions: [
       'android.permission.RECORD_AUDIO',
       'android.permission.READ_EXTERNAL_STORAGE',
