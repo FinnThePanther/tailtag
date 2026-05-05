@@ -37,6 +37,12 @@ type NotificationInsert = {
   payload: Json;
 };
 
+type AchievementNotificationInfo = {
+  key: string | null;
+  name: string | null;
+  trigger_event: string | null;
+};
+
 export type ProcessedAchievementResult = {
   awards: RpcAwardResult[];
 };
@@ -61,6 +67,43 @@ type FursuitMakerMetadata = {
   normalizedMakerNames: string[];
   hasSelfMadeMaker: boolean;
 };
+
+function normalizeAchievementToken(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  return normalized.length > 0 ? normalized : null;
+}
+
+function isCheckedInAchievementIdentity(
+  achievementKey: unknown,
+  achievementName: unknown,
+  triggerEvent: unknown,
+): boolean {
+  const key = normalizeAchievementToken(achievementKey);
+  const name = normalizeAchievementToken(achievementName);
+  const matchesCheckedInToken = (value: string | null) =>
+    value === 'explorer' ||
+    value === 'checked_in' ||
+    value === 'check_in' ||
+    value === 'checkin' ||
+    value?.endsWith('_checked_in') === true ||
+    value?.endsWith('_check_in') === true ||
+    value?.endsWith('_checkin') === true;
+
+  return (
+    matchesCheckedInToken(key) ||
+    matchesCheckedInToken(name) ||
+    triggerEvent === 'convention.checkin'
+  );
+}
 
 function hasUploadedProfileAvatar(avatarUrl: unknown, avatarPath: unknown): boolean {
   if (typeof avatarPath === 'string' && avatarPath.trim().length > 0) {
@@ -797,14 +840,8 @@ async function evaluateConventionAchievements(
         }
       }
     } else if (triggerEvent === 'convention_joined') {
-      const simpleCtx = context as SimpleEventContext;
-
       if (kind === 'convention_joined') {
-        candidates.push({
-          achievementKey: row.key,
-          userId: simpleCtx.userId,
-          context: { convention_id: conventionId },
-        });
+        continue;
       }
     }
   }
@@ -873,12 +910,12 @@ async function insertNotificationsForAwards(
   const awardedAchievementIds = Array.from(
     new Set(awardedSummaries.map((summary) => summary.achievement_id as string)),
   );
-  const achievementNamesById = new Map<string, string>();
+  const achievementInfoById = new Map<string, AchievementNotificationInfo>();
 
   if (awardedAchievementIds.length > 0) {
     const { data, error } = await supabaseAdmin
       .from('achievements')
-      .select('id, name')
+      .select('id, key, name, trigger_event')
       .in('id', awardedAchievementIds);
 
     if (error) {
@@ -886,16 +923,39 @@ async function insertNotificationsForAwards(
     } else {
       for (const row of data ?? []) {
         const achievementId = typeof row.id === 'string' ? row.id : null;
+        const achievementKey = typeof row.key === 'string' ? row.key : null;
         const achievementName = typeof row.name === 'string' ? row.name.trim() : '';
-        if (achievementId && achievementName.length > 0) {
-          achievementNamesById.set(achievementId, achievementName);
+        const triggerEvent = typeof row.trigger_event === 'string' ? row.trigger_event : null;
+        if (achievementId) {
+          achievementInfoById.set(achievementId, {
+            key: achievementKey,
+            name: achievementName.length > 0 ? achievementName : null,
+            trigger_event: triggerEvent,
+          });
         }
       }
     }
   }
 
+  const surfacedNotificationKeys = new Set<string>();
+
   for (const summary of awardedSummaries) {
-    const achievementName = achievementNamesById.get(summary.achievement_id) ?? null;
+    const achievementInfo = achievementInfoById.get(summary.achievement_id) ?? null;
+    const achievementName = achievementInfo?.name ?? null;
+    const achievementKey = achievementInfo?.key ?? summary.achievement_key;
+    const notificationSurfaceKey = isCheckedInAchievementIdentity(
+      achievementKey,
+      achievementName,
+      achievementInfo?.trigger_event ?? null,
+    )
+      ? 'achievement:checked-in'
+      : `achievement:${summary.achievement_id}`;
+    const userNotificationKey = `${summary.user_id}:${notificationSurfaceKey}`;
+    if (surfacedNotificationKeys.has(userNotificationKey)) {
+      continue;
+    }
+    surfacedNotificationKeys.add(userNotificationKey);
+
     notifications.push({
       user_id: summary.user_id,
       type: 'achievement_awarded',

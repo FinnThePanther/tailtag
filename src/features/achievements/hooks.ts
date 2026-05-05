@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import type { AchievementWithStatus } from './api/achievements';
+import { getAchievementSurfaceKey } from './surfaceKeys';
 import { useToast } from '../../hooks/useToast';
 
 export function useAchievementUnlockToast(userId: string | null) {
@@ -19,7 +20,7 @@ export function useAchievementUnlockToast(userId: string | null) {
         return;
       }
 
-      const key = achievement.id;
+      const key = getAchievementSurfaceKey(achievement);
       if (seenUnlocksRef.current.has(key)) {
         return;
       }
