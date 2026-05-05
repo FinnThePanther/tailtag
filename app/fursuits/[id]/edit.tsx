@@ -782,7 +782,7 @@ export default function EditFursuitScreen() {
 
   const handleConventionToggle = useCallback(
     (conventionId: string, nextSelected: boolean) => {
-      if (disableForm || !profileConventionIdSet.has(conventionId)) {
+      if (disableForm || (nextSelected && !profileConventionIdSet.has(conventionId))) {
         return;
       }
 

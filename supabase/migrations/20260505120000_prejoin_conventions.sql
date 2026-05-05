@@ -263,11 +263,29 @@ security definer
 set search_path to 'public', 'extensions'
 as $$
 declare
+  v_actor_id uuid := auth.uid();
+  v_actor_is_admin boolean := auth.role() = 'service_role';
   v_convention record;
   v_verification jsonb;
   v_method text := coalesce(p_verification_method, 'none');
   v_requires_live_verification boolean := false;
 begin
+  if not v_actor_is_admin then
+    v_actor_is_admin := coalesce(public.is_admin(v_actor_id), false);
+  end if;
+
+  if auth.role() <> 'service_role' and v_actor_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  if auth.role() <> 'service_role' and v_actor_id is distinct from p_profile_id and not v_actor_is_admin then
+    raise exception 'Not authorized to join conventions for this profile';
+  end if;
+
+  if v_method in ('manual_override', 'grandfathered') and not v_actor_is_admin then
+    raise exception 'Admin privileges required for this verification method';
+  end if;
+
   select *
     into v_convention
     from public.conventions
@@ -290,8 +308,8 @@ begin
       raise exception 'Convention geofence not configured';
     end if;
 
-    if v_method = 'manual_override' then
-      if p_override_reason is null then
+    if v_method in ('manual_override', 'grandfathered') then
+      if v_method = 'manual_override' and p_override_reason is null then
         raise exception 'Override reason required';
       end if;
     else

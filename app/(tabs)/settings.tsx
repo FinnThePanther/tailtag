@@ -563,7 +563,9 @@ export default function SettingsScreen() {
   const caughtSuitCount = caughtSuits.length;
   const attendedConventionCount = useMemo(() => {
     const conventionIds = new Set(
-      profileConventionMemberships.map((membership) => membership.convention_id),
+      profileConventionMemberships
+        .filter((membership) => membership.membership_state === 'active')
+        .map((membership) => membership.convention_id),
     );
     pastConventionRecaps.forEach((recap) => conventionIds.add(recap.conventionId));
     return conventionIds.size;

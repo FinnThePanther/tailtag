@@ -141,7 +141,11 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
 
     setVerifiedLocations((current) => {
       if (nextSelected) {
-        return verifiedLocation ? { [conventionId]: verifiedLocation } : {};
+        const next = { ...current };
+        if (verifiedLocation) {
+          next[conventionId] = verifiedLocation;
+        }
+        return next;
       }
 
       const next = { ...current };
@@ -166,27 +170,37 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
       // Calculate delta: what to add and what to remove
       const toAdd = selections.filter((id) => !existing.includes(id));
       const toRemove = existing.filter((id) => !selections.includes(id));
+      const successfulOptIns: string[] = [];
+      const successfulOptOuts: string[] = [];
+      const affectedConventionIds = Array.from(new Set([...toAdd, ...toRemove]));
 
-      // Only make API calls if there are changes
-      const operations: Promise<void>[] = [];
-
-      toAdd.forEach((conventionId) => {
-        operations.push(
-          optInToConvention({
+      try {
+        for (const conventionId of toAdd) {
+          await optInToConvention({
             profileId: userId,
             conventionId,
             verifiedLocation: verifiedLocations[conventionId],
-          }),
-        );
-      });
+          });
+          successfulOptIns.push(conventionId);
+        }
 
-      toRemove.forEach((conventionId) => {
-        operations.push(optOutOfConvention(userId, conventionId));
-      });
+        for (const conventionId of toRemove) {
+          await optOutOfConvention(userId, conventionId);
+          successfulOptOuts.push(conventionId);
+        }
+      } catch (operationError) {
+        await Promise.allSettled([
+          ...successfulOptIns.map((conventionId) => optOutOfConvention(userId, conventionId)),
+          ...successfulOptOuts.map((conventionId) =>
+            optInToConvention({
+              profileId: userId,
+              conventionId,
+              verifiedLocation: verifiedLocations[conventionId],
+            }),
+          ),
+        ]);
 
-      // Execute all operations in parallel (if any)
-      if (operations.length > 0) {
-        await Promise.all(operations);
+        throw operationError;
       }
 
       void queryClient.invalidateQueries({
@@ -197,7 +211,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
       });
 
       // Invalidate leaderboard cache for joined conventions
-      toAdd.forEach((conventionId) => {
+      affectedConventionIds.forEach((conventionId) => {
         void queryClient.invalidateQueries({
           queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
         });
@@ -205,6 +219,18 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
 
       onComplete(selections);
     } catch (caught) {
+      void queryClient.invalidateQueries({
+        queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+      });
+      [...selectedConventionIds, ...existingConventionIds].forEach((conventionId) => {
+        void queryClient.invalidateQueries({
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
+        });
+      });
+
       const message =
         caught instanceof Error
           ? caught.message

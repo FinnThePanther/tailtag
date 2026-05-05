@@ -410,7 +410,8 @@ async function handlePost(req: Request): Promise<Response> {
         error.message?.includes('Fursuit must be assigned to the live convention')
       ) {
         return jsonResponse(400, {
-          error: 'You and this fursuit must share a playable convention before catching.',
+          error:
+            'You and this fursuit must share a playable convention, and the fursuit must be assigned to that convention before catching.',
         });
       }
       if (error.message?.includes('not found')) {
