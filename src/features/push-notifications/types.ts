@@ -1,5 +1,6 @@
 export type PushNotificationType =
   | 'achievement_awarded'
+  | 'convention_started'
   | 'daily_all_complete'
   | 'fursuit_caught'
   | 'catch_pending'
@@ -9,6 +10,7 @@ export type PushNotificationType =
 
 export const NOTIFICATION_DEEP_LINKS: Record<PushNotificationType, string> = {
   achievement_awarded: '/achievements',
+  convention_started: '/catch',
   daily_all_complete: '/daily-tasks',
   fursuit_caught: '/suits',
   catch_pending: '/suits',

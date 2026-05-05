@@ -19,11 +19,12 @@ import {
 } from '@/features/onboarding';
 import { MY_SUITS_QUERY_KEY } from '../../suits';
 import {
-  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
   createJoinableConventionsQueryOptions,
-  fetchActiveProfileConventionIds,
+  fetchProfileConventionMemberships,
+  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+  type ConventionMembership,
 } from '../../conventions';
 import { captureHandledException } from '../../../lib/sentry';
 import { emitGameplayEvent } from '../../events';
@@ -154,21 +155,21 @@ export function FursuitStep({
     enabled: Boolean(userId),
   });
 
-  const { data: profileConventionIds = [] } = useQuery<string[], Error>({
-    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+  const { data: profileConventionMemberships = [] } = useQuery<ConventionMembership[], Error>({
+    queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchActiveProfileConventionIds(userId),
+    queryFn: fetchProfileConventionMemberships,
   });
 
   const profileConventionIdSet = useMemo(
-    () => new Set(profileConventionIds),
-    [profileConventionIds],
+    () => new Set(profileConventionMemberships.map((membership) => membership.convention_id)),
+    [profileConventionMemberships],
   );
 
-  const activeConventionIds = useMemo(
+  const joinedConventionIds = useMemo(
     () => conventions.filter((c) => profileConventionIdSet.has(c.id)).map((c) => c.id),
     [conventions, profileConventionIdSet],
   );
@@ -461,9 +462,9 @@ export function FursuitStep({
         colorIds,
       });
 
-      if (activeConventionIds.length > 0) {
+      if (joinedConventionIds.length > 0) {
         void Promise.all(
-          activeConventionIds.map((conventionId) =>
+          joinedConventionIds.map((conventionId) =>
             addFursuitConvention(fursuitId, conventionId).catch((error) => {
               captureHandledException(error, {
                 scope: 'onboarding.fursuitStep.attachConvention',

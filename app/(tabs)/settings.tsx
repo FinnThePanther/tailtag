@@ -18,14 +18,16 @@ import { STAFF_MODE_ENABLED } from '../../src/constants/features';
 import {
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
-  fetchActiveProfileConventionIds,
   fetchJoinableConventions,
   fetchPastConventionRecaps,
+  fetchProfileConventionMemberships,
+  formatConventionDateRange,
   JOINABLE_CONVENTIONS_QUERY_KEY,
   optInToConvention,
   optOutOfConvention,
   PAST_CONVENTION_RECAPS_QUERY_KEY,
   parsePastConventionRecapSummary,
+  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
 } from '../../src/features/conventions';
 import { useAuth } from '../../src/features/auth';
 import {
@@ -35,6 +37,8 @@ import {
 } from '../../src/features/profile-guidance';
 import type {
   ConventionSummary,
+  ConventionMembership,
+  ConventionMembershipState,
   PastConventionRecap,
   VerifiedLocation,
 } from '../../src/features/conventions';
@@ -97,6 +101,36 @@ const TERMS_URL = 'https://playtailtag.com/terms';
 const DELETE_ACCOUNT_URL = 'https://playtailtag.com/delete-account';
 const SUPPORT_EMAIL_URL = 'mailto:finn@finnthepanther.com';
 const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
+
+function conventionBadgeText(
+  convention: ConventionSummary,
+  selected: boolean,
+  membershipState?: ConventionMembershipState | null,
+) {
+  if (!selected) {
+    return convention.is_joinable ? 'Tap to join' : 'Add to yours';
+  }
+
+  if (membershipState === 'active') {
+    return 'Ready to catch';
+  }
+
+  if (membershipState === 'needs_location_verification') {
+    return 'Verify location';
+  }
+
+  if (membershipState === 'awaiting_start') {
+    return 'Waiting for staff start';
+  }
+
+  if (membershipState === 'upcoming') {
+    const startsAt = formatConventionDateRange(convention.start_date ?? null, null);
+    return startsAt ? `Starts ${startsAt}` : 'Joined';
+  }
+
+  return 'Joined';
+}
+
 export default function SettingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ focus?: string }>();
@@ -129,8 +163,8 @@ export default function SettingsScreen() {
   });
 
   const conventionsQueryKey = useMemo(() => [JOINABLE_CONVENTIONS_QUERY_KEY] as const, []);
-  const profileConventionQueryKey = useMemo(
-    () => [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId] as const,
+  const profileConventionMembershipsQueryKey = useMemo(
+    () => [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId] as const,
     [userId],
   );
   const pastConventionRecapsQueryKey = useMemo(
@@ -152,17 +186,17 @@ export default function SettingsScreen() {
   });
 
   const {
-    data: profileConventionIds = [],
+    data: profileConventionMemberships = [],
     error: profileConventionsError,
     isLoading: isProfileConventionsLoading,
     refetch: refetchProfileConventions,
-  } = useQuery<string[], Error>({
-    queryKey: profileConventionQueryKey,
+  } = useQuery<ConventionMembership[], Error>({
+    queryKey: profileConventionMembershipsQueryKey,
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchActiveProfileConventionIds(userId!),
+    queryFn: fetchProfileConventionMemberships,
   });
 
   const {
@@ -245,8 +279,15 @@ export default function SettingsScreen() {
   const [pendingMemberships, setPendingMemberships] = useState<Set<string>>(() => new Set());
 
   const selectedConventionIdSet = useMemo(
-    () => new Set(profileConventionIds),
-    [profileConventionIds],
+    () => new Set(profileConventionMemberships.map((membership) => membership.convention_id)),
+    [profileConventionMemberships],
+  );
+  const conventionMembershipById = useMemo(
+    () =>
+      new Map(
+        profileConventionMemberships.map((membership) => [membership.convention_id, membership]),
+      ),
+    [profileConventionMemberships],
   );
 
   const normalizedUsernameInput = useMemo(
@@ -328,8 +369,9 @@ export default function SettingsScreen() {
         void refetchConventions({ throwOnError: false });
       }
 
-      const profileConventionsState =
-        queryClient.getQueryState<string[]>(profileConventionQueryKey);
+      const profileConventionsState = queryClient.getQueryState<ConventionMembership[]>(
+        profileConventionMembershipsQueryKey,
+      );
 
       if (
         !profileConventionsState ||
@@ -375,7 +417,7 @@ export default function SettingsScreen() {
       userId,
       conventionsQueryKey,
       refetchConventions,
-      profileConventionQueryKey,
+      profileConventionMembershipsQueryKey,
       refetchProfileConventions,
       pastConventionRecapsQueryKey,
       refetchPastConventionRecaps,
@@ -520,10 +562,12 @@ export default function SettingsScreen() {
     isCaughtSuitsLoading || isProfileConventionsLoading || isPastConventionRecapsLoading;
   const caughtSuitCount = caughtSuits.length;
   const attendedConventionCount = useMemo(() => {
-    const conventionIds = new Set(profileConventionIds);
+    const conventionIds = new Set(
+      profileConventionMemberships.map((membership) => membership.convention_id),
+    );
     pastConventionRecaps.forEach((recap) => conventionIds.add(recap.conventionId));
     return conventionIds.size;
-  }, [pastConventionRecaps, profileConventionIds]);
+  }, [pastConventionRecaps, profileConventionMemberships]);
   const staffModeAllowed = useMemo(
     () => STAFF_MODE_ENABLED && canUseStaffMode(profile?.role ?? null),
     [profile?.role],
@@ -936,15 +980,12 @@ export default function SettingsScreen() {
       });
 
       try {
-        const previouslySelectedConventionIds = (profileConventionIds ?? []).filter(
+        const previouslySelectedConventionIds = [...selectedConventionIdSet].filter(
           (id) => id !== conventionId,
         );
 
         if (!nextSelected) {
           await optOutOfConvention(userId, conventionId);
-          queryClient.setQueryData<string[]>(profileConventionQueryKey, (current) =>
-            (current ?? []).filter((value) => value !== conventionId),
-          );
         } else {
           await optInToConvention({
             profileId: userId,
@@ -952,8 +993,13 @@ export default function SettingsScreen() {
             verifiedLocation: verifiedLocation ?? undefined,
             verificationMethod: verifiedLocation ? 'gps' : 'none',
           });
-          queryClient.setQueryData<string[]>(profileConventionQueryKey, [conventionId]);
         }
+        void queryClient.invalidateQueries({
+          queryKey: profileConventionMembershipsQueryKey,
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+        });
         void queryClient.invalidateQueries({
           queryKey: [DAILY_TASKS_QUERY_KEY],
         });
@@ -979,7 +1025,13 @@ export default function SettingsScreen() {
         });
       }
     },
-    [pendingMemberships, profileConventionIds, profileConventionQueryKey, queryClient, userId],
+    [
+      pendingMemberships,
+      profileConventionMembershipsQueryKey,
+      queryClient,
+      selectedConventionIdSet,
+      userId,
+    ],
   );
 
   const handleSignOut = useCallback(async () => {
@@ -1566,7 +1618,7 @@ export default function SettingsScreen() {
         <View style={styles.conventionSection}>
           <Text style={styles.sectionTitle}>Convention attendance</Text>
           <Text style={styles.sectionDescription}>
-            Assign your current convention so catches only count when everyone is on-site.
+            Join upcoming and live conventions so TailTag is ready when catching opens.
           </Text>
 
           {isConventionsBusy ? (
@@ -1586,13 +1638,12 @@ export default function SettingsScreen() {
               </TailTagButton>
             </View>
           ) : conventions.length === 0 ? (
-            <Text style={styles.message}>
-              No live conventions are available right now. Check back when an event starts.
-            </Text>
+            <Text style={styles.message}>No conventions are open for joining right now.</Text>
           ) : (
             <View style={styles.conventionList}>
               {conventions.map((convention) => {
                 const isSelected = selectedConventionIdSet.has(convention.id);
+                const membership = conventionMembershipById.get(convention.id);
                 const membershipKey = `profile:${userId}:${convention.id}`;
                 const isPending = pendingMemberships.has(membershipKey);
 
@@ -1602,6 +1653,12 @@ export default function SettingsScreen() {
                     convention={convention}
                     selected={isSelected}
                     pending={isPending}
+                    badgeText={conventionBadgeText(
+                      convention,
+                      isSelected,
+                      membership?.membership_state,
+                    )}
+                    membershipState={membership?.membership_state}
                     profileId={userId ?? undefined}
                     onToggle={(conventionId, nextSelected, verifiedLocation) =>
                       handleToggleProfileConvention(conventionId, nextSelected, verifiedLocation)

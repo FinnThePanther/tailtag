@@ -20,6 +20,23 @@ export type ConventionSummary = {
   location_verification_required: boolean;
 };
 
+export type ConventionMembershipState =
+  | 'upcoming'
+  | 'awaiting_start'
+  | 'needs_location_verification'
+  | 'active'
+  | 'past';
+
+export type ConventionMembership = ConventionSummary & {
+  convention_id: string;
+  joined_at: string;
+  verification_method: string | null;
+  verified_at: string | null;
+  override_at: string | null;
+  playable_notified_at: string | null;
+  membership_state: ConventionMembershipState;
+};
+
 export type VerifiedLocation = {
   latitude: number;
   longitude: number;
@@ -155,6 +172,7 @@ export type ConventionRecapDetail = {
 export const JOINABLE_CONVENTIONS_QUERY_KEY = 'joinable-conventions';
 export const CONVENTIONS_STALE_TIME = 5 * 60_000;
 export const ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY = 'active-profile-conventions';
+export const PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY = 'profile-convention-memberships';
 export const PAST_CONVENTION_RECAPS_QUERY_KEY = 'past-convention-recaps';
 export const CONVENTION_RECAP_DETAIL_QUERY_KEY = 'convention-recap-detail';
 
@@ -425,6 +443,28 @@ function mapConventionSummary(convention: any): ConventionSummary {
   };
 }
 
+function mapConventionMembership(row: any): ConventionMembership {
+  const membershipState =
+    row.membership_state === 'upcoming' ||
+    row.membership_state === 'awaiting_start' ||
+    row.membership_state === 'needs_location_verification' ||
+    row.membership_state === 'active' ||
+    row.membership_state === 'past'
+      ? row.membership_state
+      : 'upcoming';
+
+  return {
+    ...mapConventionSummary(row),
+    convention_id: row.convention_id ?? row.id,
+    joined_at: row.joined_at,
+    verification_method: row.verification_method ?? null,
+    verified_at: row.verified_at ?? null,
+    override_at: row.override_at ?? null,
+    playable_notified_at: row.playable_notified_at ?? null,
+    membership_state: membershipState,
+  };
+}
+
 function mapPastConventionRecap(row: any): PastConventionRecap {
   return {
     recapId: row.recap_id,
@@ -450,7 +490,7 @@ export async function fetchJoinableConventions(): Promise<ConventionSummary[]> {
   const { data, error } = await client.rpc('get_joinable_conventions');
 
   if (error) {
-    throw new Error(`We couldn't load live conventions: ${error.message}`);
+    throw new Error(`We couldn't load conventions: ${error.message}`);
   }
 
   return (data ?? []).map(mapConventionSummary);
@@ -509,10 +549,21 @@ export async function fetchActiveProfileConventionIds(profileId: string): Promis
   });
 
   if (error) {
-    throw new Error(`We couldn't load your live convention opt-ins: ${error.message}`);
+    throw new Error(`We couldn't load your playable conventions: ${error.message}`);
   }
 
   return (data ?? []).map((row: any) => row.convention_id);
+}
+
+export async function fetchProfileConventionMemberships(): Promise<ConventionMembership[]> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('get_my_convention_memberships');
+
+  if (error) {
+    throw new Error(`We couldn't load your conventions: ${error.message}`);
+  }
+
+  return (data ?? []).map(mapConventionMembership);
 }
 
 export async function fetchActiveSharedConventionIds(
@@ -526,7 +577,7 @@ export async function fetchActiveSharedConventionIds(
   });
 
   if (error) {
-    throw new Error(`We couldn't resolve your live shared conventions: ${error.message}`);
+    throw new Error(`We couldn't resolve your playable shared conventions: ${error.message}`);
   }
 
   return (data ?? []).map((row: any) => row.convention_id);

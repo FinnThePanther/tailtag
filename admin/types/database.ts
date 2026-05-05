@@ -1259,6 +1259,7 @@ export type Database = {
           override_actor_id: string | null;
           override_at: string | null;
           override_reason: string | null;
+          playable_notified_at: string | null;
           profile_id: string;
           verification_method: string | null;
           verified_at: string | null;
@@ -1270,6 +1271,7 @@ export type Database = {
           override_actor_id?: string | null;
           override_at?: string | null;
           override_reason?: string | null;
+          playable_notified_at?: string | null;
           profile_id: string;
           verification_method?: string | null;
           verified_at?: string | null;
@@ -1281,6 +1283,7 @@ export type Database = {
           override_actor_id?: string | null;
           override_at?: string | null;
           override_reason?: string | null;
+          playable_notified_at?: string | null;
           profile_id?: string;
           verification_method?: string | null;
           verified_at?: string | null;

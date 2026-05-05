@@ -36,12 +36,13 @@ import {
   type EditableFursuitMaker,
 } from '../../../src/features/suits/forms/makers';
 import {
-  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
   createJoinableConventionsQueryOptions,
-  fetchActiveProfileConventionIds,
+  fetchProfileConventionMemberships,
   removeFursuitConvention,
+  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+  type ConventionMembership,
 } from '../../../src/features/conventions';
 import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
 import { createProfileQueryOptions } from '../../../src/features/profile';
@@ -162,25 +163,25 @@ export default function EditFursuitScreen() {
   });
 
   const {
-    data: profileConventionIds = [],
+    data: profileConventionMemberships = [],
     error: profileConventionsError,
     isLoading: isProfileConventionsLoading,
     refetch: refetchProfileConventions,
-  } = useQuery<string[], Error>({
-    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+  } = useQuery<ConventionMembership[], Error>({
+    queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchActiveProfileConventionIds(userId!),
+    queryFn: fetchProfileConventionMemberships,
   });
 
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
   const [initialConventionIds, setInitialConventionIds] = useState<Set<string>>(new Set());
 
   const profileConventionIdSet = useMemo(
-    () => new Set(profileConventionIds),
-    [profileConventionIds],
+    () => new Set(profileConventionMemberships.map((membership) => membership.convention_id)),
+    [profileConventionMemberships],
   );
 
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
@@ -1342,12 +1343,10 @@ export default function EditFursuitScreen() {
                     </TailTagButton>
                   </View>
                 ) : conventions.length === 0 ? (
-                  <Text style={styles.message}>
-                    No live conventions are available right now. Check back when an event starts.
-                  </Text>
+                  <Text style={styles.message}>No conventions are open for joining right now.</Text>
                 ) : profileConventionIdSet.size === 0 ? (
                   <Text style={styles.message}>
-                    Join a live convention in Settings before assigning this suit.
+                    Join a convention in Settings before assigning this suit.
                   </Text>
                 ) : (
                   <View style={styles.conventionList}>
@@ -1363,11 +1362,7 @@ export default function EditFursuitScreen() {
                           pending={false}
                           disabled={disableForm || (!isAllowed && !isSelected)}
                           badgeText={
-                            isAllowed
-                              ? isSelected
-                                ? 'Joined'
-                                : 'Tap to join'
-                              : 'Opt in via Settings'
+                            isAllowed ? (isSelected ? 'Attending' : 'Add suit') : 'Join in Settings'
                           }
                           onToggle={(conventionId, nextSelected) =>
                             handleConventionToggle(conventionId, nextSelected)
