@@ -309,6 +309,10 @@ export function AchievementToastManager() {
     unlockedSnapshotRef.current.add(achievementId);
   }, []);
 
+  const hasAchievementBeenSurfaced = useCallback((achievementId: string | null) => {
+    return Boolean(achievementId && unlockedSnapshotRef.current.has(achievementId));
+  }, []);
+
   const applyImmediateAwardToCache = useCallback(
     (award: ImmediateAchievementAward): AchievementWithStatus | null => {
       const current = queryClient.getQueryData<AchievementWithStatus[] | undefined>(statusQueryKey);
@@ -405,10 +409,30 @@ export function AchievementToastManager() {
       const receivedAt = Date.now();
 
       for (const award of awards) {
-        markAchievementAsSurfaced(award.achievementId);
+        const awardAlreadySurfaced = hasAchievementBeenSurfaced(award.achievementId);
         const resolved = applyImmediateAwardToCache(award);
+        const resolvedAlreadySurfaced =
+          awardAlreadySurfaced || hasAchievementBeenSurfaced(resolved?.id ?? null);
+
+        if (resolved?.id) {
+          markAchievementAsSurfaced(resolved.id);
+        } else {
+          markAchievementAsSurfaced(award.achievementId);
+        }
 
         if (resolved) {
+          if (resolvedAlreadySurfaced) {
+            addMonitoringBreadcrumb({
+              category: 'achievements',
+              message: 'Achievement unlocked (inline suppressed)',
+              data: {
+                userId,
+                achievementId: resolved.id,
+              },
+            });
+            continue;
+          }
+
           const toastDisplayedAt = Date.now();
           addMonitoringBreadcrumb({
             category: 'achievements',
@@ -420,6 +444,18 @@ export function AchievementToastManager() {
             },
           });
           handleToast(resolved);
+          continue;
+        }
+
+        if (awardAlreadySurfaced) {
+          addMonitoringBreadcrumb({
+            category: 'achievements',
+            message: 'Achievement unlocked (inline fallback suppressed)',
+            data: {
+              userId,
+              achievementKey: award.achievementKey,
+            },
+          });
           continue;
         }
 
@@ -437,7 +473,14 @@ export function AchievementToastManager() {
     });
 
     return unsubscribe;
-  }, [applyImmediateAwardToCache, handleToast, markAchievementAsSurfaced, showToast, userId]);
+  }, [
+    applyImmediateAwardToCache,
+    handleToast,
+    hasAchievementBeenSurfaced,
+    markAchievementAsSurfaced,
+    showToast,
+    userId,
+  ]);
 
   useEffect(() => {
     if (!userId) {
@@ -512,6 +555,10 @@ export function AchievementToastManager() {
           (entry) => entry.key === achievementKey && !entry.unlocked,
         );
         if (!matchingAchievement) {
+          continue;
+        }
+
+        if (hasAchievementBeenSurfaced(matchingAchievement.id)) {
           continue;
         }
 
@@ -688,6 +735,7 @@ export function AchievementToastManager() {
     return unsubscribe;
   }, [
     handleToast,
+    hasAchievementBeenSurfaced,
     markAchievementAsSurfaced,
     queryClient,
     scheduleCatchReconcile,
@@ -784,6 +832,7 @@ export function AchievementToastManager() {
       const contextRaw = payload?.context ?? null;
       const context: Json | null =
         typeof contextRaw === 'object' && contextRaw !== null ? (contextRaw as Json) : null;
+      const alreadySurfaced = hasAchievementBeenSurfaced(achievementId);
 
       markAchievementAsSurfaced(achievementId);
 
@@ -823,6 +872,18 @@ export function AchievementToastManager() {
       const unlockedAchievement = matchedAchievement;
 
       if (unlockedAchievement) {
+        if (alreadySurfaced) {
+          addMonitoringBreadcrumb({
+            category: 'achievements',
+            message: 'Achievement unlocked (cache hit suppressed)',
+            data: {
+              userId,
+              achievementId: unlockedAchievement.id,
+            },
+          });
+          return;
+        }
+
         const toastDisplayedAt = Date.now();
         const latencyMs = toastDisplayedAt - notificationReceivedAt;
 
@@ -853,6 +914,18 @@ export function AchievementToastManager() {
           );
 
           if (fetchedAchievement) {
+            if (alreadySurfaced) {
+              addMonitoringBreadcrumb({
+                category: 'achievements',
+                message: 'Achievement unlocked (refetch suppressed)',
+                data: {
+                  userId,
+                  achievementId: fetchedAchievement.id,
+                },
+              });
+              return;
+            }
+
             const toastDisplayedAt = Date.now();
             const latencyMs = toastDisplayedAt - notificationReceivedAt;
 
@@ -879,6 +952,18 @@ export function AchievementToastManager() {
 
         const fallbackName =
           normalizeUserFacingAchievementName(payload?.achievement_name) ?? 'achievement';
+
+        if (alreadySurfaced) {
+          addMonitoringBreadcrumb({
+            category: 'achievements',
+            message: 'Achievement unlocked (fallback suppressed)',
+            data: {
+              userId,
+              achievementId,
+            },
+          });
+          return;
+        }
 
         const toastDisplayedAt = Date.now();
         const latencyMs = toastDisplayedAt - notificationReceivedAt;
@@ -1305,7 +1390,15 @@ export function AchievementToastManager() {
     // Note: hasLoadedAchievements is intentionally NOT in the dependency array
     // The subscription needs to be active immediately when user logs in
     // so it can catch notifications that arrive during onboarding/navigation
-  }, [userId, queryClient, statusQueryKey, handleToast, showToast, markAchievementAsSurfaced]);
+  }, [
+    userId,
+    queryClient,
+    statusQueryKey,
+    handleToast,
+    showToast,
+    hasAchievementBeenSurfaced,
+    markAchievementAsSurfaced,
+  ]);
 
   return null;
 }
