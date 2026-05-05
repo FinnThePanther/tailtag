@@ -144,7 +144,7 @@ export function PhotoCatchCard({
 
       if (!sharedConventionId) {
         setLocalError(
-          'You and this suit need to be at the same live convention. Make sure both of you have joined the same live event in Settings.',
+          'You and this suit need to be ready at the same playable convention. Check Settings and verify location if needed.',
         );
         setIsUploadingPhoto(false);
         return;

@@ -19,10 +19,13 @@ import { captureHandledException } from '../../src/lib/sentry';
 import {
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
+  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+  type ConventionMembership,
   type ConventionSummary,
   type PastConventionRecap,
   fetchActiveProfileConventionIds,
   fetchJoinableConventions,
+  fetchProfileConventionMemberships,
   fetchPastConventionRecaps,
   JOINABLE_CONVENTIONS_QUERY_KEY,
   PAST_CONVENTION_RECAPS_QUERY_KEY,
@@ -395,6 +398,16 @@ export default function HomeScreen() {
     refetch: refetchProfileConventions,
   } = profileConventionsQuery;
 
+  const conventionMembershipsQuery = useQuery<ConventionMembership[], Error>({
+    queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: fetchProfileConventionMemberships,
+  });
+  const { data: conventionMemberships = [] } = conventionMembershipsQuery;
+
   const pastConventionRecapsQuery = useQuery<PastConventionRecap[], Error>({
     queryKey: [PAST_CONVENTION_RECAPS_QUERY_KEY, userId],
     enabled: Boolean(userId),
@@ -463,6 +476,30 @@ export default function HomeScreen() {
     return availableConventions[0] ?? null;
   }, [availableConventions]);
   const selectedConventionId = selectedConvention?.id ?? null;
+  const pendingConventionMembership = useMemo(() => {
+    return (
+      conventionMemberships.find((membership) =>
+        ['needs_location_verification', 'awaiting_start', 'upcoming'].includes(
+          membership.membership_state,
+        ),
+      ) ?? null
+    );
+  }, [conventionMemberships]);
+  const noPlayableConventionMessage = useMemo(() => {
+    if (!pendingConventionMembership) {
+      return 'Join a convention in Settings to use convention features.';
+    }
+
+    if (pendingConventionMembership.membership_state === 'needs_location_verification') {
+      return `${pendingConventionMembership.name} is live. Verify your location in Settings to start catching.`;
+    }
+
+    if (pendingConventionMembership.membership_state === 'awaiting_start') {
+      return `${pendingConventionMembership.name} is on your list. Catching opens after staff starts the convention.`;
+    }
+
+    return `${pendingConventionMembership.name} is on your list. TailTag will unlock it when the convention starts.`;
+  }, [pendingConventionMembership]);
 
   const dailyTasksQuery = useDailyTasks(userId, selectedConventionId, { suppressToasts: true });
   const {
@@ -643,7 +680,11 @@ export default function HomeScreen() {
     );
   }, [dismissedRecapIdSet, isRecapBannerStateReady, pastConventionRecaps, seenRecapIdSet, userId]);
 
-  const tier1Ready = useAllDataReady([conventionsQuery, profileConventionsQuery]);
+  const tier1Ready = useAllDataReady([
+    conventionsQuery,
+    profileConventionsQuery,
+    conventionMembershipsQuery,
+  ]);
   const rawTier2Ready = useAllDataReady([dailyTasksQuery, achievementsQuery]);
   // When there's no convention, daily tasks won't fire; gate tier 2 on achievements only.
   const tier2Ready =
@@ -954,7 +995,7 @@ export default function HomeScreen() {
           {!tier1Ready ? (
             <DailyTasksSummarySkeleton />
           ) : !selectedConventionId ? (
-            <Text style={styles.message}>Join a live convention to use convention features.</Text>
+            <Text style={styles.message}>{noPlayableConventionMessage}</Text>
           ) : !tier2Ready ? (
             <DailyTasksSummarySkeleton />
           ) : showDailyError ? (
@@ -1279,7 +1320,7 @@ export default function HomeScreen() {
             </View>
           ) : (
             <View style={styles.helper}>
-              <Text style={styles.message}>Join a live convention to use convention features.</Text>
+              <Text style={styles.message}>{noPlayableConventionMessage}</Text>
               <TailTagButton
                 variant="outline"
                 size="sm"

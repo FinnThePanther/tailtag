@@ -273,14 +273,16 @@ export default function CatchScreen() {
 
       if (activeProfileConventions.length === 0) {
         resetCatchState();
-        setSubmitError('Join a live convention in Settings before catching fursuits.');
+        setSubmitError(
+          'Join or verify a playable convention in Settings before catching fursuits.',
+        );
         return;
       }
 
       if (sharedConventions.length === 0) {
         resetCatchState();
         setSubmitError(
-          "You and this fursuit aren't at the same live convention. Check Settings → Conventions and make sure you're both joined to the same live event.",
+          "You and this fursuit aren't at the same playable convention. Check Settings → Conventions and make sure you're both ready for the same event.",
         );
         return;
       }

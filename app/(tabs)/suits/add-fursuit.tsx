@@ -42,11 +42,12 @@ import {
   type FursuitColorOption,
 } from '../../../src/features/colors';
 import {
-  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
   createJoinableConventionsQueryOptions,
-  fetchActiveProfileConventionIds,
+  fetchProfileConventionMemberships,
+  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+  type ConventionMembership,
 } from '../../../src/features/conventions';
 import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
 import {
@@ -329,17 +330,17 @@ export default function AddFursuitScreen() {
   });
 
   const {
-    data: profileConventionIds = [],
+    data: profileConventionMemberships = [],
     error: profileConventionsError,
     isLoading: isProfileConventionsLoading,
     refetch: refetchProfileConventions,
-  } = useQuery<string[], Error>({
-    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+  } = useQuery<ConventionMembership[], Error>({
+    queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchActiveProfileConventionIds(userId!),
+    queryFn: fetchProfileConventionMemberships,
   });
 
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
@@ -352,11 +353,11 @@ export default function AddFursuitScreen() {
   const makersCanAddMore = useMemo(() => makers.length < FURSUIT_MAKER_LIMIT, [makers.length]);
 
   const profileConventionIdSet = useMemo(
-    () => new Set(profileConventionIds),
-    [profileConventionIds],
+    () => new Set(profileConventionMemberships.map((membership) => membership.convention_id)),
+    [profileConventionMemberships],
   );
 
-  const activeProfileConventionIds = useMemo(
+  const joinedProfileConventionIds = useMemo(
     () => conventions.filter((c) => profileConventionIdSet.has(c.id)).map((c) => c.id),
     [conventions, profileConventionIdSet],
   );
@@ -373,7 +374,7 @@ export default function AddFursuitScreen() {
     }
 
     if (!hasHydratedConventions && !isConventionsBusy) {
-      setSelectedConventionIds(new Set(activeProfileConventionIds));
+      setSelectedConventionIds(new Set(joinedProfileConventionIds));
       setHasHydratedConventions(true);
       return;
     }
@@ -384,7 +385,7 @@ export default function AddFursuitScreen() {
     });
   }, [
     hasHydratedConventions,
-    activeProfileConventionIds,
+    joinedProfileConventionIds,
     profileConventionIdSet,
     isConventionsBusy,
     userId,
@@ -718,7 +719,7 @@ export default function AddFursuitScreen() {
       setAskMeAboutInput('');
       setMakers(createInitialFursuitMakers());
       setSocialLinks(createInitialSocialLinks());
-      setSelectedConventionIds(new Set(activeProfileConventionIds));
+      setSelectedConventionIds(new Set(joinedProfileConventionIds));
       setHasHydratedConventions(true);
       setSelectedPhoto(null);
       setPhotoError(null);
@@ -1306,12 +1307,10 @@ export default function AddFursuitScreen() {
                 </TailTagButton>
               </View>
             ) : conventions.length === 0 ? (
-              <Text style={styles.message}>
-                No live conventions are available right now. Check back when an event starts.
-              </Text>
+              <Text style={styles.message}>No conventions are open for joining right now.</Text>
             ) : profileConventionIdSet.size === 0 ? (
               <Text style={styles.message}>
-                Join a live convention in Settings before assigning this suit.
+                Join a convention in Settings before assigning this suit.
               </Text>
             ) : (
               <View style={styles.conventionList}>
@@ -1327,7 +1326,7 @@ export default function AddFursuitScreen() {
                       pending={false}
                       disabled={!isAllowed}
                       badgeText={
-                        isAllowed ? (isSelected ? 'Joined' : 'Tap to join') : 'Opt in via Settings'
+                        isAllowed ? (isSelected ? 'Attending' : 'Add suit') : 'Join in Settings'
                       }
                       onToggle={(conventionId, nextSelected) =>
                         handleConventionToggle(conventionId, nextSelected)

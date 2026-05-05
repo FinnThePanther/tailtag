@@ -189,7 +189,9 @@ export default function DailyTasksScreen() {
               </TailTagButton>
             </View>
           ) : availableConventions.length === 0 ? (
-            <Text style={styles.message}>Join a live convention to use convention features.</Text>
+            <Text style={styles.message}>
+              Join or verify a playable convention to use convention features.
+            </Text>
           ) : (
             <View style={styles.selectorRow}>
               {availableConventions.map((convention) => (
@@ -265,7 +267,7 @@ export default function DailyTasksScreen() {
             <View style={styles.progressFooter}>
               <Text style={styles.progressHelper}>
                 {!selectedConventionId
-                  ? 'Join a live convention to begin.'
+                  ? 'Join or verify a playable convention to begin.'
                   : isDailyTasksUnavailable
                     ? 'Daily tasks are only available while this convention is live.'
                     : totalCount === 0
@@ -290,7 +292,9 @@ export default function DailyTasksScreen() {
 
           {!selectedConventionId ? (
             <View style={styles.helper}>
-              <Text style={styles.message}>Join a live convention to use convention features.</Text>
+              <Text style={styles.message}>
+                Join or verify a playable convention to use convention features.
+              </Text>
               <TailTagButton
                 variant="outline"
                 size="sm"

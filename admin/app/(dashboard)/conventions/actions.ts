@@ -240,7 +240,7 @@ export async function startConventionAction(conventionId: string) {
 
   const { data: current, error: currentError } = await supabase
     .from('conventions')
-    .select('status, started_at')
+    .select('name, status, started_at')
     .eq('id', conventionId)
     .single();
 
@@ -342,6 +342,47 @@ export async function startConventionAction(conventionId: string) {
     entityId: conventionId,
     context: { source: 'start_convention', result: rotationResult },
   });
+
+  try {
+    const notifiedAt = new Date().toISOString();
+    const { data: membershipRows, error: membershipError } = await supabase
+      .from('profile_conventions')
+      .update({ playable_notified_at: notifiedAt })
+      .eq('convention_id', conventionId)
+      .is('playable_notified_at', null)
+      .select('profile_id');
+
+    if (membershipError) {
+      throw membershipError;
+    }
+
+    const notifications = (membershipRows ?? []).map((row) => ({
+      user_id: row.profile_id,
+      type: 'convention_started',
+      payload: {
+        convention_id: conventionId,
+        convention_name: current.name,
+        started_at: notifiedAt,
+      },
+    }));
+
+    if (notifications.length > 0) {
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert(notifications);
+      if (notificationError) {
+        throw notificationError;
+      }
+    }
+  } catch (notificationError) {
+    await logAudit({
+      actorId: profile.id,
+      action: 'notify_convention_started_failed',
+      entityType: 'convention',
+      entityId: conventionId,
+      context: { error: actionErrorMessage(notificationError) },
+    });
+  }
 
   revalidatePath('/conventions');
   revalidatePath(`/conventions/${conventionId}`);

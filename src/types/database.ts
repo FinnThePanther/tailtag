@@ -1134,6 +1134,7 @@ export type Database = {
           override_actor_id: string | null
           override_at: string | null
           override_reason: string | null
+          playable_notified_at: string | null
           profile_id: string
           verification_method: string | null
           verified_at: string | null
@@ -1145,6 +1146,7 @@ export type Database = {
           override_actor_id?: string | null
           override_at?: string | null
           override_reason?: string | null
+          playable_notified_at?: string | null
           profile_id: string
           verification_method?: string | null
           verified_at?: string | null
@@ -1156,6 +1158,7 @@ export type Database = {
           override_actor_id?: string | null
           override_at?: string | null
           override_reason?: string | null
+          playable_notified_at?: string | null
           profile_id?: string
           verification_method?: string | null
           verified_at?: string | null
@@ -2271,6 +2274,33 @@ export type Database = {
           timezone: string
         }[]
       }
+      get_my_convention_memberships: {
+        Args: never
+        Returns: {
+          convention_id: string
+          end_date: string
+          geofence_enabled: boolean
+          geofence_radius_meters: number
+          id: string
+          is_joinable: boolean
+          joined_at: string
+          latitude: number
+          local_day: string
+          location: string
+          location_verification_required: boolean
+          longitude: number
+          membership_state: string
+          name: string
+          override_at: string
+          playable_notified_at: string
+          slug: string
+          start_date: string
+          status: string
+          timezone: string
+          verification_method: string
+          verified_at: string
+        }[]
+      }
       get_my_convention_recap_detail: {
         Args: { p_recap_id: string }
         Returns: {
@@ -2384,12 +2414,20 @@ export type Database = {
         Args: { p_convention_id: string }
         Returns: boolean
       }
+      is_convention_prejoinable: {
+        Args: { p_convention_id: string }
+        Returns: boolean
+      }
       is_event_staff: {
         Args: { convention_id: string; user_id: string }
         Returns: boolean
       }
       is_moderator_or_higher: {
         Args: { check_user_id: string }
+        Returns: boolean
+      }
+      is_profile_convention_gameplay_eligible: {
+        Args: { p_convention_id: string; p_profile_id: string }
         Returns: boolean
       }
       is_username_available: {
