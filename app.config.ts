@@ -160,6 +160,7 @@ module.exports = ({ config }) => ({
         color: '#7c3aed',
       },
     ],
+    './plugins/withFirebaseAndroidInit.cjs',
     'expo-web-browser',
     'expo-apple-authentication',
   ],
