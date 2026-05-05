@@ -1,7 +1,11 @@
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useState } from 'react';
 
-import type { ConventionSummary, VerifiedLocation } from '../../features/conventions';
+import type {
+  ConventionMembershipState,
+  ConventionSummary,
+  VerifiedLocation,
+} from '../../features/conventions';
 import { formatConventionDateRange, isConventionEnded } from '../../features/conventions/utils';
 import { useLocationPermission } from '@/features/conventions/hooks/useLocationPermission';
 import { useGeoVerification } from '@/features/conventions/hooks/useGeoVerification';
@@ -16,6 +20,7 @@ export type ConventionToggleProps = {
   pending: boolean;
   disabled?: boolean;
   badgeText?: string;
+  membershipState?: ConventionMembershipState | null;
   profileId?: string;
   onToggle: (
     conventionId: string,
@@ -30,11 +35,13 @@ export function ConventionToggle({
   pending,
   disabled = false,
   badgeText,
+  membershipState,
   profileId,
   onToggle,
 }: ConventionToggleProps) {
   const requiresVerification =
     Boolean(profileId) &&
+    convention.is_joinable === true &&
     Boolean(convention.location_verification_required) &&
     Boolean(convention.geofence_enabled);
   const {
@@ -54,10 +61,28 @@ export function ConventionToggle({
   const shouldDisable =
     disabled || pending || isVerifying || isRequestingPermission || isDisabledDueToEnd;
   const showDisabledBadge = !selected && !pending && (disabled || hasEnded);
+  const defaultBadgeText =
+    badgeText ??
+    (membershipState === 'active'
+      ? 'Ready to catch'
+      : membershipState === 'needs_location_verification'
+        ? 'Verify location'
+        : membershipState === 'awaiting_start'
+          ? 'Waiting for staff start'
+          : membershipState === 'upcoming'
+            ? 'Joined'
+            : selected
+              ? 'Joined'
+              : convention.is_joinable
+                ? 'Tap to join'
+                : 'Add to yours');
 
   const handlePress = async () => {
-    // Opt-out: no verification required
-    if (selected) {
+    const shouldVerifySelectedConvention =
+      selected && membershipState === 'needs_location_verification' && requiresVerification;
+
+    // Opt-out: no verification required unless the row is explicitly asking for verification.
+    if (selected && !shouldVerifySelectedConvention) {
       onToggle(convention.id, false, null);
       return;
     }
@@ -135,7 +160,7 @@ export function ConventionToggle({
               numberOfLines={1}
               style={styles.conventionBadgeText}
             >
-              {badgeText ?? (selected ? 'Joined' : 'Tap to join')}
+              {defaultBadgeText}
             </Text>
           )}
         </View>

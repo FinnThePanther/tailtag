@@ -12,6 +12,7 @@ import {
 import { supabase } from '../../../lib/supabase';
 import { addMonitoringBreadcrumb, captureHandledException } from '../../../lib/sentry';
 import { useToast } from '../../../hooks/useToast';
+import { getAchievementAwardSurfaceKey, getAchievementSurfaceKey } from '../surfaceKeys';
 import {
   subscribeToLocalGameplayEvents,
   type LocalGameplayEvent,
@@ -182,6 +183,8 @@ export function AchievementToastManager() {
   const routeRef = useRef<string>('');
   const processedNotificationIdsRef = useRef<Set<string>>(new Set());
   const optimisticEventKeysRef = useRef<Set<string>>(new Set());
+  const surfacedAchievementKeysRef = useRef<Set<string>>(new Set());
+  const surfacedAchievementSurfaceKeysRef = useRef<Set<string>>(new Set());
   const surfacedDailyTaskKeysRef = useRef<Set<string>>(new Set());
   const surfacedDailyAllCompleteKeysRef = useRef<Set<string>>(new Set());
   const sessionStartedAtRef = useRef<string>(new Date().toISOString());
@@ -302,12 +305,54 @@ export function AchievementToastManager() {
   const hasPrimedSnapshotRef = useRef<boolean>(false);
   const snapshotUserRef = useRef<string | null>(null);
 
-  const markAchievementAsSurfaced = useCallback((achievementId: string | null) => {
-    if (!achievementId) {
-      return;
-    }
-    unlockedSnapshotRef.current.add(achievementId);
-  }, []);
+  const markAchievementAsSurfaced = useCallback(
+    (
+      achievementId: string | null,
+      achievementKey?: string | null,
+      achievementSurfaceKey?: string | null,
+    ) => {
+      if (achievementId) {
+        unlockedSnapshotRef.current.add(achievementId);
+      }
+      if (achievementKey) {
+        surfacedAchievementKeysRef.current.add(achievementKey);
+      }
+      const surfaceKey =
+        achievementSurfaceKey ??
+        getAchievementAwardSurfaceKey({
+          achievementId,
+          achievementKey,
+        });
+      if (surfaceKey) {
+        surfacedAchievementSurfaceKeysRef.current.add(surfaceKey);
+      }
+    },
+    [],
+  );
+
+  const hasAchievementBeenSurfaced = useCallback(
+    (input: {
+      achievementId?: string | null;
+      achievementKey?: string | null;
+      achievementName?: string | null;
+      achievementSurfaceKey?: string | null;
+    }) => {
+      const surfaceKey =
+        input.achievementSurfaceKey ??
+        getAchievementAwardSurfaceKey({
+          achievementId: input.achievementId,
+          achievementKey: input.achievementKey,
+          achievementName: input.achievementName,
+        });
+
+      return Boolean(
+        (input.achievementId && unlockedSnapshotRef.current.has(input.achievementId)) ||
+        (input.achievementKey && surfacedAchievementKeysRef.current.has(input.achievementKey)) ||
+        (surfaceKey && surfacedAchievementSurfaceKeysRef.current.has(surfaceKey)),
+      );
+    },
+    [],
+  );
 
   const applyImmediateAwardToCache = useCallback(
     (award: ImmediateAchievementAward): AchievementWithStatus | null => {
@@ -349,6 +394,8 @@ export function AchievementToastManager() {
       clearCatchReconcileTimer();
       catchReconcileInFlightRef.current = false;
       unlockedSnapshotRef.current.clear();
+      surfacedAchievementKeysRef.current.clear();
+      surfacedAchievementSurfaceKeysRef.current.clear();
       hasPrimedSnapshotRef.current = false;
       snapshotUserRef.current = userId;
       optimisticEventKeysRef.current.clear();
@@ -368,14 +415,21 @@ export function AchievementToastManager() {
 
     const previous = unlockedSnapshotRef.current;
     const next = new Set<string>();
-    let shouldPrime = !hasPrimedSnapshotRef.current;
+    const shouldPrime = !hasPrimedSnapshotRef.current;
 
     for (const achievement of achievementStatus) {
       if (!achievement.unlocked) continue;
 
       next.add(achievement.id);
+      const achievementSurfaceKey = getAchievementSurfaceKey(achievement);
+      const alreadySurfaced = hasAchievementBeenSurfaced({
+        achievementId: achievement.id,
+        achievementKey: achievement.key,
+        achievementSurfaceKey,
+      });
+      markAchievementAsSurfaced(achievement.id, achievement.key, achievementSurfaceKey);
 
-      if (previous.has(achievement.id)) {
+      if (previous.has(achievement.id) || alreadySurfaced) {
         continue;
       }
 
@@ -390,7 +444,14 @@ export function AchievementToastManager() {
     if (shouldPrime) {
       hasPrimedSnapshotRef.current = true;
     }
-  }, [achievementStatus, clearCatchReconcileTimer, userId, handleToast]);
+  }, [
+    achievementStatus,
+    clearCatchReconcileTimer,
+    handleToast,
+    hasAchievementBeenSurfaced,
+    markAchievementAsSurfaced,
+    userId,
+  ]);
 
   useEffect(() => {
     if (!userId) {
@@ -405,10 +466,44 @@ export function AchievementToastManager() {
       const receivedAt = Date.now();
 
       for (const award of awards) {
-        markAchievementAsSurfaced(award.achievementId);
+        const awardSurfaceKey = getAchievementAwardSurfaceKey({
+          achievementId: award.achievementId,
+          achievementKey: award.achievementKey,
+        });
+        const awardAlreadySurfaced = hasAchievementBeenSurfaced({
+          achievementId: award.achievementId,
+          achievementKey: award.achievementKey,
+          achievementSurfaceKey: awardSurfaceKey,
+        });
         const resolved = applyImmediateAwardToCache(award);
+        const resolvedSurfaceKey = resolved ? getAchievementSurfaceKey(resolved) : null;
+        const resolvedAlreadySurfaced =
+          awardAlreadySurfaced ||
+          hasAchievementBeenSurfaced({
+            achievementId: resolved?.id ?? null,
+            achievementKey: resolved?.key ?? award.achievementKey,
+            achievementSurfaceKey: resolvedSurfaceKey ?? awardSurfaceKey,
+          });
+
+        if (resolved?.id) {
+          markAchievementAsSurfaced(resolved.id, resolved.key, resolvedSurfaceKey);
+        } else {
+          markAchievementAsSurfaced(award.achievementId, award.achievementKey, awardSurfaceKey);
+        }
 
         if (resolved) {
+          if (resolvedAlreadySurfaced) {
+            addMonitoringBreadcrumb({
+              category: 'achievements',
+              message: 'Achievement unlocked (inline suppressed)',
+              data: {
+                userId,
+                achievementId: resolved.id,
+              },
+            });
+            continue;
+          }
+
           const toastDisplayedAt = Date.now();
           addMonitoringBreadcrumb({
             category: 'achievements',
@@ -420,6 +515,18 @@ export function AchievementToastManager() {
             },
           });
           handleToast(resolved);
+          continue;
+        }
+
+        if (awardAlreadySurfaced) {
+          addMonitoringBreadcrumb({
+            category: 'achievements',
+            message: 'Achievement unlocked (inline fallback suppressed)',
+            data: {
+              userId,
+              achievementKey: award.achievementKey,
+            },
+          });
           continue;
         }
 
@@ -437,7 +544,14 @@ export function AchievementToastManager() {
     });
 
     return unsubscribe;
-  }, [applyImmediateAwardToCache, handleToast, markAchievementAsSurfaced, showToast, userId]);
+  }, [
+    applyImmediateAwardToCache,
+    handleToast,
+    hasAchievementBeenSurfaced,
+    markAchievementAsSurfaced,
+    showToast,
+    userId,
+  ]);
 
   useEffect(() => {
     if (!userId) {
@@ -465,8 +579,6 @@ export function AchievementToastManager() {
 
       if (event.type === 'onboarding_completed') {
         predictedAchievementKeys.push('getting_started');
-      } else if (event.type === 'convention_joined' && event.conventionId) {
-        predictedAchievementKeys.push('EXPLORER');
       } else if (
         event.type === 'profile_updated' &&
         profile &&
@@ -515,6 +627,15 @@ export function AchievementToastManager() {
           continue;
         }
 
+        if (
+          hasAchievementBeenSurfaced({
+            achievementId: matchingAchievement.id,
+            achievementKey: matchingAchievement.key,
+          })
+        ) {
+          continue;
+        }
+
         const optimisticKey = `${event.idempotencyKey}:achievement:${matchingAchievement.id}`;
         if (optimisticEventKeysRef.current.has(optimisticKey)) {
           continue;
@@ -528,7 +649,7 @@ export function AchievementToastManager() {
           context: matchingAchievement.context,
         };
 
-        markAchievementAsSurfaced(matchingAchievement.id);
+        markAchievementAsSurfaced(matchingAchievement.id, matchingAchievement.key);
         queryClient.setQueryData<AchievementWithStatus[] | undefined>(
           statusQueryKey,
           (current) =>
@@ -688,6 +809,7 @@ export function AchievementToastManager() {
     return unsubscribe;
   }, [
     handleToast,
+    hasAchievementBeenSurfaced,
     markAchievementAsSurfaced,
     queryClient,
     scheduleCatchReconcile,
@@ -779,13 +901,28 @@ export function AchievementToastManager() {
 
       const achievementIdRaw = payload?.achievement_id ?? payload?.achievementId ?? null;
       const achievementId = typeof achievementIdRaw === 'string' ? achievementIdRaw : null;
+      const achievementKeyRaw = payload?.achievement_key ?? payload?.achievementKey ?? null;
+      const achievementKey = typeof achievementKeyRaw === 'string' ? achievementKeyRaw : null;
+      const achievementNameRaw = payload?.achievement_name ?? payload?.achievementName ?? null;
+      const achievementName = typeof achievementNameRaw === 'string' ? achievementNameRaw : null;
       const awardedAtRaw = payload?.awarded_at ?? payload?.awardedAt ?? createdAt ?? null;
       const awardedAt = typeof awardedAtRaw === 'string' ? awardedAtRaw : (createdAt ?? null);
       const contextRaw = payload?.context ?? null;
       const context: Json | null =
         typeof contextRaw === 'object' && contextRaw !== null ? (contextRaw as Json) : null;
+      const notificationSurfaceKey = getAchievementAwardSurfaceKey({
+        achievementId,
+        achievementKey,
+        achievementName,
+      });
+      const alreadySurfaced = hasAchievementBeenSurfaced({
+        achievementId,
+        achievementKey,
+        achievementName,
+        achievementSurfaceKey: notificationSurfaceKey,
+      });
 
-      markAchievementAsSurfaced(achievementId);
+      markAchievementAsSurfaced(achievementId, achievementKey, notificationSurfaceKey);
 
       addMonitoringBreadcrumb({
         category: 'achievements',
@@ -823,6 +960,32 @@ export function AchievementToastManager() {
       const unlockedAchievement = matchedAchievement;
 
       if (unlockedAchievement) {
+        const achievementSurfaceKey = getAchievementSurfaceKey(unlockedAchievement);
+        const achievementAlreadySurfaced =
+          alreadySurfaced ||
+          hasAchievementBeenSurfaced({
+            achievementId: unlockedAchievement.id,
+            achievementKey: unlockedAchievement.key,
+            achievementSurfaceKey,
+          });
+        markAchievementAsSurfaced(
+          unlockedAchievement.id,
+          unlockedAchievement.key,
+          achievementSurfaceKey,
+        );
+
+        if (achievementAlreadySurfaced) {
+          addMonitoringBreadcrumb({
+            category: 'achievements',
+            message: 'Achievement unlocked (cache hit suppressed)',
+            data: {
+              userId,
+              achievementId: unlockedAchievement.id,
+            },
+          });
+          return;
+        }
+
         const toastDisplayedAt = Date.now();
         const latencyMs = toastDisplayedAt - notificationReceivedAt;
 
@@ -853,6 +1016,32 @@ export function AchievementToastManager() {
           );
 
           if (fetchedAchievement) {
+            const achievementSurfaceKey = getAchievementSurfaceKey(fetchedAchievement);
+            const achievementAlreadySurfaced =
+              alreadySurfaced ||
+              hasAchievementBeenSurfaced({
+                achievementId: fetchedAchievement.id,
+                achievementKey: fetchedAchievement.key,
+                achievementSurfaceKey,
+              });
+            markAchievementAsSurfaced(
+              fetchedAchievement.id,
+              fetchedAchievement.key,
+              achievementSurfaceKey,
+            );
+
+            if (achievementAlreadySurfaced) {
+              addMonitoringBreadcrumb({
+                category: 'achievements',
+                message: 'Achievement unlocked (refetch suppressed)',
+                data: {
+                  userId,
+                  achievementId: fetchedAchievement.id,
+                },
+              });
+              return;
+            }
+
             const toastDisplayedAt = Date.now();
             const latencyMs = toastDisplayedAt - notificationReceivedAt;
 
@@ -879,6 +1068,33 @@ export function AchievementToastManager() {
 
         const fallbackName =
           normalizeUserFacingAchievementName(payload?.achievement_name) ?? 'achievement';
+        const fallbackSurfaceKey = getAchievementAwardSurfaceKey({
+          achievementId,
+          achievementKey,
+          achievementName: fallbackName,
+        });
+
+        if (
+          alreadySurfaced ||
+          hasAchievementBeenSurfaced({
+            achievementId,
+            achievementKey,
+            achievementName: fallbackName,
+            achievementSurfaceKey: fallbackSurfaceKey,
+          })
+        ) {
+          addMonitoringBreadcrumb({
+            category: 'achievements',
+            message: 'Achievement unlocked (fallback suppressed)',
+            data: {
+              userId,
+              achievementId,
+            },
+          });
+          return;
+        }
+
+        markAchievementAsSurfaced(achievementId, achievementKey, fallbackSurfaceKey);
 
         const toastDisplayedAt = Date.now();
         const latencyMs = toastDisplayedAt - notificationReceivedAt;
@@ -1305,7 +1521,15 @@ export function AchievementToastManager() {
     // Note: hasLoadedAchievements is intentionally NOT in the dependency array
     // The subscription needs to be active immediately when user logs in
     // so it can catch notifications that arrive during onboarding/navigation
-  }, [userId, queryClient, statusQueryKey, handleToast, showToast, markAchievementAsSurfaced]);
+  }, [
+    userId,
+    queryClient,
+    statusQueryKey,
+    handleToast,
+    showToast,
+    hasAchievementBeenSurfaced,
+    markAchievementAsSurfaced,
+  ]);
 
   return null;
 }

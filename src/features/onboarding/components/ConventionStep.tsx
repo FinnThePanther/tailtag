@@ -8,15 +8,19 @@ import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { TailTagInput } from '../../../components/ui/TailTagInput';
 import {
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
+  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   createJoinableConventionsQueryOptions,
-  fetchActiveProfileConventionIds,
+  fetchProfileConventionMemberships,
   optInToConvention,
   optOutOfConvention,
+  type ConventionMembership,
+  type ConventionMembershipState,
   type ConventionSummary,
   type VerifiedLocation,
 } from '../../conventions';
 import { ConventionToggle } from '../../../components/conventions/ConventionToggle';
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../leaderboard/api/leaderboard';
+import { formatConventionDateRange } from '../../conventions/utils';
 import { styles } from './ConventionStep.styles';
 
 type ConventionStepProps = {
@@ -24,6 +28,35 @@ type ConventionStepProps = {
   onComplete: (conventionIds: string[]) => void;
   onSkip: () => void;
 };
+
+function conventionBadgeText(
+  convention: ConventionSummary,
+  selected: boolean,
+  membershipState?: ConventionMembershipState | null,
+) {
+  if (!selected) {
+    return convention.is_joinable ? 'Tap to join' : 'Add to yours';
+  }
+
+  if (membershipState === 'active') {
+    return 'Ready to catch';
+  }
+
+  if (membershipState === 'needs_location_verification') {
+    return 'Verify location';
+  }
+
+  if (membershipState === 'awaiting_start') {
+    return 'Waiting for staff start';
+  }
+
+  if (membershipState === 'upcoming') {
+    const startsAt = formatConventionDateRange(convention.start_date ?? null, null);
+    return startsAt ? `Starts ${startsAt}` : 'Joined';
+  }
+
+  return 'Joined';
+}
 
 export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepProps) {
   const queryClient = useQueryClient();
@@ -46,17 +79,25 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
   });
 
   // Fetch user's existing conventions to handle onboarding restarts
-  const { data: existingConventionIds = [], isLoading: isLoadingExisting } = useQuery<
-    string[],
+  const { data: existingMemberships = [], isLoading: isLoadingExisting } = useQuery<
+    ConventionMembership[],
     Error
   >({
-    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
-    queryFn: () => fetchActiveProfileConventionIds(userId),
+    queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
+    queryFn: fetchProfileConventionMemberships,
     staleTime: 0, // Always fetch fresh data during onboarding
     refetchOnMount: true,
     refetchOnWindowFocus: false, // Don't refetch while user is editing selections
     refetchOnReconnect: false, // Don't refetch on reconnect to avoid overwriting edits
   });
+  const existingConventionIds = useMemo(
+    () => existingMemberships.map((membership) => membership.convention_id),
+    [existingMemberships],
+  );
+  const membershipByConventionId = useMemo(
+    () => new Map(existingMemberships.map((membership) => [membership.convention_id, membership])),
+    [existingMemberships],
+  );
 
   // Pre-populate selected conventions with existing ones on initial load only
   // This ensures we don't overwrite user's in-progress edits if the query refetches
@@ -66,7 +107,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
       existingConventionIds.length > 0 &&
       !hasInitializedSelectionsRef.current
     ) {
-      setSelectedConventionIds(new Set([existingConventionIds[0]]));
+      setSelectedConventionIds(new Set(existingConventionIds));
       hasInitializedSelectionsRef.current = true;
     }
   }, [isLoadingExisting, existingConventionIds]);
@@ -90,7 +131,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
   ) => {
     setSelectedConventionIds((current) =>
       nextSelected
-        ? new Set([conventionId])
+        ? new Set([...current, conventionId])
         : (() => {
             const next = new Set(current);
             next.delete(conventionId);
@@ -100,7 +141,11 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
 
     setVerifiedLocations((current) => {
       if (nextSelected) {
-        return verifiedLocation ? { [conventionId]: verifiedLocation } : {};
+        const next = { ...current };
+        if (verifiedLocation) {
+          next[conventionId] = verifiedLocation;
+        }
+        return next;
       }
 
       const next = { ...current };
@@ -125,37 +170,48 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
       // Calculate delta: what to add and what to remove
       const toAdd = selections.filter((id) => !existing.includes(id));
       const toRemove = existing.filter((id) => !selections.includes(id));
+      const successfulOptIns: string[] = [];
+      const successfulOptOuts: string[] = [];
+      const affectedConventionIds = Array.from(new Set([...toAdd, ...toRemove]));
 
-      // Only make API calls if there are changes
-      const operations: Promise<void>[] = [];
-
-      toAdd.forEach((conventionId) => {
-        operations.push(
-          optInToConvention({
+      try {
+        for (const conventionId of toAdd) {
+          await optInToConvention({
             profileId: userId,
             conventionId,
             verifiedLocation: verifiedLocations[conventionId],
-          }),
-        );
-      });
+          });
+          successfulOptIns.push(conventionId);
+        }
 
-      toRemove.forEach((conventionId) => {
-        operations.push(optOutOfConvention(userId, conventionId));
-      });
+        for (const conventionId of toRemove) {
+          await optOutOfConvention(userId, conventionId);
+          successfulOptOuts.push(conventionId);
+        }
+      } catch (operationError) {
+        await Promise.allSettled([
+          ...successfulOptIns.map((conventionId) => optOutOfConvention(userId, conventionId)),
+          ...successfulOptOuts.map((conventionId) =>
+            optInToConvention({
+              profileId: userId,
+              conventionId,
+              verifiedLocation: verifiedLocations[conventionId],
+            }),
+          ),
+        ]);
 
-      // Execute all operations in parallel (if any)
-      if (operations.length > 0) {
-        await Promise.all(operations);
+        throw operationError;
       }
 
-      // Optimistically update cache with final state
-      queryClient.setQueryData<string[] | undefined>(
-        [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
-        selections,
-      );
+      void queryClient.invalidateQueries({
+        queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+      });
 
       // Invalidate leaderboard cache for joined conventions
-      toAdd.forEach((conventionId) => {
+      affectedConventionIds.forEach((conventionId) => {
         void queryClient.invalidateQueries({
           queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
         });
@@ -163,6 +219,18 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
 
       onComplete(selections);
     } catch (caught) {
+      void queryClient.invalidateQueries({
+        queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+      });
+      [...selectedConventionIds, ...existingConventionIds].forEach((conventionId) => {
+        void queryClient.invalidateQueries({
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
+        });
+      });
+
       const message =
         caught instanceof Error
           ? caught.message
@@ -177,10 +245,10 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
     <View style={styles.container}>
       <TailTagCard>
         <Text style={styles.eyebrow}>Step 2</Text>
-        <Text style={styles.title}>Choose your first convention</Text>
+        <Text style={styles.title}>Choose your conventions</Text>
         <Text style={styles.body}>
-          Pick the convention you're currently attending to find other fursuiters! If there are no
-          active cons right now, you can skip this and join one later.
+          Add the conventions you're attending so TailTag is ready when they go live. You can update
+          these anytime in Settings.
         </Text>
 
         <TailTagInput
@@ -192,7 +260,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
         />
 
         <View style={styles.listHeader}>
-          <Text style={styles.listHeaderText}>Active conventions</Text>
+          <Text style={styles.listHeaderText}>Available conventions</Text>
           <TailTagButton
             size="sm"
             variant="outline"
@@ -216,12 +284,13 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
           ) : filteredConventions.length === 0 ? (
             <Text style={styles.message}>
               {conventions.length === 0
-                ? 'No live conventions are available right now. Check back when an event starts.'
-                : 'No live conventions matched your search yet.'}
+                ? 'No conventions are open for joining right now.'
+                : 'No conventions matched your search yet.'}
             </Text>
           ) : (
             filteredConventions.map((convention) => {
               const selected = selectedConventionIds.has(convention.id);
+              const membership = membershipByConventionId.get(convention.id);
               return (
                 <View
                   key={convention.id}
@@ -232,6 +301,12 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
                     selected={selected}
                     pending={isSubmitting}
                     disabled={isSubmitting}
+                    badgeText={conventionBadgeText(
+                      convention,
+                      selected,
+                      membership?.membership_state,
+                    )}
+                    membershipState={membership?.membership_state}
                     profileId={userId}
                     onToggle={(conventionId, nextSelected, verifiedLocation) =>
                       toggleConvention(conventionId, nextSelected, verifiedLocation)

@@ -8,8 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/features/auth';
 import { createProfileQueryOptions, type ProfileSummary } from '../../src/features/profile';
 import {
-  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
-  fetchActiveProfileConventionIds,
+  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+  fetchProfileConventionMemberships,
+  type ConventionMembership,
 } from '../../src/features/conventions';
 import { createMySuitsQueryOptions } from '../../src/features/suits';
 import { ProgressDots } from '../../src/features/onboarding/components/ProgressDots';
@@ -67,11 +68,11 @@ export default function OnboardingScreen() {
     enabled: Boolean(userId),
   });
 
-  const { data: existingConventionIds = [] } = useQuery<string[], Error>({
+  const { data: existingConventionMemberships = [] } = useQuery<ConventionMembership[], Error>({
     queryKey: userId
-      ? [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId]
-      : ['active-conventions', 'guest'],
-    queryFn: () => fetchActiveProfileConventionIds(userId ?? ''),
+      ? [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId]
+      : ['convention-memberships', 'guest'],
+    queryFn: fetchProfileConventionMemberships,
     enabled: Boolean(userId),
     staleTime: 0,
     refetchOnMount: true,
@@ -130,10 +131,10 @@ export default function OnboardingScreen() {
   }, [profile?.onboarding_completed, router, userId]);
 
   useEffect(() => {
-    if (existingConventionIds.length > 0) {
+    if (existingConventionMemberships.length > 0) {
       setHasJoinedConvention(true);
     }
-  }, [existingConventionIds.length]);
+  }, [existingConventionMemberships.length]);
 
   useEffect(() => {
     if (mySuits.length > 0) {
@@ -186,7 +187,8 @@ export default function OnboardingScreen() {
   }, [router, userId]);
 
   const currentIndex = stepIndex(currentStep);
-  const hasJoinedConventionForSummary = hasJoinedConvention || existingConventionIds.length > 0;
+  const hasJoinedConventionForSummary =
+    hasJoinedConvention || existingConventionMemberships.length > 0;
   const hasFursuitForSummary = hasRegisteredFursuit || mySuits.length > 0;
   const hasEnabledNotificationsForSummary =
     hasEnabledNotifications || profile?.push_notifications_enabled === true;

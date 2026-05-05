@@ -406,10 +406,12 @@ async function handlePost(req: Request): Promise<Response> {
       }
       if (
         error.message?.includes('Catcher must join the live convention') ||
+        error.message?.includes('Fursuit owner must join the live convention') ||
         error.message?.includes('Fursuit must be assigned to the live convention')
       ) {
         return jsonResponse(400, {
-          error: 'You and this fursuit must share a live convention before catching.',
+          error:
+            'You and this fursuit must share a playable convention, and the fursuit must be assigned to that convention before catching.',
         });
       }
       if (error.message?.includes('not found')) {
