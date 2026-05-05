@@ -160,8 +160,6 @@ module.exports = ({ config }) => ({
         color: '#7c3aed',
       },
     ],
-    // Firebase initialization depends on the environment-specific service files above.
-    './plugins/withFirebaseAndroidInit.cjs',
     'expo-web-browser',
     'expo-apple-authentication',
   ],
