@@ -62,15 +62,15 @@ jobs:
               - '.github/workflows/branch-delivery.yml'
             # package.json / package-lock.json live under `js`, not `native`.
             # Adding a pure JS dep (e.g. lodash) changes only those files and
-            # should ship via OTA without a rebuild or version bump. Adding a
-            # true native module requires `expo prebuild`, which dirties
-            # ios/ and android/ — those directories are the authoritative
-            # "this needs a native rebuild" signal.
+            # should ship via OTA without a rebuild or version bump. Generated
+            # native directories and config plugins are both authoritative
+            # "this needs a native rebuild" signals.
             native:
               - 'ios/**'
               - 'android/**'
               - 'app.config.ts'
               - 'eas.json'
+              - 'plugins/**'
             js:
               - 'app/**'
               - 'src/**'
