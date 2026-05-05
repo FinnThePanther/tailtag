@@ -182,6 +182,7 @@ export function AchievementToastManager() {
   const routeRef = useRef<string>('');
   const processedNotificationIdsRef = useRef<Set<string>>(new Set());
   const optimisticEventKeysRef = useRef<Set<string>>(new Set());
+  const surfacedAchievementKeysRef = useRef<Set<string>>(new Set());
   const surfacedDailyTaskKeysRef = useRef<Set<string>>(new Set());
   const surfacedDailyAllCompleteKeysRef = useRef<Set<string>>(new Set());
   const sessionStartedAtRef = useRef<string>(new Date().toISOString());
@@ -302,16 +303,27 @@ export function AchievementToastManager() {
   const hasPrimedSnapshotRef = useRef<boolean>(false);
   const snapshotUserRef = useRef<string | null>(null);
 
-  const markAchievementAsSurfaced = useCallback((achievementId: string | null) => {
-    if (!achievementId) {
-      return;
-    }
-    unlockedSnapshotRef.current.add(achievementId);
-  }, []);
+  const markAchievementAsSurfaced = useCallback(
+    (achievementId: string | null, achievementKey?: string | null) => {
+      if (achievementId) {
+        unlockedSnapshotRef.current.add(achievementId);
+      }
+      if (achievementKey) {
+        surfacedAchievementKeysRef.current.add(achievementKey);
+      }
+    },
+    [],
+  );
 
-  const hasAchievementBeenSurfaced = useCallback((achievementId: string | null) => {
-    return Boolean(achievementId && unlockedSnapshotRef.current.has(achievementId));
-  }, []);
+  const hasAchievementBeenSurfaced = useCallback(
+    (input: { achievementId?: string | null; achievementKey?: string | null }) => {
+      return Boolean(
+        (input.achievementId && unlockedSnapshotRef.current.has(input.achievementId)) ||
+        (input.achievementKey && surfacedAchievementKeysRef.current.has(input.achievementKey)),
+      );
+    },
+    [],
+  );
 
   const applyImmediateAwardToCache = useCallback(
     (award: ImmediateAchievementAward): AchievementWithStatus | null => {
@@ -353,6 +365,7 @@ export function AchievementToastManager() {
       clearCatchReconcileTimer();
       catchReconcileInFlightRef.current = false;
       unlockedSnapshotRef.current.clear();
+      surfacedAchievementKeysRef.current.clear();
       hasPrimedSnapshotRef.current = false;
       snapshotUserRef.current = userId;
       optimisticEventKeysRef.current.clear();
@@ -409,15 +422,22 @@ export function AchievementToastManager() {
       const receivedAt = Date.now();
 
       for (const award of awards) {
-        const awardAlreadySurfaced = hasAchievementBeenSurfaced(award.achievementId);
+        const awardAlreadySurfaced = hasAchievementBeenSurfaced({
+          achievementId: award.achievementId,
+          achievementKey: award.achievementKey,
+        });
         const resolved = applyImmediateAwardToCache(award);
         const resolvedAlreadySurfaced =
-          awardAlreadySurfaced || hasAchievementBeenSurfaced(resolved?.id ?? null);
+          awardAlreadySurfaced ||
+          hasAchievementBeenSurfaced({
+            achievementId: resolved?.id ?? null,
+            achievementKey: resolved?.key ?? award.achievementKey,
+          });
 
         if (resolved?.id) {
-          markAchievementAsSurfaced(resolved.id);
+          markAchievementAsSurfaced(resolved.id, resolved.key);
         } else {
-          markAchievementAsSurfaced(award.achievementId);
+          markAchievementAsSurfaced(award.achievementId, award.achievementKey);
         }
 
         if (resolved) {
@@ -508,8 +528,6 @@ export function AchievementToastManager() {
 
       if (event.type === 'onboarding_completed') {
         predictedAchievementKeys.push('getting_started');
-      } else if (event.type === 'convention_joined' && event.conventionId) {
-        predictedAchievementKeys.push('EXPLORER');
       } else if (
         event.type === 'profile_updated' &&
         profile &&
@@ -558,7 +576,12 @@ export function AchievementToastManager() {
           continue;
         }
 
-        if (hasAchievementBeenSurfaced(matchingAchievement.id)) {
+        if (
+          hasAchievementBeenSurfaced({
+            achievementId: matchingAchievement.id,
+            achievementKey: matchingAchievement.key,
+          })
+        ) {
           continue;
         }
 
@@ -575,7 +598,7 @@ export function AchievementToastManager() {
           context: matchingAchievement.context,
         };
 
-        markAchievementAsSurfaced(matchingAchievement.id);
+        markAchievementAsSurfaced(matchingAchievement.id, matchingAchievement.key);
         queryClient.setQueryData<AchievementWithStatus[] | undefined>(
           statusQueryKey,
           (current) =>
@@ -827,14 +850,16 @@ export function AchievementToastManager() {
 
       const achievementIdRaw = payload?.achievement_id ?? payload?.achievementId ?? null;
       const achievementId = typeof achievementIdRaw === 'string' ? achievementIdRaw : null;
+      const achievementKeyRaw = payload?.achievement_key ?? payload?.achievementKey ?? null;
+      const achievementKey = typeof achievementKeyRaw === 'string' ? achievementKeyRaw : null;
       const awardedAtRaw = payload?.awarded_at ?? payload?.awardedAt ?? createdAt ?? null;
       const awardedAt = typeof awardedAtRaw === 'string' ? awardedAtRaw : (createdAt ?? null);
       const contextRaw = payload?.context ?? null;
       const context: Json | null =
         typeof contextRaw === 'object' && contextRaw !== null ? (contextRaw as Json) : null;
-      const alreadySurfaced = hasAchievementBeenSurfaced(achievementId);
+      const alreadySurfaced = hasAchievementBeenSurfaced({ achievementId, achievementKey });
 
-      markAchievementAsSurfaced(achievementId);
+      markAchievementAsSurfaced(achievementId, achievementKey);
 
       addMonitoringBreadcrumb({
         category: 'achievements',
