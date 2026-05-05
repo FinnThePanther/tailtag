@@ -363,6 +363,11 @@ jobs:
             echo "Initial push to branch — skipping version-bump check."
             exit 0
           fi
+          if ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+            echo "::warning::Base commit ${BEFORE_SHA} is not available in this checkout; skipping version-bump check."
+            echo "This can happen after a force-push that rewrites branch history."
+            exit 0
+          fi
           OLD=$(git show "${BEFORE_SHA}:package.json" | jq -r '.version')
           NEW=$(jq -r '.version' package.json)
           if [[ "$OLD" == "$NEW" ]]; then
