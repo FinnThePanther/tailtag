@@ -1,20 +1,14 @@
 export const siteConfig = {
-  name: 'TailTag',
-  tagline: 'A real-world convention game where you catch fursuiters at events.',
+  name: 'Welcome to TailTag',
+  tagline: 'A real-world fursuit catching game to help make friends at furry conventions!',
   description:
     'Create a profile, register your fursuit, and collect catches, stats, and achievements at conventions.',
 
   links: {
-    ios: 'https://finnthepanther.com',
-    android: 'https://finnthepanther.com',
-    discord: 'https://discord.gg/Fv7NPJNTP2',
+    prereleaseSignup:
+      'https://docs.google.com/forms/d/e/1FAIpQLScXdRJcpF2942ZMq0WXRbpA9a73aJIDOdJnypx9cPzFCz07LA/viewform?usp=dialog',
     supportEmail: 'finn@finnthepanther.com',
     deleteAccountMailto: 'mailto:finn@finnthepanther.com?subject=TailTag%20Account%20Deletion',
-  },
-
-  platforms: {
-    ios: true,
-    android: true,
   },
 
   meta: {
