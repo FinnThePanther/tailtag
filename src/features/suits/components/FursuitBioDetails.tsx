@@ -2,6 +2,7 @@ import { Alert, Linking, Pressable, Text, View } from 'react-native';
 
 import type { FursuitBio, FursuitMaker } from '../types';
 import { captureNonCriticalError } from '../../../lib/sentry';
+import { normalizeSocialUrlForOpening } from '../../../utils/socialLinks';
 import { styles } from './FursuitBioDetails.styles';
 
 /** True when {@link FursuitBioDetails} would render at least one section (excludes owner-only bios). */
@@ -20,19 +21,21 @@ export function fursuitBioHasDisplayableContent(
 }
 
 const openSocialLink = async (url: string) => {
+  const normalizedUrl = normalizeSocialUrlForOpening(url);
+
   try {
-    const canOpen = await Linking.canOpenURL(url);
+    const canOpen = await Linking.canOpenURL(normalizedUrl);
 
     if (!canOpen) {
       Alert.alert('Link unavailable', "We couldn't open that social link on this device.");
       return;
     }
 
-    await Linking.openURL(url);
+    await Linking.openURL(normalizedUrl);
   } catch (error) {
     captureNonCriticalError(error, {
       scope: 'suits.openSocialLink',
-      url,
+      url: normalizedUrl,
     });
     Alert.alert('Link unavailable', "We couldn't open that social link. Try again later.");
   }

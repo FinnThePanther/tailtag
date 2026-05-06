@@ -323,6 +323,7 @@ export default function MySuitsScreen() {
                         accessibilityRole="button"
                         accessibilityLabel="Delete fursuit"
                         style={({ pressed }) => [
+                          styles.deleteAction,
                           {
                             opacity: deletingId === suit.id ? 0.6 : pressed ? 0.8 : 1,
                           },

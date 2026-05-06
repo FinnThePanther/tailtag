@@ -137,6 +137,10 @@ export const styles = StyleSheet.create({
   listItemSpacing: {
     marginBottom: spacing.md,
   },
+  deleteAction: {
+    alignItems: 'flex-end',
+    minWidth: IS_SMALL_SCREEN ? 104 : 112,
+  },
   deleteLink: {
     fontSize: IS_SMALL_SCREEN ? 10 : 11,
     textTransform: 'uppercase',

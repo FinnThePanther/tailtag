@@ -3,7 +3,7 @@ import { Dimensions, StyleSheet } from 'react-native';
 import { colors, radius, spacing } from '../../../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const IS_SMALL_SCREEN = SCREEN_WIDTH <= 375;
+const IS_COMPACT_SCREEN = SCREEN_WIDTH <= 430;
 
 export const FURSUIT_CARD_IMAGE_SIZE = SCREEN_WIDTH * 0.5;
 
@@ -13,13 +13,13 @@ export const styles = StyleSheet.create({
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.borderDefault,
-    padding: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
+    padding: IS_COMPACT_SCREEN ? spacing.sm : spacing.md,
   },
   leadRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
-    marginBottom: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
+    gap: IS_COMPACT_SCREEN ? spacing.sm : spacing.md,
+    marginBottom: IS_COMPACT_SCREEN ? spacing.sm : spacing.md,
   },
   avatarWrapper: {
     width: '50%',
@@ -49,46 +49,47 @@ export const styles = StyleSheet.create({
   },
   name: {
     color: colors.foreground,
-    fontSize: IS_SMALL_SCREEN ? 16 : 18,
+    fontSize: IS_COMPACT_SCREEN ? 16 : 18,
     fontWeight: '600',
-    marginBottom: IS_SMALL_SCREEN ? 2 : 4,
+    marginBottom: IS_COMPACT_SCREEN ? 2 : 4,
   },
   species: {
     color: colors.textMuted,
-    fontSize: IS_SMALL_SCREEN ? 13 : 14,
-    marginBottom: IS_SMALL_SCREEN ? 2 : 4,
+    fontSize: IS_COMPACT_SCREEN ? 13 : 14,
+    marginBottom: IS_COMPACT_SCREEN ? 2 : 4,
   },
   colors: {
     color: colors.textSubtle,
-    fontSize: IS_SMALL_SCREEN ? 12 : 13,
-    marginBottom: IS_SMALL_SCREEN ? 2 : 4,
+    fontSize: IS_COMPACT_SCREEN ? 12 : 13,
+    marginBottom: IS_COMPACT_SCREEN ? 2 : 4,
   },
   timeline: {
     color: colors.textSubtle,
-    fontSize: IS_SMALL_SCREEN ? 11 : 12,
+    fontSize: IS_COMPACT_SCREEN ? 11 : 12,
   },
   metaRow: {
-    flexDirection: IS_SMALL_SCREEN ? 'column' : 'row',
-    alignItems: IS_SMALL_SCREEN ? 'flex-start' : 'center',
+    flexDirection: IS_COMPACT_SCREEN ? 'column' : 'row',
+    alignItems: IS_COMPACT_SCREEN ? 'flex-start' : 'center',
     justifyContent: 'space-between',
-    marginTop: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
-    gap: spacing.xs,
+    marginTop: IS_COMPACT_SCREEN ? spacing.sm : spacing.md,
+    gap: IS_COMPACT_SCREEN ? spacing.sm : spacing.md,
   },
   codeBlock: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: IS_SMALL_SCREEN ? 0 : 1,
+    flex: IS_COMPACT_SCREEN ? 0 : 1,
+    flexShrink: 1,
     minWidth: 0,
   },
   actionSlot: {
     flexShrink: 0,
-    alignSelf: IS_SMALL_SCREEN ? 'stretch' : 'auto',
-    width: IS_SMALL_SCREEN ? '100%' : 'auto',
+    alignSelf: IS_COMPACT_SCREEN ? 'stretch' : 'auto',
+    width: IS_COMPACT_SCREEN ? '100%' : 'auto',
   },
   codeLabel: {
-    fontSize: IS_SMALL_SCREEN ? 10 : 11,
+    fontSize: IS_COMPACT_SCREEN ? 10 : 11,
     textTransform: 'uppercase',
-    letterSpacing: IS_SMALL_SCREEN ? 2 : 3,
+    letterSpacing: IS_COMPACT_SCREEN ? 2 : 3,
     color: colors.textSubtle,
     marginRight: spacing.xs,
   },
@@ -96,10 +97,10 @@ export const styles = StyleSheet.create({
     fontFamily: 'Courier',
     fontWeight: '600',
     color: colors.primary,
-    fontSize: IS_SMALL_SCREEN ? 14 : 16,
+    fontSize: IS_COMPACT_SCREEN ? 14 : 16,
     backgroundColor: colors.surfaceMuted,
-    paddingHorizontal: IS_SMALL_SCREEN ? spacing.xs : spacing.sm,
-    paddingVertical: IS_SMALL_SCREEN ? 2 : 4,
+    paddingHorizontal: IS_COMPACT_SCREEN ? spacing.xs : spacing.sm,
+    paddingVertical: IS_COMPACT_SCREEN ? 2 : 4,
     borderRadius: radius.md,
   },
 });

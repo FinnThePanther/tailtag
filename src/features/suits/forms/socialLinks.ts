@@ -1,3 +1,5 @@
+import { normalizeSocialUrlForOpening } from '../../../utils/socialLinks';
+
 export type HandleFormat = 'strip_at' | 'add_at' | 'as_is';
 
 export type SocialPlatform = {
@@ -186,7 +188,7 @@ export function socialLinksToSave(
   for (const entry of entries) {
     if (entry.platformId === CUSTOM_PLATFORM_ID) {
       const label = (entry.label ?? '').trim();
-      const url = (entry.url ?? '').trim();
+      const url = normalizeSocialUrlForOpening(entry.url ?? '');
       if (label && url) result.push({ label, url });
     } else {
       const built = buildSocialUrl(entry.platformId, entry.handle);

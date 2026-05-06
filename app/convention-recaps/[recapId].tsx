@@ -17,6 +17,7 @@ import {
 import { useBlockedIds } from '../../src/features/moderation';
 import { captureNonCriticalError } from '../../src/lib/sentry';
 import { toDisplayDate, toDisplayDateTime } from '../../src/utils/dates';
+import { normalizeSocialUrlForOpening } from '../../src/utils/socialLinks';
 import { styles } from '../../src/app-styles/convention-recaps/[recapId].styles';
 
 const formatCount = (value: number) => value.toLocaleString();
@@ -32,18 +33,20 @@ function formatSeenAt(
 }
 
 async function openExternalLink(url: string) {
+  const normalizedUrl = normalizeSocialUrlForOpening(url);
+
   try {
-    const canOpen = await Linking.canOpenURL(url);
+    const canOpen = await Linking.canOpenURL(normalizedUrl);
     if (!canOpen) {
       Alert.alert('Link unavailable', "We couldn't open that social link on this device.");
       return;
     }
 
-    await Linking.openURL(url);
+    await Linking.openURL(normalizedUrl);
   } catch (error) {
     captureNonCriticalError(error, {
       scope: 'conventionRecaps.openExternalLink',
-      url,
+      url: normalizedUrl,
     });
     Alert.alert('Link unavailable', "We couldn't open that social link. Try again later.");
   }
