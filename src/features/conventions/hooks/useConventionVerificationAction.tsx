@@ -6,17 +6,17 @@ import {
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   optInToConvention,
   type ConventionSummary,
-} from '../api/conventions';
-import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks';
+} from '@/features/conventions/api/conventions';
+import { DAILY_TASKS_QUERY_KEY } from '@/features/daily-tasks';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
   CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
-} from '../../leaderboard';
-import { useGeoVerification } from './useGeoVerification';
-import { useLocationPermission } from './useLocationPermission';
-import { LocationPermissionModal } from '../components/LocationPermissionModal';
-import { VerificationErrorModal } from '../components/VerificationErrorModal';
-import { captureHandledException, captureSupabaseError } from '../../../lib/sentry';
+} from '@/features/leaderboard';
+import { useGeoVerification } from '@/features/conventions/hooks/useGeoVerification';
+import { useLocationPermission } from '@/features/conventions/hooks/useLocationPermission';
+import { LocationPermissionModal } from '@/features/conventions/components/LocationPermissionModal';
+import { VerificationErrorModal } from '@/features/conventions/components/VerificationErrorModal';
+import { captureHandledException, captureSupabaseError } from '@/lib/sentry';
 
 type UseConventionVerificationActionOptions = {
   profileId: string | null | undefined;
@@ -99,8 +99,23 @@ export function useConventionVerificationAction({
           verifiedLocation: result.location,
           verificationMethod: 'gps',
         });
-        await refreshConventionAccess(convention.id);
-        await onVerified?.(convention);
+        try {
+          await refreshConventionAccess(convention.id);
+          await onVerified?.(convention);
+        } catch (caught) {
+          if (isSupabaseError(caught)) {
+            captureSupabaseError(caught, {
+              scope: 'useConventionVerificationAction',
+              action: 'refreshConventionAccess',
+              additionalContext: { profileId, conventionId: convention.id },
+            });
+          } else {
+            captureHandledException(caught, {
+              scope: 'useConventionVerificationAction',
+              additionalContext: { profileId, conventionId: convention.id },
+            });
+          }
+        }
         return true;
       } catch (caught) {
         if (isSupabaseError(caught)) {

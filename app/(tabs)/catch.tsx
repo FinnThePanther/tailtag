@@ -102,12 +102,18 @@ export default function CatchScreen() {
     refetchOnReconnect: false,
     queryFn: fetchProfileConventionMemberships,
   });
+  const hasActiveConvention = useMemo(
+    () => conventionMemberships.some((membership) => membership.membership_state === 'active'),
+    [conventionMemberships],
+  );
   const verificationRequiredConvention = useMemo(
     () =>
-      conventionMemberships.find(
-        (membership) => membership.membership_state === 'needs_location_verification',
-      ) ?? null,
-    [conventionMemberships],
+      hasActiveConvention
+        ? null
+        : (conventionMemberships.find(
+            (membership) => membership.membership_state === 'needs_location_verification',
+          ) ?? null),
+    [conventionMemberships, hasActiveConvention],
   );
   const { verifyConvention, verificationModals, isVerifyingConvention } =
     useConventionVerificationAction({
@@ -651,6 +657,7 @@ export default function CatchScreen() {
             userId={userId}
             onCatchSubmit={handlePhotoCatch}
             isSubmitting={isPhotoSubmitting}
+            disabled={Boolean(verificationRequiredConvention)}
             submitError={photoSubmitError}
           />
         </View>

@@ -13,6 +13,7 @@ type FursuitPickerProps = {
   selectedId: string | null;
   onSelect: (item: FursuitPickerItem) => void;
   isLoading?: boolean;
+  disabled?: boolean;
 };
 
 export function FursuitPicker({
@@ -20,6 +21,7 @@ export function FursuitPicker({
   selectedId,
   onSelect,
   isLoading = false,
+  disabled = false,
 }: FursuitPickerProps) {
   const [search, setSearch] = useState('');
 
@@ -60,6 +62,7 @@ export function FursuitPicker({
         onChangeText={setSearch}
         placeholder="Search by name…"
         style={styles.searchInput}
+        editable={!disabled}
       />
       {filtered.length === 0 ? (
         <View style={styles.center}>
@@ -74,6 +77,7 @@ export function FursuitPicker({
               item={item}
               isSelected={item.id === selectedId}
               onPress={() => onSelect(item)}
+              disabled={disabled}
             />
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -88,15 +92,17 @@ type RowProps = {
   item: FursuitPickerItem;
   isSelected: boolean;
   onPress: () => void;
+  disabled?: boolean;
 };
 
-function FursuitPickerRow({ item, isSelected, onPress }: RowProps) {
+function FursuitPickerRow({ item, isSelected, onPress, disabled = false }: RowProps) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       style={[styles.row, isSelected && styles.rowSelected]}
       accessibilityRole="radio"
-      accessibilityState={{ checked: isSelected }}
+      accessibilityState={{ checked: isSelected, disabled }}
       accessibilityLabel={`${item.name}${item.species ? `, ${item.species}` : ''}`}
     >
       <AppAvatar
