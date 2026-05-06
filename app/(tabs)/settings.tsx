@@ -57,6 +57,7 @@ import {
   checkUsernameAvailability,
   fetchProfile,
   hasUploadedProfileAvatar,
+  normalizeUsernameForLookup,
   normalizeUsernameInput,
   USERNAME_MAX_LENGTH,
   uploadProfileAvatar,
@@ -302,18 +303,34 @@ export default function SettingsScreen() {
     () => normalizeUsernameInput(usernameInput),
     [usernameInput],
   );
+  const usernameLookupInput = useMemo(
+    () => normalizeUsernameForLookup(usernameInput),
+    [usernameInput],
+  );
   const normalizedSessionUsername = useMemo(() => {
     const metadataUsername = session?.user.user_metadata?.username;
     return typeof metadataUsername === 'string' ? normalizeUsernameInput(metadataUsername) : '';
   }, [session?.user.user_metadata?.username]);
+  const sessionUsernameLookup = useMemo(
+    () => normalizeUsernameForLookup(normalizedSessionUsername),
+    [normalizedSessionUsername],
+  );
   const normalizedProfileUsername = useMemo(
     () => normalizeUsernameInput(profile?.username ?? ''),
     [profile?.username],
+  );
+  const profileUsernameLookup = useMemo(
+    () => normalizeUsernameForLookup(normalizedProfileUsername),
+    [normalizedProfileUsername],
   );
   const normalizedCurrentUsername = useMemo(
     () =>
       normalizedProfileUsername.length > 0 ? normalizedProfileUsername : normalizedSessionUsername,
     [normalizedProfileUsername, normalizedSessionUsername],
+  );
+  const currentUsernameLookup = useMemo(
+    () => (profileUsernameLookup.length > 0 ? profileUsernameLookup : sessionUsernameLookup),
+    [profileUsernameLookup, sessionUsernameLookup],
   );
   const usernameValidation = useMemo(
     () => validateUsername(normalizedUsernameInput, { allowEmpty: true }),
@@ -529,8 +546,8 @@ export default function SettingsScreen() {
 
     // No check needed if empty or unchanged from saved profile
     if (
-      !normalizedUsernameInput ||
-      normalizedUsernameInput === normalizedCurrentUsername ||
+      !usernameLookupInput ||
+      usernameLookupInput === currentUsernameLookup ||
       !usernameValidation.isValid
     ) {
       setUsernameCheckStatus('idle');
@@ -555,7 +572,13 @@ export default function SettingsScreen() {
         clearTimeout(usernameCheckRef.current);
       }
     };
-  }, [normalizedCurrentUsername, normalizedUsernameInput, userId, usernameValidation.isValid]);
+  }, [
+    currentUsernameLookup,
+    normalizedUsernameInput,
+    userId,
+    usernameLookupInput,
+    usernameValidation.isValid,
+  ]);
 
   const conventionsLoadError =
     conventionsError?.message ?? profileConventionsError?.message ?? null;

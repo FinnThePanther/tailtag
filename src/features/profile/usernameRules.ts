@@ -2,8 +2,8 @@ export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 15;
 export const USERNAME_RESERVED_SUBSTRINGS = ['tailtag', 'admin'] as const;
 
-const USERNAME_INVALID_CHARACTERS_REGEX = /[^a-z0-9_]/g;
-const USERNAME_ALLOWED_PATTERN = /^[a-z0-9_]+$/;
+const USERNAME_INVALID_CHARACTERS_REGEX = /[^a-zA-Z0-9_]/g;
+const USERNAME_ALLOWED_PATTERN = /^[a-zA-Z0-9_]+$/;
 const GENERATED_SUFFIX_LENGTH = 4;
 const GENERATED_SEPARATOR = '_';
 const DEFAULT_GENERATED_USERNAME_BASE = 'player';
@@ -53,7 +53,11 @@ function normalizeGeneratedBase(value: string): string {
 }
 
 export function normalizeUsernameInput(value: string | null | undefined): string {
-  return (value ?? '').trim().toLowerCase().replace(USERNAME_INVALID_CHARACTERS_REGEX, '');
+  return (value ?? '').trim().replace(USERNAME_INVALID_CHARACTERS_REGEX, '');
+}
+
+export function normalizeUsernameForLookup(value: string | null | undefined): string {
+  return normalizeUsernameInput(value).toLowerCase();
 }
 
 export function hasReservedUsernameSubstring(value: string): boolean {
@@ -66,7 +70,7 @@ export function validateUsername(
   options: ValidateUsernameOptions = {},
 ): UsernameValidationResult {
   const allowEmpty = options.allowEmpty === true;
-  const normalized = (value ?? '').trim().toLowerCase();
+  const normalized = normalizeUsernameInput(value);
 
   if (!normalized) {
     if (allowEmpty) {
@@ -141,7 +145,7 @@ export function buildGeneratedUsername(
   options: { forceSuffix?: boolean } = {},
 ): string {
   const forceSuffix = options.forceSuffix === true;
-  const normalizedSeed = normalizeUsernameInput(seed);
+  const normalizedSeed = normalizeUsernameForLookup(seed);
   const base = normalizeGeneratedBase(normalizedSeed);
 
   if (!forceSuffix) {

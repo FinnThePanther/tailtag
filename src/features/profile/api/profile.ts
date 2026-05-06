@@ -10,6 +10,7 @@ import type { FursuitPhotoCandidate } from '../../onboarding/api/onboarding';
 import type { Database, FursuitSocialLink } from '../../../types/database';
 import {
   buildGeneratedUsername,
+  normalizeUsernameForLookup,
   normalizeUsernameInput,
   toValidUsernameOrNull,
   validateUsername,
@@ -349,6 +350,7 @@ export async function checkUsernameAvailability(
   currentUserId: string,
 ): Promise<boolean> {
   const normalized = normalizeUsernameInput(username);
+  const lookupUsername = normalizeUsernameForLookup(username);
   const validation = validateUsername(normalized);
 
   if (!validation.isValid) {
@@ -366,7 +368,7 @@ export async function checkUsernameAvailability(
       const { data: fallbackData, error: fallbackError } = await (supabase as any)
         .from('profiles')
         .select('id')
-        .eq('username', normalized)
+        .ilike('username', lookupUsername)
         .neq('id', currentUserId)
         .maybeSingle();
 
