@@ -30,7 +30,7 @@ export const ALLOWED_SOCIAL_PLATFORMS: SocialPlatform[] = [
     id: 'tiktok',
     label: 'TikTok',
     urlTemplate: 'https://www.tiktok.com/@{handle}',
-    handleFormat: 'add_at',
+    handleFormat: 'strip_at',
   },
   {
     id: 'telegram',
