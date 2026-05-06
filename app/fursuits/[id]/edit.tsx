@@ -1267,15 +1267,18 @@ export default function EditFursuitScreen() {
                               onChangeText={(value) =>
                                 handleSocialLinkChange(entry.id, 'handle', value)
                               }
-                              placeholder="Username"
+                              placeholder="Handle"
                               editable={!disableForm}
                               autoCapitalize="none"
+                              autoComplete="off"
+                              importantForAutofill="no"
                               keyboardType="default"
                               returnKeyType={index === socialLinks.length - 1 ? 'done' : 'next'}
                               onSubmitEditing={
                                 index === socialLinks.length - 1 ? handleSubmit : undefined
                               }
                               style={styles.socialInput}
+                              textContentType="none"
                             />
                             <TailTagButton
                               variant="ghost"

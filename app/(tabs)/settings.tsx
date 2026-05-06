@@ -1600,11 +1600,14 @@ export default function SettingsScreen() {
                       <TailTagInput
                         value={entry.handle}
                         onChangeText={(value) => handleSocialLinkChange(entry.id, 'handle', value)}
-                        placeholder="Username"
+                        placeholder="Handle"
                         editable={!isSavingSocialLinks}
                         autoCapitalize="none"
+                        autoComplete="off"
+                        importantForAutofill="no"
                         returnKeyType={index === socialLinks.length - 1 ? 'done' : 'next'}
                         style={styles.socialInput}
+                        textContentType="none"
                       />
                       <TailTagButton
                         variant="ghost"
