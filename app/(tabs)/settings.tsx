@@ -1399,9 +1399,10 @@ export default function SettingsScreen() {
               <Text style={styles.sectionTitle}>Username</Text>
               <TailTagInput
                 value={usernameInput}
+                style={styles.usernameInput}
                 onChangeText={(value) => {
                   setHasEditedDraft(true);
-                  setUsernameInput(normalizeUsernameInput(value));
+                  setUsernameInput(value);
                   setSaveMessage(null);
                   setSaveError(null);
                 }}
