@@ -17,17 +17,12 @@ import { fetchProfile, profileQueryKey } from '../../src/features/profile';
 import { supabase } from '../../src/lib/supabase';
 import { captureHandledException } from '../../src/lib/sentry';
 import {
-  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   type ConventionMembership,
-  type ConventionSummary,
   type PastConventionRecap,
-  fetchActiveProfileConventionIds,
-  fetchJoinableConventions,
   fetchProfileConventionMemberships,
   fetchPastConventionRecaps,
-  JOINABLE_CONVENTIONS_QUERY_KEY,
   PAST_CONVENTION_RECAPS_QUERY_KEY,
 } from '../../src/features/conventions';
 import {
@@ -370,34 +365,6 @@ export default function HomeScreen() {
     userId,
   ]);
 
-  const conventionsQuery = useQuery<ConventionSummary[], Error>({
-    queryKey: [JOINABLE_CONVENTIONS_QUERY_KEY],
-    enabled: Boolean(userId),
-    staleTime: CONVENTIONS_STALE_TIME,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    queryFn: () => fetchJoinableConventions(),
-  });
-  const {
-    data: conventions = [],
-    error: conventionsError,
-    refetch: refetchConventions,
-  } = conventionsQuery;
-
-  const profileConventionsQuery = useQuery<string[], Error>({
-    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
-    enabled: Boolean(userId),
-    staleTime: CONVENTIONS_STALE_TIME,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    queryFn: () => fetchActiveProfileConventionIds(userId!),
-  });
-  const {
-    data: profileConventionIds = [],
-    error: profileConventionsError,
-    refetch: refetchProfileConventions,
-  } = profileConventionsQuery;
-
   const conventionMembershipsQuery = useQuery<ConventionMembership[], Error>({
     queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
     enabled: Boolean(userId),
@@ -406,7 +373,11 @@ export default function HomeScreen() {
     refetchOnReconnect: false,
     queryFn: fetchProfileConventionMemberships,
   });
-  const { data: conventionMemberships = [] } = conventionMembershipsQuery;
+  const {
+    data: conventionMemberships = [],
+    error: conventionMembershipsError,
+    refetch: refetchConventionMemberships,
+  } = conventionMembershipsQuery;
 
   const pastConventionRecapsQuery = useQuery<PastConventionRecap[], Error>({
     queryKey: [PAST_CONVENTION_RECAPS_QUERY_KEY, userId],
@@ -462,15 +433,9 @@ export default function HomeScreen() {
 
   const achievementsErrorMessage = achievementsError?.message ?? null;
 
-  const conventionMap = useMemo(() => {
-    return new Map(conventions.map((convention) => [convention.id, convention]));
-  }, [conventions]);
-
   const availableConventions = useMemo(() => {
-    return profileConventionIds
-      .map((id) => conventionMap.get(id))
-      .filter((convention): convention is ConventionSummary => Boolean(convention));
-  }, [conventionMap, profileConventionIds]);
+    return conventionMemberships.filter((membership) => membership.membership_state === 'active');
+  }, [conventionMemberships]);
 
   const selectedConvention = useMemo(() => {
     return availableConventions[0] ?? null;
@@ -639,8 +604,7 @@ export default function HomeScreen() {
     };
   }, [selectedConventionId, queryClient]);
 
-  const membershipErrorMessage =
-    profileConventionsError?.message ?? conventionsError?.message ?? null;
+  const membershipErrorMessage = conventionMembershipsError?.message ?? null;
   const hasConventionAccess = availableConventions.length > 0;
 
   const rankByProfileId = useMemo(() => {
@@ -680,11 +644,7 @@ export default function HomeScreen() {
     );
   }, [dismissedRecapIdSet, isRecapBannerStateReady, pastConventionRecaps, seenRecapIdSet, userId]);
 
-  const tier1Ready = useAllDataReady([
-    conventionsQuery,
-    profileConventionsQuery,
-    conventionMembershipsQuery,
-  ]);
+  const tier1Ready = useAllDataReady([conventionMembershipsQuery]);
   const rawTier2Ready = useAllDataReady([dailyTasksQuery, achievementsQuery]);
   // When there's no convention, daily tasks won't fire; gate tier 2 on achievements only.
   const tier2Ready =
@@ -1121,8 +1081,7 @@ export default function HomeScreen() {
                 variant="outline"
                 size="sm"
                 onPress={() => {
-                  void refetchProfileConventions({ throwOnError: false });
-                  void refetchConventions({ throwOnError: false });
+                  void refetchConventionMemberships({ throwOnError: false });
                 }}
               >
                 Try again

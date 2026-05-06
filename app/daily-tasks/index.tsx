@@ -9,12 +9,10 @@ import { TailTagProgressBar } from '../../src/components/ui/TailTagProgressBar';
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader';
 import { useAuth } from '../../src/features/auth';
 import {
-  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
-  type ConventionSummary,
-  fetchActiveProfileConventionIds,
-  fetchJoinableConventions,
-  JOINABLE_CONVENTIONS_QUERY_KEY,
+  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+  type ConventionMembership,
+  fetchProfileConventionMemberships,
 } from '../../src/features/conventions';
 import { useDailyTasks } from '../../src/features/daily-tasks';
 import { colors } from '../../src/theme';
@@ -74,25 +72,13 @@ export default function DailyTasksScreen() {
   const userId = session?.user.id ?? null;
 
   const {
-    data: conventions = [],
+    data: conventionMemberships = [],
     isLoading: isConventionsLoading,
-    error: conventionsError,
-  } = useQuery<ConventionSummary[], Error>({
-    queryKey: [JOINABLE_CONVENTIONS_QUERY_KEY],
-    queryFn: () => fetchJoinableConventions(),
-    staleTime: CONVENTIONS_STALE_TIME,
-    enabled: Boolean(userId),
-    refetchOnReconnect: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const {
-    data: profileConventionIds = [],
-    isLoading: isProfileConventionsLoading,
-    error: profileConventionsError,
-  } = useQuery<string[], Error>({
-    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
-    queryFn: () => fetchActiveProfileConventionIds(userId!),
+    error: conventionMembershipsError,
+    refetch: refetchConventionMemberships,
+  } = useQuery<ConventionMembership[], Error>({
+    queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
+    queryFn: fetchProfileConventionMemberships,
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnReconnect: false,
@@ -100,11 +86,8 @@ export default function DailyTasksScreen() {
   });
 
   const availableConventions = useMemo(() => {
-    if (!profileConventionIds || profileConventionIds.length === 0) {
-      return [] as ConventionSummary[];
-    }
-    return conventions.filter((convention) => profileConventionIds.includes(convention.id));
-  }, [conventions, profileConventionIds]);
+    return conventionMemberships.filter((membership) => membership.membership_state === 'active');
+  }, [conventionMemberships]);
 
   const [selectedConventionId, setSelectedConventionId] = useState<string | null>(null);
 
@@ -146,13 +129,15 @@ export default function DailyTasksScreen() {
     void refetch({ throwOnError: false });
   }, [refetch]);
 
+  const handleRetryConventions = useCallback(() => {
+    void refetchConventionMemberships({ throwOnError: false });
+  }, [refetchConventionMemberships]);
+
   const handleConventionRequired = useCallback(() => {
     Alert.alert('Select a convention', 'Pick a convention to view its daily lineup.');
   }, []);
 
-  const conventionErrorMessage =
-    conventionsError?.message ?? profileConventionsError?.message ?? null;
-  const isLoadingConventions = isConventionsLoading || isProfileConventionsLoading;
+  const conventionErrorMessage = conventionMembershipsError?.message ?? null;
 
   return (
     <View style={styles.screen}>
@@ -175,7 +160,7 @@ export default function DailyTasksScreen() {
       >
         <TailTagCard style={styles.selectorCard}>
           <Text style={styles.selectorEyebrow}>Convention</Text>
-          {isLoadingConventions ? (
+          {isConventionsLoading ? (
             <Text style={styles.message}>Loading conventions...</Text>
           ) : conventionErrorMessage ? (
             <View style={styles.helper}>
@@ -183,7 +168,7 @@ export default function DailyTasksScreen() {
               <TailTagButton
                 variant="outline"
                 size="sm"
-                onPress={handleRetry}
+                onPress={handleRetryConventions}
               >
                 Try again
               </TailTagButton>
