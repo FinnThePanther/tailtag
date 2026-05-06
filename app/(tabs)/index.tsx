@@ -841,7 +841,7 @@ export default function HomeScreen() {
             Catch fursuits, grow your collection, and make new furry friends!
           </Text>
           <Text style={styles.subtitle}>
-            TailTag makes meeting fursuiters fun! Catch thier fursuit, learn about their likes and
+            TailTag makes meeting fursuiters fun! Catch their fursuit, learn about their likes and
             interests, and start a furry friendship!
           </Text>
           <View style={styles.ctaRow}>
