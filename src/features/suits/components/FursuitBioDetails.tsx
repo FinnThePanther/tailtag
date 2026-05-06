@@ -9,13 +9,14 @@ export function fursuitBioHasDisplayableContent(
   bio: FursuitBio | null | undefined,
   makers: FursuitMaker[] = [],
 ): boolean {
+  const hasPhotoCredit = Boolean(bio?.photoCredit?.trim());
   const hasPronouns = Boolean(bio?.pronouns?.trim());
   const hasLikesAndInterests = Boolean(bio?.likesAndInterests?.trim());
   const hasAskMeAbout = Boolean(bio?.askMeAbout?.trim());
   const hasLikesSection = hasLikesAndInterests || hasAskMeAbout;
   const hasSocial = (bio?.socialLinks ?? []).length > 0;
   const hasMakers = makers.length > 0;
-  return hasPronouns || hasLikesSection || hasSocial || hasMakers;
+  return hasPhotoCredit || hasPronouns || hasLikesSection || hasSocial || hasMakers;
 }
 
 const openSocialLink = async (url: string) => {
@@ -48,6 +49,7 @@ export function FursuitBioDetails({ bio, makers = [] }: FursuitBioDetailsProps) 
   }
 
   const hasPronouns = Boolean(bio?.pronouns?.trim());
+  const hasPhotoCredit = Boolean(bio?.photoCredit?.trim());
   const hasLikesAndInterests = Boolean(bio?.likesAndInterests?.trim());
   const hasAskMeAbout = Boolean(bio?.askMeAbout?.trim());
   const hasLikesSection = hasLikesAndInterests || hasAskMeAbout;
@@ -68,6 +70,13 @@ export function FursuitBioDetails({ bio, makers = [] }: FursuitBioDetailsProps) 
               </Text>
             ))}
           </View>
+        </View>
+      ) : null}
+
+      {hasPhotoCredit ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Photo credit</Text>
+          <Text style={styles.sectionBody}>{bio?.photoCredit.trim()}</Text>
         </View>
       ) : null}
 
@@ -106,12 +115,6 @@ export function FursuitBioDetails({ bio, makers = [] }: FursuitBioDetailsProps) 
                 onPress={() => openSocialLink(link.url)}
               >
                 <Text style={styles.socialLabel}>{link.label}</Text>
-                <Text
-                  style={styles.socialUrl}
-                  numberOfLines={1}
-                >
-                  {link.url}
-                </Text>
               </Pressable>
             ))}
           </View>

@@ -192,6 +192,7 @@ export default function EditFursuitScreen() {
   const [nameInput, setNameInput] = useState('');
   const [speciesInput, setSpeciesInput] = useState('');
   const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
+  const [photoCreditInput, setPhotoCreditInput] = useState('');
   const [likesInput, setLikesInput] = useState('');
   const [askMeAboutInput, setAskMeAboutInput] = useState('');
   const [makers, setMakers] = useState<EditableFursuitMaker[]>(() => createInitialFursuitMakers());
@@ -303,6 +304,7 @@ export default function EditFursuitScreen() {
       .map((p) => p.trim())
       .filter((p) => (PRONOUN_OPTIONS as readonly string[]).includes(p));
     setSelectedPronouns(parsedPronouns);
+    setPhotoCreditInput(bio?.photoCredit ?? '');
     setLikesInput(bio?.likesAndInterests ?? '');
     setAskMeAboutInput(bio?.askMeAbout ?? '');
 
@@ -445,6 +447,7 @@ export default function EditFursuitScreen() {
     const trimmedName = nameInput.trim();
     const trimmedSpecies = speciesInput.trim();
     const trimmedPronouns = selectedPronouns.join(', ');
+    const trimmedPhotoCredit = photoCreditInput.trim();
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
     const normalizedSpeciesValue = normalizeSpeciesName(trimmedSpecies);
@@ -657,6 +660,7 @@ export default function EditFursuitScreen() {
         fursuit_id: fursuitId,
         version: nextVersion,
         owner_name: profile?.username ?? '',
+        photo_credit: trimmedPhotoCredit,
         pronouns: trimmedPronouns,
         likes_and_interests: trimmedLikes,
         ask_me_about: trimmedAskMeAbout,
@@ -879,6 +883,20 @@ export default function EditFursuitScreen() {
                   ) : null}
                 </View>
                 {photoError ? <Text style={styles.errorText}>{photoError}</Text> : null}
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Photo credit</Text>
+                <Text style={styles.helperLabel}>
+                  Credit the photographer for your fursuit photo, if you want to share one.
+                </Text>
+                <TailTagInput
+                  value={photoCreditInput}
+                  onChangeText={setPhotoCreditInput}
+                  placeholder="Photographer name, handle, or credit line"
+                  editable={!disableForm}
+                  returnKeyType="next"
+                />
               </View>
 
               <View style={styles.fieldGroup}>
@@ -1267,15 +1285,18 @@ export default function EditFursuitScreen() {
                               onChangeText={(value) =>
                                 handleSocialLinkChange(entry.id, 'handle', value)
                               }
-                              placeholder="Username"
+                              placeholder="Handle"
                               editable={!disableForm}
                               autoCapitalize="none"
+                              autoComplete="off"
+                              importantForAutofill="no"
                               keyboardType="default"
                               returnKeyType={index === socialLinks.length - 1 ? 'done' : 'next'}
                               onSubmitEditing={
                                 index === socialLinks.length - 1 ? handleSubmit : undefined
                               }
                               style={styles.socialInput}
+                              textContentType="none"
                             />
                             <TailTagButton
                               variant="ghost"

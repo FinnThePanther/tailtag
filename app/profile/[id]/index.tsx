@@ -270,12 +270,6 @@ export default function PublicProfileScreen() {
                     onPress={() => openSocialLink(link.url)}
                   >
                     <Text style={styles.socialLabel}>{link.label}</Text>
-                    <Text
-                      style={styles.socialUrl}
-                      numberOfLines={1}
-                    >
-                      {link.url}
-                    </Text>
                   </Pressable>
                 ))}
               </View>

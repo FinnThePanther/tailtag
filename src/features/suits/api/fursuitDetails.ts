@@ -53,6 +53,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       fursuit_bios (
         version,
         owner_name,
+        photo_credit,
         pronouns,
         likes_and_interests,
         ask_me_about,

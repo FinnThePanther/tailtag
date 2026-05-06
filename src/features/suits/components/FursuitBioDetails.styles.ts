@@ -45,10 +45,5 @@ export const styles = StyleSheet.create({
     color: colors.foreground,
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 2,
-  },
-  socialUrl: {
-    color: '#38bdf8',
-    fontSize: 13,
   },
 });

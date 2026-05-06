@@ -830,6 +830,7 @@ export type Database = {
           id: string;
           likes_and_interests: string;
           owner_name: string;
+          photo_credit: string;
           pronouns: string;
           social_links: Json;
           updated_at: string;
@@ -842,6 +843,7 @@ export type Database = {
           id?: string;
           likes_and_interests: string;
           owner_name: string;
+          photo_credit?: string;
           pronouns: string;
           social_links?: Json;
           updated_at?: string;
@@ -854,6 +856,7 @@ export type Database = {
           id?: string;
           likes_and_interests?: string;
           owner_name?: string;
+          photo_credit?: string;
           pronouns?: string;
           social_links?: Json;
           updated_at?: string;

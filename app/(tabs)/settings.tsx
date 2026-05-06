@@ -57,6 +57,7 @@ import {
   checkUsernameAvailability,
   fetchProfile,
   hasUploadedProfileAvatar,
+  normalizeUsernameForLookup,
   normalizeUsernameInput,
   USERNAME_MAX_LENGTH,
   uploadProfileAvatar,
@@ -96,7 +97,7 @@ import { usePushNotifications } from '../../src/features/push-notifications';
 import { useOtaUpdateCheck } from '../../src/hooks/useOtaUpdateCheck';
 import { styles } from '../../src/app-styles/(tabs)/settings.styles';
 
-const FEEDBACK_FORM_URL = 'https://forms.gle/e65DqKt1VsuvoFTx8';
+const TESTING_GROUP_URL = 'https://t.me/+x2C_t-_kgI40ZDlh';
 const PRIVACY_POLICY_URL = 'https://playtailtag.com/privacy';
 const TERMS_URL = 'https://playtailtag.com/terms';
 const DELETE_ACCOUNT_URL = 'https://playtailtag.com/delete-account';
@@ -256,6 +257,7 @@ export default function SettingsScreen() {
   type UsernameCheckStatus = 'idle' | 'checking' | 'available' | 'taken' | 'error';
   const [usernameCheckStatus, setUsernameCheckStatus] = useState<UsernameCheckStatus>('idle');
   const usernameCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const usernameCheckRequestRef = useRef(0);
 
   const [optimisticPushEnabled, setOptimisticPushEnabled] = useState<boolean | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -302,18 +304,34 @@ export default function SettingsScreen() {
     () => normalizeUsernameInput(usernameInput),
     [usernameInput],
   );
+  const usernameLookupInput = useMemo(
+    () => normalizeUsernameForLookup(usernameInput),
+    [usernameInput],
+  );
   const normalizedSessionUsername = useMemo(() => {
     const metadataUsername = session?.user.user_metadata?.username;
     return typeof metadataUsername === 'string' ? normalizeUsernameInput(metadataUsername) : '';
   }, [session?.user.user_metadata?.username]);
+  const sessionUsernameLookup = useMemo(
+    () => normalizeUsernameForLookup(normalizedSessionUsername),
+    [normalizedSessionUsername],
+  );
   const normalizedProfileUsername = useMemo(
     () => normalizeUsernameInput(profile?.username ?? ''),
     [profile?.username],
+  );
+  const profileUsernameLookup = useMemo(
+    () => normalizeUsernameForLookup(normalizedProfileUsername),
+    [normalizedProfileUsername],
   );
   const normalizedCurrentUsername = useMemo(
     () =>
       normalizedProfileUsername.length > 0 ? normalizedProfileUsername : normalizedSessionUsername,
     [normalizedProfileUsername, normalizedSessionUsername],
+  );
+  const currentUsernameLookup = useMemo(
+    () => (profileUsernameLookup.length > 0 ? profileUsernameLookup : sessionUsernameLookup),
+    [profileUsernameLookup, sessionUsernameLookup],
   );
   const usernameValidation = useMemo(
     () => validateUsername(normalizedUsernameInput, { allowEmpty: true }),
@@ -523,14 +541,17 @@ export default function SettingsScreen() {
   }, [saveMessage]);
 
   useEffect(() => {
+    usernameCheckRequestRef.current += 1;
+    const requestId = usernameCheckRequestRef.current;
+
     if (usernameCheckRef.current) {
       clearTimeout(usernameCheckRef.current);
     }
 
     // No check needed if empty or unchanged from saved profile
     if (
-      !normalizedUsernameInput ||
-      normalizedUsernameInput === normalizedCurrentUsername ||
+      !usernameLookupInput ||
+      usernameLookupInput === currentUsernameLookup ||
       !usernameValidation.isValid
     ) {
       setUsernameCheckStatus('idle');
@@ -543,9 +564,15 @@ export default function SettingsScreen() {
       if (!userId) return;
       checkUsernameAvailability(normalizedUsernameInput, userId)
         .then((available) => {
+          if (usernameCheckRequestRef.current !== requestId) {
+            return;
+          }
           setUsernameCheckStatus(available ? 'available' : 'taken');
         })
         .catch(() => {
+          if (usernameCheckRequestRef.current !== requestId) {
+            return;
+          }
           setUsernameCheckStatus('error');
         });
     }, 500);
@@ -555,7 +582,13 @@ export default function SettingsScreen() {
         clearTimeout(usernameCheckRef.current);
       }
     };
-  }, [normalizedCurrentUsername, normalizedUsernameInput, userId, usernameValidation.isValid]);
+  }, [
+    currentUsernameLookup,
+    normalizedUsernameInput,
+    userId,
+    usernameLookupInput,
+    usernameValidation.isValid,
+  ]);
 
   const conventionsLoadError =
     conventionsError?.message ?? profileConventionsError?.message ?? null;
@@ -640,8 +673,8 @@ export default function SettingsScreen() {
     [disablePushNotifications, isPushDenied, requestPermissionAndRegister],
   );
 
-  const handleOpenFeedbackForm = useCallback(async () => {
-    await WebBrowser.openBrowserAsync(FEEDBACK_FORM_URL);
+  const handleOpenTestingGroup = useCallback(async () => {
+    await WebBrowser.openBrowserAsync(TESTING_GROUP_URL);
   }, []);
 
   const handleOpenExternalUrl = useCallback(async (url: string) => {
@@ -673,7 +706,6 @@ export default function SettingsScreen() {
   );
 
   const isUsernameTaken = usernameCheckStatus === 'taken';
-  const isUsernameChecking = usernameCheckStatus === 'checking';
 
   const handleSave = useCallback(async () => {
     if (!userId || isSaving || !isDirty) {
@@ -700,6 +732,21 @@ export default function SettingsScreen() {
     setSaveMessage(null);
 
     try {
+      const usernameChanged = usernameLookupInput !== currentUsernameLookup;
+
+      if (normalizedUsername && usernameChanged) {
+        setUsernameCheckStatus('checking');
+        const isAvailable = await checkUsernameAvailability(normalizedUsername, userId);
+
+        if (!isAvailable) {
+          setUsernameCheckStatus('taken');
+          setSaveError('Username is already taken.');
+          return;
+        }
+
+        setUsernameCheckStatus('available');
+      }
+
       const { error } = await (supabase as any).from('profiles').upsert(
         {
           id: userId,
@@ -711,6 +758,11 @@ export default function SettingsScreen() {
       );
 
       if (error) {
+        if (error.code === '23505') {
+          setUsernameCheckStatus('taken');
+          throw new Error('Username is already taken.');
+        }
+
         throw error;
       }
 
@@ -771,6 +823,8 @@ export default function SettingsScreen() {
     isSaving,
     isDirty,
     normalizedUsernameInput,
+    usernameLookupInput,
+    currentUsernameLookup,
     bioInput,
     profile?.avatar_path,
     profile?.avatar_url,
@@ -1462,8 +1516,7 @@ export default function SettingsScreen() {
                 isProfileLoading ||
                 isSaving ||
                 hasUsernameValidationError ||
-                isUsernameTaken ||
-                isUsernameChecking
+                isUsernameTaken
               }
               loading={isSaving}
             >
@@ -1577,11 +1630,14 @@ export default function SettingsScreen() {
                       <TailTagInput
                         value={entry.handle}
                         onChangeText={(value) => handleSocialLinkChange(entry.id, 'handle', value)}
-                        placeholder="Username"
+                        placeholder="Handle"
                         editable={!isSavingSocialLinks}
                         autoCapitalize="none"
+                        autoComplete="off"
+                        importantForAutofill="no"
                         returnKeyType={index === socialLinks.length - 1 ? 'done' : 'next'}
                         style={styles.socialInput}
+                        textContentType="none"
                       />
                       <TailTagButton
                         variant="ghost"
@@ -1747,15 +1803,15 @@ export default function SettingsScreen() {
 
       <TailTagCard>
         <View style={styles.accountSection}>
-          <Text style={styles.sectionTitle}>Beta Feedback</Text>
+          <Text style={styles.sectionTitle}>Testing Group</Text>
           <Text style={styles.sectionDescription}>
-            Found a bug or have a suggestion? Let us know!
+            Join the TailTag beta chat for feedback, support, bug reports, and testing updates.
           </Text>
           <TailTagButton
             variant="outline"
-            onPress={handleOpenFeedbackForm}
+            onPress={handleOpenTestingGroup}
           >
-            Report a Bug or Give Feedback
+            Join Telegram Chat
           </TailTagButton>
         </View>
       </TailTagCard>
