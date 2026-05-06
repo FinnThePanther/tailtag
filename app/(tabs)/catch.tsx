@@ -49,8 +49,9 @@ import { supabase } from '../../src/lib/supabase';
 import { captureHandledException, addMonitoringBreadcrumb } from '../../src/lib/sentry';
 import { spacing } from '../../src/theme';
 import { useBlockedIds } from '../../src/features/moderation';
-import { normalizeUniqueCodeInput } from '../../src/utils/code';
+import { isValidUniqueCodeInput, normalizeUniqueCodeInput } from '../../src/utils/code';
 import { toDisplayDateTime } from '../../src/utils/dates';
+import { UNIQUE_CODE_LENGTH, UNIQUE_CODE_MIN_LENGTH } from '../../src/constants/codes';
 import { FURSUIT_BUCKET } from '../../src/constants/storage';
 import { resolveStorageMediaUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/(tabs)/catch.styles';
@@ -196,6 +197,13 @@ export default function CatchScreen() {
 
     if (!normalizedCode) {
       setSubmitError('Enter the code from the fursuit badge to record your catch.');
+      return;
+    }
+
+    if (!isValidUniqueCodeInput(normalizedCode)) {
+      setSubmitError(
+        `Catch codes must be ${UNIQUE_CODE_MIN_LENGTH}-${UNIQUE_CODE_LENGTH} letters or numbers.`,
+      );
       return;
     }
 
@@ -674,15 +682,17 @@ export default function CatchScreen() {
               setCodeInput(normalizeUniqueCodeInput(value));
               setSubmitError(null);
             }}
-            placeholder="ABCDWXYZ"
+            placeholder="PH17719"
             autoCapitalize="characters"
-            maxLength={8}
+            maxLength={UNIQUE_CODE_LENGTH}
             editable={!isSubmitting}
             returnKeyType="done"
             onSubmitEditing={handleSubmit}
             style={styles.codeInput}
           />
-          <Text style={styles.helpText}>Letters only, {codeInput.length}/8 characters.</Text>
+          <Text style={styles.helpText}>
+            Letters or numbers, {codeInput.length}/{UNIQUE_CODE_LENGTH} characters.
+          </Text>
           <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
             Some owners require manual approval. If so, they will be notified and your catch will
             count once approved.

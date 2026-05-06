@@ -1,6 +1,10 @@
 import * as Crypto from 'expo-crypto';
 
-import { UNIQUE_CODE_ALPHABET, UNIQUE_CODE_LENGTH } from '../constants/codes';
+import {
+  UNIQUE_CODE_ALPHABET,
+  UNIQUE_CODE_LENGTH,
+  UNIQUE_CODE_MIN_LENGTH,
+} from '../constants/codes';
 
 export const generateUniqueCodeCandidate = () => {
   const bytes = new Uint8Array(UNIQUE_CODE_LENGTH);
@@ -19,5 +23,11 @@ export const generateUniqueCodeCandidate = () => {
 export const normalizeUniqueCodeInput = (value: string) =>
   value
     .toUpperCase()
-    .replace(/[^A-Z]/g, '')
+    .replace(/[^A-Z0-9]/g, '')
     .slice(0, UNIQUE_CODE_LENGTH);
+
+export const isValidUniqueCodeInput = (value: string) => {
+  const normalized = normalizeUniqueCodeInput(value);
+
+  return normalized.length >= UNIQUE_CODE_MIN_LENGTH && normalized.length <= UNIQUE_CODE_LENGTH;
+};
