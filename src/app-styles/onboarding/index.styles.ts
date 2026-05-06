@@ -7,10 +7,6 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  scroll: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,

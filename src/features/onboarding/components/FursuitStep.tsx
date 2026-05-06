@@ -8,7 +8,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { TailTagInput } from '../../../components/ui/TailTagInput';
-import { KeyboardAwareFormWrapper } from '../../../components/ui/KeyboardAwareFormWrapper';
 import { SkipButton } from './SkipButton';
 import {
   createEmptyFursuitDraft,
@@ -487,7 +486,7 @@ export function FursuitStep({
   };
 
   return (
-    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+    <View style={styles.container}>
       <TailTagCard>
         <Text style={styles.eyebrow}>Step 3</Text>
         <Text style={styles.title}>Add a fursuit (optional)</Text>
@@ -668,6 +667,6 @@ export function FursuitStep({
           </View>
         )}
       </TailTagCard>
-    </KeyboardAwareFormWrapper>
+    </View>
   );
 }
