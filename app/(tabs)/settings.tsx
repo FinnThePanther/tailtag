@@ -199,12 +199,13 @@ export default function SettingsScreen() {
     refetchOnReconnect: false,
     queryFn: fetchProfileConventionMemberships,
   });
-  const { verifyConvention, verificationModals } = useConventionVerificationAction({
-    profileId: userId,
-    onVerified: () => {
-      void refetchProfileConventions({ throwOnError: false });
-    },
-  });
+  const { verifyConvention, verificationModals, isVerifyingConvention } =
+    useConventionVerificationAction({
+      profileId: userId,
+      onVerified: async () => {
+        await refetchProfileConventions({ throwOnError: false });
+      },
+    });
 
   const {
     data: pastConventionRecaps = [],
@@ -1660,7 +1661,7 @@ export default function SettingsScreen() {
                     key={`profile-${convention.id}`}
                     convention={convention}
                     selected={isSelected}
-                    pending={isPending}
+                    pending={isPending || isVerifyingConvention}
                     badgeText={conventionBadgeText(
                       convention,
                       isSelected,

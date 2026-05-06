@@ -444,11 +444,13 @@ export default function HomeScreen() {
   const selectedConventionId = selectedConvention?.id ?? null;
   const pendingConventionMembership = useMemo(() => {
     return (
+      conventionMemberships.find(
+        (membership) => membership.membership_state === 'needs_location_verification',
+      ) ??
       conventionMemberships.find((membership) =>
-        ['needs_location_verification', 'awaiting_start', 'upcoming'].includes(
-          membership.membership_state,
-        ),
-      ) ?? null
+        ['awaiting_start', 'upcoming'].includes(membership.membership_state),
+      ) ??
+      null
     );
   }, [conventionMemberships]);
   const verificationRequiredMembership =
@@ -458,8 +460,8 @@ export default function HomeScreen() {
   const { verifyConvention, verificationModals, isVerifyingConvention } =
     useConventionVerificationAction({
       profileId: userId,
-      onVerified: () => {
-        void refetchConventionMemberships({ throwOnError: false });
+      onVerified: async () => {
+        await refetchConventionMemberships({ throwOnError: false });
       },
     });
   const noPlayableConventionMessage = useMemo(() => {

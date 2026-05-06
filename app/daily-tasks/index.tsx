@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
@@ -75,6 +75,7 @@ export default function DailyTasksScreen() {
   const {
     data: conventionMemberships = [],
     isLoading: isConventionsLoading,
+    isFetching: isConventionsFetching,
     error: conventionMembershipsError,
     refetch: refetchConventionMemberships,
   } = useQuery<ConventionMembership[], Error>({
@@ -99,8 +100,8 @@ export default function DailyTasksScreen() {
   const { verifyConvention, verificationModals, isVerifyingConvention } =
     useConventionVerificationAction({
       profileId: userId,
-      onVerified: () => {
-        void refetchConventionMemberships({ throwOnError: false });
+      onVerified: async () => {
+        await refetchConventionMemberships({ throwOnError: false });
       },
     });
 
@@ -138,7 +139,8 @@ export default function DailyTasksScreen() {
   const timezone = data?.timezone ?? selectedConvention?.timezone ?? 'UTC';
   const isDailyTasksUnavailable = data?.availability && data.availability !== 'available';
 
-  const isRefreshing = isFetching && !isLoading;
+  const isRefreshing =
+    (isFetching && !isLoading) || (isConventionsFetching && !isConventionsLoading);
 
   const handleRetry = useCallback(() => {
     void refetch({ throwOnError: false });
@@ -148,9 +150,12 @@ export default function DailyTasksScreen() {
     void refetchConventionMemberships({ throwOnError: false });
   }, [refetchConventionMemberships]);
 
-  const handleConventionRequired = useCallback(() => {
-    Alert.alert('Select a convention', 'Pick a convention to view its daily lineup.');
-  }, []);
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      refetch({ throwOnError: false }),
+      refetchConventionMemberships({ throwOnError: false }),
+    ]);
+  }, [refetch, refetchConventionMemberships]);
 
   const conventionErrorMessage = conventionMembershipsError?.message ?? null;
 
@@ -167,7 +172,7 @@ export default function DailyTasksScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={() => {
-              void refetch({ throwOnError: false });
+              void handleRefresh();
             }}
             tintColor={colors.primary}
           />
@@ -332,9 +337,9 @@ export default function DailyTasksScreen() {
                 <TailTagButton
                   variant="outline"
                   size="sm"
-                  onPress={handleConventionRequired}
+                  onPress={() => router.push('/settings')}
                 >
-                  Choose convention
+                  Manage conventions
                 </TailTagButton>
               )}
             </View>

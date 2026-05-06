@@ -112,8 +112,8 @@ export default function CatchScreen() {
   const { verifyConvention, verificationModals, isVerifyingConvention } =
     useConventionVerificationAction({
       profileId: userId,
-      onVerified: () => {
-        void refetchConventionMemberships({ throwOnError: false });
+      onVerified: async () => {
+        await refetchConventionMemberships({ throwOnError: false });
       },
     });
 

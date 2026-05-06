@@ -16,11 +16,19 @@ import { useGeoVerification } from './useGeoVerification';
 import { useLocationPermission } from './useLocationPermission';
 import { LocationPermissionModal } from '../components/LocationPermissionModal';
 import { VerificationErrorModal } from '../components/VerificationErrorModal';
+import { captureHandledException, captureSupabaseError } from '../../../lib/sentry';
 
 type UseConventionVerificationActionOptions = {
   profileId: string | null | undefined;
-  onVerified?: (convention: ConventionSummary) => void;
+  onVerified?: (convention: ConventionSummary) => void | Promise<unknown>;
 };
+
+const isSupabaseError = (
+  error: unknown,
+): error is { code?: string; details?: string; hint?: string; message?: string } =>
+  typeof error === 'object' &&
+  error !== null &&
+  ('code' in error || 'details' in error || 'hint' in error);
 
 export function useConventionVerificationAction({
   profileId,
@@ -36,6 +44,7 @@ export function useConventionVerificationAction({
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [targetConvention, setTargetConvention] = useState<ConventionSummary | null>(null);
+  const [isUpdatingConventionAccess, setIsUpdatingConventionAccess] = useState(false);
 
   const refreshConventionAccess = useCallback(
     async (conventionId: string) => {
@@ -82,6 +91,7 @@ export function useConventionVerificationAction({
         return false;
       }
 
+      setIsUpdatingConventionAccess(true);
       try {
         await optInToConvention({
           profileId,
@@ -90,15 +100,29 @@ export function useConventionVerificationAction({
           verificationMethod: 'gps',
         });
         await refreshConventionAccess(convention.id);
-        onVerified?.(convention);
+        await onVerified?.(convention);
         return true;
       } catch (caught) {
+        if (isSupabaseError(caught)) {
+          captureSupabaseError(caught, {
+            scope: 'useConventionVerificationAction',
+            action: 'verifyConvention',
+            additionalContext: { profileId, conventionId: convention.id },
+          });
+        } else {
+          captureHandledException(caught, {
+            scope: 'useConventionVerificationAction',
+            additionalContext: { profileId, conventionId: convention.id },
+          });
+        }
         setVerificationError(
           caught instanceof Error
             ? caught.message
             : 'Location verified, but we could not update your convention access.',
         );
         return false;
+      } finally {
+        setIsUpdatingConventionAccess(false);
       }
     },
     [onVerified, profileId, refreshConventionAccess, requestPermission, status, verifyLocation],
@@ -127,6 +151,6 @@ export function useConventionVerificationAction({
   return {
     verifyConvention,
     verificationModals,
-    isVerifyingConvention: isVerifying || isRequestingPermission,
+    isVerifyingConvention: isVerifying || isRequestingPermission || isUpdatingConventionAccess,
   };
 }
