@@ -3,7 +3,6 @@ import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native
 import { Image } from 'expo-image';
 
 import * as FileSystem from 'expo-file-system/legacy';
-import * as ImagePicker from 'expo-image-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../../components/ui/TailTagButton';
@@ -28,6 +27,7 @@ import {
 } from '../../conventions';
 import { captureHandledException } from '../../../lib/sentry';
 import { emitGameplayEvent } from '../../events';
+import { launchFursuitPhotoPickerAsync } from '../../../utils/imagePicker';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { colors } from '../../../theme';
 import {
@@ -323,19 +323,7 @@ export function FursuitStep({
 
   const handlePickPhoto = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== 'granted') {
-        setPhotoError('We need media access to attach a suit photo.');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.85,
-      });
+      const result = await launchFursuitPhotoPickerAsync();
 
       if (result.canceled) {
         return;
