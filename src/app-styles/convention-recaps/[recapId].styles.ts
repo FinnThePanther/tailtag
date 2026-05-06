@@ -217,10 +217,6 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  socialUrl: {
-    color: colors.primary,
-    fontSize: 12,
-  },
   awardsList: {
     gap: spacing.sm,
   },

@@ -60,6 +60,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       fursuit_bios (
         version,
         owner_name,
+        photo_credit,
         pronouns,
         likes_and_interests,
         ask_me_about,

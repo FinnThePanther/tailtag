@@ -17,6 +17,7 @@ export {
   USERNAME_MAX_LENGTH,
   USERNAME_RESERVED_SUBSTRINGS,
   normalizeUsernameInput,
+  normalizeUsernameForLookup,
   hasReservedUsernameSubstring,
   validateUsername,
   toValidUsernameOrNull,

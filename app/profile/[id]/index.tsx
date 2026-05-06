@@ -37,18 +37,21 @@ import {
 import { useAllDataReady } from '../../../src/hooks/useAllDataReady';
 import { captureNonCriticalError } from '../../../src/lib/sentry';
 import { colors } from '../../../src/theme';
+import { normalizeSocialUrlForOpening } from '../../../src/utils/socialLinks';
 import { styles } from '../../../src/app-styles/profile/[id]/index.styles';
 
 const openSocialLink = async (url: string) => {
+  const normalizedUrl = normalizeSocialUrlForOpening(url);
+
   try {
-    const canOpen = await Linking.canOpenURL(url);
+    const canOpen = await Linking.canOpenURL(normalizedUrl);
     if (!canOpen) {
       Alert.alert('Link unavailable', "We couldn't open that social link on this device.");
       return;
     }
-    await Linking.openURL(url);
+    await Linking.openURL(normalizedUrl);
   } catch (error) {
-    captureNonCriticalError(error, { scope: 'publicProfile.openSocialLink', url });
+    captureNonCriticalError(error, { scope: 'publicProfile.openSocialLink', url: normalizedUrl });
     Alert.alert('Link unavailable', "We couldn't open that social link. Try again later.");
   }
 };
@@ -270,12 +273,6 @@ export default function PublicProfileScreen() {
                     onPress={() => openSocialLink(link.url)}
                   >
                     <Text style={styles.socialLabel}>{link.label}</Text>
-                    <Text
-                      style={styles.socialUrl}
-                      numberOfLines={1}
-                    >
-                      {link.url}
-                    </Text>
                   </Pressable>
                 ))}
               </View>

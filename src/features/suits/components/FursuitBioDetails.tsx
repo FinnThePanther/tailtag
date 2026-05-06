@@ -2,6 +2,7 @@ import { Alert, Linking, Pressable, Text, View } from 'react-native';
 
 import type { FursuitBio, FursuitMaker } from '../types';
 import { captureNonCriticalError } from '../../../lib/sentry';
+import { normalizeSocialUrlForOpening } from '../../../utils/socialLinks';
 import { styles } from './FursuitBioDetails.styles';
 
 /** True when {@link FursuitBioDetails} would render at least one section (excludes owner-only bios). */
@@ -9,29 +10,32 @@ export function fursuitBioHasDisplayableContent(
   bio: FursuitBio | null | undefined,
   makers: FursuitMaker[] = [],
 ): boolean {
+  const hasPhotoCredit = Boolean(bio?.photoCredit?.trim());
   const hasPronouns = Boolean(bio?.pronouns?.trim());
   const hasLikesAndInterests = Boolean(bio?.likesAndInterests?.trim());
   const hasAskMeAbout = Boolean(bio?.askMeAbout?.trim());
   const hasLikesSection = hasLikesAndInterests || hasAskMeAbout;
   const hasSocial = (bio?.socialLinks ?? []).length > 0;
   const hasMakers = makers.length > 0;
-  return hasPronouns || hasLikesSection || hasSocial || hasMakers;
+  return hasPhotoCredit || hasPronouns || hasLikesSection || hasSocial || hasMakers;
 }
 
 const openSocialLink = async (url: string) => {
+  const normalizedUrl = normalizeSocialUrlForOpening(url);
+
   try {
-    const canOpen = await Linking.canOpenURL(url);
+    const canOpen = await Linking.canOpenURL(normalizedUrl);
 
     if (!canOpen) {
       Alert.alert('Link unavailable', "We couldn't open that social link on this device.");
       return;
     }
 
-    await Linking.openURL(url);
+    await Linking.openURL(normalizedUrl);
   } catch (error) {
     captureNonCriticalError(error, {
       scope: 'suits.openSocialLink',
-      url,
+      url: normalizedUrl,
     });
     Alert.alert('Link unavailable', "We couldn't open that social link. Try again later.");
   }
@@ -48,6 +52,7 @@ export function FursuitBioDetails({ bio, makers = [] }: FursuitBioDetailsProps) 
   }
 
   const hasPronouns = Boolean(bio?.pronouns?.trim());
+  const hasPhotoCredit = Boolean(bio?.photoCredit?.trim());
   const hasLikesAndInterests = Boolean(bio?.likesAndInterests?.trim());
   const hasAskMeAbout = Boolean(bio?.askMeAbout?.trim());
   const hasLikesSection = hasLikesAndInterests || hasAskMeAbout;
@@ -68,6 +73,13 @@ export function FursuitBioDetails({ bio, makers = [] }: FursuitBioDetailsProps) 
               </Text>
             ))}
           </View>
+        </View>
+      ) : null}
+
+      {hasPhotoCredit ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Photo credit</Text>
+          <Text style={styles.sectionBody}>{bio?.photoCredit.trim()}</Text>
         </View>
       ) : null}
 
@@ -106,12 +118,6 @@ export function FursuitBioDetails({ bio, makers = [] }: FursuitBioDetailsProps) 
                 onPress={() => openSocialLink(link.url)}
               >
                 <Text style={styles.socialLabel}>{link.label}</Text>
-                <Text
-                  style={styles.socialUrl}
-                  numberOfLines={1}
-                >
-                  {link.url}
-                </Text>
               </Pressable>
             ))}
           </View>
