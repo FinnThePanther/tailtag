@@ -24,6 +24,7 @@ import {
   fetchProfileConventionMemberships,
   fetchPastConventionRecaps,
   PAST_CONVENTION_RECAPS_QUERY_KEY,
+  useConventionVerificationAction,
 } from '../../src/features/conventions';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
@@ -450,13 +451,24 @@ export default function HomeScreen() {
       ) ?? null
     );
   }, [conventionMemberships]);
+  const verificationRequiredMembership =
+    pendingConventionMembership?.membership_state === 'needs_location_verification'
+      ? pendingConventionMembership
+      : null;
+  const { verifyConvention, verificationModals, isVerifyingConvention } =
+    useConventionVerificationAction({
+      profileId: userId,
+      onVerified: () => {
+        void refetchConventionMemberships({ throwOnError: false });
+      },
+    });
   const noPlayableConventionMessage = useMemo(() => {
     if (!pendingConventionMembership) {
       return 'Join a convention in Settings to use convention features.';
     }
 
     if (pendingConventionMembership.membership_state === 'needs_location_verification') {
-      return `${pendingConventionMembership.name} is live. Verify your location in Settings to start catching.`;
+      return `${pendingConventionMembership.name} is live. Verify your location to start catching.`;
     }
 
     if (pendingConventionMembership.membership_state === 'awaiting_start') {
@@ -955,7 +967,22 @@ export default function HomeScreen() {
           {!tier1Ready ? (
             <DailyTasksSummarySkeleton />
           ) : !selectedConventionId ? (
-            <Text style={styles.message}>{noPlayableConventionMessage}</Text>
+            <View style={styles.helper}>
+              <Text style={styles.message}>{noPlayableConventionMessage}</Text>
+              {verificationRequiredMembership ? (
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void verifyConvention(verificationRequiredMembership);
+                  }}
+                  loading={isVerifyingConvention}
+                  disabled={isVerifyingConvention}
+                >
+                  Verify location
+                </TailTagButton>
+              ) : null}
+            </View>
           ) : !tier2Ready ? (
             <DailyTasksSummarySkeleton />
           ) : showDailyError ? (
@@ -1005,6 +1032,7 @@ export default function HomeScreen() {
             View daily tasks
           </TailTagButton>
         </TailTagCard>
+        {verificationModals}
 
         <TailTagCard style={[styles.achievementsCard, contentWidthStyle]}>
           <Text style={styles.sectionEyebrow}>Achievements</Text>

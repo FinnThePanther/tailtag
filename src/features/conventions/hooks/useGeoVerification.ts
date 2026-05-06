@@ -61,7 +61,7 @@ export function useGeoVerification(): UseGeoVerificationReturn {
       return {
         verified: false,
         distance_meters: result.distance_meters ?? null,
-        error: result.error ?? `You must be at ${result.convention_name} to join`,
+        error: result.error ?? `You must be at ${result.convention_name} to play`,
       };
     } catch (error) {
       captureNonCriticalError(error, { scope: 'geo-verification' });

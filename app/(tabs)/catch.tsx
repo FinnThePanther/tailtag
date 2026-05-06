@@ -1,9 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   FursuitCard,
@@ -34,8 +34,13 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { useAuth } from '../../src/features/auth';
 import {
+  CONVENTIONS_STALE_TIME,
+  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+  type ConventionMembership,
   fetchActiveProfileConventionIds,
   fetchActiveSharedConventionIds,
+  fetchProfileConventionMemberships,
+  useConventionVerificationAction,
 } from '../../src/features/conventions';
 import { emitGameplayEvent } from '../../src/features/events';
 import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
@@ -86,6 +91,31 @@ export default function CatchScreen() {
   const queryClient = useQueryClient();
 
   const blockedIds = useBlockedIds(userId);
+  const { data: conventionMemberships = [], refetch: refetchConventionMemberships } = useQuery<
+    ConventionMembership[],
+    Error
+  >({
+    queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
+    enabled: Boolean(userId),
+    staleTime: CONVENTIONS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: fetchProfileConventionMemberships,
+  });
+  const verificationRequiredConvention = useMemo(
+    () =>
+      conventionMemberships.find(
+        (membership) => membership.membership_state === 'needs_location_verification',
+      ) ?? null,
+    [conventionMemberships],
+  );
+  const { verifyConvention, verificationModals, isVerifyingConvention } =
+    useConventionVerificationAction({
+      profileId: userId,
+      onVerified: () => {
+        void refetchConventionMemberships({ throwOnError: false });
+      },
+    });
 
   const [codeInput, setCodeInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -274,7 +304,9 @@ export default function CatchScreen() {
       if (activeProfileConventions.length === 0) {
         resetCatchState();
         setSubmitError(
-          'Join or verify a playable convention in Settings before catching fursuits.',
+          verificationRequiredConvention
+            ? `${verificationRequiredConvention.name} is live. Verify your location before catching fursuits.`
+            : 'Join or verify a playable convention in Settings before catching fursuits.',
         );
         return;
       }
@@ -595,6 +627,26 @@ export default function CatchScreen() {
 
       {!caughtFursuit && userId ? (
         <View style={styles.photoCatchSpacing}>
+          {verificationRequiredConvention ? (
+            <TailTagCard style={styles.cardSpacing}>
+              <Text style={styles.sectionTitle}>Verify location to catch</Text>
+              <Text style={styles.sectionBody}>
+                {verificationRequiredConvention.name} is live. Verify that you&apos;re at the
+                convention before logging catches.
+              </Text>
+              <TailTagButton
+                variant="outline"
+                onPress={() => {
+                  void verifyConvention(verificationRequiredConvention);
+                }}
+                loading={isVerifyingConvention}
+                disabled={isVerifyingConvention}
+                style={styles.fullWidthButton}
+              >
+                Verify location
+              </TailTagButton>
+            </TailTagCard>
+          ) : null}
           <PhotoCatchCard
             userId={userId}
             onCatchSubmit={handlePhotoCatch}
@@ -636,6 +688,19 @@ export default function CatchScreen() {
               color="#f87171"
             />
             <Text style={styles.errorText}>{submitError}</Text>
+            {verificationRequiredConvention ? (
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => {
+                  void verifyConvention(verificationRequiredConvention);
+                }}
+                loading={isVerifyingConvention}
+                disabled={isVerifyingConvention}
+              >
+                Verify location
+              </TailTagButton>
+            ) : null}
           </View>
         ) : null}
 
@@ -728,6 +793,7 @@ export default function CatchScreen() {
           </View>
         </TailTagCard>
       ) : null}
+      {verificationModals}
     </KeyboardAwareFormWrapper>
   );
 }

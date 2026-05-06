@@ -28,6 +28,7 @@ import {
   PAST_CONVENTION_RECAPS_QUERY_KEY,
   parsePastConventionRecapSummary,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+  useConventionVerificationAction,
 } from '../../src/features/conventions';
 import { useAuth } from '../../src/features/auth';
 import {
@@ -197,6 +198,12 @@ export default function SettingsScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryFn: fetchProfileConventionMemberships,
+  });
+  const { verifyConvention, verificationModals } = useConventionVerificationAction({
+    profileId: userId,
+    onVerified: () => {
+      void refetchProfileConventions({ throwOnError: false });
+    },
   });
 
   const {
@@ -1660,6 +1667,7 @@ export default function SettingsScreen() {
                     )}
                     membershipState={membership?.membership_state}
                     profileId={userId ?? undefined}
+                    onVerifyLocation={verifyConvention}
                     onToggle={(conventionId, nextSelected, verifiedLocation) =>
                       handleToggleProfileConvention(conventionId, nextSelected, verifiedLocation)
                     }
@@ -1670,6 +1678,7 @@ export default function SettingsScreen() {
           )}
 
           {conventionError ? <Text style={styles.error}>{conventionError}</Text> : null}
+          {verificationModals}
         </View>
       </TailTagCard>
 
