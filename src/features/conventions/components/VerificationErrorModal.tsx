@@ -46,7 +46,7 @@ export function VerificationErrorModal({
               />
             </View>
             <Text style={styles.title}>Couldn&apos;t verify location</Text>
-            <Text style={styles.body}>{error ?? 'You must be at the convention to join.'}</Text>
+            <Text style={styles.body}>{error ?? 'You must be at the convention to play.'}</Text>
 
             <View style={styles.conventionInfo}>
               <Text style={styles.conventionName}>{convention.name}</Text>

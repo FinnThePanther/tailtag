@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../src/features/auth';
+import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { createProfileQueryOptions, type ProfileSummary } from '../../src/features/profile';
 import {
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
@@ -202,11 +203,7 @@ export default function OnboardingScreen() {
       style={styles.safeArea}
       edges={['top', 'bottom']}
     >
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-      >
+      <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
         <Text style={styles.header}>New player onboarding</Text>
         <ProgressDots
           currentIndex={currentIndex}
@@ -257,7 +254,7 @@ export default function OnboardingScreen() {
             onFinish={handleFinish}
           />
         )}
-      </ScrollView>
+      </KeyboardAwareFormWrapper>
     </SafeAreaView>
   );
 }

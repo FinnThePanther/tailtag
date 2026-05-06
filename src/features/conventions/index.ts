@@ -42,4 +42,5 @@ export {
   type LocationVerificationRequest,
   type LocationVerificationResponse,
 } from './api/geoVerification';
+export { useConventionVerificationAction } from './hooks/useConventionVerificationAction';
 export { formatConventionDateRange, isConventionEnded } from './utils';

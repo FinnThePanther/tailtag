@@ -108,7 +108,7 @@ export function validateUsername(
     return {
       isValid: false,
       code: 'invalid_chars',
-      message: 'Use only lowercase letters, numbers, and underscores.',
+      message: 'Use only letters, numbers, and underscores.',
       normalized,
     };
   }

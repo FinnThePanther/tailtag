@@ -79,15 +79,22 @@ export const styles = StyleSheet.create({
   },
   progressFooter: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
   progressHelper: {
     color: colors.slate200,
+    flex: 1,
+    flexShrink: 1,
     fontSize: 14,
+    lineHeight: 20,
+    minWidth: 180,
   },
   countdownLabel: {
     color: colors.primary,
+    flexShrink: 0,
     fontSize: 14,
     fontWeight: '600',
   },
