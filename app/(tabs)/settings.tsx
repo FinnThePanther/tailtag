@@ -97,7 +97,7 @@ import { usePushNotifications } from '../../src/features/push-notifications';
 import { useOtaUpdateCheck } from '../../src/hooks/useOtaUpdateCheck';
 import { styles } from '../../src/app-styles/(tabs)/settings.styles';
 
-const FEEDBACK_FORM_URL = 'https://forms.gle/e65DqKt1VsuvoFTx8';
+const TESTING_GROUP_URL = 'https://t.me/+x2C_t-_kgI40ZDlh';
 const PRIVACY_POLICY_URL = 'https://playtailtag.com/privacy';
 const TERMS_URL = 'https://playtailtag.com/terms';
 const DELETE_ACCOUNT_URL = 'https://playtailtag.com/delete-account';
@@ -663,8 +663,8 @@ export default function SettingsScreen() {
     [disablePushNotifications, isPushDenied, requestPermissionAndRegister],
   );
 
-  const handleOpenFeedbackForm = useCallback(async () => {
-    await WebBrowser.openBrowserAsync(FEEDBACK_FORM_URL);
+  const handleOpenTestingGroup = useCallback(async () => {
+    await WebBrowser.openBrowserAsync(TESTING_GROUP_URL);
   }, []);
 
   const handleOpenExternalUrl = useCallback(async (url: string) => {
@@ -1773,15 +1773,15 @@ export default function SettingsScreen() {
 
       <TailTagCard>
         <View style={styles.accountSection}>
-          <Text style={styles.sectionTitle}>Beta Feedback</Text>
+          <Text style={styles.sectionTitle}>Testing Group</Text>
           <Text style={styles.sectionDescription}>
-            Found a bug or have a suggestion? Let us know!
+            Join the TailTag beta chat for feedback, support, bug reports, and testing updates.
           </Text>
           <TailTagButton
             variant="outline"
-            onPress={handleOpenFeedbackForm}
+            onPress={handleOpenTestingGroup}
           >
-            Report a Bug or Give Feedback
+            Join Telegram Chat
           </TailTagButton>
         </View>
       </TailTagCard>
