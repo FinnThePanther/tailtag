@@ -10,6 +10,7 @@ type RawSocialLink = {
 type RawFursuitBio = {
   version?: unknown;
   owner_name?: unknown;
+  photo_credit?: unknown;
   pronouns?: unknown;
   likes_and_interests?: unknown;
   ask_me_about?: unknown;
@@ -83,6 +84,7 @@ export const mapFursuitBio = (raw: unknown): FursuitBio | null => {
   const version = Number.isFinite(versionNumber) && versionNumber > 0 ? versionNumber : 1;
 
   const ownerName = coerceString(source.owner_name).trim();
+  const photoCredit = coerceString(source.photo_credit).trim();
   const pronouns = coerceString(source.pronouns).trim();
   const likesAndInterests = coerceString(source.likes_and_interests).trim();
   const askMeAbout = coerceString(source.ask_me_about).trim();
@@ -91,13 +93,21 @@ export const mapFursuitBio = (raw: unknown): FursuitBio | null => {
   const createdAt = typeof source.created_at === 'string' ? source.created_at : null;
   const updatedAt = typeof source.updated_at === 'string' ? source.updated_at : null;
 
-  if (!ownerName && !pronouns && !likesAndInterests && !askMeAbout && socialLinks.length === 0) {
+  if (
+    !ownerName &&
+    !photoCredit &&
+    !pronouns &&
+    !likesAndInterests &&
+    !askMeAbout &&
+    socialLinks.length === 0
+  ) {
     return null;
   }
 
   return {
     version,
     ownerName,
+    photoCredit,
     pronouns,
     likesAndInterests,
     askMeAbout,
