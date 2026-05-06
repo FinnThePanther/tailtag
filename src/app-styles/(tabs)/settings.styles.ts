@@ -132,6 +132,12 @@ export const styles = StyleSheet.create({
     minHeight: 120,
     textAlignVertical: 'top',
   },
+  usernameInput: {
+    height: 48,
+    lineHeight: 20,
+    paddingVertical: 0,
+    textAlignVertical: 'center',
+  },
   helperColumn: {
     gap: spacing.sm,
   },

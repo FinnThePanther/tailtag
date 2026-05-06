@@ -22,6 +22,7 @@ export type ConventionToggleProps = {
   badgeText?: string;
   membershipState?: ConventionMembershipState | null;
   profileId?: string;
+  onVerifyLocation?: (convention: ConventionSummary) => Promise<boolean> | boolean;
   onToggle: (
     conventionId: string,
     nextSelected: boolean,
@@ -37,13 +38,15 @@ export function ConventionToggle({
   badgeText,
   membershipState,
   profileId,
+  onVerifyLocation,
   onToggle,
 }: ConventionToggleProps) {
-  const requiresVerification =
+  const hasLocationGate =
     Boolean(profileId) &&
-    convention.is_joinable === true &&
     Boolean(convention.location_verification_required) &&
     Boolean(convention.geofence_enabled);
+  const requiresLiveVerification = hasLocationGate && convention.is_joinable === true;
+  const willRequireVerificationLater = hasLocationGate && convention.is_joinable !== true;
   const {
     status,
     requestPermission,
@@ -61,6 +64,8 @@ export function ConventionToggle({
   const shouldDisable =
     disabled || pending || isVerifying || isRequestingPermission || isDisabledDueToEnd;
   const showDisabledBadge = !selected && !pending && (disabled || hasEnded);
+  const shouldVerifySelectedConvention =
+    selected && membershipState === 'needs_location_verification' && hasLocationGate;
   const defaultBadgeText =
     badgeText ??
     (membershipState === 'active'
@@ -78,9 +83,6 @@ export function ConventionToggle({
                 : 'Add to yours');
 
   const handlePress = async () => {
-    const shouldVerifySelectedConvention =
-      selected && membershipState === 'needs_location_verification' && requiresVerification;
-
     // Opt-out: no verification required unless the row is explicitly asking for verification.
     if (selected && !shouldVerifySelectedConvention) {
       onToggle(convention.id, false, null);
@@ -88,8 +90,16 @@ export function ConventionToggle({
     }
 
     // No verification required -> toggle immediately
-    if (!requiresVerification) {
+    if (!requiresLiveVerification && !shouldVerifySelectedConvention) {
       onToggle(convention.id, true, null);
+      return;
+    }
+
+    if (onVerifyLocation) {
+      const verified = await onVerifyLocation(convention);
+      if (verified && !selected) {
+        return;
+      }
       return;
     }
 
@@ -139,8 +149,10 @@ export function ConventionToggle({
             <Text style={styles.conventionMetaText}>{convention.location}</Text>
           ) : null}
           {dateRange ? <Text style={styles.conventionMetaText}>{dateRange}</Text> : null}
-          {requiresVerification ? (
+          {requiresLiveVerification || shouldVerifySelectedConvention ? (
             <Text style={styles.verificationText}>Location required</Text>
+          ) : willRequireVerificationLater ? (
+            <Text style={styles.verificationText}>Location check when catching opens</Text>
           ) : null}
         </View>
         <View

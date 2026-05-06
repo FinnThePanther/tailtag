@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -69,6 +68,7 @@ import {
   IMAGE_UPLOAD_PRESETS,
   extractStoragePath,
 } from '../../../src/utils/images';
+import { launchFursuitPhotoPickerAsync } from '../../../src/utils/imagePicker';
 import { buildAuthenticatedStorageObjectUrl } from '../../../src/utils/supabase-image';
 import { colors } from '../../../src/theme';
 import type { Json } from '../../../src/types/database';
@@ -388,19 +388,7 @@ export default function EditFursuitScreen() {
 
   const handlePickPhoto = useCallback(async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== 'granted') {
-        setPhotoError('We need media library access to select a photo.');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.85,
-      });
+      const result = await launchFursuitPhotoPickerAsync();
 
       if (result.canceled) {
         return;

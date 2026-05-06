@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
@@ -9,12 +9,11 @@ import { TailTagProgressBar } from '../../src/components/ui/TailTagProgressBar';
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader';
 import { useAuth } from '../../src/features/auth';
 import {
-  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
-  type ConventionSummary,
-  fetchActiveProfileConventionIds,
-  fetchJoinableConventions,
-  JOINABLE_CONVENTIONS_QUERY_KEY,
+  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+  type ConventionMembership,
+  fetchProfileConventionMemberships,
+  useConventionVerificationAction,
 } from '../../src/features/conventions';
 import { useDailyTasks } from '../../src/features/daily-tasks';
 import { colors } from '../../src/theme';
@@ -74,25 +73,14 @@ export default function DailyTasksScreen() {
   const userId = session?.user.id ?? null;
 
   const {
-    data: conventions = [],
+    data: conventionMemberships = [],
     isLoading: isConventionsLoading,
-    error: conventionsError,
-  } = useQuery<ConventionSummary[], Error>({
-    queryKey: [JOINABLE_CONVENTIONS_QUERY_KEY],
-    queryFn: () => fetchJoinableConventions(),
-    staleTime: CONVENTIONS_STALE_TIME,
-    enabled: Boolean(userId),
-    refetchOnReconnect: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const {
-    data: profileConventionIds = [],
-    isLoading: isProfileConventionsLoading,
-    error: profileConventionsError,
-  } = useQuery<string[], Error>({
-    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
-    queryFn: () => fetchActiveProfileConventionIds(userId!),
+    isFetching: isConventionsFetching,
+    error: conventionMembershipsError,
+    refetch: refetchConventionMemberships,
+  } = useQuery<ConventionMembership[], Error>({
+    queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
+    queryFn: fetchProfileConventionMemberships,
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
     refetchOnReconnect: false,
@@ -100,11 +88,22 @@ export default function DailyTasksScreen() {
   });
 
   const availableConventions = useMemo(() => {
-    if (!profileConventionIds || profileConventionIds.length === 0) {
-      return [] as ConventionSummary[];
-    }
-    return conventions.filter((convention) => profileConventionIds.includes(convention.id));
-  }, [conventions, profileConventionIds]);
+    return conventionMemberships.filter((membership) => membership.membership_state === 'active');
+  }, [conventionMemberships]);
+  const verificationRequiredMembership = useMemo(
+    () =>
+      conventionMemberships.find(
+        (membership) => membership.membership_state === 'needs_location_verification',
+      ) ?? null,
+    [conventionMemberships],
+  );
+  const { verifyConvention, verificationModals, isVerifyingConvention } =
+    useConventionVerificationAction({
+      profileId: userId,
+      onVerified: async () => {
+        await refetchConventionMemberships({ throwOnError: false });
+      },
+    });
 
   const [selectedConventionId, setSelectedConventionId] = useState<string | null>(null);
 
@@ -140,19 +139,25 @@ export default function DailyTasksScreen() {
   const timezone = data?.timezone ?? selectedConvention?.timezone ?? 'UTC';
   const isDailyTasksUnavailable = data?.availability && data.availability !== 'available';
 
-  const isRefreshing = isFetching && !isLoading;
+  const isRefreshing =
+    (isFetching && !isLoading) || (isConventionsFetching && !isConventionsLoading);
 
   const handleRetry = useCallback(() => {
     void refetch({ throwOnError: false });
   }, [refetch]);
 
-  const handleConventionRequired = useCallback(() => {
-    Alert.alert('Select a convention', 'Pick a convention to view its daily lineup.');
-  }, []);
+  const handleRetryConventions = useCallback(() => {
+    void refetchConventionMemberships({ throwOnError: false });
+  }, [refetchConventionMemberships]);
 
-  const conventionErrorMessage =
-    conventionsError?.message ?? profileConventionsError?.message ?? null;
-  const isLoadingConventions = isConventionsLoading || isProfileConventionsLoading;
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      refetch({ throwOnError: false }),
+      refetchConventionMemberships({ throwOnError: false }),
+    ]);
+  }, [refetch, refetchConventionMemberships]);
+
+  const conventionErrorMessage = conventionMembershipsError?.message ?? null;
 
   return (
     <View style={styles.screen}>
@@ -167,7 +172,7 @@ export default function DailyTasksScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={() => {
-              void refetch({ throwOnError: false });
+              void handleRefresh();
             }}
             tintColor={colors.primary}
           />
@@ -175,7 +180,7 @@ export default function DailyTasksScreen() {
       >
         <TailTagCard style={styles.selectorCard}>
           <Text style={styles.selectorEyebrow}>Convention</Text>
-          {isLoadingConventions ? (
+          {isConventionsLoading ? (
             <Text style={styles.message}>Loading conventions...</Text>
           ) : conventionErrorMessage ? (
             <View style={styles.helper}>
@@ -183,15 +188,32 @@ export default function DailyTasksScreen() {
               <TailTagButton
                 variant="outline"
                 size="sm"
-                onPress={handleRetry}
+                onPress={handleRetryConventions}
               >
                 Try again
               </TailTagButton>
             </View>
           ) : availableConventions.length === 0 ? (
-            <Text style={styles.message}>
-              Join or verify a playable convention to use convention features.
-            </Text>
+            <View style={styles.helper}>
+              <Text style={styles.message}>
+                {verificationRequiredMembership
+                  ? `${verificationRequiredMembership.name} is live. Verify your location to unlock daily tasks.`
+                  : 'Join or verify a playable convention to use convention features.'}
+              </Text>
+              {verificationRequiredMembership ? (
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void verifyConvention(verificationRequiredMembership);
+                  }}
+                  loading={isVerifyingConvention}
+                  disabled={isVerifyingConvention}
+                >
+                  Verify location
+                </TailTagButton>
+              ) : null}
+            </View>
           ) : (
             <View style={styles.selectorRow}>
               {availableConventions.map((convention) => (
@@ -267,7 +289,9 @@ export default function DailyTasksScreen() {
             <View style={styles.progressFooter}>
               <Text style={styles.progressHelper}>
                 {!selectedConventionId
-                  ? 'Join or verify a playable convention to begin.'
+                  ? verificationRequiredMembership
+                    ? 'Verify your location to begin.'
+                    : 'Join or verify a playable convention to begin.'
                   : isDailyTasksUnavailable
                     ? 'Daily tasks are only available while this convention is live.'
                     : totalCount === 0
@@ -293,15 +317,31 @@ export default function DailyTasksScreen() {
           {!selectedConventionId ? (
             <View style={styles.helper}>
               <Text style={styles.message}>
-                Join or verify a playable convention to use convention features.
+                {verificationRequiredMembership
+                  ? `${verificationRequiredMembership.name} needs location verification before daily tasks unlock.`
+                  : 'Join or verify a playable convention to use convention features.'}
               </Text>
-              <TailTagButton
-                variant="outline"
-                size="sm"
-                onPress={handleConventionRequired}
-              >
-                Choose convention
-              </TailTagButton>
+              {verificationRequiredMembership ? (
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void verifyConvention(verificationRequiredMembership);
+                  }}
+                  loading={isVerifyingConvention}
+                  disabled={isVerifyingConvention}
+                >
+                  Verify location
+                </TailTagButton>
+              ) : (
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => router.push('/settings')}
+                >
+                  Manage conventions
+                </TailTagButton>
+              )}
             </View>
           ) : isLoading ? (
             <Text style={styles.message}>Loading daily tasks...</Text>
@@ -371,6 +411,7 @@ export default function DailyTasksScreen() {
             </View>
           )}
         </TailTagCard>
+        {verificationModals}
       </ScrollView>
     </View>
   );

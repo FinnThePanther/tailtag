@@ -26,7 +26,7 @@ export function KeyboardAwareFormWrapper({
     <KeyboardAwareScrollView
       style={styles.wrapper}
       contentContainerStyle={[styles.defaultContainer, contentContainerStyle]}
-      keyboardShouldPersistTaps="handled"
+      keyboardShouldPersistTaps="always"
       showsVerticalScrollIndicator
       bottomOffset={spacing.xl}
     >

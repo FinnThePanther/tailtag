@@ -35,6 +35,7 @@ type PhotoCatchCardProps = {
     catchResult: CreateCatchResult;
   }) => Promise<void>;
   isSubmitting?: boolean;
+  disabled?: boolean;
   submitError?: string | null;
 };
 
@@ -44,6 +45,7 @@ export function PhotoCatchCard({
   userId,
   onCatchSubmit,
   isSubmitting = false,
+  disabled = false,
   submitError,
 }: PhotoCatchCardProps) {
   const [step, setStep] = useState<Step>('idle');
@@ -79,6 +81,8 @@ export function PhotoCatchCard({
   }, [step, conventionIds, userId]);
 
   const handleTakePhoto = async () => {
+    if (disabled) return;
+
     setLocalError(null);
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -120,6 +124,8 @@ export function PhotoCatchCard({
   };
 
   const handleRetakePhoto = () => {
+    if (disabled) return;
+
     setPhoto(null);
     setSelectedFursuit(null);
     setStep('idle');
@@ -127,11 +133,13 @@ export function PhotoCatchCard({
   };
 
   const handleSelectFursuit = (item: FursuitPickerItem) => {
+    if (disabled) return;
+
     setSelectedFursuit((prev) => (prev?.id === item.id ? null : item));
   };
 
   const handleSubmit = async () => {
-    if (!photo || !selectedFursuit) return;
+    if (disabled || !photo || !selectedFursuit) return;
     setLocalError(null);
     setIsUploadingPhoto(true);
 
@@ -233,7 +241,7 @@ export function PhotoCatchCard({
   };
 
   const canSubmit =
-    Boolean(photo) && Boolean(selectedFursuit) && !isSubmitting && !isUploadingPhoto;
+    Boolean(photo) && Boolean(selectedFursuit) && !disabled && !isSubmitting && !isUploadingPhoto;
   const isBusy = isSubmitting || isUploadingPhoto;
 
   return (
@@ -261,6 +269,7 @@ export function PhotoCatchCard({
           <TailTagButton
             variant="outline"
             onPress={handleTakePhoto}
+            disabled={disabled}
             style={styles.cameraButton}
           >
             <View style={styles.buttonContent}>
@@ -286,6 +295,7 @@ export function PhotoCatchCard({
               <Text style={styles.previewLabel}>Selfie taken</Text>
               <Pressable
                 onPress={handleRetakePhoto}
+                disabled={disabled}
                 style={styles.retakeButton}
               >
                 <Ionicons
@@ -311,6 +321,7 @@ export function PhotoCatchCard({
                 selectedId={selectedFursuit?.id ?? null}
                 onSelect={handleSelectFursuit}
                 isLoading={isLoadingFursuits}
+                disabled={disabled}
               />
             </ScrollView>
           </View>

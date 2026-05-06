@@ -17,18 +17,14 @@ import { fetchProfile, profileQueryKey } from '../../src/features/profile';
 import { supabase } from '../../src/lib/supabase';
 import { captureHandledException } from '../../src/lib/sentry';
 import {
-  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   type ConventionMembership,
-  type ConventionSummary,
   type PastConventionRecap,
-  fetchActiveProfileConventionIds,
-  fetchJoinableConventions,
   fetchProfileConventionMemberships,
   fetchPastConventionRecaps,
-  JOINABLE_CONVENTIONS_QUERY_KEY,
   PAST_CONVENTION_RECAPS_QUERY_KEY,
+  useConventionVerificationAction,
 } from '../../src/features/conventions';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
@@ -370,34 +366,6 @@ export default function HomeScreen() {
     userId,
   ]);
 
-  const conventionsQuery = useQuery<ConventionSummary[], Error>({
-    queryKey: [JOINABLE_CONVENTIONS_QUERY_KEY],
-    enabled: Boolean(userId),
-    staleTime: CONVENTIONS_STALE_TIME,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    queryFn: () => fetchJoinableConventions(),
-  });
-  const {
-    data: conventions = [],
-    error: conventionsError,
-    refetch: refetchConventions,
-  } = conventionsQuery;
-
-  const profileConventionsQuery = useQuery<string[], Error>({
-    queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
-    enabled: Boolean(userId),
-    staleTime: CONVENTIONS_STALE_TIME,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    queryFn: () => fetchActiveProfileConventionIds(userId!),
-  });
-  const {
-    data: profileConventionIds = [],
-    error: profileConventionsError,
-    refetch: refetchProfileConventions,
-  } = profileConventionsQuery;
-
   const conventionMembershipsQuery = useQuery<ConventionMembership[], Error>({
     queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
     enabled: Boolean(userId),
@@ -406,7 +374,11 @@ export default function HomeScreen() {
     refetchOnReconnect: false,
     queryFn: fetchProfileConventionMemberships,
   });
-  const { data: conventionMemberships = [] } = conventionMembershipsQuery;
+  const {
+    data: conventionMemberships = [],
+    error: conventionMembershipsError,
+    refetch: refetchConventionMemberships,
+  } = conventionMembershipsQuery;
 
   const pastConventionRecapsQuery = useQuery<PastConventionRecap[], Error>({
     queryKey: [PAST_CONVENTION_RECAPS_QUERY_KEY, userId],
@@ -462,15 +434,9 @@ export default function HomeScreen() {
 
   const achievementsErrorMessage = achievementsError?.message ?? null;
 
-  const conventionMap = useMemo(() => {
-    return new Map(conventions.map((convention) => [convention.id, convention]));
-  }, [conventions]);
-
   const availableConventions = useMemo(() => {
-    return profileConventionIds
-      .map((id) => conventionMap.get(id))
-      .filter((convention): convention is ConventionSummary => Boolean(convention));
-  }, [conventionMap, profileConventionIds]);
+    return conventionMemberships.filter((membership) => membership.membership_state === 'active');
+  }, [conventionMemberships]);
 
   const selectedConvention = useMemo(() => {
     return availableConventions[0] ?? null;
@@ -478,20 +444,33 @@ export default function HomeScreen() {
   const selectedConventionId = selectedConvention?.id ?? null;
   const pendingConventionMembership = useMemo(() => {
     return (
+      conventionMemberships.find(
+        (membership) => membership.membership_state === 'needs_location_verification',
+      ) ??
       conventionMemberships.find((membership) =>
-        ['needs_location_verification', 'awaiting_start', 'upcoming'].includes(
-          membership.membership_state,
-        ),
-      ) ?? null
+        ['awaiting_start', 'upcoming'].includes(membership.membership_state),
+      ) ??
+      null
     );
   }, [conventionMemberships]);
+  const verificationRequiredMembership =
+    pendingConventionMembership?.membership_state === 'needs_location_verification'
+      ? pendingConventionMembership
+      : null;
+  const { verifyConvention, verificationModals, isVerifyingConvention } =
+    useConventionVerificationAction({
+      profileId: userId,
+      onVerified: async () => {
+        await refetchConventionMemberships({ throwOnError: false });
+      },
+    });
   const noPlayableConventionMessage = useMemo(() => {
     if (!pendingConventionMembership) {
       return 'Join a convention in Settings to use convention features.';
     }
 
     if (pendingConventionMembership.membership_state === 'needs_location_verification') {
-      return `${pendingConventionMembership.name} is live. Verify your location in Settings to start catching.`;
+      return `${pendingConventionMembership.name} is live. Verify your location to start catching.`;
     }
 
     if (pendingConventionMembership.membership_state === 'awaiting_start') {
@@ -639,8 +618,7 @@ export default function HomeScreen() {
     };
   }, [selectedConventionId, queryClient]);
 
-  const membershipErrorMessage =
-    profileConventionsError?.message ?? conventionsError?.message ?? null;
+  const membershipErrorMessage = conventionMembershipsError?.message ?? null;
   const hasConventionAccess = availableConventions.length > 0;
 
   const rankByProfileId = useMemo(() => {
@@ -680,11 +658,7 @@ export default function HomeScreen() {
     );
   }, [dismissedRecapIdSet, isRecapBannerStateReady, pastConventionRecaps, seenRecapIdSet, userId]);
 
-  const tier1Ready = useAllDataReady([
-    conventionsQuery,
-    profileConventionsQuery,
-    conventionMembershipsQuery,
-  ]);
+  const tier1Ready = useAllDataReady([conventionMembershipsQuery]);
   const rawTier2Ready = useAllDataReady([dailyTasksQuery, achievementsQuery]);
   // When there's no convention, daily tasks won't fire; gate tier 2 on achievements only.
   const tier2Ready =
@@ -881,7 +855,7 @@ export default function HomeScreen() {
             Catch fursuits, grow your collection, and make new furry friends!
           </Text>
           <Text style={styles.subtitle}>
-            TailTag makes meeting fursuiters fun! Catch thier fursuit, learn about their likes and
+            TailTag makes meeting fursuiters fun! Catch their fursuit, learn about their likes and
             interests, and start a furry friendship!
           </Text>
           <View style={styles.ctaRow}>
@@ -995,7 +969,22 @@ export default function HomeScreen() {
           {!tier1Ready ? (
             <DailyTasksSummarySkeleton />
           ) : !selectedConventionId ? (
-            <Text style={styles.message}>{noPlayableConventionMessage}</Text>
+            <View style={styles.helper}>
+              <Text style={styles.message}>{noPlayableConventionMessage}</Text>
+              {verificationRequiredMembership ? (
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void verifyConvention(verificationRequiredMembership);
+                  }}
+                  loading={isVerifyingConvention}
+                  disabled={isVerifyingConvention}
+                >
+                  Verify location
+                </TailTagButton>
+              ) : null}
+            </View>
           ) : !tier2Ready ? (
             <DailyTasksSummarySkeleton />
           ) : showDailyError ? (
@@ -1045,6 +1034,7 @@ export default function HomeScreen() {
             View daily tasks
           </TailTagButton>
         </TailTagCard>
+        {verificationModals}
 
         <TailTagCard style={[styles.achievementsCard, contentWidthStyle]}>
           <Text style={styles.sectionEyebrow}>Achievements</Text>
@@ -1121,8 +1111,7 @@ export default function HomeScreen() {
                 variant="outline"
                 size="sm"
                 onPress={() => {
-                  void refetchProfileConventions({ throwOnError: false });
-                  void refetchConventions({ throwOnError: false });
+                  void refetchConventionMemberships({ throwOnError: false });
                 }}
               >
                 Try again

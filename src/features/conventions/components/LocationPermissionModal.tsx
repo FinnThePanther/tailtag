@@ -38,9 +38,9 @@ export function LocationPermissionModal({ visible, onClose }: LocationPermission
             </View>
             <Text style={styles.title}>Location permission required</Text>
             <Text style={styles.body}>
-              TailTag uses your location to verify that you&apos;re at the convention when you opt
-              in. We save that verification with your convention record, and we do not continuously
-              track your location during the event.
+              TailTag uses your location to verify that you&apos;re at the convention before you
+              start playing. We save that verification with your convention record, and we do not
+              continuously track your location during the event.
             </Text>
 
             <View style={styles.actions}>
