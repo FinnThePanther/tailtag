@@ -365,10 +365,11 @@ export async function checkUsernameAvailability(
   if (error) {
     if (error.code === '42883') {
       // Fallback for environments that haven't applied the migration yet.
+      const escapedUsername = lookupUsername.replace(/([_%\\])/g, '\\$1');
       const { data: fallbackData, error: fallbackError } = await (supabase as any)
         .from('profiles')
         .select('id')
-        .ilike('username', lookupUsername)
+        .ilike('username', escapedUsername)
         .neq('id', currentUserId)
         .maybeSingle();
 

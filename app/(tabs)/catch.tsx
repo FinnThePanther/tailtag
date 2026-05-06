@@ -674,7 +674,7 @@ export default function CatchScreen() {
               setCodeInput(normalizeUniqueCodeInput(value));
               setSubmitError(null);
             }}
-            placeholder="A1B2C3D4"
+            placeholder="ABCDWXYZ"
             autoCapitalize="characters"
             maxLength={8}
             editable={!isSubmitting}
@@ -682,7 +682,7 @@ export default function CatchScreen() {
             onSubmitEditing={handleSubmit}
             style={styles.codeInput}
           />
-          <Text style={styles.helpText}>Letters and numbers, {codeInput.length}/8 characters.</Text>
+          <Text style={styles.helpText}>Letters only, {codeInput.length}/8 characters.</Text>
           <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
             Some owners require manual approval. If so, they will be notified and your catch will
             count once approved.
