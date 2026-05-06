@@ -257,6 +257,7 @@ export default function SettingsScreen() {
   type UsernameCheckStatus = 'idle' | 'checking' | 'available' | 'taken' | 'error';
   const [usernameCheckStatus, setUsernameCheckStatus] = useState<UsernameCheckStatus>('idle');
   const usernameCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const usernameCheckRequestRef = useRef(0);
 
   const [optimisticPushEnabled, setOptimisticPushEnabled] = useState<boolean | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -540,6 +541,9 @@ export default function SettingsScreen() {
   }, [saveMessage]);
 
   useEffect(() => {
+    usernameCheckRequestRef.current += 1;
+    const requestId = usernameCheckRequestRef.current;
+
     if (usernameCheckRef.current) {
       clearTimeout(usernameCheckRef.current);
     }
@@ -560,9 +564,15 @@ export default function SettingsScreen() {
       if (!userId) return;
       checkUsernameAvailability(normalizedUsernameInput, userId)
         .then((available) => {
+          if (usernameCheckRequestRef.current !== requestId) {
+            return;
+          }
           setUsernameCheckStatus(available ? 'available' : 'taken');
         })
         .catch(() => {
+          if (usernameCheckRequestRef.current !== requestId) {
+            return;
+          }
           setUsernameCheckStatus('error');
         });
     }, 500);
@@ -696,7 +706,6 @@ export default function SettingsScreen() {
   );
 
   const isUsernameTaken = usernameCheckStatus === 'taken';
-  const isUsernameChecking = usernameCheckStatus === 'checking';
 
   const handleSave = useCallback(async () => {
     if (!userId || isSaving || !isDirty) {
@@ -723,6 +732,21 @@ export default function SettingsScreen() {
     setSaveMessage(null);
 
     try {
+      const usernameChanged = usernameLookupInput !== currentUsernameLookup;
+
+      if (normalizedUsername && usernameChanged) {
+        setUsernameCheckStatus('checking');
+        const isAvailable = await checkUsernameAvailability(normalizedUsername, userId);
+
+        if (!isAvailable) {
+          setUsernameCheckStatus('taken');
+          setSaveError('Username is already taken.');
+          return;
+        }
+
+        setUsernameCheckStatus('available');
+      }
+
       const { error } = await (supabase as any).from('profiles').upsert(
         {
           id: userId,
@@ -734,6 +758,11 @@ export default function SettingsScreen() {
       );
 
       if (error) {
+        if (error.code === '23505') {
+          setUsernameCheckStatus('taken');
+          throw new Error('Username is already taken.');
+        }
+
         throw error;
       }
 
@@ -794,6 +823,8 @@ export default function SettingsScreen() {
     isSaving,
     isDirty,
     normalizedUsernameInput,
+    usernameLookupInput,
+    currentUsernameLookup,
     bioInput,
     profile?.avatar_path,
     profile?.avatar_url,
@@ -1485,8 +1516,7 @@ export default function SettingsScreen() {
                 isProfileLoading ||
                 isSaving ||
                 hasUsernameValidationError ||
-                isUsernameTaken ||
-                isUsernameChecking
+                isUsernameTaken
               }
               loading={isSaving}
             >
