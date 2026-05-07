@@ -38,13 +38,16 @@ import {
 import {
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
+  CONVENTION_SUIT_ROSTER_QUERY_KEY,
   createJoinableConventionsQueryOptions,
   fetchProfileConventionMemberships,
   removeFursuitConvention,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   type ConventionMembership,
+  type FursuitConventionRosterSettings,
 } from '../../../src/features/conventions';
 import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
+import { FursuitConventionRosterControls } from '../../../src/components/conventions/FursuitConventionRosterControls';
 import { createProfileQueryOptions } from '../../../src/features/profile';
 import {
   ensureSpeciesEntry,
@@ -83,6 +86,11 @@ const PRONOUN_OPTIONS = [
   'she/they',
   'any pronouns',
 ] as const;
+
+const DEFAULT_ROSTER_SETTINGS: FursuitConventionRosterSettings = {
+  rosterVisible: true,
+  catchableNow: false,
+};
 
 const ASK_ME_ABOUT_SUGGESTIONS = [
   'My suit',
@@ -179,6 +187,12 @@ export default function EditFursuitScreen() {
 
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
   const [initialConventionIds, setInitialConventionIds] = useState<Set<string>>(new Set());
+  const [conventionRosterSettingsById, setConventionRosterSettingsById] = useState<
+    Record<string, FursuitConventionRosterSettings>
+  >({});
+  const [initialConventionRosterSettingsById, setInitialConventionRosterSettingsById] = useState<
+    Record<string, FursuitConventionRosterSettings>
+  >({});
 
   const profileConventionIdSet = useMemo(
     () => new Set(profileConventionMemberships.map((membership) => membership.convention_id)),
@@ -281,7 +295,7 @@ export default function EditFursuitScreen() {
   }, []);
 
   useEffect(() => {
-    if (!detail || hasHydratedForm) {
+    if (!detail || hasHydratedForm || isProfileConventionsLoading) {
       return;
     }
 
@@ -326,15 +340,29 @@ export default function EditFursuitScreen() {
       .map((e) => ({ label: e.label, url: e.url }));
     setSocialLinks(mapEditableSocialLinks(linksToMap));
 
-    const initialConventionSet = new Set((detail.conventions ?? []).map((entry) => entry.id));
+    const eligibleConventions = (detail.conventions ?? []).filter((entry) =>
+      profileConventionIdSet.has(entry.id),
+    );
+    const initialConventionSet = new Set(eligibleConventions.map((entry) => entry.id));
+    const initialRosterSettings = Object.fromEntries(
+      eligibleConventions.map((entry) => [
+        entry.id,
+        {
+          rosterVisible: entry.roster_visible !== false,
+          catchableNow: entry.catchable_now === true,
+        } satisfies FursuitConventionRosterSettings,
+      ]),
+    );
     setSelectedConventionIds(new Set(initialConventionSet));
     setInitialConventionIds(initialConventionSet);
+    setConventionRosterSettingsById(initialRosterSettings);
+    setInitialConventionRosterSettingsById(initialRosterSettings);
     const resolvedColors = detail.colors ?? [];
     setSelectedColors(resolvedColors);
     setInitialColors(resolvedColors);
 
     setHasHydratedForm(true);
-  }, [detail, hasHydratedForm]);
+  }, [detail, hasHydratedForm, isProfileConventionsLoading, profileConventionIdSet]);
 
   const isOwner = useMemo(() => {
     if (!detail || !userId) {
@@ -570,6 +598,18 @@ export default function EditFursuitScreen() {
     const toRemove = Array.from(initialConventionIds).filter(
       (id) => !selectedConventionIds.has(id),
     );
+    const toUpdateRosterSettings = Array.from(selectedConventionIds).filter((id) => {
+      if (toAdd.includes(id) || toRemove.includes(id)) {
+        return false;
+      }
+
+      const current = conventionRosterSettingsById[id] ?? DEFAULT_ROSTER_SETTINGS;
+      const initial = initialConventionRosterSettingsById[id] ?? DEFAULT_ROSTER_SETTINGS;
+      return (
+        current.rosterVisible !== initial.rosterVisible ||
+        current.catchableNow !== initial.catchableNow
+      );
+    });
 
     setIsSubmitting(true);
     setSubmitError(null);
@@ -584,6 +624,7 @@ export default function EditFursuitScreen() {
     let replacedColors = false;
     const addedConventionIds: string[] = [];
     const removedConventionIds: string[] = [];
+    const updatedRosterConventionIds: string[] = [];
 
     try {
       const speciesRecord =
@@ -719,6 +760,29 @@ export default function EditFursuitScreen() {
         }
       }
 
+      for (const conventionId of toAdd) {
+        await addFursuitConvention(
+          fursuitId,
+          conventionId,
+          conventionRosterSettingsById[conventionId] ?? DEFAULT_ROSTER_SETTINGS,
+        );
+        addedConventionIds.push(conventionId);
+      }
+
+      for (const conventionId of toUpdateRosterSettings) {
+        await addFursuitConvention(
+          fursuitId,
+          conventionId,
+          conventionRosterSettingsById[conventionId] ?? DEFAULT_ROSTER_SETTINGS,
+        );
+        updatedRosterConventionIds.push(conventionId);
+      }
+
+      for (const conventionId of toRemove) {
+        await removeFursuitConvention(fursuitId, conventionId);
+        removedConventionIds.push(conventionId);
+      }
+
       const nextVersion = (detail.bio?.version ?? 0) + 1;
 
       const { error: bioError } = await client.from('fursuit_bios').insert({
@@ -736,16 +800,6 @@ export default function EditFursuitScreen() {
         throw bioError;
       }
 
-      for (const conventionId of toAdd) {
-        await addFursuitConvention(fursuitId, conventionId);
-        addedConventionIds.push(conventionId);
-      }
-
-      for (const conventionId of toRemove) {
-        await removeFursuitConvention(fursuitId, conventionId);
-        removedConventionIds.push(conventionId);
-      }
-
       queryClient.invalidateQueries({
         queryKey: fursuitDetailQueryKey(fursuitId),
       });
@@ -753,8 +807,16 @@ export default function EditFursuitScreen() {
       queryClient.invalidateQueries({
         queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
       });
+      Array.from(new Set([...toAdd, ...toRemove, ...toUpdateRosterSettings])).forEach(
+        (conventionId) => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId, conventionId],
+          });
+        },
+      );
 
       setInitialConventionIds(new Set(selectedConventionIds));
+      setInitialConventionRosterSettingsById(conventionRosterSettingsById);
       setInitialColors(selectedColors);
       setInitialMakers(makers);
 
@@ -779,8 +841,26 @@ export default function EditFursuitScreen() {
       if (removedConventionIds.length > 0) {
         await Promise.all(
           removedConventionIds.map((conventionId) =>
-            addFursuitConvention(fursuitId, conventionId).catch((revertError) => {
+            addFursuitConvention(
+              fursuitId,
+              conventionId,
+              initialConventionRosterSettingsById[conventionId] ?? DEFAULT_ROSTER_SETTINGS,
+            ).catch((revertError) => {
               console.warn('Failed to restore convention assignment after error', revertError);
+            }),
+          ),
+        );
+      }
+
+      if (updatedRosterConventionIds.length > 0) {
+        await Promise.all(
+          updatedRosterConventionIds.map((conventionId) =>
+            addFursuitConvention(
+              fursuitId,
+              conventionId,
+              initialConventionRosterSettingsById[conventionId] ?? DEFAULT_ROSTER_SETTINGS,
+            ).catch((revertError) => {
+              console.warn('Failed to restore roster settings after error', revertError);
             }),
           ),
         );
@@ -852,6 +932,19 @@ export default function EditFursuitScreen() {
           next.delete(conventionId);
         }
 
+        return next;
+      });
+
+      setConventionRosterSettingsById((current) => {
+        if (nextSelected) {
+          return {
+            ...current,
+            [conventionId]: current[conventionId] ?? DEFAULT_ROSTER_SETTINGS,
+          };
+        }
+
+        const next = { ...current };
+        delete next[conventionId];
         return next;
       });
     },
@@ -1427,21 +1520,39 @@ export default function EditFursuitScreen() {
                     {conventions.map((convention) => {
                       const isAllowed = profileConventionIdSet.has(convention.id);
                       const isSelected = selectedConventionIds.has(convention.id);
+                      const rosterSettings =
+                        conventionRosterSettingsById[convention.id] ?? DEFAULT_ROSTER_SETTINGS;
 
                       return (
-                        <ConventionToggle
+                        <View
                           key={convention.id}
-                          convention={convention}
-                          selected={isSelected}
-                          pending={false}
-                          disabled={disableForm || (!isAllowed && !isSelected)}
-                          badgeText={
-                            isAllowed ? (isSelected ? 'Listed' : 'List suit') : 'Attend first'
-                          }
-                          onToggle={(conventionId, nextSelected) =>
-                            handleConventionToggle(conventionId, nextSelected)
-                          }
-                        />
+                          style={styles.conventionRosterItem}
+                        >
+                          <ConventionToggle
+                            convention={convention}
+                            selected={isSelected}
+                            pending={false}
+                            disabled={disableForm || (!isAllowed && !isSelected)}
+                            badgeText={
+                              isAllowed ? (isSelected ? 'Listed' : 'List suit') : 'Attend first'
+                            }
+                            onToggle={(conventionId, nextSelected) =>
+                              handleConventionToggle(conventionId, nextSelected)
+                            }
+                          />
+                          {isSelected ? (
+                            <FursuitConventionRosterControls
+                              value={rosterSettings}
+                              disabled={disableForm}
+                              onChange={(nextValue) =>
+                                setConventionRosterSettingsById((current) => ({
+                                  ...current,
+                                  [convention.id]: nextValue,
+                                }))
+                              }
+                            />
+                          ) : null}
+                        </View>
                       );
                     })}
                   </View>

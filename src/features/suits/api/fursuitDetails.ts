@@ -41,13 +41,22 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
         )
       ),
       fursuit_conventions:fursuit_conventions (
+        roster_visible,
+        catchable_now,
+        catchable_updated_at,
         convention:conventions (
           id,
           slug,
           name,
           location,
           start_date,
-          end_date
+          end_date,
+          timezone,
+          latitude,
+          longitude,
+          geofence_radius_meters,
+          geofence_enabled,
+          location_verification_required
         )
       ),
       fursuit_bios (
@@ -84,15 +93,23 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
   }
 
   const conventions = (data.fursuit_conventions ?? [])
-    .map((entry: any) => entry?.convention)
-    .filter(Boolean)
-    .map((convention: any) => ({
-      id: convention.id,
-      slug: convention.slug,
-      name: convention.name,
-      location: convention.location ?? null,
-      start_date: convention.start_date ?? null,
-      end_date: convention.end_date ?? null,
+    .filter((entry: any) => Boolean(entry?.convention))
+    .map((entry: any) => ({
+      id: entry.convention.id,
+      slug: entry.convention.slug,
+      name: entry.convention.name,
+      location: entry.convention.location ?? null,
+      start_date: entry.convention.start_date ?? null,
+      end_date: entry.convention.end_date ?? null,
+      timezone: entry.convention.timezone ?? 'UTC',
+      latitude: entry.convention.latitude ?? null,
+      longitude: entry.convention.longitude ?? null,
+      geofence_radius_meters: entry.convention.geofence_radius_meters ?? null,
+      geofence_enabled: Boolean(entry.convention.geofence_enabled),
+      location_verification_required: Boolean(entry.convention.location_verification_required),
+      roster_visible: entry.roster_visible !== false,
+      catchable_now: entry.catchable_now === true,
+      catchable_updated_at: entry.catchable_updated_at ?? null,
     }));
 
   const bio = mapLatestFursuitBio(data.fursuit_bios ?? null);

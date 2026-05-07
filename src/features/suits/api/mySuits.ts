@@ -1,6 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import type { ConventionSummary } from '../../conventions';
-import type { FursuitSummary } from '../types';
+import type { FursuitConvention, FursuitSummary } from '../types';
 import { mapFursuitColors, mapLatestFursuitBio } from './utils';
 import { fetchFursuitMakersByFursuitIds } from './makers';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
@@ -42,6 +41,9 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
         )
       ),
       fursuit_conventions:fursuit_conventions (
+        roster_visible,
+        catchable_now,
+        catchable_updated_at,
         convention:conventions (
           id,
           slug,
@@ -83,22 +85,24 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
   );
 
   return (data ?? []).map((item: any) => {
-    const conventions: ConventionSummary[] = (item.fursuit_conventions ?? [])
-      .map((entry: any) => entry?.convention)
-      .filter(Boolean)
-      .map((convention: any) => ({
-        id: convention.id,
-        slug: convention.slug,
-        name: convention.name,
-        location: convention.location ?? null,
-        start_date: convention.start_date ?? null,
-        end_date: convention.end_date ?? null,
-        timezone: convention.timezone ?? 'UTC',
-        latitude: convention.latitude ?? null,
-        longitude: convention.longitude ?? null,
-        geofence_radius_meters: convention.geofence_radius_meters ?? null,
-        geofence_enabled: Boolean(convention.geofence_enabled),
-        location_verification_required: Boolean(convention.location_verification_required),
+    const conventions: FursuitConvention[] = (item.fursuit_conventions ?? [])
+      .filter((entry: any) => Boolean(entry?.convention))
+      .map((entry: any) => ({
+        id: entry.convention.id,
+        slug: entry.convention.slug,
+        name: entry.convention.name,
+        location: entry.convention.location ?? null,
+        start_date: entry.convention.start_date ?? null,
+        end_date: entry.convention.end_date ?? null,
+        timezone: entry.convention.timezone ?? 'UTC',
+        latitude: entry.convention.latitude ?? null,
+        longitude: entry.convention.longitude ?? null,
+        geofence_radius_meters: entry.convention.geofence_radius_meters ?? null,
+        geofence_enabled: Boolean(entry.convention.geofence_enabled),
+        location_verification_required: Boolean(entry.convention.location_verification_required),
+        roster_visible: entry.roster_visible !== false,
+        catchable_now: entry.catchable_now === true,
+        catchable_updated_at: entry.catchable_updated_at ?? null,
       }));
 
     const bio = mapLatestFursuitBio(item.fursuit_bios ?? null);

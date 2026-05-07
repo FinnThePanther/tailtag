@@ -508,19 +508,28 @@ export type Database = {
       };
       fursuit_conventions: {
         Row: {
+          catchable_now: boolean;
+          catchable_updated_at: string | null;
           convention_id: string;
           created_at: string;
           fursuit_id: string;
+          roster_visible: boolean;
         };
         Insert: {
+          catchable_now?: boolean;
+          catchable_updated_at?: string | null;
           convention_id: string;
           created_at?: string;
           fursuit_id: string;
+          roster_visible?: boolean;
         };
         Update: {
+          catchable_now?: boolean;
+          catchable_updated_at?: string | null;
           convention_id?: string;
           created_at?: string;
           fursuit_id?: string;
+          roster_visible?: boolean;
         };
         Relationships: [
           {
@@ -939,6 +948,26 @@ export type Database = {
         Returns: {
           total_catches: number;
           unique_catchers: number;
+        }[];
+      };
+      get_convention_suit_roster: {
+        Args: { p_convention_id: string };
+        Returns: {
+          catchable_now: boolean;
+          catchable_updated_at: string | null;
+          color_assignments: Json;
+          convention_catch_count: number;
+          convention_id: string;
+          caught_by_current_user: boolean;
+          fursuit_avatar_path: string | null;
+          fursuit_avatar_url: string | null;
+          fursuit_id: string;
+          fursuit_name: string;
+          owner_id: string;
+          owner_username: string | null;
+          roster_visible: boolean;
+          species_id: string | null;
+          species_name: string | null;
         }[];
       };
       get_pending_catch_count: { Args: { p_user_id: string }; Returns: number };

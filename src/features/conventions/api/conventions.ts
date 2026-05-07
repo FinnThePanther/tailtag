@@ -1,7 +1,13 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 import { supabase } from '../../../lib/supabase';
 import { emitGameplayEvent } from '../../events';
-import { captureSupabaseError } from '../../../lib/sentry';
-import type { FursuitSocialLink } from '../../../types/database';
+import { captureSupabaseError } from '@/lib/sentry';
+import { FURSUIT_BUCKET } from '@/constants/storage';
+import type { FursuitColorOption } from '@/features/colors';
+import { mapFursuitColors } from '@/features/suits/api/utils';
+import { resolveStorageMediaUrl } from '@/utils/supabase-image';
+import type { Database, FursuitSocialLink } from '@/types/database';
 
 export type ConventionSummary = {
   id: string;
@@ -170,15 +176,41 @@ export type ConventionRecapDetail = {
   awards: ConventionRecapAward[];
 };
 
+export type FursuitConventionRosterSettings = {
+  rosterVisible: boolean;
+  catchableNow: boolean;
+};
+
+export type ConventionSuitRosterEntry = {
+  fursuitId: string;
+  conventionId: string;
+  name: string;
+  species: string | null;
+  speciesId: string | null;
+  colors: FursuitColorOption[];
+  avatarUrl: string | null;
+  ownerProfileId: string | null;
+  ownerUsername: string | null;
+  rosterVisible: boolean;
+  catchableNow: boolean;
+  catchableUpdatedAt: string | null;
+  conventionCatchCount: number;
+  caughtByCurrentUser: boolean;
+};
+
 export const JOINABLE_CONVENTIONS_QUERY_KEY = 'joinable-conventions';
 export const CONVENTIONS_STALE_TIME = 5 * 60_000;
 export const ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY = 'active-profile-conventions';
 export const PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY = 'profile-convention-memberships';
 export const PAST_CONVENTION_RECAPS_QUERY_KEY = 'past-convention-recaps';
 export const CONVENTION_RECAP_DETAIL_QUERY_KEY = 'convention-recap-detail';
+export const CONVENTION_SUIT_ROSTER_QUERY_KEY = 'convention-suit-roster';
 
 export const conventionRecapDetailQueryKey = (userId: string, recapId: string) =>
   [CONVENTION_RECAP_DETAIL_QUERY_KEY, userId, recapId] as const;
+
+export const conventionSuitRosterQueryKey = (userId: string, conventionId: string) =>
+  [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId, conventionId] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -543,6 +575,56 @@ export const createConventionRecapDetailQueryOptions = (userId: string, recapId:
   refetchOnReconnect: false,
 });
 
+export async function fetchConventionSuitRoster(
+  conventionId: string,
+): Promise<ConventionSuitRosterEntry[]> {
+  const client = supabase as SupabaseClient<Database>;
+  const { data, error } = await client.rpc('get_convention_suit_roster', {
+    p_convention_id: conventionId,
+  });
+
+  if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.fetchConventionSuitRoster',
+      conventionId,
+    });
+    throw new Error(`We couldn't load the suiter roster: ${error.message}`);
+  }
+
+  type RosterRow = Database['public']['Functions']['get_convention_suit_roster']['Returns'][number];
+
+  return (data ?? [])
+    .filter((row: RosterRow) => row.fursuit_id != null)
+    .map((row: RosterRow) => ({
+      fursuitId: row.fursuit_id,
+      conventionId: row.convention_id ?? conventionId,
+      name: row.fursuit_name ?? 'Unknown suit',
+      species: row.species_name ?? null,
+      speciesId: row.species_id ?? null,
+      colors: mapFursuitColors(row.color_assignments),
+      avatarUrl: resolveStorageMediaUrl({
+        bucket: FURSUIT_BUCKET,
+        path: row.fursuit_avatar_path ?? null,
+        legacyUrl: row.fursuit_avatar_url ?? null,
+      }),
+      ownerProfileId: row.owner_id ?? null,
+      ownerUsername: row.owner_username ?? null,
+      rosterVisible: row.roster_visible !== false,
+      catchableNow: row.catchable_now === true,
+      catchableUpdatedAt: row.catchable_updated_at ?? null,
+      conventionCatchCount: Number(row.convention_catch_count ?? 0),
+      caughtByCurrentUser: row.caught_by_current_user === true,
+    }));
+}
+
+export const createConventionSuitRosterQueryOptions = (userId: string, conventionId: string) => ({
+  queryKey: conventionSuitRosterQueryKey(userId, conventionId),
+  queryFn: () => fetchConventionSuitRoster(conventionId),
+  staleTime: 30_000,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: false,
+});
+
 export async function fetchActiveProfileConventionIds(profileId: string): Promise<string[]> {
   const client = supabase as any;
   const { data, error } = await client.rpc('get_active_profile_convention_ids', {
@@ -647,16 +729,32 @@ export async function optOutOfConvention(profileId: string, conventionId: string
   });
 }
 
-export async function addFursuitConvention(fursuitId: string, conventionId: string): Promise<void> {
-  const client = supabase as any;
-  const { error } = await client
-    .from('fursuit_conventions')
-    .upsert(
-      { fursuit_id: fursuitId, convention_id: conventionId },
-      { onConflict: 'fursuit_id, convention_id' },
-    );
+export async function addFursuitConvention(
+  fursuitId: string,
+  conventionId: string,
+  settings: FursuitConventionRosterSettings = {
+    rosterVisible: true,
+    catchableNow: false,
+  },
+): Promise<void> {
+  const client = supabase as SupabaseClient<Database>;
+  const rosterVisible = settings.rosterVisible !== false;
+  const { error } = await client.from('fursuit_conventions').upsert(
+    {
+      fursuit_id: fursuitId,
+      convention_id: conventionId,
+      roster_visible: rosterVisible,
+      catchable_now: rosterVisible && settings.catchableNow === true,
+    },
+    { onConflict: 'fursuit_id, convention_id' },
+  );
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.addFursuitConvention',
+      fursuitId,
+      conventionId,
+    });
     throw new Error(`We couldn't add that convention to the fursuit: ${error.message}`);
   }
 
