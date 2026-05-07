@@ -295,7 +295,7 @@ export default function EditFursuitScreen() {
   }, []);
 
   useEffect(() => {
-    if (!detail || hasHydratedForm) {
+    if (!detail || hasHydratedForm || isProfileConventionsLoading) {
       return;
     }
 
@@ -340,9 +340,12 @@ export default function EditFursuitScreen() {
       .map((e) => ({ label: e.label, url: e.url }));
     setSocialLinks(mapEditableSocialLinks(linksToMap));
 
-    const initialConventionSet = new Set((detail.conventions ?? []).map((entry) => entry.id));
+    const eligibleConventions = (detail.conventions ?? []).filter((entry) =>
+      profileConventionIdSet.has(entry.id),
+    );
+    const initialConventionSet = new Set(eligibleConventions.map((entry) => entry.id));
     const initialRosterSettings = Object.fromEntries(
-      (detail.conventions ?? []).map((entry) => [
+      eligibleConventions.map((entry) => [
         entry.id,
         {
           rosterVisible: entry.roster_visible !== false,
@@ -359,7 +362,7 @@ export default function EditFursuitScreen() {
     setInitialColors(resolvedColors);
 
     setHasHydratedForm(true);
-  }, [detail, hasHydratedForm]);
+  }, [detail, hasHydratedForm, isProfileConventionsLoading, profileConventionIdSet]);
 
   const isOwner = useMemo(() => {
     if (!detail || !userId) {
@@ -757,23 +760,6 @@ export default function EditFursuitScreen() {
         }
       }
 
-      const nextVersion = (detail.bio?.version ?? 0) + 1;
-
-      const { error: bioError } = await client.from('fursuit_bios').insert({
-        fursuit_id: fursuitId,
-        version: nextVersion,
-        owner_name: profile?.username ?? '',
-        photo_credit: trimmedPhotoCredit,
-        pronouns: trimmedPronouns,
-        likes_and_interests: trimmedLikes,
-        ask_me_about: trimmedAskMeAbout,
-        social_links: normalizedSocialLinks as unknown as Json,
-      });
-
-      if (bioError) {
-        throw bioError;
-      }
-
       for (const conventionId of toAdd) {
         await addFursuitConvention(
           fursuitId,
@@ -797,6 +783,23 @@ export default function EditFursuitScreen() {
         removedConventionIds.push(conventionId);
       }
 
+      const nextVersion = (detail.bio?.version ?? 0) + 1;
+
+      const { error: bioError } = await client.from('fursuit_bios').insert({
+        fursuit_id: fursuitId,
+        version: nextVersion,
+        owner_name: profile?.username ?? '',
+        photo_credit: trimmedPhotoCredit,
+        pronouns: trimmedPronouns,
+        likes_and_interests: trimmedLikes,
+        ask_me_about: trimmedAskMeAbout,
+        social_links: normalizedSocialLinks as unknown as Json,
+      });
+
+      if (bioError) {
+        throw bioError;
+      }
+
       queryClient.invalidateQueries({
         queryKey: fursuitDetailQueryKey(fursuitId),
       });
@@ -807,7 +810,7 @@ export default function EditFursuitScreen() {
       Array.from(new Set([...toAdd, ...toRemove, ...toUpdateRosterSettings])).forEach(
         (conventionId) => {
           void queryClient.invalidateQueries({
-            queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, conventionId],
+            queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId, conventionId],
           });
         },
       );

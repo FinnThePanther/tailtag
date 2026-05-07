@@ -51,10 +51,10 @@ export default function ConventionSuitRosterScreen() {
     isLoading,
     refetch,
   } = useQuery<ConventionSuitRosterEntry[], Error>(
-    conventionId
-      ? createConventionSuitRosterQueryOptions(conventionId)
+    conventionId && userId
+      ? createConventionSuitRosterQueryOptions(userId, conventionId)
       : {
-          queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, 'idle'],
+          queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId ?? 'guest', 'idle'],
           queryFn: async () => [],
           enabled: false,
         },
@@ -66,7 +66,7 @@ export default function ConventionSuitRosterScreen() {
     const instanceId = Math.random().toString(36).slice(2, 11);
     const invalidateRoster = () => {
       void queryClient.invalidateQueries({
-        queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, conventionId],
+        queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId ?? 'guest', conventionId],
       });
     };
 
@@ -88,6 +88,7 @@ export default function ConventionSuitRosterScreen() {
           event: '*',
           schema: 'public',
           table: 'catches',
+          filter: `convention_id=eq.${conventionId}`,
         },
         invalidateRoster,
       )
@@ -96,7 +97,7 @@ export default function ConventionSuitRosterScreen() {
     return () => {
       void supabase.removeChannel(rosterChannel);
     };
-  }, [conventionId, queryClient]);
+  }, [conventionId, queryClient, userId]);
 
   useEffect(() => {
     if (!userId || !conventionId) return;
@@ -118,7 +119,7 @@ export default function ConventionSuitRosterScreen() {
           };
           if (row.blocker_id === userId || row.blocked_id === userId) {
             void queryClient.invalidateQueries({
-              queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, conventionId],
+              queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId, conventionId],
             });
           }
         },

@@ -761,7 +761,7 @@ export default function AddFursuitScreen() {
       });
       allowedConventionIds.forEach((conventionId) => {
         void queryClient.invalidateQueries({
-          queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, conventionId],
+          queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId, conventionId],
         });
       });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });

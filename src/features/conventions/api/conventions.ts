@@ -1,11 +1,13 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 import { supabase } from '../../../lib/supabase';
 import { emitGameplayEvent } from '../../events';
-import { captureSupabaseError } from '../../../lib/sentry';
-import { FURSUIT_BUCKET } from '../../../constants/storage';
-import type { FursuitColorOption } from '../../colors';
-import { mapFursuitColors } from '../../suits/api/utils';
-import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
-import type { FursuitSocialLink } from '../../../types/database';
+import { captureSupabaseError } from '@/lib/sentry';
+import { FURSUIT_BUCKET } from '@/constants/storage';
+import type { FursuitColorOption } from '@/features/colors';
+import { mapFursuitColors } from '@/features/suits/api/utils';
+import { resolveStorageMediaUrl } from '@/utils/supabase-image';
+import type { Database, FursuitSocialLink } from '@/types/database';
 
 export type ConventionSummary = {
   id: string;
@@ -207,8 +209,8 @@ export const CONVENTION_SUIT_ROSTER_QUERY_KEY = 'convention-suit-roster';
 export const conventionRecapDetailQueryKey = (userId: string, recapId: string) =>
   [CONVENTION_RECAP_DETAIL_QUERY_KEY, userId, recapId] as const;
 
-export const conventionSuitRosterQueryKey = (conventionId: string) =>
-  [CONVENTION_SUIT_ROSTER_QUERY_KEY, conventionId] as const;
+export const conventionSuitRosterQueryKey = (userId: string, conventionId: string) =>
+  [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId, conventionId] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -576,18 +578,24 @@ export const createConventionRecapDetailQueryOptions = (userId: string, recapId:
 export async function fetchConventionSuitRoster(
   conventionId: string,
 ): Promise<ConventionSuitRosterEntry[]> {
-  const client = supabase as any;
+  const client = supabase as SupabaseClient<Database>;
   const { data, error } = await client.rpc('get_convention_suit_roster', {
     p_convention_id: conventionId,
   });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.fetchConventionSuitRoster',
+      conventionId,
+    });
     throw new Error(`We couldn't load the suiter roster: ${error.message}`);
   }
 
+  type RosterRow = Database['public']['Functions']['get_convention_suit_roster']['Returns'][number];
+
   return (data ?? [])
-    .filter((row: any) => row.fursuit_id != null)
-    .map((row: any) => ({
+    .filter((row: RosterRow) => row.fursuit_id != null)
+    .map((row: RosterRow) => ({
       fursuitId: row.fursuit_id,
       conventionId: row.convention_id ?? conventionId,
       name: row.fursuit_name ?? 'Unknown suit',
@@ -609,8 +617,8 @@ export async function fetchConventionSuitRoster(
     }));
 }
 
-export const createConventionSuitRosterQueryOptions = (conventionId: string) => ({
-  queryKey: conventionSuitRosterQueryKey(conventionId),
+export const createConventionSuitRosterQueryOptions = (userId: string, conventionId: string) => ({
+  queryKey: conventionSuitRosterQueryKey(userId, conventionId),
   queryFn: () => fetchConventionSuitRoster(conventionId),
   staleTime: 30_000,
   refetchOnWindowFocus: true,
@@ -729,7 +737,7 @@ export async function addFursuitConvention(
     catchableNow: false,
   },
 ): Promise<void> {
-  const client = supabase as any;
+  const client = supabase as SupabaseClient<Database>;
   const rosterVisible = settings.rosterVisible !== false;
   const { error } = await client.from('fursuit_conventions').upsert(
     {
@@ -742,6 +750,11 @@ export async function addFursuitConvention(
   );
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.addFursuitConvention',
+      fursuitId,
+      conventionId,
+    });
     throw new Error(`We couldn't add that convention to the fursuit: ${error.message}`);
   }
 

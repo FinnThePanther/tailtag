@@ -571,7 +571,7 @@ export default function HomeScreen() {
             queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId],
           });
           void queryClient.invalidateQueries({
-            queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, selectedConventionId],
+            queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId ?? 'guest', selectedConventionId],
           });
         },
       )
@@ -612,7 +612,7 @@ export default function HomeScreen() {
             queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId],
           });
           void queryClient.invalidateQueries({
-            queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, selectedConventionId],
+            queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId ?? 'guest', selectedConventionId],
           });
         },
       )
@@ -623,7 +623,7 @@ export default function HomeScreen() {
       void supabase.removeChannel(participantsChannel);
       void supabase.removeChannel(fursuitsChannel);
     };
-  }, [selectedConventionId, queryClient]);
+  }, [selectedConventionId, queryClient, userId]);
 
   const membershipErrorMessage = conventionMembershipsError?.message ?? null;
   const hasConventionAccess = availableConventions.length > 0;
@@ -1138,7 +1138,7 @@ export default function HomeScreen() {
                       router.push({
                         pathname: '/conventions/[conventionId]/roster',
                         params: {
-                          conventionId: selectedConventionId,
+                          conventionId: selectedConventionId!,
                           conventionName: selectedConvention?.name ?? '',
                         },
                       })

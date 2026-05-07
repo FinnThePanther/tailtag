@@ -56,11 +56,17 @@ RETURNS TABLE(
   convention_catch_count bigint,
   caught_by_current_user boolean
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path TO 'public', 'pg_temp'
 AS $function$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated' USING ERRCODE = '28000';
+  END IF;
+
+  RETURN QUERY
   SELECT
     f.id AS fursuit_id,
     fc.convention_id,
@@ -127,9 +133,13 @@ AS $function$
       OR (p.suspended_until IS NOT NULL AND p.suspended_until <= now())
     )
     AND (
-      auth.uid() IS NULL
-      OR auth.uid() = f.owner_id
+      auth.uid() = f.owner_id
       OR public.is_blocked(auth.uid(), f.owner_id) = false
     )
   ORDER BY fc.catchable_now DESC, f.name ASC, f.id ASC;
+END;
 $function$;
+
+REVOKE ALL ON FUNCTION public.get_convention_suit_roster(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_convention_suit_roster(uuid) FROM anon;
+GRANT EXECUTE ON FUNCTION public.get_convention_suit_roster(uuid) TO authenticated;
