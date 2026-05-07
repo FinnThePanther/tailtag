@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export const spacing = {
   xs: 6,
   sm: 10,
@@ -26,5 +28,13 @@ export const typography = {
   body: {
     fontFamily: 'System',
     fontWeight: '400' as const,
+  },
+  code: {
+    fontFamily: Platform.select({
+      ios: 'Menlo',
+      android: 'monospace',
+      default: 'monospace',
+    }),
+    fontWeight: '600' as const,
   },
 };

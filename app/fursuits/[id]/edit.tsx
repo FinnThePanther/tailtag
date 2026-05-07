@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,6 +15,7 @@ import {
   fetchFursuitDetail,
   fursuitDetailQueryKey,
   MY_SUITS_QUERY_KEY,
+  MY_SUITS_COUNT_QUERY_KEY,
 } from '../../../src/features/suits';
 import type { EditableSocialLink } from '../../../src/features/suits/forms/socialLinks';
 import {
@@ -202,6 +203,7 @@ export default function EditFursuitScreen() {
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption | null>(null);
   const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
   const [initialColors, setInitialColors] = useState<FursuitColorOption[]>([]);
@@ -438,6 +440,74 @@ export default function EditFursuitScreen() {
   const handleCancel = () => {
     router.back();
   };
+
+  const handleDelete = useCallback(() => {
+    if (!detail || !fursuitId || !userId || isSubmitting || isDeleting) {
+      return;
+    }
+
+    Alert.alert(
+      'Delete fursuit?',
+      `Delete ${detail.name} from your fursuits? This removes the suit profile and cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete fursuit',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            setSubmitError(null);
+
+            try {
+              const objectPath =
+                detail.avatar_path ?? extractStoragePath(detail.avatar_url ?? null, FURSUIT_BUCKET);
+
+              if (objectPath) {
+                const { error: storageError } = await supabase.storage
+                  .from(FURSUIT_BUCKET)
+                  .remove([objectPath]);
+
+                if (storageError) {
+                  console.warn('Failed to remove fursuit avatar from storage', storageError);
+                }
+              }
+
+              const { error: deleteError } = await (supabase as any)
+                .from('fursuits')
+                .delete()
+                .eq('id', fursuitId)
+                .eq('owner_id', userId);
+
+              if (deleteError) {
+                throw deleteError;
+              }
+
+              queryClient.invalidateQueries({
+                queryKey: fursuitDetailQueryKey(fursuitId),
+              });
+              queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
+              queryClient.invalidateQueries({
+                queryKey: [MY_SUITS_COUNT_QUERY_KEY, userId],
+              });
+              queryClient.invalidateQueries({
+                queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
+              });
+
+              router.replace('/suits');
+            } catch (caught) {
+              const message =
+                caught instanceof Error
+                  ? caught.message
+                  : "We couldn't delete that fursuit. Please try again.";
+              setSubmitError(message);
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [detail, fursuitId, isDeleting, isSubmitting, queryClient, router, userId]);
 
   const handleSubmit = async () => {
     if (!detail || !fursuitId || !userId || isSubmitting) {
@@ -770,7 +840,7 @@ export default function EditFursuitScreen() {
     }
   };
 
-  const disableForm = isLoading || !detail || !isOwner || isSubmitting;
+  const disableForm = isLoading || !detail || !isOwner || isSubmitting || isDeleting;
 
   const handleConventionToggle = useCallback(
     (conventionId: string, nextSelected: boolean) => {
@@ -1385,21 +1455,28 @@ export default function EditFursuitScreen() {
 
               {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
 
-              <View style={styles.buttonRow}>
+              <View style={styles.buttonStack}>
+                <TailTagButton
+                  onPress={handleSubmit}
+                  loading={isSubmitting}
+                  disabled={isSubmitting || isDeleting}
+                >
+                  Save changes
+                </TailTagButton>
                 <TailTagButton
                   variant="ghost"
                   onPress={handleCancel}
-                  disabled={isSubmitting}
-                  style={styles.inlineButtonSpacing}
+                  disabled={isSubmitting || isDeleting}
                 >
                   Cancel
                 </TailTagButton>
                 <TailTagButton
-                  onPress={handleSubmit}
-                  loading={isSubmitting}
-                  disabled={isSubmitting}
+                  variant="destructive"
+                  onPress={handleDelete}
+                  loading={isDeleting}
+                  disabled={isSubmitting || isDeleting}
                 >
-                  Save changes
+                  Delete fursuit
                 </TailTagButton>
               </View>
             </>

@@ -214,12 +214,9 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  buttonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  buttonStack: {
+    gap: spacing.sm,
   },
-  inlineButtonSpacing: {},
   errorText: {
     color: '#fca5a5',
     fontSize: 14,
