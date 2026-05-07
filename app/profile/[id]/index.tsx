@@ -326,7 +326,7 @@ export default function PublicProfileScreen() {
               <View style={styles.achievementList}>
                 {unlockedAchievements.map((achievement) => (
                   <View
-                    key={achievement.id}
+                    key={`${achievement.conventionId ?? 'account'}:${achievement.name}`}
                     style={styles.achievementRow}
                   >
                     <View style={styles.achievementIcon}>

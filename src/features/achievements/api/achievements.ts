@@ -43,8 +43,8 @@ function getAchievementDedupeKey(
   achievement: Pick<AchievementRecord, 'id' | 'key' | 'name' | 'conventionId'>,
 ) {
   const stableIdentity =
-    normalizeAchievementIdentity(achievement.key) ||
     normalizeAchievementIdentity(achievement.name) ||
+    normalizeAchievementIdentity(achievement.key) ||
     achievement.id;
 
   if (achievement.conventionId) {
@@ -76,26 +76,6 @@ function compareUnlockedAtAscending(
   return aTime - bTime;
 }
 
-function dedupeAchievementCatalog(achievements: AchievementRecord[]): AchievementRecord[] {
-  const byIdentity = new Map<string, AchievementRecord>();
-
-  for (const achievement of achievements) {
-    const key = getAchievementDedupeKey(achievement);
-    const existing = byIdentity.get(key);
-
-    if (!existing) {
-      byIdentity.set(key, achievement);
-      continue;
-    }
-
-    if (!existing.isActive && achievement.isActive) {
-      byIdentity.set(key, achievement);
-    }
-  }
-
-  return [...byIdentity.values()];
-}
-
 function dedupeUnlockedAchievements(
   achievements: AchievementWithStatus[],
 ): AchievementWithStatus[] {
@@ -111,6 +91,34 @@ function dedupeUnlockedAchievements(
   }
 
   return [...byIdentity.values()].sort((a, b) => compareUnlockedAtAscending(b, a));
+}
+
+function dedupeAchievementStatuses(achievements: AchievementWithStatus[]): AchievementWithStatus[] {
+  const byIdentity = new Map<string, AchievementWithStatus>();
+
+  for (const achievement of achievements) {
+    const key = getAchievementDedupeKey(achievement);
+    const existing = byIdentity.get(key);
+
+    if (!existing) {
+      byIdentity.set(key, achievement);
+      continue;
+    }
+
+    if (!existing.unlocked && achievement.unlocked) {
+      byIdentity.set(key, achievement);
+      continue;
+    }
+
+    if (
+      existing.unlocked === achievement.unlocked &&
+      compareUnlockedAtAscending(achievement, existing) < 0
+    ) {
+      byIdentity.set(key, achievement);
+    }
+  }
+
+  return [...byIdentity.values()];
 }
 
 export async function fetchAchievementCatalog(): Promise<AchievementRecord[]> {
@@ -182,14 +190,16 @@ export async function fetchAchievementStatus(userId: string): Promise<Achievemen
     unlockedMap.set(entry.achievement_id, entry);
   }
 
-  return dedupeAchievementCatalog(achievements)
+  const visibleAchievements = achievements
     .filter((achievement) => achievement.isActive)
     .filter(
       (achievement) =>
         achievement.conventionId === null ||
         optedInConventionIds.includes(achievement.conventionId),
-    )
-    .map((achievement) => {
+    );
+
+  return dedupeAchievementStatuses(
+    visibleAchievements.map((achievement) => {
       const unlocked = unlockedMap.get(achievement.id) ?? null;
       return {
         ...achievement,
@@ -197,7 +207,8 @@ export async function fetchAchievementStatus(userId: string): Promise<Achievemen
         unlockedAt: unlocked?.unlocked_at ?? null,
         context: unlocked?.context ?? null,
       } satisfies AchievementWithStatus;
-    });
+    }),
+  );
 }
 
 export const USER_UNLOCKED_ACHIEVEMENTS_QUERY_KEY = 'user-unlocked-achievements';
