@@ -763,6 +763,14 @@ const KIND_META: Record<string, { triggerEvent: string; recipientRole: string }>
   },
 };
 
+function normalizeAchievementDescription(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed || /[.!?]$/.test(trimmed)) {
+    return trimmed;
+  }
+  return `${trimmed}.`;
+}
+
 export async function createConventionAchievementAction(
   cookies: Cookies,
   input: {
@@ -811,7 +819,7 @@ export async function createConventionAchievementAction(
       convention_id: input.conventionId,
       key: input.key.trim(),
       name: input.name.trim(),
-      description: input.description.trim(),
+      description: normalizeAchievementDescription(input.description),
       category: input.category as any,
       recipient_role: meta.recipientRole as any,
       trigger_event: meta.triggerEvent as any,
@@ -891,7 +899,7 @@ export async function updateConventionAchievementAction(
     .from('achievements')
     .update({
       name: input.name.trim(),
-      description: input.description.trim(),
+      description: normalizeAchievementDescription(input.description),
       category: input.category as any,
       recipient_role: meta.recipientRole as any,
       trigger_event: meta.triggerEvent as any,

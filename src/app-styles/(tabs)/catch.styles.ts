@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, radius, spacing } from '../../theme';
+import { colors, radius, spacing, typography } from '../../theme';
 
 export const styles = StyleSheet.create({
   container: {
@@ -111,6 +111,7 @@ export const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   codeInput: {
+    ...typography.code,
     textTransform: 'uppercase',
     letterSpacing: 4,
     fontSize: 20,

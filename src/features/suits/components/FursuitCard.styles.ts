@@ -97,6 +97,7 @@ export const styles = StyleSheet.create({
     ...typography.code,
     color: colors.primary,
     fontSize: IS_COMPACT_SCREEN ? 14 : 16,
+    letterSpacing: IS_COMPACT_SCREEN ? 1.5 : 2,
     backgroundColor: colors.surfaceMuted,
     paddingHorizontal: IS_COMPACT_SCREEN ? spacing.xs : spacing.sm,
     paddingVertical: IS_COMPACT_SCREEN ? 2 : 4,

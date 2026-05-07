@@ -75,6 +75,7 @@ export const styles = StyleSheet.create({
     ...typography.code,
     color: colors.primary,
     fontSize: 16,
+    letterSpacing: 2,
     backgroundColor: colors.surfaceMuted,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,

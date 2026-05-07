@@ -39,19 +39,15 @@ function normalizeAchievementIdentity(value: string | null | undefined): string 
   return (value ?? '').trim().toLowerCase();
 }
 
-function getAchievementDedupeKey(
-  achievement: Pick<AchievementRecord, 'id' | 'key' | 'name' | 'conventionId'>,
-) {
-  const stableIdentity =
+function getAchievementDedupeKey(achievement: Pick<AchievementRecord, 'id' | 'key' | 'name'>) {
+  // Convention gameplay packs can create scoped mirrors of global achievements
+  // for recap/automation bookkeeping. User-facing achievement lists should show
+  // the badge once, regardless of how many scoped mirrors backed the unlock.
+  return (
     normalizeAchievementIdentity(achievement.name) ||
     normalizeAchievementIdentity(achievement.key) ||
-    achievement.id;
-
-  if (achievement.conventionId) {
-    return `convention:${achievement.conventionId}:${stableIdentity}`;
-  }
-
-  return `account:${stableIdentity}`;
+    achievement.id
+  );
 }
 
 function compareUnlockedAtAscending(
@@ -238,21 +234,23 @@ export async function fetchUserUnlockedAchievements(
   }
 
   return dedupeUnlockedAchievements(
-    (data ?? []).map((row: any) => ({
-      id: row.achievement.id,
-      key: row.achievement.key,
-      name: row.achievement.name,
-      description: row.achievement.description,
-      category: row.achievement.category,
-      recipientRole: row.achievement.recipient_role,
-      triggerEvent: row.achievement.trigger_event,
-      isActive: row.achievement.is_active,
-      conventionId: row.achievement.convention_id ?? null,
-      conventionName: null,
-      unlocked: true,
-      unlockedAt: row.unlocked_at ?? null,
-      context: row.context ?? null,
-    })),
+    (data ?? [])
+      .filter((row: any) => row.achievement?.is_active)
+      .map((row: any) => ({
+        id: row.achievement.id,
+        key: row.achievement.key,
+        name: row.achievement.name,
+        description: row.achievement.description,
+        category: row.achievement.category,
+        recipientRole: row.achievement.recipient_role,
+        triggerEvent: row.achievement.trigger_event,
+        isActive: row.achievement.is_active,
+        conventionId: row.achievement.convention_id ?? null,
+        conventionName: null,
+        unlocked: true,
+        unlockedAt: row.unlocked_at ?? null,
+        context: row.context ?? null,
+      })),
   );
 }
 
