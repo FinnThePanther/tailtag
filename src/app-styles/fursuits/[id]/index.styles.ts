@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, radius, spacing } from '../../../theme';
+import { colors, radius, spacing, typography } from '../../../theme';
 
 export const styles = StyleSheet.create({
   screen: {
@@ -72,8 +72,7 @@ export const styles = StyleSheet.create({
     fontSize: 12,
   },
   codeValue: {
-    fontFamily: 'Courier',
-    fontWeight: '600',
+    ...typography.code,
     color: colors.primary,
     fontSize: 16,
     backgroundColor: colors.surfaceMuted,

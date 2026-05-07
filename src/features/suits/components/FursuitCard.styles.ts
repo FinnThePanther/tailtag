@@ -1,6 +1,6 @@
 import { Dimensions, StyleSheet } from 'react-native';
 
-import { colors, radius, spacing } from '../../../theme';
+import { colors, radius, spacing, typography } from '../../../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const IS_COMPACT_SCREEN = SCREEN_WIDTH <= 430;
@@ -94,8 +94,7 @@ export const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   codeValue: {
-    fontFamily: 'Courier',
-    fontWeight: '600',
+    ...typography.code,
     color: colors.primary,
     fontSize: IS_COMPACT_SCREEN ? 14 : 16,
     backgroundColor: colors.surfaceMuted,
