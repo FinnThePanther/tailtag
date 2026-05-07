@@ -27,7 +27,7 @@ export function KeyboardAwareFormWrapper({
       style={styles.wrapper}
       contentContainerStyle={[styles.defaultContainer, contentContainerStyle]}
       keyboardDismissMode="interactive"
-      keyboardShouldPersistTaps="handled"
+      keyboardShouldPersistTaps="always"
       showsVerticalScrollIndicator
       bottomOffset={spacing.xl}
     >
