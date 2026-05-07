@@ -21,6 +21,12 @@ export type FursuitMaker = {
   position: number;
 };
 
+export type FursuitConvention = ConventionSummary & {
+  roster_visible: boolean;
+  catchable_now: boolean;
+  catchable_updated_at: string | null;
+};
+
 export type FursuitSummary = {
   id: string;
   owner_id?: string | null;
@@ -34,7 +40,7 @@ export type FursuitSummary = {
   unique_code: string | null;
   catchCount: number;
   created_at: string | null;
-  conventions: ConventionSummary[];
+  conventions: FursuitConvention[];
   makers: FursuitMaker[];
   bio: FursuitBio | null;
 };

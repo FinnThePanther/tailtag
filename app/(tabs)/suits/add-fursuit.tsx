@@ -44,12 +44,15 @@ import {
 import {
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
+  CONVENTION_SUIT_ROSTER_QUERY_KEY,
   createJoinableConventionsQueryOptions,
   fetchProfileConventionMemberships,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   type ConventionMembership,
+  type FursuitConventionRosterSettings,
 } from '../../../src/features/conventions';
 import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
+import { FursuitConventionRosterControls } from '../../../src/components/conventions/FursuitConventionRosterControls';
 import {
   createProfileQueryOptions,
   getOrAssignCatchModeDefaultExperiment,
@@ -98,6 +101,11 @@ const PRONOUN_OPTIONS = [
   'she/they',
   'any pronouns',
 ] as const;
+
+const DEFAULT_ROSTER_SETTINGS: FursuitConventionRosterSettings = {
+  rosterVisible: true,
+  catchableNow: false,
+};
 
 export default function AddFursuitScreen() {
   const router = useRouter();
@@ -348,6 +356,9 @@ export default function AddFursuitScreen() {
   });
 
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
+  const [conventionRosterSettingsById, setConventionRosterSettingsById] = useState<
+    Record<string, FursuitConventionRosterSettings>
+  >({});
   const [hasHydratedConventions, setHasHydratedConventions] = useState(false);
 
   const socialLinksCanAddMore = useMemo(
@@ -368,6 +379,7 @@ export default function AddFursuitScreen() {
   useEffect(() => {
     if (!userId) {
       setSelectedConventionIds(new Set());
+      setConventionRosterSettingsById({});
       setHasHydratedConventions(false);
       return;
     }
@@ -378,6 +390,11 @@ export default function AddFursuitScreen() {
       setSelectedConventionIds(
         requestedConventionIsAllowed ? new Set([requestedConventionId]) : new Set(),
       );
+      setConventionRosterSettingsById(
+        requestedConventionIsAllowed && requestedConventionId
+          ? { [requestedConventionId]: DEFAULT_ROSTER_SETTINGS }
+          : {},
+      );
       setHasHydratedConventions(true);
       return;
     }
@@ -385,6 +402,12 @@ export default function AddFursuitScreen() {
     setSelectedConventionIds((current) => {
       const filtered = new Set([...current].filter((id) => profileConventionIdSet.has(id)));
       return filtered.size === current.size ? current : filtered;
+    });
+    setConventionRosterSettingsById((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([id]) => profileConventionIdSet.has(id)),
+      );
+      return Object.keys(next).length === Object.keys(current).length ? current : next;
     });
   }, [
     hasHydratedConventions,
@@ -409,6 +432,19 @@ export default function AddFursuitScreen() {
           next.delete(conventionId);
         }
 
+        return next;
+      });
+
+      setConventionRosterSettingsById((current) => {
+        if (nextSelected) {
+          return {
+            ...current,
+            [conventionId]: current[conventionId] ?? DEFAULT_ROSTER_SETTINGS,
+          };
+        }
+
+        const next = { ...current };
+        delete next[conventionId];
         return next;
       });
     },
@@ -676,7 +712,11 @@ export default function AddFursuitScreen() {
       if (allowedConventionIds.length > 0) {
         await Promise.all(
           allowedConventionIds.map((conventionId) =>
-            addFursuitConvention(createdFursuitId!, conventionId),
+            addFursuitConvention(
+              createdFursuitId!,
+              conventionId,
+              conventionRosterSettingsById[conventionId] ?? DEFAULT_ROSTER_SETTINGS,
+            ),
           ),
         );
       }
@@ -709,6 +749,7 @@ export default function AddFursuitScreen() {
       setMakers(createInitialFursuitMakers());
       setSocialLinks(createInitialSocialLinks());
       setSelectedConventionIds(new Set());
+      setConventionRosterSettingsById({});
       setHasHydratedConventions(true);
       setSelectedPhoto(null);
       setPhotoError(null);
@@ -717,6 +758,11 @@ export default function AddFursuitScreen() {
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
       void queryClient.invalidateQueries({
         queryKey: [MY_SUITS_COUNT_QUERY_KEY, userId],
+      });
+      allowedConventionIds.forEach((conventionId) => {
+        void queryClient.invalidateQueries({
+          queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, conventionId],
+        });
       });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
       void exposeCatchModeExperiment();
@@ -1323,19 +1369,39 @@ export default function AddFursuitScreen() {
                 {conventions.map((convention) => {
                   const isAllowed = profileConventionIdSet.has(convention.id);
                   const isSelected = selectedConventionIds.has(convention.id);
+                  const rosterSettings =
+                    conventionRosterSettingsById[convention.id] ?? DEFAULT_ROSTER_SETTINGS;
 
                   return (
-                    <ConventionToggle
+                    <View
                       key={convention.id}
-                      convention={convention}
-                      selected={isSelected}
-                      pending={false}
-                      disabled={!isAllowed}
-                      badgeText={isAllowed ? (isSelected ? 'Listed' : 'List suit') : 'Attend first'}
-                      onToggle={(conventionId, nextSelected) =>
-                        handleConventionToggle(conventionId, nextSelected)
-                      }
-                    />
+                      style={styles.conventionRosterItem}
+                    >
+                      <ConventionToggle
+                        convention={convention}
+                        selected={isSelected}
+                        pending={false}
+                        disabled={!isAllowed}
+                        badgeText={
+                          isAllowed ? (isSelected ? 'Listed' : 'List suit') : 'Attend first'
+                        }
+                        onToggle={(conventionId, nextSelected) =>
+                          handleConventionToggle(conventionId, nextSelected)
+                        }
+                      />
+                      {isSelected ? (
+                        <FursuitConventionRosterControls
+                          value={rosterSettings}
+                          disabled={isSubmitting}
+                          onChange={(nextValue) =>
+                            setConventionRosterSettingsById((current) => ({
+                              ...current,
+                              [convention.id]: nextValue,
+                            }))
+                          }
+                        />
+                      ) : null}
+                    </View>
                   );
                 })}
               </View>

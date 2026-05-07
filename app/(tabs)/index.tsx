@@ -18,6 +18,7 @@ import { supabase } from '../../src/lib/supabase';
 import { captureHandledException } from '../../src/lib/sentry';
 import {
   CONVENTIONS_STALE_TIME,
+  CONVENTION_SUIT_ROSTER_QUERY_KEY,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   type ConventionMembership,
   type PastConventionRecap,
@@ -569,6 +570,9 @@ export default function HomeScreen() {
           void queryClient.invalidateQueries({
             queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId],
           });
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, selectedConventionId],
+          });
         },
       )
       .subscribe();
@@ -606,6 +610,9 @@ export default function HomeScreen() {
         () => {
           void queryClient.invalidateQueries({
             queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId],
+          });
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, selectedConventionId],
           });
         },
       )
@@ -1125,6 +1132,22 @@ export default function HomeScreen() {
 
               {selectedConventionId ? (
                 <View style={styles.leaderboardStack}>
+                  <TailTagButton
+                    variant="outline"
+                    onPress={() =>
+                      router.push({
+                        pathname: '/conventions/[conventionId]/roster',
+                        params: {
+                          conventionId: selectedConventionId,
+                          conventionName: selectedConvention?.name ?? '',
+                        },
+                      })
+                    }
+                    style={styles.leaderboardCta}
+                  >
+                    Suiter roster
+                  </TailTagButton>
+
                   <View>
                     {!tier3Ready ? (
                       <LeaderboardSectionSkeleton />
