@@ -258,7 +258,7 @@ export default function CatchScreen() {
           )
         `,
         )
-        .eq('unique_code', normalizedCode)
+        .ilike('unique_code', normalizedCode)
         .order('version', { ascending: false, foreignTable: 'fursuit_bios' })
         .limit(1, { foreignTable: 'fursuit_bios' })
         .eq('is_tutorial', false)

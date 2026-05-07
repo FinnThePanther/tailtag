@@ -33,7 +33,7 @@ const generateAvailableFursuitCode = async (): Promise<string> => {
     const { data, error } = await client
       .from('fursuits')
       .select('id')
-      .eq('unique_code', candidate)
+      .ilike('unique_code', candidate)
       .limit(1);
 
     if (error) {
