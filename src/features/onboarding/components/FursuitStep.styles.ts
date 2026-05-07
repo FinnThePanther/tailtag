@@ -53,6 +53,9 @@ export const styles = StyleSheet.create({
   helperColumn: {
     gap: spacing.sm,
   },
+  conventionList: {
+    gap: spacing.sm,
+  },
   colorSelectedList: {
     flexDirection: 'row',
     flexWrap: 'wrap',

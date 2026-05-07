@@ -90,14 +90,14 @@ export function AchievementStep({
             <View style={[styles.dot, hasJoinedConvention ? styles.dotPrimary : styles.dotMuted]} />
             <Text style={styles.summaryText}>
               {hasJoinedConvention
-                ? 'Joined your first convention'
-                : 'You can join a convention anytime'}
+                ? 'Attending your first convention'
+                : 'You can attend a convention anytime'}
             </Text>
           </View>
           <View style={styles.summaryItem}>
             <View style={[styles.dot, hasFursuit ? styles.dotPrimary : styles.dotMuted]} />
             <Text style={styles.summaryText}>
-              {hasFursuit ? 'Registered a fursuit' : 'You can add a fursuit anytime'}
+              {hasFursuit ? 'Added a fursuit' : 'You can add a fursuit anytime'}
             </Text>
           </View>
           <View style={styles.summaryItem}>

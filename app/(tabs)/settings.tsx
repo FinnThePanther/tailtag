@@ -91,6 +91,13 @@ import {
   caughtSuitsQueryKey,
   fetchCaughtSuits,
 } from '../../src/features/suits/api/caughtSuits';
+import {
+  fetchMySuits,
+  FURSUIT_DETAIL_QUERY_KEY,
+  MY_SUITS_QUERY_KEY,
+  MY_SUITS_STALE_TIME,
+} from '../../src/features/suits';
+import type { FursuitSummary } from '../../src/features/suits';
 import type { CaughtRecord } from '../../src/features/suits/api/caughtSuits';
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../src/features/leaderboard/api/leaderboard';
 import { usePushNotifications } from '../../src/features/push-notifications';
@@ -110,7 +117,7 @@ function conventionBadgeText(
   membershipState?: ConventionMembershipState | null,
 ) {
   if (!selected) {
-    return convention.is_joinable ? 'Tap to join' : 'Add to yours';
+    return 'Attend';
   }
 
   if (membershipState === 'active') {
@@ -127,10 +134,10 @@ function conventionBadgeText(
 
   if (membershipState === 'upcoming') {
     const startsAt = formatConventionDateRange(convention.start_date ?? null, null);
-    return startsAt ? `Starts ${startsAt}` : 'Joined';
+    return startsAt ? `Starts ${startsAt}` : 'Attending';
   }
 
-  return 'Joined';
+  return 'Attending';
 }
 
 export default function SettingsScreen() {
@@ -239,6 +246,14 @@ export default function SettingsScreen() {
     refetchOnReconnect: false,
     queryFn: () => fetchCaughtSuits(userId!),
   });
+  const { data: mySuits = [], isLoading: isMySuitsLoading } = useQuery<FursuitSummary[], Error>({
+    queryKey: [MY_SUITS_QUERY_KEY, userId],
+    enabled: Boolean(userId),
+    staleTime: MY_SUITS_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchMySuits(userId!),
+  });
 
   const {
     isSupported: isPushSupported,
@@ -287,6 +302,10 @@ export default function SettingsScreen() {
   const isDeletingAccountRef = useRef(false);
   const [conventionError, setConventionError] = useState<string | null>(null);
   const [pendingMemberships, setPendingMemberships] = useState<Set<string>>(() => new Set());
+  const [suitListingPromptConvention, setSuitListingPromptConvention] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const selectedConventionIdSet = useMemo(
     () => new Set(profileConventionMemberships.map((membership) => membership.convention_id)),
@@ -299,6 +318,11 @@ export default function SettingsScreen() {
       ),
     [profileConventionMemberships],
   );
+  const shouldShowSuitListingPrompt =
+    Boolean(suitListingPromptConvention) &&
+    Boolean(suitListingPromptConvention?.id) &&
+    selectedConventionIdSet.has(suitListingPromptConvention?.id ?? '');
+  const hasMySuits = mySuits.length > 0;
 
   const normalizedUsernameInput = useMemo(
     () => normalizeUsernameInput(usernameInput),
@@ -1053,6 +1077,9 @@ export default function SettingsScreen() {
 
         if (!nextSelected) {
           await optOutOfConvention(userId, conventionId);
+          setSuitListingPromptConvention((current) =>
+            current?.id === conventionId ? null : current,
+          );
         } else {
           await optInToConvention({
             profileId: userId,
@@ -1060,6 +1087,10 @@ export default function SettingsScreen() {
             verifiedLocation: verifiedLocation ?? undefined,
             verificationMethod: verifiedLocation ? 'gps' : 'none',
           });
+          const conventionName =
+            conventions.find((convention) => convention.id === conventionId)?.name ??
+            'this convention';
+          setSuitListingPromptConvention({ id: conventionId, name: conventionName });
         }
 
         await Promise.all([
@@ -1067,6 +1098,9 @@ export default function SettingsScreen() {
           queryClient.invalidateQueries({
             queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
           }),
+          queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] }),
+          queryClient.invalidateQueries({ queryKey: [FURSUIT_DETAIL_QUERY_KEY] }),
+          queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] }),
           queryClient.invalidateQueries({
             queryKey: [DAILY_TASKS_QUERY_KEY],
           }),
@@ -1093,8 +1127,41 @@ export default function SettingsScreen() {
         });
       }
     },
-    [pendingMemberships, queryClient, refetchProfileConventions, selectedConventionIdSet, userId],
+    [
+      conventions,
+      pendingMemberships,
+      queryClient,
+      refetchProfileConventions,
+      selectedConventionIdSet,
+      userId,
+    ],
   );
+
+  const handleOpenSuitListingPrompt = useCallback(() => {
+    if (!suitListingPromptConvention) {
+      return;
+    }
+
+    const { id, name } = suitListingPromptConvention;
+    setSuitListingPromptConvention(null);
+
+    if (hasMySuits) {
+      router.push({
+        pathname: '/suits',
+        params: {
+          guidance: 'convention-roster',
+          conventionId: id,
+          conventionName: name,
+        },
+      });
+      return;
+    }
+
+    router.push({
+      pathname: '/suits/add-fursuit',
+      params: { conventionId: id },
+    });
+  }, [hasMySuits, router, suitListingPromptConvention]);
 
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) {
@@ -1683,7 +1750,8 @@ export default function SettingsScreen() {
         <View style={styles.conventionSection}>
           <Text style={styles.sectionTitle}>Convention attendance</Text>
           <Text style={styles.sectionDescription}>
-            Join upcoming and live conventions so TailTag is ready when catching opens.
+            Attend conventions so TailTag is ready when catching opens. Choose listed suits
+            separately. Leaving removes your suits from that convention roster.
           </Text>
 
           {isConventionsBusy ? (
@@ -1734,6 +1802,41 @@ export default function SettingsScreen() {
               })}
             </View>
           )}
+
+          {shouldShowSuitListingPrompt && suitListingPromptConvention ? (
+            <View style={styles.suitListingPrompt}>
+              <View style={styles.suitListingPromptText}>
+                <Text style={styles.suitListingPromptTitle}>List suits for this convention</Text>
+                <Text style={styles.suitListingPromptBody}>
+                  {isMySuitsLoading
+                    ? `You’re attending ${suitListingPromptConvention.name}. TailTag is checking your suits so you can list the ones you’re bringing.`
+                    : hasMySuits
+                      ? `You’re attending ${suitListingPromptConvention.name}. List the suits you’re bringing so other players can catch them.`
+                      : `You’re attending ${suitListingPromptConvention.name}. If you’re bringing a suit, add it so other players can catch it.`}
+                </Text>
+              </View>
+              <View style={styles.suitListingPromptActions}>
+                <TailTagButton
+                  size="sm"
+                  onPress={handleOpenSuitListingPrompt}
+                  disabled={isMySuitsLoading}
+                >
+                  {isMySuitsLoading
+                    ? 'Checking suits…'
+                    : hasMySuits
+                      ? 'Choose suits'
+                      : 'Add a suit'}
+                </TailTagButton>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => setSuitListingPromptConvention(null)}
+                >
+                  Not now
+                </TailTagButton>
+              </View>
+            </View>
+          ) : null}
 
           {conventionError ? <Text style={styles.error}>{conventionError}</Text> : null}
           {verificationModals}

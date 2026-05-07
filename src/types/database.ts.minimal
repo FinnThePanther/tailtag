@@ -1204,6 +1204,10 @@ export type Database = {
         }
         Returns: void
       }
+      leave_convention: {
+        Args: { p_convention_id: string; p_profile_id: string }
+        Returns: void
+      }
       notify_catch_decision: {
         Args: {
           p_catch_id: string

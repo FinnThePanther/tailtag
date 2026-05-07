@@ -2438,6 +2438,10 @@ export type Database = {
         Returns: boolean
       }
       is_valid_event_type: { Args: { p_event_type: string }; Returns: boolean }
+      leave_convention: {
+        Args: { p_convention_id: string; p_profile_id: string }
+        Returns: undefined
+      }
       log_admin_action: {
         Args: {
           p_action: string

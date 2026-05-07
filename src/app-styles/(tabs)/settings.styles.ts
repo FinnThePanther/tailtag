@@ -169,6 +169,32 @@ export const styles = StyleSheet.create({
   conventionList: {
     gap: spacing.sm,
   },
+  suitListingPrompt: {
+    gap: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySurface,
+    padding: spacing.md,
+  },
+  suitListingPromptText: {
+    gap: spacing.xs,
+  },
+  suitListingPromptTitle: {
+    color: colors.foreground,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  suitListingPromptBody: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  suitListingPromptActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
   pastConventionList: {
     gap: spacing.sm,
   },

@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { emitGameplayEvent } from '../../events';
+import { captureSupabaseError } from '../../../lib/sentry';
 import type { FursuitSocialLink } from '../../../types/database';
 
 export type ConventionSummary = {
@@ -625,14 +626,14 @@ export async function optInToConvention(params: OptInParams): Promise<void> {
 
 export async function optOutOfConvention(profileId: string, conventionId: string): Promise<void> {
   const client = supabase as any;
-  const { error } = await client
-    .from('profile_conventions')
-    .delete()
-    .eq('profile_id', profileId)
-    .eq('convention_id', conventionId);
+  const { error } = await client.rpc('leave_convention', {
+    p_profile_id: profileId,
+    p_convention_id: conventionId,
+  });
 
   if (error) {
-    throw new Error(`We couldn't remove your convention opt-in: ${error.message}`);
+    captureSupabaseError(error);
+    throw new Error(`We couldn't update your convention attendance: ${error.message}`);
   }
 
   // Fire-and-forget: emit event without blocking user flow

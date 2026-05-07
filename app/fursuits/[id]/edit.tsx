@@ -1400,9 +1400,9 @@ export default function EditFursuitScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Conventions</Text>
+                <Text style={styles.label}>Convention roster</Text>
                 <Text style={styles.helperLabel}>
-                  Update where catchers can trade tags with this suit.
+                  List this suit only at conventions you are attending.
                 </Text>
                 {isConventionsBusy ? (
                   <Text style={styles.message}>Loading conventions…</Text>
@@ -1425,7 +1425,7 @@ export default function EditFursuitScreen() {
                   <Text style={styles.message}>No conventions are open for joining right now.</Text>
                 ) : profileConventionIdSet.size === 0 ? (
                   <Text style={styles.message}>
-                    Join a convention in Settings before assigning this suit.
+                    Attend a convention in Settings before listing this suit.
                   </Text>
                 ) : (
                   <View style={styles.conventionList}>
@@ -1441,7 +1441,7 @@ export default function EditFursuitScreen() {
                           pending={false}
                           disabled={disableForm || (!isAllowed && !isSelected)}
                           badgeText={
-                            isAllowed ? (isSelected ? 'Attending' : 'Add suit') : 'Join in Settings'
+                            isAllowed ? (isSelected ? 'Listed' : 'List suit') : 'Attend first'
                           }
                           onToggle={(conventionId, nextSelected) =>
                             handleConventionToggle(conventionId, nextSelected)
