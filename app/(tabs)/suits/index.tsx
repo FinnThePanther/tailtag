@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -7,7 +7,6 @@ import {
   FursuitCard,
   fetchMySuits,
   MY_SUITS_QUERY_KEY,
-  MY_SUITS_COUNT_QUERY_KEY,
   MY_SUITS_STALE_TIME,
 } from '../../../src/features/suits';
 import {
@@ -21,13 +20,10 @@ import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
 import type { FursuitSummary } from '../../../src/features/suits';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
-import { FURSUIT_BUCKET } from '../../../src/constants/storage';
 import { useAuth } from '../../../src/features/auth';
 import { getIncompleteFursuitProfiles } from '../../../src/features/profile-guidance';
-import { supabase } from '../../../src/lib/supabase';
 import { colors } from '../../../src/theme';
 import { toDisplayDate } from '../../../src/utils/dates';
-import { deriveStoragePathFromPublicUrl } from '../../../src/utils/storage';
 import { styles } from '../../../src/app-styles/(tabs)/suits/index.styles';
 
 export default function MySuitsScreen() {
@@ -54,8 +50,6 @@ export default function MySuitsScreen() {
     queryFn: () => fetchMySuits(userId!),
   });
 
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
 
   const {
@@ -90,11 +84,9 @@ export default function MySuitsScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!userId) {
-        setActionError(null);
         return;
       }
 
-      setActionError(null);
       const state = queryClient.getQueryState<FursuitSummary[]>(suitsQueryKey);
 
       if (
@@ -114,92 +106,17 @@ export default function MySuitsScreen() {
       ) {
         void refetchPendingCatches();
       }
-    }, [
-      pendingCatchesKey,
-      queryClient,
-      refetch,
-      refetchPendingCatches,
-      setActionError,
-      suitsQueryKey,
-      userId,
-    ]),
+    }, [pendingCatchesKey, queryClient, refetch, refetchPendingCatches, suitsQueryKey, userId]),
   );
 
   const handleRefresh = useCallback(async () => {
-    setActionError(null);
     await Promise.all([refetch({ throwOnError: false }), refetchPendingCatches()]);
   }, [refetch, refetchPendingCatches]);
-
-  const handleDelete = useCallback(
-    (suit: FursuitSummary) => {
-      if (!userId || deletingId) {
-        return;
-      }
-
-      Alert.alert(
-        'Remove fursuit?',
-        `Remove ${suit.name} from your fursuits? You can always add it back later.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Remove',
-            style: 'destructive',
-            onPress: async () => {
-              setDeletingId(suit.id);
-              setActionError(null);
-
-              try {
-                const objectPath = deriveStoragePathFromPublicUrl(suit.avatar_url, FURSUIT_BUCKET);
-
-                if (objectPath) {
-                  const { error: storageError } = await supabase.storage
-                    .from(FURSUIT_BUCKET)
-                    .remove([objectPath]);
-
-                  if (storageError) {
-                    console.warn('Failed to remove fursuit avatar from storage', storageError);
-                  }
-                }
-
-                const { error: deleteError } = await (supabase as any)
-                  .from('fursuits')
-                  .delete()
-                  .eq('id', suit.id)
-                  .eq('owner_id', userId);
-
-                if (deleteError) {
-                  throw deleteError;
-                }
-
-                queryClient.setQueryData<FursuitSummary[]>(suitsQueryKey, (current) =>
-                  (current ?? []).filter((item) => item.id !== suit.id),
-                );
-
-                // Invalidate count cache so limit check updates immediately
-                void queryClient.invalidateQueries({
-                  queryKey: [MY_SUITS_COUNT_QUERY_KEY, userId],
-                });
-              } catch (caught) {
-                const message =
-                  caught instanceof Error
-                    ? caught.message
-                    : "We couldn't delete that fursuit. Please try again.";
-                setActionError(message);
-              } finally {
-                setDeletingId(null);
-              }
-            },
-          },
-        ],
-      );
-    },
-    [queryClient, suitsQueryKey, userId, deletingId],
-  );
 
   const hasSuits = suits.length > 0;
   const suitCount = suits.length;
   const isAtFursuitLimit = suitCount >= MAX_FURSUITS_PER_USER;
-  const combinedError = actionError ?? error?.message ?? null;
+  const combinedError = error?.message ?? null;
   const incompleteGuidanceSuits = useMemo(() => getIncompleteFursuitProfiles(suits), [suits]);
   const showFursuitGuidance =
     params.guidance === 'fursuit-profile' && incompleteGuidanceSuits.length > 0;
@@ -314,27 +231,6 @@ export default function MySuitsScreen() {
                         pathname: '/fursuits/[id]',
                         params: { id: suit.id },
                       })
-                    }
-                    actionSlot={
-                      <Pressable
-                        onPress={() => handleDelete(suit)}
-                        disabled={deletingId === suit.id}
-                        hitSlop={8}
-                        accessibilityRole="button"
-                        accessibilityLabel="Delete fursuit"
-                        style={({ pressed }) => [
-                          styles.deleteAction,
-                          {
-                            opacity: deletingId === suit.id ? 0.6 : pressed ? 0.8 : 1,
-                          },
-                        ]}
-                      >
-                        {deletingId === suit.id ? (
-                          <Text style={styles.deleteLink}>Deleting…</Text>
-                        ) : (
-                          <Text style={styles.deleteLink}>Delete</Text>
-                        )}
-                      </Pressable>
                     }
                   />
                 </View>
