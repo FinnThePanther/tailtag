@@ -35,6 +35,84 @@ export const ACHIEVEMENTS_STATUS_QUERY_KEY = 'achievements-status';
 export const achievementsStatusQueryKey = (userId: string) =>
   [ACHIEVEMENTS_STATUS_QUERY_KEY, userId] as const;
 
+function normalizeAchievementIdentity(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function getAchievementDedupeKey(
+  achievement: Pick<AchievementRecord, 'id' | 'key' | 'name' | 'conventionId'>,
+) {
+  const stableIdentity =
+    normalizeAchievementIdentity(achievement.key) ||
+    normalizeAchievementIdentity(achievement.name) ||
+    achievement.id;
+
+  if (achievement.conventionId) {
+    return `convention:${achievement.conventionId}:${stableIdentity}`;
+  }
+
+  return `account:${stableIdentity}`;
+}
+
+function compareUnlockedAtAscending(
+  a: Pick<AchievementWithStatus, 'unlockedAt'>,
+  b: Pick<AchievementWithStatus, 'unlockedAt'>,
+) {
+  const aTime = a.unlockedAt ? new Date(a.unlockedAt).getTime() : Number.POSITIVE_INFINITY;
+  const bTime = b.unlockedAt ? new Date(b.unlockedAt).getTime() : Number.POSITIVE_INFINITY;
+
+  if (Number.isNaN(aTime) && Number.isNaN(bTime)) {
+    return 0;
+  }
+
+  if (Number.isNaN(aTime)) {
+    return 1;
+  }
+
+  if (Number.isNaN(bTime)) {
+    return -1;
+  }
+
+  return aTime - bTime;
+}
+
+function dedupeAchievementCatalog(achievements: AchievementRecord[]): AchievementRecord[] {
+  const byIdentity = new Map<string, AchievementRecord>();
+
+  for (const achievement of achievements) {
+    const key = getAchievementDedupeKey(achievement);
+    const existing = byIdentity.get(key);
+
+    if (!existing) {
+      byIdentity.set(key, achievement);
+      continue;
+    }
+
+    if (!existing.isActive && achievement.isActive) {
+      byIdentity.set(key, achievement);
+    }
+  }
+
+  return [...byIdentity.values()];
+}
+
+function dedupeUnlockedAchievements(
+  achievements: AchievementWithStatus[],
+): AchievementWithStatus[] {
+  const byIdentity = new Map<string, AchievementWithStatus>();
+
+  for (const achievement of achievements) {
+    const key = getAchievementDedupeKey(achievement);
+    const existing = byIdentity.get(key);
+
+    if (!existing || compareUnlockedAtAscending(achievement, existing) < 0) {
+      byIdentity.set(key, achievement);
+    }
+  }
+
+  return [...byIdentity.values()].sort((a, b) => compareUnlockedAtAscending(b, a));
+}
+
 export async function fetchAchievementCatalog(): Promise<AchievementRecord[]> {
   const client = supabase as any;
   const { data, error } = await client
@@ -104,7 +182,7 @@ export async function fetchAchievementStatus(userId: string): Promise<Achievemen
     unlockedMap.set(entry.achievement_id, entry);
   }
 
-  return achievements
+  return dedupeAchievementCatalog(achievements)
     .filter((achievement) => achievement.isActive)
     .filter(
       (achievement) =>
@@ -148,21 +226,23 @@ export async function fetchUserUnlockedAchievements(
     throw new Error(`We couldn't load achievements: ${error.message}`);
   }
 
-  return (data ?? []).map((row: any) => ({
-    id: row.achievement.id,
-    key: row.achievement.key,
-    name: row.achievement.name,
-    description: row.achievement.description,
-    category: row.achievement.category,
-    recipientRole: row.achievement.recipient_role,
-    triggerEvent: row.achievement.trigger_event,
-    isActive: row.achievement.is_active,
-    conventionId: row.achievement.convention_id ?? null,
-    conventionName: null,
-    unlocked: true,
-    unlockedAt: row.unlocked_at ?? null,
-    context: row.context ?? null,
-  }));
+  return dedupeUnlockedAchievements(
+    (data ?? []).map((row: any) => ({
+      id: row.achievement.id,
+      key: row.achievement.key,
+      name: row.achievement.name,
+      description: row.achievement.description,
+      category: row.achievement.category,
+      recipientRole: row.achievement.recipient_role,
+      triggerEvent: row.achievement.trigger_event,
+      isActive: row.achievement.is_active,
+      conventionId: row.achievement.convention_id ?? null,
+      conventionName: null,
+      unlocked: true,
+      unlockedAt: row.unlocked_at ?? null,
+      context: row.context ?? null,
+    })),
+  );
 }
 
 export type AchievementEventRecord = AchievementEventsRow;
