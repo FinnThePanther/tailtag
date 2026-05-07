@@ -35,7 +35,7 @@ function conventionBadgeText(
   membershipState?: ConventionMembershipState | null,
 ) {
   if (!selected) {
-    return convention.is_joinable ? 'Tap to join' : 'Add to yours';
+    return 'Attend';
   }
 
   if (membershipState === 'active') {
@@ -52,10 +52,10 @@ function conventionBadgeText(
 
   if (membershipState === 'upcoming') {
     const startsAt = formatConventionDateRange(convention.start_date ?? null, null);
-    return startsAt ? `Starts ${startsAt}` : 'Joined';
+    return startsAt ? `Starts ${startsAt}` : 'Attending';
   }
 
-  return 'Joined';
+  return 'Attending';
 }
 
 export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepProps) {

@@ -91,6 +91,7 @@ import {
   caughtSuitsQueryKey,
   fetchCaughtSuits,
 } from '../../src/features/suits/api/caughtSuits';
+import { FURSUIT_DETAIL_QUERY_KEY, MY_SUITS_QUERY_KEY } from '../../src/features/suits';
 import type { CaughtRecord } from '../../src/features/suits/api/caughtSuits';
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../src/features/leaderboard/api/leaderboard';
 import { usePushNotifications } from '../../src/features/push-notifications';
@@ -110,7 +111,7 @@ function conventionBadgeText(
   membershipState?: ConventionMembershipState | null,
 ) {
   if (!selected) {
-    return convention.is_joinable ? 'Tap to join' : 'Add to yours';
+    return 'Attend';
   }
 
   if (membershipState === 'active') {
@@ -127,10 +128,10 @@ function conventionBadgeText(
 
   if (membershipState === 'upcoming') {
     const startsAt = formatConventionDateRange(convention.start_date ?? null, null);
-    return startsAt ? `Starts ${startsAt}` : 'Joined';
+    return startsAt ? `Starts ${startsAt}` : 'Attending';
   }
 
-  return 'Joined';
+  return 'Attending';
 }
 
 export default function SettingsScreen() {
@@ -1067,6 +1068,9 @@ export default function SettingsScreen() {
           queryClient.invalidateQueries({
             queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
           }),
+          queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] }),
+          queryClient.invalidateQueries({ queryKey: [FURSUIT_DETAIL_QUERY_KEY] }),
+          queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] }),
           queryClient.invalidateQueries({
             queryKey: [DAILY_TASKS_QUERY_KEY],
           }),
@@ -1683,7 +1687,8 @@ export default function SettingsScreen() {
         <View style={styles.conventionSection}>
           <Text style={styles.sectionTitle}>Convention attendance</Text>
           <Text style={styles.sectionDescription}>
-            Join upcoming and live conventions so TailTag is ready when catching opens.
+            Attend conventions so TailTag is ready when catching opens. Choose listed suits
+            separately. Leaving removes your suits from that convention roster.
           </Text>
 
           {isConventionsBusy ? (

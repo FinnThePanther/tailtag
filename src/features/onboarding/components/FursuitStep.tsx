@@ -9,6 +9,7 @@ import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { TailTagInput } from '../../../components/ui/TailTagInput';
 import { SkipButton } from './SkipButton';
+import { ConventionToggle } from '../../../components/conventions/ConventionToggle';
 import {
   createEmptyFursuitDraft,
   createQuickFursuit,
@@ -23,6 +24,7 @@ import {
   fetchProfileConventionMemberships,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   type ConventionMembership,
+  type ConventionSummary,
 } from '../../conventions';
 import { captureHandledException } from '../../../lib/sentry';
 import { emitGameplayEvent } from '../../events';
@@ -145,16 +147,29 @@ export function FursuitStep({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedColorIds, setSelectedColorIds] = useState<string[]>(draft.selectedColorIds);
+  const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(
+    new Set(draft.selectedConventionIds),
+  );
   const isMountedRef = useRef(true);
   const colorLoadError = colorError?.message ?? null;
   const isColorBusy = isColorLoading;
 
-  const { data: conventions = [] } = useQuery({
+  const {
+    data: conventions = [],
+    error: conventionsError,
+    isLoading: isConventionsLoading,
+    refetch: refetchConventions,
+  } = useQuery<ConventionSummary[], Error>({
     ...createJoinableConventionsQueryOptions(),
     enabled: Boolean(userId),
   });
 
-  const { data: profileConventionMemberships = [] } = useQuery<ConventionMembership[], Error>({
+  const {
+    data: profileConventionMemberships = [],
+    error: profileConventionsError,
+    isLoading: isProfileConventionsLoading,
+    refetch: refetchProfileConventions,
+  } = useQuery<ConventionMembership[], Error>({
     queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
     enabled: Boolean(userId),
     staleTime: CONVENTIONS_STALE_TIME,
@@ -168,10 +183,9 @@ export function FursuitStep({
     [profileConventionMemberships],
   );
 
-  const joinedConventionIds = useMemo(
-    () => conventions.filter((c) => profileConventionIdSet.has(c.id)).map((c) => c.id),
-    [conventions, profileConventionIdSet],
-  );
+  const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
+  const conventionsLoadError =
+    conventionsError?.message ?? profileConventionsError?.message ?? null;
 
   const selectedColors = useMemo(
     () =>
@@ -287,6 +301,7 @@ export function FursuitStep({
       speciesInput,
       descriptionInput,
       selectedColorIds,
+      selectedConventionIds: [...selectedConventionIds],
       selectedPhoto,
     });
   }, [
@@ -295,9 +310,17 @@ export function FursuitStep({
     nameInput,
     onDraftChange,
     selectedColorIds,
+    selectedConventionIds,
     selectedPhoto,
     speciesInput,
   ]);
+
+  useEffect(() => {
+    setSelectedConventionIds((current) => {
+      const filtered = new Set([...current].filter((id) => profileConventionIdSet.has(id)));
+      return filtered.size === current.size ? current : filtered;
+    });
+  }, [profileConventionIdSet]);
 
   const handleOpenForm = () => {
     setIsExpanded(true);
@@ -319,6 +342,27 @@ export function FursuitStep({
       return [...current, option.id];
     });
   }, []);
+
+  const handleConventionToggle = useCallback(
+    (conventionId: string, nextSelected: boolean) => {
+      if (!profileConventionIdSet.has(conventionId)) {
+        return;
+      }
+
+      setSelectedConventionIds((current) => {
+        const next = new Set(current);
+
+        if (nextSelected) {
+          next.add(conventionId);
+        } else {
+          next.delete(conventionId);
+        }
+
+        return next;
+      });
+    },
+    [profileConventionIdSet],
+  );
 
   const handlePickPhoto = async () => {
     try {
@@ -390,6 +434,7 @@ export function FursuitStep({
     setSpeciesInput(emptyDraft.speciesInput);
     setDescriptionInput(emptyDraft.descriptionInput);
     setSelectedColorIds(emptyDraft.selectedColorIds);
+    setSelectedConventionIds(new Set(emptyDraft.selectedConventionIds));
     setSelectedPhoto(null);
     setPhotoError(null);
     setSubmitError(null);
@@ -449,9 +494,13 @@ export function FursuitStep({
         colorIds,
       });
 
-      if (joinedConventionIds.length > 0) {
+      const listedConventionIds = [...selectedConventionIds].filter((conventionId) =>
+        profileConventionIdSet.has(conventionId),
+      );
+
+      if (listedConventionIds.length > 0) {
         void Promise.all(
-          joinedConventionIds.map((conventionId) =>
+          listedConventionIds.map((conventionId) =>
             addFursuitConvention(fursuitId, conventionId).catch((error) => {
               captureHandledException(error, {
                 scope: 'onboarding.fursuitStep.attachConvention',
@@ -645,6 +694,62 @@ export function FursuitStep({
                 </TailTagButton>
               )}
               {photoError ? <Text style={styles.error}>{photoError}</Text> : null}
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Convention roster</Text>
+              <Text style={styles.helperLabel}>
+                List this suit only at conventions you are attending.
+              </Text>
+              {isConventionsBusy ? (
+                <Text style={styles.helperLabel}>Loading conventions…</Text>
+              ) : conventionsLoadError ? (
+                <View style={styles.helperColumn}>
+                  <Text style={styles.error}>{conventionsLoadError}</Text>
+                  <TailTagButton
+                    variant="outline"
+                    size="sm"
+                    onPress={() => {
+                      void refetchConventions({ throwOnError: false });
+                      void refetchProfileConventions({ throwOnError: false });
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    Try again
+                  </TailTagButton>
+                </View>
+              ) : conventions.length === 0 ? (
+                <Text style={styles.helperLabel}>
+                  No conventions are open for joining right now.
+                </Text>
+              ) : profileConventionIdSet.size === 0 ? (
+                <Text style={styles.helperLabel}>
+                  Attend a convention before listing this suit.
+                </Text>
+              ) : (
+                <View style={styles.conventionList}>
+                  {conventions.map((convention) => {
+                    const isAllowed = profileConventionIdSet.has(convention.id);
+                    const isSelected = selectedConventionIds.has(convention.id);
+
+                    return (
+                      <ConventionToggle
+                        key={convention.id}
+                        convention={convention}
+                        selected={isSelected}
+                        pending={false}
+                        disabled={isSubmitting || !isAllowed}
+                        badgeText={
+                          isAllowed ? (isSelected ? 'Listed' : 'List suit') : 'Attend first'
+                        }
+                        onToggle={(conventionId, nextSelected) =>
+                          handleConventionToggle(conventionId, nextSelected)
+                        }
+                      />
+                    );
+                  })}
+                </View>
+              )}
             </View>
 
             {submitError ? <Text style={styles.error}>{submitError}</Text> : null}

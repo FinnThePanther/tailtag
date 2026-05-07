@@ -358,11 +358,6 @@ export default function AddFursuitScreen() {
     [profileConventionMemberships],
   );
 
-  const joinedProfileConventionIds = useMemo(
-    () => conventions.filter((c) => profileConventionIdSet.has(c.id)).map((c) => c.id),
-    [conventions, profileConventionIdSet],
-  );
-
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
   const conventionsLoadError =
     conventionsError?.message ?? profileConventionsError?.message ?? null;
@@ -375,7 +370,7 @@ export default function AddFursuitScreen() {
     }
 
     if (!hasHydratedConventions && !isConventionsBusy) {
-      setSelectedConventionIds(new Set(joinedProfileConventionIds));
+      setSelectedConventionIds(new Set());
       setHasHydratedConventions(true);
       return;
     }
@@ -384,13 +379,7 @@ export default function AddFursuitScreen() {
       const filtered = new Set([...current].filter((id) => profileConventionIdSet.has(id)));
       return filtered.size === current.size ? current : filtered;
     });
-  }, [
-    hasHydratedConventions,
-    joinedProfileConventionIds,
-    profileConventionIdSet,
-    isConventionsBusy,
-    userId,
-  ]);
+  }, [hasHydratedConventions, profileConventionIdSet, isConventionsBusy, userId]);
 
   const handleConventionToggle = useCallback(
     (conventionId: string, nextSelected: boolean) => {
@@ -711,7 +700,7 @@ export default function AddFursuitScreen() {
       setAskMeAboutInput('');
       setMakers(createInitialFursuitMakers());
       setSocialLinks(createInitialSocialLinks());
-      setSelectedConventionIds(new Set(joinedProfileConventionIds));
+      setSelectedConventionIds(new Set());
       setHasHydratedConventions(true);
       setSelectedPhoto(null);
       setPhotoError(null);
@@ -1294,9 +1283,9 @@ export default function AddFursuitScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Conventions</Text>
+            <Text style={styles.label}>Convention roster</Text>
             <Text style={styles.helperLabel}>
-              Choose the conventions where this suit will be catchable.
+              List this suit only at conventions you are attending.
             </Text>
             {isConventionsBusy ? (
               <Text style={styles.message}>Loading conventions…</Text>
@@ -1319,7 +1308,7 @@ export default function AddFursuitScreen() {
               <Text style={styles.message}>No conventions are open for joining right now.</Text>
             ) : profileConventionIdSet.size === 0 ? (
               <Text style={styles.message}>
-                Join a convention in Settings before assigning this suit.
+                Attend a convention in Settings before listing this suit.
               </Text>
             ) : (
               <View style={styles.conventionList}>
@@ -1334,9 +1323,7 @@ export default function AddFursuitScreen() {
                       selected={isSelected}
                       pending={false}
                       disabled={!isAllowed}
-                      badgeText={
-                        isAllowed ? (isSelected ? 'Attending' : 'Add suit') : 'Join in Settings'
-                      }
+                      badgeText={isAllowed ? (isSelected ? 'Listed' : 'List suit') : 'Attend first'}
                       onToggle={(conventionId, nextSelected) =>
                         handleConventionToggle(conventionId, nextSelected)
                       }
