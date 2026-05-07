@@ -147,6 +147,9 @@ export const styles = StyleSheet.create({
   conventionList: {
     gap: spacing.sm,
   },
+  conventionRosterItem: {
+    gap: spacing.sm,
+  },
   message: {
     color: colors.textMuted,
     fontSize: 14,

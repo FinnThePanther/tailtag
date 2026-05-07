@@ -125,6 +125,9 @@ export const styles = StyleSheet.create({
   conventionList: {
     gap: spacing.sm,
   },
+  conventionRosterItem: {
+    gap: spacing.sm,
+  },
   socialList: {
     gap: spacing.md,
   },
