@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { emitGameplayEvent } from '../../events';
+import { captureSupabaseError } from '../../../lib/sentry';
 import type { FursuitSocialLink } from '../../../types/database';
 
 export type ConventionSummary = {
@@ -631,6 +632,12 @@ export async function optOutOfConvention(profileId: string, conventionId: string
   });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.optOutOfConvention',
+      action: 'leave_convention',
+      profileId,
+      conventionId,
+    });
     throw new Error(`We couldn't update your convention attendance: ${error.message}`);
   }
 

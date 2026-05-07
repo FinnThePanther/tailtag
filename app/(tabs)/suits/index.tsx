@@ -210,6 +210,17 @@ export default function MySuitsScreen() {
           </Text>
           {isLoading ? (
             <Text style={styles.message}>Loading your suits…</Text>
+          ) : combinedError ? (
+            <View style={styles.helperColumn}>
+              <Text style={styles.error}>{combinedError}</Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={handleRefresh}
+              >
+                Try again
+              </TailTagButton>
+            </View>
           ) : hasSuits && rosterGuidanceSuits.length === 0 ? (
             <Text style={styles.guidanceSuccess}>
               All of your suits are listed for {rosterGuidanceConventionName}.

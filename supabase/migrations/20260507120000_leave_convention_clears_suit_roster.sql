@@ -11,12 +11,12 @@ declare
   v_actor_id uuid := auth.uid();
   v_actor_is_admin boolean := auth.role() = 'service_role';
 begin
-  if not v_actor_is_admin then
-    v_actor_is_admin := coalesce(public.is_admin(v_actor_id), false);
-  end if;
-
   if auth.role() <> 'service_role' and v_actor_id is null then
     raise exception 'Authentication required';
+  end if;
+
+  if not v_actor_is_admin then
+    v_actor_is_admin := coalesce(public.is_admin(v_actor_id), false);
   end if;
 
   if auth.role() <> 'service_role' and v_actor_id is distinct from p_profile_id and not v_actor_is_admin then

@@ -76,9 +76,11 @@ export function ConventionToggle({
           ? 'Waiting for staff start'
           : membershipState === 'upcoming'
             ? 'Attending'
-            : selected
-              ? 'Attending'
-              : 'Attend');
+            : membershipState === 'past'
+              ? 'Ended'
+              : selected
+                ? 'Attending'
+                : 'Attend');
 
   const handlePress = async () => {
     // Opt-out: no verification required unless the row is explicitly asking for verification.

@@ -5,18 +5,18 @@ import { Image } from 'expo-image';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { TailTagButton } from '../../../components/ui/TailTagButton';
-import { TailTagCard } from '../../../components/ui/TailTagCard';
-import { TailTagInput } from '../../../components/ui/TailTagInput';
+import { ConventionToggle } from '@/components/conventions/ConventionToggle';
+import { TailTagButton } from '@/components/ui/TailTagButton';
+import { TailTagCard } from '@/components/ui/TailTagCard';
+import { TailTagInput } from '@/components/ui/TailTagInput';
 import { SkipButton } from './SkipButton';
-import { ConventionToggle } from '../../../components/conventions/ConventionToggle';
 import {
   createEmptyFursuitDraft,
   createQuickFursuit,
   type FursuitPhotoCandidate,
   type OnboardingFursuitDraft,
 } from '@/features/onboarding';
-import { MY_SUITS_QUERY_KEY } from '../../suits';
+import { MY_SUITS_QUERY_KEY } from '@/features/suits';
 import {
   addFursuitConvention,
   CONVENTIONS_STALE_TIME,
@@ -25,23 +25,23 @@ import {
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   type ConventionMembership,
   type ConventionSummary,
-} from '../../conventions';
-import { captureHandledException } from '../../../lib/sentry';
-import { emitGameplayEvent } from '../../events';
-import { launchFursuitPhotoPickerAsync } from '../../../utils/imagePicker';
-import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
-import { colors } from '../../../theme';
+} from '@/features/conventions';
+import { captureHandledException } from '@/lib/sentry';
+import { emitGameplayEvent } from '@/features/events';
+import { launchFursuitPhotoPickerAsync } from '@/utils/imagePicker';
+import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '@/utils/images';
+import { colors } from '@/theme';
 import {
   getOrAssignCatchModeDefaultExperiment,
   PROFILE_QUERY_KEY,
   type ProfileSummary,
-} from '../../profile';
+} from '@/features/profile';
 import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
   type FursuitColorOption,
-} from '../../colors';
+} from '@/features/colors';
 import { styles } from './FursuitStep.styles';
 
 const EXPERIMENT_EVENT_TIMEOUT_MS = 5000;
@@ -316,11 +316,15 @@ export function FursuitStep({
   ]);
 
   useEffect(() => {
+    if (isProfileConventionsLoading) {
+      return;
+    }
+
     setSelectedConventionIds((current) => {
       const filtered = new Set([...current].filter((id) => profileConventionIdSet.has(id)));
       return filtered.size === current.size ? current : filtered;
     });
-  }, [profileConventionIdSet]);
+  }, [isProfileConventionsLoading, profileConventionIdSet]);
 
   const handleOpenForm = () => {
     setIsExpanded(true);
@@ -499,17 +503,20 @@ export function FursuitStep({
       );
 
       if (listedConventionIds.length > 0) {
-        void Promise.all(
-          listedConventionIds.map((conventionId) =>
-            addFursuitConvention(fursuitId, conventionId).catch((error) => {
+        await Promise.all(
+          listedConventionIds.map(async (conventionId) => {
+            try {
+              await addFursuitConvention(fursuitId, conventionId);
+            } catch (error) {
               captureHandledException(error, {
                 scope: 'onboarding.fursuitStep.attachConvention',
                 userId,
                 fursuitId,
                 conventionId,
               });
-            }),
-          ),
+              throw error;
+            }
+          }),
         );
       }
 
