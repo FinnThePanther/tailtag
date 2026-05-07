@@ -56,15 +56,22 @@ export const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   errorContainer: {
+    gap: spacing.sm,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: spacing.xs,
     backgroundColor: 'rgba(248,113,113,0.15)',
     borderWidth: 1,
     borderColor: 'rgba(248,113,113,0.4)',
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
+  },
+  errorMessageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    width: '100%',
   },
   errorText: {
     color: colors.destructive,

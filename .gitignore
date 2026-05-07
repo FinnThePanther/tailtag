@@ -69,3 +69,7 @@ service-account*.json
 credentials.json
 .npmrc
 .vercel
+
+# Local catch-code replacement tooling/data
+/codes.csv
+/scripts/replace-fursuit-catch-codes.cjs

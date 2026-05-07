@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
@@ -101,6 +101,9 @@ const PRONOUN_OPTIONS = [
 
 export default function AddFursuitScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ conventionId?: string }>();
+  const requestedConventionId =
+    typeof params.conventionId === 'string' ? params.conventionId : null;
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
@@ -358,11 +361,6 @@ export default function AddFursuitScreen() {
     [profileConventionMemberships],
   );
 
-  const joinedProfileConventionIds = useMemo(
-    () => conventions.filter((c) => profileConventionIdSet.has(c.id)).map((c) => c.id),
-    [conventions, profileConventionIdSet],
-  );
-
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
   const conventionsLoadError =
     conventionsError?.message ?? profileConventionsError?.message ?? null;
@@ -375,7 +373,11 @@ export default function AddFursuitScreen() {
     }
 
     if (!hasHydratedConventions && !isConventionsBusy) {
-      setSelectedConventionIds(new Set(joinedProfileConventionIds));
+      const requestedConventionIsAllowed =
+        requestedConventionId !== null && profileConventionIdSet.has(requestedConventionId);
+      setSelectedConventionIds(
+        requestedConventionIsAllowed ? new Set([requestedConventionId]) : new Set(),
+      );
       setHasHydratedConventions(true);
       return;
     }
@@ -386,9 +388,9 @@ export default function AddFursuitScreen() {
     });
   }, [
     hasHydratedConventions,
-    joinedProfileConventionIds,
     profileConventionIdSet,
     isConventionsBusy,
+    requestedConventionId,
     userId,
   ]);
 
@@ -421,7 +423,7 @@ export default function AddFursuitScreen() {
       const { data, error } = await client
         .from('fursuits')
         .select('id')
-        .eq('unique_code', candidate)
+        .ilike('unique_code', candidate)
         .limit(1);
 
       if (error) {
@@ -516,11 +518,6 @@ export default function AddFursuitScreen() {
 
     if (!trimmedSpecies) {
       setSubmitError('Add your fursuit species before saving.');
-      return;
-    }
-
-    if (selectedColorIds.length === 0) {
-      setSubmitError('Pick at least one color for your fursuit.');
       return;
     }
 
@@ -711,7 +708,7 @@ export default function AddFursuitScreen() {
       setAskMeAboutInput('');
       setMakers(createInitialFursuitMakers());
       setSocialLinks(createInitialSocialLinks());
-      setSelectedConventionIds(new Set(joinedProfileConventionIds));
+      setSelectedConventionIds(new Set());
       setHasHydratedConventions(true);
       setSelectedPhoto(null);
       setPhotoError(null);
@@ -965,7 +962,7 @@ export default function AddFursuitScreen() {
 
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Colors</Text>
-            <Text style={styles.helperLabel}>Pick up to three colors.</Text>
+            <Text style={styles.helperLabel}>Optional. Pick up to three colors.</Text>
             {isColorBusy ? (
               <Text style={styles.helperLabel}>Loading colors…</Text>
             ) : colorLoadError ? (
@@ -986,7 +983,7 @@ export default function AddFursuitScreen() {
               <>
                 <View style={styles.colorSelectedList}>
                   {selectedColors.length === 0 ? (
-                    <Text style={styles.helperLabel}>No colors selected yet.</Text>
+                    <Text style={styles.helperLabel}>No colors selected.</Text>
                   ) : null}
                   {selectedColors.map((color) => (
                     <Pressable
@@ -1294,9 +1291,9 @@ export default function AddFursuitScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Conventions</Text>
+            <Text style={styles.label}>Convention roster</Text>
             <Text style={styles.helperLabel}>
-              Choose the conventions where this suit will be catchable.
+              List this suit only at conventions you are attending.
             </Text>
             {isConventionsBusy ? (
               <Text style={styles.message}>Loading conventions…</Text>
@@ -1319,7 +1316,7 @@ export default function AddFursuitScreen() {
               <Text style={styles.message}>No conventions are open for joining right now.</Text>
             ) : profileConventionIdSet.size === 0 ? (
               <Text style={styles.message}>
-                Join a convention in Settings before assigning this suit.
+                Attend a convention in Settings before listing this suit.
               </Text>
             ) : (
               <View style={styles.conventionList}>
@@ -1334,9 +1331,7 @@ export default function AddFursuitScreen() {
                       selected={isSelected}
                       pending={false}
                       disabled={!isAllowed}
-                      badgeText={
-                        isAllowed ? (isSelected ? 'Attending' : 'Add suit') : 'Join in Settings'
-                      }
+                      badgeText={isAllowed ? (isSelected ? 'Listed' : 'List suit') : 'Attend first'}
                       onToggle={(conventionId, nextSelected) =>
                         handleConventionToggle(conventionId, nextSelected)
                       }

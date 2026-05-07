@@ -152,7 +152,7 @@ export function PhotoCatchCard({
 
       if (!sharedConventionId) {
         setLocalError(
-          'You and this suit need to be ready at the same playable convention. Check Settings and verify location if needed.',
+          'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.',
         );
         setIsUploadingPhoto(false);
         return;

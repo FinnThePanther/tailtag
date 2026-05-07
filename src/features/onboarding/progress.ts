@@ -20,6 +20,7 @@ export type OnboardingFursuitDraft = {
   speciesInput: string;
   descriptionInput: string;
   selectedColorIds: string[];
+  selectedConventionIds: string[];
   selectedPhoto: FursuitPhotoCandidate | null;
 };
 
@@ -37,6 +38,7 @@ export const createEmptyFursuitDraft = (): OnboardingFursuitDraft => ({
   speciesInput: '',
   descriptionInput: '',
   selectedColorIds: [],
+  selectedConventionIds: [],
   selectedPhoto: null,
 });
 
@@ -138,6 +140,16 @@ const normalizeFursuitDraft = (value: unknown): OnboardingFursuitDraft => {
         ),
       )
     : [];
+  const selectedConventionIds = Array.isArray(draft.selectedConventionIds)
+    ? Array.from(
+        new Set(
+          draft.selectedConventionIds.filter(
+            (conventionId): conventionId is string =>
+              typeof conventionId === 'string' && conventionId.length > 0,
+          ),
+        ),
+      )
+    : [];
 
   return {
     isExpanded: draft.isExpanded === true,
@@ -145,6 +157,7 @@ const normalizeFursuitDraft = (value: unknown): OnboardingFursuitDraft => {
     speciesInput: normalizeString(draft.speciesInput),
     descriptionInput: normalizeString(draft.descriptionInput),
     selectedColorIds,
+    selectedConventionIds,
     selectedPhoto: isPhotoCandidate(draft.selectedPhoto) ? draft.selectedPhoto : null,
   };
 };

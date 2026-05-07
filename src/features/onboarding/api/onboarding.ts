@@ -33,7 +33,7 @@ const generateAvailableFursuitCode = async (): Promise<string> => {
     const { data, error } = await client
       .from('fursuits')
       .select('id')
-      .eq('unique_code', candidate)
+      .ilike('unique_code', candidate)
       .limit(1);
 
     if (error) {
@@ -126,10 +126,6 @@ export async function createQuickFursuit(options: {
 
     if (!normalizedSpecies) {
       throw new Error('Add a species so other players know who you are.');
-    }
-
-    if (normalizedColorIds.length === 0) {
-      throw new Error('Pick at least one color before saving your fursuit.');
     }
 
     if (normalizedColorIds.length > MAX_FURSUIT_COLORS) {

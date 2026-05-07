@@ -278,6 +278,11 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
           'That tag belongs to one of your own suits. Trade codes with friends to grow your collection.',
         );
       }
+      if (errorMessage.includes('share a playable convention')) {
+        throw new Error(
+          'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.',
+        );
+      }
       if (errorMessage.includes('already caught') || errorMessage.includes('pending')) {
         throw new Error(
           'You already caught this suit at this convention. Try catching them at another con!',

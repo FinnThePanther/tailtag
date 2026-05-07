@@ -85,6 +85,9 @@ type CatchRecord = {
   status: CatchStatus;
 };
 
+const SHARED_CONVENTION_HELP =
+  'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.';
+
 export default function CatchScreen() {
   const router = useRouter();
   const { session } = useAuth();
@@ -255,7 +258,7 @@ export default function CatchScreen() {
           )
         `,
         )
-        .eq('unique_code', normalizedCode)
+        .ilike('unique_code', normalizedCode)
         .order('version', { ascending: false, foreignTable: 'fursuit_bios' })
         .limit(1, { foreignTable: 'fursuit_bios' })
         .eq('is_tutorial', false)
@@ -328,9 +331,7 @@ export default function CatchScreen() {
 
       if (sharedConventions.length === 0) {
         resetCatchState();
-        setSubmitError(
-          "You and this fursuit aren't at the same playable convention. Check Settings → Conventions and make sure you're both ready for the same event.",
-        );
+        setSubmitError(SHARED_CONVENTION_HELP);
         return;
       }
 
@@ -455,6 +456,11 @@ export default function CatchScreen() {
   const caughtAtLabel = catchRecord
     ? (toDisplayDateTime(catchRecord.caught_at) ?? 'Caught just now')
     : null;
+  const showConventionSettingsAction = Boolean(
+    submitError &&
+    (submitError === SHARED_CONVENTION_HELP ||
+      submitError.includes('Join or verify a playable convention')),
+  );
 
   const handleCatchAnother = () => {
     resetCatchState();
@@ -701,12 +707,14 @@ export default function CatchScreen() {
 
         {submitError ? (
           <View style={styles.errorContainer}>
-            <Ionicons
-              name="alert-circle"
-              size={18}
-              color="#f87171"
-            />
-            <Text style={styles.errorText}>{submitError}</Text>
+            <View style={styles.errorMessageRow}>
+              <Ionicons
+                name="alert-circle"
+                size={18}
+                color="#f87171"
+              />
+              <Text style={styles.errorText}>{submitError}</Text>
+            </View>
             {verificationRequiredConvention ? (
               <TailTagButton
                 variant="outline"
@@ -718,6 +726,15 @@ export default function CatchScreen() {
                 disabled={isVerifyingConvention}
               >
                 Verify location
+              </TailTagButton>
+            ) : null}
+            {showConventionSettingsAction ? (
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => router.push('/settings')}
+              >
+                Open Settings
               </TailTagButton>
             ) : null}
           </View>

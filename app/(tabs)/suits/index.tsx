@@ -28,7 +28,11 @@ import { styles } from '../../../src/app-styles/(tabs)/suits/index.styles';
 
 export default function MySuitsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ guidance?: string }>();
+  const params = useLocalSearchParams<{
+    guidance?: string;
+    conventionId?: string;
+    conventionName?: string;
+  }>();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const suitsQueryKey = useMemo(() => [MY_SUITS_QUERY_KEY, userId] as const, [userId]);
@@ -120,6 +124,25 @@ export default function MySuitsScreen() {
   const incompleteGuidanceSuits = useMemo(() => getIncompleteFursuitProfiles(suits), [suits]);
   const showFursuitGuidance =
     params.guidance === 'fursuit-profile' && incompleteGuidanceSuits.length > 0;
+  const rosterGuidanceConventionId =
+    params.guidance === 'convention-roster' && typeof params.conventionId === 'string'
+      ? params.conventionId
+      : null;
+  const rosterGuidanceConventionName =
+    typeof params.conventionName === 'string' && params.conventionName.trim().length > 0
+      ? params.conventionName
+      : 'this convention';
+  const rosterGuidanceSuits = useMemo(
+    () =>
+      rosterGuidanceConventionId
+        ? suits.filter(
+            (suit) =>
+              !suit.conventions.some((convention) => convention.id === rosterGuidanceConventionId),
+          )
+        : [],
+    [rosterGuidanceConventionId, suits],
+  );
+  const showRosterGuidance = Boolean(rosterGuidanceConventionId);
 
   return (
     <ScrollView
@@ -175,6 +198,83 @@ export default function MySuitsScreen() {
               </Pressable>
             ))}
           </View>
+        </TailTagCard>
+      ) : null}
+
+      {showRosterGuidance ? (
+        <TailTagCard style={styles.guidanceCard}>
+          <Text style={styles.guidanceEyebrow}>Next step</Text>
+          <Text style={styles.guidanceTitle}>List suits for {rosterGuidanceConventionName}</Text>
+          <Text style={styles.guidanceBody}>
+            Choose which suits you&apos;re bringing so other players can catch them there.
+          </Text>
+          {isLoading ? (
+            <Text style={styles.message}>Loading your suits…</Text>
+          ) : combinedError ? (
+            <View style={styles.helperColumn}>
+              <Text style={styles.error}>{combinedError}</Text>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={handleRefresh}
+              >
+                Try again
+              </TailTagButton>
+            </View>
+          ) : hasSuits && rosterGuidanceSuits.length === 0 ? (
+            <Text style={styles.guidanceSuccess}>
+              All of your suits are listed for {rosterGuidanceConventionName}.
+            </Text>
+          ) : hasSuits ? (
+            <View style={styles.guidanceSuitList}>
+              {rosterGuidanceSuits.map((suit) => (
+                <Pressable
+                  key={suit.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${suit.name}`}
+                  accessibilityHint="Opens the fursuit editor"
+                  onPress={() =>
+                    router.push({
+                      pathname: '/fursuits/[id]/edit',
+                      params: { id: suit.id },
+                    })
+                  }
+                  style={({ pressed }) => [
+                    styles.guidanceSuitRow,
+                    pressed ? styles.guidanceSuitRowPressed : null,
+                  ]}
+                >
+                  <View style={styles.guidanceSuitTextBlock}>
+                    <Text style={styles.guidanceSuitName}>{suit.name}</Text>
+                    <Text style={styles.guidanceSuitMeta}>Not listed yet</Text>
+                  </View>
+                  <Text style={styles.guidanceSuitAction}>Edit</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.guidanceBody}>
+              Add a suit if you&apos;re bringing one to {rosterGuidanceConventionName}.
+            </Text>
+          )}
+          {!isAtFursuitLimit ? (
+            <View style={styles.guidanceActions}>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() =>
+                  router.push({
+                    pathname: '/suits/add-fursuit',
+                    params: rosterGuidanceConventionId
+                      ? { conventionId: rosterGuidanceConventionId }
+                      : undefined,
+                  })
+                }
+              >
+                Add a fursuit
+              </TailTagButton>
+            </View>
+          ) : null}
         </TailTagCard>
       ) : null}
 

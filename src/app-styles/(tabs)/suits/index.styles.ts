@@ -68,6 +68,17 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  guidanceSuccess: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  guidanceActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
   guidanceSuitList: {
     gap: spacing.sm,
   },

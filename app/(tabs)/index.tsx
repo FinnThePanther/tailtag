@@ -466,7 +466,7 @@ export default function HomeScreen() {
     });
   const noPlayableConventionMessage = useMemo(() => {
     if (!pendingConventionMembership) {
-      return 'Join a convention in Settings to use convention features.';
+      return 'Attend a convention in Settings to use convention features.';
     }
 
     if (pendingConventionMembership.membership_state === 'needs_location_verification') {
