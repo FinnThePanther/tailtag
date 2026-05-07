@@ -2226,6 +2226,23 @@ export type Database = {
           today_assignments_count: number
         }[]
       }
+      get_convention_suit_leaderboard: {
+        Args: { p_convention_id: string }
+        Returns: {
+          catch_count: number
+          color_assignments: Json
+          convention_id: string
+          first_caught_at: string
+          fursuit_avatar_url: string
+          fursuit_id: string
+          fursuit_name: string
+          last_caught_at: string
+          owner_id: string
+          species_id: string
+          species_name: string
+          unique_catchers: number
+        }[]
+      }
       get_event_dashboard_summary: {
         Args: { p_convention_id: string }
         Returns: {

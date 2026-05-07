@@ -30,13 +30,9 @@ export const conventionLeaderboardQueryKey = (conventionId: string) =>
 export async function fetchConventionLeaderboard(
   conventionId: string,
 ): Promise<LeaderboardEntry[]> {
-  const { data, error } = await supabase
-    .from('mv_convention_leaderboard')
-    .select('*')
-    .eq('convention_id', conventionId)
-    .order('catch_count', { ascending: false })
-    .order('username', { ascending: true, nullsFirst: false })
-    .order('catcher_id', { ascending: true });
+  const { data, error } = await supabase.rpc('get_convention_leaderboard', {
+    p_convention_id: conventionId,
+  });
 
   if (error) {
     throw new Error(`We couldn't load the leaderboard: ${error.message}`);
@@ -44,6 +40,17 @@ export async function fetchConventionLeaderboard(
 
   return (data ?? [])
     .filter((row) => row.catcher_id != null && row.catch_count != null)
+    .sort((a, b) => {
+      const countDiff = Number(b.catch_count ?? 0) - Number(a.catch_count ?? 0);
+      if (countDiff !== 0) return countDiff;
+
+      const usernameA = a.username ?? '\uffff';
+      const usernameB = b.username ?? '\uffff';
+      const usernameDiff = usernameA.localeCompare(usernameB);
+      if (usernameDiff !== 0) return usernameDiff;
+
+      return (a.catcher_id ?? '').localeCompare(b.catcher_id ?? '');
+    })
     .map((row) => ({
       profileId: row.catcher_id!,
       username: row.username,
@@ -67,31 +74,9 @@ export const conventionSuitLeaderboardQueryKey = (conventionId: string) =>
 export async function fetchConventionSuitLeaderboard(
   conventionId: string,
 ): Promise<SuitLeaderboardEntry[]> {
-  const { data, error } = await supabase
-    .from('mv_fursuit_popularity')
-    .select(
-      `
-      *,
-      fursuit:fursuits (
-        species_entry:fursuit_species (
-          id,
-          name
-        ),
-        color_assignments:fursuit_color_assignments (
-          position,
-          color:fursuit_colors (
-            id,
-            name,
-            normalized_name
-          )
-        )
-      )
-    `,
-    )
-    .eq('convention_id', conventionId)
-    .order('catch_count', { ascending: false })
-    .order('fursuit_name', { ascending: true })
-    .order('fursuit_id', { ascending: true });
+  const { data, error } = await supabase.rpc('get_convention_suit_leaderboard', {
+    p_convention_id: conventionId,
+  });
 
   if (error) {
     throw new Error(`We couldn't load the suit leaderboard: ${error.message}`);
@@ -99,14 +84,22 @@ export async function fetchConventionSuitLeaderboard(
 
   return (data ?? [])
     .filter((row) => row.fursuit_id != null && row.catch_count != null)
+    .sort((a, b) => {
+      const countDiff = Number(b.catch_count ?? 0) - Number(a.catch_count ?? 0);
+      if (countDiff !== 0) return countDiff;
+
+      const nameDiff = (a.fursuit_name ?? '').localeCompare(b.fursuit_name ?? '');
+      if (nameDiff !== 0) return nameDiff;
+
+      return (a.fursuit_id ?? '').localeCompare(b.fursuit_id ?? '');
+    })
     .map((row) => {
-      const fursuit = row.fursuit as any;
       return {
         fursuitId: row.fursuit_id!,
         name: row.fursuit_name ?? 'Unknown suit',
-        species: fursuit?.species_entry?.name ?? null,
-        speciesId: fursuit?.species_entry?.id ?? null,
-        colors: mapFursuitColors(fursuit?.color_assignments ?? null),
+        species: row.species_name,
+        speciesId: row.species_id,
+        colors: mapFursuitColors(row.color_assignments),
         avatarUrl: resolveStorageMediaUrl({
           bucket: FURSUIT_BUCKET,
           path: null,
