@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
-import type { StyleProp, ViewStyle } from 'react-native';
+import type { ScrollViewProps, StyleProp, ViewStyle } from 'react-native';
 
 import { spacing } from '../../theme';
 import { styles } from './KeyboardAwareFormWrapper.styles';
@@ -9,6 +9,7 @@ import { styles } from './KeyboardAwareFormWrapper.styles';
 interface KeyboardAwareFormWrapperProps {
   children: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  keyboardShouldPersistTaps?: ScrollViewProps['keyboardShouldPersistTaps'];
 }
 
 /**
@@ -21,13 +22,14 @@ interface KeyboardAwareFormWrapperProps {
 export function KeyboardAwareFormWrapper({
   children,
   contentContainerStyle,
+  keyboardShouldPersistTaps = 'always',
 }: KeyboardAwareFormWrapperProps) {
   return (
     <KeyboardAwareScrollView
       style={styles.wrapper}
       contentContainerStyle={[styles.defaultContainer, contentContainerStyle]}
       keyboardDismissMode="interactive"
-      keyboardShouldPersistTaps="always"
+      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
       showsVerticalScrollIndicator
       bottomOffset={spacing.xl}
     >

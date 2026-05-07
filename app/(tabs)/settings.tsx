@@ -1267,7 +1267,10 @@ export default function SettingsScreen() {
   }, [isDeletingAccount, performAccountDeletion, userId]);
 
   return (
-    <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+    <KeyboardAwareFormWrapper
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.headerRow}>
         <View style={styles.header}>
           <Text style={styles.eyebrow}>Settings</Text>
