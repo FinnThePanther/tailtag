@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
@@ -101,6 +101,9 @@ const PRONOUN_OPTIONS = [
 
 export default function AddFursuitScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ conventionId?: string }>();
+  const requestedConventionId =
+    typeof params.conventionId === 'string' ? params.conventionId : null;
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
@@ -370,7 +373,11 @@ export default function AddFursuitScreen() {
     }
 
     if (!hasHydratedConventions && !isConventionsBusy) {
-      setSelectedConventionIds(new Set());
+      const requestedConventionIsAllowed =
+        requestedConventionId !== null && profileConventionIdSet.has(requestedConventionId);
+      setSelectedConventionIds(
+        requestedConventionIsAllowed ? new Set([requestedConventionId]) : new Set(),
+      );
       setHasHydratedConventions(true);
       return;
     }
@@ -379,7 +386,13 @@ export default function AddFursuitScreen() {
       const filtered = new Set([...current].filter((id) => profileConventionIdSet.has(id)));
       return filtered.size === current.size ? current : filtered;
     });
-  }, [hasHydratedConventions, profileConventionIdSet, isConventionsBusy, userId]);
+  }, [
+    hasHydratedConventions,
+    profileConventionIdSet,
+    isConventionsBusy,
+    requestedConventionId,
+    userId,
+  ]);
 
   const handleConventionToggle = useCallback(
     (conventionId: string, nextSelected: boolean) => {

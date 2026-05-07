@@ -540,7 +540,8 @@ export function FursuitStep({
         <Text style={styles.eyebrow}>Step 3</Text>
         <Text style={styles.title}>Add a fursuit (optional)</Text>
         <Text style={styles.body}>
-          Fursuits are how other players recognize you. Add one now or skip and come back later.
+          Fursuits are how other players recognize you. If you&apos;re bringing a suit, list it for
+          the conventions you&apos;re attending so players can catch it.
         </Text>
 
         {!isExpanded ? (
