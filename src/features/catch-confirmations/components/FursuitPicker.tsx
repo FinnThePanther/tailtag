@@ -48,8 +48,8 @@ export function FursuitPicker({
         />
         <Text style={styles.emptyTitle}>No fursuits found</Text>
         <Text style={styles.emptySubtitle}>
-          No other fursuits are ready at your playable conventions yet. Ask the fursuiter to join
-          the same event, then try again!
+          No other fursuits are listed for your playable conventions yet. Ask the fursuiter to make
+          sure they are Ready to catch and that this specific suit is listed for the same event.
         </Text>
       </View>
     );
