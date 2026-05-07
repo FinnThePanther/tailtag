@@ -597,7 +597,7 @@ export function FursuitStep({
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Colors</Text>
-              <Text style={styles.helperLabel}>Pick up to three colors.</Text>
+              <Text style={styles.helperLabel}>Optional. Pick up to three colors.</Text>
               {isColorBusy ? (
                 <Text style={styles.helperLabel}>Loading colors…</Text>
               ) : colorLoadError ? (
@@ -618,7 +618,7 @@ export function FursuitStep({
                 <>
                   <View style={styles.colorSelectedList}>
                     {selectedColors.length === 0 ? (
-                      <Text style={styles.helperLabel}>Tap a color to add it.</Text>
+                      <Text style={styles.helperLabel}>No colors selected.</Text>
                     ) : null}
                     {selectedColors.map((color) => (
                       <Pressable

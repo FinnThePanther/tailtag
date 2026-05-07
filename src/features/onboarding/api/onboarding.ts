@@ -128,10 +128,6 @@ export async function createQuickFursuit(options: {
       throw new Error('Add a species so other players know who you are.');
     }
 
-    if (normalizedColorIds.length === 0) {
-      throw new Error('Pick at least one color before saving your fursuit.');
-    }
-
     if (normalizedColorIds.length > MAX_FURSUIT_COLORS) {
       throw new Error('You can choose up to three colors.');
     }

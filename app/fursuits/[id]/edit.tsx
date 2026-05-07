@@ -538,11 +538,6 @@ export default function EditFursuitScreen() {
       return;
     }
 
-    if (selectedColorIds.length === 0) {
-      setSubmitError('Pick at least one color for your fursuit.');
-      return;
-    }
-
     if (selectedColorIds.length > MAX_FURSUIT_COLORS) {
       setSubmitError('You can choose up to three colors. Remove one to add another.');
       return;
@@ -1043,7 +1038,7 @@ export default function EditFursuitScreen() {
 
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Colors</Text>
-                <Text style={styles.helperLabel}>Pick up to three colors.</Text>
+                <Text style={styles.helperLabel}>Optional. Pick up to three colors.</Text>
                 {isColorBusy ? (
                   <Text style={styles.helperLabel}>Loading colors…</Text>
                 ) : colorLoadError ? (
@@ -1064,7 +1059,7 @@ export default function EditFursuitScreen() {
                   <>
                     <View style={styles.colorSelectedList}>
                       {selectedColors.length === 0 ? (
-                        <Text style={styles.helperLabel}>No colors selected yet.</Text>
+                        <Text style={styles.helperLabel}>No colors selected.</Text>
                       ) : null}
                       {selectedColors.map((color) => (
                         <Pressable
