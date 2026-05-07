@@ -191,7 +191,7 @@ export const captureHandledMessage = (
 /** Extract Supabase error metadata and capture with the given severity tier. */
 export const captureSupabaseError = (
   error: unknown,
-  context: Extras & { scope: string; action?: string },
+  context: Extras & { scope?: string; action?: string } = {},
   tier: SeverityTier = 'feature',
 ) => {
   if (!error) {

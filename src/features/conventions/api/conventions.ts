@@ -632,12 +632,7 @@ export async function optOutOfConvention(profileId: string, conventionId: string
   });
 
   if (error) {
-    captureSupabaseError(error, {
-      scope: 'conventions.optOutOfConvention',
-      action: 'leave_convention',
-      profileId,
-      conventionId,
-    });
+    captureSupabaseError(error);
     throw new Error(`We couldn't update your convention attendance: ${error.message}`);
   }
 
