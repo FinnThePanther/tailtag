@@ -104,7 +104,6 @@ const PRONOUN_OPTIONS = [
 
 const DEFAULT_ROSTER_SETTINGS: FursuitConventionRosterSettings = {
   rosterVisible: true,
-  catchableNow: false,
 };
 
 export default function AddFursuitScreen() {

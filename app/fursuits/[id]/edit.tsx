@@ -89,7 +89,6 @@ const PRONOUN_OPTIONS = [
 
 const DEFAULT_ROSTER_SETTINGS: FursuitConventionRosterSettings = {
   rosterVisible: true,
-  catchableNow: false,
 };
 
 const ASK_ME_ABOUT_SUGGESTIONS = [
@@ -349,7 +348,6 @@ export default function EditFursuitScreen() {
         entry.id,
         {
           rosterVisible: entry.roster_visible !== false,
-          catchableNow: entry.catchable_now === true,
         } satisfies FursuitConventionRosterSettings,
       ]),
     );
@@ -605,10 +603,7 @@ export default function EditFursuitScreen() {
 
       const current = conventionRosterSettingsById[id] ?? DEFAULT_ROSTER_SETTINGS;
       const initial = initialConventionRosterSettingsById[id] ?? DEFAULT_ROSTER_SETTINGS;
-      return (
-        current.rosterVisible !== initial.rosterVisible ||
-        current.catchableNow !== initial.catchableNow
-      );
+      return current.rosterVisible !== initial.rosterVisible;
     });
 
     setIsSubmitting(true);

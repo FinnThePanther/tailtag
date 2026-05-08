@@ -23,8 +23,6 @@ export type FursuitMaker = {
 
 export type FursuitConvention = ConventionSummary & {
   roster_visible: boolean;
-  catchable_now: boolean;
-  catchable_updated_at: string | null;
 };
 
 export type FursuitSummary = {

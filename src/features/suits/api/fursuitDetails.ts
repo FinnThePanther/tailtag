@@ -42,8 +42,6 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       ),
       fursuit_conventions:fursuit_conventions (
         roster_visible,
-        catchable_now,
-        catchable_updated_at,
         convention:conventions (
           id,
           slug,
@@ -108,8 +106,6 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       geofence_enabled: Boolean(entry.convention.geofence_enabled),
       location_verification_required: Boolean(entry.convention.location_verification_required),
       roster_visible: entry.roster_visible !== false,
-      catchable_now: entry.catchable_now === true,
-      catchable_updated_at: entry.catchable_updated_at ?? null,
     }));
 
   const bio = mapLatestFursuitBio(data.fursuit_bios ?? null);

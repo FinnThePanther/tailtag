@@ -178,7 +178,6 @@ export type ConventionRecapDetail = {
 
 export type FursuitConventionRosterSettings = {
   rosterVisible: boolean;
-  catchableNow: boolean;
 };
 
 export type ConventionSuitRosterEntry = {
@@ -192,8 +191,6 @@ export type ConventionSuitRosterEntry = {
   ownerProfileId: string | null;
   ownerUsername: string | null;
   rosterVisible: boolean;
-  catchableNow: boolean;
-  catchableUpdatedAt: string | null;
   conventionCatchCount: number;
   caughtByCurrentUser: boolean;
 };
@@ -610,8 +607,6 @@ export async function fetchConventionSuitRoster(
       ownerProfileId: row.owner_id ?? null,
       ownerUsername: row.owner_username ?? null,
       rosterVisible: row.roster_visible !== false,
-      catchableNow: row.catchable_now === true,
-      catchableUpdatedAt: row.catchable_updated_at ?? null,
       conventionCatchCount: Number(row.convention_catch_count ?? 0),
       caughtByCurrentUser: row.caught_by_current_user === true,
     }));
@@ -734,7 +729,6 @@ export async function addFursuitConvention(
   conventionId: string,
   settings: FursuitConventionRosterSettings = {
     rosterVisible: true,
-    catchableNow: false,
   },
 ): Promise<void> {
   const client = supabase as SupabaseClient<Database>;
@@ -744,7 +738,6 @@ export async function addFursuitConvention(
       fursuit_id: fursuitId,
       convention_id: conventionId,
       roster_visible: rosterVisible,
-      catchable_now: rosterVisible && settings.catchableNow === true,
     },
     { onConflict: 'fursuit_id, convention_id' },
   );

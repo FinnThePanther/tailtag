@@ -133,13 +133,11 @@ export default function ConventionSuitRosterScreen() {
 
   const counts = useMemo(() => {
     const caught = rosterEntries.filter((entry) => entry.caughtByCurrentUser).length;
-    const catchable = rosterEntries.filter((entry) => entry.catchableNow).length;
 
     return {
       all: rosterEntries.length,
       notCaught: rosterEntries.length - caught,
       caught,
-      catchable,
     };
   }, [rosterEntries]);
 
@@ -154,9 +152,6 @@ export default function ConventionSuitRosterScreen() {
         return buildSearchText(entry).includes(normalizedSearch);
       })
       .sort((a, b) => {
-        const catchableDiff = Number(b.catchableNow) - Number(a.catchableNow);
-        if (catchableDiff !== 0) return catchableDiff;
-
         const notCaughtDiff = Number(!b.caughtByCurrentUser) - Number(!a.caughtByCurrentUser);
         if (notCaughtDiff !== 0) return notCaughtDiff;
 
@@ -198,10 +193,6 @@ export default function ConventionSuitRosterScreen() {
           <View style={styles.summaryPill}>
             <Text style={styles.summaryValue}>{counts.caught}</Text>
             <Text style={styles.summaryLabel}>Caught</Text>
-          </View>
-          <View style={styles.summaryPill}>
-            <Text style={styles.summaryValue}>{counts.catchable}</Text>
-            <Text style={styles.summaryLabel}>Catchable</Text>
           </View>
         </View>
 
@@ -310,13 +301,6 @@ export default function ConventionSuitRosterScreen() {
                       </Text>
                     ) : null}
                     <View style={styles.badgeRow}>
-                      {entry.catchableNow ? (
-                        <View style={[styles.badge, styles.badgePrimary]}>
-                          <Text style={[styles.badgeText, styles.badgeTextPrimary]}>
-                            Catchable now
-                          </Text>
-                        </View>
-                      ) : null}
                       {entry.caughtByCurrentUser ? (
                         <View style={[styles.badge, styles.badgeSuccess]}>
                           <Text style={[styles.badgeText, styles.badgeTextSuccess]}>Caught</Text>
