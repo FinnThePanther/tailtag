@@ -96,6 +96,7 @@ import {
   FURSUIT_DETAIL_QUERY_KEY,
   MY_SUITS_QUERY_KEY,
   MY_SUITS_STALE_TIME,
+  mySuitsQueryKey,
 } from '../../src/features/suits';
 import type { FursuitSummary } from '../../src/features/suits';
 import type { CaughtRecord } from '../../src/features/suits/api/caughtSuits';
@@ -247,7 +248,7 @@ export default function SettingsScreen() {
     queryFn: () => fetchCaughtSuits(userId!),
   });
   const { data: mySuits = [], isLoading: isMySuitsLoading } = useQuery<FursuitSummary[], Error>({
-    queryKey: [MY_SUITS_QUERY_KEY, userId],
+    queryKey: mySuitsQueryKey(userId ?? 'guest'),
     enabled: Boolean(userId),
     staleTime: MY_SUITS_STALE_TIME,
     refetchOnWindowFocus: false,
@@ -1091,6 +1092,36 @@ export default function SettingsScreen() {
             conventions.find((convention) => convention.id === conventionId)?.name ??
             'this convention';
           setSuitListingPromptConvention({ id: conventionId, name: conventionName });
+          Alert.alert(
+            'Your suits were added',
+            hasMySuits
+              ? `TailTag listed every suit in your account for ${conventionName}. If a suit is not catchable there, review your suits and remove that convention from the suit.`
+              : `TailTag will list your suits for ${conventionName} by default. If you add a suit that is not catchable there, remove that convention from the suit.`,
+            [
+              { text: 'Not now', style: 'cancel' },
+              {
+                text: hasMySuits ? 'Review suits' : 'Add a suit',
+                onPress: () => {
+                  if (hasMySuits) {
+                    router.push({
+                      pathname: '/suits',
+                      params: {
+                        guidance: 'convention-roster',
+                        conventionId,
+                        conventionName,
+                      },
+                    });
+                    return;
+                  }
+
+                  router.push({
+                    pathname: '/suits/add-fursuit',
+                    params: { conventionId },
+                  });
+                },
+              },
+            ],
+          );
         }
 
         await Promise.all([
@@ -1129,9 +1160,11 @@ export default function SettingsScreen() {
     },
     [
       conventions,
+      hasMySuits,
       pendingMemberships,
       queryClient,
       refetchProfileConventions,
+      router,
       selectedConventionIdSet,
       userId,
     ],
@@ -1809,13 +1842,13 @@ export default function SettingsScreen() {
           {shouldShowSuitListingPrompt && suitListingPromptConvention ? (
             <View style={styles.suitListingPrompt}>
               <View style={styles.suitListingPromptText}>
-                <Text style={styles.suitListingPromptTitle}>List suits for this convention</Text>
+                <Text style={styles.suitListingPromptTitle}>Review suits for this convention</Text>
                 <Text style={styles.suitListingPromptBody}>
                   {isMySuitsLoading
-                    ? `You’re attending ${suitListingPromptConvention.name}. TailTag is checking your suits so you can list the ones you’re bringing.`
+                    ? `You’re attending ${suitListingPromptConvention.name}. TailTag is checking which suits were listed by default.`
                     : hasMySuits
-                      ? `You’re attending ${suitListingPromptConvention.name}. List the suits you’re bringing so other players can catch them.`
-                      : `You’re attending ${suitListingPromptConvention.name}. If you’re bringing a suit, add it so other players can catch it.`}
+                      ? `TailTag listed every suit in your account for ${suitListingPromptConvention.name}. Remove any suit that is not catchable there.`
+                      : `TailTag will list new suits for ${suitListingPromptConvention.name} by default. If a suit is not catchable there, remove that convention from the suit.`}
                 </Text>
               </View>
               <View style={styles.suitListingPromptActions}>
@@ -1827,7 +1860,7 @@ export default function SettingsScreen() {
                   {isMySuitsLoading
                     ? 'Checking suits…'
                     : hasMySuits
-                      ? 'Choose suits'
+                      ? 'Review suits'
                       : 'Add a suit'}
                 </TailTagButton>
                 <TailTagButton

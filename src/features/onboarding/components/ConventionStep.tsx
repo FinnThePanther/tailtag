@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Alert, ScrollView, Text, View } from 'react-native';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -218,6 +218,19 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
       });
 
       onComplete(selections);
+      if (toAdd.length > 0) {
+        const addedConventionNames = toAdd
+          .map((conventionId) => conventions.find((convention) => convention.id === conventionId))
+          .filter((convention): convention is ConventionSummary => Boolean(convention))
+          .map((convention) => convention.name);
+        const target =
+          addedConventionNames.length === 1 ? addedConventionNames[0] : 'your conventions';
+        Alert.alert(
+          'Your suits will be listed by default',
+          `TailTag now adds every suit in your account to ${target}. If a suit is not catchable there, open My Suits later and remove that convention from the suit.`,
+          [{ text: 'Got it' }],
+        );
+      }
     } catch (caught) {
       void queryClient.invalidateQueries({
         queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],

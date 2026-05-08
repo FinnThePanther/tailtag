@@ -307,7 +307,7 @@ export default function HomeScreen() {
   });
 
   const mySuitsQuery = useQuery<FursuitSummary[], Error>({
-    queryKey: userId ? mySuitsQueryKey(userId) : ['my-suits', 'guest'],
+    queryKey: mySuitsQueryKey(userId ?? 'guest'),
     enabled: Boolean(userId),
     staleTime: MY_SUITS_STALE_TIME,
     refetchOnWindowFocus: false,

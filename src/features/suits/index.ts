@@ -52,3 +52,10 @@ export {
   FURSUIT_DETAIL_QUERY_KEY,
   fursuitDetailQueryKey,
 } from './api/fursuitDetails';
+export {
+  consumeSuitAutoEnrollNotice,
+  hasSeenSuitAutoEnrollMigrationNotice,
+  markSuitAutoEnrollMigrationNoticeSeen,
+  queueSuitAutoEnrollNotice,
+  type SuitAutoEnrollNotice,
+} from './autoEnrollNotice';
