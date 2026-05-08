@@ -13,7 +13,11 @@ import {
   fetchProfileConventionMemberships,
   type ConventionMembership,
 } from '../../src/features/conventions';
-import { createMySuitsQueryOptions } from '../../src/features/suits';
+import {
+  createMySuitsQueryOptions,
+  mySuitsQueryKey,
+  type FursuitSummary,
+} from '../../src/features/suits';
 import { ProgressDots } from '../../src/features/onboarding/components/ProgressDots';
 import { WelcomeStep } from '../../src/features/onboarding/components/WelcomeStep';
 import { ConventionStep } from '../../src/features/onboarding/components/ConventionStep';
@@ -85,8 +89,8 @@ export default function OnboardingScreen() {
     ...(userId
       ? createMySuitsQueryOptions(userId)
       : {
-          queryKey: ['my-suits', 'guest'],
-          queryFn: async () => [],
+          queryKey: mySuitsQueryKey('guest'),
+          queryFn: async (): Promise<FursuitSummary[]> => [],
         }),
     enabled: Boolean(userId),
   });

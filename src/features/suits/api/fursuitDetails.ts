@@ -7,10 +7,15 @@ import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
 export const FURSUIT_DETAIL_QUERY_KEY = 'fursuit-detail';
-export const fursuitDetailQueryKey = (fursuitId: string) =>
-  [FURSUIT_DETAIL_QUERY_KEY, fursuitId] as const;
+export const fursuitDetailQueryKey = (fursuitId: string, viewerId?: string | null) =>
+  viewerId
+    ? ([FURSUIT_DETAIL_QUERY_KEY, fursuitId, viewerId] as const)
+    : ([FURSUIT_DETAIL_QUERY_KEY, fursuitId] as const);
 
-export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDetail> {
+export async function fetchFursuitDetail(
+  fursuitId: string,
+  viewerId?: string | null,
+): Promise<FursuitDetail> {
   const client = supabase as any;
   const { data, error } = await client
     .from('fursuits')
@@ -24,7 +29,6 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       avatar_url,
       is_tutorial,
       description,
-      unique_code,
       catch_count,
       created_at,
       species_entry:fursuit_species (
@@ -42,8 +46,6 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       ),
       fursuit_conventions:fursuit_conventions (
         roster_visible,
-        catchable_now,
-        catchable_updated_at,
         convention:conventions (
           id,
           slug,
@@ -108,8 +110,6 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       geofence_enabled: Boolean(entry.convention.geofence_enabled),
       location_verification_required: Boolean(entry.convention.location_verification_required),
       roster_visible: entry.roster_visible !== false,
-      catchable_now: entry.catchable_now === true,
-      catchable_updated_at: entry.catchable_updated_at ?? null,
     }));
 
   const bio = mapLatestFursuitBio(data.fursuit_bios ?? null);
@@ -119,6 +119,22 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
   const colors = mapFursuitColors(data.color_assignments ?? null);
   const makersByFursuitId = await fetchFursuitMakersByFursuitIds([data.id]);
   const makers = makersByFursuitId.get(data.id) ?? [];
+  let uniqueCode: string | null = null;
+
+  if (viewerId && data.owner_id === viewerId) {
+    const { data: codeData, error: codeError } = await client
+      .from('fursuits')
+      .select('unique_code')
+      .eq('id', data.id)
+      .eq('owner_id', viewerId)
+      .maybeSingle();
+
+    if (codeError) {
+      throw new Error("We couldn't load that fursuit right now. Please try again.");
+    }
+
+    uniqueCode = codeData?.unique_code ?? null;
+  }
 
   let resolvedCatchCount = typeof data.catch_count === 'number' ? data.catch_count : 0;
 
@@ -150,7 +166,7 @@ export async function fetchFursuitDetail(fursuitId: string): Promise<FursuitDeta
       legacyUrl: data.avatar_url ?? null,
     }),
     description: data.description ?? null,
-    unique_code: data.unique_code ?? null,
+    unique_code: uniqueCode,
     catchCount: resolvedCatchCount,
     created_at: data.created_at ?? null,
     conventions,

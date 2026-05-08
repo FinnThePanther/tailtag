@@ -72,8 +72,8 @@ export default function PublicProfileScreen() {
   const { data: profile, error: profileError, refetch: refetchProfile } = profileQuery;
 
   const fursuitsQuery = useQuery({
-    queryKey: mySuitsQueryKey(profileId ?? ''),
-    queryFn: () => fetchMySuits(profileId ?? ''),
+    queryKey: mySuitsQueryKey(profileId ?? '', isSelf),
+    queryFn: () => fetchMySuits(profileId ?? '', isSelf),
     staleTime: MY_SUITS_STALE_TIME,
     enabled: Boolean(profileId),
     refetchOnWindowFocus: false,
@@ -304,7 +304,8 @@ export default function PublicProfileScreen() {
                       species={fursuit.species}
                       colors={fursuit.colors}
                       avatarUrl={fursuit.avatar_url}
-                      uniqueCode={fursuit.unique_code}
+                      uniqueCode={isSelf ? fursuit.unique_code : null}
+                      codeLabel={isSelf ? 'Catch code' : null}
                     />
                   </Pressable>
                 ))}

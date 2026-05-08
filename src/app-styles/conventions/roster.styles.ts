@@ -122,10 +122,6 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
   },
-  badgePrimary: {
-    borderColor: colors.primaryBorder,
-    backgroundColor: colors.primarySurface,
-  },
   badgeSuccess: {
     borderColor: 'rgba(74,222,128,0.38)',
     backgroundColor: 'rgba(22,101,52,0.24)',
@@ -134,9 +130,6 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 11,
     fontWeight: '700',
-  },
-  badgeTextPrimary: {
-    color: colors.primary,
   },
   badgeTextSuccess: {
     color: '#86efac',

@@ -151,6 +151,7 @@ export function FursuitStep({
     new Set(draft.selectedConventionIds),
   );
   const isMountedRef = useRef(true);
+  const hasAppliedDefaultConventionsRef = useRef(draft.selectedConventionIds.length > 0);
   const colorLoadError = colorError?.message ?? null;
   const isColorBusy = isColorLoading;
 
@@ -321,6 +322,11 @@ export function FursuitStep({
     }
 
     setSelectedConventionIds((current) => {
+      if (!hasAppliedDefaultConventionsRef.current && current.size === 0) {
+        hasAppliedDefaultConventionsRef.current = true;
+        return new Set(profileConventionIdSet);
+      }
+
       const filtered = new Set([...current].filter((id) => profileConventionIdSet.has(id)));
       return filtered.size === current.size ? current : filtered;
     });
@@ -438,11 +444,15 @@ export function FursuitStep({
     setSpeciesInput(emptyDraft.speciesInput);
     setDescriptionInput(emptyDraft.descriptionInput);
     setSelectedColorIds(emptyDraft.selectedColorIds);
-    setSelectedConventionIds(new Set(emptyDraft.selectedConventionIds));
+    setSelectedConventionIds(new Set(profileConventionIdSet));
+    hasAppliedDefaultConventionsRef.current = true;
     setSelectedPhoto(null);
     setPhotoError(null);
     setSubmitError(null);
-    onDraftChange(emptyDraft);
+    onDraftChange({
+      ...emptyDraft,
+      selectedConventionIds: [...profileConventionIdSet],
+    });
   };
 
   const handleSkip = () => {

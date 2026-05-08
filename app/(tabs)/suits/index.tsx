@@ -1,13 +1,16 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   FursuitCard,
   fetchMySuits,
-  MY_SUITS_QUERY_KEY,
+  consumeSuitAutoEnrollNotice,
+  hasSeenSuitAutoEnrollMigrationNotice,
+  markSuitAutoEnrollMigrationNoticeSeen,
   MY_SUITS_STALE_TIME,
+  mySuitsQueryKey,
 } from '../../../src/features/suits';
 import {
   PENDING_CATCHES_STALE_TIME,
@@ -35,8 +38,9 @@ export default function MySuitsScreen() {
   }>();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
-  const suitsQueryKey = useMemo(() => [MY_SUITS_QUERY_KEY, userId] as const, [userId]);
+  const suitsQueryKey = useMemo(() => mySuitsQueryKey(userId ?? 'guest'), [userId]);
   const pendingCatchesKey = useMemo(() => pendingCatchesQueryKey(userId ?? ''), [userId]);
+  const autoEnrollNoticeShownRef = useRef(false);
 
   const queryClient = useQueryClient();
   const {
@@ -118,6 +122,10 @@ export default function MySuitsScreen() {
   }, [refetch, refetchPendingCatches]);
 
   const hasSuits = suits.length > 0;
+  const hasConventionListedSuits = useMemo(
+    () => suits.some((suit) => suit.conventions.length > 0),
+    [suits],
+  );
   const suitCount = suits.length;
   const isAtFursuitLimit = suitCount >= MAX_FURSUITS_PER_USER;
   const combinedError = error?.message ?? null;
@@ -132,17 +140,56 @@ export default function MySuitsScreen() {
     typeof params.conventionName === 'string' && params.conventionName.trim().length > 0
       ? params.conventionName
       : 'this convention';
-  const rosterGuidanceSuits = useMemo(
-    () =>
-      rosterGuidanceConventionId
-        ? suits.filter(
-            (suit) =>
-              !suit.conventions.some((convention) => convention.id === rosterGuidanceConventionId),
-          )
-        : [],
-    [rosterGuidanceConventionId, suits],
-  );
+  const rosterGuidanceSuits = rosterGuidanceConventionId ? suits : [];
   const showRosterGuidance = Boolean(rosterGuidanceConventionId);
+
+  useEffect(() => {
+    if (!userId || isLoading || error || !hasSuits || autoEnrollNoticeShownRef.current) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const showNotice = (conventionName?: string | null) => {
+      autoEnrollNoticeShownRef.current = true;
+      const target = conventionName?.trim() || 'your convention';
+      Alert.alert(
+        'Your suits are listed by default',
+        `TailTag now adds every suit in your account to ${target} automatically. If a suit is not catchable there, open that suit, edit its convention roster, and remove it or turn off “Show on roster.”`,
+        [{ text: 'Review suits' }, { text: 'Got it', style: 'cancel' }],
+      );
+    };
+
+    void (async () => {
+      const pendingNotice = await consumeSuitAutoEnrollNotice(userId);
+      if (cancelled) {
+        return;
+      }
+
+      if (pendingNotice) {
+        showNotice(pendingNotice.conventionName);
+        return;
+      }
+
+      if (!hasConventionListedSuits) {
+        return;
+      }
+
+      const hasSeenMigrationNotice = await hasSeenSuitAutoEnrollMigrationNotice(userId);
+      if (cancelled || hasSeenMigrationNotice) {
+        return;
+      }
+
+      await markSuitAutoEnrollMigrationNoticeSeen(userId);
+      if (!cancelled) {
+        showNotice();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [error, hasConventionListedSuits, hasSuits, isLoading, userId]);
 
   return (
     <ScrollView
@@ -203,10 +250,11 @@ export default function MySuitsScreen() {
 
       {showRosterGuidance ? (
         <TailTagCard style={styles.guidanceCard}>
-          <Text style={styles.guidanceEyebrow}>Next step</Text>
-          <Text style={styles.guidanceTitle}>List suits for {rosterGuidanceConventionName}</Text>
+          <Text style={styles.guidanceEyebrow}>Roster update</Text>
+          <Text style={styles.guidanceTitle}>Review suits for {rosterGuidanceConventionName}</Text>
           <Text style={styles.guidanceBody}>
-            Choose which suits you&apos;re bringing so other players can catch them there.
+            TailTag listed every suit in your account for this convention. Open any suit that should
+            not be catchable there and remove the convention or turn off Show on roster.
           </Text>
           {isLoading ? (
             <Text style={styles.message}>Loading your suits…</Text>
@@ -221,36 +269,39 @@ export default function MySuitsScreen() {
                 Try again
               </TailTagButton>
             </View>
-          ) : hasSuits && rosterGuidanceSuits.length === 0 ? (
-            <Text style={styles.guidanceSuccess}>
-              All of your suits are listed for {rosterGuidanceConventionName}.
-            </Text>
           ) : hasSuits ? (
             <View style={styles.guidanceSuitList}>
-              {rosterGuidanceSuits.map((suit) => (
-                <Pressable
-                  key={suit.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Edit ${suit.name}`}
-                  accessibilityHint="Opens the fursuit editor"
-                  onPress={() =>
-                    router.push({
-                      pathname: '/fursuits/[id]/edit',
-                      params: { id: suit.id },
-                    })
-                  }
-                  style={({ pressed }) => [
-                    styles.guidanceSuitRow,
-                    pressed ? styles.guidanceSuitRowPressed : null,
-                  ]}
-                >
-                  <View style={styles.guidanceSuitTextBlock}>
-                    <Text style={styles.guidanceSuitName}>{suit.name}</Text>
-                    <Text style={styles.guidanceSuitMeta}>Not listed yet</Text>
-                  </View>
-                  <Text style={styles.guidanceSuitAction}>Edit</Text>
-                </Pressable>
-              ))}
+              {rosterGuidanceSuits.map((suit) => {
+                const isListed = suit.conventions.some(
+                  (convention) => convention.id === rosterGuidanceConventionId,
+                );
+                return (
+                  <Pressable
+                    key={suit.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit ${suit.name}`}
+                    accessibilityHint="Opens the fursuit editor"
+                    onPress={() =>
+                      router.push({
+                        pathname: '/fursuits/[id]/edit',
+                        params: { id: suit.id },
+                      })
+                    }
+                    style={({ pressed }) => [
+                      styles.guidanceSuitRow,
+                      pressed ? styles.guidanceSuitRowPressed : null,
+                    ]}
+                  >
+                    <View style={styles.guidanceSuitTextBlock}>
+                      <Text style={styles.guidanceSuitName}>{suit.name}</Text>
+                      <Text style={styles.guidanceSuitMeta}>
+                        {isListed ? 'Listed by default' : 'Not listed'}
+                      </Text>
+                    </View>
+                    <Text style={styles.guidanceSuitAction}>Edit</Text>
+                  </Pressable>
+                );
+              })}
             </View>
           ) : (
             <Text style={styles.guidanceBody}>

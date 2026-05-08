@@ -930,24 +930,18 @@ export type Database = {
       }
       fursuit_conventions: {
         Row: {
-          catchable_now: boolean
-          catchable_updated_at: string | null
           convention_id: string
           created_at: string
           fursuit_id: string
           roster_visible: boolean
         }
         Insert: {
-          catchable_now?: boolean
-          catchable_updated_at?: string | null
           convention_id: string
           created_at?: string
           fursuit_id: string
           roster_visible?: boolean
         }
         Update: {
-          catchable_now?: boolean
-          catchable_updated_at?: string | null
           convention_id?: string
           created_at?: string
           fursuit_id?: string
@@ -2255,8 +2249,6 @@ export type Database = {
       get_convention_suit_roster: {
         Args: { p_convention_id: string }
         Returns: {
-          catchable_now: boolean
-          catchable_updated_at: string
           caught_by_current_user: boolean
           color_assignments: Json
           convention_catch_count: number
