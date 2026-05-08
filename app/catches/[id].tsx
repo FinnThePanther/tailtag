@@ -171,7 +171,7 @@ export default function CatchDetailScreen() {
                 avatarUrl={details.avatar_url}
                 uniqueCode={details.unique_code}
                 timelineLabel={timelineLabel}
-                codeLabel={undefined}
+                codeLabel={null}
               />
             </Pressable>
             {record.catchPhotoUrl ? (

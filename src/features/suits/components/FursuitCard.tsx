@@ -16,7 +16,7 @@ type FursuitCardProps = {
   avatarUrl?: string | null;
   uniqueCode?: string | null;
   timelineLabel?: string | null;
-  codeLabel?: string;
+  codeLabel?: string | null;
   actionSlot?: ReactNode;
   onPress?: () => void;
   onCodeCopied?: () => void;
@@ -123,7 +123,7 @@ export function FursuitCard({
         </View>
       </View>
       <View style={styles.metaRow}>
-        {codeLabel ? (
+        {codeLabel !== null ? (
           <View style={styles.codeBlock}>
             <Text style={styles.codeLabel}>{codeLabel}</Text>
             <Pressable

@@ -148,9 +148,9 @@ export default function EditFursuitScreen() {
     error,
     refetch,
   } = useQuery({
-    enabled: Boolean(fursuitId),
-    queryKey: fursuitDetailQueryKey(fursuitId ?? ''),
-    queryFn: () => fetchFursuitDetail(fursuitId ?? ''),
+    enabled: Boolean(fursuitId && userId),
+    queryKey: fursuitDetailQueryKey(fursuitId ?? '', userId),
+    queryFn: () => fetchFursuitDetail(fursuitId ?? '', userId),
     staleTime: 0,
   });
 

@@ -9,10 +9,14 @@ export const MY_SUITS_QUERY_KEY = 'my-suits';
 export const MY_SUITS_COUNT_QUERY_KEY = 'my-suits-count';
 export const MY_SUITS_STALE_TIME = 2 * 60_000;
 
-export const mySuitsQueryKey = (userId: string) => [MY_SUITS_QUERY_KEY, userId] as const;
+export const mySuitsQueryKey = (userId: string, includeUniqueCodes = true) =>
+  [MY_SUITS_QUERY_KEY, userId, includeUniqueCodes ? 'with-codes' : 'public'] as const;
 export const mySuitsCountQueryKey = (userId: string) => [MY_SUITS_COUNT_QUERY_KEY, userId] as const;
 
-export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
+export async function fetchMySuits(
+  userId: string,
+  includeUniqueCodes = true,
+): Promise<FursuitSummary[]> {
   const client = supabase as any;
   const { data, error } = await client
     .from('fursuits')
@@ -24,7 +28,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
       avatar_path,
       avatar_url,
       description,
-      unique_code,
+      ${includeUniqueCodes ? 'unique_code,' : ''}
       catch_count,
       created_at,
       species_entry:fursuit_species (
@@ -121,7 +125,7 @@ export async function fetchMySuits(userId: string): Promise<FursuitSummary[]> {
         legacyUrl: item.avatar_url ?? null,
       }),
       description: item.description ?? null,
-      unique_code: item.unique_code ?? null,
+      unique_code: includeUniqueCodes ? (item.unique_code ?? null) : null,
       catchCount: typeof item.catch_count === 'number' ? item.catch_count : 0,
       created_at: item.created_at ?? null,
       conventions,

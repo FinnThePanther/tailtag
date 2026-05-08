@@ -71,8 +71,8 @@ export default function FursuitDetailScreen() {
 
   const fursuitDetailQuery = useQuery({
     enabled: Boolean(fursuitId),
-    queryKey: fursuitDetailQueryKey(fursuitId ?? ''),
-    queryFn: () => fetchFursuitDetail(fursuitId ?? ''),
+    queryKey: fursuitDetailQueryKey(fursuitId ?? '', userId),
+    queryFn: () => fetchFursuitDetail(fursuitId ?? '', userId),
     staleTime: 2 * 60_000,
   });
   const { data: detail, error, refetch } = fursuitDetailQuery;
@@ -269,7 +269,7 @@ export default function FursuitDetailScreen() {
                       <Text style={styles.leadTimeline}>Added on {addedDate}</Text>
                     ) : null}
                   </View>
-                  {detail.unique_code?.trim() ? (
+                  {isOwner && detail.unique_code?.trim() ? (
                     <View style={styles.section}>
                       <Text style={styles.sectionTitle}>Catch code</Text>
                       <Pressable
