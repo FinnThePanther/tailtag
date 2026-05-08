@@ -172,7 +172,7 @@ export default function ConventionSuitRosterScreen() {
     return 'No roster matches.';
   })();
 
-  const title = conventionName ? `${conventionName} Suiter Roster` : 'Suiter Roster';
+  const title = conventionName ? `${conventionName} Fursuit Roster` : 'Fursuit Roster';
 
   return (
     <View style={styles.wrapper}>

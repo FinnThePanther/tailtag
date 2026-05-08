@@ -585,7 +585,7 @@ export async function fetchConventionSuitRoster(
       scope: 'conventions.fetchConventionSuitRoster',
       conventionId,
     });
-    throw new Error(`We couldn't load the suiter roster: ${error.message}`);
+    throw new Error(`We couldn't load the fursuit roster: ${error.message}`);
   }
 
   type RosterRow = Database['public']['Functions']['get_convention_suit_roster']['Returns'][number];

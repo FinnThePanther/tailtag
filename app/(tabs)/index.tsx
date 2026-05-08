@@ -1145,7 +1145,7 @@ export default function HomeScreen() {
                     }
                     style={styles.leaderboardCta}
                   >
-                    Suiter roster
+                    Fursuit roster
                   </TailTagButton>
 
                   <View>
