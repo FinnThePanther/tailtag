@@ -38,9 +38,11 @@ export const styles = StyleSheet.create({
     opacity: 0.7,
   },
   rank: {
-    width: 36,
+    width: 56,
+    flexShrink: 0,
     fontSize: 16,
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
     color: colors.primary,
   },
   details: {

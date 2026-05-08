@@ -157,7 +157,12 @@ export default function FullLeaderboardScreen() {
                         router.push({ pathname: '/profile/[id]', params: { id: entry.profileId } })
                       }
                     >
-                      <Text style={styles.rank}>#{rank}</Text>
+                      <Text
+                        style={styles.rank}
+                        numberOfLines={1}
+                      >
+                        #{rank}
+                      </Text>
                       <View style={styles.details}>
                         <Text
                           style={styles.name}
@@ -221,7 +226,12 @@ export default function FullLeaderboardScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`View ${entry.name}'s fursuit profile`}
                   >
-                    <Text style={styles.rank}>#{index + 1}</Text>
+                    <Text
+                      style={styles.rank}
+                      numberOfLines={1}
+                    >
+                      #{index + 1}
+                    </Text>
                     <AppAvatar
                       url={entry.avatarUrl}
                       size="xs"
