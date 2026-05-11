@@ -11,7 +11,10 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
+  },
+  headerContent: {
     gap: spacing.lg,
+    marginBottom: spacing.lg,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -71,8 +74,8 @@ export const styles = StyleSheet.create({
   filterTextActive: {
     color: colors.primary,
   },
-  list: {
-    gap: spacing.sm,
+  rowSeparator: {
+    height: spacing.sm,
   },
   row: {
     flexDirection: 'row',

@@ -193,6 +193,9 @@ export type ConventionSuitRosterEntry = {
   ownerUsername: string | null;
   rosterVisible: boolean;
   conventionCatchCount: number;
+};
+
+export type ConventionSuitRosterViewEntry = ConventionSuitRosterEntry & {
   caughtByCurrentUser: boolean;
 };
 
@@ -203,12 +206,16 @@ export const PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY = 'profile-convention-memb
 export const PAST_CONVENTION_RECAPS_QUERY_KEY = 'past-convention-recaps';
 export const CONVENTION_RECAP_DETAIL_QUERY_KEY = 'convention-recap-detail';
 export const CONVENTION_SUIT_ROSTER_QUERY_KEY = 'convention-suit-roster';
+export const CONVENTION_SUIT_ROSTER_CAUGHT_IDS_QUERY_KEY = 'convention-suit-roster-caught-ids';
 
 export const conventionRecapDetailQueryKey = (userId: string, recapId: string) =>
   [CONVENTION_RECAP_DETAIL_QUERY_KEY, userId, recapId] as const;
 
 export const conventionSuitRosterQueryKey = (userId: string, conventionId: string) =>
   [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId, conventionId] as const;
+
+export const conventionSuitRosterCaughtIdsQueryKey = (userId: string, conventionId: string) =>
+  [CONVENTION_SUIT_ROSTER_CAUGHT_IDS_QUERY_KEY, userId, conventionId] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -610,13 +617,42 @@ export async function fetchConventionSuitRoster(
       ownerUsername: row.owner_username ?? null,
       rosterVisible: row.roster_visible !== false,
       conventionCatchCount: Number(row.convention_catch_count ?? 0),
-      caughtByCurrentUser: row.caught_by_current_user === true,
     }));
 }
 
 export const createConventionSuitRosterQueryOptions = (userId: string, conventionId: string) => ({
   queryKey: conventionSuitRosterQueryKey(userId, conventionId),
   queryFn: () => fetchConventionSuitRoster(conventionId),
+  staleTime: CONVENTIONS_STALE_TIME,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
+
+export async function fetchConventionSuitRosterCaughtIds(
+  conventionId: string,
+): Promise<Set<string>> {
+  const client = supabase as SupabaseClient<Database>;
+  const { data, error } = await client.rpc('get_convention_suit_roster_caught_ids', {
+    p_convention_id: conventionId,
+  });
+
+  if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.fetchConventionSuitRosterCaughtIds',
+      conventionId,
+    });
+    throw new Error(`We couldn't load your caught suits for this roster: ${error.message}`);
+  }
+
+  return new Set((data ?? []).map((row) => row.fursuit_id).filter(Boolean));
+}
+
+export const createConventionSuitRosterCaughtIdsQueryOptions = (
+  userId: string,
+  conventionId: string,
+) => ({
+  queryKey: conventionSuitRosterCaughtIdsQueryKey(userId, conventionId),
+  queryFn: () => fetchConventionSuitRosterCaughtIds(conventionId),
   staleTime: 30_000,
   refetchOnWindowFocus: true,
   refetchOnReconnect: false,
