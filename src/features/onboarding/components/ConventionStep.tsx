@@ -42,6 +42,10 @@ function conventionBadgeText(
     return 'Ready to catch';
   }
 
+  if (membershipState === 'leaderboard_open') {
+    return 'Standings open';
+  }
+
   if (membershipState === 'needs_location_verification') {
     return 'Verify location';
   }

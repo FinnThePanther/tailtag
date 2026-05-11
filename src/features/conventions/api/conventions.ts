@@ -32,6 +32,7 @@ export type ConventionMembershipState =
   | 'awaiting_start'
   | 'needs_location_verification'
   | 'active'
+  | 'leaderboard_open'
   | 'past';
 
 export type ConventionMembership = ConventionSummary & {
@@ -479,6 +480,7 @@ function mapConventionMembership(row: any): ConventionMembership {
     row.membership_state === 'awaiting_start' ||
     row.membership_state === 'needs_location_verification' ||
     row.membership_state === 'active' ||
+    row.membership_state === 'leaderboard_open' ||
     row.membership_state === 'past'
       ? row.membership_state
       : 'upcoming';

@@ -435,14 +435,24 @@ export default function HomeScreen() {
 
   const achievementsErrorMessage = achievementsError?.message ?? null;
 
-  const availableConventions = useMemo(() => {
+  const activeConventions = useMemo(() => {
     return conventionMemberships.filter((membership) => membership.membership_state === 'active');
   }, [conventionMemberships]);
 
+  const leaderboardOpenConventions = useMemo(() => {
+    return conventionMemberships.filter(
+      (membership) => membership.membership_state === 'leaderboard_open',
+    );
+  }, [conventionMemberships]);
+
   const selectedConvention = useMemo(() => {
-    return availableConventions[0] ?? null;
-  }, [availableConventions]);
+    return activeConventions[0] ?? leaderboardOpenConventions[0] ?? null;
+  }, [activeConventions, leaderboardOpenConventions]);
   const selectedConventionId = selectedConvention?.id ?? null;
+  const activeConvention = activeConventions[0] ?? null;
+  const activeConventionId = activeConvention?.id ?? null;
+  const isSelectedConventionLeaderboardOnly =
+    selectedConvention?.membership_state === 'leaderboard_open';
   const pendingConventionMembership = useMemo(() => {
     return (
       conventionMemberships.find(
@@ -481,7 +491,7 @@ export default function HomeScreen() {
     return `${pendingConventionMembership.name} is on your list. TailTag will unlock it when the convention starts.`;
   }, [pendingConventionMembership]);
 
-  const dailyTasksQuery = useDailyTasks(userId, selectedConventionId, { suppressToasts: true });
+  const dailyTasksQuery = useDailyTasks(userId, activeConventionId, { suppressToasts: true });
   const {
     data: dailyTasksData,
     error: dailyTasksError,
@@ -498,7 +508,7 @@ export default function HomeScreen() {
   const hasDailyAssignments = dailyTotalTasks > 0;
   const showDailyError = !dailyTasksData && Boolean(dailyTasksErrorMessage);
   const dailyAllComplete = hasDailyAssignments && dailyRemainingTasks === 0;
-  const dailyTimezone = dailyTasksData?.timezone ?? selectedConvention?.timezone ?? 'UTC';
+  const dailyTimezone = dailyTasksData?.timezone ?? activeConvention?.timezone ?? 'UTC';
   const dailyResetAtLabel = useMemo(() => {
     if (!dailyTasksData?.resetAt) {
       return null;
@@ -626,7 +636,7 @@ export default function HomeScreen() {
   }, [selectedConventionId, queryClient, userId]);
 
   const membershipErrorMessage = conventionMembershipsError?.message ?? null;
-  const hasConventionAccess = availableConventions.length > 0;
+  const hasConventionAccess = Boolean(selectedConventionId);
 
   const rankByProfileId = useMemo(() => {
     return new Map(leaderboardEntries.map((entry, index) => [entry.profileId, index + 1]));
@@ -670,7 +680,7 @@ export default function HomeScreen() {
   // When there's no convention, daily tasks won't fire; gate tier 2 on achievements only.
   const tier2Ready =
     tier1Ready &&
-    (!selectedConventionId
+    (!activeConventionId
       ? achievementsQuery.data !== undefined || achievementsQuery.isError
       : rawTier2Ready);
   const tier3Ready = useAllDataReady([leaderboardQuery, suitLeaderboardQuery]);
@@ -975,10 +985,14 @@ export default function HomeScreen() {
 
           {!tier1Ready ? (
             <DailyTasksSummarySkeleton />
-          ) : !selectedConventionId ? (
+          ) : !activeConventionId ? (
             <View style={styles.helper}>
-              <Text style={styles.message}>{noPlayableConventionMessage}</Text>
-              {verificationRequiredMembership ? (
+              <Text style={styles.message}>
+                {isSelectedConventionLeaderboardOnly && selectedConvention
+                  ? `${selectedConvention.name} daily tasks have ended. Final standings remain available below.`
+                  : noPlayableConventionMessage}
+              </Text>
+              {!isSelectedConventionLeaderboardOnly && verificationRequiredMembership ? (
                 <TailTagButton
                   variant="outline"
                   size="sm"
@@ -1036,7 +1050,7 @@ export default function HomeScreen() {
             variant="outline"
             onPress={handleOpenDailyTasksFromGuidance}
             style={styles.dailyCta}
-            disabled={!selectedConventionId}
+            disabled={!activeConventionId}
           >
             View daily tasks
           </TailTagButton>
@@ -1102,8 +1116,12 @@ export default function HomeScreen() {
         </TailTagCard>
 
         <TailTagCard style={[styles.leaderboardCard, contentWidthStyle]}>
-          <Text style={styles.sectionEyebrow}>Leaderboard</Text>
-          <Text style={styles.sectionTitle}>Catch standings</Text>
+          <Text style={styles.sectionEyebrow}>
+            {isSelectedConventionLeaderboardOnly ? 'Final standings' : 'Leaderboard'}
+          </Text>
+          <Text style={styles.sectionTitle}>
+            {isSelectedConventionLeaderboardOnly ? 'Post-con standings' : 'Catch standings'}
+          </Text>
 
           {!tier1Ready ? (
             <View style={styles.leaderboardContent}>
@@ -1127,7 +1145,9 @@ export default function HomeScreen() {
           ) : hasConventionAccess ? (
             <View style={styles.leaderboardContent}>
               <Text style={styles.sectionBody}>
-                Showing top taggers for {selectedConvention?.name ?? 'your convention'}.
+                {isSelectedConventionLeaderboardOnly
+                  ? `Catching has ended for ${selectedConvention?.name ?? 'your convention'}, but standings and the fursuit roster remain available.`
+                  : `Showing top taggers for ${selectedConvention?.name ?? 'your convention'}.`}
               </Text>
 
               {selectedConventionId ? (
@@ -1208,8 +1228,9 @@ export default function HomeScreen() {
                         </View>
                         {isSelfOutsideTop && selfEntry ? (
                           <Text style={styles.leaderboardFootnote}>
-                            You're currently #{rankByProfileId.get(selfEntry.profileId)}. Keep
-                            hunting to climb the board.
+                            {isSelectedConventionLeaderboardOnly
+                              ? `You finished #${rankByProfileId.get(selfEntry.profileId)}.`
+                              : `You're currently #${rankByProfileId.get(selfEntry.profileId)}. Keep hunting to climb the board.`}
                           </Text>
                         ) : null}
                         <Pressable
@@ -1234,7 +1255,9 @@ export default function HomeScreen() {
                       </View>
                     ) : (
                       <Text style={styles.message}>
-                        No catches yet. Be the first to tag a suit at this convention.
+                        {isSelectedConventionLeaderboardOnly
+                          ? 'No catches were recorded for this convention.'
+                          : 'No catches yet. Be the first to tag a suit at this convention.'}
                       </Text>
                     )}
                   </View>

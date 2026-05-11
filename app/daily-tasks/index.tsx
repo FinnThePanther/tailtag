@@ -97,6 +97,13 @@ export default function DailyTasksScreen() {
       ) ?? null,
     [conventionMemberships],
   );
+  const leaderboardOpenConvention = useMemo(
+    () =>
+      conventionMemberships.find(
+        (membership) => membership.membership_state === 'leaderboard_open',
+      ) ?? null,
+    [conventionMemberships],
+  );
   const { verifyConvention, verificationModals, isVerifyingConvention } =
     useConventionVerificationAction({
       profileId: userId,
@@ -196,11 +203,13 @@ export default function DailyTasksScreen() {
           ) : availableConventions.length === 0 ? (
             <View style={styles.helper}>
               <Text style={styles.message}>
-                {verificationRequiredMembership
-                  ? `${verificationRequiredMembership.name} is live. Verify your location to unlock daily tasks.`
-                  : 'Join or verify a playable convention to use convention features.'}
+                {leaderboardOpenConvention
+                  ? `${leaderboardOpenConvention.name} daily tasks have ended. Final standings remain available from Home.`
+                  : verificationRequiredMembership
+                    ? `${verificationRequiredMembership.name} is live. Verify your location to unlock daily tasks.`
+                    : 'Join or verify a playable convention to use convention features.'}
               </Text>
-              {verificationRequiredMembership ? (
+              {!leaderboardOpenConvention && verificationRequiredMembership ? (
                 <TailTagButton
                   variant="outline"
                   size="sm"
@@ -317,11 +326,13 @@ export default function DailyTasksScreen() {
           {!selectedConventionId ? (
             <View style={styles.helper}>
               <Text style={styles.message}>
-                {verificationRequiredMembership
-                  ? `${verificationRequiredMembership.name} needs location verification before daily tasks unlock.`
-                  : 'Join or verify a playable convention to use convention features.'}
+                {leaderboardOpenConvention
+                  ? `${leaderboardOpenConvention.name} daily tasks have ended. Final standings remain available from Home.`
+                  : verificationRequiredMembership
+                    ? `${verificationRequiredMembership.name} needs location verification before daily tasks unlock.`
+                    : 'Join or verify a playable convention to use convention features.'}
               </Text>
-              {verificationRequiredMembership ? (
+              {!leaderboardOpenConvention && verificationRequiredMembership ? (
                 <TailTagButton
                   variant="outline"
                   size="sm"

@@ -125,6 +125,10 @@ function conventionBadgeText(
     return 'Ready to catch';
   }
 
+  if (membershipState === 'leaderboard_open') {
+    return 'Standings open';
+  }
+
   if (membershipState === 'needs_location_verification') {
     return 'Verify location';
   }
@@ -632,7 +636,9 @@ export default function SettingsScreen() {
       profileConventionMemberships
         .filter(
           (membership) =>
-            membership.membership_state === 'active' || membership.membership_state === 'past',
+            membership.membership_state === 'active' ||
+            membership.membership_state === 'leaderboard_open' ||
+            membership.membership_state === 'past',
         )
         .map((membership) => membership.convention_id),
     );

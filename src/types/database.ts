@@ -2455,6 +2455,10 @@ export type Database = {
         Args: { p_convention_id: string }
         Returns: boolean
       }
+      is_convention_leaderboard_visible: {
+        Args: { p_convention_id: string }
+        Returns: boolean
+      }
       is_convention_prejoinable: {
         Args: { p_convention_id: string }
         Returns: boolean

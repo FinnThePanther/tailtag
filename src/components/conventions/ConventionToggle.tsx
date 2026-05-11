@@ -70,17 +70,19 @@ export function ConventionToggle({
     badgeText ??
     (membershipState === 'active'
       ? 'Ready to catch'
-      : membershipState === 'needs_location_verification'
-        ? 'Verify location'
-        : membershipState === 'awaiting_start'
-          ? 'Waiting for staff start'
-          : membershipState === 'upcoming'
-            ? 'Attending'
-            : membershipState === 'past'
-              ? 'Ended'
-              : selected
-                ? 'Attending'
-                : 'Attend');
+      : membershipState === 'leaderboard_open'
+        ? 'Standings open'
+        : membershipState === 'needs_location_verification'
+          ? 'Verify location'
+          : membershipState === 'awaiting_start'
+            ? 'Waiting for staff start'
+            : membershipState === 'upcoming'
+              ? 'Attending'
+              : membershipState === 'past'
+                ? 'Ended'
+                : selected
+                  ? 'Attending'
+                  : 'Attend');
 
   const handlePress = async () => {
     // Opt-out: no verification required unless the row is explicitly asking for verification.

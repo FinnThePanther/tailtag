@@ -119,6 +119,15 @@ export default function CatchScreen() {
           ) ?? null),
     [conventionMemberships, hasActiveConvention],
   );
+  const leaderboardOpenConvention = useMemo(
+    () =>
+      hasActiveConvention
+        ? null
+        : (conventionMemberships.find(
+            (membership) => membership.membership_state === 'leaderboard_open',
+          ) ?? null),
+    [conventionMemberships, hasActiveConvention],
+  );
   const { verifyConvention, verificationModals, isVerifyingConvention } =
     useConventionVerificationAction({
       profileId: userId,
@@ -322,9 +331,11 @@ export default function CatchScreen() {
       if (activeProfileConventions.length === 0) {
         resetCatchState();
         setSubmitError(
-          verificationRequiredConvention
-            ? `${verificationRequiredConvention.name} is live. Verify your location before catching fursuits.`
-            : 'Join or verify a playable convention in Settings before catching fursuits.',
+          leaderboardOpenConvention
+            ? `Catching has ended for ${leaderboardOpenConvention.name}. Final standings remain available from Home.`
+            : verificationRequiredConvention
+              ? `${verificationRequiredConvention.name} is live. Verify your location before catching fursuits.`
+              : 'Join or verify a playable convention in Settings before catching fursuits.',
         );
         return;
       }
@@ -649,6 +660,15 @@ export default function CatchScreen() {
 
       {!caughtFursuit && userId ? (
         <View style={styles.photoCatchSpacing}>
+          {leaderboardOpenConvention ? (
+            <TailTagCard style={styles.cardSpacing}>
+              <Text style={styles.sectionTitle}>Catching has ended</Text>
+              <Text style={styles.sectionBody}>
+                {leaderboardOpenConvention.name} standings and the fursuit roster remain available
+                from Home.
+              </Text>
+            </TailTagCard>
+          ) : null}
           {verificationRequiredConvention ? (
             <TailTagCard style={styles.cardSpacing}>
               <Text style={styles.sectionTitle}>Verify location to catch</Text>
@@ -673,7 +693,7 @@ export default function CatchScreen() {
             userId={userId}
             onCatchSubmit={handlePhotoCatch}
             isSubmitting={isPhotoSubmitting}
-            disabled={Boolean(verificationRequiredConvention)}
+            disabled={!hasActiveConvention || Boolean(verificationRequiredConvention)}
             submitError={photoSubmitError}
           />
         </View>
@@ -743,7 +763,7 @@ export default function CatchScreen() {
         <TailTagButton
           onPress={handleSubmit}
           loading={isSubmitting}
-          disabled={!userId || isSubmitting}
+          disabled={!userId || isSubmitting || Boolean(leaderboardOpenConvention)}
           style={styles.fullWidthButton}
         >
           Record catch
