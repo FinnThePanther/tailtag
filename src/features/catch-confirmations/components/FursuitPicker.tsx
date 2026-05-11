@@ -61,6 +61,7 @@ export function FursuitPicker({
         value={search}
         onChangeText={setSearch}
         placeholder="Search by name…"
+        autoCorrect={false}
         style={styles.searchInput}
         editable={!disabled}
       />
