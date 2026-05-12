@@ -24,6 +24,9 @@ export const styles = StyleSheet.create({
   cameraButton: {
     borderColor: colors.primary,
   },
+  entryActions: {
+    gap: spacing.sm,
+  },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -64,6 +67,11 @@ export const styles = StyleSheet.create({
     color: colors.foreground,
     fontWeight: '600',
     fontSize: 14,
+  },
+  previewHint: {
+    color: colors.textDim,
+    fontSize: 12,
+    lineHeight: 17,
   },
   retakeButton: {
     flexDirection: 'row',

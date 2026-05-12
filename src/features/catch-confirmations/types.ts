@@ -2,6 +2,7 @@ import type { Database } from '../../types/database';
 
 export type CatchMode = Database['public']['Enums']['catch_mode'];
 export type CatchStatus = Database['public']['Enums']['catch_status'];
+export type CatchPhotoSource = 'camera' | 'gallery';
 
 export type PendingCatch = {
   catchId: string;
@@ -20,6 +21,7 @@ export type PendingCatch = {
   timeRemaining: string;
   catchPhotoPath?: string | null;
   catchPhotoUrl: string | null;
+  catchPhotoSource?: CatchPhotoSource | null;
 };
 
 /** Catches the current user made that are awaiting owner approval (catcher's view). */
@@ -33,6 +35,7 @@ export type MyPendingCatch = {
   conventionName: string;
   caughtAt: string;
   expiresAt: string | null;
+  catchPhotoSource?: CatchPhotoSource | null;
 };
 
 export type ConfirmCatchResult = {
@@ -59,4 +62,5 @@ export type CreateCatchParams = {
   hasPhoto?: boolean;
   photoPath?: string | null;
   photoUrl?: string | null;
+  photoSource?: CatchPhotoSource | null;
 };

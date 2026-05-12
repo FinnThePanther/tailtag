@@ -17,6 +17,7 @@ import {
 import { emitLocalGameplayEvent } from '../../events/localGameplayEventsBus';
 import type { Json } from '../../../types/database';
 import type {
+  CatchPhotoSource,
   PendingCatch,
   ConfirmCatchResult,
   CreateCatchResult,
@@ -104,6 +105,10 @@ function normalizeColorNames(raw: unknown): string[] {
   );
 }
 
+function normalizeCatchPhotoSource(raw: unknown): CatchPhotoSource | null {
+  return raw === 'camera' || raw === 'gallery' ? raw : null;
+}
+
 async function wakeGameplayQueue(): Promise<void> {
   const { error } = await supabase.rpc('process_gameplay_queue_if_active');
   if (error) {
@@ -156,6 +161,7 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
       path: null,
       legacyUrl: row.catch_photo_url ?? null,
     }),
+    catchPhotoSource: normalizeCatchPhotoSource(row.catch_photo_source),
   }));
 }
 
@@ -255,6 +261,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
           Boolean(params.hasPhoto) || Boolean(params.photoPath) || Boolean(params.photoUrl),
         catch_photo_path: params.photoPath ?? null,
         catch_photo_url: params.photoUrl ?? null,
+        catch_photo_source: params.photoSource ?? null,
       }),
       signal: controller.signal,
     });
@@ -285,6 +292,11 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       if (errorMessage.includes('share a playable convention')) {
         throw new Error(
           'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.',
+        );
+      }
+      if (errorMessage.includes('not accepting gallery catches')) {
+        throw new Error(
+          'This convention is no longer accepting gallery catches. Gallery catches can be submitted during the event and for three local days after it ends.',
         );
       }
       if (errorMessage.includes('already caught') || errorMessage.includes('pending')) {
@@ -380,7 +392,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
  */
 export async function updateCatchPhoto(
   catchId: string,
-  params: { photoPath: string; photoUrl?: string | null },
+  params: { photoPath: string; photoUrl?: string | null; photoSource?: 'camera' | 'gallery' },
 ): Promise<void> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -413,6 +425,7 @@ export async function updateCatchPhoto(
         catch_id: catchId,
         catch_photo_path: params.photoPath,
         catch_photo_url: resolvedPhotoUrl,
+        catch_photo_source: params.photoSource ?? 'camera',
       }),
       signal: controller.signal,
     });

@@ -24,8 +24,10 @@ export function CatchModeSwitch({
     scope === 'profile'
       ? {
           label: 'Auto-catching for all suits',
-          autoDescription: 'Catches for your suits are recorded instantly without your approval.',
-          manualDescription: 'Players must wait for you to approve catches for your suits.',
+          autoDescription:
+            'Catch codes and in-app camera catches are recorded instantly. Gallery photo catches always require approval.',
+          manualDescription:
+            'Players must wait for you to approve catches for your suits. Gallery photo catches always require approval.',
           accessibilityLabel: 'Auto-catching for all suits',
           autoHint:
             'Currently enabled for all your suits. Toggle to require manual approval for catches.',
@@ -34,8 +36,10 @@ export function CatchModeSwitch({
         }
       : {
           label: 'Auto-catching',
-          autoDescription: 'Catches are recorded instantly without requiring your approval.',
-          manualDescription: 'Players must wait for you to approve their catch before it counts.',
+          autoDescription:
+            'Catch codes and in-app camera catches are recorded instantly. Gallery photo catches always require approval.',
+          manualDescription:
+            'Players must wait for you to approve their catch before it counts. Gallery photo catches always require approval.',
           accessibilityLabel: 'Auto-catching',
           autoHint:
             'Currently enabled. Catches are recorded instantly. Toggle to require manual approval.',

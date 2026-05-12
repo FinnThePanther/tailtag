@@ -742,6 +742,38 @@ export async function fetchActiveSharedConventionIds(
   return (data ?? []).map((row: any) => row.convention_id);
 }
 
+export async function fetchGalleryProfileConventionIds(profileId: string): Promise<string[]> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('get_gallery_profile_convention_ids', {
+    p_profile_id: profileId,
+  });
+
+  if (error) {
+    throw new Error(`We couldn't load your gallery-eligible conventions: ${error.message}`);
+  }
+
+  return (data ?? []).map((row: any) => row.convention_id);
+}
+
+export async function fetchGallerySharedConventionIds(
+  profileId: string,
+  fursuitId: string,
+): Promise<string[]> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('get_gallery_shared_convention_ids', {
+    p_profile_id: profileId,
+    p_fursuit_id: fursuitId,
+  });
+
+  if (error) {
+    throw new Error(
+      `We couldn't resolve your gallery-eligible shared conventions: ${error.message}`,
+    );
+  }
+
+  return (data ?? []).map((row: any) => row.convention_id);
+}
+
 export async function optInToConvention(params: OptInParams): Promise<void> {
   const {
     profileId,
