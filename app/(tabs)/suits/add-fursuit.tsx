@@ -65,17 +65,7 @@ import type {
   FursuitBiosInsert,
   FursuitMakersInsert,
   FursuitsInsert,
-  Json,
 } from '../../../src/types/database';
-import {
-  ALLOWED_SOCIAL_PLATFORMS,
-  CUSTOM_PLATFORM_ID,
-  createEmptySocialLink,
-  createInitialSocialLinks,
-  SOCIAL_LINK_LIMIT,
-  socialLinksToSave,
-} from '../../../src/features/suits/forms/socialLinks';
-import type { EditableSocialLink } from '../../../src/features/suits/forms/socialLinks';
 import {
   createEmptyFursuitMaker,
   createInitialFursuitMakers,
@@ -159,9 +149,6 @@ export default function AddFursuitScreen() {
   const [likesInput, setLikesInput] = useState('');
   const [askMeAboutInput, setAskMeAboutInput] = useState('');
   const [makers, setMakers] = useState<EditableFursuitMaker[]>(() => createInitialFursuitMakers());
-  const [socialLinks, setSocialLinks] = useState<EditableSocialLink[]>(() =>
-    createInitialSocialLinks(),
-  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -357,10 +344,6 @@ export default function AddFursuitScreen() {
   >({});
   const [hasHydratedConventions, setHasHydratedConventions] = useState(false);
 
-  const socialLinksCanAddMore = useMemo(
-    () => socialLinks.length < SOCIAL_LINK_LIMIT,
-    [socialLinks.length],
-  );
   const makersCanAddMore = useMemo(() => makers.length < FURSUIT_MAKER_LIMIT, [makers.length]);
 
   const profileConventionIdSet = useMemo(
@@ -528,7 +511,6 @@ export default function AddFursuitScreen() {
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
     const normalizedSpeciesValue = normalizeSpeciesName(trimmedSpecies);
-    const normalizedSocialLinks = socialLinksToSave(socialLinks);
     const normalizedMakers = fursuitMakersToSave(makers);
     const selectedColorIds = selectedColors.map((color) => color.id);
 
@@ -555,17 +537,6 @@ export default function AddFursuitScreen() {
     if (hasDuplicateFursuitMakers(normalizedMakers)) {
       setSubmitError('Remove duplicate fursuit maker names before saving.');
       return;
-    }
-
-    for (const entry of normalizedSocialLinks) {
-      if (!entry.label || !entry.url) {
-        setSubmitError('Fill in both the label and URL for each social link.');
-        return;
-      }
-      if (!/^https?:\/\//i.test(entry.url)) {
-        setSubmitError('Links should include http:// or https:// so we can open them.');
-        return;
-      }
     }
 
     const allowedConventionIds = Array.from(selectedConventionIds).filter((id) =>
@@ -714,7 +685,7 @@ export default function AddFursuitScreen() {
         pronouns: pronounsValue,
         likes_and_interests: trimmedLikes,
         ask_me_about: trimmedAskMeAbout,
-        social_links: normalizedSocialLinks as unknown as Json,
+        social_links: [],
       };
 
       const { error: bioError } = await (supabase as any).from('fursuit_bios').insert(bioPayload);
@@ -732,7 +703,6 @@ export default function AddFursuitScreen() {
       setLikesInput('');
       setAskMeAboutInput('');
       setMakers(createInitialFursuitMakers());
-      setSocialLinks(createInitialSocialLinks());
       setSelectedConventionIds(new Set());
       setConventionRosterSettingsById({});
       setHasHydratedConventions(true);
@@ -801,27 +771,6 @@ export default function AddFursuitScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleSocialLinkChange = useCallback(
-    (id: string, field: 'platformId' | 'handle' | 'label' | 'url', value: string) => {
-      setSocialLinks((current) =>
-        current.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry)),
-      );
-    },
-    [],
-  );
-
-  const handleAddSocialLink = () => {
-    if (!socialLinksCanAddMore) return;
-    setSocialLinks((current) => [...current, createEmptySocialLink()]);
-  };
-
-  const handleRemoveSocialLink = (id: string) => {
-    setSocialLinks((current) => {
-      const next = current.filter((entry) => entry.id !== id);
-      return next.length > 0 ? next : [createEmptySocialLink()];
-    });
   };
 
   const handleMakerNameChange = useCallback((id: string, value: string) => {
@@ -1167,158 +1116,6 @@ export default function AddFursuitScreen() {
               textAlignVertical="top"
               style={styles.textArea}
             />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Social links</Text>
-            <Text style={styles.helperLabel}>
-              Add the places where catchers can follow you. Pick a platform and enter your username.
-            </Text>
-            <View style={styles.socialList}>
-              {socialLinks.map((entry, index) => {
-                const usedPlatformIds = socialLinks
-                  .filter(
-                    (e) => e.id !== entry.id && e.platformId && e.platformId !== CUSTOM_PLATFORM_ID,
-                  )
-                  .map((e) => e.platformId);
-                const isCustom = entry.platformId === CUSTOM_PLATFORM_ID;
-                return (
-                  <View
-                    key={entry.id}
-                    style={styles.socialRow}
-                  >
-                    <View style={styles.socialPlatformChips}>
-                      {ALLOWED_SOCIAL_PLATFORMS.map((platform) => {
-                        const isSelected = entry.platformId === platform.id;
-                        const isUsedElsewhere = usedPlatformIds.includes(platform.id);
-                        return (
-                          <Pressable
-                            key={platform.id}
-                            onPress={() =>
-                              !isUsedElsewhere &&
-                              handleSocialLinkChange(entry.id, 'platformId', platform.id)
-                            }
-                            disabled={isSubmitting || isUsedElsewhere}
-                            style={[
-                              styles.socialPlatformChip,
-                              isSelected && styles.socialPlatformChipSelected,
-                              isUsedElsewhere && styles.socialPlatformChipDisabled,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.socialPlatformChipText,
-                                isSelected && styles.socialPlatformChipTextSelected,
-                                isUsedElsewhere && styles.socialPlatformChipTextDisabled,
-                              ]}
-                            >
-                              {platform.label}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                      <Pressable
-                        onPress={() =>
-                          handleSocialLinkChange(entry.id, 'platformId', CUSTOM_PLATFORM_ID)
-                        }
-                        disabled={isSubmitting}
-                        style={[
-                          styles.socialPlatformChip,
-                          isCustom && styles.socialPlatformChipSelected,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.socialPlatformChipText,
-                            isCustom && styles.socialPlatformChipTextSelected,
-                          ]}
-                        >
-                          Custom
-                        </Text>
-                      </Pressable>
-                    </View>
-                    {isCustom ? (
-                      <View style={styles.socialCustomInputs}>
-                        <TailTagInput
-                          value={entry.label ?? ''}
-                          onChangeText={(value) => handleSocialLinkChange(entry.id, 'label', value)}
-                          placeholder="Label (e.g. Mastodon, Website)"
-                          editable={!isSubmitting}
-                          returnKeyType="next"
-                          style={styles.socialInput}
-                        />
-                        <View style={styles.socialInputRow}>
-                          <TailTagInput
-                            value={entry.url ?? ''}
-                            onChangeText={(value) => handleSocialLinkChange(entry.id, 'url', value)}
-                            placeholder="https://example.com/you"
-                            editable={!isSubmitting}
-                            autoCapitalize="none"
-                            keyboardType="url"
-                            returnKeyType={index === socialLinks.length - 1 ? 'done' : 'next'}
-                            onSubmitEditing={
-                              index === socialLinks.length - 1 ? handleSubmit : undefined
-                            }
-                            style={styles.socialInput}
-                          />
-                          <TailTagButton
-                            variant="ghost"
-                            size="sm"
-                            onPress={() => handleRemoveSocialLink(entry.id)}
-                            disabled={isSubmitting}
-                            style={styles.socialRemoveButton}
-                          >
-                            Remove
-                          </TailTagButton>
-                        </View>
-                      </View>
-                    ) : (
-                      <View style={styles.socialInputRow}>
-                        <TailTagInput
-                          value={entry.handle}
-                          onChangeText={(value) =>
-                            handleSocialLinkChange(entry.id, 'handle', value)
-                          }
-                          placeholder="Handle"
-                          editable={!isSubmitting}
-                          autoCapitalize="none"
-                          autoComplete="off"
-                          importantForAutofill="no"
-                          keyboardType="default"
-                          returnKeyType={index === socialLinks.length - 1 ? 'done' : 'next'}
-                          onSubmitEditing={
-                            index === socialLinks.length - 1 ? handleSubmit : undefined
-                          }
-                          style={styles.socialInput}
-                          textContentType="none"
-                        />
-                        <TailTagButton
-                          variant="ghost"
-                          size="sm"
-                          onPress={() => handleRemoveSocialLink(entry.id)}
-                          disabled={isSubmitting}
-                          style={styles.socialRemoveButton}
-                        >
-                          Remove
-                        </TailTagButton>
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-            {socialLinksCanAddMore ? (
-              <TailTagButton
-                variant="outline"
-                size="sm"
-                onPress={handleAddSocialLink}
-                disabled={isSubmitting}
-              >
-                Add another link
-              </TailTagButton>
-            ) : (
-              <Text style={styles.helperLabel}>You can add up to {SOCIAL_LINK_LIMIT} links.</Text>
-            )}
           </View>
 
           <View style={styles.fieldGroup}>

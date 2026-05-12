@@ -322,7 +322,7 @@ function mapConventionRecapCaughtFursuits(raw: unknown): ConventionRecapCaughtFu
         pronouns: asNullableString(entry.pronouns),
         askMeAbout: asNullableString(entry.ask_me_about),
         likesAndInterests: asNullableString(entry.likes_and_interests),
-        socialLinks: parseSocialLinks(entry.social_links),
+        socialLinks: [] as FursuitSocialLink[],
       } satisfies ConventionRecapCaughtFursuit;
     })
     .filter((entry): entry is ConventionRecapCaughtFursuit => Boolean(entry));
@@ -412,6 +412,46 @@ function mapConventionRecapDetail(raw: unknown): ConventionRecapDetail {
     achievements: mapConventionRecapAchievements(source.achievements),
     dailySummary: mapConventionRecapDailySummary(source.daily_summary),
     awards: mapConventionRecapAwards(source.awards),
+  };
+}
+
+async function applyProfileSocialLinksToConventionRecapDetail(
+  detail: ConventionRecapDetail,
+): Promise<ConventionRecapDetail> {
+  const ownerIds = Array.from(
+    new Set(
+      detail.caughtFursuits
+        .map((fursuit) => fursuit.ownerId)
+        .filter((ownerId): ownerId is string => Boolean(ownerId)),
+    ),
+  );
+
+  if (ownerIds.length === 0) {
+    return detail;
+  }
+
+  const client = supabase as any;
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, social_links')
+    .in('id', ownerIds);
+
+  if (error) {
+    throw new Error(`We couldn't load convention recap social links: ${error.message}`);
+  }
+
+  const socialLinksByOwnerId = new Map<string, FursuitSocialLink[]>();
+  for (const profile of data ?? []) {
+    if (!profile?.id) continue;
+    socialLinksByOwnerId.set(profile.id, parseSocialLinks(profile.social_links));
+  }
+
+  return {
+    ...detail,
+    caughtFursuits: detail.caughtFursuits.map((fursuit) => ({
+      ...fursuit,
+      socialLinks: fursuit.ownerId ? (socialLinksByOwnerId.get(fursuit.ownerId) ?? []) : [],
+    })),
   };
 }
 
@@ -570,7 +610,7 @@ export async function fetchConventionRecapDetail(
     return null;
   }
 
-  return mapConventionRecapDetail(data[0]);
+  return applyProfileSocialLinksToConventionRecapDetail(mapConventionRecapDetail(data[0]));
 }
 
 export const createConventionRecapDetailQueryOptions = (userId: string, recapId: string) => ({

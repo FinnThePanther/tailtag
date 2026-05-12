@@ -1,6 +1,11 @@
 import { supabase } from '../../../lib/supabase';
 import type { FursuitConvention, FursuitSummary } from '../types';
-import { mapFursuitColors, mapLatestFursuitBio } from './utils';
+import {
+  applyProfileSocialLinksToBio,
+  mapFursuitColors,
+  mapLatestFursuitBio,
+  parseSocialLinks,
+} from './utils';
 import { fetchFursuitMakersByFursuitIds } from './makers';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
@@ -71,6 +76,9 @@ export async function fetchMySuits(
         social_links,
         created_at,
         updated_at
+      ),
+      owner_profile:profiles!fursuits_owner_id_fkey (
+        social_links
       )
     `,
     )
@@ -105,7 +113,10 @@ export async function fetchMySuits(
         roster_visible: entry.roster_visible !== false,
       }));
 
-    const bio = mapLatestFursuitBio(item.fursuit_bios ?? null);
+    const bio = applyProfileSocialLinksToBio(
+      mapLatestFursuitBio(item.fursuit_bios ?? null),
+      parseSocialLinks(item.owner_profile?.social_links ?? null),
+    );
     const speciesEntry = item.species_entry ?? null;
     const speciesName = speciesEntry?.name ?? null;
     const speciesId = speciesEntry?.id ?? item.species_id ?? null;
