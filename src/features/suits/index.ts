@@ -45,6 +45,8 @@ export {
   mapLatestFursuitBio,
   mapFursuitColors,
   mapFursuitMakers,
+  applyProfileSocialLinksToBio,
+  parseSocialLinks,
 } from './api/utils';
 export { fetchFursuitMakersByFursuitIds } from './api/makers';
 export {

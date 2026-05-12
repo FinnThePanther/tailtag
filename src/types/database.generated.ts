@@ -950,7 +950,6 @@ export type Database = {
           color_assignments: Json;
           convention_catch_count: number;
           convention_id: string;
-          caught_by_current_user: boolean;
           fursuit_avatar_path: string | null;
           fursuit_avatar_url: string | null;
           fursuit_id: string;
@@ -960,6 +959,12 @@ export type Database = {
           roster_visible: boolean;
           species_id: string | null;
           species_name: string | null;
+        }[];
+      };
+      get_convention_suit_roster_caught_ids: {
+        Args: { p_convention_id: string };
+        Returns: {
+          fursuit_id: string;
         }[];
       };
       get_pending_catch_count: { Args: { p_user_id: string }; Returns: number };

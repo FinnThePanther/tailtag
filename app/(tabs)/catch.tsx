@@ -10,8 +10,10 @@ import {
   FursuitBioDetails,
   fursuitBioHasDisplayableContent,
   CAUGHT_SUITS_QUERY_KEY,
+  applyProfileSocialLinksToBio,
   mapLatestFursuitBio,
   mapFursuitColors,
+  parseSocialLinks,
   fetchFursuitMakersByFursuitIds,
   fursuitDetailQueryKey,
 } from '../../src/features/suits';
@@ -264,6 +266,9 @@ export default function CatchScreen() {
             social_links,
             created_at,
             updated_at
+          ),
+          owner_profile:profiles!fursuits_owner_id_fkey (
+            social_links
           )
         `,
         )
@@ -305,7 +310,10 @@ export default function CatchScreen() {
         catch_count: initialCatchCount,
         owner_id: fursuit.owner_id,
         created_at: fursuit.created_at ?? null,
-        bio: mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
+        bio: applyProfileSocialLinksToBio(
+          mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
+          parseSocialLinks((fursuit as any)?.owner_profile?.social_links ?? null),
+        ),
         colors: mapFursuitColors((fursuit as any)?.color_assignments ?? null),
         makers: makersByFursuitId.get(fursuit.id) ?? [],
         is_tutorial: fursuit.is_tutorial === true,
@@ -532,6 +540,9 @@ export default function CatchScreen() {
             social_links,
             created_at,
             updated_at
+          ),
+          owner_profile:profiles!fursuits_owner_id_fkey (
+            social_links
           )
         `,
         )
@@ -563,7 +574,10 @@ export default function CatchScreen() {
           typeof (fursuit as any)?.catch_count === 'number' ? (fursuit as any).catch_count : 0,
         owner_id: fursuit.owner_id,
         created_at: fursuit.created_at ?? null,
-        bio: mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
+        bio: applyProfileSocialLinksToBio(
+          mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
+          parseSocialLinks((fursuit as any)?.owner_profile?.social_links ?? null),
+        ),
         colors: mapFursuitColors((fursuit as any)?.color_assignments ?? null),
         makers: makersByFursuitId.get(fursuit.id) ?? [],
         is_tutorial: false,
@@ -587,10 +601,13 @@ export default function CatchScreen() {
             .map((v) => v?.trim())
             .find((v) => v)
         : null;
+      const displayedCatchCount = catchResult.requiresApproval
+        ? normalizedFursuit.catch_count
+        : normalizedFursuit.catch_count + 1;
 
       setCaughtFursuit({
         ...normalizedFursuit,
-        catch_count: normalizedFursuit.catch_count + 1,
+        catch_count: displayedCatchCount,
       });
       setCatchRecord({
         id: catchResult.catchId,

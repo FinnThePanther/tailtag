@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
 
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -17,7 +17,9 @@ import {
 } from '../../src/features/catch-confirmations';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
+import { PullToRefreshHint } from '../../src/components/ui/PullToRefreshHint';
 import { useAuth } from '../../src/features/auth';
+import { usePullToRefreshHint } from '../../src/hooks/usePullToRefreshHint';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/(tabs)/caught.styles';
 
@@ -41,6 +43,7 @@ export default function CaughtSuitsScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const router = useRouter();
+  const listRef = useRef<FlatList<CaughtRecord>>(null);
   const caughtSuitsKey = useMemo(() => [CAUGHT_SUITS_QUERY_KEY, userId] as const, [userId]);
 
   const queryClient = useQueryClient();
@@ -85,6 +88,17 @@ export default function CaughtSuitsScreen() {
   }, [refetch, refetchMyPendingCatches]);
 
   const errorMessage = error?.message ?? null;
+  const pullHint = usePullToRefreshHint({ isRefreshing: isRefetching });
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isRefetching) {
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToOffset({ offset: 0, animated: false });
+        });
+      }
+    }, [isRefetching]),
+  );
 
   const renderItem = useCallback(
     ({ item }: { item: CaughtRecord }) => (
@@ -143,6 +157,7 @@ export default function CaughtSuitsScreen() {
 
   return (
     <FlatList
+      ref={listRef}
       style={styles.list}
       contentContainerStyle={styles.container}
       data={records}
@@ -151,11 +166,17 @@ export default function CaughtSuitsScreen() {
       ItemSeparatorComponent={ItemSeparator}
       ListHeaderComponent={
         <View>
+          <PullToRefreshHint state={pullHint.state} />
           <ListHeader />
           <PendingConfirmationsList pendingCatches={myPendingCatches} />
         </View>
       }
       ListEmptyComponent={ListEmptyComponent}
+      onScroll={pullHint.onScroll}
+      onScrollBeginDrag={pullHint.onScrollBeginDrag}
+      onScrollEndDrag={pullHint.onScrollEndDrag}
+      onMomentumScrollEnd={pullHint.onMomentumScrollEnd}
+      scrollEventThrottle={16}
       refreshControl={
         <RefreshControl
           refreshing={isRefetching}

@@ -251,6 +251,10 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         convention_id: params.conventionId,
         is_tutorial: params.isTutorial ?? false,
         force_pending: params.forcePending ?? false,
+        has_photo:
+          Boolean(params.hasPhoto) || Boolean(params.photoPath) || Boolean(params.photoUrl),
+        catch_photo_path: params.photoPath ?? null,
+        catch_photo_url: params.photoUrl ?? null,
       }),
       signal: controller.signal,
     });

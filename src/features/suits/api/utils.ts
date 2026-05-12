@@ -47,7 +47,7 @@ const coerceString = (value: unknown): string => {
   return String(value);
 };
 
-const parseSocialLinks = (value: unknown): FursuitSocialLink[] => {
+export const parseSocialLinks = (value: unknown): FursuitSocialLink[] => {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -72,6 +72,36 @@ const parseSocialLinks = (value: unknown): FursuitSocialLink[] => {
       } satisfies FursuitSocialLink;
     })
     .filter(Boolean) as FursuitSocialLink[];
+};
+
+export const applyProfileSocialLinksToBio = (
+  bio: FursuitBio | null,
+  socialLinks: FursuitSocialLink[],
+): FursuitBio | null => {
+  if (bio) {
+    const socialLinksToUse = socialLinks.length > 0 ? socialLinks : bio.socialLinks;
+
+    return {
+      ...bio,
+      socialLinks: socialLinksToUse,
+    };
+  }
+
+  if (socialLinks.length === 0) {
+    return null;
+  }
+
+  return {
+    version: 1,
+    ownerName: '',
+    photoCredit: '',
+    pronouns: '',
+    likesAndInterests: '',
+    askMeAbout: '',
+    socialLinks,
+    createdAt: null,
+    updatedAt: null,
+  } satisfies FursuitBio;
 };
 
 export const mapFursuitBio = (raw: unknown): FursuitBio | null => {

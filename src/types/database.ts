@@ -2249,7 +2249,6 @@ export type Database = {
       get_convention_suit_roster: {
         Args: { p_convention_id: string }
         Returns: {
-          caught_by_current_user: boolean
           color_assignments: Json
           convention_catch_count: number
           convention_id: string
@@ -2262,6 +2261,12 @@ export type Database = {
           roster_visible: boolean
           species_id: string
           species_name: string
+        }[]
+      }
+      get_convention_suit_roster_caught_ids: {
+        Args: { p_convention_id: string }
+        Returns: {
+          fursuit_id: string
         }[]
       }
       get_event_dashboard_summary: {
