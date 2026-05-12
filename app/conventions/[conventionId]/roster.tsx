@@ -116,16 +116,13 @@ export default function ConventionSuitRosterScreen() {
           table: 'catches',
           filter: `convention_id=eq.${conventionId}`,
         },
-        (payload) => {
-          const row = (payload.new ?? payload.old ?? {}) as { catcher_id?: string };
-          if (row.catcher_id === userId) {
-            void queryClient.invalidateQueries({
-              queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId, conventionId],
-            });
-            void queryClient.invalidateQueries({
-              queryKey: [CONVENTION_SUIT_ROSTER_CAUGHT_IDS_QUERY_KEY, userId, conventionId],
-            });
-          }
+        () => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId, conventionId],
+          });
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_SUIT_ROSTER_CAUGHT_IDS_QUERY_KEY, userId, conventionId],
+          });
         },
       )
       .subscribe();

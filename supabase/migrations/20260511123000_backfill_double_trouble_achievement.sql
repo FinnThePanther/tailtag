@@ -37,7 +37,7 @@ qualifying_pairs as (
   join accepted_catches c2
     on c2.catcher_id = c1.catcher_id
    and c2.id <> c1.id
-   and c2.caught_at > c1.caught_at
+   and c2.caught_at >= c1.caught_at
    and c2.caught_at <= c1.caught_at + interval '60 seconds'
 ),
 selected_pairs as (
