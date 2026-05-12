@@ -94,6 +94,7 @@ export function PhotoCatchCard({
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: 'images',
       allowsEditing: false,
+      cameraType: ImagePicker.CameraType.front,
       quality: 1.0,
     });
 
@@ -106,7 +107,10 @@ export function PhotoCatchCard({
     setIsProcessingPhoto(true);
     setLocalError(null);
     try {
-      const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.catchPhoto);
+      const processed = await processImageForUpload(asset.uri, {
+        ...IMAGE_UPLOAD_PRESETS.catchPhoto,
+        flipHorizontal: true,
+      });
       setPhoto({
         uri: processed.uri,
         mimeType: 'image/jpeg',

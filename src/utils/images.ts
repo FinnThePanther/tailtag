@@ -1,4 +1,4 @@
-import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import { FlipType, ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { extractStoragePathFromUrl } from './supabase-image';
 
 export type ImageAssetMetadata = {
@@ -83,6 +83,7 @@ type ProcessImageOptions = {
   maxDimension: number;
   quality?: number;
   format?: 'jpeg' | 'png';
+  flipHorizontal?: boolean;
 };
 
 type ProcessedImage = {
@@ -96,7 +97,7 @@ export async function processImageForUpload(
   sourceUri: string,
   options: ProcessImageOptions,
 ): Promise<ProcessedImage> {
-  const { maxDimension, quality = 0.85, format = 'jpeg' } = options;
+  const { maxDimension, quality = 0.85, format = 'jpeg', flipHorizontal = false } = options;
   const saveFormat = format === 'png' ? SaveFormat.PNG : SaveFormat.JPEG;
 
   // Render without transformation to read dimensions
@@ -104,12 +105,25 @@ export async function processImageForUpload(
   const { width, height } = probe;
 
   const scale = Math.min(maxDimension / width, maxDimension / height, 1);
-  const imageRef =
-    scale < 1
-      ? await ImageManipulator.manipulate(sourceUri)
-          .resize({ width: Math.round(width * scale), height: Math.round(height * scale) })
-          .renderAsync()
-      : probe;
+  const shouldTransform = scale < 1 || flipHorizontal;
+  let imageRef = probe;
+
+  if (shouldTransform) {
+    let manipulator = ImageManipulator.manipulate(sourceUri);
+
+    if (scale < 1) {
+      manipulator = manipulator.resize({
+        width: Math.round(width * scale),
+        height: Math.round(height * scale),
+      });
+    }
+
+    if (flipHorizontal) {
+      manipulator = manipulator.flip(FlipType.Horizontal);
+    }
+
+    imageRef = await manipulator.renderAsync();
+  }
 
   const saved = await imageRef.saveAsync({ format: saveFormat, compress: quality });
 
