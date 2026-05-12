@@ -23,8 +23,10 @@ import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
 import type { FursuitSummary } from '../../../src/features/suits';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
+import { PullToRefreshHint } from '../../../src/components/ui/PullToRefreshHint';
 import { useAuth } from '../../../src/features/auth';
 import { getIncompleteFursuitProfiles } from '../../../src/features/profile-guidance';
+import { usePullToRefreshHint } from '../../../src/hooks/usePullToRefreshHint';
 import { colors } from '../../../src/theme';
 import { toDisplayDate } from '../../../src/utils/dates';
 import { styles } from '../../../src/app-styles/(tabs)/suits/index.styles';
@@ -41,6 +43,7 @@ export default function MySuitsScreen() {
   const suitsQueryKey = useMemo(() => mySuitsQueryKey(userId ?? 'guest'), [userId]);
   const pendingCatchesKey = useMemo(() => pendingCatchesQueryKey(userId ?? ''), [userId]);
   const autoEnrollNoticeShownRef = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   const queryClient = useQueryClient();
   const {
@@ -121,6 +124,19 @@ export default function MySuitsScreen() {
     await Promise.all([refetch({ throwOnError: false }), refetchPendingCatches()]);
   }, [refetch, refetchPendingCatches]);
 
+  const isRefreshing = isRefetching || isPendingCatchesRefetching;
+  const pullHint = usePullToRefreshHint({ isRefreshing });
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isRefreshing) {
+        requestAnimationFrame(() => {
+          scrollRef.current?.scrollTo({ y: 0, animated: false });
+        });
+      }
+    }, [isRefreshing]),
+  );
+
   const hasSuits = suits.length > 0;
   const hasConventionListedSuits = useMemo(
     () => suits.some((suit) => suit.conventions.length > 0),
@@ -193,17 +209,25 @@ export default function MySuitsScreen() {
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.scroll}
       contentContainerStyle={styles.container}
       alwaysBounceVertical
+      onScroll={pullHint.onScroll}
+      onScrollBeginDrag={pullHint.onScrollBeginDrag}
+      onScrollEndDrag={pullHint.onScrollEndDrag}
+      onMomentumScrollEnd={pullHint.onMomentumScrollEnd}
+      scrollEventThrottle={16}
       refreshControl={
         <RefreshControl
-          refreshing={isRefetching || isPendingCatchesRefetching}
+          refreshing={isRefreshing}
           onRefresh={handleRefresh}
           tintColor={colors.primary}
         />
       }
     >
+      <PullToRefreshHint state={pullHint.state} />
+
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Your suits</Text>
         <Text style={styles.title}>Suit deck</Text>
