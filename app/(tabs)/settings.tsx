@@ -1904,12 +1904,6 @@ export default function SettingsScreen() {
               value={displayPushToggleOn}
               onValueChange={handleTogglePush}
               disabled={!canTogglePush}
-              trackColor={{
-                false: 'rgba(148,163,184,0.3)',
-                true: colors.primaryDark,
-              }}
-              thumbColor={displayPushToggleOn ? colors.primary : 'rgba(203,213,225,0.9)'}
-              ios_backgroundColor="rgba(148,163,184,0.3)"
               accessibilityRole="switch"
               accessibilityLabel="Enable push notifications"
               accessibilityHint="Toggle push notifications on or off."
