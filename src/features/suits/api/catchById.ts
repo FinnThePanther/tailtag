@@ -1,6 +1,11 @@
 import { supabase } from '../../../lib/supabase';
 import type { FursuitSummary } from '../types';
-import { mapFursuitColors, mapLatestFursuitBio } from './utils';
+import {
+  applyProfileSocialLinksToBio,
+  mapFursuitColors,
+  mapLatestFursuitBio,
+  parseSocialLinks,
+} from './utils';
 import { fetchFursuitMakersByFursuitIds } from './makers';
 import type { CaughtRecord } from './caughtSuits';
 import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET } from '../../../constants/storage';
@@ -52,6 +57,9 @@ const CATCH_SELECT = `
       social_links,
       created_at,
       updated_at
+    ),
+    owner_profile:profiles!fursuits_owner_id_fkey (
+      social_links
     )
   )
 `;
@@ -103,7 +111,10 @@ export async function fetchCatchById(catchId: string): Promise<CaughtRecord | nu
         created_at: rawFursuit.created_at ?? null,
         conventions: [],
         makers: makersByFursuitId.get(rawFursuit.id) ?? [],
-        bio: mapLatestFursuitBio(rawFursuit.fursuit_bios ?? null),
+        bio: applyProfileSocialLinksToBio(
+          mapLatestFursuitBio(rawFursuit.fursuit_bios ?? null),
+          parseSocialLinks(rawFursuit.owner_profile?.social_links ?? null),
+        ),
       }
     : null;
 

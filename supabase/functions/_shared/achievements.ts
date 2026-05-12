@@ -1306,7 +1306,7 @@ async function hasSecondCatchWithinMinute(
 ) {
   const occurredAt = new Date(occurredAtIso);
   const windowStart = new Date(occurredAt.getTime() - 60_000).toISOString();
-  const windowEnd = occurredAt.toISOString();
+  const windowEnd = new Date(occurredAt.getTime() + 60_000).toISOString();
 
   const { data, error } = await supabaseAdmin
     .from('catches')

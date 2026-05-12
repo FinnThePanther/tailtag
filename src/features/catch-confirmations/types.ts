@@ -56,4 +56,7 @@ export type CreateCatchParams = {
   conventionId: string | null;
   isTutorial?: boolean;
   forcePending?: boolean;
+  hasPhoto?: boolean;
+  photoPath?: string | null;
+  photoUrl?: string | null;
 };

@@ -580,9 +580,6 @@ export default function HomeScreen() {
           void queryClient.invalidateQueries({
             queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId],
           });
-          void queryClient.invalidateQueries({
-            queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId ?? 'guest', selectedConventionId],
-          });
         },
       )
       .subscribe();

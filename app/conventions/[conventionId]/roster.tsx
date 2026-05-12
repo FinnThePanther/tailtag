@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, Text, View } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -12,8 +12,10 @@ import { TailTagInput } from '../../../src/components/ui/TailTagInput';
 import { useAuth } from '../../../src/features/auth';
 import {
   CONVENTION_SUIT_ROSTER_QUERY_KEY,
+  CONVENTION_SUIT_ROSTER_CAUGHT_IDS_QUERY_KEY,
+  createConventionSuitRosterCaughtIdsQueryOptions,
   createConventionSuitRosterQueryOptions,
-  type ConventionSuitRosterEntry,
+  type ConventionSuitRosterViewEntry,
 } from '../../../src/features/conventions';
 import { supabase } from '../../../src/lib/supabase';
 import { colors } from '../../../src/theme';
@@ -24,10 +26,10 @@ type RosterFilter = 'all' | 'not-caught' | 'caught';
 const formatCount = (count: number, singular: string, plural = `${singular}s`) =>
   count === 1 ? `1 ${singular}` : `${count} ${plural}`;
 
-const colorLine = (entry: ConventionSuitRosterEntry) =>
+const colorLine = (entry: ConventionSuitRosterViewEntry) =>
   entry.colors.map((color) => color.name).join(', ');
 
-const buildSearchText = (entry: ConventionSuitRosterEntry) =>
+const buildSearchText = (entry: ConventionSuitRosterViewEntry) =>
   [entry.name, entry.species, entry.ownerUsername, ...entry.colors.map((color) => color.name)]
     .filter((value): value is string => Boolean(value))
     .join(' ')
@@ -46,11 +48,11 @@ export default function ConventionSuitRosterScreen() {
   const [activeFilter, setActiveFilter] = useState<RosterFilter>('all');
 
   const {
-    data: rosterEntries = [],
-    error,
-    isLoading,
-    refetch,
-  } = useQuery<ConventionSuitRosterEntry[], Error>(
+    data: rosterMetadataEntries = [],
+    error: rosterError,
+    isLoading: isRosterLoading,
+    refetch: refetchRoster,
+  } = useQuery(
     conventionId && userId
       ? createConventionSuitRosterQueryOptions(userId, conventionId)
       : {
@@ -58,6 +60,30 @@ export default function ConventionSuitRosterScreen() {
           queryFn: async () => [],
           enabled: false,
         },
+  );
+
+  const {
+    data: caughtFursuitIds = new Set<string>(),
+    error: caughtIdsError,
+    isLoading: areCaughtIdsLoading,
+    refetch: refetchCaughtIds,
+  } = useQuery(
+    conventionId && userId
+      ? createConventionSuitRosterCaughtIdsQueryOptions(userId, conventionId)
+      : {
+          queryKey: [CONVENTION_SUIT_ROSTER_CAUGHT_IDS_QUERY_KEY, userId ?? 'guest', 'idle'],
+          queryFn: async () => new Set<string>(),
+          enabled: false,
+        },
+  );
+
+  const rosterEntries = useMemo<ConventionSuitRosterViewEntry[]>(
+    () =>
+      rosterMetadataEntries.map((entry) => ({
+        ...entry,
+        caughtByCurrentUser: caughtFursuitIds.has(entry.fursuitId),
+      })),
+    [caughtFursuitIds, rosterMetadataEntries],
   );
 
   useEffect(() => {
@@ -90,7 +116,14 @@ export default function ConventionSuitRosterScreen() {
           table: 'catches',
           filter: `convention_id=eq.${conventionId}`,
         },
-        invalidateRoster,
+        () => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId, conventionId],
+          });
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_SUIT_ROSTER_CAUGHT_IDS_QUERY_KEY, userId, conventionId],
+          });
+        },
       )
       .subscribe();
 
@@ -120,6 +153,9 @@ export default function ConventionSuitRosterScreen() {
           if (row.blocker_id === userId || row.blocked_id === userId) {
             void queryClient.invalidateQueries({
               queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId, conventionId],
+            });
+            void queryClient.invalidateQueries({
+              queryKey: [CONVENTION_SUIT_ROSTER_CAUGHT_IDS_QUERY_KEY, userId, conventionId],
             });
           }
         },
@@ -173,6 +209,157 @@ export default function ConventionSuitRosterScreen() {
   })();
 
   const title = conventionName ? `${conventionName} Fursuit Roster` : 'Fursuit Roster';
+  const error = rosterError ?? caughtIdsError;
+  const isLoading = isRosterLoading || (rosterMetadataEntries.length > 0 && areCaughtIdsLoading);
+
+  const handleRetry = useCallback(() => {
+    void refetchRoster({ throwOnError: false });
+    void refetchCaughtIds({ throwOnError: false });
+  }, [refetchCaughtIds, refetchRoster]);
+
+  const renderRosterEntry = useCallback(
+    ({ item: entry }: { item: ConventionSuitRosterViewEntry }) => {
+      const colorsText = colorLine(entry);
+      const metaParts = [entry.species, colorsText].filter(Boolean);
+      const ownerText = entry.ownerUsername ? `@${entry.ownerUsername}` : 'Unnamed player';
+
+      return (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`View ${entry.name}'s fursuit profile`}
+          onPress={() =>
+            router.push({
+              pathname: '/fursuits/[id]',
+              params: { id: entry.fursuitId },
+            })
+          }
+          style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+        >
+          <AppAvatar
+            url={entry.avatarUrl}
+            size="md"
+            fallback="fursuit"
+          />
+          <View style={styles.rowDetails}>
+            <View style={styles.rowTitleLine}>
+              <Text
+                style={styles.suitName}
+                numberOfLines={1}
+              >
+                {entry.name}
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={colors.textMuted}
+              />
+            </View>
+            <Text
+              style={styles.meta}
+              numberOfLines={1}
+            >
+              {ownerText}
+            </Text>
+            {metaParts.length > 0 ? (
+              <Text
+                style={styles.meta}
+                numberOfLines={1}
+              >
+                {metaParts.join(' · ')}
+              </Text>
+            ) : null}
+            <View style={styles.badgeRow}>
+              {entry.caughtByCurrentUser ? (
+                <View style={[styles.badge, styles.badgeSuccess]}>
+                  <Text style={[styles.badgeText, styles.badgeTextSuccess]}>Caught</Text>
+                </View>
+              ) : (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>Not caught</Text>
+                </View>
+              )}
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {formatCount(entry.conventionCatchCount, 'catch', 'catches')}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Pressable>
+      );
+    },
+    [router],
+  );
+
+  const ListHeader = (
+    <View style={styles.headerContent}>
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryPill}>
+          <Text style={styles.summaryValue}>{counts.all}</Text>
+          <Text style={styles.summaryLabel}>All suits</Text>
+        </View>
+        <View style={styles.summaryPill}>
+          <Text style={styles.summaryValue}>{counts.notCaught}</Text>
+          <Text style={styles.summaryLabel}>Not caught</Text>
+        </View>
+        <View style={styles.summaryPill}>
+          <Text style={styles.summaryValue}>{counts.caught}</Text>
+          <Text style={styles.summaryLabel}>Caught</Text>
+        </View>
+      </View>
+
+      <TailTagInput
+        value={searchInput}
+        onChangeText={setSearchInput}
+        placeholder="Search suits, players, species, colors"
+        autoCapitalize="none"
+        autoCorrect={false}
+        style={styles.searchInput}
+      />
+
+      <View style={styles.filterRow}>
+        {[
+          ['all', `All (${counts.all})`],
+          ['not-caught', `Not caught (${counts.notCaught})`],
+          ['caught', `Caught (${counts.caught})`],
+        ].map(([filter, label]) => {
+          const isActive = activeFilter === filter;
+          return (
+            <Pressable
+              key={filter}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
+              onPress={() => setActiveFilter(filter as RosterFilter)}
+              style={({ pressed }) => [
+                styles.filterButton,
+                isActive && styles.filterButtonActive,
+                pressed && styles.filterButtonPressed,
+              ]}
+            >
+              <Text style={[styles.filterText, isActive && styles.filterTextActive]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+
+  const ListEmpty = isLoading ? (
+    <Text style={styles.message}>Loading roster…</Text>
+  ) : error ? (
+    <View style={styles.errorBlock}>
+      <Text style={styles.error}>{error.message}</Text>
+      <TailTagButton
+        variant="outline"
+        size="sm"
+        onPress={handleRetry}
+      >
+        Try again
+      </TailTagButton>
+    </View>
+  ) : (
+    <Text style={styles.message}>{emptyMessage}</Text>
+  );
 
   return (
     <View style={styles.wrapper}>
@@ -180,149 +367,16 @@ export default function ConventionSuitRosterScreen() {
         title={title}
         onBack={() => router.back()}
       />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryPill}>
-            <Text style={styles.summaryValue}>{counts.all}</Text>
-            <Text style={styles.summaryLabel}>All suits</Text>
-          </View>
-          <View style={styles.summaryPill}>
-            <Text style={styles.summaryValue}>{counts.notCaught}</Text>
-            <Text style={styles.summaryLabel}>Not caught</Text>
-          </View>
-          <View style={styles.summaryPill}>
-            <Text style={styles.summaryValue}>{counts.caught}</Text>
-            <Text style={styles.summaryLabel}>Caught</Text>
-          </View>
-        </View>
-
-        <TailTagInput
-          value={searchInput}
-          onChangeText={setSearchInput}
-          placeholder="Search suits, players, species, colors"
-          autoCapitalize="none"
-          autoCorrect={false}
-          style={styles.searchInput}
-        />
-
-        <View style={styles.filterRow}>
-          {[
-            ['all', `All (${counts.all})`],
-            ['not-caught', `Not caught (${counts.notCaught})`],
-            ['caught', `Caught (${counts.caught})`],
-          ].map(([filter, label]) => {
-            const isActive = activeFilter === filter;
-            return (
-              <Pressable
-                key={filter}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                onPress={() => setActiveFilter(filter as RosterFilter)}
-                style={({ pressed }) => [
-                  styles.filterButton,
-                  isActive && styles.filterButtonActive,
-                  pressed && styles.filterButtonPressed,
-                ]}
-              >
-                <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {isLoading ? (
-          <Text style={styles.message}>Loading roster…</Text>
-        ) : error ? (
-          <View style={styles.errorBlock}>
-            <Text style={styles.error}>{error.message}</Text>
-            <TailTagButton
-              variant="outline"
-              size="sm"
-              onPress={() => void refetch({ throwOnError: false })}
-            >
-              Try again
-            </TailTagButton>
-          </View>
-        ) : filteredEntries.length === 0 ? (
-          <Text style={styles.message}>{emptyMessage}</Text>
-        ) : (
-          <View style={styles.list}>
-            {filteredEntries.map((entry) => {
-              const colorsText = colorLine(entry);
-              const metaParts = [entry.species, colorsText].filter(Boolean);
-              const ownerText = entry.ownerUsername ? `@${entry.ownerUsername}` : 'Unnamed player';
-
-              return (
-                <Pressable
-                  key={entry.fursuitId}
-                  accessibilityRole="button"
-                  accessibilityLabel={`View ${entry.name}'s fursuit profile`}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/fursuits/[id]',
-                      params: { id: entry.fursuitId },
-                    })
-                  }
-                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                >
-                  <AppAvatar
-                    url={entry.avatarUrl}
-                    size="md"
-                    fallback="fursuit"
-                  />
-                  <View style={styles.rowDetails}>
-                    <View style={styles.rowTitleLine}>
-                      <Text
-                        style={styles.suitName}
-                        numberOfLines={1}
-                      >
-                        {entry.name}
-                      </Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={colors.textMuted}
-                      />
-                    </View>
-                    <Text
-                      style={styles.meta}
-                      numberOfLines={1}
-                    >
-                      {ownerText}
-                    </Text>
-                    {metaParts.length > 0 ? (
-                      <Text
-                        style={styles.meta}
-                        numberOfLines={1}
-                      >
-                        {metaParts.join(' · ')}
-                      </Text>
-                    ) : null}
-                    <View style={styles.badgeRow}>
-                      {entry.caughtByCurrentUser ? (
-                        <View style={[styles.badge, styles.badgeSuccess]}>
-                          <Text style={[styles.badgeText, styles.badgeTextSuccess]}>Caught</Text>
-                        </View>
-                      ) : (
-                        <View style={styles.badge}>
-                          <Text style={styles.badgeText}>Not caught</Text>
-                        </View>
-                      )}
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>
-                          {formatCount(entry.conventionCatchCount, 'catch', 'catches')}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-      </ScrollView>
+      <FlatList
+        data={error || isLoading ? [] : filteredEntries}
+        keyExtractor={(entry) => entry.fursuitId}
+        renderItem={renderRosterEntry}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={ListEmpty}
+        ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      />
     </View>
   );
 }

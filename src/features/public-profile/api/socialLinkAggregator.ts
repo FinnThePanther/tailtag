@@ -1,12 +1,11 @@
 import type { FursuitSocialLink } from '../../../types/database';
-import type { FursuitSummary } from '../../suits/types';
 
 function normalizeUrl(url: string): string {
   return url.trim().toLowerCase().replace(/\/+$/, '');
 }
 
 export function aggregateSocialLinks(
-  fursuits: FursuitSummary[],
+  _fursuits: unknown[],
   profileLinks: FursuitSocialLink[] = [],
 ): FursuitSocialLink[] {
   const seen = new Set<string>();
@@ -24,14 +23,6 @@ export function aggregateSocialLinks(
   // User-level links take priority — add them first
   for (const link of profileLinks) {
     addLink(link);
-  }
-
-  // Then aggregate from all fursuit bios, deduplicating against profile links
-  for (const fursuit of fursuits) {
-    if (!fursuit.bio?.socialLinks) continue;
-    for (const link of fursuit.bio.socialLinks) {
-      addLink(link);
-    }
   }
 
   return result;
