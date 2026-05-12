@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
 
 import { styles } from './PullToRefreshHint.styles';
-import type { PullRefreshHintState } from '../../hooks/usePullToRefreshHint';
+import type { PullRefreshHintState } from '@/hooks/usePullToRefreshHint';
 
 type PullToRefreshHintProps = {
   state: PullRefreshHintState;

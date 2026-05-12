@@ -719,7 +719,7 @@ async function handlePatch(req: Request): Promise<Response> {
                     catcher_id: catchCtx.catcher_id,
                     fursuit_id: catchCtx.fursuit_id,
                     fursuit_name: fursuitName,
-                    catcher_username: catcherUsername || 'Someone',
+                    catcher_username: catcherUsername,
                   },
                 })
               : { error: null };

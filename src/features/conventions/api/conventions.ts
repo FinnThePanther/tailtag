@@ -437,7 +437,10 @@ async function applyProfileSocialLinksToConventionRecapDetail(
     .in('id', ownerIds);
 
   if (error) {
-    throw new Error(`We couldn't load convention recap social links: ${error.message}`);
+    captureSupabaseError(error, {
+      scope: 'conventions.applyProfileSocialLinksToConventionRecapDetail',
+    });
+    return detail;
   }
 
   const socialLinksByOwnerId = new Map<string, FursuitSocialLink[]>();
@@ -681,7 +684,7 @@ export async function fetchConventionSuitRosterCaughtIds(
       scope: 'conventions.fetchConventionSuitRosterCaughtIds',
       conventionId,
     });
-    throw new Error(`We couldn't load your caught suits for this roster: ${error.message}`);
+    return new Set();
   }
 
   return new Set((data ?? []).map((row) => row.fursuit_id).filter(Boolean));

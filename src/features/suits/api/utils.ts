@@ -79,9 +79,11 @@ export const applyProfileSocialLinksToBio = (
   socialLinks: FursuitSocialLink[],
 ): FursuitBio | null => {
   if (bio) {
+    const socialLinksToUse = socialLinks.length > 0 ? socialLinks : bio.socialLinks;
+
     return {
       ...bio,
-      socialLinks,
+      socialLinks: socialLinksToUse,
     };
   }
 
