@@ -587,10 +587,13 @@ export default function CatchScreen() {
             .map((v) => v?.trim())
             .find((v) => v)
         : null;
+      const displayedCatchCount = catchResult.requiresApproval
+        ? normalizedFursuit.catch_count
+        : normalizedFursuit.catch_count + 1;
 
       setCaughtFursuit({
         ...normalizedFursuit,
-        catch_count: normalizedFursuit.catch_count + 1,
+        catch_count: displayedCatchCount,
       });
       setCatchRecord({
         id: catchResult.catchId,

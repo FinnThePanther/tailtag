@@ -12,7 +12,7 @@ import { CATCH_PHOTO_BUCKET } from '../../../constants/storage';
 import { loadUriAsUint8Array } from '../../../utils/files';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { buildAuthenticatedStorageObjectUrl } from '../../../utils/supabase-image';
-import { createCatch, updateCatchPhoto, fetchConventionFursuits } from '../api/confirmations';
+import { createCatch, fetchConventionFursuits } from '../api/confirmations';
 import { fetchActiveProfileConventionIds, fetchActiveSharedConventionIds } from '../../conventions';
 import { FursuitPicker } from './FursuitPicker';
 import type { FursuitPickerItem } from '../api';
@@ -163,26 +163,8 @@ export function PhotoCatchCard({
       return;
     }
 
-    // Step 2: Create the catch record first — before uploading the photo.
-    // This way, if the catch is invalid (duplicate, own fursuit, etc.) we fail
-    // fast without wasting a storage upload.
-    let catchResult: CreateCatchResult;
-    try {
-      catchResult = await createCatch({
-        fursuitId: selectedFursuit.id,
-        conventionId: sharedConventionId,
-        isTutorial: false,
-        forcePending: true,
-      });
-    } catch (error) {
-      setLocalError(
-        error instanceof Error ? error.message : "Couldn't create catch. Please try again.",
-      );
-      setIsUploadingPhoto(false);
-      return;
-    }
-
-    // Step 3: Upload the photo. On failure, roll back the catch.
+    // Step 2: Upload the photo first so auto-accepted photo catches never fire
+    // gameplay events before the photo exists on the catch record.
     let photoUrl: string;
     let storagePath: string;
     try {
@@ -202,30 +184,30 @@ export function PhotoCatchCard({
 
       photoUrl = buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, storagePath);
     } catch {
-      // Roll back the catch so it doesn't sit in the owner's pending queue without a photo
-      await Promise.resolve(supabase.from('catches').delete().eq('id', catchResult.catchId)).catch(
-        () => {},
-      );
       setLocalError("Couldn't upload your photo. Please check your connection and try again.");
       setIsUploadingPhoto(false);
       return;
     }
 
-    // Step 4: Attach the photo URL to the catch. On failure, roll back both.
+    // Step 3: Create the catch with the uploaded photo attached server-side.
+    let catchResult: CreateCatchResult;
     try {
-      await updateCatchPhoto(catchResult.catchId, {
+      catchResult = await createCatch({
+        fursuitId: selectedFursuit.id,
+        conventionId: sharedConventionId,
+        isTutorial: false,
+        hasPhoto: true,
         photoPath: storagePath,
         photoUrl,
       });
-    } catch {
-      await Promise.resolve(supabase.from('catches').delete().eq('id', catchResult.catchId)).catch(
-        () => {},
-      );
+    } catch (error) {
       await supabase.storage
         .from(CATCH_PHOTO_BUCKET)
         .remove([storagePath])
         .catch(() => {});
-      setLocalError("Couldn't save your photo. Please check your connection and try again.");
+      setLocalError(
+        error instanceof Error ? error.message : "Couldn't create catch. Please try again.",
+      );
       setIsUploadingPhoto(false);
       return;
     }
@@ -255,8 +237,7 @@ export function PhotoCatchCard({
         <Text style={styles.title}>Photo Catch</Text>
       </View>
       <Text style={styles.subtitle}>
-        Take a selfie with a fursuiter to log the catch. The owner will review your photo before it
-        counts.
+        Take a selfie with a fursuiter to log the catch. Approval follows their catch setting.
       </Text>
 
       {step === 'idle' ? (
@@ -356,7 +337,9 @@ export function PhotoCatchCard({
           size={14}
           color="rgba(148,163,184,0.6)"
         />
-        <Text style={styles.infoText}>Photo catches always require owner approval.</Text>
+        <Text style={styles.infoText}>
+          Photo catches use the fursuiter&apos;s approval setting.
+        </Text>
       </View>
     </TailTagCard>
   );

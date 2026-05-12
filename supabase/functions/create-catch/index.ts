@@ -46,6 +46,9 @@ interface CreateCatchRequest {
   convention_id?: string | null;
   is_tutorial?: boolean;
   force_pending?: boolean;
+  has_photo?: boolean;
+  catch_photo_path?: string | null;
+  catch_photo_url?: string | null;
 }
 
 interface UpdateCatchPhotoRequest {
@@ -364,6 +367,10 @@ async function handlePost(req: Request): Promise<Response> {
     return jsonResponse(400, { error: 'Missing fursuit_id' });
   }
 
+  if (body.has_photo === true && !body.catch_photo_url) {
+    return jsonResponse(400, { error: 'Missing catch_photo_url' });
+  }
+
   try {
     // Check if catcher and fursuit owner have blocked each other
     const { data: fursuitRow } = await supabaseAdmin
@@ -428,6 +435,25 @@ async function handlePost(req: Request): Promise<Response> {
       body.convention_id ?? null,
     );
 
+    if (body.has_photo === true) {
+      const { error: photoUpdateError } = await supabaseAdmin
+        .from('catches')
+        .update({
+          catch_photo_path: body.catch_photo_path ?? null,
+          catch_photo_url: body.catch_photo_url,
+        })
+        .eq('id', result.catch_id);
+
+      if (photoUpdateError) {
+        await supabaseAdmin.from('catches').delete().eq('id', result.catch_id);
+        console.error(
+          '[create-catch] Failed to attach photo during catch creation:',
+          photoUpdateError,
+        );
+        return jsonResponse(500, { error: 'Failed to attach photo to catch' });
+      }
+    }
+
     // Fetch fursuit metadata (species + colors) for enriching the event payload.
     // Also fetch fursuit name + catcher username for owner-facing notifications.
     // These run in parallel so we don't add latency.
@@ -440,9 +466,8 @@ async function handlePost(req: Request): Promise<Response> {
     };
     let hasMakerMatchWithCatcherOwnedSuit = false;
     let isNewMakerForCatcherAtConvention = false;
-    const shouldNotifyPendingCatch = result.requires_approval && !body.force_pending;
-    const shouldNotifyAcceptedCatch =
-      !result.requires_approval && !body.force_pending && !body.is_tutorial;
+    const shouldNotifyPendingCatch = result.requires_approval;
+    const shouldNotifyAcceptedCatch = !result.requires_approval && !body.is_tutorial;
 
     try {
       const fursuitPromise = (async () =>
@@ -458,8 +483,6 @@ async function handlePost(req: Request): Promise<Response> {
           .eq('fursuit_id', body.fursuit_id)
           .order('position', { ascending: true }))();
       const makersPromise = fetchFursuitMakerMetadata(body.fursuit_id);
-      // For photo catches (force_pending = true), the notification is sent after the
-      // photo URL is attached (PATCH handler), so we skip fetching catcher here.
       const catcherPromise =
         shouldNotifyPendingCatch || shouldNotifyAcceptedCatch
           ? (async () =>
@@ -497,9 +520,6 @@ async function handlePost(req: Request): Promise<Response> {
       hasMakerMatchWithCatcherOwnedSuit = makerMatch;
       isNewMakerForCatcherAtConvention = hasNewMaker;
 
-      // Send approval notification for non-photo catches only.
-      // Photo catches (force_pending = true) delay notification until after the photo URL
-      // is attached in the PATCH handler, so the owner sees the photo immediately.
       if (shouldNotifyPendingCatch && fursuitResult.data && catcherResult?.data) {
         const { error: notifError } = await supabaseAdmin.rpc('notify_catch_pending', {
           p_catch_id: result.catch_id,
@@ -663,7 +683,7 @@ async function handlePatch(req: Request): Promise<Response> {
     const { data: catchCtx, error: catchCtxError } = await supabaseAdmin
       .from('catches')
       .select(
-        'catcher_id, fursuit_id, fursuits!catches_fursuit_id_fkey(owner_id, name), profiles!catches_catcher_id_fkey(username)',
+        'catcher_id, fursuit_id, status, fursuits!catches_fursuit_id_fkey(owner_id, name), profiles!catches_catcher_id_fkey(username)',
       )
       .eq('id', body.catch_id)
       .single();
@@ -675,17 +695,38 @@ async function handlePatch(req: Request): Promise<Response> {
     if (catchCtx) {
       const fursuit = Array.isArray(catchCtx.fursuits) ? catchCtx.fursuits[0] : catchCtx.fursuits;
       const profile = Array.isArray(catchCtx.profiles) ? catchCtx.profiles[0] : catchCtx.profiles;
+      const fursuitOwnerId = (fursuit as { owner_id: string } | null)?.owner_id;
+      const fursuitName = (fursuit as { name: string } | null)?.name ?? 'Unknown Fursuit';
+      const catcherUsername = (profile as { username: string } | null)?.username ?? 'Someone';
+      const catchStatus = (catchCtx as { status?: string }).status;
 
-      const { error: notifError } = await supabaseAdmin.rpc('notify_catch_pending', {
-        p_catch_id: body.catch_id,
-        p_fursuit_owner_id: (fursuit as { owner_id: string } | null)?.owner_id,
-        p_catcher_id: catchCtx.catcher_id,
-        p_fursuit_name: (fursuit as { name: string } | null)?.name ?? 'Unknown Fursuit',
-        p_catcher_username: (profile as { username: string } | null)?.username ?? 'Someone',
-      });
+      if (fursuitOwnerId) {
+        const { error: notifError } =
+          catchStatus === 'PENDING'
+            ? await supabaseAdmin.rpc('notify_catch_pending', {
+                p_catch_id: body.catch_id,
+                p_fursuit_owner_id: fursuitOwnerId,
+                p_catcher_id: catchCtx.catcher_id,
+                p_fursuit_name: fursuitName,
+                p_catcher_username: catcherUsername,
+              })
+            : catchStatus === 'ACCEPTED'
+              ? await supabaseAdmin.from('notifications').insert({
+                  user_id: fursuitOwnerId,
+                  type: 'fursuit_caught',
+                  payload: {
+                    catch_id: body.catch_id,
+                    catcher_id: catchCtx.catcher_id,
+                    fursuit_id: catchCtx.fursuit_id,
+                    fursuit_name: fursuitName,
+                    catcher_username: catcherUsername || 'Someone',
+                  },
+                })
+              : { error: null };
 
-      if (notifError) {
-        console.error('[create-catch] Failed to send photo catch notification:', notifError);
+        if (notifError) {
+          console.error('[create-catch] Failed to send photo catch notification:', notifError);
+        }
       }
     }
   } catch (notifError) {
