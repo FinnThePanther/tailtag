@@ -413,6 +413,20 @@ export async function updateCatchPhoto(
   try {
     const resolvedPhotoUrl =
       params.photoUrl ?? buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, params.photoPath);
+    const requestBody: {
+      catch_id: string;
+      catch_photo_path: string;
+      catch_photo_url: string;
+      catch_photo_source?: 'camera' | 'gallery';
+    } = {
+      catch_id: catchId,
+      catch_photo_path: params.photoPath,
+      catch_photo_url: resolvedPhotoUrl,
+    };
+
+    if (params.photoSource) {
+      requestBody.catch_photo_source = params.photoSource;
+    }
 
     const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
       method: 'PATCH',
@@ -421,12 +435,7 @@ export async function updateCatchPhoto(
         apikey: supabaseKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        catch_id: catchId,
-        catch_photo_path: params.photoPath,
-        catch_photo_url: resolvedPhotoUrl,
-        catch_photo_source: params.photoSource ?? 'camera',
-      }),
+      body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
 

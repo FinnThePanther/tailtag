@@ -417,7 +417,7 @@ async function handlePost(req: Request): Promise<Response> {
       p_catcher_id: userId,
       p_convention_id: body.convention_id || null,
       p_is_tutorial: body.is_tutorial || false,
-      p_force_pending: body.force_pending || catchPhotoSource === 'gallery' || false,
+      p_force_pending: body.force_pending || catchPhotoSource === 'gallery',
       p_catch_photo_source: catchPhotoSource,
     });
 
