@@ -1,12 +1,14 @@
 import { error, fail } from '@sveltejs/kit';
 import { fetchConventions, fetchPlayerProfile, fetchUserBlocks } from '$lib/server/data';
 import { banUserAction, unbanUserAction } from '$lib/server/actions/players';
+import { requireAdminDataContext } from '$lib/server/auth';
 
-export async function load({ params }) {
+export async function load({ cookies, params, setHeaders }) {
+  const { supabase } = await requireAdminDataContext(cookies, undefined, setHeaders);
   const [{ profile, moderationSummary, actions }, conventions, blocks] = await Promise.all([
-    fetchPlayerProfile(params.id),
-    fetchConventions(),
-    fetchUserBlocks(params.id),
+    fetchPlayerProfile(supabase, params.id),
+    fetchConventions(supabase),
+    fetchUserBlocks(supabase, params.id),
   ]);
 
   if (!profile) {

@@ -1,4 +1,4 @@
-import { createServiceRoleClient } from '$lib/server/supabase/service';
+import type { ServiceRoleClient } from '$lib/server/supabase/service';
 
 export type ConventionAnalytics = {
   conventionId: string;
@@ -36,8 +36,10 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
-export async function fetchConventionAnalytics(conventionId: string): Promise<ConventionAnalytics> {
-  const supabase = createServiceRoleClient();
+export async function fetchConventionAnalytics(
+  supabase: ServiceRoleClient,
+  conventionId: string,
+): Promise<ConventionAnalytics> {
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
 
@@ -66,13 +68,16 @@ export async function fetchConventionAnalytics(conventionId: string): Promise<Co
   };
 }
 
-export async function fetchAllConventionAnalytics(conventionIds: string[]) {
-  return Promise.all(conventionIds.map((id) => fetchConventionAnalytics(id)));
+export async function fetchAllConventionAnalytics(
+  supabase: ServiceRoleClient,
+  conventionIds: string[],
+) {
+  return Promise.all(conventionIds.map((id) => fetchConventionAnalytics(supabase, id)));
 }
 
-export async function fetchCatchModeExperimentResults(): Promise<CatchModeExperimentResult[]> {
-  const supabase = createServiceRoleClient();
-
+export async function fetchCatchModeExperimentResults(
+  supabase: ServiceRoleClient,
+): Promise<CatchModeExperimentResult[]> {
   const { data, error } = await (supabase as any)
     .from('catch_mode_default_experiment_results')
     .select(

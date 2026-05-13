@@ -2,6 +2,7 @@ import { redirect, type Cookies } from '@sveltejs/kit';
 
 import type { Database } from '$types/database';
 import { createServerSupabaseClient } from '$lib/server/supabase/server';
+import { createServiceRoleClient } from '$lib/server/supabase/service';
 
 export type AdminRole = 'owner' | 'organizer' | 'staff' | 'moderator';
 export const adminRoles: AdminRole[] = ['owner', 'organizer', 'staff', 'moderator'];
@@ -57,6 +58,20 @@ export async function requireAdminProfile(cookies: Cookies, allowed: AdminRole[]
     throw redirect(303, '/login?error=forbidden');
   }
   return { session, profile };
+}
+
+export async function requireAdminDataContext(
+  cookies: Cookies,
+  allowed: AdminRole[] = adminRoles,
+  setHeaders?: (headers: Record<string, string>) => void,
+) {
+  setHeaders?.({ 'cache-control': 'no-store' });
+  const { session, profile } = await requireAdminProfile(cookies, allowed);
+  return {
+    session,
+    profile,
+    supabase: createServiceRoleClient(),
+  };
 }
 
 export async function assertAdminAction(cookies: Cookies, allowed: AdminRole[] = adminRoles) {

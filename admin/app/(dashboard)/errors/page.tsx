@@ -1,9 +1,11 @@
 import { Card } from '@/components/card';
 import { Table } from '@/components/table';
 import { fetchAdminErrors } from '@/lib/data';
+import { requireAdminDataContext } from '@/lib/auth';
 
 export default async function ErrorsPage() {
-  const errors = await fetchAdminErrors(50);
+  const { supabase } = await requireAdminDataContext();
+  const errors = await fetchAdminErrors(supabase, 50);
 
   return (
     <Card

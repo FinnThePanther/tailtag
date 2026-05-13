@@ -5,12 +5,14 @@ import { Card } from '@/components/card';
 import { Table } from '@/components/table';
 import { fetchConventions, fetchPlayerProfile, fetchUserBlocks } from '@/lib/data';
 import { ModerationPanel } from '@/components/moderation-panel';
+import { requireAdminDataContext } from '@/lib/auth';
 
 export default async function PlayerDetail({ params }: { params: { id: string } }) {
+  const { supabase } = await requireAdminDataContext();
   const [{ profile, moderationSummary, actions }, conventions, blocks] = await Promise.all([
-    fetchPlayerProfile(params.id),
-    fetchConventions(),
-    fetchUserBlocks(params.id),
+    fetchPlayerProfile(supabase, params.id),
+    fetchConventions(supabase),
+    fetchUserBlocks(supabase, params.id),
   ]);
 
   if (!profile) {

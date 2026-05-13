@@ -12,3 +12,5 @@ export function createServiceRoleClient() {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
+
+export type ServiceRoleClient = ReturnType<typeof createServiceRoleClient>;

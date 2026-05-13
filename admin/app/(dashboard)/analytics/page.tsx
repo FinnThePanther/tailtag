@@ -6,12 +6,17 @@ import { Table } from '@/components/table';
 import { fetchConventions } from '@/lib/data';
 import { fetchAllConventionAnalytics, fetchCatchModeExperimentResults } from '@/lib/analytics';
 import { SimulateCatchForm } from '@/components/simulate-catch-form';
+import { requireAdminDataContext } from '@/lib/auth';
 
 export default async function AnalyticsPage() {
-  const conventions = await fetchConventions();
+  const { supabase } = await requireAdminDataContext();
+  const conventions = await fetchConventions(supabase);
   const [analytics, catchModeExperimentResults] = await Promise.all([
-    fetchAllConventionAnalytics(conventions.map((c) => c.id)),
-    fetchCatchModeExperimentResults(),
+    fetchAllConventionAnalytics(
+      supabase,
+      conventions.map((c) => c.id),
+    ),
+    fetchCatchModeExperimentResults(supabase),
   ]);
 
   const rows = conventions.map((c) => {

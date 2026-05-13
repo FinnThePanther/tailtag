@@ -5,12 +5,17 @@ import {
 } from '$lib/server/analytics';
 import { fetchConventions } from '$lib/server/data';
 import { simulateCatchAction } from '$lib/server/actions/analytics';
+import { requireAdminDataContext } from '$lib/server/auth';
 
-export async function load() {
-  const conventions = await fetchConventions();
+export async function load({ cookies, setHeaders }) {
+  const { supabase } = await requireAdminDataContext(cookies, undefined, setHeaders);
+  const conventions = await fetchConventions(supabase);
   const [analytics, catchModeExperimentResults] = await Promise.all([
-    fetchAllConventionAnalytics(conventions.map((c) => c.id)),
-    fetchCatchModeExperimentResults(),
+    fetchAllConventionAnalytics(
+      supabase,
+      conventions.map((c) => c.id),
+    ),
+    fetchCatchModeExperimentResults(supabase),
   ]);
 
   return {

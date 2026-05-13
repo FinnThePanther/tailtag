@@ -1,11 +1,13 @@
 import { fail } from '@sveltejs/kit';
 import { fetchConventions, fetchStaffAssignments } from '$lib/server/data';
 import { addStaffAssignment, removeStaffAssignment } from '$lib/server/actions/staff';
+import { requireAdminDataContext } from '$lib/server/auth';
 
-export async function load() {
+export async function load({ cookies, setHeaders }) {
+  const { supabase } = await requireAdminDataContext(cookies, undefined, setHeaders);
   const [assignments, conventions] = await Promise.all([
-    fetchStaffAssignments(),
-    fetchConventions(),
+    fetchStaffAssignments(supabase),
+    fetchConventions(supabase),
   ]);
   return { assignments, conventions };
 }

@@ -9,7 +9,7 @@ import {
   fetchConventionTasks,
 } from '$lib/server/data';
 import { isDevSupabaseProject } from '$lib/server/env';
-import { createServiceRoleClient } from '$lib/server/supabase/service';
+import { requireAdminDataContext } from '$lib/server/auth';
 import {
   closeConventionAction,
   createConventionAchievementAction,
@@ -31,13 +31,13 @@ import {
   updateConventionTaskAction,
 } from '$lib/server/actions/conventions';
 
-export async function load({ params, url }) {
-  const { convention, staff } = await fetchConvention(params.id);
+export async function load({ cookies, params, setHeaders, url }) {
+  const { supabase } = await requireAdminDataContext(cookies, undefined, setHeaders);
+  const { convention, staff } = await fetchConvention(supabase, params.id);
   if (!convention) throw error(404, 'Convention not found');
-  const supabase = createServiceRoleClient();
   const [tasks, achievements, readiness, health] = await Promise.all([
-    fetchConventionTasks(params.id),
-    fetchConventionAchievements(params.id),
+    fetchConventionTasks(supabase, params.id),
+    fetchConventionAchievements(supabase, params.id),
     buildConventionReadiness(convention, supabase),
     buildConventionLifecycleHealth(convention, supabase),
   ]);

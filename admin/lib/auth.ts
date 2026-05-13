@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation';
+import { unstable_noStore as noStore } from 'next/cache';
 
 import type { Database } from '@/types/database';
 import { createServerSupabaseClient } from './supabase/server';
+import { createServiceRoleClient } from './supabase/service';
 
 export type AdminRole = 'owner' | 'organizer' | 'staff' | 'moderator';
 export const adminRoles: AdminRole[] = ['owner', 'organizer', 'staff', 'moderator'];
@@ -65,6 +67,16 @@ export async function requireAdminProfile(allowed: AdminRole[] = adminRoles) {
     redirect('/login?error=forbidden');
   }
   return { session, profile };
+}
+
+export async function requireAdminDataContext(allowed: AdminRole[] = adminRoles) {
+  noStore();
+  const { session, profile } = await requireAdminProfile(allowed);
+  return {
+    session,
+    profile,
+    supabase: createServiceRoleClient(),
+  };
 }
 
 export async function assertAdminAction(allowed: AdminRole[] = adminRoles) {

@@ -1,4 +1,4 @@
-import { createServiceRoleClient } from './supabase/service';
+import type { ServiceRoleClient } from './supabase/service';
 import type { AdminProfile } from './auth';
 import type { Database } from '@/types/database';
 import { resolveAdminMediaUrl } from './storage';
@@ -43,8 +43,7 @@ const CONVENTION_LIST_COLUMNS = [
 
 export type ConventionListRow = Pick<ConventionRow, (typeof CONVENTION_LIST_COLUMNS)[number]>;
 
-export async function fetchDashboardSummary() {
-  const supabase = createServiceRoleClient();
+export async function fetchDashboardSummary(supabase: ServiceRoleClient) {
   const [players, suspended, conventions, pendingReports] = await Promise.all([
     supabase.from('profiles').select('id', { count: 'exact', head: true }),
     supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_suspended', true),
@@ -63,15 +62,17 @@ export async function fetchDashboardSummary() {
   };
 }
 
-export async function fetchPlayerSearch(params: {
-  search?: string;
-  role?: Database['public']['Enums']['user_role'] | null;
-  conventionId?: string | null;
-  isSuspended?: boolean | null;
-  page?: number;
-  pageSize?: number;
-}) {
-  const supabase = createServiceRoleClient();
+export async function fetchPlayerSearch(
+  supabase: ServiceRoleClient,
+  params: {
+    search?: string;
+    role?: Database['public']['Enums']['user_role'] | null;
+    conventionId?: string | null;
+    isSuspended?: boolean | null;
+    page?: number;
+    pageSize?: number;
+  },
+) {
   const pageSize = params.pageSize ?? 20;
   const offset = ((params.page ?? 1) - 1) * pageSize;
 
@@ -97,9 +98,7 @@ export async function fetchPlayerSearch(params: {
   }));
 }
 
-export async function fetchPlayerProfile(userId: string) {
-  const supabase = createServiceRoleClient();
-
+export async function fetchPlayerProfile(supabase: ServiceRoleClient, userId: string) {
   const [{ data: profile }, { data: moderationSummary }, { data: actions }] = await Promise.all([
     supabase
       .from('profiles')
@@ -134,8 +133,7 @@ export async function fetchPlayerProfile(userId: string) {
   };
 }
 
-export async function fetchConventions(): Promise<ConventionListRow[]> {
-  const supabase = createServiceRoleClient();
+export async function fetchConventions(supabase: ServiceRoleClient): Promise<ConventionListRow[]> {
   const { data, error } = await supabase
     .from('conventions')
     .select(CONVENTION_LIST_COLUMNS.join(', '))
@@ -158,12 +156,13 @@ type EventStaffAssignment = {
     | { username?: string | null; avatar_url?: string | null; role?: string | null }[];
 };
 
-export async function fetchConvention(conventionId: string): Promise<{
+export async function fetchConvention(
+  supabase: ServiceRoleClient,
+  conventionId: string,
+): Promise<{
   convention: ConventionListRow | null;
   staff: EventStaffAssignment[];
 }> {
-  const supabase = createServiceRoleClient();
-
   // TODO: Create event_staff table in database
   const { data: conventionData, error: conventionError } = await supabase
     .from('conventions')
@@ -214,9 +213,10 @@ type UserBlockRow = {
   created_at: string;
 };
 
-export async function fetchUserBlocks(userId: string): Promise<UserBlockRow[]> {
-  const supabase = createServiceRoleClient();
-
+export async function fetchUserBlocks(
+  supabase: ServiceRoleClient,
+  userId: string,
+): Promise<UserBlockRow[]> {
   const [{ data: blockedByUser }, { data: blockedByOthers }] = await Promise.all([
     supabase
       .from('user_blocks')
@@ -254,8 +254,7 @@ export async function fetchUserBlocks(userId: string): Promise<UserBlockRow[]> {
   return results;
 }
 
-export async function fetchAuditLogs(limit = 50) {
-  const supabase = createServiceRoleClient();
+export async function fetchAuditLogs(supabase: ServiceRoleClient, limit = 50) {
   const { data, error } = await supabase
     .from('audit_log')
     .select('id, actor_id, action, entity_type, entity_id, created_at, context')
@@ -273,8 +272,7 @@ export function isOwner(profile: AdminProfile) {
   return profile.role === 'owner';
 }
 
-export async function fetchStaffAssignments() {
-  const supabase = createServiceRoleClient();
+export async function fetchStaffAssignments(supabase: ServiceRoleClient) {
   const { data, error } = await supabase
     .from('event_staff')
     .select(
@@ -320,8 +318,7 @@ type TagWithMeta = {
   } | null;
 };
 
-export async function fetchTags(limit = 50): Promise<TagWithMeta[]> {
-  const supabase = createServiceRoleClient();
+export async function fetchTags(supabase: ServiceRoleClient, limit = 50): Promise<TagWithMeta[]> {
   const { data, error } = await supabase
     .from('tags')
     .select(
@@ -383,8 +380,7 @@ export async function fetchTags(limit = 50): Promise<TagWithMeta[]> {
   }));
 }
 
-export async function fetchTagActivity(tagId: string) {
-  const supabase = createServiceRoleClient();
+export async function fetchTagActivity(supabase: ServiceRoleClient, tagId: string) {
   const { data, error } = await supabase
     .from('tag_scans')
     .select('scan_method, result, created_at, scanner_user_id')
@@ -400,14 +396,16 @@ export async function fetchTagActivity(tagId: string) {
   return data;
 }
 
-export async function fetchTagScanLogs(params: {
-  tagId?: string | null;
-  method?: 'nfc' | 'qr' | null;
-  result?: string | null;
-  identifier?: string | null;
-  limit?: number;
-}) {
-  const supabase = createServiceRoleClient();
+export async function fetchTagScanLogs(
+  supabase: ServiceRoleClient,
+  params: {
+    tagId?: string | null;
+    method?: 'nfc' | 'qr' | null;
+    result?: string | null;
+    identifier?: string | null;
+    limit?: number;
+  },
+) {
   const limit = params.limit ?? 100;
 
   const query = supabase
@@ -449,13 +447,15 @@ export async function fetchTagScanLogs(params: {
   return data ?? [];
 }
 
-export async function fetchReports(params: {
-  status?: string | null;
-  severity?: string | null;
-  conventionId?: string | null;
-  limit?: number;
-}) {
-  const supabase = createServiceRoleClient();
+export async function fetchReports(
+  supabase: ServiceRoleClient,
+  params: {
+    status?: string | null;
+    severity?: string | null;
+    conventionId?: string | null;
+    limit?: number;
+  },
+) {
   const query = supabase
     .from('user_reports')
     .select(
@@ -551,8 +551,7 @@ export async function fetchReports(params: {
   }));
 }
 
-export async function fetchAchievements() {
-  const supabase = createServiceRoleClient();
+export async function fetchAchievements(supabase: ServiceRoleClient) {
   const { data, error } = await supabase
     .from('achievements')
     .select('id, key, name, description')
@@ -590,8 +589,10 @@ export type ConventionAchievementRow = {
   rule: Record<string, unknown> | null;
 };
 
-export async function fetchConventionTasks(conventionId: string): Promise<ConventionTaskRow[]> {
-  const supabase = createServiceRoleClient();
+export async function fetchConventionTasks(
+  supabase: ServiceRoleClient,
+  conventionId: string,
+): Promise<ConventionTaskRow[]> {
   const { data, error } = await supabase
     .from('daily_tasks')
     .select('id, name, description, kind, requirement, is_active, created_at, metadata')
@@ -605,9 +606,9 @@ export async function fetchConventionTasks(conventionId: string): Promise<Conven
 }
 
 export async function fetchConventionAchievements(
+  supabase: ServiceRoleClient,
   conventionId: string,
 ): Promise<ConventionAchievementRow[]> {
-  const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from('achievements')
     .select(
@@ -641,8 +642,7 @@ export async function fetchConventionAchievements(
   });
 }
 
-export async function fetchAdminErrors(limit = 50) {
-  const supabase = createServiceRoleClient();
+export async function fetchAdminErrors(supabase: ServiceRoleClient, limit = 50) {
   const { data, error } = await supabase
     .from('admin_error_log')
     .select('id, convention_id, error_type, error_message, severity, occurred_at, created_at')

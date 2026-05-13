@@ -1,9 +1,11 @@
 import { Card } from '@/components/card';
 import { Table } from '@/components/table';
 import { fetchAuditLogs } from '@/lib/data';
+import { requireAdminDataContext } from '@/lib/auth';
 
 export default async function AuditPage() {
-  const logs = await fetchAuditLogs(50);
+  const { supabase } = await requireAdminDataContext();
+  const logs = await fetchAuditLogs(supabase, 50);
 
   return (
     <Card

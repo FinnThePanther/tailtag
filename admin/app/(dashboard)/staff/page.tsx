@@ -3,11 +3,13 @@ import { Card } from '@/components/card';
 import { fetchConventions, fetchStaffAssignments } from '@/lib/data';
 import { StaffAssignmentForm } from '@/components/staff-assignment-form';
 import { StaffRowActions } from '@/components/staff-row-actions';
+import { requireAdminDataContext } from '@/lib/auth';
 
 export default async function StaffPage() {
+  const { supabase } = await requireAdminDataContext();
   const [assignments, conventions] = await Promise.all([
-    fetchStaffAssignments(),
-    fetchConventions(),
+    fetchStaffAssignments(supabase),
+    fetchConventions(supabase),
   ]);
 
   return (

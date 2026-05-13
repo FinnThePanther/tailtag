@@ -15,7 +15,7 @@ import {
   buildConventionReadiness,
 } from '@/lib/convention-lifecycle';
 import { isDevSupabaseProject } from '@/lib/env';
-import { createServiceRoleClient } from '@/lib/supabase/service';
+import { requireAdminDataContext } from '@/lib/auth';
 
 export default async function ConventionDetail({
   params,
@@ -24,16 +24,16 @@ export default async function ConventionDetail({
   params: { id: string };
   searchParams?: { startSkipped?: string };
 }) {
-  const { convention, staff } = await fetchConvention(params.id);
+  const { supabase } = await requireAdminDataContext();
+  const { convention, staff } = await fetchConvention(supabase, params.id);
 
   if (!convention) {
     notFound();
   }
 
-  const supabase = createServiceRoleClient();
   const [tasks, achievements, readiness, health] = await Promise.all([
-    fetchConventionTasks(params.id),
-    fetchConventionAchievements(params.id),
+    fetchConventionTasks(supabase, params.id),
+    fetchConventionAchievements(supabase, params.id),
     buildConventionReadiness(convention, supabase),
     buildConventionLifecycleHealth(convention, supabase),
   ]);

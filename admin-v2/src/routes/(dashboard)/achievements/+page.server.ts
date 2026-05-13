@@ -1,9 +1,11 @@
 import { fail } from '@sveltejs/kit';
 import { fetchAchievements } from '$lib/server/data';
 import { grantAchievementAction, revokeAchievementAction } from '$lib/server/actions/achievements';
+import { requireAdminDataContext } from '$lib/server/auth';
 
-export async function load() {
-  return { achievements: await fetchAchievements() };
+export async function load({ cookies, setHeaders }) {
+  const { supabase } = await requireAdminDataContext(cookies, undefined, setHeaders);
+  return { achievements: await fetchAchievements(supabase) };
 }
 
 export const actions = {
