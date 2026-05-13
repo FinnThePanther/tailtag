@@ -3,8 +3,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import { env } from './lib/env';
 
+const ADMIN_ROLES = new Set(['owner', 'organizer', 'staff', 'moderator']);
+const PUBLIC_PATHS = new Set(['/login', '/api/geocode']);
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
+  const pathname = request.nextUrl.pathname;
 
   const supabase = createServerClient(env.supabaseUrl, env.supabaseAnonKey, {
     cookies: {
@@ -25,11 +29,78 @@ export async function middleware(request: NextRequest) {
   });
 
   // Refresh the session so cookies stay in sync
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (isPublicPath(pathname)) {
+    return response;
+  }
+
+  if (userError || !user) {
+    return denyAdminRequest(request, response, 401, 'Authentication required');
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError || !profile || !ADMIN_ROLES.has(String(profile.role))) {
+    return denyAdminRequest(request, response, 403, 'Admin access required');
+  }
 
   return response;
 }
 
+function isPublicPath(pathname: string) {
+  return PUBLIC_PATHS.has(pathname);
+}
+
+function denyAdminRequest(
+  request: NextRequest,
+  response: NextResponse,
+  status: 401 | 403,
+  message: string,
+) {
+  if (expectsNonHtmlResponse(request)) {
+    const jsonResponse = NextResponse.json({ error: message }, { status });
+    copyResponseCookies(response, jsonResponse);
+    return jsonResponse;
+  }
+
+  const loginUrl = request.nextUrl.clone();
+  loginUrl.pathname = '/login';
+  loginUrl.search = status === 403 ? '?error=forbidden' : '';
+  const redirectResponse = NextResponse.redirect(loginUrl);
+  copyResponseCookies(response, redirectResponse);
+  return redirectResponse;
+}
+
+function expectsNonHtmlResponse(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const accept = request.headers.get('accept') ?? '';
+
+  return (
+    pathname.startsWith('/api/') ||
+    request.headers.get('rsc') === '1' ||
+    request.headers.has('next-router-prefetch') ||
+    accept.includes('text/x-component') ||
+    accept.includes('application/json')
+  );
+}
+
+function copyResponseCookies(source: NextResponse, target: NextResponse) {
+  for (const cookie of source.cookies.getAll()) {
+    target.cookies.set(cookie);
+  }
+}
+
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: [
+    '/api/:path*',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 };

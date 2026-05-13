@@ -4,9 +4,14 @@ import { ArrowUpRight, Users, ShieldBan, CalendarDays, AlertCircle } from 'lucid
 import { Card } from '@/components/card';
 import { Metric } from '@/components/metric';
 import { fetchConventions, fetchDashboardSummary } from '@/lib/data';
+import { requireAdminDataContext } from '@/lib/auth';
 
 export default async function DashboardPage() {
-  const [summary, conventions] = await Promise.all([fetchDashboardSummary(), fetchConventions()]);
+  const { supabase } = await requireAdminDataContext();
+  const [summary, conventions] = await Promise.all([
+    fetchDashboardSummary(supabase),
+    fetchConventions(supabase),
+  ]);
 
   return (
     <div className="space-y-6">

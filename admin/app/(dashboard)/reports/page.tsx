@@ -5,6 +5,7 @@ import { Table } from '@/components/table';
 import { ReportFilters } from '@/components/report-filters';
 import { ReportActions } from '@/components/report-actions';
 import { fetchConventions, fetchReports } from '@/lib/data';
+import { requireAdminDataContext } from '@/lib/auth';
 
 type SearchParams = {
   status?: string;
@@ -13,13 +14,14 @@ type SearchParams = {
 };
 
 export default async function ReportsPage({ searchParams }: { searchParams: SearchParams }) {
+  const { supabase } = await requireAdminDataContext();
   const [reports, conventions] = await Promise.all([
-    fetchReports({
+    fetchReports(supabase, {
       status: searchParams.status,
       severity: searchParams.severity,
       conventionId: searchParams.conventionId,
     }),
-    fetchConventions(),
+    fetchConventions(supabase),
   ]);
 
   return (

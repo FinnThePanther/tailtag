@@ -1,9 +1,11 @@
 import { Card } from '@/components/card';
 import { fetchAchievements } from '@/lib/data';
 import { AchievementForm } from '@/components/achievement-form';
+import { requireAdminDataContext } from '@/lib/auth';
 
 export default async function AchievementsPage() {
-  const achievements = await fetchAchievements();
+  const { supabase } = await requireAdminDataContext();
+  const achievements = await fetchAchievements(supabase);
 
   return (
     <Card

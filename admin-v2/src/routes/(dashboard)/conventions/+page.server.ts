@@ -1,13 +1,11 @@
 import { buildConventionLifecycleHealthList } from '$lib/server/convention-lifecycle';
 import { fetchConventions } from '$lib/server/data';
-import { createServiceRoleClient } from '$lib/server/supabase/service';
+import { requireAdminDataContext } from '$lib/server/auth';
 
-export async function load() {
-  const conventions = await fetchConventions();
-  const healthByConvention = await buildConventionLifecycleHealthList(
-    conventions,
-    createServiceRoleClient(),
-  );
+export async function load({ cookies, setHeaders }) {
+  const { supabase } = await requireAdminDataContext(cookies, undefined, setHeaders);
+  const conventions = await fetchConventions(supabase);
+  const healthByConvention = await buildConventionLifecycleHealthList(conventions, supabase);
   return {
     conventions,
     healthEntries: Array.from(healthByConvention.entries()),

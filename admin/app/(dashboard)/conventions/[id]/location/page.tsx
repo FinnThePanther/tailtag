@@ -5,9 +5,11 @@ import { ArrowLeft } from 'lucide-react';
 import { Card } from '@/components/card';
 import { ConventionGeofenceForm } from '@/components/convention-geofence-form';
 import { fetchConvention } from '@/lib/data';
+import { requireAdminDataContext } from '@/lib/auth';
 
 export default async function ConventionLocationPage({ params }: { params: { id: string } }) {
-  const { convention } = await fetchConvention(params.id);
+  const { supabase } = await requireAdminDataContext();
+  const { convention } = await fetchConvention(supabase, params.id);
 
   if (!convention) {
     notFound();

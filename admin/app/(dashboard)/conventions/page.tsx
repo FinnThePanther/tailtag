@@ -9,11 +9,11 @@ import {
 } from '@/components/convention-lifecycle-ui';
 import { fetchConventions } from '@/lib/data';
 import { buildConventionLifecycleHealthList } from '@/lib/convention-lifecycle';
-import { createServiceRoleClient } from '@/lib/supabase/service';
+import { requireAdminDataContext } from '@/lib/auth';
 
 export default async function ConventionsPage() {
-  const conventions = await fetchConventions();
-  const supabase = createServiceRoleClient();
+  const { supabase } = await requireAdminDataContext();
+  const conventions = await fetchConventions(supabase);
   const healthByConvention = await buildConventionLifecycleHealthList(conventions, supabase);
 
   return (

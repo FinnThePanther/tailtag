@@ -6,6 +6,7 @@ import { Table } from '@/components/table';
 import { fetchConventions, fetchPlayerSearch } from '@/lib/data';
 import type { Database } from '@/types/database';
 import { PlayerSearchForm } from '@/components/player-search-form';
+import { requireAdminDataContext } from '@/lib/auth';
 
 type SearchParams = {
   q?: string;
@@ -16,16 +17,19 @@ type SearchParams = {
 };
 
 export default async function PlayersPage({ searchParams }: { searchParams: SearchParams }) {
+  const { supabase } = await requireAdminDataContext();
   const page = Number(searchParams.page ?? '1') || 1;
-  const players = await fetchPlayerSearch({
-    search: searchParams.q,
-    role: searchParams.role,
-    conventionId: searchParams.conventionId,
-    isSuspended: searchParams.suspended === undefined ? null : searchParams.suspended === 'true',
-    page,
-    pageSize: 20,
-  });
-  const conventions = await fetchConventions();
+  const [players, conventions] = await Promise.all([
+    fetchPlayerSearch(supabase, {
+      search: searchParams.q,
+      role: searchParams.role,
+      conventionId: searchParams.conventionId,
+      isSuspended: searchParams.suspended === undefined ? null : searchParams.suspended === 'true',
+      page,
+      pageSize: 20,
+    }),
+    fetchConventions(supabase),
+  ]);
 
   return (
     <div className="space-y-4">

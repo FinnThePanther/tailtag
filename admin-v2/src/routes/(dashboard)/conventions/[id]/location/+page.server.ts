@@ -1,9 +1,11 @@
 import { error, fail } from '@sveltejs/kit';
 import { fetchConvention } from '$lib/server/data';
 import { updateConventionGeofenceAction } from '$lib/server/actions/conventions';
+import { requireAdminDataContext } from '$lib/server/auth';
 
-export async function load({ params }) {
-  const { convention } = await fetchConvention(params.id);
+export async function load({ cookies, params, setHeaders }) {
+  const { supabase } = await requireAdminDataContext(cookies, undefined, setHeaders);
+  const { convention } = await fetchConvention(supabase, params.id);
   if (!convention) throw error(404, 'Convention not found');
   return { convention };
 }
