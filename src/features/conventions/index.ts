@@ -43,6 +43,8 @@ export {
   fetchActiveProfileConventionIds,
   fetchProfileConventionMemberships,
   fetchActiveSharedConventionIds,
+  fetchGalleryProfileConventionIds,
+  fetchGallerySharedConventionIds,
   optInToConvention,
   optOutOfConvention,
   addFursuitConvention,

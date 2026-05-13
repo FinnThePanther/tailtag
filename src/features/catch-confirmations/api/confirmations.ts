@@ -17,11 +17,12 @@ import {
 import { emitLocalGameplayEvent } from '../../events/localGameplayEventsBus';
 import type { Json } from '../../../types/database';
 import type {
+  CatchPhotoSource,
   PendingCatch,
   ConfirmCatchResult,
   CreateCatchResult,
   CreateCatchParams,
-} from '../types';
+} from '@/features/catch-confirmations/types';
 
 // Query keys
 export const PENDING_CATCHES_QUERY_KEY = 'pending-catches';
@@ -104,6 +105,10 @@ function normalizeColorNames(raw: unknown): string[] {
   );
 }
 
+function normalizeCatchPhotoSource(raw: unknown): CatchPhotoSource | null {
+  return raw === 'camera' || raw === 'gallery' ? raw : null;
+}
+
 async function wakeGameplayQueue(): Promise<void> {
   const { error } = await supabase.rpc('process_gameplay_queue_if_active');
   if (error) {
@@ -156,6 +161,7 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
       path: null,
       legacyUrl: row.catch_photo_url ?? null,
     }),
+    catchPhotoSource: normalizeCatchPhotoSource(row.catch_photo_source),
   }));
 }
 
@@ -255,6 +261,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
           Boolean(params.hasPhoto) || Boolean(params.photoPath) || Boolean(params.photoUrl),
         catch_photo_path: params.photoPath ?? null,
         catch_photo_url: params.photoUrl ?? null,
+        catch_photo_source: params.photoSource ?? null,
       }),
       signal: controller.signal,
     });
@@ -274,9 +281,6 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       });
 
       // Return user-friendly messages for known errors
-      if (response.status === 403) {
-        throw new Error('You cannot catch this fursuit.');
-      }
       if (errorMessage.includes('Cannot catch your own')) {
         throw new Error(
           'That tag belongs to one of your own suits. Trade codes with friends to grow your collection.',
@@ -285,6 +289,11 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       if (errorMessage.includes('share a playable convention')) {
         throw new Error(
           'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.',
+        );
+      }
+      if (errorMessage.includes('not accepting gallery catches')) {
+        throw new Error(
+          'This convention is no longer accepting gallery catches. Gallery catches can be submitted during the event and for three local days after it ends.',
         );
       }
       if (errorMessage.includes('already caught') || errorMessage.includes('pending')) {
@@ -296,6 +305,9 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         throw new Error(
           "We couldn't find a fursuit with that code. Double-check the letters and try again.",
         );
+      }
+      if (response.status === 403) {
+        throw new Error('You cannot catch this fursuit.');
       }
 
       throw new Error("We couldn't save that catch. Please try again.");
@@ -380,7 +392,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
  */
 export async function updateCatchPhoto(
   catchId: string,
-  params: { photoPath: string; photoUrl?: string | null },
+  params: { photoPath: string; photoUrl?: string | null; photoSource?: CatchPhotoSource },
 ): Promise<void> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -401,6 +413,20 @@ export async function updateCatchPhoto(
   try {
     const resolvedPhotoUrl =
       params.photoUrl ?? buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, params.photoPath);
+    const requestBody: {
+      catch_id: string;
+      catch_photo_path: string;
+      catch_photo_url: string;
+      catch_photo_source?: CatchPhotoSource;
+    } = {
+      catch_id: catchId,
+      catch_photo_path: params.photoPath,
+      catch_photo_url: resolvedPhotoUrl,
+    };
+
+    if (params.photoSource) {
+      requestBody.catch_photo_source = params.photoSource;
+    }
 
     const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
       method: 'PATCH',
@@ -409,11 +435,7 @@ export async function updateCatchPhoto(
         apikey: supabaseKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        catch_id: catchId,
-        catch_photo_path: params.photoPath,
-        catch_photo_url: resolvedPhotoUrl,
-      }),
+      body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
 

@@ -13,10 +13,15 @@ import { loadUriAsUint8Array } from '../../../utils/files';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { buildAuthenticatedStorageObjectUrl } from '../../../utils/supabase-image';
 import { createCatch, fetchConventionFursuits } from '../api/confirmations';
-import { fetchActiveProfileConventionIds, fetchActiveSharedConventionIds } from '../../conventions';
+import {
+  fetchActiveProfileConventionIds,
+  fetchActiveSharedConventionIds,
+  fetchGalleryProfileConventionIds,
+  fetchGallerySharedConventionIds,
+} from '../../conventions';
 import { FursuitPicker } from './FursuitPicker';
 import type { FursuitPickerItem } from '../api';
-import type { CreateCatchResult } from '../types';
+import type { CatchPhotoSource, CreateCatchResult } from '../types';
 import { styles } from './PhotoCatchCard.styles';
 
 type PhotoCandidate = {
@@ -50,6 +55,7 @@ export function PhotoCatchCard({
 }: PhotoCatchCardProps) {
   const [step, setStep] = useState<Step>('idle');
   const [photo, setPhoto] = useState<PhotoCandidate | null>(null);
+  const [photoSource, setPhotoSource] = useState<CatchPhotoSource | null>(null);
   const [selectedFursuit, setSelectedFursuit] = useState<FursuitPickerItem | null>(null);
   const [fursuits, setFursuits] = useState<FursuitPickerItem[]>([]);
   const [conventionIds, setConventionIds] = useState<string[]>([]);
@@ -58,7 +64,7 @@ export function PhotoCatchCard({
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
-  // Load user's conventions once mounted
+  // Load user's currently playable conventions once mounted for the default camera path.
   useEffect(() => {
     fetchActiveProfileConventionIds(userId)
       .then(setConventionIds)
@@ -69,6 +75,7 @@ export function PhotoCatchCard({
   useEffect(() => {
     if (step !== 'photo_taken') return;
     if (conventionIds.length === 0) {
+      setFursuits([]);
       setIsLoadingFursuits(false);
       return;
     }
@@ -106,17 +113,21 @@ export function PhotoCatchCard({
 
     setIsProcessingPhoto(true);
     setLocalError(null);
+    setFursuits([]);
     try {
       const processed = await processImageForUpload(asset.uri, {
         ...IMAGE_UPLOAD_PRESETS.catchPhoto,
         flipHorizontal: true,
       });
+      const activeConventionIds = await fetchActiveProfileConventionIds(userId);
       setPhoto({
         uri: processed.uri,
         mimeType: 'image/jpeg',
         fileName: `catch-${Date.now()}.jpg`,
         fileSize: 0,
       });
+      setPhotoSource('camera');
+      setConventionIds(activeConventionIds);
       setIsLoadingFursuits(true);
       setStep('photo_taken');
       setSelectedFursuit(null);
@@ -127,11 +138,60 @@ export function PhotoCatchCard({
     }
   };
 
+  const handleChooseGalleryPhoto = async () => {
+    if (disabled) return;
+
+    setLocalError(null);
+
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      setLocalError('Photo library permission is required to choose a catch photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsEditing: false,
+      quality: 1.0,
+    });
+
+    if (result.canceled || !result.assets[0]) {
+      return;
+    }
+
+    const asset = result.assets[0];
+
+    setIsProcessingPhoto(true);
+    setLocalError(null);
+    setFursuits([]);
+    try {
+      const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.catchPhoto);
+      const galleryConventionIds = await fetchGalleryProfileConventionIds(userId);
+      setPhoto({
+        uri: processed.uri,
+        mimeType: 'image/jpeg',
+        fileName: `catch-${Date.now()}.jpg`,
+        fileSize: 0,
+      });
+      setPhotoSource('gallery');
+      setConventionIds(galleryConventionIds);
+      setIsLoadingFursuits(true);
+      setStep('photo_taken');
+      setSelectedFursuit(null);
+    } catch {
+      setLocalError("We couldn't process that gallery photo. Please try another.");
+    } finally {
+      setIsProcessingPhoto(false);
+    }
+  };
+
   const handleRetakePhoto = () => {
     if (disabled) return;
 
     setPhoto(null);
+    setPhotoSource(null);
     setSelectedFursuit(null);
+    setFursuits([]);
     setStep('idle');
     setLocalError(null);
   };
@@ -151,12 +211,17 @@ export function PhotoCatchCard({
     let sharedConventionId: string | null = null;
 
     try {
-      const sharedConventionIds = await fetchActiveSharedConventionIds(userId, selectedFursuit.id);
+      const sharedConventionIds =
+        photoSource === 'gallery'
+          ? await fetchGallerySharedConventionIds(userId, selectedFursuit.id)
+          : await fetchActiveSharedConventionIds(userId, selectedFursuit.id);
       sharedConventionId = sharedConventionIds[0] ?? null;
 
       if (!sharedConventionId) {
         setLocalError(
-          'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.',
+          photoSource === 'gallery'
+            ? 'This suit is not eligible for a gallery catch at your convention. Both players must share the event, and the fursuit must be listed there within the post-convention gallery window.'
+            : 'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.',
         );
         setIsUploadingPhoto(false);
         return;
@@ -200,9 +265,11 @@ export function PhotoCatchCard({
         fursuitId: selectedFursuit.id,
         conventionId: sharedConventionId,
         isTutorial: false,
+        forcePending: photoSource === 'gallery',
         hasPhoto: true,
         photoPath: storagePath,
         photoUrl,
+        photoSource,
       });
     } catch (error) {
       await supabase.storage
@@ -240,9 +307,7 @@ export function PhotoCatchCard({
         />
         <Text style={styles.title}>Photo Catch</Text>
       </View>
-      <Text style={styles.subtitle}>
-        Take a selfie with a fursuiter to log the catch. Approval follows their catch setting.
-      </Text>
+      <Text style={styles.subtitle}>Take or choose a photo with a fursuiter to log the catch.</Text>
 
       {step === 'idle' ? (
         isProcessingPhoto ? (
@@ -251,21 +316,38 @@ export function PhotoCatchCard({
             <Text style={styles.processingText}>Processing photo…</Text>
           </View>
         ) : (
-          <TailTagButton
-            variant="outline"
-            onPress={handleTakePhoto}
-            disabled={disabled}
-            style={styles.cameraButton}
-          >
-            <View style={styles.buttonContent}>
-              <Ionicons
-                name="camera-outline"
-                size={18}
-                color={colors.primary}
-              />
-              <Text style={styles.cameraButtonText}>Open Camera</Text>
-            </View>
-          </TailTagButton>
+          <View style={styles.entryActions}>
+            <TailTagButton
+              variant="outline"
+              onPress={handleTakePhoto}
+              disabled={disabled}
+              style={styles.cameraButton}
+            >
+              <View style={styles.buttonContent}>
+                <Ionicons
+                  name="camera-outline"
+                  size={18}
+                  color={colors.primary}
+                />
+                <Text style={styles.cameraButtonText}>Open Camera</Text>
+              </View>
+            </TailTagButton>
+            <TailTagButton
+              variant="outline"
+              onPress={handleChooseGalleryPhoto}
+              disabled={disabled}
+              style={styles.cameraButton}
+            >
+              <View style={styles.buttonContent}>
+                <Ionicons
+                  name="images-outline"
+                  size={18}
+                  color={colors.primary}
+                />
+                <Text style={styles.cameraButtonText}>Choose from Gallery</Text>
+              </View>
+            </TailTagButton>
+          </View>
         )
       ) : (
         <>
@@ -277,7 +359,12 @@ export function PhotoCatchCard({
               contentFit="cover"
             />
             <View style={styles.previewActions}>
-              <Text style={styles.previewLabel}>Selfie taken</Text>
+              <Text style={styles.previewLabel}>
+                {photoSource === 'gallery' ? 'Gallery photo selected' : 'Selfie taken'}
+              </Text>
+              {photoSource === 'gallery' ? (
+                <Text style={styles.previewHint}>Sent for approval before it counts.</Text>
+              ) : null}
               <Pressable
                 onPress={handleRetakePhoto}
                 disabled={disabled}
@@ -342,7 +429,8 @@ export function PhotoCatchCard({
           color="rgba(148,163,184,0.6)"
         />
         <Text style={styles.infoText}>
-          Photo catches use the fursuiter&apos;s approval setting.
+          Camera catches follow the fursuiter&apos;s approval setting. Gallery catches always need
+          approval.
         </Text>
       </View>
     </TailTagCard>

@@ -241,6 +241,7 @@ export type Database = {
         Row: {
           catch_number: number | null
           catch_photo_path: string | null
+          catch_photo_source: string | null
           catch_photo_url: string | null
           catcher_id: string
           caught_at: string | null
@@ -257,6 +258,7 @@ export type Database = {
         Insert: {
           catch_number?: number | null
           catch_photo_path?: string | null
+          catch_photo_source?: string | null
           catch_photo_url?: string | null
           catcher_id: string
           caught_at?: string | null
@@ -273,6 +275,7 @@ export type Database = {
         Update: {
           catch_number?: number | null
           catch_photo_path?: string | null
+          catch_photo_source?: string | null
           catch_photo_url?: string | null
           catcher_id?: string
           caught_at?: string | null
@@ -2102,26 +2105,17 @@ export type Database = {
         Returns: number
       }
       count_user_fursuits: { Args: { p_user_id: string }; Returns: number }
-      create_catch_with_approval:
-        | {
-            Args: {
-              p_catcher_id: string
-              p_convention_id?: string
-              p_fursuit_id: string
-              p_is_tutorial?: boolean
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_catcher_id: string
-              p_convention_id?: string
-              p_force_pending?: boolean
-              p_fursuit_id: string
-              p_is_tutorial?: boolean
-            }
-            Returns: Json
-          }
+      create_catch_with_approval: {
+        Args: {
+          p_catch_photo_source?: string
+          p_catcher_id: string
+          p_convention_id?: string
+          p_force_pending?: boolean
+          p_fursuit_id: string
+          p_is_tutorial?: boolean
+        }
+        Returns: Json
+      }
       current_user_has_password_credential: { Args: never; Returns: boolean }
       delete_archived_convention_in_dev: {
         Args: { p_actor_id: string; p_convention_id: string }
@@ -2288,6 +2282,18 @@ export type Database = {
           unique_catchers: number
         }[]
       }
+      get_gallery_profile_convention_ids: {
+        Args: { p_profile_id: string }
+        Returns: {
+          convention_id: string
+        }[]
+      }
+      get_gallery_shared_convention_ids: {
+        Args: { p_fursuit_id: string; p_profile_id: string }
+        Returns: {
+          convention_id: string
+        }[]
+      }
       get_global_dashboard_summary: {
         Args: never
         Returns: {
@@ -2398,6 +2404,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: {
           catch_id: string
+          catch_photo_source: string
           catch_photo_url: string
           catcher_avatar_url: string
           catcher_id: string
@@ -2456,6 +2463,10 @@ export type Database = {
         Args: { p_user_a: string; p_user_b: string }
         Returns: boolean
       }
+      is_convention_gallery_catchable: {
+        Args: { p_convention_id: string }
+        Returns: boolean
+      }
       is_convention_joinable: {
         Args: { p_convention_id: string }
         Returns: boolean
@@ -2474,6 +2485,10 @@ export type Database = {
       }
       is_moderator_or_higher: {
         Args: { check_user_id: string }
+        Returns: boolean
+      }
+      is_profile_convention_gallery_catch_eligible: {
+        Args: { p_convention_id: string; p_profile_id: string }
         Returns: boolean
       }
       is_profile_convention_gameplay_eligible: {

@@ -94,6 +94,23 @@ export const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     backgroundColor: colors.surfaceMuted,
   },
+  sourceNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    backgroundColor: 'rgba(251,191,36,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.35)',
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  sourceNoticeText: {
+    color: colors.textSubtle,
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   reportActionRow: {
     alignItems: 'flex-start',
     marginBottom: spacing.sm,

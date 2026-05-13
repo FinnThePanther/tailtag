@@ -49,12 +49,14 @@ interface CreateCatchRequest {
   has_photo?: boolean;
   catch_photo_path?: string | null;
   catch_photo_url?: string | null;
+  catch_photo_source?: 'camera' | 'gallery' | null;
 }
 
 interface UpdateCatchPhotoRequest {
   catch_id: string;
   catch_photo_path?: string;
   catch_photo_url: string;
+  catch_photo_source?: 'camera' | 'gallery' | null;
 }
 
 interface CreateCatchResponse {
@@ -198,6 +200,14 @@ function jsonResponse(status: number, payload: unknown) {
       'Content-Type': 'application/json',
     },
   });
+}
+
+function normalizeCatchPhotoSource(value: unknown): 'camera' | 'gallery' | null {
+  if (value === 'camera' || value === 'gallery') {
+    return value;
+  }
+
+  return null;
 }
 
 async function fetchFursuitMakerMetadata(fursuitId: string): Promise<FursuitMakerMetadata> {
@@ -371,6 +381,16 @@ async function handlePost(req: Request): Promise<Response> {
     return jsonResponse(400, { error: 'Missing catch_photo_url' });
   }
 
+  const catchPhotoSource = normalizeCatchPhotoSource(body.catch_photo_source);
+
+  if (body.catch_photo_source && !catchPhotoSource) {
+    return jsonResponse(400, { error: 'Invalid catch_photo_source' });
+  }
+
+  if (catchPhotoSource === 'gallery' && (!body.has_photo || !body.catch_photo_url)) {
+    return jsonResponse(400, { error: 'Gallery catches require a photo' });
+  }
+
   try {
     // Check if catcher and fursuit owner have blocked each other
     const { data: fursuitRow } = await supabaseAdmin
@@ -397,7 +417,8 @@ async function handlePost(req: Request): Promise<Response> {
       p_catcher_id: userId,
       p_convention_id: body.convention_id || null,
       p_is_tutorial: body.is_tutorial || false,
-      p_force_pending: body.force_pending || false,
+      p_force_pending: body.force_pending || catchPhotoSource === 'gallery',
+      p_catch_photo_source: catchPhotoSource,
     });
 
     if (error) {
@@ -411,9 +432,14 @@ async function handlePost(req: Request): Promise<Response> {
       if (error.message?.includes('Convention is not live')) {
         return jsonResponse(400, { error: 'Convention is not live' });
       }
+      if (error.message?.includes('Convention is not accepting gallery catches')) {
+        return jsonResponse(400, { error: 'Convention is not accepting gallery catches' });
+      }
       if (
         error.message?.includes('Catcher must join the live convention') ||
+        error.message?.includes('Catcher must have a playable convention') ||
         error.message?.includes('Fursuit owner must join the live convention') ||
+        error.message?.includes('Fursuit owner must have a playable convention') ||
         error.message?.includes('Fursuit must be assigned to the live convention')
       ) {
         return jsonResponse(400, {
@@ -441,6 +467,7 @@ async function handlePost(req: Request): Promise<Response> {
         .update({
           catch_photo_path: body.catch_photo_path ?? null,
           catch_photo_url: body.catch_photo_url,
+          catch_photo_source: catchPhotoSource ?? 'camera',
         })
         .eq('id', result.catch_id);
 
@@ -571,6 +598,7 @@ async function handlePost(req: Request): Promise<Response> {
         convention_id: resolvedConventionId,
         is_tutorial: body.is_tutorial ?? false,
         status: result.status,
+        catch_photo_source: catchPhotoSource,
         species: speciesName,
         colors: colorNames,
         maker_names: makerMetadata.makerNames,
@@ -669,6 +697,7 @@ async function handlePatch(req: Request): Promise<Response> {
     .update({
       catch_photo_path: body.catch_photo_path ?? null,
       catch_photo_url: body.catch_photo_url,
+      catch_photo_source: normalizeCatchPhotoSource(body.catch_photo_source) ?? 'camera',
     })
     .eq('id', body.catch_id);
 

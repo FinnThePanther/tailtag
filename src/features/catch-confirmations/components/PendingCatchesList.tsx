@@ -49,8 +49,8 @@ export function PendingCatchesList({
       </View>
       {isEmpty ? (
         <Text style={styles.description}>
-          No pending requests right now. When someone catches your suit and you have manual approval
-          enabled, their requests will appear here for you to approve or decline.
+          No pending requests right now. Manual-approval catches and gallery photo catches will
+          appear here for you to approve or decline.
         </Text>
       ) : (
         <>

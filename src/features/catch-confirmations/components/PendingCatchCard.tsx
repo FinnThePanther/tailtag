@@ -92,6 +92,7 @@ export function PendingCatchCard({
   const isExpired = useMemo(() => {
     return timeDisplay === 'Expired';
   }, [timeDisplay]);
+  const isGalleryCatch = pendingCatch.catchPhotoSource === 'gallery';
 
   const handleViewProfile = () => {
     router.push({
@@ -168,6 +169,19 @@ export function PendingCatchCard({
 
       {pendingCatch.catchPhotoUrl ? (
         <>
+          {isGalleryCatch ? (
+            <View style={styles.sourceNotice}>
+              <Ionicons
+                name="images-outline"
+                size={14}
+                color={colors.amber}
+              />
+              <Text style={styles.sourceNoticeText}>
+                Gallery photo catch · Gallery catches always require your approval, even if
+                auto-catching is on.
+              </Text>
+            </View>
+          ) : null}
           <Pressable
             onPress={() => setPhotoFullscreen(true)}
             accessibilityLabel="Tap to view catch photo fullscreen"
@@ -178,7 +192,9 @@ export function PendingCatchCard({
               width={screenWidth}
               height={screenWidth}
               style={styles.catchPhoto}
-              accessibilityLabel="Selfie taken by catcher"
+              accessibilityLabel={
+                isGalleryCatch ? 'Photo uploaded from gallery' : 'Selfie taken by catcher'
+              }
             />
           </Pressable>
           <Modal
