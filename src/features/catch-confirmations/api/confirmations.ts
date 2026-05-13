@@ -22,7 +22,7 @@ import type {
   ConfirmCatchResult,
   CreateCatchResult,
   CreateCatchParams,
-} from '../types';
+} from '@/features/catch-confirmations/types';
 
 // Query keys
 export const PENDING_CATCHES_QUERY_KEY = 'pending-catches';
@@ -281,9 +281,6 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       });
 
       // Return user-friendly messages for known errors
-      if (response.status === 403) {
-        throw new Error('You cannot catch this fursuit.');
-      }
       if (errorMessage.includes('Cannot catch your own')) {
         throw new Error(
           'That tag belongs to one of your own suits. Trade codes with friends to grow your collection.',
@@ -308,6 +305,9 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         throw new Error(
           "We couldn't find a fursuit with that code. Double-check the letters and try again.",
         );
+      }
+      if (response.status === 403) {
+        throw new Error('You cannot catch this fursuit.');
       }
 
       throw new Error("We couldn't save that catch. Please try again.");
@@ -392,7 +392,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
  */
 export async function updateCatchPhoto(
   catchId: string,
-  params: { photoPath: string; photoUrl?: string | null; photoSource?: 'camera' | 'gallery' },
+  params: { photoPath: string; photoUrl?: string | null; photoSource?: CatchPhotoSource },
 ): Promise<void> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -417,7 +417,7 @@ export async function updateCatchPhoto(
       catch_id: string;
       catch_photo_path: string;
       catch_photo_url: string;
-      catch_photo_source?: 'camera' | 'gallery';
+      catch_photo_source?: CatchPhotoSource;
     } = {
       catch_id: catchId,
       catch_photo_path: params.photoPath,
