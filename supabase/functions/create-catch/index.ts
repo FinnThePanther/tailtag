@@ -42,7 +42,8 @@ interface CreateCatchRequest {
   platform?: string | null;
   network_type?: string | null;
   method?: 'code' | 'camera_photo' | 'gallery_photo';
-  fursuit_id: string;
+  fursuit_id?: string;
+  fursuit_code?: string;
   convention_id?: string | null;
   is_tutorial?: boolean;
   force_pending?: boolean;
@@ -68,6 +69,12 @@ interface CreateCatchResponse {
   requires_approval: boolean;
   fursuit_owner_id: string;
   convention_id?: string | null;
+  fursuit_id?: string;
+  fursuit_name?: string;
+  fursuit_avatar_path?: string | null;
+  fursuit_avatar_url?: string | null;
+  fursuit_species_id?: string | null;
+  fursuit_species_name?: string | null;
   event_id: string;
   event_duplicate?: boolean;
   event_enqueued?: boolean;
@@ -209,6 +216,10 @@ function normalizeCatchPhotoSource(value: unknown): 'camera' | 'gallery' | null 
   return null;
 }
 
+function normalizeFursuitCode(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim().toUpperCase() : null;
+}
+
 function extractBearerToken(req: Request): string | null {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
@@ -326,10 +337,6 @@ async function handlePost(req: Request): Promise<Response> {
     return failureResponse(400, { error: 'Invalid JSON payload' }, 'invalid_json');
   }
 
-  if (!body?.fursuit_id) {
-    return failureResponse(400, { error: 'Missing fursuit_id' }, 'missing_fursuit_id');
-  }
-
   if (body.has_photo === true && !body.catch_photo_url) {
     return failureResponse(400, { error: 'Missing catch_photo_url' }, 'missing_photo_url');
   }
@@ -349,6 +356,81 @@ async function handlePost(req: Request): Promise<Response> {
   }
 
   try {
+    if (!body.fursuit_id && method === 'code') {
+      const fursuitCode = normalizeFursuitCode(body.fursuit_code);
+
+      if (!fursuitCode) {
+        return failureResponse(400, { error: 'Missing fursuit_code' }, 'missing_fursuit_code');
+      }
+
+      const { data: fursuitByCode, error: fursuitByCodeError } = await trace.measure(
+        'metadata_ms',
+        () =>
+          supabaseAdmin
+            .from('fursuits')
+            .select('id')
+            .ilike('unique_code', fursuitCode)
+            .eq('is_tutorial', false)
+            .maybeSingle(),
+      );
+
+      if (fursuitByCodeError) {
+        console.error('[create-catch] Code lookup error:', fursuitByCodeError);
+        return failureResponse(
+          500,
+          { error: 'Failed to resolve fursuit code' },
+          'code_lookup_failed',
+        );
+      }
+
+      if (!fursuitByCode?.id) {
+        return failureResponse(404, { error: 'Fursuit not found' }, 'fursuit_not_found');
+      }
+
+      body.fursuit_id = fursuitByCode.id;
+    }
+
+    if (!body.fursuit_id) {
+      return failureResponse(400, { error: 'Missing fursuit_id' }, 'missing_fursuit_id');
+    }
+
+    if (!body.convention_id && method === 'code') {
+      const { data: sharedConventionRows, error: sharedConventionError } = await trace.measure(
+        'metadata_ms',
+        () =>
+          supabaseAdmin.rpc('get_active_shared_convention_ids', {
+            p_profile_id: userId,
+            p_fursuit_id: body.fursuit_id,
+          }),
+      );
+
+      if (sharedConventionError) {
+        console.error('[create-catch] Shared convention lookup error:', sharedConventionError);
+        return failureResponse(
+          500,
+          { error: 'Failed to resolve shared convention' },
+          'shared_convention_lookup_failed',
+        );
+      }
+
+      const sharedConventionId = Array.isArray(sharedConventionRows)
+        ? sharedConventionRows[0]?.convention_id
+        : null;
+
+      if (!sharedConventionId) {
+        return failureResponse(
+          400,
+          {
+            error:
+              'You and this fursuit must share a playable convention, and the fursuit must be assigned to that convention before catching.',
+          },
+          'shared_convention_required',
+        );
+      }
+
+      body.convention_id = sharedConventionId;
+    }
+
     // Check if catcher and fursuit owner have blocked each other
     const fursuitRow = await trace.measure('block_check_ms', async () => {
       const { data: ownerRow } = await supabaseAdmin

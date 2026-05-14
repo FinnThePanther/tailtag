@@ -24,12 +24,21 @@ import {
 } from '../../src/features/leaderboard';
 import {
   createCatch,
+  CODE_CATCH_OUTBOX_TIMEOUT_MS,
   myPendingCatchesQueryKey,
   pendingCatchesQueryKey,
   PhotoCatchCard,
   type CatchStatus,
   type CreateCatchResult,
 } from '../../src/features/catch-confirmations';
+import {
+  CatchOutboxList,
+  queueCodeCatchOutboxItem,
+  updateCatchOutboxItem,
+  useCatchOutbox,
+  useCatchOutboxSync,
+  type CatchOutboxItem,
+} from '../../src/features/catch-outbox';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
@@ -39,8 +48,6 @@ import {
   CONVENTIONS_STALE_TIME,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   type ConventionMembership,
-  fetchActiveProfileConventionIds,
-  fetchActiveSharedConventionIds,
   fetchProfileConventionMemberships,
   useConventionVerificationAction,
 } from '../../src/features/conventions';
@@ -49,9 +56,11 @@ import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import { achievementsStatusQueryKey } from '../../src/features/achievements';
 import { supabase } from '../../src/lib/supabase';
 import { captureHandledException, addMonitoringBreadcrumb } from '../../src/lib/sentry';
-import { createCatchPerformanceTrace } from '../../src/features/catch-confirmations/lib/catchPerformance';
+import {
+  createCatchPerformanceTrace,
+  createClientAttemptId,
+} from '../../src/features/catch-confirmations/lib/catchPerformance';
 import { spacing } from '../../src/theme';
-import { useBlockedIds } from '../../src/features/moderation';
 import { isValidUniqueCodeInput, normalizeUniqueCodeInput } from '../../src/utils/code';
 import { toDisplayDateTime } from '../../src/utils/dates';
 import { UNIQUE_CODE_LENGTH, UNIQUE_CODE_MIN_LENGTH } from '../../src/constants/codes';
@@ -91,13 +100,47 @@ type CatchRecord = {
 const SHARED_CONVENTION_HELP =
   'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.';
 
+function isRetryableCatchSubmissionError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return true;
+  }
+
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('timed out') ||
+    message.includes('network') ||
+    message.includes('failed to fetch') ||
+    message.includes('signed in')
+  );
+}
+
+function catchSubmissionErrorCode(error: unknown) {
+  if (!(error instanceof Error)) return 'unknown_error';
+  const message = error.message.toLowerCase();
+  if (message.includes('timed out')) return 'timeout';
+  if (message.includes('network') || message.includes('failed to fetch')) return 'network_error';
+  if (message.includes("couldn't find")) return 'code_not_found';
+  if (message.includes('already caught')) return 'already_caught';
+  if (message.includes('own suits')) return 'self_catch';
+  if (message.includes('share a playable convention') || message.includes('not catchable')) {
+    return 'shared_convention_required';
+  }
+  if (message.includes('cannot catch')) return 'blocked_user';
+  return 'server_rejected';
+}
+
 export default function CatchScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
+  const { visibleItems: outboxItems } = useCatchOutbox(userId);
+  const {
+    sync: syncOutbox,
+    retry: retryOutboxItem,
+    dismiss: dismissOutboxItem,
+  } = useCatchOutboxSync(userId, queryClient);
 
-  const blockedIds = useBlockedIds(userId);
   const { data: conventionMemberships = [], refetch: refetchConventionMemberships } = useQuery<
     ConventionMembership[],
     Error
@@ -151,24 +194,35 @@ export default function CatchScreen() {
   const [lastCatchConventionId, setLastCatchConventionId] = useState<string | null>(null);
   const [lastCatchConventionIds, setLastCatchConventionIds] = useState<string[]>([]);
 
-  const resetCatchState = () => {
+  const resetCatchState = useCallback(() => {
     setCaughtFursuit(null);
     setCatchRecord(null);
     setCatchNumber(null);
     setConversationPrompt(null);
     setLastCatchConventionId(null);
     setLastCatchConventionIds([]);
-  };
+  }, []);
+
+  const handleEditOutboxCode = useCallback(
+    (item: CatchOutboxItem) => {
+      setCodeInput(item.fursuitCode);
+      setSubmitError(null);
+      resetCatchState();
+    },
+    [resetCatchState],
+  );
 
   // Clear caught fursuit state when user navigates away
   useFocusEffect(
     useCallback(() => {
+      void syncOutbox();
+
       return () => {
         // Cleanup on blur (when navigating away)
         resetCatchState();
         setSubmitError(null);
       };
-    }, []),
+    }, [resetCatchState, syncOutbox]),
   );
 
   const lastCaughtFursuitId = caughtFursuit?.id ?? null;
@@ -268,7 +322,14 @@ export default function CatchScreen() {
     setSubmitError(null);
     resetCatchState();
 
-    const catchTrace = createCatchPerformanceTrace({ method: 'code' });
+    const clientAttemptId = createClientAttemptId();
+    await queueCodeCatchOutboxItem({
+      userId,
+      clientAttemptId,
+      fursuitCode: normalizedCode,
+    });
+
+    const catchTrace = createCatchPerformanceTrace({ method: 'code', clientAttemptId });
     let catchTraceFinished = false;
     const finishCatchTrace = (options: {
       result: 'success' | 'pending_approval' | 'failed' | 'timeout';
@@ -284,180 +345,24 @@ export default function CatchScreen() {
     };
 
     try {
-      const client = supabase as any;
-
-      // Fetch fursuit details by code
-      const { data: fursuit, error: fursuitError } = await catchTrace.measure(
-        'code_lookup_ms',
-        async () =>
-          await client
-            .from('fursuits')
-            .select(
-              `
-          id,
-          name,
-          species_id,
-          avatar_path,
-          avatar_url,
-          is_tutorial,
-          unique_code,
-          catch_count,
-          owner_id,
-          created_at,
-          species_entry:fursuit_species (
-            id,
-            name,
-            normalized_name
-          ),
-          color_assignments:fursuit_color_assignments (
-            position,
-            color:fursuit_colors (
-              id,
-              name,
-              normalized_name
-            )
-          ),
-          fursuit_bios (
-            version,
-            owner_name,
-            photo_credit,
-            pronouns,
-            likes_and_interests,
-            ask_me_about,
-            social_links,
-            created_at,
-            updated_at
-          ),
-          owner_profile:profiles!fursuits_owner_id_fkey (
-            social_links
-          )
-        `,
-            )
-            .ilike('unique_code', normalizedCode)
-            .order('version', { ascending: false, foreignTable: 'fursuit_bios' })
-            .limit(1, { foreignTable: 'fursuit_bios' })
-            .eq('is_tutorial', false)
-            .maybeSingle(),
-      );
-
-      if (fursuitError) {
-        throw fursuitError;
-      }
-
-      if (!fursuit) {
-        resetCatchState();
-        setSubmitError(
-          "We couldn't find a fursuit with that code. Double-check the letters and try again.",
-        );
-        finishCatchTrace({ result: 'failed', errorCode: 'code_not_found' });
-        return;
-      }
-
-      const makersByFursuitId = await catchTrace.measure('maker_fetch_ms', () =>
-        fetchFursuitMakersByFursuitIds([fursuit.id]),
-      );
-
-      const initialCatchCount =
-        typeof (fursuit as any)?.catch_count === 'number' ? (fursuit as any).catch_count : 0;
-
-      const normalizedFursuit: FursuitDetails = {
-        id: fursuit.id,
-        name: fursuit.name,
-        species: (fursuit as any)?.species_entry?.name ?? null,
-        species_id: (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
-        avatar_path: (fursuit as any)?.avatar_path ?? null,
-        avatar_url: resolveStorageMediaUrl({
-          bucket: FURSUIT_BUCKET,
-          path: (fursuit as any)?.avatar_path ?? null,
-          legacyUrl: fursuit.avatar_url ?? null,
-        }),
-        unique_code: fursuit.unique_code ?? null,
-        catch_count: initialCatchCount,
-        owner_id: fursuit.owner_id,
-        created_at: fursuit.created_at ?? null,
-        bio: applyProfileSocialLinksToBio(
-          mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
-          parseSocialLinks((fursuit as any)?.owner_profile?.social_links ?? null),
-        ),
-        colors: mapFursuitColors((fursuit as any)?.color_assignments ?? null),
-        makers: makersByFursuitId.get(fursuit.id) ?? [],
-        is_tutorial: fursuit.is_tutorial === true,
-      };
-
-      if (normalizedFursuit.is_tutorial) {
-        resetCatchState();
-        setSubmitError('Tutorial suits cannot be caught by scanning codes.');
-        finishCatchTrace({ result: 'failed', errorCode: 'tutorial_suit' });
-        return;
-      }
-
-      if (blockedIds.has(normalizedFursuit.owner_id)) {
-        resetCatchState();
-        setSubmitError('You cannot catch this fursuit.');
-        finishCatchTrace({ result: 'failed', errorCode: 'blocked_user' });
-        return;
-      }
-
-      const [activeProfileConventions, sharedConventions] = await Promise.all([
-        catchTrace.measure('active_conventions_ms', () => fetchActiveProfileConventionIds(userId)),
-        catchTrace.measure('shared_conventions_ms', () =>
-          fetchActiveSharedConventionIds(userId, normalizedFursuit.id),
-        ),
-      ]);
-
-      if (activeProfileConventions.length === 0) {
-        resetCatchState();
-        setSubmitError(
-          leaderboardOpenConvention
-            ? `Catching has ended for ${leaderboardOpenConvention.name}. Final standings remain available from Home.`
-            : verificationRequiredConvention
-              ? `${verificationRequiredConvention.name} is live. Verify your location before catching fursuits.`
-              : 'Join or verify a playable convention in Settings before catching fursuits.',
-        );
-        finishCatchTrace({ result: 'failed', errorCode: 'no_active_convention' });
-        return;
-      }
-
-      if (sharedConventions.length === 0) {
-        resetCatchState();
-        setSubmitError(SHARED_CONVENTION_HELP);
-        finishCatchTrace({ result: 'failed', errorCode: 'no_shared_convention' });
-        return;
-      }
-
-      const primaryConventionId = sharedConventions[0] ?? null;
-
-      // Use the Edge Function to create the catch
-      // This handles approval mode logic server-side
       addMonitoringBreadcrumb({
         category: 'catch',
         message: 'Catch initiated',
         data: {
-          fursuitId: normalizedFursuit.id,
-          conventionId: primaryConventionId,
-          method: 'manual',
+          clientAttemptId,
+          method: 'code',
         },
       });
       const catchResult = await createCatch({
-        fursuitId: normalizedFursuit.id,
-        conventionId: primaryConventionId,
-        clientAttemptId: catchTrace.clientAttemptId,
+        fursuitCode: normalizedCode,
+        conventionId: null,
+        clientAttemptId,
         method: 'code',
-        isTutorial: Boolean(normalizedFursuit.is_tutorial),
+        timeoutMs: CODE_CATCH_OUTBOX_TIMEOUT_MS,
       });
       catchTrace.recordTiming('edge_request_ms', catchResult.edgeRequestMs);
 
       const stopPostCreateRenderTiming = catchTrace.startTiming('post_create_render_ms');
-
-      const promptCandidate = normalizedFursuit.bio
-        ? [normalizedFursuit.bio.askMeAbout, normalizedFursuit.bio.likesAndInterests]
-            .map((value) => value?.trim())
-            .find((value) => value)
-        : null;
-
-      const displayedCatchCount = catchResult.requiresApproval
-        ? initialCatchCount
-        : initialCatchCount + 1;
 
       const normalizedCatchRecord: CatchRecord = {
         id: catchResult.catchId,
@@ -465,27 +370,64 @@ export default function CatchScreen() {
         catch_number: catchResult.catchNumber,
         status: catchResult.status,
       };
+      const normalizedFursuit: FursuitDetails = {
+        id: catchResult.fursuitId ?? catchResult.catchId,
+        name: catchResult.fursuitName ?? `Code ${normalizedCode}`,
+        species: catchResult.fursuitSpeciesName ?? null,
+        species_id: catchResult.fursuitSpeciesId ?? null,
+        avatar_path: catchResult.fursuitAvatarPath ?? null,
+        avatar_url: resolveStorageMediaUrl({
+          bucket: FURSUIT_BUCKET,
+          path: catchResult.fursuitAvatarPath ?? null,
+          legacyUrl: catchResult.fursuitAvatarUrl ?? null,
+        }),
+        unique_code: normalizedCode,
+        catch_count: catchResult.requiresApproval ? 0 : (catchResult.catchNumber ?? 1),
+        owner_id: catchResult.fursuitOwnerId,
+        created_at: null,
+        bio: null,
+        colors: [],
+        makers: [],
+        is_tutorial: false,
+      };
+
+      await updateCatchOutboxItem(userId, clientAttemptId, (item) => ({
+        ...item,
+        status: catchResult.requiresApproval ? 'pending_approval' : 'confirmed',
+        catchId: catchResult.catchId,
+        catchNumber: catchResult.catchNumber,
+        conventionId: catchResult.conventionId,
+        fursuitId: catchResult.fursuitId,
+        fursuitName: catchResult.fursuitName,
+        fursuitAvatarPath: catchResult.fursuitAvatarPath,
+        fursuitAvatarUrl: catchResult.fursuitAvatarUrl,
+        fursuitSpeciesName: catchResult.fursuitSpeciesName,
+        resolvedAt: new Date().toISOString(),
+        errorCode: undefined,
+        errorMessage: undefined,
+      }));
 
       setCaughtFursuit({
         ...normalizedFursuit,
-        catch_count: displayedCatchCount,
       });
       setCatchRecord(normalizedCatchRecord);
-      setLastCatchConventionId(primaryConventionId);
-      setLastCatchConventionIds(sharedConventions);
-      setCatchNumber(normalizedCatchRecord.catch_number ?? displayedCatchCount);
-      setConversationPrompt(promptCandidate ?? null);
+      setLastCatchConventionId(catchResult.conventionId);
+      setLastCatchConventionIds(catchResult.conventionId ? [catchResult.conventionId] : []);
+      setCatchNumber(normalizedCatchRecord.catch_number ?? normalizedFursuit.catch_count);
+      setConversationPrompt(null);
       stopPostCreateRenderTiming();
       finishCatchTrace({
         result: catchResult.requiresApproval ? 'pending_approval' : 'success',
         catchId: catchResult.catchId,
-        conventionId: primaryConventionId,
+        conventionId: catchResult.conventionId,
       });
-      scheduleCatchSurfaceRefresh({
-        fursuitId: normalizedFursuit.id,
-        conventionIds: sharedConventions,
-        catchResult,
-      });
+      if (catchResult.fursuitId) {
+        scheduleCatchSurfaceRefresh({
+          fursuitId: catchResult.fursuitId,
+          conventionIds: catchResult.conventionId ? [catchResult.conventionId] : [],
+          catchResult,
+        });
+      }
 
       setCodeInput('');
 
@@ -500,10 +442,33 @@ export default function CatchScreen() {
         result: caughtWithTiming.catchPerformanceResult ?? 'failed',
         errorCode: caughtWithTiming.catchPerformanceResult === 'timeout' ? 'edge_timeout' : 'error',
       });
+      resetCatchState();
+
       const fallbackMessage =
         caught instanceof Error ? caught.message : "We couldn't save that catch. Please try again.";
-      setSubmitError(fallbackMessage);
-      resetCatchState();
+      if (isRetryableCatchSubmissionError(caught)) {
+        await updateCatchOutboxItem(userId, clientAttemptId, (item) => ({
+          ...item,
+          status: 'queued',
+          lastAttemptAt: new Date().toISOString(),
+          retryCount: item.retryCount + 1,
+          errorCode: catchSubmissionErrorCode(caught),
+          errorMessage: fallbackMessage,
+        }));
+        setSubmitError("Queued. We'll finish this when your connection improves.");
+        void syncOutbox();
+      } else {
+        await updateCatchOutboxItem(userId, clientAttemptId, (item) => ({
+          ...item,
+          status: 'failed',
+          lastAttemptAt: new Date().toISOString(),
+          resolvedAt: new Date().toISOString(),
+          retryCount: item.retryCount + 1,
+          errorCode: catchSubmissionErrorCode(caught),
+          errorMessage: fallbackMessage,
+        }));
+        setSubmitError(fallbackMessage);
+      }
 
       captureHandledException(caught, {
         scope: 'catch.performCatch',
@@ -690,6 +655,14 @@ export default function CatchScreen() {
           Enter a fursuit's catch code to add them to your collection.
         </Text>
       </View>
+
+      <CatchOutboxList
+        items={outboxItems}
+        compact
+        onRetry={retryOutboxItem}
+        onDismiss={dismissOutboxItem}
+        onEditCode={handleEditOutboxCode}
+      />
 
       {!caughtFursuit && userId ? (
         <View style={styles.photoCatchSpacing}>
