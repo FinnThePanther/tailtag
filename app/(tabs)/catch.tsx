@@ -203,6 +203,48 @@ export default function CatchScreen() {
     lastCatchRecordId,
   ]);
 
+  const scheduleCatchSurfaceRefresh = useCallback(
+    (params: { fursuitId: string; conventionIds: string[]; catchResult: CreateCatchResult }) => {
+      if (!userId) {
+        return;
+      }
+      const currentUserId = userId;
+      setTimeout(() => {
+        void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+        void queryClient.invalidateQueries({
+          queryKey: fursuitDetailQueryKey(params.fursuitId),
+        });
+        params.conventionIds.forEach((conventionId) => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
+          });
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, conventionId],
+          });
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [CAUGHT_SUITS_QUERY_KEY, currentUserId],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: achievementsStatusQueryKey(currentUserId),
+        });
+
+        if (params.catchResult.requiresApproval && params.catchResult.fursuitOwnerId) {
+          void queryClient.invalidateQueries({
+            queryKey: pendingCatchesQueryKey(params.catchResult.fursuitOwnerId),
+          });
+        }
+
+        if (params.catchResult.status === 'PENDING') {
+          void queryClient.invalidateQueries({
+            queryKey: myPendingCatchesQueryKey(currentUserId),
+          });
+        }
+      }, 0);
+    },
+    [queryClient, userId],
+  );
+
   const handleSubmit = async () => {
     if (!userId || isSubmitting) {
       return;
@@ -413,29 +455,9 @@ export default function CatchScreen() {
             .find((value) => value)
         : null;
 
-      const minimumCatchCount = initialCatchCount + 1;
-      let latestCatchCount = minimumCatchCount;
-
-      // Only try to get updated catch count for accepted catches
-      if (!catchResult.requiresApproval) {
-        try {
-          const { data: latestFursuit, error: latestCatchError } = await client
-            .from('fursuits')
-            .select('catch_count')
-            .eq('id', normalizedFursuit.id)
-            .maybeSingle();
-
-          if (latestCatchError) {
-            throw latestCatchError;
-          }
-
-          if (latestFursuit && typeof latestFursuit.catch_count === 'number') {
-            latestCatchCount = Math.max(latestFursuit.catch_count, minimumCatchCount);
-          }
-        } catch (countError) {
-          console.warn('Failed to refresh catch count', countError);
-        }
-      }
+      const displayedCatchCount = catchResult.requiresApproval
+        ? initialCatchCount
+        : initialCatchCount + 1;
 
       const normalizedCatchRecord: CatchRecord = {
         id: catchResult.catchId,
@@ -446,12 +468,12 @@ export default function CatchScreen() {
 
       setCaughtFursuit({
         ...normalizedFursuit,
-        catch_count: latestCatchCount,
+        catch_count: displayedCatchCount,
       });
       setCatchRecord(normalizedCatchRecord);
       setLastCatchConventionId(primaryConventionId);
       setLastCatchConventionIds(sharedConventions);
-      setCatchNumber(normalizedCatchRecord.catch_number ?? latestCatchCount);
+      setCatchNumber(normalizedCatchRecord.catch_number ?? displayedCatchCount);
       setConversationPrompt(promptCandidate ?? null);
       stopPostCreateRenderTiming();
       finishCatchTrace({
@@ -459,40 +481,11 @@ export default function CatchScreen() {
         catchId: catchResult.catchId,
         conventionId: primaryConventionId,
       });
-
-      // Invalidate queries
-      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
-      queryClient.invalidateQueries({
-        queryKey: fursuitDetailQueryKey(normalizedFursuit.id),
+      scheduleCatchSurfaceRefresh({
+        fursuitId: normalizedFursuit.id,
+        conventionIds: sharedConventions,
+        catchResult,
       });
-      sharedConventions.forEach((conventionId) => {
-        queryClient.invalidateQueries({
-          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
-        });
-        queryClient.invalidateQueries({
-          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, conventionId],
-        });
-      });
-      queryClient.invalidateQueries({
-        queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: achievementsStatusQueryKey(userId),
-      });
-
-      // Invalidate pending catches for the fursuit owner (if it's a pending catch)
-      if (catchResult.requiresApproval && catchResult.fursuitOwnerId) {
-        queryClient.invalidateQueries({
-          queryKey: pendingCatchesQueryKey(catchResult.fursuitOwnerId),
-        });
-      }
-
-      // Invalidate my pending catches so the Caught tab list updates
-      if (catchResult.status === 'PENDING') {
-        queryClient.invalidateQueries({
-          queryKey: myPendingCatchesQueryKey(userId),
-        });
-      }
 
       setCodeInput('');
 
@@ -668,37 +661,11 @@ export default function CatchScreen() {
       setLastCatchConventionIds(params.conventionId ? [params.conventionId] : []);
       setCatchNumber(catchResult.catchNumber);
       setConversationPrompt(promptCandidate ?? null);
-
-      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
-      queryClient.invalidateQueries({
-        queryKey: fursuitDetailQueryKey(params.fursuitId),
+      scheduleCatchSurfaceRefresh({
+        fursuitId: params.fursuitId,
+        conventionIds: params.conventionId ? [params.conventionId] : [],
+        catchResult,
       });
-      if (params.conventionId) {
-        queryClient.invalidateQueries({
-          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, params.conventionId],
-        });
-        queryClient.invalidateQueries({
-          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, params.conventionId],
-        });
-      }
-      queryClient.invalidateQueries({
-        queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: achievementsStatusQueryKey(userId),
-      });
-
-      if (catchResult.requiresApproval && catchResult.fursuitOwnerId) {
-        queryClient.invalidateQueries({
-          queryKey: pendingCatchesQueryKey(catchResult.fursuitOwnerId),
-        });
-      }
-
-      if (catchResult.status === 'PENDING') {
-        queryClient.invalidateQueries({
-          queryKey: myPendingCatchesQueryKey(userId),
-        });
-      }
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error ? caught.message : "We couldn't save that catch. Please try again.";
