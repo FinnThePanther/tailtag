@@ -96,6 +96,13 @@ const DEFAULT_ROSTER_SETTINGS: FursuitConventionRosterSettings = {
   rosterVisible: true,
 };
 
+const ASSIGNABLE_CONVENTION_MEMBERSHIP_STATES = new Set<ConventionMembership['membership_state']>([
+  'upcoming',
+  'awaiting_start',
+  'needs_location_verification',
+  'active',
+]);
+
 export default function AddFursuitScreen() {
   const router = useRouter();
   const { session } = useAuth();
@@ -346,9 +353,23 @@ export default function AddFursuitScreen() {
 
   const makersCanAddMore = useMemo(() => makers.length < FURSUIT_MAKER_LIMIT, [makers.length]);
 
-  const profileConventionIdSet = useMemo(
-    () => new Set(profileConventionMemberships.map((membership) => membership.convention_id)),
-    [profileConventionMemberships],
+  const joinableConventionIdSet = useMemo(
+    () => new Set(conventions.map((convention) => convention.id)),
+    [conventions],
+  );
+
+  const profileAssignableConventionIdSet = useMemo(
+    () =>
+      new Set(
+        profileConventionMemberships
+          .filter(
+            (membership) =>
+              ASSIGNABLE_CONVENTION_MEMBERSHIP_STATES.has(membership.membership_state) &&
+              joinableConventionIdSet.has(membership.convention_id),
+          )
+          .map((membership) => membership.convention_id),
+      ),
+    [joinableConventionIdSet, profileConventionMemberships],
   );
 
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
@@ -364,7 +385,7 @@ export default function AddFursuitScreen() {
     }
 
     if (!hasHydratedConventions && !isConventionsBusy) {
-      const defaultConventionIds = [...profileConventionIdSet];
+      const defaultConventionIds = [...profileAssignableConventionIdSet];
       setSelectedConventionIds(new Set(defaultConventionIds));
       setConventionRosterSettingsById(
         Object.fromEntries(defaultConventionIds.map((id) => [id, DEFAULT_ROSTER_SETTINGS])),
@@ -374,20 +395,22 @@ export default function AddFursuitScreen() {
     }
 
     setSelectedConventionIds((current) => {
-      const filtered = new Set([...current].filter((id) => profileConventionIdSet.has(id)));
+      const filtered = new Set(
+        [...current].filter((id) => profileAssignableConventionIdSet.has(id)),
+      );
       return filtered.size === current.size ? current : filtered;
     });
     setConventionRosterSettingsById((current) => {
       const next = Object.fromEntries(
-        Object.entries(current).filter(([id]) => profileConventionIdSet.has(id)),
+        Object.entries(current).filter(([id]) => profileAssignableConventionIdSet.has(id)),
       );
       return Object.keys(next).length === Object.keys(current).length ? current : next;
     });
-  }, [hasHydratedConventions, profileConventionIdSet, isConventionsBusy, userId]);
+  }, [hasHydratedConventions, profileAssignableConventionIdSet, isConventionsBusy, userId]);
 
   const handleConventionToggle = useCallback(
     (conventionId: string, nextSelected: boolean) => {
-      if (!profileConventionIdSet.has(conventionId)) {
+      if (!profileAssignableConventionIdSet.has(conventionId)) {
         return;
       }
 
@@ -416,7 +439,7 @@ export default function AddFursuitScreen() {
         return next;
       });
     },
-    [profileConventionIdSet],
+    [profileAssignableConventionIdSet],
   );
 
   const ensureUniqueCode = useCallback(async () => {
@@ -540,7 +563,7 @@ export default function AddFursuitScreen() {
     }
 
     const allowedConventionIds = Array.from(selectedConventionIds).filter((id) =>
-      profileConventionIdSet.has(id),
+      profileAssignableConventionIdSet.has(id),
     );
 
     setIsSubmitting(true);
@@ -1142,14 +1165,14 @@ export default function AddFursuitScreen() {
               </View>
             ) : conventions.length === 0 ? (
               <Text style={styles.message}>No conventions are open for joining right now.</Text>
-            ) : profileConventionIdSet.size === 0 ? (
+            ) : profileAssignableConventionIdSet.size === 0 ? (
               <Text style={styles.message}>
                 Attend a convention in Settings before listing this suit.
               </Text>
             ) : (
               <View style={styles.conventionList}>
                 {conventions.map((convention) => {
-                  const isAllowed = profileConventionIdSet.has(convention.id);
+                  const isAllowed = profileAssignableConventionIdSet.has(convention.id);
                   const isSelected = selectedConventionIds.has(convention.id);
                   const rosterSettings =
                     conventionRosterSettingsById[convention.id] ?? DEFAULT_ROSTER_SETTINGS;

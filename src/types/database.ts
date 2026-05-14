@@ -237,6 +237,79 @@ export type Database = {
           },
         ]
       }
+      catch_performance_events: {
+        Row: {
+          app_version: string | null
+          catch_id: string | null
+          client_attempt_id: string
+          convention_id: string | null
+          created_at: string
+          error_code: string | null
+          id: string
+          method: string
+          network_type: string | null
+          platform: string | null
+          result: string
+          timings: Json
+          total_ms: number | null
+          user_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          catch_id?: string | null
+          client_attempt_id: string
+          convention_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          method: string
+          network_type?: string | null
+          platform?: string | null
+          result: string
+          timings?: Json
+          total_ms?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          catch_id?: string | null
+          client_attempt_id?: string
+          convention_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          method?: string
+          network_type?: string | null
+          platform?: string | null
+          result?: string
+          timings?: Json
+          total_ms?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catch_performance_events_catch_id_fkey"
+            columns: ["catch_id"]
+            isOneToOne: false
+            referencedRelation: "catches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_performance_events_convention_id_fkey"
+            columns: ["convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_performance_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catches: {
         Row: {
           catch_number: number | null
@@ -2116,6 +2189,20 @@ export type Database = {
         }
         Returns: Json
       }
+      create_catch_with_event: {
+        Args: {
+          p_catch_photo_path?: string
+          p_catch_photo_source?: string
+          p_catch_photo_url?: string
+          p_catcher_id: string
+          p_client_attempt_id?: string
+          p_convention_id?: string
+          p_force_pending?: boolean
+          p_fursuit_id: string
+          p_is_tutorial?: boolean
+        }
+        Returns: Json
+      }
       current_user_has_password_credential: { Args: never; Returns: boolean }
       delete_archived_convention_in_dev: {
         Args: { p_actor_id: string; p_convention_id: string }
@@ -2456,6 +2543,10 @@ export type Database = {
           enqueued: boolean
           event_id: string
         }[]
+      }
+      insert_catch_notification_once: {
+        Args: { p_payload: Json; p_type: string; p_user_id: string }
+        Returns: undefined
       }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean }
