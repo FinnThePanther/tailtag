@@ -237,6 +237,79 @@ export type Database = {
           },
         ]
       }
+      catch_performance_events: {
+        Row: {
+          app_version: string | null
+          catch_id: string | null
+          client_attempt_id: string
+          convention_id: string | null
+          created_at: string
+          error_code: string | null
+          id: string
+          method: string
+          network_type: string | null
+          platform: string | null
+          result: string
+          timings: Json
+          total_ms: number | null
+          user_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          catch_id?: string | null
+          client_attempt_id: string
+          convention_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          method: string
+          network_type?: string | null
+          platform?: string | null
+          result: string
+          timings?: Json
+          total_ms?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          catch_id?: string | null
+          client_attempt_id?: string
+          convention_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          method?: string
+          network_type?: string | null
+          platform?: string | null
+          result?: string
+          timings?: Json
+          total_ms?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catch_performance_events_catch_id_fkey"
+            columns: ["catch_id"]
+            isOneToOne: false
+            referencedRelation: "catches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_performance_events_convention_id_fkey"
+            columns: ["convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_performance_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catches: {
         Row: {
           catch_number: number | null

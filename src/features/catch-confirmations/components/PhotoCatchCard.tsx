@@ -13,6 +13,7 @@ import { loadUriAsUint8Array } from '../../../utils/files';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { buildAuthenticatedStorageObjectUrl } from '../../../utils/supabase-image';
 import { createCatch, fetchConventionFursuits } from '../api/confirmations';
+import { createCatchPerformanceTrace } from '../lib/catchPerformance';
 import {
   fetchActiveProfileConventionIds,
   fetchActiveSharedConventionIds,
@@ -63,6 +64,7 @@ export function PhotoCatchCard({
   const [localError, setLocalError] = useState<string | null>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoProcessingMs, setPhotoProcessingMs] = useState<number | null>(null);
 
   // Load user's currently playable conventions once mounted for the default camera path.
   useEffect(() => {
@@ -115,10 +117,12 @@ export function PhotoCatchCard({
     setLocalError(null);
     setFursuits([]);
     try {
+      const processingStartedAt = Date.now();
       const processed = await processImageForUpload(asset.uri, {
         ...IMAGE_UPLOAD_PRESETS.catchPhoto,
         flipHorizontal: true,
       });
+      setPhotoProcessingMs(Math.max(0, Date.now() - processingStartedAt));
       const activeConventionIds = await fetchActiveProfileConventionIds(userId);
       setPhoto({
         uri: processed.uri,
@@ -132,6 +136,7 @@ export function PhotoCatchCard({
       setStep('photo_taken');
       setSelectedFursuit(null);
     } catch {
+      setPhotoProcessingMs(null);
       setLocalError("We couldn't process your photo. Please try again.");
     } finally {
       setIsProcessingPhoto(false);
@@ -165,7 +170,9 @@ export function PhotoCatchCard({
     setLocalError(null);
     setFursuits([]);
     try {
+      const processingStartedAt = Date.now();
       const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.catchPhoto);
+      setPhotoProcessingMs(Math.max(0, Date.now() - processingStartedAt));
       const galleryConventionIds = await fetchGalleryProfileConventionIds(userId);
       setPhoto({
         uri: processed.uri,
@@ -179,6 +186,7 @@ export function PhotoCatchCard({
       setStep('photo_taken');
       setSelectedFursuit(null);
     } catch {
+      setPhotoProcessingMs(null);
       setLocalError("We couldn't process that gallery photo. Please try another.");
     } finally {
       setIsProcessingPhoto(false);
@@ -190,6 +198,7 @@ export function PhotoCatchCard({
 
     setPhoto(null);
     setPhotoSource(null);
+    setPhotoProcessingMs(null);
     setSelectedFursuit(null);
     setFursuits([]);
     setStep('idle');
@@ -206,15 +215,32 @@ export function PhotoCatchCard({
     if (disabled || !photo || !selectedFursuit) return;
     setLocalError(null);
     setIsUploadingPhoto(true);
+    const catchMethod = photoSource === 'gallery' ? 'gallery_photo' : 'camera_photo';
+    const catchTrace = createCatchPerformanceTrace({ method: catchMethod });
+    let catchTraceFinished = false;
+    const finishCatchTrace = (options: {
+      result: 'success' | 'pending_approval' | 'failed' | 'timeout';
+      catchId?: string | null;
+      conventionId?: string | null;
+      errorCode?: string | null;
+    }) => {
+      if (catchTraceFinished) {
+        return;
+      }
+      catchTraceFinished = true;
+      catchTrace.finish(options);
+    };
+    catchTrace.recordTiming('photo_processing_ms', photoProcessingMs);
 
     // Step 1: Validate shared convention before doing any uploads
     let sharedConventionId: string | null = null;
 
     try {
-      const sharedConventionIds =
+      const sharedConventionIds = await catchTrace.measure('shared_conventions_ms', () =>
         photoSource === 'gallery'
-          ? await fetchGallerySharedConventionIds(userId, selectedFursuit.id)
-          : await fetchActiveSharedConventionIds(userId, selectedFursuit.id);
+          ? fetchGallerySharedConventionIds(userId, selectedFursuit.id)
+          : fetchActiveSharedConventionIds(userId, selectedFursuit.id),
+      );
       sharedConventionId = sharedConventionIds[0] ?? null;
 
       if (!sharedConventionId) {
@@ -224,11 +250,13 @@ export function PhotoCatchCard({
             : 'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.',
         );
         setIsUploadingPhoto(false);
+        finishCatchTrace({ result: 'failed', errorCode: 'no_shared_convention' });
         return;
       }
     } catch {
       setLocalError("Couldn't verify convention. Please try again.");
       setIsUploadingPhoto(false);
+      finishCatchTrace({ result: 'failed', errorCode: 'shared_convention_check_failed' });
       return;
     }
 
@@ -237,24 +265,36 @@ export function PhotoCatchCard({
     let photoUrl: string;
     let storagePath: string;
     try {
-      const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      storagePath = `${userId}/${uniqueSuffix}.jpg`;
+      const uploadResult = await catchTrace.measure('photo_upload_ms', async () => {
+        const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const nextStoragePath = `${userId}/${uniqueSuffix}.jpg`;
 
-      const fileBytes = await loadUriAsUint8Array(photo.uri);
+        const fileBytes = await loadUriAsUint8Array(photo.uri);
 
-      const { error: uploadError } = await supabase.storage
-        .from(CATCH_PHOTO_BUCKET)
-        .upload(storagePath, fileBytes, {
-          contentType: 'image/jpeg',
-          upsert: false,
-        });
+        const { error: uploadError } = await supabase.storage
+          .from(CATCH_PHOTO_BUCKET)
+          .upload(nextStoragePath, fileBytes, {
+            contentType: 'image/jpeg',
+            upsert: false,
+          });
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      photoUrl = buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, storagePath);
+        return {
+          photoUrl: buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, nextStoragePath),
+          storagePath: nextStoragePath,
+        };
+      });
+      photoUrl = uploadResult.photoUrl;
+      storagePath = uploadResult.storagePath;
     } catch {
       setLocalError("Couldn't upload your photo. Please check your connection and try again.");
       setIsUploadingPhoto(false);
+      finishCatchTrace({
+        result: 'failed',
+        conventionId: sharedConventionId,
+        errorCode: 'photo_upload_failed',
+      });
       return;
     }
 
@@ -264,6 +304,8 @@ export function PhotoCatchCard({
       catchResult = await createCatch({
         fursuitId: selectedFursuit.id,
         conventionId: sharedConventionId,
+        clientAttemptId: catchTrace.clientAttemptId,
+        method: catchMethod,
         isTutorial: false,
         forcePending: photoSource === 'gallery',
         hasPhoto: true,
@@ -271,7 +313,13 @@ export function PhotoCatchCard({
         photoUrl,
         photoSource,
       });
+      catchTrace.recordTiming('edge_request_ms', catchResult.edgeRequestMs);
     } catch (error) {
+      const caughtWithTiming = error as {
+        catchPerformanceResult?: 'failed' | 'timeout';
+        edgeRequestMs?: number | null;
+      };
+      catchTrace.recordTiming('edge_request_ms', caughtWithTiming.edgeRequestMs);
       await supabase.storage
         .from(CATCH_PHOTO_BUCKET)
         .remove([storagePath])
@@ -280,16 +328,28 @@ export function PhotoCatchCard({
         error instanceof Error ? error.message : "Couldn't create catch. Please try again.",
       );
       setIsUploadingPhoto(false);
+      finishCatchTrace({
+        result: caughtWithTiming.catchPerformanceResult ?? 'failed',
+        conventionId: sharedConventionId,
+        errorCode: caughtWithTiming.catchPerformanceResult === 'timeout' ? 'edge_timeout' : 'error',
+      });
       return;
     }
 
     setIsUploadingPhoto(false);
 
+    const stopPostCreateRenderTiming = catchTrace.startTiming('post_create_render_ms');
     await onCatchSubmit({
       fursuitId: selectedFursuit.id,
       conventionId: sharedConventionId,
       photoUrl,
       catchResult,
+    });
+    stopPostCreateRenderTiming();
+    finishCatchTrace({
+      result: catchResult.requiresApproval ? 'pending_approval' : 'success',
+      catchId: catchResult.catchId,
+      conventionId: sharedConventionId,
     });
   };
 
