@@ -79,11 +79,17 @@ begin
         raise exception 'Convention is not accepting gallery catches';
       end if;
 
-      if not public.is_profile_convention_gallery_catch_eligible(p_catcher_id, p_convention_id) then
+      if not public.is_profile_convention_gallery_catch_eligible(
+        p_profile_id => p_catcher_id,
+        p_convention_id => p_convention_id
+      ) then
         raise exception 'Catcher must have a playable convention before catching';
       end if;
 
-      if not public.is_profile_convention_gallery_catch_eligible(v_fursuit_owner_id, p_convention_id) then
+      if not public.is_profile_convention_gallery_catch_eligible(
+        p_profile_id => v_fursuit_owner_id,
+        p_convention_id => p_convention_id
+      ) then
         raise exception 'Fursuit owner must have a playable convention before catching';
       end if;
     else
