@@ -2189,6 +2189,20 @@ export type Database = {
         }
         Returns: Json
       }
+      create_catch_with_event: {
+        Args: {
+          p_catch_photo_path?: string
+          p_catch_photo_source?: string
+          p_catch_photo_url?: string
+          p_catcher_id: string
+          p_client_attempt_id?: string
+          p_convention_id?: string
+          p_force_pending?: boolean
+          p_fursuit_id: string
+          p_is_tutorial?: boolean
+        }
+        Returns: Json
+      }
       current_user_has_password_credential: { Args: never; Returns: boolean }
       delete_archived_convention_in_dev: {
         Args: { p_actor_id: string; p_convention_id: string }

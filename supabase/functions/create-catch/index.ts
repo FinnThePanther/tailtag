@@ -8,11 +8,7 @@
 
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
-import {
-  ingestGameplayEvent,
-  loadGameplayQueueConfig,
-  scheduleGameplayQueueDrain,
-} from '../_shared/gameplayQueue.ts';
+import { loadGameplayQueueConfig, scheduleGameplayQueueDrain } from '../_shared/gameplayQueue.ts';
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -72,6 +68,9 @@ interface CreateCatchResponse {
   requires_approval: boolean;
   fursuit_owner_id: string;
   convention_id?: string | null;
+  event_id: string;
+  event_duplicate?: boolean;
+  event_enqueued?: boolean;
 }
 
 type CatchPerformanceMethod = 'code' | 'camera_photo' | 'gallery_photo';
@@ -210,28 +209,6 @@ function normalizeCatchPhotoSource(value: unknown): 'camera' | 'gallery' | null 
   return null;
 }
 
-async function resolveCreatedCatchConventionId(
-  result: CreateCatchResponse,
-  fallbackConventionId: string | null,
-): Promise<string | null> {
-  if (typeof result.convention_id === 'string' && result.convention_id.length > 0) {
-    return result.convention_id;
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from('catches')
-    .select('convention_id')
-    .eq('id', result.catch_id)
-    .maybeSingle();
-
-  if (error) {
-    console.error('[create-catch] Failed resolving created catch convention:', error);
-    return fallbackConventionId;
-  }
-
-  return data?.convention_id ?? fallbackConventionId;
-}
-
 function extractBearerToken(req: Request): string | null {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
@@ -278,83 +255,6 @@ function scheduleBackgroundTask(label: string, task: () => Promise<void>): void 
   }
 
   void promise;
-}
-
-async function sendCatchNotification(options: {
-  result: CreateCatchResponse;
-  userId: string;
-  fursuitId: string;
-  conventionId: string | null;
-  isTutorial: boolean;
-}): Promise<void> {
-  if (!options.result.requires_approval && options.isTutorial) {
-    return;
-  }
-
-  const shouldNotifyPendingCatch = options.result.requires_approval;
-  const shouldNotifyAcceptedCatch = !options.result.requires_approval;
-
-  if (!shouldNotifyPendingCatch && !shouldNotifyAcceptedCatch) {
-    return;
-  }
-
-  const loadMetadata = async () =>
-    await Promise.all([
-      supabaseAdmin.from('fursuits').select('name').eq('id', options.fursuitId).single(),
-      supabaseAdmin.from('profiles').select('username').eq('id', options.userId).single(),
-    ]);
-
-  let [fursuitResult, catcherResult] = await loadMetadata();
-
-  if (fursuitResult.error || catcherResult.error) {
-    console.error('[create-catch] Failed loading notification metadata:', {
-      fursuitError: fursuitResult.error,
-      catcherError: catcherResult.error,
-    });
-    [fursuitResult, catcherResult] = await loadMetadata();
-  }
-
-  if (fursuitResult.error || catcherResult.error) {
-    console.error('[create-catch] Failed loading notification metadata after retry:', {
-      fursuitError: fursuitResult.error,
-      catcherError: catcherResult.error,
-    });
-  }
-
-  const fursuitName = fursuitResult.data?.name || 'Unknown Fursuit';
-  const catcherUsername = catcherResult.data?.username || 'Someone';
-
-  if (shouldNotifyPendingCatch) {
-    const { error } = await supabaseAdmin.rpc('notify_catch_pending', {
-      p_catch_id: options.result.catch_id,
-      p_fursuit_owner_id: options.result.fursuit_owner_id,
-      p_catcher_id: options.userId,
-      p_fursuit_name: fursuitName,
-      p_catcher_username: catcherUsername,
-    });
-
-    if (error) {
-      console.error('[create-catch] Failed to send pending catch notification:', error);
-    }
-    return;
-  }
-
-  const { error } = await supabaseAdmin.from('notifications').insert({
-    user_id: options.result.fursuit_owner_id,
-    type: 'fursuit_caught',
-    payload: {
-      catch_id: options.result.catch_id,
-      catcher_id: options.userId,
-      fursuit_id: options.fursuitId,
-      fursuit_name: fursuitName,
-      catcher_username: catcherUsername,
-      convention_id: options.conventionId,
-    },
-  });
-
-  if (error) {
-    console.error('[create-catch] Failed to send accepted catch notification:', error);
-  }
 }
 
 function scheduleQueueWakeup(): void {
@@ -473,16 +373,19 @@ async function handlePost(req: Request): Promise<Response> {
       return failureResponse(403, { error: 'Cannot catch this fursuit' }, 'blocked_user');
     }
 
-    // Call the create_catch_with_approval function. The RPC reads the fursuit owner's
-    // profile-level catch mode preference.
+    // The RPC performs catch validation, inserts the catch/photo fields, and durably
+    // enqueues the canonical gameplay event in one database transaction.
     const { data, error } = await trace.measure('catch_insert_ms', () =>
-      supabaseAdmin.rpc('create_catch_with_approval', {
+      supabaseAdmin.rpc('create_catch_with_event', {
         p_fursuit_id: body.fursuit_id,
         p_catcher_id: userId,
         p_convention_id: body.convention_id || null,
         p_is_tutorial: body.is_tutorial || false,
         p_force_pending: body.force_pending || catchPhotoSource === 'gallery',
         p_catch_photo_source: catchPhotoSource,
+        p_catch_photo_path: body.catch_photo_path ?? null,
+        p_catch_photo_url: body.catch_photo_url ?? null,
+        p_client_attempt_id: trace.clientAttemptId ?? null,
       }),
     );
 
@@ -534,83 +437,15 @@ async function handlePost(req: Request): Promise<Response> {
 
     const result = data as CreateCatchResponse;
     catchId = result.catch_id;
-    resolvedConventionId = await resolveCreatedCatchConventionId(
-      result,
-      body.convention_id ?? null,
-    );
+    resolvedConventionId = result.convention_id ?? body.convention_id ?? null;
 
-    if (body.has_photo === true) {
-      const { error: photoUpdateError } = await trace.measure('photo_attach_ms', () =>
-        supabaseAdmin
-          .from('catches')
-          .update({
-            catch_photo_path: body.catch_photo_path ?? null,
-            catch_photo_url: body.catch_photo_url,
-            catch_photo_source: catchPhotoSource ?? 'camera',
-          })
-          .eq('id', result.catch_id),
-      );
-
-      if (photoUpdateError) {
-        await supabaseAdmin.from('catches').delete().eq('id', result.catch_id);
-        console.error(
-          '[create-catch] Failed to attach photo during catch creation:',
-          photoUpdateError,
-        );
-        return failureResponse(
-          500,
-          { error: 'Failed to attach photo to catch' },
-          'photo_attach_failed',
-        );
-      }
-    }
-
-    // Persist the canonical gameplay event before returning.
-    const eventType = result.requires_approval ? 'catch_pending' : 'catch_performed';
-    const ingestResult = await trace.measure('event_ingest_ms', () =>
-      ingestGameplayEvent(supabaseAdmin, {
-        type: eventType,
-        userId,
-        conventionId: resolvedConventionId,
-        payload: {
-          catch_id: result.catch_id,
-          fursuit_id: body.fursuit_id,
-          catcher_id: userId,
-          fursuit_owner_id: result.fursuit_owner_id,
-          convention_id: resolvedConventionId,
-          is_tutorial: body.is_tutorial ?? false,
-          status: result.status,
-          catch_photo_source: catchPhotoSource,
-        },
-        occurredAt: new Date().toISOString(),
-        idempotencyKey: `catch:${result.catch_id}:${eventType}`,
-      }),
-    );
-
-    if (ingestResult.enqueued && !ingestResult.duplicate) {
+    if (result.event_enqueued === true && result.event_duplicate !== true) {
       scheduleQueueWakeup();
     }
 
-    scheduleBackgroundTask('send catch notification', () =>
-      sendCatchNotification({
-        result,
-        userId,
-        fursuitId: body.fursuit_id,
-        conventionId: resolvedConventionId,
-        isTutorial: body.is_tutorial ?? false,
-      }),
-    );
-
     await finishTrace({ result: result.requires_approval ? 'pending_approval' : 'success' });
 
-    return jsonResponse(
-      201,
-      {
-        ...result,
-        event_id: ingestResult.eventId,
-      },
-      trace.clientAttemptId,
-    );
+    return jsonResponse(201, result, trace.clientAttemptId);
   } catch (error) {
     console.error('[create-catch] Unexpected error:', error);
     await finishTrace({ result: 'failed', errorCode: 'internal_error' });
