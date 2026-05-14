@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { captureHandledException } from '@/lib/sentry';
 import type { CatchOutboxItem } from './types';
 
 const STORAGE_VERSION = 1;
@@ -104,7 +105,8 @@ export async function loadCatchOutbox(userId: string): Promise<CatchOutboxItem[]
     return sortItems(
       parsed.map(parseItem).filter((item): item is CatchOutboxItem => Boolean(item)),
     );
-  } catch {
+  } catch (error) {
+    captureHandledException(error, { scope: 'catch-outbox.storage' });
     return [];
   }
 }
