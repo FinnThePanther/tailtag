@@ -13,16 +13,10 @@ import {
   resolveStorageMediaUrl,
 } from '../../../utils/supabase-image';
 import {
-  emitImmediateAchievementAwards,
-  type ImmediateAchievementAward,
-} from '../../achievements/immediateAwardsBus';
-import { emitLocalGameplayEvent } from '../../events/localGameplayEventsBus';
-import {
   createClientAttemptId,
   getCatchPerformanceAppVersion,
   type CatchPerformanceResult,
 } from '../lib/catchPerformance';
-import type { Json } from '../../../types/database';
 import type {
   CatchPhotoSource,
   PendingCatch,
@@ -64,77 +58,6 @@ function withCatchPerformanceError(
   enrichedError.catchPerformanceResult = options.result;
   enrichedError.edgeRequestMs = options.edgeRequestMs ?? null;
   return enrichedError;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function normalizeInlineAwards(
-  raw: unknown,
-  currentUserId?: string | null,
-): ImmediateAchievementAward[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  const awards: ImmediateAchievementAward[] = [];
-
-  for (const entry of raw) {
-    if (!isRecord(entry)) {
-      continue;
-    }
-
-    if (entry.awarded === false) {
-      continue;
-    }
-
-    const achievementKey =
-      typeof entry.achievement_key === 'string' && entry.achievement_key.length > 0
-        ? entry.achievement_key
-        : null;
-
-    if (!achievementKey) {
-      continue;
-    }
-
-    if (currentUserId) {
-      const awardUserId =
-        typeof entry.user_id === 'string' && entry.user_id.length > 0 ? entry.user_id : null;
-      if (!awardUserId || awardUserId !== currentUserId) {
-        continue;
-      }
-    }
-
-    awards.push({
-      achievementId:
-        typeof entry.achievement_id === 'string' && entry.achievement_id.length > 0
-          ? entry.achievement_id
-          : null,
-      achievementKey,
-      awardedAt:
-        typeof entry.awarded_at === 'string' && entry.awarded_at.length > 0
-          ? entry.awarded_at
-          : null,
-      context: isRecord(entry.context) ? (entry.context as Json) : null,
-      sourceEventId:
-        typeof entry.source_event_id === 'string' && entry.source_event_id.length > 0
-          ? entry.source_event_id
-          : null,
-    });
-  }
-
-  return awards;
-}
-
-function normalizeColorNames(raw: unknown): string[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  return raw.filter(
-    (value): value is string => typeof value === 'string' && value.trim().length > 0,
-  );
 }
 
 function normalizeCatchPhotoSource(raw: unknown): CatchPhotoSource | null {
@@ -260,7 +183,6 @@ export async function confirmCatch(
 export async function createCatch(params: CreateCatchParams): Promise<CreateCatchResult> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
-  const currentUserId = sessionData.session?.user.id ?? null;
   const supabaseKey = SUPABASE_ANON_KEY;
   const clientAttemptId = params.clientAttemptId ?? createClientAttemptId();
 
@@ -397,50 +319,6 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       fursuitOwnerId: responseData.fursuit_owner_id,
       edgeRequestMs,
     };
-
-    const immediateAwards = normalizeInlineAwards(responseData?.awards, currentUserId);
-    if (currentUserId && immediateAwards.length > 0) {
-      emitImmediateAchievementAwards({
-        userId: currentUserId,
-        awards: immediateAwards,
-      });
-    }
-
-    if (!result.requiresApproval && params.conventionId) {
-      const occurredAt = new Date().toISOString();
-      const colorNames = normalizeColorNames(responseData?.colors);
-      const optimisticPayload: Record<string, Json> = {
-        catch_id: result.catchId,
-        catcher_id: currentUserId,
-        fursuit_id: params.fursuitId,
-        convention_id: params.conventionId,
-        status: result.status,
-        is_tutorial: params.isTutorial ?? false,
-        species: typeof responseData?.species === 'string' ? responseData.species : null,
-        colors: colorNames,
-      };
-
-      emitLocalGameplayEvent({
-        eventId:
-          typeof responseData?.event_id === 'string' && responseData.event_id.length > 0
-            ? responseData.event_id
-            : `catch:${result.catchId}:local`,
-        idempotencyKey: `catch:${result.catchId}:${occurredAt}`,
-        type: 'catch_performed',
-        conventionId: params.conventionId,
-        occurredAt,
-        payload: { ...optimisticPayload, payload: optimisticPayload } as Json,
-        emittedAt: Date.now(),
-      });
-
-      void wakeGameplayQueue().catch((queueWakeError) => {
-        captureFeatureError(queueWakeError, {
-          scope: 'catch-confirmations.createCatch',
-          action: 'wakeGameplayQueue',
-          catchId: result.catchId,
-        });
-      });
-    }
 
     return result;
   } catch (error) {

@@ -220,6 +220,17 @@ async function processCatchEvent(
   }
 
   const catchFursuit = Array.isArray(catchRow.fursuit) ? catchRow.fursuit[0] : catchRow.fursuit;
+  const speciesEntry = Array.isArray(catchFursuit?.species)
+    ? catchFursuit?.species[0]
+    : catchFursuit?.species;
+  const colorNames = ((catchFursuit?.color_assignments ?? []) as Array<{ color?: unknown }>)
+    .map((assignment) => {
+      const color = Array.isArray(assignment.color) ? assignment.color[0] : assignment.color;
+      return typeof color === 'object' && color !== null && 'name' in color
+        ? (color.name as string | null)
+        : null;
+    })
+    .filter((name): name is string => Boolean(name));
   const rawOwnerId = catchFursuit?.owner_id ?? null;
   const tutorialValue = payload['is_tutorial'];
   const payloadTutorialFlag =
@@ -268,6 +279,7 @@ async function processCatchEvent(
     distinctConventionsForFursuit,
     hasMakerMatchWithCatcherOwnedSuit,
     distinctSelfMadeFursuitsCaught,
+    isNewMakerForCatcherAtConvention,
   ] = await Promise.all([
     countCatchesByUser(supabaseAdmin, catcherId),
     fursuitOwnerId ? countCatchesByFursuit(supabaseAdmin, fursuitId, true) : Promise.resolve(0),
@@ -281,7 +293,53 @@ async function processCatchEvent(
       : Promise.resolve(0),
     hasCatcherOwnedMakerMatch(supabaseAdmin, catcherId, makerMetadata.normalizedMakerNames),
     countDistinctSelfMadeFursuitsCaught(supabaseAdmin, catcherId),
+    primaryConventionId && makerMetadata.normalizedMakerNames.length > 0
+      ? hasNewMakerForCatcherAtConvention(
+          supabaseAdmin,
+          catcherId,
+          primaryConventionId,
+          catchId,
+          makerMetadata.normalizedMakerNames,
+        )
+      : Promise.resolve(false),
   ]);
+
+  const enrichedPayload = {
+    ...payload,
+    catch_id: catchId,
+    fursuit_id: fursuitId,
+    catcher_id: catcherId,
+    fursuit_owner_id: rawOwnerId ?? null,
+    convention_id: primaryConventionId,
+    status: catchRow.status,
+    is_tutorial: wasTutorialCatch,
+    species: speciesEntry?.name ?? null,
+    colors: colorNames,
+    maker_names: makerMetadata.makerNames,
+    normalized_maker_names: makerMetadata.normalizedMakerNames,
+    has_maker: makerMetadata.normalizedMakerNames.length > 0,
+    is_self_made: makerMetadata.hasSelfMadeMaker,
+    has_catcher_owned_maker_match: hasMakerMatchWithCatcherOwnedSuit,
+    is_new_maker_for_catcher_at_convention: isNewMakerForCatcherAtConvention,
+  };
+  const enrichedEvent: InsertableEventRow = {
+    ...event,
+    convention_id: event.convention_id ?? primaryConventionId,
+    payload: enrichedPayload,
+  };
+
+  const { error: enrichError } = await supabaseAdmin
+    .from('events')
+    .update({ payload: enrichedPayload })
+    .eq('event_id', event.event_id)
+    .is('processed_at', null);
+
+  if (enrichError) {
+    console.error('[events-ingress] Failed enriching catch_performed event payload', {
+      event_id: event.event_id,
+      error: enrichError,
+    });
+  }
 
   const [isHybrid, hasDoubleCatch] = await Promise.all([
     hasHybridOrMultiSpecies(supabaseAdmin, fursuitId),
@@ -395,7 +453,7 @@ async function processCatchEvent(
   let ownerDailyAwards: AwardCandidate[] = [];
   if (!options.skipDailyTasks) {
     catcherDailyAwards = await collectDailyTaskAwardsFromCatch({
-      event,
+      event: enrichedEvent,
       userId: catcherId,
       occurredAt,
       conventionIds: uniqueConventionIds,
@@ -406,7 +464,7 @@ async function processCatchEvent(
     // Both the catcher and owner should receive daily task credit when a suit is caught
     if (fursuitOwnerId && fursuitOwnerId !== catcherId) {
       ownerDailyAwards = await collectDailyTaskAwardsFromCatch({
-        event,
+        event: enrichedEvent,
         userId: fursuitOwnerId,
         occurredAt,
         conventionIds: uniqueConventionIds,
@@ -421,7 +479,7 @@ async function processCatchEvent(
     ...catcherDailyAwards,
     ...ownerDailyAwards,
   ];
-  const mainResult = await applyAwards(supabaseAdmin, combinedAwards, event);
+  const mainResult = await applyAwards(supabaseAdmin, combinedAwards, enrichedEvent);
 
   // Post-award meta pass: check ACHIEVEMENT_HUNTER after main batch is granted
   const anyGranted = mainResult.awards.some((r) => r.awarded);
@@ -437,7 +495,7 @@ async function processCatchEvent(
     }
 
     if (metaCandidates.length > 0) {
-      const metaResult = await applyAwards(supabaseAdmin, metaCandidates, event);
+      const metaResult = await applyAwards(supabaseAdmin, metaCandidates, enrichedEvent);
       return { awards: [...mainResult.awards, ...metaResult.awards] };
     }
   }
