@@ -161,7 +161,7 @@ function createServerCatchPerformanceTrace(initialClientAttemptId: string | null
     }
   };
 
-  const finish = async (options: {
+  const finish = (options: {
     userId?: string | null;
     catchId?: string | null;
     conventionId?: string | null;
@@ -179,24 +179,30 @@ function createServerCatchPerformanceTrace(initialClientAttemptId: string | null
     const totalMs = roundMs(now() - startedAt);
     timings.edge_total_ms = totalMs;
 
-    const { error } = await supabaseAdmin.from('catch_performance_events').insert({
-      client_attempt_id: clientAttemptId,
-      user_id: options.userId ?? null,
-      catch_id: options.catchId ?? null,
-      convention_id: options.conventionId ?? null,
-      method: options.method,
-      result: options.result,
-      total_ms: totalMs,
-      timings,
-      app_version: options.appVersion ?? null,
-      platform: options.platform ?? null,
-      network_type: options.networkType ?? null,
-      error_code: options.errorCode ?? null,
-    });
-
-    if (error) {
-      console.error('[create-catch] Failed to record catch performance telemetry:', error);
-    }
+    void Promise.resolve(
+      supabaseAdmin.from('catch_performance_events').insert({
+        client_attempt_id: clientAttemptId,
+        user_id: options.userId ?? null,
+        catch_id: options.catchId ?? null,
+        convention_id: options.conventionId ?? null,
+        method: options.method,
+        result: options.result,
+        total_ms: totalMs,
+        timings: { ...timings },
+        app_version: options.appVersion ?? null,
+        platform: options.platform ?? null,
+        network_type: options.networkType ?? null,
+        error_code: options.errorCode ?? null,
+      }),
+    )
+      .then(({ error }) => {
+        if (error) {
+          console.error('[create-catch] Failed to record catch performance telemetry:', error);
+        }
+      })
+      .catch((error) => {
+        console.error('[create-catch] Failed to record catch performance telemetry:', error);
+      });
   };
 
   return {

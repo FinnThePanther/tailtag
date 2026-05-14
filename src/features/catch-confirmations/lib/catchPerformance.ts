@@ -39,13 +39,8 @@ const now = () =>
 const roundMs = (duration: number) => Math.max(0, Math.round(duration));
 
 export function createClientAttemptId(): string {
-  const randomUUID =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID.bind(crypto)
-      : null;
-
-  if (randomUUID) {
-    return randomUUID();
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
   }
 
   return `attempt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
