@@ -41,6 +41,7 @@ declare
   v_photo_source text := p_catch_photo_source;
   v_is_gallery_catch boolean;
   v_normalized_client_attempt_id text := nullif(btrim(p_client_attempt_id), '');
+  v_constraint_name text;
   v_existing record;
 begin
   if v_normalized_client_attempt_id is not null then
@@ -63,6 +64,7 @@ begin
     join public.fursuits f on f.id = c.fursuit_id
     left join public.fursuit_species fs on fs.id = f.species_id
     where c.client_attempt_id = v_normalized_client_attempt_id
+      and c.catcher_id = p_catcher_id
     limit 1;
 
     if found then
@@ -253,15 +255,13 @@ begin
     returning id, catch_number into v_catch_id, v_catch_number;
   exception
     when unique_violation then
-      if v_normalized_client_attempt_id is not null then
+      get stacked diagnostics v_constraint_name = constraint_name;
+
+      if v_constraint_name = 'catches_catcher_client_attempt_id_idx' then
         raise exception 'Client attempt id already used';
       end if;
 
-      if p_convention_id is not null then
-        raise exception 'Fursuit already caught at this convention';
-      end if;
-
-      raise exception 'Fursuit already caught or pending';
+      raise;
   end;
 
   v_event_type := case when v_catch_status = 'PENDING' then 'catch_pending' else 'catch_performed' end;
