@@ -1,11 +1,11 @@
 import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { AppAvatar } from '../../../components/ui/AppAvatar';
-import { TailTagButton } from '../../../components/ui/TailTagButton';
-import { TailTagCard } from '../../../components/ui/TailTagCard';
-import type { CatchOutboxItem } from '../types';
-import { styles } from './CatchOutboxList.styles';
+import { AppAvatar } from '@/components/ui/AppAvatar';
+import { TailTagButton } from '@/components/ui/TailTagButton';
+import { TailTagCard } from '@/components/ui/TailTagCard';
+import type { CatchOutboxItem } from '@/features/catch-outbox/types';
+import { styles } from '@/features/catch-outbox/components/CatchOutboxList.styles';
 
 type CatchOutboxListProps = {
   items: CatchOutboxItem[];
@@ -164,7 +164,7 @@ export function CatchOutboxList({
         <View
           style={styles.badge}
           accessibilityRole="text"
-          accessibilityLabel={`${items.length} catch ${items.length === 1 ? 'item' : 'items'} need sync attention`}
+          accessibilityLabel={`${items.length} catch ${items.length === 1 ? 'item needs' : 'items need'} sync attention`}
         >
           <Text style={styles.badgeText}>{items.length}</Text>
         </View>
