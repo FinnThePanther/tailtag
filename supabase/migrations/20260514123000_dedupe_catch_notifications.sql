@@ -6,7 +6,8 @@ with ranked_catch_notifications as (
       order by created_at asc, id asc
     ) as duplicate_rank
   from public.notifications
-  where payload ? 'catch_id'
+  where payload ->> 'catch_id' is not null
+    and payload ->> 'catch_id' <> ''
 )
 delete from public.notifications n
 using ranked_catch_notifications ranked
@@ -19,7 +20,8 @@ create unique index if not exists notifications_catch_once_idx
     type,
     ((payload ->> 'catch_id'))
   )
-  where payload ? 'catch_id';
+  where payload ->> 'catch_id' is not null
+    and payload ->> 'catch_id' <> '';
 
 create or replace function public.insert_catch_notification_once(
   p_user_id uuid,
@@ -40,7 +42,10 @@ begin
     raise exception 'Missing notification type';
   end if;
 
-  if p_payload is null or not (p_payload ? 'catch_id') then
+  if p_payload is null
+    or p_payload ->> 'catch_id' is null
+    or p_payload ->> 'catch_id' = ''
+  then
     raise exception 'Catch notification payload requires catch_id';
   end if;
 
@@ -59,7 +64,8 @@ begin
     type,
     ((payload ->> 'catch_id'))
   )
-  where payload ? 'catch_id'
+  where payload ->> 'catch_id' is not null
+    and payload ->> 'catch_id' <> ''
   do nothing;
 end;
 $$;
