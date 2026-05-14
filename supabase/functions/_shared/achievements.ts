@@ -339,6 +339,9 @@ async function processCatchEvent(
       event_id: event.event_id,
       error: enrichError,
     });
+    throw new Error(
+      `Failed enriching catch_performed event payload for ${event.event_id}: ${enrichError.message}`,
+    );
   }
 
   const [isHybrid, hasDoubleCatch] = await Promise.all([

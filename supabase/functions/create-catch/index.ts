@@ -298,27 +298,38 @@ async function sendCatchNotification(options: {
     return;
   }
 
-  const [fursuitResult, catcherResult] = await Promise.all([
-    supabaseAdmin.from('fursuits').select('name').eq('id', options.fursuitId).single(),
-    supabaseAdmin.from('profiles').select('username').eq('id', options.userId).single(),
-  ]);
+  const loadMetadata = async () =>
+    await Promise.all([
+      supabaseAdmin.from('fursuits').select('name').eq('id', options.fursuitId).single(),
+      supabaseAdmin.from('profiles').select('username').eq('id', options.userId).single(),
+    ]);
 
-  if (fursuitResult.error || !fursuitResult.data || catcherResult.error || !catcherResult.data) {
+  let [fursuitResult, catcherResult] = await loadMetadata();
+
+  if (fursuitResult.error || catcherResult.error) {
     console.error('[create-catch] Failed loading notification metadata:', {
       fursuitError: fursuitResult.error,
       catcherError: catcherResult.error,
     });
-    return;
+    [fursuitResult, catcherResult] = await loadMetadata();
   }
 
-  const catcherUsername = catcherResult.data.username || 'Someone';
+  if (fursuitResult.error || catcherResult.error) {
+    console.error('[create-catch] Failed loading notification metadata after retry:', {
+      fursuitError: fursuitResult.error,
+      catcherError: catcherResult.error,
+    });
+  }
+
+  const fursuitName = fursuitResult.data?.name || 'Unknown Fursuit';
+  const catcherUsername = catcherResult.data?.username || 'Someone';
 
   if (shouldNotifyPendingCatch) {
     const { error } = await supabaseAdmin.rpc('notify_catch_pending', {
       p_catch_id: options.result.catch_id,
       p_fursuit_owner_id: options.result.fursuit_owner_id,
       p_catcher_id: options.userId,
-      p_fursuit_name: fursuitResult.data.name,
+      p_fursuit_name: fursuitName,
       p_catcher_username: catcherUsername,
     });
 
@@ -335,7 +346,7 @@ async function sendCatchNotification(options: {
       catch_id: options.result.catch_id,
       catcher_id: options.userId,
       fursuit_id: options.fursuitId,
-      fursuit_name: fursuitResult.data.name,
+      fursuit_name: fursuitName,
       catcher_username: catcherUsername,
       convention_id: options.conventionId,
     },
