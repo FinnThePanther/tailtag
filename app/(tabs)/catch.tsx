@@ -323,11 +323,19 @@ export default function CatchScreen() {
     resetCatchState();
 
     const clientAttemptId = createClientAttemptId();
-    await queueCodeCatchOutboxItem({
-      userId,
-      clientAttemptId,
-      fursuitCode: normalizedCode,
-    });
+    try {
+      await queueCodeCatchOutboxItem({
+        userId,
+        clientAttemptId,
+        fursuitCode: normalizedCode,
+      });
+    } catch (caught) {
+      captureHandledException(caught, {
+        scope: 'catch.performCatch.queueOutboxItem',
+        userId,
+        clientAttemptId,
+      });
+    }
 
     const catchTrace = createCatchPerformanceTrace({ method: 'code', clientAttemptId });
     let catchTraceFinished = false;
