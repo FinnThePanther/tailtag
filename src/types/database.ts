@@ -2544,6 +2544,10 @@ export type Database = {
           event_id: string
         }[]
       }
+      insert_catch_notification_once: {
+        Args: { p_payload: Json; p_type: string; p_user_id: string }
+        Returns: undefined
+      }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean }
       is_blocked: {

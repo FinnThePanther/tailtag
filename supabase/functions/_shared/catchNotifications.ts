@@ -26,29 +26,6 @@ function readBoolean(value: unknown): boolean {
   return value === true;
 }
 
-async function notificationExists(
-  supabaseAdmin: SupabaseClient<any, 'public', any>,
-  options: {
-    userId: string;
-    type: CatchNotificationType;
-    catchId: string;
-  },
-): Promise<boolean> {
-  const { data, error } = await supabaseAdmin
-    .from('notifications')
-    .select('id')
-    .eq('user_id', options.userId)
-    .eq('type', options.type)
-    .contains('payload', { catch_id: options.catchId })
-    .limit(1);
-
-  if (error) {
-    throw new Error(`Failed checking existing catch notification: ${error.message}`);
-  }
-
-  return (data ?? []).length > 0;
-}
-
 async function loadCatchNotificationContext(
   supabaseAdmin: SupabaseClient<any, 'public', any>,
   event: InsertableEventRow,
@@ -98,16 +75,6 @@ async function insertCatchNotification(
   type: CatchNotificationType,
   context: CatchNotificationContext,
 ): Promise<void> {
-  const exists = await notificationExists(supabaseAdmin, {
-    userId: context.fursuitOwnerId,
-    type,
-    catchId: context.catchId,
-  });
-
-  if (exists) {
-    return;
-  }
-
   const payload =
     type === 'catch_pending'
       ? {
@@ -125,14 +92,14 @@ async function insertCatchNotification(
           convention_id: context.conventionId,
         };
 
-  const { error } = await supabaseAdmin.from('notifications').insert({
-    user_id: context.fursuitOwnerId,
-    type,
-    payload,
+  const { error } = await supabaseAdmin.rpc('insert_catch_notification_once', {
+    p_user_id: context.fursuitOwnerId,
+    p_type: type,
+    p_payload: payload,
   });
 
   if (error) {
-    throw new Error(`Failed inserting ${type} notification: ${error.message}`);
+    throw new Error(`Failed inserting deduped ${type} notification: ${error.message}`);
   }
 }
 

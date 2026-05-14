@@ -1021,6 +1021,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      insert_catch_notification_once: {
+        Args: { p_payload: Json; p_type: string; p_user_id: string };
+        Returns: undefined;
+      };
       refresh_convention_leaderboard: {
         Args: { convention_uuid?: string };
         Returns: undefined;

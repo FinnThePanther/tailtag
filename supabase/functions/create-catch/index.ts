@@ -499,63 +499,6 @@ async function handlePatch(req: Request): Promise<Response> {
     return jsonResponse(500, { error: 'Failed to update catch photo' });
   }
 
-  // Now that the photo URL is attached, notify the fursuit owner.
-  // We do this here (not in POST) so the owner sees the photo immediately on their card.
-  try {
-    const { data: catchCtx, error: catchCtxError } = await supabaseAdmin
-      .from('catches')
-      .select(
-        'catcher_id, fursuit_id, status, fursuits!catches_fursuit_id_fkey(owner_id, name), profiles!catches_catcher_id_fkey(username)',
-      )
-      .eq('id', body.catch_id)
-      .single();
-
-    if (catchCtxError) {
-      throw catchCtxError;
-    }
-
-    if (catchCtx) {
-      const fursuit = Array.isArray(catchCtx.fursuits) ? catchCtx.fursuits[0] : catchCtx.fursuits;
-      const profile = Array.isArray(catchCtx.profiles) ? catchCtx.profiles[0] : catchCtx.profiles;
-      const fursuitOwnerId = (fursuit as { owner_id: string } | null)?.owner_id;
-      const fursuitName = (fursuit as { name: string } | null)?.name ?? 'Unknown Fursuit';
-      const catcherUsername = (profile as { username: string } | null)?.username ?? 'Someone';
-      const catchStatus = (catchCtx as { status?: string }).status;
-
-      if (fursuitOwnerId) {
-        const { error: notifError } =
-          catchStatus === 'PENDING'
-            ? await supabaseAdmin.rpc('notify_catch_pending', {
-                p_catch_id: body.catch_id,
-                p_fursuit_owner_id: fursuitOwnerId,
-                p_catcher_id: catchCtx.catcher_id,
-                p_fursuit_name: fursuitName,
-                p_catcher_username: catcherUsername,
-              })
-            : catchStatus === 'ACCEPTED'
-              ? await supabaseAdmin.from('notifications').insert({
-                  user_id: fursuitOwnerId,
-                  type: 'fursuit_caught',
-                  payload: {
-                    catch_id: body.catch_id,
-                    catcher_id: catchCtx.catcher_id,
-                    fursuit_id: catchCtx.fursuit_id,
-                    fursuit_name: fursuitName,
-                    catcher_username: catcherUsername,
-                  },
-                })
-              : { error: null };
-
-        if (notifError) {
-          console.error('[create-catch] Failed to send photo catch notification:', notifError);
-        }
-      }
-    }
-  } catch (notifError) {
-    console.error('[create-catch] Error sending photo catch notification:', notifError);
-    // Don't fail the response — the photo was attached successfully
-  }
-
   return jsonResponse(200, { success: true });
 }
 

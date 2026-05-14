@@ -2616,6 +2616,10 @@ export type Database = {
           event_id: string;
         }[];
       };
+      insert_catch_notification_once: {
+        Args: { p_payload: Json; p_type: string; p_user_id: string };
+        Returns: undefined;
+      };
       finish_onboarding: { Args: { target_user_id?: string }; Returns: Json };
       generate_profile_avatar_url: {
         Args: { app_meta: Json; user_meta: Json };

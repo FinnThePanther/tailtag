@@ -1208,6 +1208,10 @@ export type Database = {
         }[]
       }
       grant_achievements_batch: { Args: { awards: Json }; Returns: Json }
+      insert_catch_notification_once: {
+        Args: { p_payload: Json; p_type: string; p_user_id: string }
+        Returns: undefined
+      }
       opt_in_to_convention: {
         Args: {
           p_convention_id: string
