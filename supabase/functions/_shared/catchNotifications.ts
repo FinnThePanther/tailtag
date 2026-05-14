@@ -52,11 +52,21 @@ async function loadCatchNotificationContext(
   ]);
 
   if (fursuitResult.error) {
-    throw new Error(`Failed loading fursuit notification metadata: ${fursuitResult.error.message}`);
+    console.error('[catchNotifications] Failed loading fursuit notification metadata', {
+      event_id: event.event_id,
+      fursuit_id: fursuitId,
+      error: fursuitResult.error.message,
+    });
+    return null;
   }
 
   if (catcherResult.error) {
-    throw new Error(`Failed loading catcher notification metadata: ${catcherResult.error.message}`);
+    console.error('[catchNotifications] Failed loading catcher notification metadata', {
+      event_id: event.event_id,
+      catcher_id: catcherId,
+      error: catcherResult.error.message,
+    });
+    return null;
   }
 
   return {
@@ -99,7 +109,12 @@ async function insertCatchNotification(
   });
 
   if (error) {
-    throw new Error(`Failed inserting deduped ${type} notification: ${error.message}`);
+    console.error('[catchNotifications] Failed inserting deduped catch notification', {
+      type,
+      catch_id: context.catchId,
+      user_id: context.fursuitOwnerId,
+      error: error.message,
+    });
   }
 }
 

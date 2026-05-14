@@ -1,3 +1,18 @@
+with ranked_catch_notifications as (
+  select
+    id,
+    row_number() over (
+      partition by user_id, type, payload ->> 'catch_id'
+      order by created_at asc, id asc
+    ) as duplicate_rank
+  from public.notifications
+  where payload ? 'catch_id'
+)
+delete from public.notifications n
+using ranked_catch_notifications ranked
+where n.id = ranked.id
+  and ranked.duplicate_rank > 1;
+
 create unique index if not exists notifications_catch_once_idx
   on public.notifications (
     user_id,
