@@ -2525,6 +2525,20 @@ export type Database = {
             };
             Returns: Json;
           };
+      create_catch_with_event: {
+        Args: {
+          p_catch_photo_path?: string;
+          p_catch_photo_source?: string;
+          p_catch_photo_url?: string;
+          p_catcher_id: string;
+          p_client_attempt_id?: string;
+          p_convention_id?: string;
+          p_force_pending?: boolean;
+          p_fursuit_id: string;
+          p_is_tutorial?: boolean;
+        };
+        Returns: Json;
+      };
       delete_gameplay_event_queue_message: {
         Args: { p_message_id: number };
         Returns: boolean;
@@ -2601,6 +2615,10 @@ export type Database = {
           enqueued: boolean;
           event_id: string;
         }[];
+      };
+      insert_catch_notification_once: {
+        Args: { p_payload: Json; p_type: string; p_user_id: string };
+        Returns: undefined;
       };
       finish_onboarding: { Args: { target_user_id?: string }; Returns: Json };
       generate_profile_avatar_url: {

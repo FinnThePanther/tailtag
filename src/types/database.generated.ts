@@ -935,6 +935,20 @@ export type Database = {
         };
         Returns: Json;
       };
+      create_catch_with_event: {
+        Args: {
+          p_catch_photo_path?: string;
+          p_catch_photo_source?: string;
+          p_catch_photo_url?: string;
+          p_catcher_id: string;
+          p_client_attempt_id?: string;
+          p_convention_id?: string;
+          p_force_pending?: boolean;
+          p_fursuit_id: string;
+          p_is_tutorial?: boolean;
+        };
+        Returns: Json;
+      };
       expire_pending_catches: { Args: Record<PropertyKey, never>; Returns: Json };
       finish_onboarding: { Args: { target_user_id?: string }; Returns: Json };
       get_fursuit_convention_stats: {
@@ -1005,6 +1019,10 @@ export type Database = {
           p_fursuit_name: string;
           p_fursuit_owner_id: string;
         };
+        Returns: undefined;
+      };
+      insert_catch_notification_once: {
+        Args: { p_payload: Json; p_type: string; p_user_id: string };
         Returns: undefined;
       };
       refresh_convention_leaderboard: {
