@@ -49,6 +49,7 @@ import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import { achievementsStatusQueryKey } from '../../src/features/achievements';
 import { supabase } from '../../src/lib/supabase';
 import { captureHandledException, addMonitoringBreadcrumb } from '../../src/lib/sentry';
+import { createCatchPerformanceTrace } from '../../src/features/catch-confirmations/lib/catchPerformance';
 import { spacing } from '../../src/theme';
 import { useBlockedIds } from '../../src/features/moderation';
 import { isValidUniqueCodeInput, normalizeUniqueCodeInput } from '../../src/utils/code';
@@ -225,14 +226,32 @@ export default function CatchScreen() {
     setSubmitError(null);
     resetCatchState();
 
+    const catchTrace = createCatchPerformanceTrace({ method: 'code' });
+    let catchTraceFinished = false;
+    const finishCatchTrace = (options: {
+      result: 'success' | 'pending_approval' | 'failed' | 'timeout';
+      catchId?: string | null;
+      conventionId?: string | null;
+      errorCode?: string | null;
+    }) => {
+      if (catchTraceFinished) {
+        return;
+      }
+      catchTraceFinished = true;
+      catchTrace.finish(options);
+    };
+
     try {
       const client = supabase as any;
 
       // Fetch fursuit details by code
-      const { data: fursuit, error: fursuitError } = await client
-        .from('fursuits')
-        .select(
-          `
+      const { data: fursuit, error: fursuitError } = await catchTrace.measure(
+        'code_lookup_ms',
+        async () =>
+          await client
+            .from('fursuits')
+            .select(
+              `
           id,
           name,
           species_id,
@@ -271,12 +290,13 @@ export default function CatchScreen() {
             social_links
           )
         `,
-        )
-        .ilike('unique_code', normalizedCode)
-        .order('version', { ascending: false, foreignTable: 'fursuit_bios' })
-        .limit(1, { foreignTable: 'fursuit_bios' })
-        .eq('is_tutorial', false)
-        .maybeSingle();
+            )
+            .ilike('unique_code', normalizedCode)
+            .order('version', { ascending: false, foreignTable: 'fursuit_bios' })
+            .limit(1, { foreignTable: 'fursuit_bios' })
+            .eq('is_tutorial', false)
+            .maybeSingle(),
+      );
 
       if (fursuitError) {
         throw fursuitError;
@@ -287,10 +307,13 @@ export default function CatchScreen() {
         setSubmitError(
           "We couldn't find a fursuit with that code. Double-check the letters and try again.",
         );
+        finishCatchTrace({ result: 'failed', errorCode: 'code_not_found' });
         return;
       }
 
-      const makersByFursuitId = await fetchFursuitMakersByFursuitIds([fursuit.id]);
+      const makersByFursuitId = await catchTrace.measure('maker_fetch_ms', () =>
+        fetchFursuitMakersByFursuitIds([fursuit.id]),
+      );
 
       const initialCatchCount =
         typeof (fursuit as any)?.catch_count === 'number' ? (fursuit as any).catch_count : 0;
@@ -322,18 +345,22 @@ export default function CatchScreen() {
       if (normalizedFursuit.is_tutorial) {
         resetCatchState();
         setSubmitError('Tutorial suits cannot be caught by scanning codes.');
+        finishCatchTrace({ result: 'failed', errorCode: 'tutorial_suit' });
         return;
       }
 
       if (blockedIds.has(normalizedFursuit.owner_id)) {
         resetCatchState();
         setSubmitError('You cannot catch this fursuit.');
+        finishCatchTrace({ result: 'failed', errorCode: 'blocked_user' });
         return;
       }
 
       const [activeProfileConventions, sharedConventions] = await Promise.all([
-        fetchActiveProfileConventionIds(userId),
-        fetchActiveSharedConventionIds(userId, normalizedFursuit.id),
+        catchTrace.measure('active_conventions_ms', () => fetchActiveProfileConventionIds(userId)),
+        catchTrace.measure('shared_conventions_ms', () =>
+          fetchActiveSharedConventionIds(userId, normalizedFursuit.id),
+        ),
       ]);
 
       if (activeProfileConventions.length === 0) {
@@ -345,12 +372,14 @@ export default function CatchScreen() {
               ? `${verificationRequiredConvention.name} is live. Verify your location before catching fursuits.`
               : 'Join or verify a playable convention in Settings before catching fursuits.',
         );
+        finishCatchTrace({ result: 'failed', errorCode: 'no_active_convention' });
         return;
       }
 
       if (sharedConventions.length === 0) {
         resetCatchState();
         setSubmitError(SHARED_CONVENTION_HELP);
+        finishCatchTrace({ result: 'failed', errorCode: 'no_shared_convention' });
         return;
       }
 
@@ -370,8 +399,13 @@ export default function CatchScreen() {
       const catchResult = await createCatch({
         fursuitId: normalizedFursuit.id,
         conventionId: primaryConventionId,
+        clientAttemptId: catchTrace.clientAttemptId,
+        method: 'code',
         isTutorial: Boolean(normalizedFursuit.is_tutorial),
       });
+      catchTrace.recordTiming('edge_request_ms', catchResult.edgeRequestMs);
+
+      const stopPostCreateRenderTiming = catchTrace.startTiming('post_create_render_ms');
 
       const promptCandidate = normalizedFursuit.bio
         ? [normalizedFursuit.bio.askMeAbout, normalizedFursuit.bio.likesAndInterests]
@@ -419,6 +453,12 @@ export default function CatchScreen() {
       setLastCatchConventionIds(sharedConventions);
       setCatchNumber(normalizedCatchRecord.catch_number ?? latestCatchCount);
       setConversationPrompt(promptCandidate ?? null);
+      stopPostCreateRenderTiming();
+      finishCatchTrace({
+        result: catchResult.requiresApproval ? 'pending_approval' : 'success',
+        catchId: catchResult.catchId,
+        conventionId: primaryConventionId,
+      });
 
       // Invalidate queries
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
@@ -458,6 +498,15 @@ export default function CatchScreen() {
 
       // Events are now fired by the Edge Function, no need to emit here
     } catch (caught) {
+      const caughtWithTiming = caught as {
+        catchPerformanceResult?: 'failed' | 'timeout';
+        edgeRequestMs?: number | null;
+      };
+      catchTrace.recordTiming('edge_request_ms', caughtWithTiming.edgeRequestMs);
+      finishCatchTrace({
+        result: caughtWithTiming.catchPerformanceResult ?? 'failed',
+        errorCode: caughtWithTiming.catchPerformanceResult === 'timeout' ? 'edge_timeout' : 'error',
+      });
       const fallbackMessage =
         caught instanceof Error ? caught.message : "We couldn't save that catch. Please try again.";
       setSubmitError(fallbackMessage);

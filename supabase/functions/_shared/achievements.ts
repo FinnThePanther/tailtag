@@ -890,25 +890,26 @@ async function insertNotificationsForAwards(
   results: RpcAwardResult[],
 ) {
   const notifications: NotificationInsert[] = [];
-  const awardedSummaries: RpcAwardResult[] = [];
+  const awardedSummaries: Array<RpcAwardResult & { achievement_id: string }> = [];
   const awardedNotificationKeys = new Set<string>();
 
   for (const summary of results) {
-    if (!summary.awarded || !summary.achievement_id) {
+    const achievementId = summary.achievement_id;
+    if (!summary.awarded || !achievementId) {
       continue;
     }
 
-    const notificationKey = `${summary.user_id}:${summary.achievement_id}`;
+    const notificationKey = `${summary.user_id}:${achievementId}`;
     if (awardedNotificationKeys.has(notificationKey)) {
       continue;
     }
 
     awardedNotificationKeys.add(notificationKey);
-    awardedSummaries.push(summary);
+    awardedSummaries.push({ ...summary, achievement_id: achievementId });
   }
 
   const awardedAchievementIds = Array.from(
-    new Set(awardedSummaries.map((summary) => summary.achievement_id as string)),
+    new Set(awardedSummaries.map((summary) => summary.achievement_id)),
   );
   const achievementInfoById = new Map<string, AchievementNotificationInfo>();
 

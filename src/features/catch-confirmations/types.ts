@@ -47,16 +47,20 @@ export type ConfirmCatchResult = {
 
 export type CreateCatchResult = {
   catchId: string;
+  clientAttemptId: string;
   status: CatchStatus;
   expiresAt: string | null;
   catchNumber: number | null;
   requiresApproval: boolean;
   fursuitOwnerId: string;
+  edgeRequestMs: number | null;
 };
 
 export type CreateCatchParams = {
   fursuitId: string;
   conventionId: string | null;
+  clientAttemptId?: string;
+  method?: 'code' | 'camera_photo' | 'gallery_photo';
   isTutorial?: boolean;
   forcePending?: boolean;
   hasPhoto?: boolean;

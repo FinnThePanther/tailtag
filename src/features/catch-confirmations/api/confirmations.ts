@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { supabase } from '../../../lib/supabase';
 import { captureFeatureError } from '../../../lib/sentry';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../../lib/runtimeConfig';
@@ -15,6 +17,11 @@ import {
   type ImmediateAchievementAward,
 } from '../../achievements/immediateAwardsBus';
 import { emitLocalGameplayEvent } from '../../events/localGameplayEventsBus';
+import {
+  createClientAttemptId,
+  getCatchPerformanceAppVersion,
+  type CatchPerformanceResult,
+} from '../lib/catchPerformance';
 import type { Json } from '../../../types/database';
 import type {
   CatchPhotoSource,
@@ -33,6 +40,31 @@ export const pendingCatchesQueryKey = (userId: string) =>
 // Stale times
 export const PENDING_CATCHES_STALE_TIME = 15 * 1000; // 15 seconds
 const EDGE_FUNCTION_TIMEOUT_MS = 15 * 1000;
+
+type CreateCatchError = Error & {
+  catchPerformanceResult?: CatchPerformanceResult;
+  edgeRequestMs?: number | null;
+};
+
+const now = () =>
+  typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+
+const roundMs = (duration: number) => Math.max(0, Math.round(duration));
+
+function withCatchPerformanceError(
+  error: Error,
+  options: {
+    result: CatchPerformanceResult;
+    edgeRequestMs?: number | null;
+  },
+): CreateCatchError {
+  const enrichedError = error as CreateCatchError;
+  enrichedError.catchPerformanceResult = options.result;
+  enrichedError.edgeRequestMs = options.edgeRequestMs ?? null;
+  return enrichedError;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -230,6 +262,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
   const accessToken = sessionData.session?.access_token;
   const currentUserId = sessionData.session?.user.id ?? null;
   const supabaseKey = SUPABASE_ANON_KEY;
+  const clientAttemptId = params.clientAttemptId ?? createClientAttemptId();
 
   if (!accessToken) {
     throw new Error('You must be signed in to catch fursuits.');
@@ -243,6 +276,8 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
   // Edge Functions can commit the catch before slower notification/achievement work finishes.
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), EDGE_FUNCTION_TIMEOUT_MS);
+  const edgeRequestStartedAt = now();
+  let edgeRequestMs: number | null = null;
 
   try {
     const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
@@ -251,8 +286,20 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         Authorization: `Bearer ${accessToken}`,
         apikey: supabaseKey,
         'Content-Type': 'application/json',
+        'x-client-attempt-id': clientAttemptId,
       },
       body: JSON.stringify({
+        client_attempt_id: clientAttemptId,
+        app_version: getCatchPerformanceAppVersion(),
+        platform: Platform.OS,
+        network_type: null,
+        method:
+          params.method ??
+          (params.photoSource === 'gallery'
+            ? 'gallery_photo'
+            : params.photoSource === 'camera'
+              ? 'camera_photo'
+              : 'code'),
         fursuit_id: params.fursuitId,
         convention_id: params.conventionId,
         is_tutorial: params.isTutorial ?? false,
@@ -266,6 +313,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       signal: controller.signal,
     });
 
+    edgeRequestMs = roundMs(now() - edgeRequestStartedAt);
     clearTimeout(timeoutId);
 
     const responseData = await response.json();
@@ -276,50 +324,78 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       captureFeatureError(new Error(errorMessage), {
         scope: 'catch-confirmations.createCatch',
         action: 'edge-function',
+        clientAttemptId,
         fursuitId: params.fursuitId,
         statusCode: response.status,
+        edgeRequestMs,
       });
 
       // Return user-friendly messages for known errors
       if (errorMessage.includes('Cannot catch your own')) {
-        throw new Error(
-          'That tag belongs to one of your own suits. Trade codes with friends to grow your collection.',
+        throw withCatchPerformanceError(
+          new Error(
+            'That tag belongs to one of your own suits. Trade codes with friends to grow your collection.',
+          ),
+          { result: 'failed', edgeRequestMs },
         );
       }
       if (errorMessage.includes('share a playable convention')) {
-        throw new Error(
-          'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.',
+        throw withCatchPerformanceError(
+          new Error(
+            'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.',
+          ),
+          { result: 'failed', edgeRequestMs },
         );
       }
       if (errorMessage.includes('not accepting gallery catches')) {
-        throw new Error(
-          'This convention is no longer accepting gallery catches. Gallery catches can be submitted during the event and for three local days after it ends.',
+        throw withCatchPerformanceError(
+          new Error(
+            'This convention is no longer accepting gallery catches. Gallery catches can be submitted during the event and for three local days after it ends.',
+          ),
+          { result: 'failed', edgeRequestMs },
         );
       }
       if (errorMessage.includes('already caught') || errorMessage.includes('pending')) {
-        throw new Error(
-          'You already caught this suit at this convention. Try catching them at another con!',
+        throw withCatchPerformanceError(
+          new Error(
+            'You already caught this suit at this convention. Try catching them at another con!',
+          ),
+          { result: 'failed', edgeRequestMs },
         );
       }
       if (errorMessage.includes('not found')) {
-        throw new Error(
-          "We couldn't find a fursuit with that code. Double-check the letters and try again.",
+        throw withCatchPerformanceError(
+          new Error(
+            "We couldn't find a fursuit with that code. Double-check the letters and try again.",
+          ),
+          { result: 'failed', edgeRequestMs },
         );
       }
       if (response.status === 403) {
-        throw new Error('You cannot catch this fursuit.');
+        throw withCatchPerformanceError(new Error('You cannot catch this fursuit.'), {
+          result: 'failed',
+          edgeRequestMs,
+        });
       }
 
-      throw new Error("We couldn't save that catch. Please try again.");
+      throw withCatchPerformanceError(new Error("We couldn't save that catch. Please try again."), {
+        result: 'failed',
+        edgeRequestMs,
+      });
     }
 
     const result: CreateCatchResult = {
       catchId: responseData.catch_id,
+      clientAttemptId:
+        typeof responseData.client_attempt_id === 'string' && responseData.client_attempt_id
+          ? responseData.client_attempt_id
+          : clientAttemptId,
       status: responseData.status,
       expiresAt: responseData.expires_at ?? null,
       catchNumber: responseData.catch_number ?? null,
       requiresApproval: responseData.requires_approval ?? false,
       fursuitOwnerId: responseData.fursuit_owner_id,
+      edgeRequestMs,
     };
 
     const immediateAwards = normalizeInlineAwards(responseData?.awards, currentUserId);
@@ -372,13 +448,19 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
 
     // Handle timeout/abort
     if (error instanceof Error && error.name === 'AbortError') {
+      edgeRequestMs = roundMs(now() - edgeRequestStartedAt);
       captureFeatureError(new Error('Create catch request timed out'), {
         scope: 'catch-confirmations.createCatch',
         action: 'timeout',
+        clientAttemptId,
         fursuitId: params.fursuitId,
         timeoutMs: EDGE_FUNCTION_TIMEOUT_MS,
+        edgeRequestMs,
       });
-      throw new Error('The request took too long. Please check your connection and try again.');
+      throw withCatchPerformanceError(
+        new Error('The request took too long. Please check your connection and try again.'),
+        { result: 'timeout', edgeRequestMs },
+      );
     }
 
     // Re-throw other errors
