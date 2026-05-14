@@ -198,10 +198,8 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
 
   // Edge Functions can commit the catch before slower notification/achievement work finishes.
   const controller = new AbortController();
-  const timeoutId = setTimeout(
-    () => controller.abort(),
-    params.timeoutMs ?? EDGE_FUNCTION_TIMEOUT_MS,
-  );
+  const effectiveTimeoutMs = params.timeoutMs ?? EDGE_FUNCTION_TIMEOUT_MS;
+  const timeoutId = setTimeout(() => controller.abort(), effectiveTimeoutMs);
   const edgeRequestStartedAt = now();
   let edgeRequestMs: number | null = null;
 
@@ -344,7 +342,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         action: 'timeout',
         clientAttemptId,
         fursuitId: params.fursuitId,
-        timeoutMs: EDGE_FUNCTION_TIMEOUT_MS,
+        timeoutMs: effectiveTimeoutMs,
         edgeRequestMs,
       });
       throw withCatchPerformanceError(
