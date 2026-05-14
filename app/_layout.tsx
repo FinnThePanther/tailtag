@@ -24,6 +24,7 @@ import { ToastProvider } from '../src/hooks/useToast';
 import { DailyTaskToastManager } from '../src/features/daily-tasks/components/DailyTaskToastManager';
 import { AchievementToastManager } from '../src/features/achievements';
 import { CatchConfirmationToastManager } from '../src/features/catch-confirmations';
+import { CatchOutboxSyncManager } from '../src/features/catch-outbox';
 import { PushNotificationManager } from '../src/features/push-notifications';
 import {
   Sentry,
@@ -527,6 +528,7 @@ function Layout() {
                     <AchievementToastManager />
                     <DailyTaskToastManager />
                     <CatchConfirmationToastManager />
+                    <CatchOutboxSyncManager />
                     <RootLayoutNav />
                   </OtaUpdateProvider>
                 </ToastProvider>

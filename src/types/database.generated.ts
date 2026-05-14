@@ -114,6 +114,7 @@ export type Database = {
           catch_number: number | null;
           catcher_id: string;
           caught_at: string | null;
+          client_attempt_id: string | null;
           convention_id: string | null;
           decided_at: string | null;
           decided_by_user_id: string | null;
@@ -128,6 +129,7 @@ export type Database = {
           catch_number?: number | null;
           catcher_id: string;
           caught_at?: string | null;
+          client_attempt_id?: string | null;
           convention_id?: string | null;
           decided_at?: string | null;
           decided_by_user_id?: string | null;
@@ -142,6 +144,7 @@ export type Database = {
           catch_number?: number | null;
           catcher_id?: string;
           caught_at?: string | null;
+          client_attempt_id?: string | null;
           convention_id?: string | null;
           decided_at?: string | null;
           decided_by_user_id?: string | null;

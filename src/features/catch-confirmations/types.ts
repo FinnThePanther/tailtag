@@ -53,14 +53,23 @@ export type CreateCatchResult = {
   catchNumber: number | null;
   requiresApproval: boolean;
   fursuitOwnerId: string;
+  conventionId: string | null;
+  fursuitId?: string;
+  fursuitName?: string;
+  fursuitAvatarPath?: string | null;
+  fursuitAvatarUrl?: string | null;
+  fursuitSpeciesId?: string | null;
+  fursuitSpeciesName?: string | null;
   edgeRequestMs: number | null;
 };
 
 export type CreateCatchParams = {
-  fursuitId: string;
+  fursuitId?: string;
+  fursuitCode?: string;
   conventionId: string | null;
   clientAttemptId?: string;
   method?: 'code' | 'camera_photo' | 'gallery_photo';
+  timeoutMs?: number;
   isTutorial?: boolean;
   forcePending?: boolean;
   hasPhoto?: boolean;

@@ -34,6 +34,7 @@ export const pendingCatchesQueryKey = (userId: string) =>
 // Stale times
 export const PENDING_CATCHES_STALE_TIME = 15 * 1000; // 15 seconds
 const EDGE_FUNCTION_TIMEOUT_MS = 15 * 1000;
+export const CODE_CATCH_OUTBOX_TIMEOUT_MS = 5 * 1000;
 
 type CreateCatchError = Error & {
   catchPerformanceResult?: CatchPerformanceResult;
@@ -197,7 +198,8 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
 
   // Edge Functions can commit the catch before slower notification/achievement work finishes.
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), EDGE_FUNCTION_TIMEOUT_MS);
+  const effectiveTimeoutMs = params.timeoutMs ?? EDGE_FUNCTION_TIMEOUT_MS;
+  const timeoutId = setTimeout(() => controller.abort(), effectiveTimeoutMs);
   const edgeRequestStartedAt = now();
   let edgeRequestMs: number | null = null;
 
@@ -223,6 +225,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
               ? 'camera_photo'
               : 'code'),
         fursuit_id: params.fursuitId,
+        fursuit_code: params.fursuitCode ?? null,
         convention_id: params.conventionId,
         is_tutorial: params.isTutorial ?? false,
         force_pending: params.forcePending ?? false,
@@ -317,6 +320,13 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       catchNumber: responseData.catch_number ?? null,
       requiresApproval: responseData.requires_approval ?? false,
       fursuitOwnerId: responseData.fursuit_owner_id,
+      conventionId: responseData.convention_id ?? params.conventionId ?? null,
+      fursuitId: responseData.fursuit_id ?? params.fursuitId,
+      fursuitName: responseData.fursuit_name,
+      fursuitAvatarPath: responseData.fursuit_avatar_path ?? null,
+      fursuitAvatarUrl: responseData.fursuit_avatar_url ?? null,
+      fursuitSpeciesId: responseData.fursuit_species_id ?? null,
+      fursuitSpeciesName: responseData.fursuit_species_name ?? null,
       edgeRequestMs,
     };
 
@@ -332,7 +342,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         action: 'timeout',
         clientAttemptId,
         fursuitId: params.fursuitId,
-        timeoutMs: EDGE_FUNCTION_TIMEOUT_MS,
+        timeoutMs: effectiveTimeoutMs,
         edgeRequestMs,
       });
       throw withCatchPerformanceError(
