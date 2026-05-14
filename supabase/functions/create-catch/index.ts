@@ -217,7 +217,16 @@ function normalizeCatchPhotoSource(value: unknown): 'camera' | 'gallery' | null 
 }
 
 function normalizeFursuitCode(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim().toUpperCase() : null;
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+
+  return /^[A-Z0-9]{4,8}$/.test(normalized) ? normalized : null;
 }
 
 function extractBearerToken(req: Request): string | null {
