@@ -20,7 +20,9 @@ export function useCatchOutbox(userId: string | null) {
   }, [userId]);
 
   useEffect(() => {
-    void reload();
+    void reload().catch((error) => {
+      console.error('[catch-outbox] Failed to load outbox', error);
+    });
   }, [reload]);
 
   useEffect(() => subscribeCatchOutbox(setItems), []);
@@ -82,9 +84,13 @@ export function useCatchOutboxSync(userId: string | null, queryClient?: QueryCli
       return;
     }
 
-    void sync();
+    void sync().catch((error) => {
+      console.error('[catch-outbox] Failed to sync outbox', error);
+    });
     const interval = setInterval(() => {
-      void sync();
+      void sync().catch((error) => {
+        console.error('[catch-outbox] Failed to sync outbox', error);
+      });
     }, 30 * 1000);
 
     return () => clearInterval(interval);
