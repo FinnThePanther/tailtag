@@ -323,7 +323,7 @@ BEGIN
     END IF;
 
     IF TG_OP = 'INSERT' THEN
-      RETURN NULL;
+      RAISE EXCEPTION 'Convention roster write rejected because registration is closed';
     END IF;
 
     RAISE EXCEPTION 'Convention is not open for registration';
