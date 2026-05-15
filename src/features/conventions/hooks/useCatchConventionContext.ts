@@ -80,7 +80,7 @@ export function useCatchConventionContext(userId: string | null) {
 
   const refresh = useCallback(async () => {
     const membershipResult = await refetchMemberships();
-    const nextMemberships = membershipResult.data ?? conventionMemberships;
+    const nextMemberships = membershipResult.data ?? [];
     const nextActiveConventionIds = activeConventionIdsFromMemberships(nextMemberships);
 
     await Promise.all(
@@ -93,7 +93,7 @@ export function useCatchConventionContext(userId: string | null) {
         }),
       ]),
     );
-  }, [conventionMemberships, queryClient, refetchMemberships, userId]);
+  }, [queryClient, refetchMemberships, userId]);
 
   return {
     conventionMemberships,
