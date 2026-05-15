@@ -54,6 +54,37 @@ function isPhotoUploadItem(item: CatchOutboxItem) {
   return item.method === 'camera_photo' || item.method === 'gallery_photo';
 }
 
+function notifyPhotoCatchResolved(options: {
+  item: CatchOutboxItem;
+  userId: string;
+  queryClient?: QueryClient;
+  showToast?: (message: string) => void;
+}) {
+  const { item, userId, queryClient, showToast } = options;
+
+  showToast?.(`Catch photo uploaded: ${item.fursuitName ?? 'Photo catch'}`);
+
+  if (!queryClient) {
+    return;
+  }
+
+  void queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
+  void queryClient.invalidateQueries({ queryKey: myPendingCatchesQueryKey(userId) });
+  if (item.conventionId) {
+    void queryClient.invalidateQueries({
+      queryKey: conventionSuitRosterQueryKey(userId, item.conventionId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: conventionSuitRosterCaughtIdsQueryKey(userId, item.conventionId),
+    });
+  }
+  if (item.fursuitOwnerId) {
+    void queryClient.invalidateQueries({
+      queryKey: pendingCatchesQueryKey(item.fursuitOwnerId),
+    });
+  }
+}
+
 async function cleanupResolvedItems(userId: string) {
   const items = await loadCatchOutbox(userId);
   const cutoff = Date.now() - RESOLVED_ITEM_TTL_MS;
@@ -119,6 +150,9 @@ export async function syncCatchOutbox(options: {
             photoUrl: uploadResult.photoUrl,
             photoSource: item.photoSource,
           });
+          if (photoUpdateResult.photoUploadState === 'failed') {
+            throw new Error('Catch photo upload is not pending');
+          }
 
           const resolvedItem: CatchOutboxItem = {
             ...item,
@@ -134,25 +168,7 @@ export async function syncCatchOutbox(options: {
 
           await updateCatchOutboxItem(userId, item.clientAttemptId, () => resolvedItem);
           resolutions.push({ item: resolvedItem, previousStatus: item.status });
-          showToast?.(`Catch photo uploaded: ${resolvedItem.fursuitName ?? 'Photo catch'}`);
-
-          if (queryClient) {
-            void queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
-            void queryClient.invalidateQueries({ queryKey: myPendingCatchesQueryKey(userId) });
-            if (item.conventionId) {
-              void queryClient.invalidateQueries({
-                queryKey: conventionSuitRosterQueryKey(userId, item.conventionId),
-              });
-              void queryClient.invalidateQueries({
-                queryKey: conventionSuitRosterCaughtIdsQueryKey(userId, item.conventionId),
-              });
-            }
-            if (item.fursuitOwnerId) {
-              void queryClient.invalidateQueries({
-                queryKey: pendingCatchesQueryKey(item.fursuitOwnerId),
-              });
-            }
-          }
+          notifyPhotoCatchResolved({ item: resolvedItem, userId, queryClient, showToast });
 
           continue;
         }
@@ -259,6 +275,7 @@ export async function syncCatchOutbox(options: {
             };
             await updateCatchOutboxItem(userId, item.clientAttemptId, () => confirmedItem);
             resolutions.push({ item: confirmedItem, previousStatus: item.status });
+            notifyPhotoCatchResolved({ item: confirmedItem, userId, queryClient, showToast });
             continue;
           }
         }

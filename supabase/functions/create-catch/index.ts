@@ -693,16 +693,45 @@ async function handlePatch(req: Request): Promise<Response> {
       return jsonResponse(409, { error: 'Catch photo upload is not pending' });
     }
 
-    const { error: updateError } = await supabaseAdmin
+    const { data: updatedRows, error: updateError } = await supabaseAdmin
       .from('catches')
       .update({ photo_upload_state: 'failed' })
       .eq('id', body.catch_id)
       .eq('catcher_id', userId)
-      .eq('photo_upload_state', 'pending_upload');
+      .eq('photo_upload_state', 'pending_upload')
+      .select('photo_upload_state');
 
     if (updateError) {
       console.error('[create-catch] Failed to mark catch photo failed:', updateError);
       return jsonResponse(500, { error: 'Failed to mark photo upload failed' });
+    }
+
+    if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
+      const { data: currentCatchRow, error: currentCatchError } = await supabaseAdmin
+        .from('catches')
+        .select('photo_upload_state, catch_photo_path, catch_photo_url')
+        .eq('id', body.catch_id)
+        .eq('catcher_id', userId)
+        .maybeSingle();
+
+      if (currentCatchError) {
+        console.error(
+          '[create-catch] Failed to read current catch photo state:',
+          currentCatchError,
+        );
+        return jsonResponse(500, { error: 'Failed to verify photo upload state' });
+      }
+
+      if (!currentCatchRow) {
+        return jsonResponse(404, { error: 'Catch not found' });
+      }
+
+      return jsonResponse(409, {
+        error: 'Catch photo upload state changed',
+        photo_upload_state: currentCatchRow.photo_upload_state,
+        catch_photo_path: currentCatchRow.catch_photo_path,
+        catch_photo_url: currentCatchRow.catch_photo_url,
+      });
     }
 
     return jsonResponse(200, { success: true, photo_upload_state: 'failed' });

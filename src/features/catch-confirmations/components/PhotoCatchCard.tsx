@@ -381,6 +381,9 @@ export function PhotoCatchCard({
         photoUrl: uploadResult.photoUrl,
         photoSource: photoSource ?? 'camera',
       });
+      if (photoUpdateResult.photoUploadState === 'failed') {
+        throw new Error('Catch photo upload is not pending');
+      }
       const confirmedUploadResult = uploadResult;
       await updateCatchOutboxItem(userId, catchTrace.clientAttemptId, (item) => ({
         ...item,

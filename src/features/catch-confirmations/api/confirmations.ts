@@ -84,6 +84,10 @@ export function normalizeCatchPhotoUploadState(raw: unknown): CatchPhotoUploadSt
   return raw === 'pending_upload' || raw === 'uploaded' || raw === 'failed' ? raw : 'not_required';
 }
 
+function stringField(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
 async function wakeGameplayQueue(): Promise<void> {
   const { error } = await supabase.rpc('process_gameplay_queue_if_active');
   if (error) {
@@ -446,17 +450,13 @@ export async function updateCatchPhoto(
 
     const responseData = await response.json().catch(() => null);
 
+    const photoUploadState = normalizeCatchPhotoUploadState(responseData?.photo_upload_state);
+
     return {
-      photoUploadState: 'uploaded',
+      photoUploadState: photoUploadState === 'failed' ? 'failed' : 'uploaded',
       alreadyUploaded: responseData?.already_uploaded === true,
-      photoPath:
-        typeof responseData?.catch_photo_path === 'string'
-          ? responseData.catch_photo_path
-          : params.photoPath,
-      photoUrl:
-        typeof responseData?.catch_photo_url === 'string'
-          ? responseData.catch_photo_url
-          : resolvedPhotoUrl,
+      photoPath: stringField(responseData?.catch_photo_path) ?? params.photoPath,
+      photoUrl: stringField(responseData?.catch_photo_url) ?? resolvedPhotoUrl,
     };
   } catch (error) {
     clearTimeout(timeoutId);
@@ -518,7 +518,21 @@ export async function markCatchPhotoUploadFailed(
     }
 
     const responseData = await response.json().catch(() => null);
+    const storedPaths =
+      typeof responseData?.stored_paths === 'object' && responseData.stored_paths !== null
+        ? (responseData.stored_paths as Record<string, unknown>)
+        : null;
+    const photoPath =
+      stringField(responseData?.catch_photo_path) ??
+      stringField(storedPaths?.catch_photo_path) ??
+      stringField(storedPaths?.photo_path);
+    const photoUrl =
+      stringField(responseData?.catch_photo_url) ??
+      stringField(storedPaths?.catch_photo_url) ??
+      stringField(storedPaths?.photo_url);
     const photoUploadState =
+      responseData?.already_uploaded === true ||
+      Boolean(photoPath || photoUrl) ||
       normalizeCatchPhotoUploadState(responseData?.photo_upload_state) === 'uploaded'
         ? 'uploaded'
         : 'failed';
@@ -526,10 +540,8 @@ export async function markCatchPhotoUploadFailed(
     return {
       photoUploadState,
       alreadyUploaded: responseData?.already_uploaded === true,
-      photoPath:
-        typeof responseData?.catch_photo_path === 'string' ? responseData.catch_photo_path : null,
-      photoUrl:
-        typeof responseData?.catch_photo_url === 'string' ? responseData.catch_photo_url : null,
+      photoPath,
+      photoUrl,
     };
   } catch (error) {
     clearTimeout(timeoutId);
