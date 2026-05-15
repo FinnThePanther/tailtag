@@ -3,8 +3,9 @@ import type {
   ConventionLifecycleRecommendedAction,
 } from '@/lib/convention-lifecycle';
 
+const neutralLifecycleStatuses = new Set(['finalizing', 'closeout_running', 'closeout_failed']);
+
 export function StatusBadge({ status }: { status: string }) {
-  const neutralLifecycleStatuses = new Set(['finalizing', 'closeout_running', 'closeout_failed']);
   const className =
     status === 'live'
       ? 'border-emerald-300/40 bg-emerald-400/10 text-emerald-200'

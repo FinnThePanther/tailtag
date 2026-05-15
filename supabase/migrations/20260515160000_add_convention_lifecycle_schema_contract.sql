@@ -33,24 +33,56 @@ ALTER TABLE public.conventions
   ADD COLUMN IF NOT EXISTS closeout_step text,
   ADD COLUMN IF NOT EXISTS closeout_retry_count integer NOT NULL DEFAULT 0;
 
-ALTER TABLE public.conventions
-  ADD CONSTRAINT conventions_closeout_retry_count_check
-  CHECK (closeout_retry_count >= 0);
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint constraint_info
+    JOIN pg_class table_info
+      ON table_info.oid = constraint_info.conrelid
+    JOIN pg_namespace schema_info
+      ON schema_info.oid = table_info.relnamespace
+    WHERE constraint_info.conname = 'conventions_closeout_retry_count_check'
+      AND schema_info.nspname = 'public'
+      AND table_info.relname = 'conventions'
+  ) THEN
+    ALTER TABLE public.conventions
+      ADD CONSTRAINT conventions_closeout_retry_count_check
+      CHECK (closeout_retry_count >= 0);
+  END IF;
+END;
+$do$;
 
-ALTER TABLE public.conventions
-  ADD CONSTRAINT conventions_closeout_step_check
-  CHECK (
-    closeout_step IS NULL
-    OR closeout_step = ANY (
-      ARRAY[
-        'pending_expired'::text,
-        'gameplay_queue_drained'::text,
-        'recaps_generated'::text,
-        'notifications_created'::text,
-        'archived'::text
-      ]
-    )
-  );
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint constraint_info
+    JOIN pg_class table_info
+      ON table_info.oid = constraint_info.conrelid
+    JOIN pg_namespace schema_info
+      ON schema_info.oid = table_info.relnamespace
+    WHERE constraint_info.conname = 'conventions_closeout_step_check'
+      AND schema_info.nspname = 'public'
+      AND table_info.relname = 'conventions'
+  ) THEN
+    ALTER TABLE public.conventions
+      ADD CONSTRAINT conventions_closeout_step_check
+      CHECK (
+        closeout_step IS NULL
+        OR closeout_step = ANY (
+          ARRAY[
+            'pending_expired'::text,
+            'gameplay_queue_drained'::text,
+            'recaps_generated'::text,
+            'notifications_created'::text,
+            'archived'::text
+          ]
+        )
+      );
+  END IF;
+END;
+$do$;
 
 CREATE INDEX IF NOT EXISTS conventions_status_closeout_not_before_idx
   ON public.conventions (status, closeout_not_before);
