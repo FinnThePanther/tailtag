@@ -1,7 +1,11 @@
 import { Platform } from 'react-native';
 
 import { supabase } from '../../../lib/supabase';
-import { captureFeatureError } from '../../../lib/sentry';
+import {
+  captureFeatureError,
+  captureHandledException,
+  captureSupabaseError,
+} from '../../../lib/sentry';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../../lib/runtimeConfig';
 import {
   CATCH_PHOTO_BUCKET,
@@ -42,6 +46,13 @@ type CreateCatchError = Error & {
   catchPerformanceResult?: CatchPerformanceResult;
   edgeRequestMs?: number | null;
 };
+
+const isSupabaseError = (
+  error: unknown,
+): error is { code?: string; details?: string; hint?: string; message?: string } =>
+  typeof error === 'object' &&
+  error !== null &&
+  ('code' in error || 'details' in error || 'hint' in error);
 
 const now = () =>
   typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -471,6 +482,14 @@ export async function markCatchPhotoUploadFailed(catchId: string): Promise<void>
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      const responseText = await response.text().catch(() => null);
+      captureSupabaseError(new Error('Failed to mark photo upload failed.'), {
+        scope: 'catch-confirmations.markCatchPhotoUploadFailed',
+        action: 'edge-function',
+        catchId,
+        statusCode: response.status,
+        responseBody: responseText,
+      });
       throw new Error('Failed to mark photo upload failed.');
     }
   } catch (error) {
@@ -478,6 +497,23 @@ export async function markCatchPhotoUploadFailed(catchId: string): Promise<void>
 
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('The request took too long. Please check your connection and try again.');
+    }
+
+    if (isSupabaseError(error)) {
+      captureSupabaseError(error, {
+        scope: 'catch-confirmations.markCatchPhotoUploadFailed',
+        action: 'edge-function',
+        catchId,
+      });
+    } else {
+      captureHandledException(error, {
+        scope: 'catch-confirmations.markCatchPhotoUploadFailed',
+        level: 'error',
+        additionalContext: {
+          function: 'markCatchPhotoUploadFailed',
+          catchId,
+        },
+      });
     }
 
     throw error;
@@ -490,23 +526,49 @@ export async function uploadCatchPhotoFromUri(params: {
 }): Promise<{ photoPath: string; photoUrl: string }> {
   const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const photoPath = `${params.userId}/${uniqueSuffix}.jpg`;
-  const fileBytes = await loadUriAsUint8Array(params.localPhotoUri);
 
-  const { error: uploadError } = await supabase.storage
-    .from(CATCH_PHOTO_BUCKET)
-    .upload(photoPath, fileBytes, {
-      contentType: 'image/jpeg',
-      upsert: false,
-    });
+  try {
+    const fileBytes = await loadUriAsUint8Array(params.localPhotoUri);
 
-  if (uploadError) {
-    throw uploadError;
+    const { error: uploadError } = await supabase.storage
+      .from(CATCH_PHOTO_BUCKET)
+      .upload(photoPath, fileBytes, {
+        contentType: 'image/jpeg',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      captureSupabaseError(uploadError, {
+        scope: 'catch-confirmations.uploadCatchPhotoFromUri',
+        action: 'storage.upload',
+        additionalContext: {
+          function: 'uploadCatchPhotoFromUri',
+          userId: params.userId,
+          photoPath,
+          bucket: CATCH_PHOTO_BUCKET,
+        },
+      });
+      throw uploadError;
+    }
+
+    return {
+      photoPath,
+      photoUrl: buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, photoPath),
+    };
+  } catch (error) {
+    if (!isSupabaseError(error)) {
+      captureHandledException(error, {
+        scope: 'catch-confirmations.uploadCatchPhotoFromUri',
+        additionalContext: {
+          function: 'uploadCatchPhotoFromUri',
+          userId: params.userId,
+          photoPath,
+        },
+      });
+    }
+
+    throw error;
   }
-
-  return {
-    photoPath,
-    photoUrl: buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, photoPath),
-  };
 }
 
 export type FursuitPickerItem = {
