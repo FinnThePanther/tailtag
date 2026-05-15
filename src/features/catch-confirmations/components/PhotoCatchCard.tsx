@@ -145,7 +145,6 @@ export function PhotoCatchCard({
       setPhotoSource('camera');
       setConventionIds(activeConventionIds);
       setFursuits(preloadedFursuits);
-      setIsLoadingFursuits(preloadedFursuits.length === 0 && activeConventionIds.length > 0);
       setStep('photo_taken');
       setSelectedFursuit(null);
     } catch {
