@@ -21,60 +21,15 @@ import {
   saveCatchOutbox,
   updateCatchOutboxItem,
 } from './storage';
+import { catchOutboxBackoffMs, classifyCatchOutboxError } from './errors';
 import type { CatchOutboxItem, CatchOutboxResolution } from './types';
 
-const MAX_BACKOFF_MS = 5 * 60 * 1000;
 const RESOLVED_ITEM_TTL_MS = 60 * 1000;
 
 let isSyncing = false;
 
 function nowIso() {
   return new Date().toISOString();
-}
-
-function backoffMs(retryCount: number) {
-  return Math.min(MAX_BACKOFF_MS, 2 ** Math.max(0, retryCount) * 5 * 1000);
-}
-
-function isRetryableError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return true;
-  }
-
-  const message = error.message.toLowerCase();
-  return (
-    message.includes('timed out') ||
-    message.includes('network') ||
-    message.includes('failed to fetch') ||
-    message.includes('signed in')
-  );
-}
-
-function errorCodeFor(error: unknown) {
-  if (!(error instanceof Error)) {
-    return 'unknown_error';
-  }
-
-  const message = error.message.toLowerCase();
-  if (message.includes('timed out')) return 'timeout';
-  if (message.includes('network') || message.includes('failed to fetch')) return 'network_error';
-  if (message.includes('signed in')) return 'auth_required';
-  if (message.includes('already caught')) return 'already_caught';
-  if (message.includes("couldn't find")) return 'code_not_found';
-  if (message.includes('own suits')) return 'self_catch';
-  if (message.includes('not catchable') || message.includes('share a playable convention')) {
-    return 'shared_convention_required';
-  }
-  if (message.includes('cannot catch')) return 'blocked_user';
-  return 'server_rejected';
-}
-
-function messageFor(error: unknown) {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
-  return "We couldn't sync that catch. Please try again.";
 }
 
 function shouldAttempt(item: CatchOutboxItem, force: boolean) {
@@ -247,17 +202,17 @@ export async function syncCatchOutbox(options: {
         }
       } catch (error) {
         const retryCount = item.retryCount + 1;
-        const retryable = isRetryableError(error);
+        const errorDetails = classifyCatchOutboxError(error);
         const failedAt = nowIso();
-        const nextItem: CatchOutboxItem = retryable
+        const nextItem: CatchOutboxItem = errorDetails.retryable
           ? {
               ...item,
               status: 'queued',
               lastAttemptAt: attemptStartedAt,
-              nextAttemptAt: new Date(Date.now() + backoffMs(retryCount)).toISOString(),
+              nextAttemptAt: new Date(Date.now() + catchOutboxBackoffMs(retryCount)).toISOString(),
               retryCount,
-              errorCode: errorCodeFor(error),
-              errorMessage: messageFor(error),
+              errorCode: errorDetails.errorCode,
+              errorMessage: errorDetails.errorMessage,
             }
           : {
               ...item,
@@ -266,13 +221,13 @@ export async function syncCatchOutbox(options: {
               nextAttemptAt: undefined,
               resolvedAt: failedAt,
               retryCount,
-              errorCode: errorCodeFor(error),
-              errorMessage: messageFor(error),
+              errorCode: errorDetails.errorCode,
+              errorMessage: errorDetails.errorMessage,
             };
 
         await updateCatchOutboxItem(userId, item.clientAttemptId, () => nextItem);
 
-        if (isPhotoUploadItem(item) && !retryable && item.catchId) {
+        if (isPhotoUploadItem(item) && !errorDetails.retryable && item.catchId) {
           await markCatchPhotoUploadFailed(item.catchId).catch((markError) => {
             captureHandledException(markError, {
               scope: 'catch-outbox.sync.markPhotoUploadFailed',
@@ -284,7 +239,7 @@ export async function syncCatchOutbox(options: {
           });
         }
 
-        if (!retryable) {
+        if (!errorDetails.retryable) {
           resolutions.push({ item: nextItem, previousStatus: item.status });
           showToast?.('Catch needs attention');
         }
@@ -294,7 +249,7 @@ export async function syncCatchOutbox(options: {
           additionalContext: {
             userId,
             clientAttemptId: item.clientAttemptId,
-            retryable,
+            retryable: errorDetails.retryable,
           },
         });
       }

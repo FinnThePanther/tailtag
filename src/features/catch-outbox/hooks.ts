@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -7,6 +8,8 @@ import { loadCatchOutbox, subscribeCatchOutbox, upsertCatchOutboxItem } from './
 import { retryCatchOutboxItem, syncCatchOutbox, removeCatchOutboxItem } from './sync';
 import type { CatchOutboxItem } from './types';
 import type { CatchPhotoSource } from '../catch-confirmations/types';
+
+const FOREGROUND_SYNC_THROTTLE_MS = 5 * 1000;
 
 export function useCatchOutbox(userId: string | null) {
   const [items, setItems] = useState<CatchOutboxItem[]>([]);
@@ -51,6 +54,7 @@ export function useCatchOutbox(userId: string | null) {
 
 export function useCatchOutboxSync(userId: string | null, queryClient?: QueryClient) {
   const { showToast } = useToast();
+  const lastForegroundSyncAtRef = useRef(0);
 
   const sync = useCallback(
     (options?: { force?: boolean }) =>
@@ -95,6 +99,32 @@ export function useCatchOutboxSync(userId: string | null, queryClient?: QueryCli
     }, 30 * 1000);
 
     return () => clearInterval(interval);
+  }, [sync, userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState !== 'active') {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastForegroundSyncAtRef.current < FOREGROUND_SYNC_THROTTLE_MS) {
+        return;
+      }
+
+      lastForegroundSyncAtRef.current = now;
+      void sync({ force: true }).catch((error) => {
+        console.error('[catch-outbox] Failed to sync outbox on foreground', error);
+      });
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => subscription.remove();
   }, [sync, userId]);
 
   return {

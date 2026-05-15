@@ -434,7 +434,12 @@ export async function updateCatchPhoto(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error('Failed to attach photo to catch.');
+      const responseData = await response.json().catch(() => null);
+      const errorMessage =
+        typeof responseData?.error === 'string' && responseData.error.trim()
+          ? responseData.error
+          : 'Failed to attach photo to catch.';
+      throw new Error(errorMessage);
     }
   } catch (error) {
     clearTimeout(timeoutId);

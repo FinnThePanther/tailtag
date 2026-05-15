@@ -10,9 +10,11 @@ import { captureHandledException, captureSupabaseError } from '../../../lib/sent
 import { colors } from '../../../theme';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { updateCatchOutboxItem, upsertCatchOutboxItem } from '@/features/catch-outbox/storage';
+import { catchOutboxBackoffMs, classifyCatchOutboxError } from '@/features/catch-outbox/errors';
 import {
   createCatch,
   fetchConventionFursuits,
+  markCatchPhotoUploadFailed,
   updateCatchPhoto,
   uploadCatchPhotoFromUri,
 } from '@/features/catch-confirmations/api/confirmations';
@@ -343,8 +345,9 @@ export function PhotoCatchCard({
       conventionId: sharedConventionId,
     });
 
+    let uploadResult: { photoPath: string; photoUrl: string } | null = null;
     try {
-      const uploadResult = await catchTrace.measure('photo_upload_ms', () =>
+      uploadResult = await catchTrace.measure('photo_upload_ms', () =>
         uploadCatchPhotoFromUri({
           userId,
           localPhotoUri,
@@ -355,11 +358,12 @@ export function PhotoCatchCard({
         photoUrl: uploadResult.photoUrl,
         photoSource: photoSource ?? 'camera',
       });
+      const confirmedUploadResult = uploadResult;
       await updateCatchOutboxItem(userId, catchTrace.clientAttemptId, (item) => ({
         ...item,
         status: 'confirmed',
-        photoPath: uploadResult.photoPath,
-        photoUrl: uploadResult.photoUrl,
+        photoPath: confirmedUploadResult.photoPath,
+        photoUrl: confirmedUploadResult.photoUrl,
         resolvedAt: new Date().toISOString(),
         errorCode: undefined,
         errorMessage: undefined,
@@ -385,16 +389,57 @@ export function PhotoCatchCard({
         });
       }
 
-      await updateCatchOutboxItem(userId, catchTrace.clientAttemptId, (item) => ({
-        ...item,
-        status: 'failed',
-        lastAttemptAt: new Date().toISOString(),
-        retryCount: item.retryCount + 1,
-        errorCode: 'photo_upload_failed',
-        errorMessage:
-          "We couldn't upload this catch photo. Please retry when your connection improves.",
-      }));
-      setLocalError('Catch saved. Photo upload needs attention and can be retried below.');
+      const errorDetails = classifyCatchOutboxError(error);
+      const failedAt = new Date().toISOString();
+      await updateCatchOutboxItem(userId, catchTrace.clientAttemptId, (item) => {
+        const retryCount = item.retryCount + 1;
+
+        if (errorDetails.retryable) {
+          return {
+            ...item,
+            status: 'queued',
+            photoPath: uploadResult?.photoPath ?? item.photoPath,
+            photoUrl: uploadResult?.photoUrl ?? item.photoUrl,
+            lastAttemptAt: failedAt,
+            nextAttemptAt: new Date(Date.now() + catchOutboxBackoffMs(retryCount)).toISOString(),
+            retryCount,
+            errorCode: errorDetails.errorCode,
+            errorMessage:
+              "We couldn't upload this catch photo yet. We'll retry when your connection improves.",
+          };
+        }
+
+        return {
+          ...item,
+          status: 'failed',
+          photoPath: uploadResult?.photoPath ?? item.photoPath,
+          photoUrl: uploadResult?.photoUrl ?? item.photoUrl,
+          lastAttemptAt: failedAt,
+          resolvedAt: failedAt,
+          retryCount,
+          errorCode: errorDetails.errorCode,
+          errorMessage: errorDetails.errorMessage,
+        };
+      });
+
+      if (!errorDetails.retryable) {
+        await markCatchPhotoUploadFailed(catchResult.catchId).catch((markError) => {
+          captureHandledException(markError, {
+            scope: 'catch-confirmations.PhotoCatchCard.markPhotoUploadFailed',
+            additionalContext: {
+              userId,
+              catchId: catchResult.catchId,
+              clientAttemptId: catchTrace.clientAttemptId,
+            },
+          });
+        });
+      }
+
+      setLocalError(
+        errorDetails.retryable
+          ? "Catch saved. We'll retry the photo upload when your connection improves."
+          : 'Catch saved. Photo upload needs attention and can be retried below.',
+      );
     }
   };
 

@@ -60,8 +60,7 @@ export function useCatchConventionContext(userId: string | null) {
       membershipQuery.data !== undefined ? liveActiveConventionIds : snapshotActiveConventionIds,
     [liveActiveConventionIds, membershipQuery.data, snapshotActiveConventionIds],
   );
-  const singleActiveConventionId =
-    liveActiveConventionIds.length === 1 ? liveActiveConventionIds[0] : null;
+  const singleActiveConventionId = activeConventionIds.length === 1 ? activeConventionIds[0] : null;
 
   useEffect(() => {
     let isMounted = true;
