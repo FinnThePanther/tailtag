@@ -19,6 +19,8 @@ function statusLabel(item: CatchOutboxItem) {
   switch (item.status) {
     case 'queued':
       return 'Queued';
+    case 'uploading':
+      return 'Uploading';
     case 'syncing':
       return 'Syncing';
     case 'confirmed':
@@ -38,6 +40,7 @@ function statusIcon(item: CatchOutboxItem) {
       return 'time';
     case 'failed':
       return 'alert-circle';
+    case 'uploading':
     case 'syncing':
       return 'sync';
     case 'queued':
@@ -58,7 +61,7 @@ function subtitleFor(item: CatchOutboxItem) {
     return "We'll finish this when your connection improves.";
   }
 
-  if (item.status === 'syncing') {
+  if (item.status === 'uploading' || item.status === 'syncing') {
     if (item.method === 'camera_photo' || item.method === 'gallery_photo') {
       return 'Uploading catch photo...';
     }

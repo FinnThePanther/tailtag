@@ -29,6 +29,8 @@ import type {
   ConfirmCatchResult,
   CreateCatchResult,
   CreateCatchParams,
+  UpdateCatchPhotoResult,
+  MarkCatchPhotoUploadFailedResult,
 } from '@/features/catch-confirmations/types';
 
 // Query keys
@@ -383,7 +385,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
 export async function updateCatchPhoto(
   catchId: string,
   params: { photoPath: string; photoUrl?: string | null; photoSource?: CatchPhotoSource },
-): Promise<void> {
+): Promise<UpdateCatchPhotoResult> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   const supabaseKey = SUPABASE_ANON_KEY;
@@ -441,6 +443,21 @@ export async function updateCatchPhoto(
           : 'Failed to attach photo to catch.';
       throw new Error(errorMessage);
     }
+
+    const responseData = await response.json().catch(() => null);
+
+    return {
+      photoUploadState: 'uploaded',
+      alreadyUploaded: responseData?.already_uploaded === true,
+      photoPath:
+        typeof responseData?.catch_photo_path === 'string'
+          ? responseData.catch_photo_path
+          : params.photoPath,
+      photoUrl:
+        typeof responseData?.catch_photo_url === 'string'
+          ? responseData.catch_photo_url
+          : resolvedPhotoUrl,
+    };
   } catch (error) {
     clearTimeout(timeoutId);
 
@@ -452,7 +469,9 @@ export async function updateCatchPhoto(
   }
 }
 
-export async function markCatchPhotoUploadFailed(catchId: string): Promise<void> {
+export async function markCatchPhotoUploadFailed(
+  catchId: string,
+): Promise<MarkCatchPhotoUploadFailedResult> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   const supabaseKey = SUPABASE_ANON_KEY;
@@ -497,6 +516,21 @@ export async function markCatchPhotoUploadFailed(catchId: string): Promise<void>
       });
       throw new Error('Failed to mark photo upload failed.');
     }
+
+    const responseData = await response.json().catch(() => null);
+    const photoUploadState =
+      normalizeCatchPhotoUploadState(responseData?.photo_upload_state) === 'uploaded'
+        ? 'uploaded'
+        : 'failed';
+
+    return {
+      photoUploadState,
+      alreadyUploaded: responseData?.already_uploaded === true,
+      photoPath:
+        typeof responseData?.catch_photo_path === 'string' ? responseData.catch_photo_path : null,
+      photoUrl:
+        typeof responseData?.catch_photo_url === 'string' ? responseData.catch_photo_url : null,
+    };
   } catch (error) {
     clearTimeout(timeoutId);
 

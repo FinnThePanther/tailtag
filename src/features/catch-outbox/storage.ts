@@ -41,6 +41,7 @@ function parseItem(value: unknown): CatchOutboxItem | null {
   const status = value.status;
   if (
     status !== 'queued' &&
+    status !== 'uploading' &&
     status !== 'syncing' &&
     status !== 'confirmed' &&
     status !== 'pending_approval' &&

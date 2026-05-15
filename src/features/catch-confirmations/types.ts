@@ -82,3 +82,17 @@ export type CreateCatchParams = {
   photoSource?: CatchPhotoSource | null;
   photoUploadState?: Extract<CatchPhotoUploadState, 'pending_upload' | 'uploaded'> | null;
 };
+
+export type UpdateCatchPhotoResult = {
+  photoUploadState: Extract<CatchPhotoUploadState, 'uploaded'>;
+  alreadyUploaded: boolean;
+  photoPath: string | null;
+  photoUrl: string | null;
+};
+
+export type MarkCatchPhotoUploadFailedResult = {
+  photoUploadState: Extract<CatchPhotoUploadState, 'failed' | 'uploaded'>;
+  alreadyUploaded: boolean;
+  photoPath: string | null;
+  photoUrl: string | null;
+};

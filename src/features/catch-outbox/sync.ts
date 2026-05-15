@@ -25,6 +25,7 @@ import { catchOutboxBackoffMs, classifyCatchOutboxError } from './errors';
 import type { CatchOutboxItem, CatchOutboxResolution } from './types';
 
 const RESOLVED_ITEM_TTL_MS = 60 * 1000;
+const PHOTO_UPLOAD_LEASE_MS = 5 * 60 * 1000;
 
 let isSyncing = false;
 
@@ -33,6 +34,11 @@ function nowIso() {
 }
 
 function shouldAttempt(item: CatchOutboxItem, force: boolean) {
+  if (item.status === 'uploading' && isPhotoUploadItem(item)) {
+    const leaseStartedAt = Date.parse(item.lastAttemptAt ?? item.createdAt);
+    return Number.isFinite(leaseStartedAt) && Date.now() - leaseStartedAt >= PHOTO_UPLOAD_LEASE_MS;
+  }
+
   if (item.status !== 'queued') {
     return false;
   }
@@ -108,7 +114,7 @@ export async function syncCatchOutbox(options: {
                   localPhotoUri: item.localPhotoUri,
                 });
 
-          await updateCatchPhoto(item.catchId, {
+          const photoUpdateResult = await updateCatchPhoto(item.catchId, {
             photoPath: uploadResult.photoPath,
             photoUrl: uploadResult.photoUrl,
             photoSource: item.photoSource,
@@ -117,8 +123,8 @@ export async function syncCatchOutbox(options: {
           const resolvedItem: CatchOutboxItem = {
             ...item,
             status: 'confirmed',
-            photoPath: uploadResult.photoPath,
-            photoUrl: uploadResult.photoUrl,
+            photoPath: photoUpdateResult.photoPath ?? uploadResult.photoPath,
+            photoUrl: photoUpdateResult.photoUrl ?? uploadResult.photoUrl,
             lastAttemptAt: attemptStartedAt,
             resolvedAt: nowIso(),
             retryCount: item.retryCount,
@@ -228,7 +234,7 @@ export async function syncCatchOutbox(options: {
         await updateCatchOutboxItem(userId, item.clientAttemptId, () => nextItem);
 
         if (isPhotoUploadItem(item) && !errorDetails.retryable && item.catchId) {
-          await markCatchPhotoUploadFailed(item.catchId).catch((markError) => {
+          const markResult = await markCatchPhotoUploadFailed(item.catchId).catch((markError) => {
             captureHandledException(markError, {
               scope: 'catch-outbox.sync.markPhotoUploadFailed',
               additionalContext: {
@@ -236,7 +242,25 @@ export async function syncCatchOutbox(options: {
                 catchId: item.catchId,
               },
             });
+            return null;
           });
+
+          if (markResult?.photoUploadState === 'uploaded') {
+            const confirmedItem: CatchOutboxItem = {
+              ...item,
+              status: 'confirmed',
+              photoPath: markResult.photoPath ?? item.photoPath,
+              photoUrl: markResult.photoUrl ?? item.photoUrl,
+              lastAttemptAt: attemptStartedAt,
+              resolvedAt: failedAt,
+              retryCount,
+              errorCode: undefined,
+              errorMessage: undefined,
+            };
+            await updateCatchOutboxItem(userId, item.clientAttemptId, () => confirmedItem);
+            resolutions.push({ item: confirmedItem, previousStatus: item.status });
+            continue;
+          }
         }
 
         if (!errorDetails.retryable) {

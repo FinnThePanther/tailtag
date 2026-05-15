@@ -675,6 +675,20 @@ async function handlePatch(req: Request): Promise<Response> {
   }
 
   if (requestedPhotoUploadState === 'failed') {
+    if (normalizedCatchRow.photo_upload_state === 'failed') {
+      return jsonResponse(200, { success: true, photo_upload_state: 'failed' });
+    }
+
+    if (normalizedCatchRow.photo_upload_state === 'uploaded') {
+      return jsonResponse(200, {
+        success: true,
+        photo_upload_state: 'uploaded',
+        already_uploaded: true,
+        catch_photo_path: normalizedCatchRow.catch_photo_path,
+        catch_photo_url: normalizedCatchRow.catch_photo_url,
+      });
+    }
+
     if (normalizedCatchRow.photo_upload_state !== 'pending_upload') {
       return jsonResponse(409, { error: 'Catch photo upload is not pending' });
     }
@@ -701,14 +715,12 @@ async function handlePatch(req: Request): Promise<Response> {
   }
 
   if (normalizedCatchRow.photo_upload_state === 'uploaded') {
-    if (normalizedCatchRow.catch_photo_path !== body.catch_photo_path) {
-      return jsonResponse(409, { error: 'Catch photo is already uploaded' });
-    }
-
     return jsonResponse(200, {
       success: true,
       photo_upload_state: 'uploaded',
       already_uploaded: true,
+      catch_photo_path: normalizedCatchRow.catch_photo_path,
+      catch_photo_url: normalizedCatchRow.catch_photo_url,
     });
   } else if (
     normalizedCatchRow.photo_upload_state !== 'pending_upload' &&
@@ -730,7 +742,12 @@ async function handlePatch(req: Request): Promise<Response> {
     return jsonResponse(500, { error: 'Failed to finalize catch photo' });
   }
 
-  return jsonResponse(200, { success: true, photo_upload_state: 'uploaded' });
+  return jsonResponse(200, {
+    success: true,
+    photo_upload_state: 'uploaded',
+    catch_photo_path: body.catch_photo_path,
+    catch_photo_url: body.catch_photo_url,
+  });
 }
 
 Deno.serve(async (req) => {
