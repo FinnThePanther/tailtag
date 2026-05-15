@@ -2,12 +2,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { supabase } from '../../../lib/supabase';
 import { emitGameplayEvent } from '../../events';
-import { captureSupabaseError } from '@/lib/sentry';
+import { captureHandledException, captureSupabaseError } from '@/lib/sentry';
 import { FURSUIT_BUCKET } from '@/constants/storage';
 import type { FursuitColorOption } from '@/features/colors';
 import { mapFursuitColors } from '@/features/suits/api/utils';
 import { resolveStorageMediaUrl } from '@/utils/supabase-image';
 import type { Database, FursuitSocialLink } from '@/types/database';
+
+const GAMEPLAY_EVENT_TIMEOUT_MS = 5000;
+
+const createGameplayEventTimeout = (eventType: string) =>
+  new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(
+        new Error(`Gameplay event timed out after ${GAMEPLAY_EVENT_TIMEOUT_MS}ms (${eventType})`),
+      );
+    }, GAMEPLAY_EVENT_TIMEOUT_MS);
+  });
 
 export type ConventionSummary = {
   id: string;
@@ -868,14 +879,25 @@ export async function addFursuitConvention(
     throw new Error(`We couldn't add that convention to the fursuit: ${error.message}`);
   }
 
+  const eventType = 'fursuit_convention_joined';
   // Fire-and-forget: emit event without blocking user flow
-  void emitGameplayEvent({
-    type: 'fursuit_convention_joined',
-    conventionId,
-    payload: {
-      fursuit_id: fursuitId,
-      convention_id: conventionId,
-    },
+  void Promise.race([
+    emitGameplayEvent({
+      type: eventType,
+      conventionId,
+      payload: {
+        fursuit_id: fursuitId,
+        convention_id: conventionId,
+      },
+    }),
+    createGameplayEventTimeout(eventType),
+  ]).catch((eventError) => {
+    captureHandledException(eventError, {
+      scope: 'conventions.addFursuitConvention.event',
+      eventType,
+      fursuitId,
+      conventionId,
+    });
   });
 }
 
@@ -890,16 +912,32 @@ export async function removeFursuitConvention(
   });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.removeFursuitConvention',
+      fursuitId,
+      conventionId,
+    });
     throw new Error(`We couldn't remove that convention from the fursuit: ${error.message}`);
   }
 
+  const eventType = 'fursuit_convention_left';
   // Fire-and-forget: emit event without blocking user flow
-  void emitGameplayEvent({
-    type: 'fursuit_convention_left',
-    conventionId,
-    payload: {
-      fursuit_id: fursuitId,
-      convention_id: conventionId,
-    },
+  void Promise.race([
+    emitGameplayEvent({
+      type: eventType,
+      conventionId,
+      payload: {
+        fursuit_id: fursuitId,
+        convention_id: conventionId,
+      },
+    }),
+    createGameplayEventTimeout(eventType),
+  ]).catch((eventError) => {
+    captureHandledException(eventError, {
+      scope: 'conventions.removeFursuitConvention.event',
+      eventType,
+      fursuitId,
+      conventionId,
+    });
   });
 }

@@ -1,5 +1,8 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
+export type AttendanceState = 'active' | 'left' | 'removed' | 'finalized';
+export type RosterState = 'active' | 'removed' | 'finalized';
+
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -978,7 +981,7 @@ export type Database = {
           finalized_at: string | null;
           fursuit_id: string;
           removed_at: string | null;
-          roster_state: string;
+          roster_state: RosterState;
           roster_visible: boolean;
         };
         Insert: {
@@ -988,7 +991,7 @@ export type Database = {
           finalized_at?: string | null;
           fursuit_id: string;
           removed_at?: string | null;
-          roster_state?: string;
+          roster_state?: RosterState;
           roster_visible?: boolean;
         };
         Update: {
@@ -998,7 +1001,7 @@ export type Database = {
           finalized_at?: string | null;
           fursuit_id?: string;
           removed_at?: string | null;
-          roster_state?: string;
+          roster_state?: RosterState;
           roster_visible?: boolean;
         };
         Relationships: [
@@ -1294,7 +1297,7 @@ export type Database = {
       profile_conventions: {
         Row: {
           active_until: string | null;
-          attendance_state: string;
+          attendance_state: AttendanceState;
           convention_id: string;
           created_at: string;
           finalized_at: string | null;
@@ -1311,7 +1314,7 @@ export type Database = {
         };
         Insert: {
           active_until?: string | null;
-          attendance_state?: string;
+          attendance_state?: AttendanceState;
           convention_id: string;
           created_at?: string;
           finalized_at?: string | null;
@@ -1328,7 +1331,7 @@ export type Database = {
         };
         Update: {
           active_until?: string | null;
-          attendance_state?: string;
+          attendance_state?: AttendanceState;
           convention_id?: string;
           created_at?: string;
           finalized_at?: string | null;
