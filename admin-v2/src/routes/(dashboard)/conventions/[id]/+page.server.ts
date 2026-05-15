@@ -22,6 +22,7 @@ import {
   retryConventionCloseoutAction,
   rotateConventionDailiesAction,
   runConventionReadinessCheckAction,
+  silentRepairHistoricalConventionAction,
   startConventionAction,
   toggleConventionAchievementAction,
   toggleConventionTaskAction,
@@ -130,6 +131,12 @@ export const actions = {
       regenerate: async () => {
         const result = await regenerateConventionRecapsAction(cookies, params.id);
         return `Recaps regenerated with ${result.recaps_generated} participant recap(s).`;
+      },
+      silentRepair: async () => {
+        const result = await silentRepairHistoricalConventionAction(cookies, params.id);
+        return result.repaired
+          ? 'Historical convention silently repaired.'
+          : 'Silent repair did not change this convention.';
       },
       delete: async () => {
         await deleteArchivedConventionInDevAction(cookies, params.id);

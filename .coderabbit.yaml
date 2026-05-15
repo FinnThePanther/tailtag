@@ -1,2 +1,5 @@
 reviews:
   request_changes_workflow: true
+  tools:
+    eslint:
+      enabled: false

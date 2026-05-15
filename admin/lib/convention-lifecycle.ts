@@ -63,6 +63,7 @@ export type ConventionLifecycleDiagnostics = {
   automationRetryAttemptsLast7Days: number;
   automationEligibleForAutoClose: boolean;
   automationEligibleForRetry: boolean;
+  silentRepairApplied: boolean;
 };
 
 export type ConventionLifecycleHealthResult = {
@@ -265,6 +266,7 @@ export async function buildConventionLifecycleHealthList(
       | 'closed_at'
       | 'archived_at'
       | 'closeout_error'
+      | 'closeout_summary'
     >
   >,
   supabase = createServiceRoleClient(),
@@ -351,6 +353,7 @@ export async function buildConventionLifecycleHealth(
     | 'closed_at'
     | 'archived_at'
     | 'closeout_error'
+    | 'closeout_summary'
   >,
   supabase = createServiceRoleClient(),
 ): Promise<ConventionLifecycleHealthResult> {
@@ -475,6 +478,7 @@ function buildLifecycleHealthResult({
     | 'closed_at'
     | 'archived_at'
     | 'closeout_error'
+    | 'closeout_summary'
   >;
   diagnostics: ConventionLifecycleDiagnostics;
   localDay: string;
@@ -499,6 +503,11 @@ function buildLifecycleHealthResult({
     ...diagnostics,
     automationEligibleForAutoClose,
     automationEligibleForRetry,
+    silentRepairApplied:
+      typeof convention.closeout_summary === 'object' &&
+      convention.closeout_summary !== null &&
+      !Array.isArray(convention.closeout_summary) &&
+      convention.closeout_summary.silent_repair === true,
   };
 
   const warnings: string[] = [];
@@ -592,6 +601,7 @@ function buildLifecycleHealthResult({
 
   if (
     convention.status === 'archived' &&
+    !diagnosticsWithAutomationFlags.silentRepairApplied &&
     diagnostics.acceptedConventionCatches > 0 &&
     diagnostics.participantRecaps === 0
   ) {
@@ -633,6 +643,7 @@ function createLifecycleDiagnostics(
     automationRetryAttemptsLast7Days: 0,
     automationEligibleForAutoClose: false,
     automationEligibleForRetry: false,
+    silentRepairApplied: false,
     ...overrides,
   };
 }
@@ -714,6 +725,7 @@ async function fetchLifecycleConvention(supabase: ServiceClient, conventionId: s
         'closeout_step',
         'closeout_retry_count',
         'closeout_error',
+        'closeout_summary',
         'latitude',
         'longitude',
         'geofence_radius_meters',

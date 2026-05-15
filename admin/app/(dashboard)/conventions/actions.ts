@@ -516,6 +516,35 @@ export async function deleteArchivedConventionInDevAction(conventionId: string) 
   };
 }
 
+export async function silentRepairHistoricalConventionAction(conventionId: string) {
+  const { profile } = await assertAdminAction([...CONFIG_ROLES]);
+
+  if (!isDevSupabaseProject()) {
+    throw new Error('Silent repair is only available in the dev Supabase project.');
+  }
+
+  const supabase = createServiceRoleClient();
+  const reason = 'Phase 1.5 historical silent repair from admin';
+
+  const { data: result, error } = await (supabase as any)
+    .rpc('silent_repair_historical_convention', {
+      p_actor_id: profile.id,
+      p_convention_id: conventionId,
+      p_reason: reason,
+    })
+    .single();
+
+  if (error) throw error;
+
+  revalidatePath('/conventions');
+  revalidatePath(`/conventions/${conventionId}`);
+
+  return {
+    repaired: Boolean(result?.repaired),
+    counts: (result?.counts ?? {}) as Record<string, number>,
+  };
+}
+
 export async function updateConventionDetailsAction(input: {
   conventionId: string;
   name: string;

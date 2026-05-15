@@ -2769,6 +2769,16 @@ export type Database = {
           username: string
         }[]
       }
+      silent_repair_historical_convention: {
+        Args: { p_actor_id: string; p_convention_id: string; p_reason: string }
+        Returns: {
+          convention_id: string
+          counts: Json
+          final_status: string
+          previous_status: string
+          repaired: boolean
+        }[]
+      }
       submit_user_report: {
         Args: {
           p_convention_id?: string
