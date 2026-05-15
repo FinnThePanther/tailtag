@@ -12,6 +12,7 @@ import {
   RefreshCcw,
   Trash2,
   Wand2,
+  Wrench,
 } from 'lucide-react';
 
 import {
@@ -22,6 +23,7 @@ import {
   rotateConventionDailiesAction,
   retryConventionCloseoutAction,
   runConventionReadinessCheckAction,
+  silentRepairHistoricalConventionAction,
   startConventionAction,
 } from '@/app/(dashboard)/conventions/actions';
 import { Card } from '@/components/card';
@@ -111,6 +113,15 @@ export function ConventionLifecycleCard({
   const regenerateDisabled = isPending || status !== 'archived';
   const devDeleteDisabled = isPending || status !== 'archived';
   const recapsGenerated = getNumber(closeoutSummary, 'recaps_generated');
+  const silentRepairApplied = closeoutSummary?.silent_repair === true;
+  const silentRepairDisabled =
+    isPending ||
+    silentRepairApplied ||
+    !(
+      status === 'closed' ||
+      status === 'closeout_failed' ||
+      (status === 'archived' && (Boolean(closeoutError) || recapsGenerated === 0))
+    );
   const expiredPendingCatches = getNumber(closeoutSummary, 'pending_catches_expired');
   const membershipsFinalized =
     getNumber(closeoutSummary, 'profile_memberships_finalized') ??
@@ -214,6 +225,15 @@ export function ConventionLifecycleCard({
           <p className="mt-1 text-sm text-emerald-50">
             {recapsGenerated ?? 0} participant recap(s), {membershipsFinalized ?? 0} active
             membership(s), and {rosterFinalized ?? 0} fursuit roster assignment(s) were finalized.
+          </p>
+        </div>
+      ) : null}
+
+      {silentRepairApplied ? (
+        <div className="mt-4 rounded-lg border border-sky-300/30 bg-sky-400/10 p-3">
+          <p className="text-sm font-semibold text-sky-100">Silent historical repair applied</p>
+          <p className="mt-1 text-sm text-sky-50">
+            Stale closeout state was archived without generating recaps or notifying players.
           </p>
         </div>
       ) : null}
@@ -379,6 +399,35 @@ export function ConventionLifecycleCard({
         </ActionButton>
         {showDevDelete ? (
           <ActionButton
+            disabled={silentRepairDisabled}
+            loading={action === 'silent-repair'}
+            icon={<Wrench size={14} />}
+            onClick={() => {
+              const confirmed = window.confirm(
+                [
+                  'Silently repair this historical convention?',
+                  '',
+                  'This archives stale closeout failure state for development/staging validation.',
+                  'It does not generate recaps.',
+                  'It does not create player notifications.',
+                  '',
+                  'Use this only for historical broken conventions.',
+                ].join('\n'),
+              );
+              if (!confirmed) return;
+              runAction('silent-repair', async () => {
+                const result = await silentRepairHistoricalConventionAction(conventionId);
+                return result.repaired
+                  ? 'Historical convention silently repaired.'
+                  : 'Silent repair did not change this convention.';
+              });
+            }}
+          >
+            Silent repair
+          </ActionButton>
+        ) : null}
+        {showDevDelete ? (
+          <ActionButton
             disabled={devDeleteDisabled}
             loading={action === 'dev-delete'}
             icon={<Trash2 size={14} />}
@@ -427,7 +476,8 @@ export function ConventionLifecycleCard({
       ) : null}
       {showDevDelete ? (
         <p className="mt-2 text-xs text-muted">
-          Dev delete is available only for archived conventions and removes test data permanently.
+          Silent repair is for broken historical dev/staging conventions. Dev delete is available
+          only for archived conventions and removes test data permanently.
         </p>
       ) : null}
     </Card>

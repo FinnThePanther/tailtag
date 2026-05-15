@@ -11,7 +11,8 @@
     SlidersHorizontal,
     Trash2,
     Users,
-    Wand2
+    Wand2,
+    Wrench
   } from 'lucide-svelte';
   import Card from '$lib/components/Card.svelte';
   import Table from '$lib/components/Table.svelte';
@@ -436,6 +437,16 @@
     (data.convention.closeout_summary as Record<string, unknown> | null) ?? null
   );
   const recapsGenerated = $derived(getNumber(closeoutSummary, 'recaps_generated'));
+  const silentRepairApplied = $derived(closeoutSummary?.silent_repair === true);
+  const silentRepairDisabled = $derived(
+    silentRepairApplied ||
+      !(
+        data.convention.status === 'closed' ||
+        data.convention.status === 'closeout_failed' ||
+        (data.convention.status === 'archived' &&
+          (Boolean(data.convention.closeout_error) || recapsGenerated === 0))
+      )
+  );
   const expiredPendingCatches = $derived(getNumber(closeoutSummary, 'pending_catches_expired'));
   const membershipsFinalized = $derived(
     getNumber(closeoutSummary, 'profile_memberships_finalized') ??
@@ -549,6 +560,15 @@
       </div>
     {/if}
 
+    {#if silentRepairApplied}
+      <div class="mt-4 rounded-lg border border-sky-300/30 bg-sky-400/10 p-3">
+        <p class="text-sm font-semibold text-sky-100">Silent historical repair applied</p>
+        <p class="mt-1 text-sm text-sky-50">
+          Stale closeout state was archived without generating recaps or notifying players.
+        </p>
+      </div>
+    {/if}
+
     {#if data.convention.closeout_error}
       <div class="mt-4 rounded-lg border border-red-400/30 bg-red-500/10 p-3">
         <p class="flex items-center gap-2 text-sm font-semibold text-red-200">
@@ -616,6 +636,15 @@
       {#if data.showDevDelete}
         <ActionButton
           name="action"
+          value="silentRepair"
+          icon={Wrench}
+          disabled={silentRepairDisabled}
+          confirmText="Silently repair this historical convention?\n\nThis archives stale closeout failure state for development/staging validation.\nIt does not generate recaps.\nIt does not create player notifications.\n\nUse this only for historical broken conventions."
+        >
+          Silent repair
+        </ActionButton>
+        <ActionButton
+          name="action"
           value="delete"
           icon={Trash2}
           variant="danger"
@@ -643,7 +672,8 @@
     {/if}
     {#if data.showDevDelete}
       <p class="mt-2 text-xs text-muted">
-        Dev delete is available only for archived conventions and removes test data permanently.
+        Silent repair is for broken historical dev/staging conventions. Dev delete is available only
+        for archived conventions and removes test data permanently.
       </p>
     {/if}
   </Card>

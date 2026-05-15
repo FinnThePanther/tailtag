@@ -439,6 +439,35 @@ export async function deleteArchivedConventionInDevAction(cookies: Cookies, conv
   };
 }
 
+export async function silentRepairHistoricalConventionAction(
+  cookies: Cookies,
+  conventionId: string,
+) {
+  const { profile } = await assertAdminAction(cookies, [...CONFIG_ROLES]);
+
+  if (!isDevSupabaseProject()) {
+    throw new Error('Silent repair is only available in the dev Supabase project.');
+  }
+
+  const supabase = createServiceRoleClient();
+  const reason = 'Phase 1.5 historical silent repair from admin';
+
+  const { data: result, error } = await (supabase as any)
+    .rpc('silent_repair_historical_convention', {
+      p_actor_id: profile.id,
+      p_convention_id: conventionId,
+      p_reason: reason,
+    })
+    .single();
+
+  if (error) throw error;
+
+  return {
+    repaired: Boolean(result?.repaired),
+    counts: (result?.counts ?? {}) as Record<string, number>,
+  };
+}
+
 export async function updateConventionDetailsAction(
   cookies: Cookies,
   input: {
