@@ -256,8 +256,10 @@ export async function syncCatchOutbox(options: {
           await markCatchPhotoUploadFailed(item.catchId).catch((markError) => {
             captureHandledException(markError, {
               scope: 'catch-outbox.sync.markPhotoUploadFailed',
-              userId,
-              catchId: item.catchId,
+              additionalContext: {
+                userId,
+                catchId: item.catchId,
+              },
             });
           });
         }
