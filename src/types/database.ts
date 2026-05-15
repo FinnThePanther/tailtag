@@ -326,6 +326,7 @@ export type Database = {
           fursuit_id: string
           id: string
           is_tutorial: boolean
+          photo_upload_state: string
           rejection_reason: string | null
           status: string
         }
@@ -344,6 +345,7 @@ export type Database = {
           fursuit_id: string
           id?: string
           is_tutorial?: boolean
+          photo_upload_state?: string
           rejection_reason?: string | null
           status?: string
         }
@@ -362,6 +364,7 @@ export type Database = {
           fursuit_id?: string
           id?: string
           is_tutorial?: boolean
+          photo_upload_state?: string
           rejection_reason?: string | null
           status?: string
         }
@@ -2096,6 +2099,16 @@ export type Database = {
         Returns: boolean
       }
       archive_old_events: { Args: never; Returns: undefined }
+      attach_catch_photo_after_upload: {
+        Args: {
+          p_catch_id: string
+          p_catch_photo_path: string
+          p_catch_photo_source?: string
+          p_catch_photo_url: string
+          p_catcher_id: string
+        }
+        Returns: Json
+      }
       calculate_catch_expiration:
         | { Args: never; Returns: string }
         | { Args: { convention_id_param: string }; Returns: string }
@@ -2203,6 +2216,7 @@ export type Database = {
           p_force_pending?: boolean
           p_fursuit_id: string
           p_is_tutorial?: boolean
+          p_photo_upload_state?: string
         }
         Returns: Json
       }
@@ -2506,6 +2520,7 @@ export type Database = {
           fursuit_avatar_url: string
           fursuit_id: string
           fursuit_name: string
+          photo_upload_state: string
           time_remaining: string
         }[]
       }

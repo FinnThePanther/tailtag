@@ -6,13 +6,16 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
+import { captureHandledException, captureSupabaseError } from '../../../lib/sentry';
 import { colors } from '../../../theme';
-import { supabase } from '../../../lib/supabase';
-import { CATCH_PHOTO_BUCKET } from '../../../constants/storage';
-import { loadUriAsUint8Array } from '../../../utils/files';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
-import { buildAuthenticatedStorageObjectUrl } from '../../../utils/supabase-image';
-import { createCatch, fetchConventionFursuits } from '../api/confirmations';
+import { updateCatchOutboxItem, upsertCatchOutboxItem } from '@/features/catch-outbox/storage';
+import {
+  createCatch,
+  fetchConventionFursuits,
+  updateCatchPhoto,
+  uploadCatchPhotoFromUri,
+} from '@/features/catch-confirmations/api/confirmations';
 import { createCatchPerformanceTrace } from '../lib/catchPerformance';
 import {
   fetchActiveProfileConventionIds,
@@ -37,7 +40,6 @@ type PhotoCatchCardProps = {
   onCatchSubmit: (params: {
     fursuitId: string;
     conventionId: string | null;
-    photoUrl: string;
     catchResult: CreateCatchResult;
   }) => Promise<void>;
   isSubmitting?: boolean;
@@ -46,6 +48,13 @@ type PhotoCatchCardProps = {
 };
 
 type Step = 'idle' | 'photo_taken' | 'fursuit_selected';
+
+const isSupabaseError = (
+  error: unknown,
+): error is { code?: string; details?: string; hint?: string; message?: string } =>
+  typeof error === 'object' &&
+  error !== null &&
+  ('code' in error || 'details' in error || 'hint' in error);
 
 export function PhotoCatchCard({
   userId,
@@ -216,6 +225,7 @@ export function PhotoCatchCard({
     setLocalError(null);
     setIsUploadingPhoto(true);
     const catchMethod = photoSource === 'gallery' ? 'gallery_photo' : 'camera_photo';
+    const localPhotoUri = photo.uri;
     const catchTrace = createCatchPerformanceTrace({ method: catchMethod });
     let catchTraceFinished = false;
     const finishCatchTrace = (options: {
@@ -260,45 +270,7 @@ export function PhotoCatchCard({
       return;
     }
 
-    // Step 2: Upload the photo first so auto-accepted photo catches never fire
-    // gameplay events before the photo exists on the catch record.
-    let photoUrl: string;
-    let storagePath: string;
-    try {
-      const uploadResult = await catchTrace.measure('photo_upload_ms', async () => {
-        const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const nextStoragePath = `${userId}/${uniqueSuffix}.jpg`;
-
-        const fileBytes = await loadUriAsUint8Array(photo.uri);
-
-        const { error: uploadError } = await supabase.storage
-          .from(CATCH_PHOTO_BUCKET)
-          .upload(nextStoragePath, fileBytes, {
-            contentType: 'image/jpeg',
-            upsert: false,
-          });
-
-        if (uploadError) throw uploadError;
-
-        return {
-          photoUrl: buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, nextStoragePath),
-          storagePath: nextStoragePath,
-        };
-      });
-      photoUrl = uploadResult.photoUrl;
-      storagePath = uploadResult.storagePath;
-    } catch {
-      setLocalError("Couldn't upload your photo. Please check your connection and try again.");
-      setIsUploadingPhoto(false);
-      finishCatchTrace({
-        result: 'failed',
-        conventionId: sharedConventionId,
-        errorCode: 'photo_upload_failed',
-      });
-      return;
-    }
-
-    // Step 3: Create the catch with the uploaded photo attached server-side.
+    // Step 2: Create the catch first. The photo upload is retried through the local outbox.
     let catchResult: CreateCatchResult;
     try {
       catchResult = await createCatch({
@@ -309,21 +281,30 @@ export function PhotoCatchCard({
         isTutorial: false,
         forcePending: photoSource === 'gallery',
         hasPhoto: true,
-        photoPath: storagePath,
-        photoUrl,
         photoSource,
+        photoUploadState: 'pending_upload',
       });
       catchTrace.recordTiming('edge_request_ms', catchResult.edgeRequestMs);
+      await upsertCatchOutboxItem(userId, {
+        clientAttemptId: catchTrace.clientAttemptId,
+        method: catchMethod,
+        status: 'queued',
+        catchId: catchResult.catchId,
+        fursuitId: selectedFursuit.id,
+        fursuitOwnerId: catchResult.fursuitOwnerId,
+        fursuitName: selectedFursuit.name,
+        conventionId: sharedConventionId,
+        localPhotoUri,
+        photoSource: photoSource ?? 'camera',
+        createdAt: new Date().toISOString(),
+        retryCount: 0,
+      });
     } catch (error) {
       const caughtWithTiming = error as {
         catchPerformanceResult?: 'failed' | 'timeout';
         edgeRequestMs?: number | null;
       };
       catchTrace.recordTiming('edge_request_ms', caughtWithTiming.edgeRequestMs);
-      await supabase.storage
-        .from(CATCH_PHOTO_BUCKET)
-        .remove([storagePath])
-        .catch(() => {});
       setLocalError(
         error instanceof Error ? error.message : "Couldn't create catch. Please try again.",
       );
@@ -342,15 +323,76 @@ export function PhotoCatchCard({
     await onCatchSubmit({
       fursuitId: selectedFursuit.id,
       conventionId: sharedConventionId,
-      photoUrl,
       catchResult,
     });
     stopPostCreateRenderTiming();
+
+    setPhoto(null);
+    setPhotoSource(null);
+    setPhotoProcessingMs(null);
+    setSelectedFursuit(null);
+    setFursuits([]);
+    setStep('idle');
+
     finishCatchTrace({
       result: catchResult.requiresApproval ? 'pending_approval' : 'success',
       catchId: catchResult.catchId,
       conventionId: sharedConventionId,
     });
+
+    try {
+      const uploadResult = await catchTrace.measure('photo_upload_ms', () =>
+        uploadCatchPhotoFromUri({
+          userId,
+          localPhotoUri,
+        }),
+      );
+      await updateCatchPhoto(catchResult.catchId, {
+        photoPath: uploadResult.photoPath,
+        photoUrl: uploadResult.photoUrl,
+        photoSource: photoSource ?? 'camera',
+      });
+      await updateCatchOutboxItem(userId, catchTrace.clientAttemptId, (item) => ({
+        ...item,
+        status: 'confirmed',
+        photoPath: uploadResult.photoPath,
+        photoUrl: uploadResult.photoUrl,
+        resolvedAt: new Date().toISOString(),
+        errorCode: undefined,
+        errorMessage: undefined,
+      }));
+    } catch (error) {
+      const uploadContext = {
+        clientAttemptId: catchTrace.clientAttemptId,
+        catchId: catchResult.catchId,
+        userId,
+        photoSource: photoSource ?? 'camera',
+      };
+
+      if (isSupabaseError(error)) {
+        captureSupabaseError(error, {
+          scope: 'catch-confirmations.PhotoCatchCard.uploadCatchPhoto',
+          action: 'uploadCatchPhoto',
+          additionalContext: uploadContext,
+        });
+      } else {
+        captureHandledException(error, {
+          scope: 'catch-confirmations.PhotoCatchCard.uploadCatchPhoto',
+          additionalContext: uploadContext,
+        });
+      }
+
+      await updateCatchOutboxItem(userId, catchTrace.clientAttemptId, (item) => ({
+        ...item,
+        status: 'failed',
+        lastAttemptAt: new Date().toISOString(),
+        retryCount: item.retryCount + 1,
+        errorCode: 'photo_upload_failed',
+        errorMessage:
+          "We couldn't upload this catch photo. Please retry when your connection improves.",
+      }));
+      setLocalError('Catch saved. Photo upload needs attention and can be retried below.');
+    }
   };
 
   const canSubmit =
@@ -478,7 +520,7 @@ export function PhotoCatchCard({
           loading={isBusy}
           style={styles.submitButton}
         >
-          {isUploadingPhoto ? 'Uploading photo…' : 'Submit Catch'}
+          {isUploadingPhoto ? 'Saving catch…' : 'Submit Catch'}
         </TailTagButton>
       )}
 
