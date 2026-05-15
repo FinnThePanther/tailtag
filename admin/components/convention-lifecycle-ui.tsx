@@ -4,12 +4,13 @@ import type {
 } from '@/lib/convention-lifecycle';
 
 export function StatusBadge({ status }: { status: string }) {
+  const neutralLifecycleStatuses = new Set(['finalizing', 'closeout_running', 'closeout_failed']);
   const className =
     status === 'live'
       ? 'border-emerald-300/40 bg-emerald-400/10 text-emerald-200'
       : status === 'scheduled'
         ? 'border-sky-300/40 bg-sky-400/10 text-sky-200'
-        : status === 'draft'
+        : status === 'draft' || neutralLifecycleStatuses.has(status)
           ? 'border-slate-300/30 bg-white/5 text-slate-200'
           : 'border-amber-300/40 bg-amber-400/10 text-amber-100';
 

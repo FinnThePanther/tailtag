@@ -10,6 +10,8 @@
     if (status === 'scheduled') return 'border-sky-400/40 bg-sky-500/10 text-sky-100';
     if (status === 'archived') return 'border-slate-400/40 bg-slate-500/10 text-slate-200';
     if (status === 'canceled') return 'border-red-400/40 bg-red-500/10 text-red-100';
+    if (['finalizing', 'closeout_running', 'closeout_failed'].includes(status))
+      return 'border-slate-400/40 bg-slate-500/10 text-slate-200';
     return 'border-amber-400/40 bg-amber-500/10 text-amber-100';
   }
 

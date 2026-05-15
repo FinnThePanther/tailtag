@@ -172,6 +172,9 @@
 
   function getLifecycleCopy(status: string, readiness: typeof data.readiness) {
     if (status === 'archived') return 'Closeout is complete and recaps are available to players';
+    if (status === 'finalizing') return 'Convention has ended and catches are being finalized';
+    if (status === 'closeout_running') return 'Closeout is running and recaps are being prepared';
+    if (status === 'closeout_failed') return 'Closeout needs attention before archiving';
     if (status === 'closed') return 'Gameplay is stopped; retry closeout to finish archiving';
     if (status === 'canceled') return 'This convention was canceled and is not playable';
     if (status === 'scheduled' && readiness.dateState === 'inside_window')
@@ -191,7 +194,7 @@
       ? 'border-emerald-300/40 bg-emerald-400/10 text-emerald-200'
       : status === 'scheduled'
         ? 'border-sky-300/40 bg-sky-400/10 text-sky-200'
-        : status === 'draft'
+        : status === 'draft' || ['finalizing', 'closeout_running', 'closeout_failed'].includes(status)
           ? 'border-slate-300/30 bg-white/5 text-slate-200'
           : 'border-amber-300/40 bg-amber-400/10 text-amber-100';
   }
