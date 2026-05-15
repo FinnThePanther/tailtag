@@ -277,6 +277,20 @@ export function PhotoCatchCard({
         photoUploadState: 'pending_upload',
       });
       catchTrace.recordTiming('edge_request_ms', catchResult.edgeRequestMs);
+      await upsertCatchOutboxItem(userId, {
+        clientAttemptId: catchTrace.clientAttemptId,
+        method: catchMethod,
+        status: 'queued',
+        catchId: catchResult.catchId,
+        fursuitId: selectedFursuit.id,
+        fursuitOwnerId: catchResult.fursuitOwnerId,
+        fursuitName: selectedFursuit.name,
+        conventionId: sharedConventionId,
+        localPhotoUri,
+        photoSource: photoSource ?? 'camera',
+        createdAt: new Date().toISOString(),
+        retryCount: 0,
+      });
     } catch (error) {
       const caughtWithTiming = error as {
         catchPerformanceResult?: 'failed' | 'timeout';
@@ -305,20 +319,6 @@ export function PhotoCatchCard({
     });
     stopPostCreateRenderTiming();
 
-    await upsertCatchOutboxItem(userId, {
-      clientAttemptId: catchTrace.clientAttemptId,
-      method: catchMethod,
-      status: 'queued',
-      catchId: catchResult.catchId,
-      fursuitId: selectedFursuit.id,
-      fursuitOwnerId: catchResult.fursuitOwnerId,
-      fursuitName: selectedFursuit.name,
-      conventionId: sharedConventionId,
-      localPhotoUri,
-      photoSource: photoSource ?? 'camera',
-      createdAt: new Date().toISOString(),
-      retryCount: 0,
-    });
     setPhoto(null);
     setPhotoSource(null);
     setPhotoProcessingMs(null);
