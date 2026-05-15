@@ -704,6 +704,12 @@ async function handlePatch(req: Request): Promise<Response> {
     if (normalizedCatchRow.catch_photo_path !== body.catch_photo_path) {
       return jsonResponse(409, { error: 'Catch photo is already uploaded' });
     }
+
+    return jsonResponse(200, {
+      success: true,
+      photo_upload_state: 'uploaded',
+      already_uploaded: true,
+    });
   } else if (
     normalizedCatchRow.photo_upload_state !== 'pending_upload' &&
     normalizedCatchRow.photo_upload_state !== 'failed'
