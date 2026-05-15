@@ -45,8 +45,6 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { useAuth } from '../../src/features/auth';
 import {
-  conventionSuitRosterCaughtIdsQueryKey,
-  conventionSuitRosterQueryKey,
   useCatchConventionContext,
   useConventionVerificationAction,
 } from '../../src/features/conventions';
@@ -263,17 +261,12 @@ export default function CatchScreen() {
       }
       const currentUserId = userId;
       setTimeout(() => {
+        void refreshCatchConventionContext();
         void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
         void queryClient.invalidateQueries({
           queryKey: fursuitDetailQueryKey(params.fursuitId),
         });
         params.conventionIds.forEach((conventionId) => {
-          void queryClient.invalidateQueries({
-            queryKey: conventionSuitRosterQueryKey(currentUserId, conventionId),
-          });
-          void queryClient.invalidateQueries({
-            queryKey: conventionSuitRosterCaughtIdsQueryKey(currentUserId, conventionId),
-          });
           void queryClient.invalidateQueries({
             queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
           });
@@ -301,7 +294,7 @@ export default function CatchScreen() {
         }
       }, 0);
     },
-    [queryClient, userId],
+    [queryClient, refreshCatchConventionContext, userId],
   );
 
   const handleSubmit = async () => {
