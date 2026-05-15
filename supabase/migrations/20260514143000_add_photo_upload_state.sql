@@ -455,9 +455,13 @@ begin
   end if;
 
   if v_catch.photo_upload_state = 'uploaded' then
-    if v_catch.catch_photo_path is distinct from p_catch_photo_path then
-      raise exception 'Catch photo is already uploaded';
-    end if;
+    return json_build_object(
+      'success', true,
+      'photo_upload_state', 'uploaded',
+      'event_id', null,
+      'event_duplicate', true,
+      'event_enqueued', false
+    );
   elsif v_catch.photo_upload_state not in ('pending_upload', 'failed') then
     raise exception 'Catch photo upload is not pending';
   end if;
