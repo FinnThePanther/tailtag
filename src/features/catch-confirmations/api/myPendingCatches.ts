@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
-import type { CatchPhotoSource, CatchPhotoUploadState, MyPendingCatch } from '../types';
+import { normalizeCatchPhotoUploadState } from './confirmations';
+import type { CatchPhotoSource, MyPendingCatch } from '../types';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
@@ -12,10 +13,6 @@ export const MY_PENDING_CATCHES_STALE_TIME = 15 * 1000; // 15 seconds
 
 function normalizeCatchPhotoSource(raw: unknown): CatchPhotoSource | null {
   return raw === 'camera' || raw === 'gallery' ? raw : null;
-}
-
-function normalizeCatchPhotoUploadState(raw: unknown): CatchPhotoUploadState {
-  return raw === 'pending_upload' || raw === 'uploaded' || raw === 'failed' ? raw : 'not_required';
 }
 
 /**

@@ -67,7 +67,7 @@ function normalizeCatchPhotoSource(raw: unknown): CatchPhotoSource | null {
   return raw === 'camera' || raw === 'gallery' ? raw : null;
 }
 
-function normalizeCatchPhotoUploadState(raw: unknown): CatchPhotoUploadState {
+export function normalizeCatchPhotoUploadState(raw: unknown): CatchPhotoUploadState {
   return raw === 'pending_upload' || raw === 'uploaded' || raw === 'failed' ? raw : 'not_required';
 }
 
