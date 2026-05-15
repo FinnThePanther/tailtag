@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
+import { captureHandledException, captureSupabaseError } from '../../../lib/sentry';
 import { colors } from '../../../theme';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { updateCatchOutboxItem, upsertCatchOutboxItem } from '../../catch-outbox/storage';
@@ -47,6 +48,13 @@ type PhotoCatchCardProps = {
 };
 
 type Step = 'idle' | 'photo_taken' | 'fursuit_selected';
+
+const isSupabaseError = (
+  error: unknown,
+): error is { code?: string; details?: string; hint?: string; message?: string } =>
+  typeof error === 'object' &&
+  error !== null &&
+  ('code' in error || 'details' in error || 'hint' in error);
 
 export function PhotoCatchCard({
   userId,
@@ -353,7 +361,27 @@ export function PhotoCatchCard({
         errorCode: undefined,
         errorMessage: undefined,
       }));
-    } catch {
+    } catch (error) {
+      const uploadContext = {
+        clientAttemptId: catchTrace.clientAttemptId,
+        catchId: catchResult.catchId,
+        userId,
+        photoSource: photoSource ?? 'camera',
+      };
+
+      if (isSupabaseError(error)) {
+        captureSupabaseError(error, {
+          scope: 'catch-confirmations.PhotoCatchCard.uploadCatchPhoto',
+          action: 'uploadCatchPhoto',
+          additionalContext: uploadContext,
+        });
+      } else {
+        captureHandledException(error, {
+          scope: 'catch-confirmations.PhotoCatchCard.uploadCatchPhoto',
+          additionalContext: uploadContext,
+        });
+      }
+
       await updateCatchOutboxItem(userId, catchTrace.clientAttemptId, (item) => ({
         ...item,
         status: 'failed',
