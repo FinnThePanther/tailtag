@@ -271,9 +271,11 @@ export async function syncCatchOutbox(options: {
 
         captureHandledException(error, {
           scope: 'catch-outbox.sync',
-          userId,
-          clientAttemptId: item.clientAttemptId,
-          retryable,
+          additionalContext: {
+            userId,
+            clientAttemptId: item.clientAttemptId,
+            retryable,
+          },
         });
       }
     }
