@@ -414,7 +414,7 @@ export function ConventionLifecycleCard({
           Daily rotation is available after the convention is live.
         </p>
       ) : null}
-      {closeDisabled && status !== 'finalizing' ? (
+      {closeDisabled && !isPending ? (
         <p className="mt-2 text-xs text-muted">
           Closeout is available after the convention enters finalizing. Failed closeouts can be
           retried.

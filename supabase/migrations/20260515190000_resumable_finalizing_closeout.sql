@@ -37,7 +37,11 @@ BEGIN
            decided_at = now()
      WHERE c.convention_id = p_convention_id
        AND c.status = 'PENDING'
-       AND (c.catch_photo_source IS NULL OR c.catch_photo_url IS NOT NULL)
+       AND (
+         c.catch_photo_source IS NULL
+         OR c.catch_photo_url IS NOT NULL
+         OR c.photo_upload_state IS DISTINCT FROM 'pending_upload'
+       )
      RETURNING
        c.id,
        c.catcher_id,
@@ -217,6 +221,8 @@ DECLARE
   v_service_role_key text;
   v_closeout_url text;
   v_headers jsonb;
+  v_http_request_id bigint;
+  v_http_response record;
   convention record;
 BEGIN
   BEGIN
@@ -281,7 +287,7 @@ BEGIN
       )
   LOOP
     BEGIN
-      PERFORM net.http_post(
+      v_http_request_id := net.http_post(
         url                  := v_closeout_url,
         headers              := v_headers,
         body                 := jsonb_build_object(
@@ -290,9 +296,27 @@ BEGIN
         ),
         timeout_milliseconds := 10000
       );
+
+      v_http_response := net.http_collect_response(v_http_request_id, false);
+
+      IF v_http_response.status <> 'SUCCESS' THEN
+        RAISE EXCEPTION 'convention lifecycle closeout HTTP request % failed: %',
+          v_http_request_id,
+          v_http_response.message;
+      END IF;
+
+      IF (v_http_response.response).status_code < 200
+        OR (v_http_response.response).status_code >= 300
+      THEN
+        RAISE EXCEPTION 'convention lifecycle closeout HTTP request % returned status %: %',
+          v_http_request_id,
+          (v_http_response.response).status_code,
+          (v_http_response.response).body;
+      END IF;
     EXCEPTION
       WHEN OTHERS THEN
         RAISE WARNING 'convention lifecycle closeout failed for convention %: %', convention.id, SQLERRM;
+        RAISE;
     END;
   END LOOP;
 
@@ -314,7 +338,7 @@ BEGIN
       )
   LOOP
     BEGIN
-      PERFORM net.http_post(
+      v_http_request_id := net.http_post(
         url                  := v_closeout_url,
         headers              := v_headers,
         body                 := jsonb_build_object(
@@ -323,9 +347,27 @@ BEGIN
         ),
         timeout_milliseconds := 10000
       );
+
+      v_http_response := net.http_collect_response(v_http_request_id, false);
+
+      IF v_http_response.status <> 'SUCCESS' THEN
+        RAISE EXCEPTION 'convention lifecycle retry HTTP request % failed: %',
+          v_http_request_id,
+          v_http_response.message;
+      END IF;
+
+      IF (v_http_response.response).status_code < 200
+        OR (v_http_response.response).status_code >= 300
+      THEN
+        RAISE EXCEPTION 'convention lifecycle retry HTTP request % returned status %: %',
+          v_http_request_id,
+          (v_http_response.response).status_code,
+          (v_http_response.response).body;
+      END IF;
     EXCEPTION
       WHEN OTHERS THEN
         RAISE WARNING 'convention lifecycle retry failed for convention %: %', convention.id, SQLERRM;
+        RAISE;
     END;
   END LOOP;
 
@@ -356,7 +398,7 @@ BEGIN
       ) < 5
   LOOP
     BEGIN
-      PERFORM net.http_post(
+      v_http_request_id := net.http_post(
         url                  := v_closeout_url,
         headers              := v_headers,
         body                 := jsonb_build_object(
@@ -365,9 +407,27 @@ BEGIN
         ),
         timeout_milliseconds := 10000
       );
+
+      v_http_response := net.http_collect_response(v_http_request_id, false);
+
+      IF v_http_response.status <> 'SUCCESS' THEN
+        RAISE EXCEPTION 'legacy convention lifecycle retry HTTP request % failed: %',
+          v_http_request_id,
+          v_http_response.message;
+      END IF;
+
+      IF (v_http_response.response).status_code < 200
+        OR (v_http_response.response).status_code >= 300
+      THEN
+        RAISE EXCEPTION 'legacy convention lifecycle retry HTTP request % returned status %: %',
+          v_http_request_id,
+          (v_http_response.response).status_code,
+          (v_http_response.response).body;
+      END IF;
     EXCEPTION
       WHEN OTHERS THEN
         RAISE WARNING 'legacy convention lifecycle retry failed for convention %: %', convention.id, SQLERRM;
+        RAISE;
     END;
   END LOOP;
 END;

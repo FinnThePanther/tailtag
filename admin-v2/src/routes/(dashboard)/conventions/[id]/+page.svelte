@@ -630,7 +630,7 @@
     {#if rotateDisabled && data.convention.status !== 'live'}
       <p class="mt-3 text-xs text-muted">Daily rotation is available after the convention is live.</p>
     {/if}
-    {#if closeDisabled && data.convention.status !== 'finalizing'}
+    {#if closeDisabled}
       <p class="mt-2 text-xs text-muted">
         Closeout is available after the convention enters finalizing. Failed closeouts can be
         retried.
