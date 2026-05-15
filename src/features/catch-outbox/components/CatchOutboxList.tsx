@@ -51,10 +51,18 @@ function subtitleFor(item: CatchOutboxItem) {
   }
 
   if (item.status === 'queued') {
+    if (item.method === 'camera_photo' || item.method === 'gallery_photo') {
+      return "We'll upload this photo when your connection improves.";
+    }
+
     return "We'll finish this when your connection improves.";
   }
 
   if (item.status === 'syncing') {
+    if (item.method === 'camera_photo' || item.method === 'gallery_photo') {
+      return 'Uploading catch photo...';
+    }
+
     return 'Sending to TailTag...';
   }
 
@@ -70,8 +78,10 @@ type CatchOutboxRowProps = Pick<CatchOutboxListProps, 'onRetry' | 'onDismiss' | 
 };
 
 function CatchOutboxRow({ item, onRetry, onDismiss, onEditCode }: CatchOutboxRowProps) {
-  const displayName = item.fursuitName ?? `Code ${item.fursuitCode}`;
+  const displayName =
+    item.fursuitName ?? (item.fursuitCode ? `Code ${item.fursuitCode}` : 'Photo catch');
   const canAct = item.status === 'failed';
+  const canEditCode = item.method === 'code' && Boolean(onEditCode);
 
   return (
     <View style={styles.row}>
@@ -117,14 +127,16 @@ function CatchOutboxRow({ item, onRetry, onDismiss, onEditCode }: CatchOutboxRow
             >
               Retry
             </TailTagButton>
-            <TailTagButton
-              size="sm"
-              variant="ghost"
-              disabled={!onEditCode}
-              onPress={() => onEditCode?.(item)}
-            >
-              Edit code
-            </TailTagButton>
+            {item.method === 'code' ? (
+              <TailTagButton
+                size="sm"
+                variant="ghost"
+                disabled={!canEditCode}
+                onPress={() => onEditCode?.(item)}
+              >
+                Edit code
+              </TailTagButton>
+            ) : null}
             <TailTagButton
               size="sm"
               variant="ghost"
@@ -170,7 +182,8 @@ export function CatchOutboxList({
         </View>
       </View>
       <Text style={styles.description}>
-        Queued catches are saved on this device and count after TailTag accepts them.
+        Queued catches and photo uploads are saved on this device and finish when TailTag accepts
+        them.
       </Text>
       <View style={styles.list}>
         {items.map((item, index) => (

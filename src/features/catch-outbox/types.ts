@@ -1,15 +1,22 @@
+import type { CatchPhotoSource } from '@/features/catch-confirmations/types';
+
 export type CatchOutboxStatus = 'queued' | 'syncing' | 'confirmed' | 'pending_approval' | 'failed';
 
 export type CatchOutboxItem = {
   clientAttemptId: string;
-  method: 'code';
+  method: 'code' | 'camera_photo' | 'gallery_photo';
   status: CatchOutboxStatus;
-  fursuitCode: string;
+  fursuitCode?: string;
   fursuitId?: string;
+  fursuitOwnerId?: string;
   fursuitName?: string;
   fursuitAvatarUrl?: string | null;
   fursuitAvatarPath?: string | null;
   fursuitSpeciesName?: string | null;
+  localPhotoUri?: string;
+  photoSource?: CatchPhotoSource;
+  photoPath?: string;
+  photoUrl?: string | null;
   conventionId?: string | null;
   catchId?: string;
   catchNumber?: number | null;

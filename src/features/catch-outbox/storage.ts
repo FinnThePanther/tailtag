@@ -17,11 +17,24 @@ function parseItem(value: unknown): CatchOutboxItem | null {
     return null;
   }
 
+  const method = value.method;
   if (
     typeof value.clientAttemptId !== 'string' ||
-    value.method !== 'code' ||
-    typeof value.fursuitCode !== 'string' ||
+    (method !== 'code' && method !== 'camera_photo' && method !== 'gallery_photo') ||
     typeof value.createdAt !== 'string'
+  ) {
+    return null;
+  }
+
+  if (method === 'code' && typeof value.fursuitCode !== 'string') {
+    return null;
+  }
+
+  if (
+    (method === 'camera_photo' || method === 'gallery_photo') &&
+    (typeof value.catchId !== 'string' ||
+      typeof value.localPhotoUri !== 'string' ||
+      (value.photoSource !== 'camera' && value.photoSource !== 'gallery'))
   ) {
     return null;
   }
@@ -39,10 +52,11 @@ function parseItem(value: unknown): CatchOutboxItem | null {
 
   return {
     clientAttemptId: value.clientAttemptId,
-    method: 'code',
+    method,
     status,
-    fursuitCode: value.fursuitCode,
+    fursuitCode: typeof value.fursuitCode === 'string' ? value.fursuitCode : undefined,
     fursuitId: typeof value.fursuitId === 'string' ? value.fursuitId : undefined,
+    fursuitOwnerId: typeof value.fursuitOwnerId === 'string' ? value.fursuitOwnerId : undefined,
     fursuitName: typeof value.fursuitName === 'string' ? value.fursuitName : undefined,
     fursuitAvatarUrl:
       typeof value.fursuitAvatarUrl === 'string' || value.fursuitAvatarUrl === null
@@ -54,6 +68,14 @@ function parseItem(value: unknown): CatchOutboxItem | null {
         : undefined,
     fursuitSpeciesName:
       typeof value.fursuitSpeciesName === 'string' ? value.fursuitSpeciesName : undefined,
+    localPhotoUri: typeof value.localPhotoUri === 'string' ? value.localPhotoUri : undefined,
+    photoSource:
+      value.photoSource === 'camera' || value.photoSource === 'gallery'
+        ? value.photoSource
+        : undefined,
+    photoPath: typeof value.photoPath === 'string' ? value.photoPath : undefined,
+    photoUrl:
+      typeof value.photoUrl === 'string' || value.photoUrl === null ? value.photoUrl : undefined,
     conventionId:
       typeof value.conventionId === 'string' || value.conventionId === null
         ? value.conventionId

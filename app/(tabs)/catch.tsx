@@ -205,6 +205,10 @@ export default function CatchScreen() {
 
   const handleEditOutboxCode = useCallback(
     (item: CatchOutboxItem) => {
+      if (!item.fursuitCode) {
+        return;
+      }
+
       setCodeInput(item.fursuitCode);
       setSubmitError(null);
       resetCatchState();
@@ -505,7 +509,6 @@ export default function CatchScreen() {
   const handlePhotoCatch = async (params: {
     fursuitId: string;
     conventionId: string | null;
-    photoUrl: string;
     catchResult: CreateCatchResult;
   }) => {
     if (!userId) return;

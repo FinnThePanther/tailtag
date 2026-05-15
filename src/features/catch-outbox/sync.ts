@@ -3,7 +3,11 @@ import type { QueryClient } from '@tanstack/react-query';
 import {
   CODE_CATCH_OUTBOX_TIMEOUT_MS,
   createCatch,
+  markCatchPhotoUploadFailed,
   myPendingCatchesQueryKey,
+  pendingCatchesQueryKey,
+  updateCatchPhoto,
+  uploadCatchPhotoFromUri,
 } from '../catch-confirmations';
 import { CAUGHT_SUITS_QUERY_KEY } from '../suits';
 import { captureHandledException } from '../../lib/sentry';
@@ -70,7 +74,13 @@ function messageFor(error: unknown) {
 }
 
 function shouldAttempt(item: CatchOutboxItem, force: boolean) {
-  if (item.status !== 'queued') {
+  if (
+    item.status !== 'queued' &&
+    !(
+      (item.method === 'camera_photo' || item.method === 'gallery_photo') &&
+      item.status === 'failed'
+    )
+  ) {
     return false;
   }
 
@@ -79,6 +89,10 @@ function shouldAttempt(item: CatchOutboxItem, force: boolean) {
   }
 
   return Date.parse(item.nextAttemptAt) <= Date.now();
+}
+
+function isPhotoUploadItem(item: CatchOutboxItem) {
+  return item.method === 'camera_photo' || item.method === 'gallery_photo';
 }
 
 async function cleanupResolvedItems(userId: string) {
@@ -128,6 +142,54 @@ export async function syncCatchOutbox(options: {
       }));
 
       try {
+        if (isPhotoUploadItem(item)) {
+          if (!item.catchId || !item.localPhotoUri || !item.photoSource) {
+            throw new Error("We couldn't retry that photo upload. Please submit the photo again.");
+          }
+
+          const uploadResult =
+            item.photoPath && item.photoUrl
+              ? { photoPath: item.photoPath, photoUrl: item.photoUrl }
+              : await uploadCatchPhotoFromUri({
+                  userId,
+                  localPhotoUri: item.localPhotoUri,
+                });
+
+          await updateCatchPhoto(item.catchId, {
+            photoPath: uploadResult.photoPath,
+            photoUrl: uploadResult.photoUrl,
+            photoSource: item.photoSource,
+          });
+
+          const resolvedItem: CatchOutboxItem = {
+            ...item,
+            status: 'confirmed',
+            photoPath: uploadResult.photoPath,
+            photoUrl: uploadResult.photoUrl,
+            lastAttemptAt: attemptStartedAt,
+            resolvedAt: nowIso(),
+            retryCount: item.retryCount,
+            errorCode: undefined,
+            errorMessage: undefined,
+          };
+
+          await updateCatchOutboxItem(userId, item.clientAttemptId, () => resolvedItem);
+          resolutions.push({ item: resolvedItem, previousStatus: item.status });
+          showToast?.(`Catch photo uploaded: ${resolvedItem.fursuitName ?? 'Photo catch'}`);
+
+          if (queryClient) {
+            void queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
+            void queryClient.invalidateQueries({ queryKey: myPendingCatchesQueryKey(userId) });
+            if (item.fursuitOwnerId) {
+              void queryClient.invalidateQueries({
+                queryKey: pendingCatchesQueryKey(item.fursuitOwnerId),
+              });
+            }
+          }
+
+          continue;
+        }
+
         const result = await createCatch({
           clientAttemptId: item.clientAttemptId,
           fursuitCode: item.fursuitCode,
@@ -158,7 +220,7 @@ export async function syncCatchOutbox(options: {
         await updateCatchOutboxItem(userId, item.clientAttemptId, () => resolvedItem);
         resolutions.push({ item: resolvedItem, previousStatus: item.status });
 
-        const label = resolvedItem.fursuitName ?? resolvedItem.fursuitCode;
+        const label = resolvedItem.fursuitName ?? resolvedItem.fursuitCode ?? 'catch';
         showToast?.(
           resolvedStatus === 'pending_approval'
             ? `Catch submitted for approval: ${label}`
@@ -187,6 +249,9 @@ export async function syncCatchOutbox(options: {
               ...item,
               status: 'failed',
               lastAttemptAt: attemptStartedAt,
+              nextAttemptAt: isPhotoUploadItem(item)
+                ? new Date(Date.now() + backoffMs(retryCount)).toISOString()
+                : undefined,
               resolvedAt: failedAt,
               retryCount,
               errorCode: errorCodeFor(error),
@@ -194,6 +259,16 @@ export async function syncCatchOutbox(options: {
             };
 
         await updateCatchOutboxItem(userId, item.clientAttemptId, () => nextItem);
+
+        if (isPhotoUploadItem(item) && !retryable && item.catchId) {
+          await markCatchPhotoUploadFailed(item.catchId).catch((markError) => {
+            captureHandledException(markError, {
+              scope: 'catch-outbox.sync.markPhotoUploadFailed',
+              userId,
+              catchId: item.catchId,
+            });
+          });
+        }
 
         if (!retryable) {
           resolutions.push({ item: nextItem, previousStatus: item.status });

@@ -2,6 +2,8 @@
 export type {
   CatchMode,
   CatchStatus,
+  CatchPhotoSource,
+  CatchPhotoUploadState,
   PendingCatch,
   MyPendingCatch,
   ConfirmCatchResult,
@@ -31,6 +33,9 @@ export {
   fetchPendingCatches,
   confirmCatch,
   createCatch,
+  updateCatchPhoto,
+  markCatchPhotoUploadFailed,
+  uploadCatchPhotoFromUri,
   fetchConventionFursuits,
   MY_PENDING_CATCHES_QUERY_KEY,
   MY_PENDING_CATCHES_STALE_TIME,

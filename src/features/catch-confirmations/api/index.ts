@@ -7,6 +7,8 @@ export {
   confirmCatch,
   createCatch,
   updateCatchPhoto,
+  markCatchPhotoUploadFailed,
+  uploadCatchPhotoFromUri,
   fetchConventionFursuits,
 } from './confirmations';
 export {

@@ -13,6 +13,12 @@ type PendingConfirmationsListProps = {
 
 function PendingConfirmationRow({ item }: { item: MyPendingCatch }) {
   const displayDate = toDisplayDate(item.caughtAt);
+  const subtitle =
+    item.photoUploadState === 'pending_upload' || item.photoUploadState === 'failed'
+      ? 'Photo upload needs attention'
+      : item.catchPhotoSource === 'gallery'
+        ? 'Awaiting owner approval · Gallery catch'
+        : 'Awaiting owner approval';
 
   return (
     <View style={styles.row}>
@@ -32,9 +38,7 @@ function PendingConfirmationRow({ item }: { item: MyPendingCatch }) {
           style={styles.subtitle}
           numberOfLines={1}
         >
-          {item.catchPhotoSource === 'gallery'
-            ? 'Awaiting owner approval · Gallery catch'
-            : 'Awaiting owner approval'}
+          {subtitle}
         </Text>
         {displayDate ? (
           <Text

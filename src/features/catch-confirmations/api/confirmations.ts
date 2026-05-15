@@ -12,6 +12,7 @@ import {
   buildAuthenticatedStorageObjectUrl,
   resolveStorageMediaUrl,
 } from '../../../utils/supabase-image';
+import { loadUriAsUint8Array } from '../../../utils/files';
 import {
   createClientAttemptId,
   getCatchPerformanceAppVersion,
@@ -19,6 +20,7 @@ import {
 } from '../lib/catchPerformance';
 import type {
   CatchPhotoSource,
+  CatchPhotoUploadState,
   PendingCatch,
   ConfirmCatchResult,
   CreateCatchResult,
@@ -63,6 +65,10 @@ function withCatchPerformanceError(
 
 function normalizeCatchPhotoSource(raw: unknown): CatchPhotoSource | null {
   return raw === 'camera' || raw === 'gallery' ? raw : null;
+}
+
+function normalizeCatchPhotoUploadState(raw: unknown): CatchPhotoUploadState {
+  return raw === 'pending_upload' || raw === 'uploaded' || raw === 'failed' ? raw : 'not_required';
 }
 
 async function wakeGameplayQueue(): Promise<void> {
@@ -118,6 +124,7 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
       legacyUrl: row.catch_photo_url ?? null,
     }),
     catchPhotoSource: normalizeCatchPhotoSource(row.catch_photo_source),
+    photoUploadState: normalizeCatchPhotoUploadState(row.photo_upload_state),
   }));
 }
 
@@ -234,6 +241,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         catch_photo_path: params.photoPath ?? null,
         catch_photo_url: params.photoUrl ?? null,
         catch_photo_source: params.photoSource ?? null,
+        photo_upload_state: params.photoUploadState ?? null,
       }),
       signal: controller.signal,
     });
@@ -327,6 +335,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       fursuitAvatarUrl: responseData.fursuit_avatar_url ?? null,
       fursuitSpeciesId: responseData.fursuit_species_id ?? null,
       fursuitSpeciesName: responseData.fursuit_species_name ?? null,
+      photoUploadState: normalizeCatchPhotoUploadState(responseData.photo_upload_state),
       edgeRequestMs,
     };
 
@@ -388,10 +397,12 @@ export async function updateCatchPhoto(
       catch_photo_path: string;
       catch_photo_url: string;
       catch_photo_source?: CatchPhotoSource;
+      photo_upload_state: 'uploaded';
     } = {
       catch_id: catchId,
       catch_photo_path: params.photoPath,
       catch_photo_url: resolvedPhotoUrl,
+      photo_upload_state: 'uploaded',
     };
 
     if (params.photoSource) {
@@ -423,6 +434,79 @@ export async function updateCatchPhoto(
 
     throw error;
   }
+}
+
+export async function markCatchPhotoUploadFailed(catchId: string): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  const supabaseKey = SUPABASE_ANON_KEY;
+
+  if (!accessToken) {
+    throw new Error('You must be signed in to update a catch.');
+  }
+
+  const supabaseUrl = SUPABASE_URL;
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase configuration not set.');
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), EDGE_FUNCTION_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/create-catch`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        apikey: supabaseKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        catch_id: catchId,
+        photo_upload_state: 'failed',
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error('Failed to mark photo upload failed.');
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('The request took too long. Please check your connection and try again.');
+    }
+
+    throw error;
+  }
+}
+
+export async function uploadCatchPhotoFromUri(params: {
+  userId: string;
+  localPhotoUri: string;
+}): Promise<{ photoPath: string; photoUrl: string }> {
+  const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const photoPath = `${params.userId}/${uniqueSuffix}.jpg`;
+  const fileBytes = await loadUriAsUint8Array(params.localPhotoUri);
+
+  const { error: uploadError } = await supabase.storage
+    .from(CATCH_PHOTO_BUCKET)
+    .upload(photoPath, fileBytes, {
+      contentType: 'image/jpeg',
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  return {
+    photoPath,
+    photoUrl: buildAuthenticatedStorageObjectUrl(CATCH_PHOTO_BUCKET, photoPath),
+  };
 }
 
 export type FursuitPickerItem = {

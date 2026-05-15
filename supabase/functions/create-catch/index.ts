@@ -51,13 +51,15 @@ interface CreateCatchRequest {
   catch_photo_path?: string | null;
   catch_photo_url?: string | null;
   catch_photo_source?: 'camera' | 'gallery' | null;
+  photo_upload_state?: 'pending_upload' | 'uploaded' | null;
 }
 
 interface UpdateCatchPhotoRequest {
   catch_id: string;
   catch_photo_path?: string;
-  catch_photo_url: string;
+  catch_photo_url?: string;
   catch_photo_source?: 'camera' | 'gallery' | null;
+  photo_upload_state?: 'uploaded' | 'failed';
 }
 
 interface CreateCatchResponse {
@@ -75,7 +77,8 @@ interface CreateCatchResponse {
   fursuit_avatar_url?: string | null;
   fursuit_species_id?: string | null;
   fursuit_species_name?: string | null;
-  event_id: string;
+  photo_upload_state?: string;
+  event_id: string | null;
   event_duplicate?: boolean;
   event_enqueued?: boolean;
 }
@@ -216,6 +219,18 @@ function normalizeCatchPhotoSource(value: unknown): 'camera' | 'gallery' | null 
   return null;
 }
 
+function normalizeCreatePhotoUploadState(value: unknown): 'pending_upload' | 'uploaded' | null {
+  if (value === 'pending_upload' || value === 'uploaded') {
+    return value;
+  }
+
+  return null;
+}
+
+function normalizePatchPhotoUploadState(value: unknown): 'uploaded' | 'failed' {
+  return value === 'failed' ? 'failed' : 'uploaded';
+}
+
 function normalizeFursuitCode(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
@@ -293,6 +308,34 @@ function scheduleQueueWakeup(): void {
   });
 }
 
+async function enqueuePendingCatchAfterPhotoUpload(catchRow: {
+  id: string;
+  catcher_id: string;
+  catch_photo_path: string;
+  catch_photo_url: string;
+  catch_photo_source: string | null;
+}): Promise<void> {
+  const { data, error } = await supabaseAdmin.rpc('attach_catch_photo_after_upload', {
+    p_catch_id: catchRow.id,
+    p_catcher_id: catchRow.catcher_id,
+    p_catch_photo_path: catchRow.catch_photo_path,
+    p_catch_photo_url: catchRow.catch_photo_url,
+    p_catch_photo_source: catchRow.catch_photo_source,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = Array.isArray(data)
+    ? (data[0] as { duplicate?: boolean; enqueued?: boolean } | undefined)
+    : (data as { duplicate?: boolean; enqueued?: boolean } | null);
+
+  if (row?.enqueued === true && row.duplicate !== true) {
+    scheduleQueueWakeup();
+  }
+}
+
 async function handlePost(req: Request): Promise<Response> {
   const trace = createServerCatchPerformanceTrace(
     normalizeClientAttemptId(req.headers.get('x-client-attempt-id')),
@@ -346,17 +389,36 @@ async function handlePost(req: Request): Promise<Response> {
     return failureResponse(400, { error: 'Invalid JSON payload' }, 'invalid_json');
   }
 
-  if (body.has_photo === true && !body.catch_photo_url) {
-    return failureResponse(400, { error: 'Missing catch_photo_url' }, 'missing_photo_url');
-  }
-
   const catchPhotoSource = normalizeCatchPhotoSource(body.catch_photo_source);
+  const photoUploadState = normalizeCreatePhotoUploadState(body.photo_upload_state);
 
   if (body.catch_photo_source && !catchPhotoSource) {
     return failureResponse(400, { error: 'Invalid catch_photo_source' }, 'invalid_photo_source');
   }
 
-  if (catchPhotoSource === 'gallery' && (!body.has_photo || !body.catch_photo_url)) {
+  if (body.photo_upload_state && !photoUploadState) {
+    return failureResponse(
+      400,
+      { error: 'Invalid photo_upload_state' },
+      'invalid_photo_upload_state',
+    );
+  }
+
+  if (body.has_photo === true && !body.catch_photo_url) {
+    if (photoUploadState !== 'pending_upload' || !catchPhotoSource) {
+      return failureResponse(400, { error: 'Missing catch_photo_url' }, 'missing_photo_url');
+    }
+  }
+
+  if (body.catch_photo_url && photoUploadState === 'pending_upload') {
+    return failureResponse(
+      400,
+      { error: 'Pending uploads cannot include catch_photo_url' },
+      'pending_upload_with_photo_url',
+    );
+  }
+
+  if (catchPhotoSource === 'gallery' && !body.has_photo) {
     return failureResponse(
       400,
       { error: 'Gallery catches require a photo' },
@@ -477,6 +539,7 @@ async function handlePost(req: Request): Promise<Response> {
         p_catch_photo_path: body.catch_photo_path ?? null,
         p_catch_photo_url: body.catch_photo_url ?? null,
         p_client_attempt_id: trace.clientAttemptId ?? null,
+        p_photo_upload_state: photoUploadState,
       }),
     );
 
@@ -557,14 +620,32 @@ async function handlePatch(req: Request): Promise<Response> {
     return jsonResponse(400, { error: 'Invalid JSON payload' });
   }
 
-  if (!body.catch_id || !body.catch_photo_url) {
-    return jsonResponse(400, { error: 'Missing catch_id or catch_photo_url' });
+  if (!body.catch_id) {
+    return jsonResponse(400, { error: 'Missing catch_id' });
+  }
+
+  const requestedPhotoUploadState = normalizePatchPhotoUploadState(body.photo_upload_state);
+
+  if (
+    requestedPhotoUploadState === 'uploaded' &&
+    (!body.catch_photo_path || !body.catch_photo_url)
+  ) {
+    return jsonResponse(400, { error: 'Missing catch_photo_path or catch_photo_url' });
   }
 
   // Verify the catch belongs to this user
   const { data: catchRow, error: fetchError } = await supabaseAdmin
     .from('catches')
-    .select('id, catcher_id')
+    .select(
+      `
+      id,
+      catcher_id,
+      catch_photo_path,
+      catch_photo_url,
+      catch_photo_source,
+      photo_upload_state
+    `,
+    )
     .eq('id', body.catch_id)
     .single();
 
@@ -572,25 +653,70 @@ async function handlePatch(req: Request): Promise<Response> {
     return jsonResponse(404, { error: 'Catch not found' });
   }
 
-  if ((catchRow as { catcher_id: string }).catcher_id !== userId) {
+  const normalizedCatchRow = catchRow as {
+    id: string;
+    catcher_id: string;
+    catch_photo_path: string | null;
+    catch_photo_url: string | null;
+    catch_photo_source: string | null;
+    photo_upload_state: string;
+  };
+
+  if (normalizedCatchRow.catcher_id !== userId) {
     return jsonResponse(403, { error: 'Forbidden' });
   }
 
-  const { error: updateError } = await supabaseAdmin
-    .from('catches')
-    .update({
-      catch_photo_path: body.catch_photo_path ?? null,
-      catch_photo_url: body.catch_photo_url,
-      catch_photo_source: normalizeCatchPhotoSource(body.catch_photo_source) ?? 'camera',
-    })
-    .eq('id', body.catch_id);
+  if (requestedPhotoUploadState === 'failed') {
+    if (normalizedCatchRow.photo_upload_state !== 'pending_upload') {
+      return jsonResponse(409, { error: 'Catch photo upload is not pending' });
+    }
 
-  if (updateError) {
-    console.error('[create-catch] Failed to update catch photo:', updateError);
-    return jsonResponse(500, { error: 'Failed to update catch photo' });
+    const { error: updateError } = await supabaseAdmin
+      .from('catches')
+      .update({ photo_upload_state: 'failed' })
+      .eq('id', body.catch_id)
+      .eq('catcher_id', userId)
+      .eq('photo_upload_state', 'pending_upload');
+
+    if (updateError) {
+      console.error('[create-catch] Failed to mark catch photo failed:', updateError);
+      return jsonResponse(500, { error: 'Failed to mark photo upload failed' });
+    }
+
+    return jsonResponse(200, { success: true, photo_upload_state: 'failed' });
   }
 
-  return jsonResponse(200, { success: true });
+  const catchPhotoSource = normalizeCatchPhotoSource(body.catch_photo_source);
+
+  if (body.catch_photo_source && !catchPhotoSource) {
+    return jsonResponse(400, { error: 'Invalid catch_photo_source' });
+  }
+
+  if (normalizedCatchRow.photo_upload_state === 'uploaded') {
+    if (normalizedCatchRow.catch_photo_path !== body.catch_photo_path) {
+      return jsonResponse(409, { error: 'Catch photo is already uploaded' });
+    }
+  } else if (
+    normalizedCatchRow.photo_upload_state !== 'pending_upload' &&
+    normalizedCatchRow.photo_upload_state !== 'failed'
+  ) {
+    return jsonResponse(409, { error: 'Catch photo upload is not pending' });
+  }
+
+  try {
+    await enqueuePendingCatchAfterPhotoUpload({
+      id: normalizedCatchRow.id,
+      catcher_id: normalizedCatchRow.catcher_id,
+      catch_photo_path: body.catch_photo_path!,
+      catch_photo_url: body.catch_photo_url!,
+      catch_photo_source: catchPhotoSource ?? normalizedCatchRow.catch_photo_source ?? 'camera',
+    });
+  } catch (error) {
+    console.error('[create-catch] Failed to enqueue pending catch after photo upload:', error);
+    return jsonResponse(500, { error: 'Failed to finalize catch photo' });
+  }
+
+  return jsonResponse(200, { success: true, photo_upload_state: 'uploaded' });
 }
 
 Deno.serve(async (req) => {

@@ -6,6 +6,7 @@ import { useToast } from '../../hooks/useToast';
 import { loadCatchOutbox, subscribeCatchOutbox, upsertCatchOutboxItem } from './storage';
 import { retryCatchOutboxItem, syncCatchOutbox, removeCatchOutboxItem } from './sync';
 import type { CatchOutboxItem } from './types';
+import type { CatchPhotoSource } from '../catch-confirmations/types';
 
 export function useCatchOutbox(userId: string | null) {
   const [items, setItems] = useState<CatchOutboxItem[]>([]);
@@ -114,6 +115,34 @@ export async function queueCodeCatchOutboxItem(params: {
     method: 'code',
     status: 'queued',
     fursuitCode: params.fursuitCode,
+    createdAt: now,
+    retryCount: 0,
+  });
+}
+
+export async function queuePhotoUploadOutboxItem(params: {
+  userId: string;
+  clientAttemptId: string;
+  catchId: string;
+  fursuitId: string;
+  fursuitOwnerId?: string;
+  fursuitName?: string;
+  conventionId: string | null;
+  localPhotoUri: string;
+  photoSource: CatchPhotoSource;
+}) {
+  const now = new Date().toISOString();
+  await upsertCatchOutboxItem(params.userId, {
+    clientAttemptId: params.clientAttemptId,
+    method: params.photoSource === 'gallery' ? 'gallery_photo' : 'camera_photo',
+    status: 'queued',
+    catchId: params.catchId,
+    fursuitId: params.fursuitId,
+    fursuitOwnerId: params.fursuitOwnerId,
+    fursuitName: params.fursuitName,
+    conventionId: params.conventionId,
+    localPhotoUri: params.localPhotoUri,
+    photoSource: params.photoSource,
     createdAt: now,
     retryCount: 0,
   });

@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import type { CatchPhotoSource, MyPendingCatch } from '../types';
+import type { CatchPhotoSource, CatchPhotoUploadState, MyPendingCatch } from '../types';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
@@ -12,6 +12,10 @@ export const MY_PENDING_CATCHES_STALE_TIME = 15 * 1000; // 15 seconds
 
 function normalizeCatchPhotoSource(raw: unknown): CatchPhotoSource | null {
   return raw === 'camera' || raw === 'gallery' ? raw : null;
+}
+
+function normalizeCatchPhotoUploadState(raw: unknown): CatchPhotoUploadState {
+  return raw === 'pending_upload' || raw === 'uploaded' || raw === 'failed' ? raw : 'not_required';
 }
 
 /**
@@ -27,6 +31,7 @@ export async function fetchMyPendingCatches(userId: string): Promise<MyPendingCa
       caught_at,
       expires_at,
       catch_photo_source,
+      photo_upload_state,
       convention_id,
       fursuit:fursuits (
         id,
@@ -66,6 +71,7 @@ export async function fetchMyPendingCatches(userId: string): Promise<MyPendingCa
       caughtAt: row.caught_at ?? '',
       expiresAt: row.expires_at ?? null,
       catchPhotoSource: normalizeCatchPhotoSource(row.catch_photo_source),
+      photoUploadState: normalizeCatchPhotoUploadState(row.photo_upload_state),
     } satisfies MyPendingCatch;
   });
 }
