@@ -2702,10 +2702,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      remove_fursuit_from_convention: {
-        Args: { p_convention_id: string; p_fursuit_id: string }
-        Returns: undefined
-      }
       opt_in_to_convention: {
         Args: {
           p_convention_id: string
@@ -2732,6 +2728,10 @@ export type Database = {
       refresh_analytics_views: { Args: never; Returns: undefined }
       refresh_fursuit_popularity: {
         Args: { convention_uuid?: string }
+        Returns: undefined
+      }
+      remove_fursuit_from_convention: {
+        Args: { p_convention_id: string; p_fursuit_id: string }
         Returns: undefined
       }
       replace_fursuit_makers: {
