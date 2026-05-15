@@ -38,6 +38,7 @@ const SUPPORTED_TYPES = new Set([
   'catch_rejected',
   'catch_expired',
   'daily_all_complete',
+  'convention_recap_ready',
 ]);
 
 type NotificationRecord = {
@@ -216,6 +217,13 @@ async function buildMessage(
         title: 'All Tasks Complete!',
         body: "Great job finishing today's tasks!",
       };
+    case 'convention_recap_ready': {
+      const conventionName = extractString(payload.convention_name) ?? 'your convention';
+      return {
+        title: 'Convention Recap Ready',
+        body: `Your ${conventionName} recap is ready.`,
+      };
+    }
     default:
       return null;
   }
