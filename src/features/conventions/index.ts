@@ -56,4 +56,5 @@ export {
   type LocationVerificationResponse,
 } from './api/geoVerification';
 export { useConventionVerificationAction } from './hooks/useConventionVerificationAction';
+export { useCatchConventionContext } from './hooks/useCatchConventionContext';
 export { formatConventionDateRange, isConventionEnded } from './utils';

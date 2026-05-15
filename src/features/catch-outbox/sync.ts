@@ -9,6 +9,10 @@ import {
   updateCatchPhoto,
   uploadCatchPhotoFromUri,
 } from '../catch-confirmations';
+import {
+  conventionSuitRosterCaughtIdsQueryKey,
+  conventionSuitRosterQueryKey,
+} from '../conventions';
 import { CAUGHT_SUITS_QUERY_KEY } from '../suits';
 import { captureHandledException } from '../../lib/sentry';
 import {
@@ -174,6 +178,14 @@ export async function syncCatchOutbox(options: {
           if (queryClient) {
             void queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
             void queryClient.invalidateQueries({ queryKey: myPendingCatchesQueryKey(userId) });
+            if (item.conventionId) {
+              void queryClient.invalidateQueries({
+                queryKey: conventionSuitRosterQueryKey(userId, item.conventionId),
+              });
+              void queryClient.invalidateQueries({
+                queryKey: conventionSuitRosterCaughtIdsQueryKey(userId, item.conventionId),
+              });
+            }
             if (item.fursuitOwnerId) {
               void queryClient.invalidateQueries({
                 queryKey: pendingCatchesQueryKey(item.fursuitOwnerId),
@@ -224,6 +236,14 @@ export async function syncCatchOutbox(options: {
         if (queryClient) {
           void queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
           void queryClient.invalidateQueries({ queryKey: myPendingCatchesQueryKey(userId) });
+          if (resolvedItem.conventionId) {
+            void queryClient.invalidateQueries({
+              queryKey: conventionSuitRosterQueryKey(userId, resolvedItem.conventionId),
+            });
+            void queryClient.invalidateQueries({
+              queryKey: conventionSuitRosterCaughtIdsQueryKey(userId, resolvedItem.conventionId),
+            });
+          }
         }
       } catch (error) {
         const retryCount = item.retryCount + 1;

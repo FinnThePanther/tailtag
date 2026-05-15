@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 
 import {
   FursuitCard,
@@ -45,10 +45,9 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { useAuth } from '../../src/features/auth';
 import {
-  CONVENTIONS_STALE_TIME,
-  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
-  type ConventionMembership,
-  fetchProfileConventionMemberships,
+  conventionSuitRosterCaughtIdsQueryKey,
+  conventionSuitRosterQueryKey,
+  useCatchConventionContext,
   useConventionVerificationAction,
 } from '../../src/features/conventions';
 import { emitGameplayEvent } from '../../src/features/events';
@@ -140,18 +139,14 @@ export default function CatchScreen() {
     retry: retryOutboxItem,
     dismiss: dismissOutboxItem,
   } = useCatchOutboxSync(userId, queryClient);
-
-  const { data: conventionMemberships = [], refetch: refetchConventionMemberships } = useQuery<
-    ConventionMembership[],
-    Error
-  >({
-    queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
-    enabled: Boolean(userId),
-    staleTime: CONVENTIONS_STALE_TIME,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    queryFn: fetchProfileConventionMemberships,
-  });
+  const {
+    conventionMemberships,
+    activeConventionIds,
+    singleActiveConventionId,
+    pickerItems,
+    isRosterRefreshing,
+    refresh: refreshCatchConventionContext,
+  } = useCatchConventionContext(userId);
   const hasActiveConvention = useMemo(
     () => conventionMemberships.some((membership) => membership.membership_state === 'active'),
     [conventionMemberships],
@@ -178,7 +173,7 @@ export default function CatchScreen() {
     useConventionVerificationAction({
       profileId: userId,
       onVerified: async () => {
-        await refetchConventionMemberships({ throwOnError: false });
+        await refreshCatchConventionContext();
       },
     });
 
@@ -274,6 +269,12 @@ export default function CatchScreen() {
         });
         params.conventionIds.forEach((conventionId) => {
           void queryClient.invalidateQueries({
+            queryKey: conventionSuitRosterQueryKey(currentUserId, conventionId),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: conventionSuitRosterCaughtIdsQueryKey(currentUserId, conventionId),
+          });
+          void queryClient.invalidateQueries({
             queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
           });
           void queryClient.invalidateQueries({
@@ -332,6 +333,7 @@ export default function CatchScreen() {
         userId,
         clientAttemptId,
         fursuitCode: normalizedCode,
+        conventionId: singleActiveConventionId,
       });
     } catch (caught) {
       captureHandledException(caught, {
@@ -367,7 +369,7 @@ export default function CatchScreen() {
       });
       const catchResult = await createCatch({
         fursuitCode: normalizedCode,
-        conventionId: null,
+        conventionId: singleActiveConventionId,
         clientAttemptId,
         method: 'code',
         timeoutMs: CODE_CATCH_OUTBOX_TIMEOUT_MS,
@@ -712,6 +714,9 @@ export default function CatchScreen() {
             isSubmitting={isPhotoSubmitting}
             disabled={!hasActiveConvention || Boolean(verificationRequiredConvention)}
             submitError={photoSubmitError}
+            activeConventionIds={activeConventionIds}
+            preloadedFursuits={pickerItems}
+            isRosterRefreshing={isRosterRefreshing}
           />
         </View>
       ) : null}

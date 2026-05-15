@@ -18,7 +18,6 @@ import {
 } from '@/features/catch-confirmations/api/confirmations';
 import { createCatchPerformanceTrace } from '../lib/catchPerformance';
 import {
-  fetchActiveProfileConventionIds,
   fetchActiveSharedConventionIds,
   fetchGalleryProfileConventionIds,
   fetchGallerySharedConventionIds,
@@ -45,6 +44,9 @@ type PhotoCatchCardProps = {
   isSubmitting?: boolean;
   disabled?: boolean;
   submitError?: string | null;
+  activeConventionIds?: string[];
+  preloadedFursuits?: FursuitPickerItem[];
+  isRosterRefreshing?: boolean;
 };
 
 type Step = 'idle' | 'photo_taken' | 'fursuit_selected';
@@ -62,6 +64,9 @@ export function PhotoCatchCard({
   isSubmitting = false,
   disabled = false,
   submitError,
+  activeConventionIds = [],
+  preloadedFursuits = [],
+  isRosterRefreshing = false,
 }: PhotoCatchCardProps) {
   const [step, setStep] = useState<Step>('idle');
   const [photo, setPhoto] = useState<PhotoCandidate | null>(null);
@@ -75,13 +80,6 @@ export function PhotoCatchCard({
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [photoProcessingMs, setPhotoProcessingMs] = useState<number | null>(null);
 
-  // Load user's currently playable conventions once mounted for the default camera path.
-  useEffect(() => {
-    fetchActiveProfileConventionIds(userId)
-      .then(setConventionIds)
-      .catch(() => setConventionIds([]));
-  }, [userId]);
-
   // Load convention fursuits when photo is taken
   useEffect(() => {
     if (step !== 'photo_taken') return;
@@ -91,12 +89,18 @@ export function PhotoCatchCard({
       return;
     }
 
+    if (photoSource !== 'gallery' && preloadedFursuits.length > 0) {
+      setFursuits(preloadedFursuits);
+      setIsLoadingFursuits(false);
+      return;
+    }
+
     setIsLoadingFursuits(true);
     fetchConventionFursuits(conventionIds, userId)
       .then(setFursuits)
       .catch(() => setLocalError("Couldn't load fursuits. Please try again."))
       .finally(() => setIsLoadingFursuits(false));
-  }, [step, conventionIds, userId]);
+  }, [step, conventionIds, photoSource, preloadedFursuits, userId]);
 
   const handleTakePhoto = async () => {
     if (disabled) return;
@@ -132,7 +136,6 @@ export function PhotoCatchCard({
         flipHorizontal: true,
       });
       setPhotoProcessingMs(Math.max(0, Date.now() - processingStartedAt));
-      const activeConventionIds = await fetchActiveProfileConventionIds(userId);
       setPhoto({
         uri: processed.uri,
         mimeType: 'image/jpeg',
@@ -141,7 +144,8 @@ export function PhotoCatchCard({
       });
       setPhotoSource('camera');
       setConventionIds(activeConventionIds);
-      setIsLoadingFursuits(true);
+      setFursuits(preloadedFursuits);
+      setIsLoadingFursuits(preloadedFursuits.length === 0 && activeConventionIds.length > 0);
       setStep('photo_taken');
       setSelectedFursuit(null);
     } catch {
@@ -485,6 +489,9 @@ export function PhotoCatchCard({
           {/* Fursuit picker */}
           <View style={styles.pickerSection}>
             <Text style={styles.pickerLabel}>Which fursuit did you catch?</Text>
+            {photoSource !== 'gallery' && fursuits.length > 0 && isRosterRefreshing ? (
+              <Text style={styles.previewHint}>Refreshing roster…</Text>
+            ) : null}
             <ScrollView
               nestedScrollEnabled
               style={styles.pickerScroll}
