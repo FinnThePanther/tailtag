@@ -142,6 +142,7 @@ export default function CatchScreen() {
     activeConventionIds,
     singleActiveConventionId,
     pickerItems,
+    isMembershipLoading,
     isRosterRefreshing,
     refresh: refreshCatchConventionContext,
   } = useCatchConventionContext(userId);
@@ -186,6 +187,8 @@ export default function CatchScreen() {
   const [conversationPrompt, setConversationPrompt] = useState<string | null>(null);
   const [lastCatchConventionId, setLastCatchConventionId] = useState<string | null>(null);
   const [lastCatchConventionIds, setLastCatchConventionIds] = useState<string[]>([]);
+  const isCodeCatchConventionContextReady =
+    !isMembershipLoading && Boolean(singleActiveConventionId);
 
   const resetCatchState = useCallback(() => {
     setCaughtFursuit(null);
@@ -316,6 +319,18 @@ export default function CatchScreen() {
       return;
     }
 
+    if (isMembershipLoading) {
+      setSubmitError('Loading your playable convention. Please try again in a moment.');
+      return;
+    }
+
+    if (!singleActiveConventionId) {
+      setSubmitError('TailTag needs one active playable convention before recording this catch.');
+      return;
+    }
+
+    const catchConventionId = singleActiveConventionId;
+
     setIsSubmitting(true);
     setSubmitError(null);
     resetCatchState();
@@ -326,7 +341,7 @@ export default function CatchScreen() {
         userId,
         clientAttemptId,
         fursuitCode: normalizedCode,
-        conventionId: singleActiveConventionId,
+        conventionId: catchConventionId,
       });
     } catch (caught) {
       captureHandledException(caught, {
@@ -362,7 +377,7 @@ export default function CatchScreen() {
       });
       const catchResult = await createCatch({
         fursuitCode: normalizedCode,
-        conventionId: singleActiveConventionId,
+        conventionId: catchConventionId,
         clientAttemptId,
         method: 'code',
         timeoutMs: CODE_CATCH_OUTBOX_TIMEOUT_MS,
@@ -778,7 +793,12 @@ export default function CatchScreen() {
         <TailTagButton
           onPress={handleSubmit}
           loading={isSubmitting}
-          disabled={!userId || isSubmitting || Boolean(leaderboardOpenConvention)}
+          disabled={
+            !userId ||
+            isSubmitting ||
+            Boolean(leaderboardOpenConvention) ||
+            !isCodeCatchConventionContextReady
+          }
           style={styles.fullWidthButton}
         >
           Record catch
