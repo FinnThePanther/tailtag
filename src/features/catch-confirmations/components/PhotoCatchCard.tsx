@@ -9,13 +9,13 @@ import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { captureHandledException, captureSupabaseError } from '../../../lib/sentry';
 import { colors } from '../../../theme';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
-import { updateCatchOutboxItem, upsertCatchOutboxItem } from '../../catch-outbox/storage';
+import { updateCatchOutboxItem, upsertCatchOutboxItem } from '@/features/catch-outbox/storage';
 import {
   createCatch,
   fetchConventionFursuits,
   updateCatchPhoto,
   uploadCatchPhotoFromUri,
-} from '../api/confirmations';
+} from '@/features/catch-confirmations/api/confirmations';
 import { createCatchPerformanceTrace } from '../lib/catchPerformance';
 import {
   fetchActiveProfileConventionIds,
