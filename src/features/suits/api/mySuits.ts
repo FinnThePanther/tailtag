@@ -112,6 +112,8 @@ export async function fetchMySuits(
         start_date: entry.convention.start_date ?? null,
         end_date: entry.convention.end_date ?? null,
         timezone: entry.convention.timezone ?? 'UTC',
+        finalizing_started_at: null,
+        closeout_not_before: null,
         latitude: entry.convention.latitude ?? null,
         longitude: entry.convention.longitude ?? null,
         geofence_radius_meters: entry.convention.geofence_radius_meters ?? null,
