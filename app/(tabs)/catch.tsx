@@ -186,8 +186,7 @@ export default function CatchScreen() {
   const [conversationPrompt, setConversationPrompt] = useState<string | null>(null);
   const [lastCatchConventionId, setLastCatchConventionId] = useState<string | null>(null);
   const [lastCatchConventionIds, setLastCatchConventionIds] = useState<string[]>([]);
-  const isCodeCatchConventionContextReady =
-    !isMembershipLoading && Boolean(singleActiveConventionId);
+  const isCodeCatchConventionContextReady = Boolean(singleActiveConventionId);
 
   const resetCatchState = useCallback(() => {
     setCaughtFursuit(null);
@@ -318,7 +317,7 @@ export default function CatchScreen() {
       return;
     }
 
-    if (isMembershipLoading) {
+    if (isMembershipLoading && activeConventionIds.length === 0) {
       setSubmitError('Loading your playable convention. Please try again in a moment.');
       return;
     }
