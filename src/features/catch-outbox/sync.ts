@@ -74,13 +74,7 @@ function messageFor(error: unknown) {
 }
 
 function shouldAttempt(item: CatchOutboxItem, force: boolean) {
-  if (
-    item.status !== 'queued' &&
-    !(
-      (item.method === 'camera_photo' || item.method === 'gallery_photo') &&
-      item.status === 'failed'
-    )
-  ) {
+  if (item.status !== 'queued') {
     return false;
   }
 
@@ -249,9 +243,7 @@ export async function syncCatchOutbox(options: {
               ...item,
               status: 'failed',
               lastAttemptAt: attemptStartedAt,
-              nextAttemptAt: isPhotoUploadItem(item)
-                ? new Date(Date.now() + backoffMs(retryCount)).toISOString()
-                : undefined,
+              nextAttemptAt: undefined,
               resolvedAt: failedAt,
               retryCount,
               errorCode: errorCodeFor(error),
