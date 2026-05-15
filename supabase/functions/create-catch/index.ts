@@ -227,8 +227,12 @@ function normalizeCreatePhotoUploadState(value: unknown): 'pending_upload' | 'up
   return null;
 }
 
-function normalizePatchPhotoUploadState(value: unknown): 'uploaded' | 'failed' {
-  return value === 'failed' ? 'failed' : 'uploaded';
+function normalizePatchPhotoUploadState(value: unknown): 'uploaded' | 'failed' | null {
+  if (value === 'uploaded' || value === 'failed') {
+    return value;
+  }
+
+  return null;
 }
 
 function normalizeFursuitCode(value: unknown): string | null {
@@ -625,6 +629,10 @@ async function handlePatch(req: Request): Promise<Response> {
   }
 
   const requestedPhotoUploadState = normalizePatchPhotoUploadState(body.photo_upload_state);
+
+  if (!requestedPhotoUploadState) {
+    return jsonResponse(400, { error: 'Invalid photo_upload_state' });
+  }
 
   if (
     requestedPhotoUploadState === 'uploaded' &&
