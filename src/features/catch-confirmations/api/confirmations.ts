@@ -29,6 +29,8 @@ import type {
   ConfirmCatchResult,
   CreateCatchResult,
   CreateCatchParams,
+  UpdateCatchPhotoResult,
+  MarkCatchPhotoUploadFailedResult,
 } from '@/features/catch-confirmations/types';
 
 // Query keys
@@ -80,6 +82,10 @@ function normalizeCatchPhotoSource(raw: unknown): CatchPhotoSource | null {
 
 export function normalizeCatchPhotoUploadState(raw: unknown): CatchPhotoUploadState {
   return raw === 'pending_upload' || raw === 'uploaded' || raw === 'failed' ? raw : 'not_required';
+}
+
+function stringField(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
 }
 
 async function wakeGameplayQueue(): Promise<void> {
@@ -383,7 +389,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
 export async function updateCatchPhoto(
   catchId: string,
   params: { photoPath: string; photoUrl?: string | null; photoSource?: CatchPhotoSource },
-): Promise<void> {
+): Promise<UpdateCatchPhotoResult> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   const supabaseKey = SUPABASE_ANON_KEY;
@@ -441,6 +447,17 @@ export async function updateCatchPhoto(
           : 'Failed to attach photo to catch.';
       throw new Error(errorMessage);
     }
+
+    const responseData = await response.json().catch(() => null);
+
+    const photoUploadState = normalizeCatchPhotoUploadState(responseData?.photo_upload_state);
+
+    return {
+      photoUploadState: photoUploadState === 'failed' ? 'failed' : 'uploaded',
+      alreadyUploaded: responseData?.already_uploaded === true,
+      photoPath: stringField(responseData?.catch_photo_path) ?? params.photoPath,
+      photoUrl: stringField(responseData?.catch_photo_url) ?? resolvedPhotoUrl,
+    };
   } catch (error) {
     clearTimeout(timeoutId);
 
@@ -452,7 +469,9 @@ export async function updateCatchPhoto(
   }
 }
 
-export async function markCatchPhotoUploadFailed(catchId: string): Promise<void> {
+export async function markCatchPhotoUploadFailed(
+  catchId: string,
+): Promise<MarkCatchPhotoUploadFailedResult> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   const supabaseKey = SUPABASE_ANON_KEY;
@@ -497,6 +516,33 @@ export async function markCatchPhotoUploadFailed(catchId: string): Promise<void>
       });
       throw new Error('Failed to mark photo upload failed.');
     }
+
+    const responseData = await response.json().catch(() => null);
+    const storedPaths =
+      typeof responseData?.stored_paths === 'object' && responseData.stored_paths !== null
+        ? (responseData.stored_paths as Record<string, unknown>)
+        : null;
+    const photoPath =
+      stringField(responseData?.catch_photo_path) ??
+      stringField(storedPaths?.catch_photo_path) ??
+      stringField(storedPaths?.photo_path);
+    const photoUrl =
+      stringField(responseData?.catch_photo_url) ??
+      stringField(storedPaths?.catch_photo_url) ??
+      stringField(storedPaths?.photo_url);
+    const photoUploadState =
+      responseData?.already_uploaded === true ||
+      Boolean(photoPath || photoUrl) ||
+      normalizeCatchPhotoUploadState(responseData?.photo_upload_state) === 'uploaded'
+        ? 'uploaded'
+        : 'failed';
+
+    return {
+      photoUploadState,
+      alreadyUploaded: responseData?.already_uploaded === true,
+      photoPath,
+      photoUrl,
+    };
   } catch (error) {
     clearTimeout(timeoutId);
 

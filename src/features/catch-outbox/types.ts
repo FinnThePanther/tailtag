@@ -1,6 +1,12 @@
 import type { CatchPhotoSource } from '@/features/catch-confirmations/types';
 
-export type CatchOutboxStatus = 'queued' | 'syncing' | 'confirmed' | 'pending_approval' | 'failed';
+export type CatchOutboxStatus =
+  | 'queued'
+  | 'uploading'
+  | 'syncing'
+  | 'confirmed'
+  | 'pending_approval'
+  | 'failed';
 
 export type CatchOutboxItem = {
   clientAttemptId: string;

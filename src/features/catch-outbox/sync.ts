@@ -25,6 +25,7 @@ import { catchOutboxBackoffMs, classifyCatchOutboxError } from './errors';
 import type { CatchOutboxItem, CatchOutboxResolution } from './types';
 
 const RESOLVED_ITEM_TTL_MS = 60 * 1000;
+const PHOTO_UPLOAD_LEASE_MS = 5 * 60 * 1000;
 
 let isSyncing = false;
 
@@ -33,6 +34,11 @@ function nowIso() {
 }
 
 function shouldAttempt(item: CatchOutboxItem, force: boolean) {
+  if (item.status === 'uploading' && isPhotoUploadItem(item)) {
+    const leaseStartedAt = Date.parse(item.lastAttemptAt ?? item.createdAt);
+    return Number.isFinite(leaseStartedAt) && Date.now() - leaseStartedAt >= PHOTO_UPLOAD_LEASE_MS;
+  }
+
   if (item.status !== 'queued') {
     return false;
   }
@@ -46,6 +52,37 @@ function shouldAttempt(item: CatchOutboxItem, force: boolean) {
 
 function isPhotoUploadItem(item: CatchOutboxItem) {
   return item.method === 'camera_photo' || item.method === 'gallery_photo';
+}
+
+function notifyPhotoCatchResolved(options: {
+  item: CatchOutboxItem;
+  userId: string;
+  queryClient?: QueryClient;
+  showToast?: (message: string) => void;
+}) {
+  const { item, userId, queryClient, showToast } = options;
+
+  showToast?.(`Catch photo uploaded: ${item.fursuitName ?? 'Photo catch'}`);
+
+  if (!queryClient) {
+    return;
+  }
+
+  void queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
+  void queryClient.invalidateQueries({ queryKey: myPendingCatchesQueryKey(userId) });
+  if (item.conventionId) {
+    void queryClient.invalidateQueries({
+      queryKey: conventionSuitRosterQueryKey(userId, item.conventionId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: conventionSuitRosterCaughtIdsQueryKey(userId, item.conventionId),
+    });
+  }
+  if (item.fursuitOwnerId) {
+    void queryClient.invalidateQueries({
+      queryKey: pendingCatchesQueryKey(item.fursuitOwnerId),
+    });
+  }
 }
 
 async function cleanupResolvedItems(userId: string) {
@@ -108,17 +145,20 @@ export async function syncCatchOutbox(options: {
                   localPhotoUri: item.localPhotoUri,
                 });
 
-          await updateCatchPhoto(item.catchId, {
+          const photoUpdateResult = await updateCatchPhoto(item.catchId, {
             photoPath: uploadResult.photoPath,
             photoUrl: uploadResult.photoUrl,
             photoSource: item.photoSource,
           });
+          if (photoUpdateResult.photoUploadState === 'failed') {
+            throw new Error('Catch photo upload is not pending');
+          }
 
           const resolvedItem: CatchOutboxItem = {
             ...item,
             status: 'confirmed',
-            photoPath: uploadResult.photoPath,
-            photoUrl: uploadResult.photoUrl,
+            photoPath: photoUpdateResult.photoPath ?? uploadResult.photoPath,
+            photoUrl: photoUpdateResult.photoUrl ?? uploadResult.photoUrl,
             lastAttemptAt: attemptStartedAt,
             resolvedAt: nowIso(),
             retryCount: item.retryCount,
@@ -128,25 +168,7 @@ export async function syncCatchOutbox(options: {
 
           await updateCatchOutboxItem(userId, item.clientAttemptId, () => resolvedItem);
           resolutions.push({ item: resolvedItem, previousStatus: item.status });
-          showToast?.(`Catch photo uploaded: ${resolvedItem.fursuitName ?? 'Photo catch'}`);
-
-          if (queryClient) {
-            void queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
-            void queryClient.invalidateQueries({ queryKey: myPendingCatchesQueryKey(userId) });
-            if (item.conventionId) {
-              void queryClient.invalidateQueries({
-                queryKey: conventionSuitRosterQueryKey(userId, item.conventionId),
-              });
-              void queryClient.invalidateQueries({
-                queryKey: conventionSuitRosterCaughtIdsQueryKey(userId, item.conventionId),
-              });
-            }
-            if (item.fursuitOwnerId) {
-              void queryClient.invalidateQueries({
-                queryKey: pendingCatchesQueryKey(item.fursuitOwnerId),
-              });
-            }
-          }
+          notifyPhotoCatchResolved({ item: resolvedItem, userId, queryClient, showToast });
 
           continue;
         }
@@ -228,7 +250,7 @@ export async function syncCatchOutbox(options: {
         await updateCatchOutboxItem(userId, item.clientAttemptId, () => nextItem);
 
         if (isPhotoUploadItem(item) && !errorDetails.retryable && item.catchId) {
-          await markCatchPhotoUploadFailed(item.catchId).catch((markError) => {
+          const markResult = await markCatchPhotoUploadFailed(item.catchId).catch((markError) => {
             captureHandledException(markError, {
               scope: 'catch-outbox.sync.markPhotoUploadFailed',
               additionalContext: {
@@ -236,7 +258,26 @@ export async function syncCatchOutbox(options: {
                 catchId: item.catchId,
               },
             });
+            return null;
           });
+
+          if (markResult?.photoUploadState === 'uploaded') {
+            const confirmedItem: CatchOutboxItem = {
+              ...item,
+              status: 'confirmed',
+              photoPath: markResult.photoPath ?? item.photoPath,
+              photoUrl: markResult.photoUrl ?? item.photoUrl,
+              lastAttemptAt: attemptStartedAt,
+              resolvedAt: failedAt,
+              retryCount,
+              errorCode: undefined,
+              errorMessage: undefined,
+            };
+            await updateCatchOutboxItem(userId, item.clientAttemptId, () => confirmedItem);
+            resolutions.push({ item: confirmedItem, previousStatus: item.status });
+            notifyPhotoCatchResolved({ item: confirmedItem, userId, queryClient, showToast });
+            continue;
+          }
         }
 
         if (!errorDetails.retryable) {

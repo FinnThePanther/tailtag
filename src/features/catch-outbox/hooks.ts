@@ -37,7 +37,11 @@ export function useCatchOutbox(userId: string | null) {
   );
 
   const unresolvedItems = useMemo(
-    () => items.filter((item) => item.status === 'queued' || item.status === 'syncing'),
+    () =>
+      items.filter(
+        (item) =>
+          item.status === 'queued' || item.status === 'uploading' || item.status === 'syncing',
+      ),
     [items],
   );
 
@@ -167,7 +171,7 @@ export async function queuePhotoUploadOutboxItem(params: {
   await upsertCatchOutboxItem(params.userId, {
     clientAttemptId: params.clientAttemptId,
     method: params.photoSource === 'gallery' ? 'gallery_photo' : 'camera_photo',
-    status: 'queued',
+    status: 'uploading',
     catchId: params.catchId,
     fursuitId: params.fursuitId,
     fursuitOwnerId: params.fursuitOwnerId,
@@ -176,6 +180,7 @@ export async function queuePhotoUploadOutboxItem(params: {
     localPhotoUri: params.localPhotoUri,
     photoSource: params.photoSource,
     createdAt: now,
+    lastAttemptAt: now,
     retryCount: 0,
   });
 }

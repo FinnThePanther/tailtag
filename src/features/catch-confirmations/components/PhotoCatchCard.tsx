@@ -311,10 +311,11 @@ export function PhotoCatchCard({
         photoUploadState: 'pending_upload',
       });
       catchTrace.recordTiming('edge_request_ms', catchResult.edgeRequestMs);
+      const uploadStartedAt = new Date().toISOString();
       await upsertCatchOutboxItem(userId, {
         clientAttemptId: catchTrace.clientAttemptId,
         method: catchMethod,
-        status: 'queued',
+        status: 'uploading',
         catchId: catchResult.catchId,
         fursuitId: selectedFursuit.id,
         fursuitOwnerId: catchResult.fursuitOwnerId,
@@ -322,7 +323,8 @@ export function PhotoCatchCard({
         conventionId: sharedConventionId,
         localPhotoUri,
         photoSource: photoSource ?? 'camera',
-        createdAt: new Date().toISOString(),
+        createdAt: uploadStartedAt,
+        lastAttemptAt: uploadStartedAt,
         retryCount: 0,
       });
     } catch (error) {
@@ -374,17 +376,20 @@ export function PhotoCatchCard({
           localPhotoUri,
         }),
       );
-      await updateCatchPhoto(catchResult.catchId, {
+      const photoUpdateResult = await updateCatchPhoto(catchResult.catchId, {
         photoPath: uploadResult.photoPath,
         photoUrl: uploadResult.photoUrl,
         photoSource: photoSource ?? 'camera',
       });
+      if (photoUpdateResult.photoUploadState === 'failed') {
+        throw new Error('Catch photo upload is not pending');
+      }
       const confirmedUploadResult = uploadResult;
       await updateCatchOutboxItem(userId, catchTrace.clientAttemptId, (item) => ({
         ...item,
         status: 'confirmed',
-        photoPath: confirmedUploadResult.photoPath,
-        photoUrl: confirmedUploadResult.photoUrl,
+        photoPath: photoUpdateResult.photoPath ?? confirmedUploadResult.photoPath,
+        photoUrl: photoUpdateResult.photoUrl ?? confirmedUploadResult.photoUrl,
         resolvedAt: new Date().toISOString(),
         errorCode: undefined,
         errorMessage: undefined,
@@ -412,6 +417,7 @@ export function PhotoCatchCard({
 
       const errorDetails = classifyCatchOutboxError(error);
       const failedAt = new Date().toISOString();
+      let recoveredUploaded = false;
       await safeUpdateCatchOutboxItem(userId, catchTrace.clientAttemptId, (item) => {
         const retryCount = item.retryCount + 1;
 
@@ -444,22 +450,40 @@ export function PhotoCatchCard({
       });
 
       if (!errorDetails.retryable) {
-        await markCatchPhotoUploadFailed(catchResult.catchId).catch((markError) => {
-          captureHandledException(markError, {
-            scope: 'catch-confirmations.PhotoCatchCard.markPhotoUploadFailed',
-            additionalContext: {
-              userId,
-              catchId: catchResult.catchId,
-              clientAttemptId: catchTrace.clientAttemptId,
-            },
-          });
-        });
+        const markResult = await markCatchPhotoUploadFailed(catchResult.catchId).catch(
+          (markError) => {
+            captureHandledException(markError, {
+              scope: 'catch-confirmations.PhotoCatchCard.markPhotoUploadFailed',
+              additionalContext: {
+                userId,
+                catchId: catchResult.catchId,
+                clientAttemptId: catchTrace.clientAttemptId,
+              },
+            });
+            return null;
+          },
+        );
+
+        if (markResult?.photoUploadState === 'uploaded') {
+          recoveredUploaded = true;
+          await safeUpdateCatchOutboxItem(userId, catchTrace.clientAttemptId, (item) => ({
+            ...item,
+            status: 'confirmed',
+            photoPath: markResult.photoPath ?? item.photoPath,
+            photoUrl: markResult.photoUrl ?? item.photoUrl,
+            resolvedAt: new Date().toISOString(),
+            errorCode: undefined,
+            errorMessage: undefined,
+          }));
+        }
       }
 
       setLocalError(
-        errorDetails.retryable
-          ? "Catch saved. We'll retry the photo upload when your connection improves."
-          : 'Catch saved. Photo upload needs attention and can be retried below.',
+        recoveredUploaded
+          ? 'Catch photo uploaded.'
+          : errorDetails.retryable
+            ? "Catch saved. We'll retry the photo upload when your connection improves."
+            : 'Catch saved. Photo upload needs attention and can be retried below.',
       );
     }
   };
