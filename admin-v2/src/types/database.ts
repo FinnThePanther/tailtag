@@ -3647,6 +3647,14 @@ export type Database = {
         };
         Returns: string;
       };
+      transition_ended_conventions_to_finalizing: {
+        Args: { p_now?: string };
+        Returns: {
+          closeout_not_before: string;
+          convention_id: string;
+          finalizing_started_at: string;
+        }[];
+      };
       verify_convention_location: {
         Args: {
           p_accuracy: number;
