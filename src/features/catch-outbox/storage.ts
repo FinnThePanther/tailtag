@@ -18,24 +18,23 @@ function parseItem(value: unknown): CatchOutboxItem | null {
   }
 
   const method = value.method;
-  if (
-    typeof value.clientAttemptId !== 'string' ||
-    (method !== 'code' && method !== 'camera_photo' && method !== 'gallery_photo') ||
-    typeof value.createdAt !== 'string'
-  ) {
+  if (typeof value.clientAttemptId !== 'string' || typeof value.createdAt !== 'string') {
     return null;
   }
 
-  if (method === 'code' && typeof value.fursuitCode !== 'string') {
-    return null;
-  }
-
-  if (
-    (method === 'camera_photo' || method === 'gallery_photo') &&
-    (typeof value.catchId !== 'string' ||
+  if (method === 'code') {
+    if (typeof value.fursuitCode !== 'string') {
+      return null;
+    }
+  } else if (method === 'camera_photo' || method === 'gallery_photo') {
+    if (
+      typeof value.catchId !== 'string' ||
       typeof value.localPhotoUri !== 'string' ||
-      (value.photoSource !== 'camera' && value.photoSource !== 'gallery'))
-  ) {
+      (value.photoSource !== 'camera' && value.photoSource !== 'gallery')
+    ) {
+      return null;
+    }
+  } else {
     return null;
   }
 
