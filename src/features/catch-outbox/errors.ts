@@ -1,4 +1,5 @@
 const MAX_BACKOFF_MS = 5 * 60 * 1000;
+const SHARED_FALLBACK_ERROR_MESSAGE = "We couldn't finish that catch. Please try again.";
 
 export type CatchOutboxErrorClassification = {
   retryable: boolean;
@@ -34,7 +35,7 @@ function errorMessageFor(error: unknown) {
     return message;
   }
 
-  return "We couldn't sync that catch. Please try again.";
+  return SHARED_FALLBACK_ERROR_MESSAGE;
 }
 
 function normalizedErrorMessage(error: unknown) {
@@ -68,7 +69,16 @@ function isRetryableCatchOutboxError(error: unknown) {
     return false;
   }
 
-  return (
+  if (
+    message.includes('429') ||
+    message.includes('rate limit') ||
+    message.includes('too many requests') ||
+    message.includes('5xx') ||
+    /\b5\d{2}\b/.test(message) ||
+    message.includes('server error') ||
+    message.includes('service unavailable') ||
+    message.includes('gateway timeout') ||
+    message.includes('timeout') ||
     message.includes('timed out') ||
     message.includes('network') ||
     message.includes('failed to fetch') ||
@@ -77,7 +87,11 @@ function isRetryableCatchOutboxError(error: unknown) {
     message.includes('signed in') ||
     message.includes('failed to attach photo') ||
     message.includes('failed to upload')
-  );
+  ) {
+    return true;
+  }
+
+  return true;
 }
 
 function errorCodeFor(error: unknown) {

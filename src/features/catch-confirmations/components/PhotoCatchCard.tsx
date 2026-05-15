@@ -60,6 +60,27 @@ const isSupabaseError = (
   error !== null &&
   ('code' in error || 'details' in error || 'hint' in error);
 
+async function safeUpdateCatchOutboxItem(
+  userId: string,
+  clientAttemptId: string,
+  updater: Parameters<typeof updateCatchOutboxItem>[2],
+) {
+  try {
+    await updateCatchOutboxItem(userId, clientAttemptId, updater);
+  } catch (error) {
+    captureHandledException(error, {
+      scope: 'catch-confirmations.PhotoCatchCard.updateCatchOutboxItem',
+      additionalContext: {
+        userId,
+        clientAttemptId,
+      },
+    });
+    return null;
+  }
+
+  return null;
+}
+
 export function PhotoCatchCard({
   userId,
   onCatchSubmit,
@@ -391,7 +412,7 @@ export function PhotoCatchCard({
 
       const errorDetails = classifyCatchOutboxError(error);
       const failedAt = new Date().toISOString();
-      await updateCatchOutboxItem(userId, catchTrace.clientAttemptId, (item) => {
+      await safeUpdateCatchOutboxItem(userId, catchTrace.clientAttemptId, (item) => {
         const retryCount = item.retryCount + 1;
 
         if (errorDetails.retryable) {
