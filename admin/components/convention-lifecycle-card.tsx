@@ -106,14 +106,18 @@ export function ConventionLifecycleCard({
         : readiness.dateState === 'before_window'
           ? 'Schedule convention'
           : 'Start convention';
-  const closeDisabled = isPending || status !== 'live';
-  const retryCloseoutDisabled = isPending || status !== 'closed';
+  const closeDisabled = isPending || status !== 'finalizing';
+  const retryCloseoutDisabled = isPending || (status !== 'closeout_failed' && status !== 'closed');
   const regenerateDisabled = isPending || status !== 'archived';
   const devDeleteDisabled = isPending || status !== 'archived';
   const recapsGenerated = getNumber(closeoutSummary, 'recaps_generated');
   const expiredPendingCatches = getNumber(closeoutSummary, 'pending_catches_expired');
-  const membershipsRemoved = getNumber(closeoutSummary, 'profile_memberships_removed');
-  const rosterRemoved = getNumber(closeoutSummary, 'fursuit_assignments_removed');
+  const membershipsFinalized =
+    getNumber(closeoutSummary, 'profile_memberships_finalized') ??
+    getNumber(closeoutSummary, 'profile_memberships_removed');
+  const rosterFinalized =
+    getNumber(closeoutSummary, 'fursuit_assignments_finalized') ??
+    getNumber(closeoutSummary, 'fursuit_assignments_removed');
   const healthBadge = getHealthBadge(health.severity);
   const showStartupReadiness = status === 'draft' || status === 'scheduled';
   const readinessLabel = showStartupReadiness
@@ -208,8 +212,8 @@ export function ConventionLifecycleCard({
         <div className="mt-4 rounded-lg border border-emerald-300/30 bg-emerald-400/10 p-3">
           <p className="text-sm font-semibold text-emerald-100">Archive complete</p>
           <p className="mt-1 text-sm text-emerald-50">
-            {recapsGenerated ?? 0} participant recap(s), {membershipsRemoved ?? 0} active
-            membership(s), and {rosterRemoved ?? 0} fursuit roster assignment(s) were processed.
+            {recapsGenerated ?? 0} participant recap(s), {membershipsFinalized ?? 0} active
+            membership(s), and {rosterFinalized ?? 0} fursuit roster assignment(s) were finalized.
           </p>
         </div>
       ) : null}
@@ -328,7 +332,7 @@ export function ConventionLifecycleCard({
                 '',
                 'Players will no longer be able to join or play in this convention.',
                 'Pending catches will expire.',
-                'Active player memberships and fursuit roster entries will be removed.',
+                'Active player memberships and fursuit roster entries will be finalized.',
                 'Catches, achievements, and recap data will be preserved.',
                 '',
                 'This is not a hard delete.',
@@ -410,9 +414,10 @@ export function ConventionLifecycleCard({
           Daily rotation is available after the convention is live.
         </p>
       ) : null}
-      {closeDisabled && status !== 'live' ? (
+      {closeDisabled && !isPending ? (
         <p className="mt-2 text-xs text-muted">
-          Closeout is available only for live conventions. Closed conventions can be retried.
+          Closeout is available after the convention enters finalizing. Failed closeouts can be
+          retried.
         </p>
       ) : null}
       {regenerateDisabled && status !== 'archived' ? (

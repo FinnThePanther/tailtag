@@ -100,8 +100,10 @@
   const rotateDisabled = $derived(
     data.convention.status !== 'live' || data.readiness.dateState !== 'inside_window'
   );
-  const closeDisabled = $derived(data.convention.status !== 'live');
-  const retryCloseoutDisabled = $derived(data.convention.status !== 'closed');
+  const closeDisabled = $derived(data.convention.status !== 'finalizing');
+  const retryCloseoutDisabled = $derived(
+    data.convention.status !== 'closeout_failed' && data.convention.status !== 'closed'
+  );
   const regenerateDisabled = $derived(data.convention.status !== 'archived');
   const devDeleteDisabled = $derived(data.convention.status !== 'archived');
   const startLabel = $derived(
@@ -435,8 +437,14 @@
   );
   const recapsGenerated = $derived(getNumber(closeoutSummary, 'recaps_generated'));
   const expiredPendingCatches = $derived(getNumber(closeoutSummary, 'pending_catches_expired'));
-  const membershipsRemoved = $derived(getNumber(closeoutSummary, 'profile_memberships_removed'));
-  const rosterRemoved = $derived(getNumber(closeoutSummary, 'fursuit_assignments_removed'));
+  const membershipsFinalized = $derived(
+    getNumber(closeoutSummary, 'profile_memberships_finalized') ??
+      getNumber(closeoutSummary, 'profile_memberships_removed')
+  );
+  const rosterFinalized = $derived(
+    getNumber(closeoutSummary, 'fursuit_assignments_finalized') ??
+      getNumber(closeoutSummary, 'fursuit_assignments_removed')
+  );
 </script>
 
 <div class="space-y-4">
@@ -535,8 +543,8 @@
       <div class="mt-4 rounded-lg border border-emerald-300/30 bg-emerald-400/10 p-3">
         <p class="text-sm font-semibold text-emerald-100">Archive complete</p>
         <p class="mt-1 text-sm text-emerald-50">
-          {recapsGenerated ?? 0} participant recap(s), {membershipsRemoved ?? 0} active membership(s),
-          and {rosterRemoved ?? 0} fursuit roster assignment(s) were processed.
+          {recapsGenerated ?? 0} participant recap(s), {membershipsFinalized ?? 0} active
+          membership(s), and {rosterFinalized ?? 0} fursuit roster assignment(s) were finalized.
         </p>
       </div>
     {/if}
@@ -595,7 +603,7 @@
         value="close"
         icon={Archive}
         disabled={closeDisabled}
-        confirmText="Close and archive this convention?\n\nPlayers will no longer be able to join or play in this convention.\nPending catches will expire.\nActive player memberships and fursuit roster entries will be removed.\nCatches, achievements, and recap data will be preserved.\n\nThis is not a hard delete."
+        confirmText="Close and archive this convention?\n\nPlayers will no longer be able to join or play in this convention.\nPending catches will expire.\nActive player memberships and fursuit roster entries will be finalized.\nCatches, achievements, and recap data will be preserved.\n\nThis is not a hard delete."
       >
         Close and archive convention
       </ActionButton>
@@ -622,9 +630,10 @@
     {#if rotateDisabled && data.convention.status !== 'live'}
       <p class="mt-3 text-xs text-muted">Daily rotation is available after the convention is live.</p>
     {/if}
-    {#if closeDisabled && data.convention.status !== 'live'}
+    {#if closeDisabled}
       <p class="mt-2 text-xs text-muted">
-        Closeout is available only for live conventions. Closed conventions can be retried.
+        Closeout is available after the convention enters finalizing. Failed closeouts can be
+        retried.
       </p>
     {/if}
     {#if regenerateDisabled && data.convention.status !== 'archived'}

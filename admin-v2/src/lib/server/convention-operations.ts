@@ -15,13 +15,15 @@ export type ConventionDailiesSource =
 
 export type ConventionCloseoutResult = {
   convention_id: string;
-  status: 'archived';
+  status: string;
   already_archived: boolean;
+  already_running?: boolean;
+  not_due?: boolean;
   summary: Record<string, unknown>;
   recaps_generated: number;
   pending_catches_expired: number;
-  profile_memberships_removed: number;
-  fursuit_assignments_removed: number;
+  profile_memberships_finalized: number;
+  fursuit_assignments_finalized: number;
 };
 
 export async function ensureConventionDailies(

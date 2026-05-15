@@ -1,6 +1,7 @@
 /// <reference lib="deno.unstable" />
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+import { drainGameplayQueueOnce } from '../_shared/gameplayQueue.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,6 +10,19 @@ const corsHeaders = {
 
 const PAGE_SIZE = 1000;
 const UPSERT_CHUNK_SIZE = 500;
+const QUEUE_DRAIN_MAX_ATTEMPTS = 20;
+const QUEUE_DRAIN_MAX_MESSAGES = 500;
+const QUEUE_DRAIN_MAX_DURATION_MS = 5000;
+
+const closeoutSteps = [
+  'pending_expired',
+  'gameplay_queue_drained',
+  'recaps_generated',
+  'notifications_created',
+  'archived',
+] as const;
+
+type CloseoutStep = (typeof closeoutSteps)[number];
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const serviceRoleKey =
@@ -43,15 +57,25 @@ type CloseoutRequest = {
 
 type ConventionRow = {
   id: string;
+  name: string | null;
   status: string;
   closed_at: string | null;
   archived_at: string | null;
+  finalizing_started_at: string | null;
+  closeout_not_before: string | null;
+  closeout_started_at: string | null;
+  closeout_completed_at: string | null;
+  closeout_last_attempt_at: string | null;
+  closeout_step: string | null;
+  closeout_retry_count: number | null;
   closeout_summary: Record<string, unknown> | null;
 };
 
 type ProfileConventionRow = {
   profile_id: string;
   created_at: string | null;
+  left_at: string | null;
+  active_until: string | null;
 };
 
 type ExistingRecapRow = {
@@ -109,19 +133,36 @@ type RecapInsert = {
   generated_at: string;
 };
 
+type RecapNotificationRow = {
+  id: string;
+  profile_id: string;
+};
+
+type ExpireResult = {
+  success?: boolean;
+  expired_count?: number;
+  stale_pending_upload_count?: number;
+  timestamp?: string;
+};
+
 type CloseoutSummary = {
   convention_id: string;
   source: CloseoutSource;
   closed_at: string;
-  archived_at: string;
+  archived_at: string | null;
   participants_count: number;
   recaps_generated: number;
   pending_catches_expired: number;
-  profile_memberships_removed: number;
-  fursuit_assignments_removed: number;
+  stale_pending_upload_catches_expired: number;
+  recap_notifications_created: number;
+  profile_memberships_finalized: number;
+  fursuit_assignments_finalized: number;
+  historical_profile_memberships_stamped: number;
+  historical_fursuit_assignments_stamped: number;
   accepted_catches_count: number;
   unique_catchers_count: number;
   unique_fursuits_caught_count: number;
+  steps_completed: CloseoutStep[];
 };
 
 class HttpError extends Error {
@@ -167,6 +208,27 @@ function normalizeSource(source: unknown): CloseoutSource {
 
 function isAutomationSource(source: CloseoutSource) {
   return source === 'cron_close' || source === 'cron_retry';
+}
+
+function isRetrySource(source: CloseoutSource) {
+  return source === 'cron_retry' || source === 'admin_retry';
+}
+
+function isCloseoutStep(value: string | null): value is CloseoutStep {
+  return closeoutSteps.includes(value as CloseoutStep);
+}
+
+function getNextStepIndex(previousStatus: string, previousStep: string | null) {
+  if (!isCloseoutStep(previousStep)) {
+    return 0;
+  }
+
+  const currentIndex = closeoutSteps.indexOf(previousStep);
+  return previousStatus === 'closeout_failed' ? currentIndex : currentIndex + 1;
+}
+
+function toSummary(value: Record<string, unknown> | null): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
 async function writeAudit(
@@ -256,35 +318,153 @@ async function loadProfiles(profileIds: string[]) {
   return profiles;
 }
 
-async function expirePendingCatches(conventionId: string) {
+async function loadConvention(conventionId: string) {
   const { data, error } = await supabaseAdmin
-    .from('catches')
-    .update({
-      status: 'EXPIRED',
-      decided_at: new Date().toISOString(),
-    })
-    .eq('convention_id', conventionId)
-    .eq('status', 'PENDING')
-    .select('id');
+    .from('conventions')
+    .select(
+      [
+        'id',
+        'name',
+        'status',
+        'closed_at',
+        'archived_at',
+        'finalizing_started_at',
+        'closeout_not_before',
+        'closeout_started_at',
+        'closeout_completed_at',
+        'closeout_last_attempt_at',
+        'closeout_step',
+        'closeout_retry_count',
+        'closeout_summary',
+      ].join(', '),
+    )
+    .eq('id', conventionId)
+    .single();
 
   if (error) throw error;
-  return (data ?? []).length;
+  if (!data) throw new HttpError('Convention not found.', 404);
+
+  return data as ConventionRow;
 }
 
-async function removeActiveRows(conventionId: string) {
-  const [{ data: memberships, error: membershipError }, { data: assignments, error: rosterError }] =
-    await Promise.all([
-      supabaseAdmin.from('profile_conventions').delete().eq('convention_id', conventionId).select(),
-      supabaseAdmin.from('fursuit_conventions').delete().eq('convention_id', conventionId).select(),
-    ]);
-
-  if (membershipError) throw membershipError;
-  if (rosterError) throw rosterError;
-
-  return {
-    profileMembershipsRemoved: (memberships ?? []).length,
-    fursuitAssignmentsRemoved: (assignments ?? []).length,
+async function updateCloseoutSummary(conventionId: string, patch: Record<string, unknown>) {
+  const current = await loadConvention(conventionId);
+  const summary = {
+    ...toSummary(current.closeout_summary),
+    ...patch,
   };
+
+  const { error } = await supabaseAdmin
+    .from('conventions')
+    .update({ closeout_summary: summary })
+    .eq('id', conventionId);
+
+  if (error) throw error;
+  return summary;
+}
+
+async function markStepRunning(conventionId: string, step: CloseoutStep) {
+  const { error } = await supabaseAdmin
+    .from('conventions')
+    .update({
+      closeout_step: step,
+      closeout_last_attempt_at: new Date().toISOString(),
+      closeout_error: null,
+    })
+    .eq('id', conventionId)
+    .eq('status', 'closeout_running');
+
+  if (error) throw error;
+}
+
+async function markStepComplete(conventionId: string, step: CloseoutStep) {
+  const { error } = await supabaseAdmin
+    .from('conventions')
+    .update({
+      closeout_step: step,
+      closeout_retry_count: 0,
+      closeout_last_attempt_at: new Date().toISOString(),
+      closeout_error: null,
+    })
+    .eq('id', conventionId)
+    .eq('status', 'closeout_running');
+
+  if (error) throw error;
+}
+
+async function markStepFailed(
+  conventionId: string,
+  step: CloseoutStep,
+  retryCount: number,
+  error: unknown,
+) {
+  const message = error instanceof Error ? error.message : 'Closeout failed.';
+  const { error: updateError } = await supabaseAdmin
+    .from('conventions')
+    .update({
+      status: 'closeout_failed',
+      closeout_step: step,
+      closeout_last_attempt_at: new Date().toISOString(),
+      closeout_retry_count: retryCount + 1,
+      closeout_error: message,
+    })
+    .eq('id', conventionId);
+
+  if (updateError) {
+    console.error('[close-out-convention] Failed to mark closeout failure', {
+      convention_id: conventionId,
+      step,
+      updateError,
+    });
+  }
+}
+
+async function expirePendingCatches(conventionId: string) {
+  const { data, error } = await supabaseAdmin.rpc(
+    'expire_pending_catches_for_convention_closeout',
+    {
+      p_convention_id: conventionId,
+    },
+  );
+
+  if (error) throw error;
+
+  const result = (data ?? {}) as ExpireResult;
+  return {
+    expiredCount: Number(result.expired_count ?? 0),
+    stalePendingUploadCount: Number(result.stale_pending_upload_count ?? 0),
+  };
+}
+
+async function hasVisibleGameplayQueueMessages() {
+  const { data, error } = await supabaseAdmin.rpc('has_visible_gameplay_event_queue_messages');
+  if (error) throw error;
+  return data === true;
+}
+
+async function drainGameplayQueue() {
+  let totalAttempts = 0;
+
+  while (totalAttempts < QUEUE_DRAIN_MAX_ATTEMPTS) {
+    const hasBacklog = await hasVisibleGameplayQueueMessages();
+    if (!hasBacklog) {
+      return { attempts: totalAttempts, drained: true };
+    }
+
+    totalAttempts += 1;
+    await drainGameplayQueueOnce({
+      supabaseUrl,
+      serviceRoleKey,
+      maxMessages: QUEUE_DRAIN_MAX_MESSAGES,
+      maxDurationMs: QUEUE_DRAIN_MAX_DURATION_MS,
+    });
+  }
+
+  if (await hasVisibleGameplayQueueMessages()) {
+    throw new Error('Gameplay queue still has visible messages after closeout drain attempts.');
+  }
+
+  return { attempts: totalAttempts, drained: true };
 }
 
 async function buildRecaps(conventionId: string, closedAt: string) {
@@ -293,7 +473,7 @@ async function buildRecaps(conventionId: string, closedAt: string) {
       fetchAll<ProfileConventionRow>((from, to) =>
         supabaseAdmin
           .from('profile_conventions')
-          .select('profile_id, created_at')
+          .select('profile_id, created_at, left_at, active_until')
           .eq('convention_id', conventionId)
           .range(from, to),
       ),
@@ -485,13 +665,327 @@ async function buildRecaps(conventionId: string, closedAt: string) {
 }
 
 async function upsertRecaps(recaps: RecapInsert[]) {
+  const rows: RecapNotificationRow[] = [];
+
   for (const recapChunk of chunk(recaps, UPSERT_CHUNK_SIZE)) {
-    const { error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('convention_participant_recaps')
-      .upsert(recapChunk, { onConflict: 'convention_id,profile_id' });
+      .upsert(recapChunk, { onConflict: 'convention_id,profile_id' })
+      .select('id, profile_id');
 
     if (error) throw error;
+    rows.push(...((data ?? []) as RecapNotificationRow[]));
   }
+
+  return rows;
+}
+
+async function loadRecapNotificationRows(conventionId: string) {
+  return fetchAll<RecapNotificationRow>((from, to) =>
+    supabaseAdmin
+      .from('convention_participant_recaps')
+      .select('id, profile_id')
+      .eq('convention_id', conventionId)
+      .range(from, to),
+  );
+}
+
+async function createRecapNotifications(convention: ConventionRow) {
+  const recaps = await loadRecapNotificationRows(convention.id);
+  let inserted = 0;
+
+  for (const recapChunk of chunk(recaps, 200)) {
+    const results = await Promise.all(
+      recapChunk.map(async (recap) => {
+        const { data, error } = await supabaseAdmin.rpc(
+          'insert_convention_recap_ready_notification_once',
+          {
+            p_user_id: recap.profile_id,
+            p_payload: {
+              recap_id: recap.id,
+              convention_id: convention.id,
+              convention_name: convention.name ?? 'your convention',
+            },
+          },
+        );
+
+        if (error) throw error;
+        return data === true;
+      }),
+    );
+
+    inserted += results.filter(Boolean).length;
+  }
+
+  return { notificationsCreated: inserted, recapsNotified: recaps.length };
+}
+
+async function finalizeDurableRows(conventionId: string, finalizedAt: string) {
+  const [
+    { data: activeMemberships, error: activeMembershipError },
+    { data: historicalMemberships, error: historicalMembershipError },
+    { data: activeAssignments, error: activeAssignmentError },
+    { data: historicalAssignments, error: historicalAssignmentError },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('profile_conventions')
+      .update({
+        attendance_state: 'finalized',
+        active_until: finalizedAt,
+        finalized_at: finalizedAt,
+      })
+      .eq('convention_id', conventionId)
+      .eq('attendance_state', 'active')
+      .is('active_until', null)
+      .select('profile_id'),
+    supabaseAdmin
+      .from('profile_conventions')
+      .update({ finalized_at: finalizedAt })
+      .eq('convention_id', conventionId)
+      .in('attendance_state', ['left', 'removed'])
+      .is('finalized_at', null)
+      .select('profile_id'),
+    supabaseAdmin
+      .from('fursuit_conventions')
+      .update({
+        roster_state: 'finalized',
+        active_until: finalizedAt,
+        finalized_at: finalizedAt,
+      })
+      .eq('convention_id', conventionId)
+      .eq('roster_state', 'active')
+      .is('active_until', null)
+      .select('fursuit_id'),
+    supabaseAdmin
+      .from('fursuit_conventions')
+      .update({ finalized_at: finalizedAt })
+      .eq('convention_id', conventionId)
+      .eq('roster_state', 'removed')
+      .is('finalized_at', null)
+      .select('fursuit_id'),
+  ]);
+
+  if (activeMembershipError) throw activeMembershipError;
+  if (historicalMembershipError) throw historicalMembershipError;
+  if (activeAssignmentError) throw activeAssignmentError;
+  if (historicalAssignmentError) throw historicalAssignmentError;
+
+  return {
+    profileMembershipsFinalized: (activeMemberships ?? []).length,
+    historicalProfileMembershipsStamped: (historicalMemberships ?? []).length,
+    fursuitAssignmentsFinalized: (activeAssignments ?? []).length,
+    historicalFursuitAssignmentsStamped: (historicalAssignments ?? []).length,
+  };
+}
+
+async function claimCloseout(conventionId: string, source: CloseoutSource, current: ConventionRow) {
+  const startedAt = new Date().toISOString();
+  const baseUpdate = {
+    status: 'closeout_running',
+    closeout_started_at: startedAt,
+    closeout_last_attempt_at: startedAt,
+    closeout_completed_at: null,
+    closeout_error: null,
+  };
+
+  let query = supabaseAdmin
+    .from('conventions')
+    .update(baseUpdate)
+    .eq('id', conventionId)
+    .select(
+      [
+        'id',
+        'name',
+        'status',
+        'closed_at',
+        'archived_at',
+        'finalizing_started_at',
+        'closeout_not_before',
+        'closeout_started_at',
+        'closeout_completed_at',
+        'closeout_last_attempt_at',
+        'closeout_step',
+        'closeout_retry_count',
+        'closeout_summary',
+      ].join(', '),
+    )
+    .limit(1);
+
+  if (current.status === 'closed') {
+    query = query.eq('status', 'closed');
+  } else if (isRetrySource(source)) {
+    query = query.eq('status', 'closeout_failed');
+  } else {
+    query = query.eq('status', 'finalizing');
+    if (source === 'cron_close') {
+      query = query.not('closeout_not_before', 'is', null).lte('closeout_not_before', startedAt);
+    }
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const claimed = ((data ?? []) as ConventionRow[])[0] ?? null;
+  if (!claimed) {
+    const refreshed = await loadConvention(conventionId);
+    if (refreshed.status === 'closeout_running') {
+      return { claimed: null, alreadyRunning: true, startedAt };
+    }
+
+    if (source === 'cron_close' && refreshed.status === 'finalizing') {
+      return { claimed: null, notDue: true, startedAt };
+    }
+  }
+
+  return { claimed, alreadyRunning: false, notDue: false, startedAt };
+}
+
+async function runCloseoutStep(
+  convention: ConventionRow,
+  step: CloseoutStep,
+  source: CloseoutSource,
+  closedAt: string,
+) {
+  await markStepRunning(convention.id, step);
+
+  if (step === 'pending_expired') {
+    const result = await expirePendingCatches(convention.id);
+    await updateCloseoutSummary(convention.id, {
+      pending_catches_expired: result.expiredCount,
+      stale_pending_upload_catches_expired: result.stalePendingUploadCount,
+    });
+    return;
+  }
+
+  if (step === 'gameplay_queue_drained') {
+    const result = await drainGameplayQueue();
+    await updateCloseoutSummary(convention.id, {
+      gameplay_queue_drain_attempts: result.attempts,
+      gameplay_queue_drained: result.drained,
+    });
+    return;
+  }
+
+  if (step === 'recaps_generated') {
+    const recapBuild = await buildRecaps(convention.id, closedAt);
+    await upsertRecaps(recapBuild.recaps);
+    await updateCloseoutSummary(convention.id, {
+      participants_count: recapBuild.recaps.length,
+      recaps_generated: recapBuild.recaps.length,
+      accepted_catches_count: recapBuild.acceptedCatchesCount,
+      unique_catchers_count: recapBuild.uniqueCatchersCount,
+      unique_fursuits_caught_count: recapBuild.uniqueFursuitsCaughtCount,
+    });
+    return;
+  }
+
+  if (step === 'notifications_created') {
+    const notificationResult = await createRecapNotifications(convention);
+    await updateCloseoutSummary(convention.id, {
+      recap_notifications_created: notificationResult.notificationsCreated,
+      recap_notifications_targeted: notificationResult.recapsNotified,
+    });
+    return;
+  }
+
+  const archivedAt = new Date().toISOString();
+  const finalizeResult = await finalizeDurableRows(convention.id, archivedAt);
+  const latest = await loadConvention(convention.id);
+  const latestSummary = toSummary(latest.closeout_summary);
+  const summary: CloseoutSummary = {
+    convention_id: convention.id,
+    source,
+    closed_at: closedAt,
+    archived_at: archivedAt,
+    participants_count: Number(latestSummary.participants_count ?? 0),
+    recaps_generated: Number(latestSummary.recaps_generated ?? 0),
+    pending_catches_expired: Number(latestSummary.pending_catches_expired ?? 0),
+    stale_pending_upload_catches_expired: Number(
+      latestSummary.stale_pending_upload_catches_expired ?? 0,
+    ),
+    recap_notifications_created: Number(latestSummary.recap_notifications_created ?? 0),
+    profile_memberships_finalized: finalizeResult.profileMembershipsFinalized,
+    fursuit_assignments_finalized: finalizeResult.fursuitAssignmentsFinalized,
+    historical_profile_memberships_stamped: finalizeResult.historicalProfileMembershipsStamped,
+    historical_fursuit_assignments_stamped: finalizeResult.historicalFursuitAssignmentsStamped,
+    accepted_catches_count: Number(latestSummary.accepted_catches_count ?? 0),
+    unique_catchers_count: Number(latestSummary.unique_catchers_count ?? 0),
+    unique_fursuits_caught_count: Number(latestSummary.unique_fursuits_caught_count ?? 0),
+    steps_completed: [...closeoutSteps],
+  };
+
+  const { error } = await supabaseAdmin
+    .from('conventions')
+    .update({
+      status: 'archived',
+      closed_at: closedAt,
+      archived_at: archivedAt,
+      closeout_completed_at: archivedAt,
+      closeout_last_attempt_at: archivedAt,
+      closeout_step: 'archived',
+      closeout_retry_count: 0,
+      closeout_error: null,
+      closeout_summary: summary,
+    })
+    .eq('id', convention.id)
+    .eq('status', 'closeout_running');
+
+  if (error) throw error;
+}
+
+async function regenerateArchivedRecaps(
+  convention: ConventionRow,
+  source: CloseoutSource,
+  actorId: string,
+  automation: boolean,
+) {
+  const closedAt = convention.closed_at ?? convention.archived_at ?? new Date().toISOString();
+  const recapBuild = await buildRecaps(convention.id, closedAt);
+  await upsertRecaps(recapBuild.recaps);
+  const archivedAt = convention.archived_at ?? new Date().toISOString();
+  const summary = {
+    ...toSummary(convention.closeout_summary),
+    convention_id: convention.id,
+    source,
+    closed_at: closedAt,
+    archived_at: archivedAt,
+    participants_count: recapBuild.recaps.length,
+    recaps_generated: recapBuild.recaps.length,
+    accepted_catches_count: recapBuild.acceptedCatchesCount,
+    unique_catchers_count: recapBuild.uniqueCatchersCount,
+    unique_fursuits_caught_count: recapBuild.uniqueFursuitsCaughtCount,
+  };
+
+  const { error } = await supabaseAdmin
+    .from('conventions')
+    .update({
+      status: 'archived',
+      archived_at: archivedAt,
+      closeout_error: null,
+      closeout_summary: summary,
+    })
+    .eq('id', convention.id);
+
+  if (error) throw error;
+
+  await writeAudit(actorId, convention.id, 'regenerate_convention_recaps_complete', {
+    ...summary,
+    actor_id: actorId,
+    automation,
+    previous_status: convention.status,
+    final_status: 'archived',
+  });
+
+  return {
+    convention_id: convention.id,
+    status: 'archived',
+    already_archived: true,
+    summary,
+    recaps_generated: recapBuild.recaps.length,
+    pending_catches_expired: 0,
+    profile_memberships_finalized: 0,
+    fursuit_assignments_finalized: 0,
+  };
 }
 
 async function closeOutConvention(request: CloseoutRequest) {
@@ -509,16 +1003,7 @@ async function closeOutConvention(request: CloseoutRequest) {
     );
   }
 
-  const { data: convention, error: conventionError } = await supabaseAdmin
-    .from('conventions')
-    .select('id, status, closed_at, archived_at, closeout_summary')
-    .eq('id', conventionId)
-    .single();
-
-  if (conventionError) throw conventionError;
-  if (!convention) throw new HttpError('Convention not found.', 404);
-
-  const current = convention as ConventionRow;
+  const current = await loadConvention(conventionId);
 
   await writeAudit(
     actorId,
@@ -531,61 +1016,15 @@ async function closeOutConvention(request: CloseoutRequest) {
       force_regenerate: forceRegenerate,
       convention_id: conventionId,
       previous_status: current.status,
+      closeout_step: current.closeout_step,
+      closeout_retry_count: current.closeout_retry_count ?? 0,
     },
   );
 
   if (current.status === 'archived') {
     if (forceRegenerate) {
       try {
-        const closedAt = current.closed_at ?? current.archived_at ?? new Date().toISOString();
-        const recapBuild = await buildRecaps(conventionId, closedAt);
-        await upsertRecaps(recapBuild.recaps);
-        const archivedAt = current.archived_at ?? new Date().toISOString();
-        const summary: CloseoutSummary = {
-          convention_id: conventionId,
-          source,
-          closed_at: closedAt,
-          archived_at: archivedAt,
-          participants_count: recapBuild.recaps.length,
-          recaps_generated: recapBuild.recaps.length,
-          pending_catches_expired: 0,
-          profile_memberships_removed: 0,
-          fursuit_assignments_removed: 0,
-          accepted_catches_count: recapBuild.acceptedCatchesCount,
-          unique_catchers_count: recapBuild.uniqueCatchersCount,
-          unique_fursuits_caught_count: recapBuild.uniqueFursuitsCaughtCount,
-        };
-
-        const { error: updateError } = await supabaseAdmin
-          .from('conventions')
-          .update({
-            status: 'archived',
-            archived_at: archivedAt,
-            closeout_error: null,
-            closeout_summary: summary,
-          })
-          .eq('id', conventionId);
-
-        if (updateError) throw updateError;
-
-        await writeAudit(actorId, conventionId, 'regenerate_convention_recaps_complete', {
-          ...summary,
-          actor_id: actorId,
-          automation,
-          previous_status: current.status,
-          final_status: 'archived',
-        });
-
-        return {
-          convention_id: conventionId,
-          status: 'archived',
-          already_archived: true,
-          summary,
-          recaps_generated: summary.recaps_generated,
-          pending_catches_expired: 0,
-          profile_memberships_removed: 0,
-          fursuit_assignments_removed: 0,
-        };
+        return await regenerateArchivedRecaps(current, source, actorId, automation);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Recap regeneration failed.';
         await writeAudit(actorId, conventionId, 'regenerate_convention_recaps_failed', {
@@ -601,7 +1040,7 @@ async function closeOutConvention(request: CloseoutRequest) {
       }
     }
 
-    const summary = current.closeout_summary ?? {};
+    const summary = toSummary(current.closeout_summary);
     await writeAudit(actorId, conventionId, 'close_convention_noop', {
       source,
       actor_id: actorId,
@@ -618,12 +1057,16 @@ async function closeOutConvention(request: CloseoutRequest) {
       summary,
       recaps_generated: Number(summary.recaps_generated ?? 0),
       pending_catches_expired: 0,
-      profile_memberships_removed: 0,
-      fursuit_assignments_removed: 0,
+      profile_memberships_finalized: 0,
+      fursuit_assignments_finalized: 0,
     };
   }
 
-  if (current.status !== 'live' && current.status !== 'closed') {
+  if (
+    current.status !== 'finalizing' &&
+    current.status !== 'closeout_failed' &&
+    current.status !== 'closed'
+  ) {
     await writeAudit(actorId, conventionId, 'close_convention_failed', {
       source,
       actor_id: actorId,
@@ -636,52 +1079,85 @@ async function closeOutConvention(request: CloseoutRequest) {
     throw new HttpError(`Cannot close a convention with status ${current.status}.`, 400);
   }
 
-  const closedAt = current.closed_at ?? new Date().toISOString();
+  if (current.status === 'closeout_failed' && (current.closeout_retry_count ?? 0) >= 5) {
+    throw new HttpError('Closeout retry limit reached.', 409);
+  }
 
-  const { error: closeError } = await supabaseAdmin
-    .from('conventions')
-    .update({
-      status: 'closed',
-      closed_at: closedAt,
-      closeout_error: null,
-    })
-    .eq('id', conventionId);
+  const claim = await claimCloseout(conventionId, source, current);
 
-  if (closeError) throw closeError;
+  if (claim.alreadyRunning) {
+    await writeAudit(actorId, conventionId, 'close_convention_noop', {
+      source,
+      actor_id: actorId,
+      automation,
+      convention_id: conventionId,
+      previous_status: current.status,
+      final_status: 'closeout_running',
+      reason: 'already_running',
+    });
+    return {
+      convention_id: conventionId,
+      status: 'closeout_running',
+      already_running: true,
+      already_archived: false,
+      summary: toSummary(current.closeout_summary),
+      recaps_generated: Number(current.closeout_summary?.recaps_generated ?? 0),
+      pending_catches_expired: Number(current.closeout_summary?.pending_catches_expired ?? 0),
+      profile_memberships_finalized: 0,
+      fursuit_assignments_finalized: 0,
+    };
+  }
+
+  if (claim.notDue) {
+    await writeAudit(actorId, conventionId, 'close_convention_noop', {
+      source,
+      actor_id: actorId,
+      automation,
+      convention_id: conventionId,
+      previous_status: current.status,
+      final_status: current.status,
+      reason: 'not_due',
+      closeout_not_before: current.closeout_not_before,
+    });
+    return {
+      convention_id: conventionId,
+      status: current.status,
+      not_due: true,
+      already_archived: false,
+      summary: toSummary(current.closeout_summary),
+      recaps_generated: Number(current.closeout_summary?.recaps_generated ?? 0),
+      pending_catches_expired: Number(current.closeout_summary?.pending_catches_expired ?? 0),
+      profile_memberships_finalized: 0,
+      fursuit_assignments_finalized: 0,
+    };
+  }
+
+  const claimed = claim.claimed;
+  if (!claimed) {
+    throw new HttpError('Closeout could not be claimed.', 409);
+  }
+
+  const closedAt =
+    current.closed_at ??
+    current.finalizing_started_at ??
+    claimed.closeout_started_at ??
+    claim.startedAt;
+  const startIndex = getNextStepIndex(current.status, current.closeout_step);
+  let failedStep: CloseoutStep | null = null;
+  let retryCountForFailure = current.closeout_retry_count ?? 0;
 
   try {
-    const pendingCatchesExpired = await expirePendingCatches(conventionId);
-    const recapBuild = await buildRecaps(conventionId, closedAt);
-    await upsertRecaps(recapBuild.recaps);
-    const removalResult = await removeActiveRows(conventionId);
-    const archivedAt = new Date().toISOString();
+    for (const step of closeoutSteps.slice(startIndex)) {
+      failedStep = step;
+      await runCloseoutStep(claimed, step, source, closedAt);
+      if (step !== 'archived') {
+        await markStepComplete(conventionId, step);
+        retryCountForFailure = 0;
+      }
+    }
 
-    const summary: CloseoutSummary = {
-      convention_id: conventionId,
-      source,
-      closed_at: closedAt,
-      archived_at: archivedAt,
-      participants_count: recapBuild.recaps.length,
-      recaps_generated: recapBuild.recaps.length,
-      pending_catches_expired: pendingCatchesExpired,
-      profile_memberships_removed: removalResult.profileMembershipsRemoved,
-      fursuit_assignments_removed: removalResult.fursuitAssignmentsRemoved,
-      accepted_catches_count: recapBuild.acceptedCatchesCount,
-      unique_catchers_count: recapBuild.uniqueCatchersCount,
-      unique_fursuits_caught_count: recapBuild.uniqueFursuitsCaughtCount,
-    };
-
-    const { error: archiveError } = await supabaseAdmin
-      .from('conventions')
-      .update({
-        status: 'archived',
-        archived_at: archivedAt,
-        closeout_error: null,
-        closeout_summary: summary,
-      })
-      .eq('id', conventionId);
-
-    if (archiveError) throw archiveError;
+    const finalConvention = await loadConvention(conventionId);
+    const summary = toSummary(finalConvention.closeout_summary);
 
     await writeAudit(actorId, conventionId, 'close_convention_complete', {
       ...summary,
@@ -696,28 +1172,25 @@ async function closeOutConvention(request: CloseoutRequest) {
       status: 'archived',
       already_archived: false,
       summary,
-      recaps_generated: summary.recaps_generated,
-      pending_catches_expired: summary.pending_catches_expired,
-      profile_memberships_removed: summary.profile_memberships_removed,
-      fursuit_assignments_removed: summary.fursuit_assignments_removed,
+      recaps_generated: Number(summary.recaps_generated ?? 0),
+      pending_catches_expired: Number(summary.pending_catches_expired ?? 0),
+      profile_memberships_finalized: Number(summary.profile_memberships_finalized ?? 0),
+      fursuit_assignments_finalized: Number(summary.fursuit_assignments_finalized ?? 0),
     };
   } catch (error) {
+    const step =
+      failedStep ??
+      (isCloseoutStep(current.closeout_step) ? current.closeout_step : 'pending_expired');
+    await markStepFailed(conventionId, step, retryCountForFailure, error);
     const message = error instanceof Error ? error.message : 'Closeout failed.';
-    await supabaseAdmin
-      .from('conventions')
-      .update({
-        status: 'closed',
-        closed_at: closedAt,
-        closeout_error: message,
-      })
-      .eq('id', conventionId);
     await writeAudit(actorId, conventionId, 'close_convention_failed', {
       source,
       actor_id: actorId,
       automation,
       convention_id: conventionId,
       previous_status: current.status,
-      final_status: 'closed',
+      final_status: 'closeout_failed',
+      closeout_step: step,
       error: message,
     });
     throw error;

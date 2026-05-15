@@ -2301,6 +2301,10 @@ export type Database = {
       expire_bans: { Args: never; Returns: Json }
       expire_moderation_actions: { Args: never; Returns: undefined }
       expire_pending_catches: { Args: never; Returns: Json }
+      expire_pending_catches_for_convention_closeout: {
+        Args: { p_convention_id: string }
+        Returns: Json
+      }
       fetch_unprocessed_events: {
         Args: { batch_size?: number; min_age_seconds?: number }
         Returns: {
@@ -2620,6 +2624,10 @@ export type Database = {
       insert_catch_notification_once: {
         Args: { p_payload: Json; p_type: string; p_user_id: string }
         Returns: undefined
+      }
+      insert_convention_recap_ready_notification_once: {
+        Args: { p_payload: Json; p_user_id: string }
+        Returns: boolean
       }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean }
