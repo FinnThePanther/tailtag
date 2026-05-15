@@ -101,10 +101,12 @@ export function useCatchConventionContext(userId: string | null) {
     singleActiveConventionId,
     pickerItems,
     isMembershipLoading: membershipQuery.isPending,
+    // isRosterLoading: initial load when activeConventionIds exist, rosterQueries are pending, and no rosterQueries have resolved data.
     isRosterLoading:
       activeConventionIds.length > 0 &&
       rosterQueries.some((query) => query.isPending) &&
       !rosterQueries.some((query) => query.data !== undefined),
+    // isRosterRefreshing: background refresh when rosterQueries or caughtIdQueries are fetching outside their initial pending state.
     isRosterRefreshing:
       rosterQueries.some((query) => query.isFetching && !query.isPending) ||
       caughtIdQueries.some((query) => query.isFetching && !query.isPending),
