@@ -143,13 +143,12 @@ export default function CatchScreen() {
     singleActiveConventionId,
     pickerItems,
     isMembershipLoading,
+    isRosterLoading,
     isRosterRefreshing,
+    isUsingRosterSnapshot,
     refresh: refreshCatchConventionContext,
   } = useCatchConventionContext(userId);
-  const hasActiveConvention = useMemo(
-    () => conventionMemberships.some((membership) => membership.membership_state === 'active'),
-    [conventionMemberships],
-  );
+  const hasActiveConvention = useMemo(() => activeConventionIds.length > 0, [activeConventionIds]);
   const verificationRequiredConvention = useMemo(
     () =>
       hasActiveConvention
@@ -724,7 +723,7 @@ export default function CatchScreen() {
             submitError={photoSubmitError}
             activeConventionIds={activeConventionIds}
             preloadedFursuits={pickerItems}
-            isRosterRefreshing={isRosterRefreshing}
+            isRosterRefreshing={isRosterRefreshing || (isUsingRosterSnapshot && isRosterLoading)}
           />
         </View>
       ) : null}
