@@ -883,20 +883,11 @@ export async function removeFursuitConvention(
   fursuitId: string,
   conventionId: string,
 ): Promise<void> {
-  const client = supabase as any;
-  const removedAt = new Date().toISOString();
-  const { error } = await client
-    .from('fursuit_conventions')
-    .update({
-      roster_state: 'removed',
-      removed_at: removedAt,
-      active_until: removedAt,
-      finalized_at: null,
-    })
-    .eq('fursuit_id', fursuitId)
-    .eq('convention_id', conventionId)
-    .eq('roster_state', 'active')
-    .is('active_until', null);
+  const client = supabase as SupabaseClient<Database>;
+  const { error } = await client.rpc('remove_fursuit_from_convention', {
+    p_fursuit_id: fursuitId,
+    p_convention_id: conventionId,
+  });
 
   if (error) {
     throw new Error(`We couldn't remove that convention from the fursuit: ${error.message}`);

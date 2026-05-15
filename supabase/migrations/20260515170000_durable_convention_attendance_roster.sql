@@ -390,6 +390,7 @@ BEGIN
     override_actor_id,
     override_reason,
     override_at,
+    playable_notified_at,
     attendance_state,
     left_at,
     removed_at,
@@ -406,6 +407,7 @@ BEGIN
     CASE WHEN v_method = 'manual_override' THEN auth.uid() ELSE NULL END,
     CASE WHEN v_method = 'manual_override' THEN p_override_reason ELSE NULL END,
     CASE WHEN v_method = 'manual_override' THEN now() ELSE NULL END,
+    NULL,
     'active',
     NULL,
     NULL,
@@ -421,6 +423,7 @@ BEGIN
     override_actor_id = EXCLUDED.override_actor_id,
     override_reason = EXCLUDED.override_reason,
     override_at = EXCLUDED.override_at,
+    playable_notified_at = NULL,
     attendance_state = 'active',
     left_at = NULL,
     removed_at = NULL,
@@ -508,6 +511,56 @@ BEGIN
      AND pc.active_until IS NULL;
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION public.remove_fursuit_from_convention(
+  p_fursuit_id uuid,
+  p_convention_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'public'
+AS $$
+DECLARE
+  v_actor_id uuid := auth.uid();
+  v_actor_is_admin boolean := auth.role() = 'service_role';
+  v_owner_id uuid;
+BEGIN
+  IF auth.role() <> 'service_role' AND v_actor_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  IF NOT v_actor_is_admin THEN
+    v_actor_is_admin := COALESCE(public.is_admin(v_actor_id), false);
+  END IF;
+
+  SELECT f.owner_id
+    INTO v_owner_id
+    FROM public.fursuits f
+   WHERE f.id = p_fursuit_id;
+
+  IF v_owner_id IS NULL THEN
+    RAISE EXCEPTION 'Fursuit not found';
+  END IF;
+
+  IF auth.role() <> 'service_role' AND v_actor_id IS DISTINCT FROM v_owner_id AND NOT v_actor_is_admin THEN
+    RAISE EXCEPTION 'Not authorized to remove this fursuit from the convention';
+  END IF;
+
+  UPDATE public.fursuit_conventions fc
+     SET roster_state = 'removed',
+         removed_at = now(),
+         active_until = now(),
+         finalized_at = NULL
+   WHERE fc.fursuit_id = p_fursuit_id
+     AND fc.convention_id = p_convention_id
+     AND fc.roster_state = 'active'
+     AND fc.active_until IS NULL;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.remove_fursuit_from_convention(uuid, uuid)
+  TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.enforce_joinable_fursuit_convention()
 RETURNS trigger

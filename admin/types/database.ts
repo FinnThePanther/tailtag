@@ -2924,6 +2924,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      remove_fursuit_from_convention: {
+        Args: { p_convention_id: string; p_fursuit_id: string };
+        Returns: undefined;
+      };
       opt_in_to_convention: {
         Args: {
           p_convention_id: string;
