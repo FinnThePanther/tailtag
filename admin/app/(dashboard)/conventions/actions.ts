@@ -349,6 +349,8 @@ export async function startConventionAction(conventionId: string) {
       .from('profile_conventions')
       .update({ playable_notified_at: notifiedAt })
       .eq('convention_id', conventionId)
+      .eq('attendance_state', 'active')
+      .is('active_until', null)
       .is('playable_notified_at', null)
       .select('profile_id');
 

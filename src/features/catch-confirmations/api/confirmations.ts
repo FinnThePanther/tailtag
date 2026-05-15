@@ -659,7 +659,9 @@ export async function fetchConventionFursuits(
       )
     `,
     )
-    .in('convention_id', conventionIds);
+    .in('convention_id', conventionIds)
+    .eq('roster_state', 'active')
+    .is('active_until', null);
 
   if (error) {
     throw new Error("We couldn't load fursuits for your conventions. Please try again.");

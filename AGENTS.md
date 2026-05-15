@@ -22,6 +22,7 @@ Use `npm install` at the repo root, then run commands from the relevant app dire
 - `npm run ci:validate` from the root runs Expo doctor, lint, and type checking together.
 - `npm run gen:types` from the root regenerates Supabase database types in `src/types/database.ts`.
 - `npx supabase gen types typescript --project-id rtxbvjicfxgcouufumce > /tmp/generated-types.ts && python3 scripts/check-types.py /tmp/generated-types.ts` verifies committed database types match the dev schema.
+- Codex Desktop currently does not inherit the Supabase access token needed for `npm run gen:types`; when working there, ask Nick to run it in his terminal instead of retrying it from Codex.
 - `cd admin && npm run dev` starts the admin dashboard.
 - `cd admin && npm run build` or `npm run lint` validates the admin app.
 - `cd web && npm run dev` or `npm run build` runs the Astro landing site.
@@ -76,7 +77,7 @@ Unless explicitly stated, all changes, migrations, and Edge Function updates are
 
 For any work that requires database changes, apply those changes to the dev environment using the Supabase CLI or the MCP (Model Context Protocol) tooling if it is already configured for database/migration access. Verify the Supabase CLI or MCP target before pushing migrations or schema changes. Never push database changes to staging or production unless explicitly instructed to do so.
 
-Database changes must leave generated types current before final validation or PR handoff. Prefer `npm run gen:types`, which preserves the manual aliases at the bottom of `src/types/database.ts`; otherwise run the explicit `supabase gen types` plus `scripts/check-types.py` verification command and note why no type update was needed.
+Database changes must leave generated types current before final validation or PR handoff. Prefer `npm run gen:types`, which preserves the manual aliases at the bottom of `src/types/database.ts`; otherwise run the explicit `supabase gen types` plus `scripts/check-types.py` verification command and note why no type update was needed. In Codex Desktop, do not repeatedly attempt these type-generation commands if they fail with `SUPABASE_ACCESS_TOKEN` missing; ask Nick to run `npm run gen:types` locally and continue once the resulting type files are available.
 
 Only apply changes to other environments (staging, production) if explicitly instructed or after approval.
 
