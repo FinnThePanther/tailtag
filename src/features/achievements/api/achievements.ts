@@ -165,7 +165,9 @@ async function fetchOptedInConventionIds(userId: string): Promise<string[]> {
   const { data, error } = await client
     .from('profile_conventions')
     .select('convention_id')
-    .eq('profile_id', userId);
+    .eq('profile_id', userId)
+    .eq('attendance_state', 'active')
+    .is('active_until', null);
 
   if (error) {
     return [];

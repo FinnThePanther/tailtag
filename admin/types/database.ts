@@ -972,19 +972,34 @@ export type Database = {
       };
       fursuit_conventions: {
         Row: {
+          active_until: string | null;
           convention_id: string;
           created_at: string;
+          finalized_at: string | null;
           fursuit_id: string;
+          removed_at: string | null;
+          roster_state: string;
+          roster_visible: boolean;
         };
         Insert: {
+          active_until?: string | null;
           convention_id: string;
           created_at?: string;
+          finalized_at?: string | null;
           fursuit_id: string;
+          removed_at?: string | null;
+          roster_state?: string;
+          roster_visible?: boolean;
         };
         Update: {
+          active_until?: string | null;
           convention_id?: string;
           created_at?: string;
+          finalized_at?: string | null;
           fursuit_id?: string;
+          removed_at?: string | null;
+          roster_state?: string;
+          roster_visible?: boolean;
         };
         Relationships: [
           {
@@ -1278,37 +1293,52 @@ export type Database = {
       };
       profile_conventions: {
         Row: {
+          active_until: string | null;
+          attendance_state: string;
           convention_id: string;
           created_at: string;
+          finalized_at: string | null;
+          left_at: string | null;
           override_actor_id: string | null;
           override_at: string | null;
           override_reason: string | null;
           playable_notified_at: string | null;
           profile_id: string;
+          removed_at: string | null;
           verification_method: string | null;
           verified_at: string | null;
           verified_location: Json | null;
         };
         Insert: {
+          active_until?: string | null;
+          attendance_state?: string;
           convention_id: string;
           created_at?: string;
+          finalized_at?: string | null;
+          left_at?: string | null;
           override_actor_id?: string | null;
           override_at?: string | null;
           override_reason?: string | null;
           playable_notified_at?: string | null;
           profile_id: string;
+          removed_at?: string | null;
           verification_method?: string | null;
           verified_at?: string | null;
           verified_location?: Json | null;
         };
         Update: {
+          active_until?: string | null;
+          attendance_state?: string;
           convention_id?: string;
           created_at?: string;
+          finalized_at?: string | null;
+          left_at?: string | null;
           override_actor_id?: string | null;
           override_at?: string | null;
           override_reason?: string | null;
           playable_notified_at?: string | null;
           profile_id?: string;
+          removed_at?: string | null;
           verification_method?: string | null;
           verified_at?: string | null;
           verified_location?: Json | null;

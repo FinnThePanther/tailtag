@@ -851,6 +851,10 @@ export async function addFursuitConvention(
       fursuit_id: fursuitId,
       convention_id: conventionId,
       roster_visible: rosterVisible,
+      roster_state: 'active',
+      removed_at: null,
+      active_until: null,
+      finalized_at: null,
     },
     { onConflict: 'fursuit_id, convention_id' },
   );
@@ -880,11 +884,19 @@ export async function removeFursuitConvention(
   conventionId: string,
 ): Promise<void> {
   const client = supabase as any;
+  const removedAt = new Date().toISOString();
   const { error } = await client
     .from('fursuit_conventions')
-    .delete()
+    .update({
+      roster_state: 'removed',
+      removed_at: removedAt,
+      active_until: removedAt,
+      finalized_at: null,
+    })
     .eq('fursuit_id', fursuitId)
-    .eq('convention_id', conventionId);
+    .eq('convention_id', conventionId)
+    .eq('roster_state', 'active')
+    .is('active_until', null);
 
   if (error) {
     throw new Error(`We couldn't remove that convention from the fursuit: ${error.message}`);

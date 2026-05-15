@@ -51,6 +51,8 @@ export async function fetchFursuitDetail(
       ),
       fursuit_conventions:fursuit_conventions (
         roster_visible,
+        roster_state,
+        active_until,
         convention:conventions (
           id,
           slug,
@@ -103,7 +105,12 @@ export async function fetchFursuitDetail(
   }
 
   const conventions = (data.fursuit_conventions ?? [])
-    .filter((entry: any) => Boolean(entry?.convention))
+    .filter(
+      (entry: any) =>
+        Boolean(entry?.convention) &&
+        entry.roster_state === 'active' &&
+        entry.active_until === null,
+    )
     .map((entry: any) => ({
       id: entry.convention.id,
       slug: entry.convention.slug,

@@ -396,11 +396,15 @@ export async function buildConventionLifecycleHealth(
     supabase
       .from('profile_conventions')
       .select('profile_id', { count: 'exact', head: true })
-      .eq('convention_id', convention.id),
+      .eq('convention_id', convention.id)
+      .eq('attendance_state', 'active')
+      .is('active_until', null),
     supabase
       .from('fursuit_conventions')
       .select('fursuit_id', { count: 'exact', head: true })
-      .eq('convention_id', convention.id),
+      .eq('convention_id', convention.id)
+      .eq('roster_state', 'active')
+      .is('active_until', null),
     supabase
       .from('convention_participant_recaps')
       .select('id', { count: 'exact', head: true })
