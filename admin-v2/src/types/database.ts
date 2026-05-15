@@ -359,11 +359,18 @@ export type Database = {
           archived_at: string | null;
           canceled_at: string | null;
           closed_at: string | null;
+          closeout_completed_at: string | null;
           closeout_error: string | null;
+          closeout_last_attempt_at: string | null;
+          closeout_not_before: string | null;
+          closeout_retry_count: number;
+          closeout_started_at: string | null;
+          closeout_step: string | null;
           closeout_summary: Json;
           config: Json;
           created_at: string;
           end_date: string | null;
+          finalizing_started_at: string | null;
           geofence_enabled: boolean | null;
           geofence_radius_meters: number | null;
           id: string;
@@ -383,11 +390,18 @@ export type Database = {
           archived_at?: string | null;
           canceled_at?: string | null;
           closed_at?: string | null;
+          closeout_completed_at?: string | null;
           closeout_error?: string | null;
+          closeout_last_attempt_at?: string | null;
+          closeout_not_before?: string | null;
+          closeout_retry_count?: number;
+          closeout_started_at?: string | null;
+          closeout_step?: string | null;
           closeout_summary?: Json;
           config?: Json;
           created_at?: string;
           end_date?: string | null;
+          finalizing_started_at?: string | null;
           geofence_enabled?: boolean | null;
           geofence_radius_meters?: number | null;
           id?: string;
@@ -407,11 +421,18 @@ export type Database = {
           archived_at?: string | null;
           canceled_at?: string | null;
           closed_at?: string | null;
+          closeout_completed_at?: string | null;
           closeout_error?: string | null;
+          closeout_last_attempt_at?: string | null;
+          closeout_not_before?: string | null;
+          closeout_retry_count?: number;
+          closeout_started_at?: string | null;
+          closeout_step?: string | null;
           closeout_summary?: Json;
           config?: Json;
           created_at?: string;
           end_date?: string | null;
+          finalizing_started_at?: string | null;
           geofence_enabled?: boolean | null;
           geofence_radius_meters?: number | null;
           id?: string;
@@ -2467,6 +2488,10 @@ export type Database = {
       calculate_catch_expiration:
         | { Args: never; Returns: string }
         | { Args: { convention_id_param: string }; Returns: string };
+      calculate_convention_closeout_not_before: {
+        Args: { p_end_date: string; p_timezone: string };
+        Returns: string;
+      };
       claim_unprocessed_events: {
         Args: { p_batch_size?: number; p_min_age_seconds?: number };
         Returns: {

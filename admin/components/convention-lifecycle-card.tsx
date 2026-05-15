@@ -495,6 +495,9 @@ function ActionButton({
 
 function getLifecycleCopy(status: string, readiness: ConventionReadinessResult) {
   if (status === 'archived') return 'Closeout is complete and recaps are available to players';
+  if (status === 'finalizing') return 'Convention has ended and catches are being finalized';
+  if (status === 'closeout_running') return 'Closeout is running and recaps are being prepared';
+  if (status === 'closeout_failed') return 'Closeout needs attention before archiving';
   if (status === 'closed') return 'Gameplay is stopped; retry closeout to finish archiving';
   if (status === 'canceled') return 'This convention was canceled and is not playable';
   if (status === 'scheduled' && readiness.dateState === 'inside_window') {
