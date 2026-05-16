@@ -60,7 +60,16 @@ export type ConventionLifecycleDiagnostics = {
   participantRecaps: number;
   archivedAt: string | null;
   closedAt: string | null;
+  finalizingStartedAt: string | null;
+  closeoutNotBefore: string | null;
+  closeoutStartedAt: string | null;
+  closeoutCompletedAt: string | null;
+  closeoutLastAttemptAt: string | null;
+  closeoutStep: string | null;
+  closeoutRetryCount: number;
   closeoutError: string | null;
+  closeoutManualRetryRequired: boolean;
+  closeoutAutoRetryEligible: boolean;
   lastAutomationAttemptAt: string | null;
   lastAutomationSource: string | null;
   automationRetryAttemptsLast7Days: number;
@@ -268,6 +277,13 @@ export async function buildConventionLifecycleHealthList(
       | 'timezone'
       | 'closed_at'
       | 'archived_at'
+      | 'finalizing_started_at'
+      | 'closeout_not_before'
+      | 'closeout_started_at'
+      | 'closeout_completed_at'
+      | 'closeout_last_attempt_at'
+      | 'closeout_step'
+      | 'closeout_retry_count'
       | 'closeout_error'
       | 'closeout_summary'
     >
@@ -335,7 +351,6 @@ export async function buildConventionLifecycleHealthList(
         localDay,
         localClock,
         dateState,
-        retryAttemptsLast7Days,
         recentCronCloseAttempt: Boolean(counts?.recent_cron_close_attempt),
         recentCronRetryAttempt: Boolean(counts?.recent_cron_retry_attempt),
       }),
@@ -355,6 +370,13 @@ export async function buildConventionLifecycleHealth(
     | 'timezone'
     | 'closed_at'
     | 'archived_at'
+    | 'finalizing_started_at'
+    | 'closeout_not_before'
+    | 'closeout_started_at'
+    | 'closeout_completed_at'
+    | 'closeout_last_attempt_at'
+    | 'closeout_step'
+    | 'closeout_retry_count'
     | 'closeout_error'
     | 'closeout_summary'
   >,
@@ -455,7 +477,6 @@ export async function buildConventionLifecycleHealth(
     localDay,
     localClock,
     dateState,
-    retryAttemptsLast7Days: automation.retryAttemptsLast7Days,
     recentCronCloseAttempt: automation.recentCronCloseAttempt,
     recentCronRetryAttempt: automation.recentCronRetryAttempt,
   });
@@ -467,7 +488,6 @@ function buildLifecycleHealthResult({
   localDay,
   localClock,
   dateState,
-  retryAttemptsLast7Days,
   recentCronCloseAttempt,
   recentCronRetryAttempt,
 }: {
@@ -480,6 +500,13 @@ function buildLifecycleHealthResult({
     | 'timezone'
     | 'closed_at'
     | 'archived_at'
+    | 'finalizing_started_at'
+    | 'closeout_not_before'
+    | 'closeout_started_at'
+    | 'closeout_completed_at'
+    | 'closeout_last_attempt_at'
+    | 'closeout_step'
+    | 'closeout_retry_count'
     | 'closeout_error'
     | 'closeout_summary'
   >;
@@ -487,25 +514,29 @@ function buildLifecycleHealthResult({
   localDay: string;
   localClock: { hour: number; minute: number };
   dateState: ConventionDateState;
-  retryAttemptsLast7Days: number;
   recentCronCloseAttempt: boolean;
   recentCronRetryAttempt: boolean;
 }): ConventionLifecycleHealthResult {
+  const closeoutRetryCount = convention.closeout_retry_count ?? 0;
+  const closeoutDue = isCloseoutDue(convention.closeout_not_before);
+  const failedCloseoutStatus =
+    convention.status === 'closeout_failed' ||
+    (convention.status === 'closed' &&
+      (convention.closeout_error !== null || convention.archived_at === null));
+  const closeoutManualRetryRequired = failedCloseoutStatus && closeoutRetryCount >= 5;
+  const closeoutAutoRetryEligible =
+    failedCloseoutStatus && !closeoutManualRetryRequired && !recentCronRetryAttempt;
   const automationEligibleForAutoClose =
-    convention.status === 'live' &&
-    dateState === 'after_window' &&
-    localClock.hour >= 6 &&
+    ((convention.status === 'finalizing' && closeoutDue) ||
+      (convention.status === 'live' && dateState === 'after_window' && localClock.hour >= 6)) &&
     !recentCronCloseAttempt;
-  const automationEligibleForRetry =
-    convention.status === 'closed' &&
-    (convention.closeout_error !== null || convention.archived_at === null) &&
-    retryAttemptsLast7Days < 5 &&
-    !recentCronRetryAttempt;
 
   const diagnosticsWithAutomationFlags = {
     ...diagnostics,
     automationEligibleForAutoClose,
-    automationEligibleForRetry,
+    automationEligibleForRetry: closeoutAutoRetryEligible,
+    closeoutManualRetryRequired,
+    closeoutAutoRetryEligible,
     silentRepairApplied:
       typeof convention.closeout_summary === 'object' &&
       convention.closeout_summary !== null &&
@@ -582,14 +613,32 @@ function buildLifecycleHealthResult({
     }
   }
 
-  if (convention.status === 'closed') {
-    if (retryAttemptsLast7Days >= 5) {
+  if (convention.status === 'finalizing') {
+    if (!convention.closeout_not_before) {
+      addWarning(
+        'Finalizing convention is missing a closeout deadline.',
+        'review_dates',
+        'warning',
+      );
+    } else if (closeoutDue) {
+      addWarning('Closeout window has been reached. Auto-close scheduled.', 'none', 'info');
+    } else {
+      addWarning('Convention is in the player cleanup window before closeout.', 'none', 'info');
+    }
+  }
+
+  if (convention.status === 'closeout_running') {
+    addWarning('Closeout is running and recaps are being prepared.', 'none', 'info');
+  }
+
+  if (failedCloseoutStatus) {
+    if (closeoutManualRetryRequired) {
       addWarning(
         'Manual retry required. Automation hit the retry cap.',
         'retry_closeout',
         'critical',
       );
-    } else if (automationEligibleForRetry) {
+    } else if (closeoutAutoRetryEligible) {
       addWarning('Auto-retry scheduled.', 'retry_closeout', 'warning');
     } else {
       addWarning(
@@ -627,7 +676,19 @@ function buildLifecycleHealthResult({
 }
 
 function createLifecycleDiagnostics(
-  convention: Pick<ConventionRow, 'closed_at' | 'archived_at' | 'closeout_error'>,
+  convention: Pick<
+    ConventionRow,
+    | 'closed_at'
+    | 'archived_at'
+    | 'finalizing_started_at'
+    | 'closeout_not_before'
+    | 'closeout_started_at'
+    | 'closeout_completed_at'
+    | 'closeout_last_attempt_at'
+    | 'closeout_step'
+    | 'closeout_retry_count'
+    | 'closeout_error'
+  >,
   overrides: Partial<ConventionLifecycleDiagnostics>,
 ): ConventionLifecycleDiagnostics {
   return {
@@ -640,7 +701,16 @@ function createLifecycleDiagnostics(
     participantRecaps: 0,
     archivedAt: convention.archived_at ?? null,
     closedAt: convention.closed_at ?? null,
+    finalizingStartedAt: convention.finalizing_started_at ?? null,
+    closeoutNotBefore: convention.closeout_not_before ?? null,
+    closeoutStartedAt: convention.closeout_started_at ?? null,
+    closeoutCompletedAt: convention.closeout_completed_at ?? null,
+    closeoutLastAttemptAt: convention.closeout_last_attempt_at ?? null,
+    closeoutStep: convention.closeout_step ?? null,
+    closeoutRetryCount: convention.closeout_retry_count ?? 0,
     closeoutError: convention.closeout_error ?? null,
+    closeoutManualRetryRequired: false,
+    closeoutAutoRetryEligible: false,
     lastAutomationAttemptAt: null,
     lastAutomationSource: null,
     automationRetryAttemptsLast7Days: 0,
@@ -653,6 +723,12 @@ function createLifecycleDiagnostics(
 
 function numberFromCount(value: number | string | null | undefined) {
   return Number(value ?? 0);
+}
+
+function isCloseoutDue(closeoutNotBefore: string | null) {
+  if (!closeoutNotBefore) return false;
+  const parsed = new Date(closeoutNotBefore).getTime();
+  return Number.isFinite(parsed) && parsed <= Date.now();
 }
 
 function getAutomationAuditSummary<
