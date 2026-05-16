@@ -1,16 +1,20 @@
-import { useCallback, useMemo, useRef } from 'react';
-import { FlatList, RefreshControl, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  CAUGHT_COLLECTION_QUERY_KEY,
   CaughtSuitRow,
-  CAUGHT_SUITS_QUERY_KEY,
   CAUGHT_SUITS_STALE_TIME,
-  fetchCaughtSuits,
+  fetchCaughtCollection,
 } from '../../src/features/suits';
-import type { CaughtRecord } from '../../src/features/suits';
+import type {
+  CaughtCollection,
+  CaughtConventionFolder,
+  CaughtRecord,
+} from '../../src/features/suits';
 import {
   PendingConfirmationsList,
   useMyPendingCatches,
@@ -24,9 +28,15 @@ import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { PullToRefreshHint } from '../../src/components/ui/PullToRefreshHint';
 import { useAuth } from '../../src/features/auth';
+import { formatConventionDateRange } from '../../src/features/conventions';
 import { usePullToRefreshHint } from '../../src/hooks/usePullToRefreshHint';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/(tabs)/caught.styles';
+
+const EMPTY_CAUGHT_COLLECTION: CaughtCollection = {
+  allCatches: [],
+  conventionFolders: [],
+};
 
 function ListHeader() {
   return (
@@ -44,12 +54,20 @@ function ItemSeparator() {
   return <View style={styles.separator} />;
 }
 
+function formatCatchCount(count: number) {
+  return count === 1 ? '1 catch' : `${count.toLocaleString()} catches`;
+}
+
 export default function CaughtSuitsScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const router = useRouter();
   const listRef = useRef<FlatList<CaughtRecord>>(null);
-  const caughtSuitsKey = useMemo(() => [CAUGHT_SUITS_QUERY_KEY, userId] as const, [userId]);
+  const caughtCollectionKey = useMemo(
+    () => [CAUGHT_COLLECTION_QUERY_KEY, userId] as const,
+    [userId],
+  );
+  const [selectedConventionId, setSelectedConventionId] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
   const { visibleItems: outboxItems } = useCatchOutbox(userId);
@@ -62,19 +80,40 @@ export default function CaughtSuitsScreen() {
   const { data: myPendingCatches = [], refetch: refetchMyPendingCatches } = useMyPendingCatches();
 
   const {
-    data: records = [],
+    data: collection = EMPTY_CAUGHT_COLLECTION,
     error,
     isLoading,
     isRefetching,
     refetch,
-  } = useQuery<CaughtRecord[], Error>({
-    queryKey: caughtSuitsKey,
+  } = useQuery<CaughtCollection, Error>({
+    queryKey: caughtCollectionKey,
     enabled: Boolean(userId),
     staleTime: CAUGHT_SUITS_STALE_TIME,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: () => fetchCaughtSuits(userId!),
+    queryFn: () => fetchCaughtCollection(userId!),
   });
+
+  const selectedFolder = useMemo(
+    () =>
+      selectedConventionId
+        ? (collection.conventionFolders.find(
+            (folder) => folder.conventionId === selectedConventionId,
+          ) ?? null)
+        : null,
+    [collection.conventionFolders, selectedConventionId],
+  );
+
+  const records = selectedFolder ? selectedFolder.catches : collection.allCatches;
+
+  useEffect(() => {
+    if (
+      selectedConventionId &&
+      !collection.conventionFolders.some((folder) => folder.conventionId === selectedConventionId)
+    ) {
+      setSelectedConventionId(null);
+    }
+  }, [collection.conventionFolders, selectedConventionId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -84,7 +123,7 @@ export default function CaughtSuitsScreen() {
 
       void syncOutbox();
 
-      const state = queryClient.getQueryState<CaughtRecord[]>(caughtSuitsKey);
+      const state = queryClient.getQueryState<CaughtCollection>(caughtCollectionKey);
 
       if (
         !state ||
@@ -93,7 +132,7 @@ export default function CaughtSuitsScreen() {
       ) {
         void refetch({ throwOnError: false });
       }
-    }, [caughtSuitsKey, queryClient, refetch, syncOutbox, userId]),
+    }, [caughtCollectionKey, queryClient, refetch, syncOutbox, userId]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -137,6 +176,115 @@ export default function CaughtSuitsScreen() {
 
   const keyExtractor = useCallback((item: CaughtRecord) => item.id, []);
 
+  const renderFilterButton = useCallback(
+    ({
+      id,
+      label,
+      meta,
+      isActive,
+      onPress,
+    }: {
+      id: string;
+      label: string;
+      meta: string;
+      isActive: boolean;
+      onPress: () => void;
+    }) => (
+      <Pressable
+        key={id}
+        accessibilityRole="button"
+        accessibilityState={{ selected: isActive }}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.filterButton,
+          isActive && styles.filterButtonActive,
+          pressed && styles.filterButtonPressed,
+        ]}
+      >
+        <Text
+          style={[styles.filterLabel, isActive && styles.filterLabelActive]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+        <Text
+          style={[styles.filterMeta, isActive && styles.filterMetaActive]}
+          numberOfLines={1}
+        >
+          {meta}
+        </Text>
+      </Pressable>
+    ),
+    [],
+  );
+
+  const renderFolderFilter = useCallback(
+    (folder: CaughtConventionFolder) =>
+      renderFilterButton({
+        id: folder.conventionId,
+        label: folder.conventionName,
+        meta: formatCatchCount(folder.catchCount),
+        isActive: selectedConventionId === folder.conventionId,
+        onPress: () => setSelectedConventionId(folder.conventionId),
+      }),
+    [renderFilterButton, selectedConventionId],
+  );
+
+  const FilterControls = useMemo(() => {
+    if (isLoading || errorMessage || collection.allCatches.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.collectionControls}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          {renderFilterButton({
+            id: 'all',
+            label: 'All catches',
+            meta: formatCatchCount(collection.allCatches.length),
+            isActive: selectedConventionId === null,
+            onPress: () => setSelectedConventionId(null),
+          })}
+          {collection.conventionFolders.map(renderFolderFilter)}
+        </ScrollView>
+        {selectedFolder ? (
+          <View style={styles.folderSummary}>
+            <Text
+              style={styles.folderTitle}
+              numberOfLines={1}
+            >
+              {selectedFolder.conventionName}
+            </Text>
+            <Text
+              style={styles.folderMeta}
+              numberOfLines={2}
+            >
+              {[
+                formatConventionDateRange(selectedFolder.startDate, selectedFolder.endDate),
+                formatCatchCount(selectedFolder.catchCount),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }, [
+    collection.allCatches.length,
+    collection.conventionFolders,
+    errorMessage,
+    isLoading,
+    renderFilterButton,
+    renderFolderFilter,
+    selectedConventionId,
+    selectedFolder,
+  ]);
+
   const ListEmptyComponent = useMemo(() => {
     if (isLoading) {
       return (
@@ -163,6 +311,16 @@ export default function CaughtSuitsScreen() {
       );
     }
 
+    if (selectedFolder) {
+      return (
+        <TailTagCard>
+          <Text style={styles.message}>
+            No catches are available in this convention folder yet.
+          </Text>
+        </TailTagCard>
+      );
+    }
+
     return (
       <TailTagCard>
         <Text style={styles.message}>
@@ -170,7 +328,7 @@ export default function CaughtSuitsScreen() {
         </Text>
       </TailTagCard>
     );
-  }, [isLoading, errorMessage, handleRefresh]);
+  }, [isLoading, errorMessage, handleRefresh, selectedFolder]);
 
   return (
     <FlatList
@@ -191,6 +349,7 @@ export default function CaughtSuitsScreen() {
             onDismiss={dismissOutboxItem}
           />
           <PendingConfirmationsList pendingCatches={myPendingCatches} />
+          {FilterControls}
         </View>
       }
       ListEmptyComponent={ListEmptyComponent}

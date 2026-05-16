@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, spacing } from '../../theme';
+import { colors, radius, spacing } from '../../theme';
 
 export const styles = StyleSheet.create({
   list: {
@@ -41,6 +41,67 @@ export const styles = StyleSheet.create({
   error: {
     color: '#fca5a5',
     fontSize: 14,
+  },
+  collectionControls: {
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  filterRow: {
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  filterButton: {
+    minWidth: 132,
+    minHeight: 52,
+    justifyContent: 'center',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderMuted,
+    backgroundColor: colors.surfaceInset,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  filterButtonActive: {
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySurface,
+  },
+  filterButtonPressed: {
+    opacity: 0.72,
+  },
+  filterLabel: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  filterLabelActive: {
+    color: colors.primary,
+  },
+  filterMeta: {
+    color: colors.textFaint,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  filterMetaActive: {
+    color: colors.textMutedStrong,
+  },
+  folderSummary: {
+    gap: 2,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderMuted,
+    backgroundColor: colors.surfacePanelMuted,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  folderTitle: {
+    color: colors.foreground,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  folderMeta: {
+    color: colors.textSubtle,
+    fontSize: 13,
   },
   separator: {
     height: spacing.xs,
