@@ -2377,8 +2377,8 @@ export type Database = {
           automation_retry_attempts_last_7_days: number
           convention_id: string
           convention_tasks_count: number
-          last_automation_attempt_at: string | null
-          last_automation_source: string | null
+          last_automation_attempt_at: string
+          last_automation_source: string
           participant_recaps_count: number
           pending_convention_catches_count: number
           recent_cron_close_attempt: boolean
