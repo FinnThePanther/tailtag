@@ -71,11 +71,22 @@ export default function PublicProfileScreen() {
   });
   const { data: profile, error: profileError, refetch: refetchProfile } = profileQuery;
 
+  const isBlockedQuery = useQuery({
+    queryKey: ['is-blocked', currentUserId, profileId],
+    queryFn: () => checkIsBlocked(profileId!),
+    enabled: Boolean(profileId && profile && currentUserId && !isSelf),
+    staleTime: 2 * 60_000,
+  });
+  const { data: isBlocked = false } = isBlockedQuery;
+  const canLoadProfileDetails = Boolean(
+    profileId && profile && (isSelf || isBlockedQuery.data === false || isBlockedQuery.isError),
+  );
+
   const fursuitsQuery = useQuery({
     queryKey: mySuitsQueryKey(profileId ?? '', isSelf),
     queryFn: () => fetchMySuits(profileId ?? '', isSelf),
     staleTime: MY_SUITS_STALE_TIME,
-    enabled: Boolean(profileId),
+    enabled: canLoadProfileDetails,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
@@ -87,7 +98,7 @@ export default function PublicProfileScreen() {
     queryKey: userUnlockedAchievementsQueryKey(profileId ?? ''),
     queryFn: () => fetchUserUnlockedAchievements(profileId ?? ''),
     staleTime: 5 * 60_000,
-    enabled: Boolean(profileId),
+    enabled: canLoadProfileDetails,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
@@ -95,23 +106,15 @@ export default function PublicProfileScreen() {
 
   const catchCountQuery = useQuery({
     ...createUserCatchCountQueryOptions(profileId ?? ''),
-    enabled: Boolean(profileId),
+    enabled: canLoadProfileDetails,
   });
   const { data: catchCount = 0 } = catchCountQuery;
 
   const conventionCountQuery = useQuery({
     ...createUserConventionCountQueryOptions(profileId ?? ''),
-    enabled: Boolean(profileId),
+    enabled: canLoadProfileDetails,
   });
   const { data: conventionCount = 0 } = conventionCountQuery;
-
-  const isBlockedQuery = useQuery({
-    queryKey: ['is-blocked', currentUserId, profileId],
-    queryFn: () => checkIsBlocked(profileId!),
-    enabled: Boolean(profileId) && Boolean(currentUserId) && !isSelf,
-    staleTime: 2 * 60_000,
-  });
-  const { data: isBlocked = false } = isBlockedQuery;
 
   const avatarUrl = profile?.avatar_url ?? (fursuits.length > 0 ? fursuits[0].avatar_url : null);
   const socialLinks = aggregateSocialLinks(fursuits, profile?.social_links ?? []);
@@ -135,6 +138,8 @@ export default function PublicProfileScreen() {
 
   const profileOwnAvatarUrl = profile?.avatar_url ?? null;
   const headerRevealReady = tier1Ready && (!profileOwnAvatarUrl || headerAvatarLoaded);
+  const isProfileUnavailable = profileQuery.data === null || isBlocked;
+  const canShowProfileActions = Boolean(profile) && !isProfileUnavailable;
 
   if (!profileId) {
     return (
@@ -153,10 +158,10 @@ export default function PublicProfileScreen() {
   return (
     <View style={styles.screen}>
       <ScreenHeader
-        title={profile?.username ?? 'Player Profile'}
+        title={canShowProfileActions ? (profile?.username ?? 'Player Profile') : 'Player Profile'}
         onBack={() => router.back()}
         right={
-          isSelf ? (
+          isSelf && canShowProfileActions ? (
             <Pressable
               onPress={() => router.push('/(tabs)/settings')}
               hitSlop={8}
@@ -164,7 +169,7 @@ export default function PublicProfileScreen() {
             >
               <Text style={styles.headerButton}>Edit</Text>
             </Pressable>
-          ) : profileId ? (
+          ) : profileId && canShowProfileActions ? (
             <ProfileActionMenu
               profileId={profileId}
               profileUsername={profile?.username}
@@ -173,7 +178,7 @@ export default function PublicProfileScreen() {
         }
       />
 
-      {isBlocked ? (
+      {isProfileUnavailable ? (
         <View style={styles.centeredMessage}>
           <Ionicons
             name="ban-outline"

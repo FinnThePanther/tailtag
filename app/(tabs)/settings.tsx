@@ -19,6 +19,7 @@ import {
   profileNeedsAgeAttestation,
   refreshAdultBoundaryCaches,
   updateAgeAttestation,
+  type VisibilityAudience,
 } from '../../src/features/adult-boundary';
 import { STAFF_MODE_ENABLED } from '../../src/constants/features';
 import {
@@ -70,6 +71,7 @@ import {
   updateProfileCatchMode,
   updateProfileAvatar,
   updateProfileSocialLinks,
+  updateProfileVisibilityAudience,
   validateUsername,
   PROFILE_QUERY_KEY,
   PROFILE_STALE_TIME,
@@ -306,6 +308,9 @@ export default function SettingsScreen() {
   const [isSavingAgeAttestation, setIsSavingAgeAttestation] = useState(false);
   const [ageAttestationError, setAgeAttestationError] = useState<string | null>(null);
   const [ageAttestationMessage, setAgeAttestationMessage] = useState<string | null>(null);
+  const [isSavingProfileVisibility, setIsSavingProfileVisibility] = useState(false);
+  const [profileVisibilityError, setProfileVisibilityError] = useState<string | null>(null);
+  const [profileVisibilityMessage, setProfileVisibilityMessage] = useState<string | null>(null);
   const [isSavingCatchMode, setIsSavingCatchMode] = useState(false);
   const [catchModeError, setCatchModeError] = useState<string | null>(null);
   const [catchModeMessage, setCatchModeMessage] = useState<string | null>(null);
@@ -666,6 +671,9 @@ export default function SettingsScreen() {
     () => STAFF_MODE_ENABLED && canUseStaffMode(profile?.role ?? null),
     [profile?.role],
   );
+  const profileVisibilityAudience = profile?.visibility_audience ?? 'everyone';
+  const canUseAdultsOnlyProfileVisibility =
+    profile !== null && profile.is_adult === true && !profileNeedsAgeAttestation(profile);
   const ageStatusLabel = ageAttestationLabel(profile);
   const ageActionLabel = profile?.is_adult === true ? 'Update to under 18' : 'Confirm 18 or older';
   const isPushDenied = permissionStatus === 'denied';
@@ -1095,6 +1103,7 @@ export default function SettingsScreen() {
                 ...current,
                 is_adult: isAdult,
                 age_gate_version: CURRENT_AGE_GATE_VERSION,
+                visibility_audience: isAdult ? current.visibility_audience : 'everyone',
               }
             : current,
         );
@@ -1111,6 +1120,57 @@ export default function SettingsScreen() {
       }
     },
     [isSavingAgeAttestation, profileQueryKey, queryClient, userId],
+  );
+
+  const handleProfileVisibilityChange = useCallback(
+    async (nextAudience: VisibilityAudience) => {
+      if (!userId || isSavingProfileVisibility || !profile) {
+        return;
+      }
+
+      if (nextAudience === 'adults_only' && !canUseAdultsOnlyProfileVisibility) {
+        setProfileVisibilityError('Adult confirmation is required for adults-only visibility.');
+        setProfileVisibilityMessage(null);
+        return;
+      }
+
+      if (profile.visibility_audience === nextAudience) {
+        return;
+      }
+
+      const previousAudience = profile.visibility_audience;
+      setIsSavingProfileVisibility(true);
+      setProfileVisibilityError(null);
+      setProfileVisibilityMessage(null);
+
+      try {
+        await updateProfileVisibilityAudience(userId, nextAudience);
+        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+          current ? { ...current, visibility_audience: nextAudience } : current,
+        );
+        await refreshAdultBoundaryCaches({ queryClient, userId });
+        setProfileVisibilityMessage('Profile visibility saved');
+      } catch (caught) {
+        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+          current ? { ...current, visibility_audience: previousAudience } : current,
+        );
+        setProfileVisibilityError(
+          caught instanceof Error
+            ? caught.message
+            : 'Could not save profile visibility. Please try again.',
+        );
+      } finally {
+        setIsSavingProfileVisibility(false);
+      }
+    },
+    [
+      canUseAdultsOnlyProfileVisibility,
+      isSavingProfileVisibility,
+      profile,
+      profileQueryKey,
+      queryClient,
+      userId,
+    ],
   );
 
   const handleAgeAttestationPress = useCallback(() => {
@@ -1698,6 +1758,110 @@ export default function SettingsScreen() {
               />
               {catchModeError ? <Text style={styles.error}>{catchModeError}</Text> : null}
               {catchModeMessage ? <Text style={styles.success}>{catchModeMessage}</Text> : null}
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.sectionTitle}>Profile visibility</Text>
+              <Text style={styles.sectionDescription}>
+                Adults-only profiles are hidden from players who have not confirmed they are 18 or
+                older.
+              </Text>
+              <View style={styles.visibilityOptions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: profileVisibilityAudience === 'everyone',
+                    disabled: isSavingProfileVisibility,
+                  }}
+                  disabled={isSavingProfileVisibility}
+                  onPress={() => {
+                    void handleProfileVisibilityChange('everyone');
+                  }}
+                  style={({ pressed }) => [
+                    styles.visibilityOption,
+                    profileVisibilityAudience === 'everyone' && styles.visibilityOptionSelected,
+                    pressed && styles.visibilityOptionPressed,
+                  ]}
+                >
+                  <View style={styles.visibilityOptionText}>
+                    <Text
+                      style={[
+                        styles.visibilityOptionTitle,
+                        profileVisibilityAudience === 'everyone' &&
+                          styles.visibilityOptionTitleSelected,
+                      ]}
+                    >
+                      Everyone
+                    </Text>
+                    <Text style={styles.visibilityOptionDescription}>
+                      Any signed-in player can view your profile.
+                    </Text>
+                  </View>
+                  {profileVisibilityAudience === 'everyone' ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={22}
+                      color={colors.primary}
+                    />
+                  ) : null}
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: profileVisibilityAudience === 'adults_only',
+                    disabled: isSavingProfileVisibility || !canUseAdultsOnlyProfileVisibility,
+                  }}
+                  disabled={isSavingProfileVisibility || !canUseAdultsOnlyProfileVisibility}
+                  onPress={() => {
+                    void handleProfileVisibilityChange('adults_only');
+                  }}
+                  style={({ pressed }) => [
+                    styles.visibilityOption,
+                    profileVisibilityAudience === 'adults_only' && styles.visibilityOptionSelected,
+                    !canUseAdultsOnlyProfileVisibility && styles.visibilityOptionDisabled,
+                    pressed && styles.visibilityOptionPressed,
+                  ]}
+                >
+                  <View style={styles.visibilityOptionText}>
+                    <Text
+                      style={[
+                        styles.visibilityOptionTitle,
+                        profileVisibilityAudience === 'adults_only' &&
+                          styles.visibilityOptionTitleSelected,
+                        !canUseAdultsOnlyProfileVisibility && styles.visibilityOptionTitleDisabled,
+                      ]}
+                    >
+                      Adults only
+                    </Text>
+                    <Text
+                      style={[
+                        styles.visibilityOptionDescription,
+                        !canUseAdultsOnlyProfileVisibility &&
+                          styles.visibilityOptionDescriptionDisabled,
+                      ]}
+                    >
+                      Only players who have confirmed they are 18 or older can view your profile.
+                    </Text>
+                  </View>
+                  {profileVisibilityAudience === 'adults_only' ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={22}
+                      color={colors.primary}
+                    />
+                  ) : null}
+                </Pressable>
+              </View>
+              {!canUseAdultsOnlyProfileVisibility ? (
+                <Text style={styles.sectionHint}>
+                  Adult confirmation is required for adults-only visibility.
+                </Text>
+              ) : null}
+              {profileVisibilityError ? (
+                <Text style={styles.error}>{profileVisibilityError}</Text>
+              ) : null}
+              {profileVisibilityMessage ? (
+                <Text style={styles.success}>{profileVisibilityMessage}</Text>
+              ) : null}
             </View>
             {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
             <TailTagButton
