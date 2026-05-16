@@ -2,8 +2,17 @@
 
 import { execFileSync } from 'node:child_process';
 
-const allowedBranches = new Set(['main']);
-const watchedPaths = ['admin/'];
+const allowedBranches = new Set(parseList(process.env.ALLOWED_BRANCHES, ['main']));
+const watchedPaths = parseList(process.env.WATCHED_PATHS, ['admin/']);
+
+function parseList(value, fallback) {
+  const entries = (value ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  return entries.length > 0 ? entries : fallback;
+}
 
 function log(message) {
   console.log(`[vercel-ignore-admin] ${message}`);
@@ -17,9 +26,14 @@ function hasChangedFiles() {
     return true;
   }
 
-  const diff = execFileSync('git', ['diff', '--name-only', 'HEAD^', 'HEAD'], {
-    encoding: 'utf8',
-  });
+  let diff = '';
+  try {
+    diff = execFileSync('git', ['diff', '--name-only', 'HEAD^', 'HEAD'], {
+      encoding: 'utf8',
+    });
+  } catch (error) {
+    console.error('[vercel-ignore-admin] Failed to inspect changed files.', error);
+  }
 
   return diff
     .split('\n')

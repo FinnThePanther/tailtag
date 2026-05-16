@@ -25,7 +25,7 @@ export function isDevSupabaseProject() {
     return false;
   }
 
-  return getSupabaseProjectRef() === env.adminDevSupabaseProjectRef;
+  return getSupabaseProjectRef() === env.adminDevSupabaseProjectRef.trim();
 }
 
 export function isRepairSupabaseProject() {
