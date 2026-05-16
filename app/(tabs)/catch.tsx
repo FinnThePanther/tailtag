@@ -176,14 +176,23 @@ export default function CatchScreen() {
     [conventionMemberships, hasActiveConvention],
   );
   const catchLifecycleConvention = useMemo<CatchLifecycleConvention | null>(() => {
-    const finalizingConvention = conventionMemberships.find(
+    const relevantConventionMemberships =
+      activeConventionIds.length > 0
+        ? conventionMemberships.filter(
+            (membership) =>
+              activeConventionIds.includes(membership.convention_id) ||
+              activeConventionIds.includes(membership.id),
+          )
+        : conventionMemberships;
+
+    const finalizingConvention = relevantConventionMemberships.find(
       (membership) => getConventionPlayerLifecycleState(membership) === 'finalizing',
     );
     if (finalizingConvention) {
       return { membership: finalizingConvention, state: 'finalizing' };
     }
 
-    const delayedConvention = conventionMemberships.find(
+    const delayedConvention = relevantConventionMemberships.find(
       (membership) => getConventionPlayerLifecycleState(membership) === 'recap_delayed',
     );
     if (delayedConvention) {
@@ -191,7 +200,7 @@ export default function CatchScreen() {
     }
 
     return null;
-  }, [conventionMemberships]);
+  }, [activeConventionIds, conventionMemberships]);
   const catchLifecycleDeadlineLabel = useMemo(() => {
     if (catchLifecycleConvention?.state !== 'finalizing') {
       return null;
