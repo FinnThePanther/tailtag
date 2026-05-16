@@ -19,6 +19,7 @@ import {
 } from '../../events/localGameplayEventsBus';
 import { DAILY_TASKS_QUERY_KEY, dailyTasksQueryKey } from '../../daily-tasks';
 import type { DailyTasksSummary } from '../../daily-tasks';
+import { PAST_CONVENTION_RECAPS_QUERY_KEY } from '../../conventions';
 import type { AchievementWithStatus } from '../api/achievements';
 import { caughtSuitsQueryKey, type CaughtRecord } from '../../suits';
 import { hasUploadedProfileAvatar, profileQueryKey, type ProfileSummary } from '../../profile';
@@ -1219,6 +1220,32 @@ export function AchievementToastManager() {
       }
     };
 
+    const handleConventionRecapReady = (payload: Record<string, unknown> | null) => {
+      const conventionNameRaw = payload?.convention_name ?? payload?.conventionName ?? null;
+      const conventionName =
+        typeof conventionNameRaw === 'string' && conventionNameRaw.trim().length > 0
+          ? conventionNameRaw.trim()
+          : 'Your convention';
+      const recapId = typeof payload?.recap_id === 'string' ? payload.recap_id : null;
+
+      showToast(`${conventionName} recap is ready`);
+      addMonitoringBreadcrumb({
+        category: 'convention-recaps',
+        message: 'Convention recap ready notification received',
+        data: {
+          userId,
+          conventionName,
+          recapId,
+        },
+      });
+
+      if (userId) {
+        void queryClient.invalidateQueries({
+          queryKey: [PAST_CONVENTION_RECAPS_QUERY_KEY, userId],
+        });
+      }
+    };
+
     const handleDailyTaskCompleted = (payload: Record<string, unknown> | null) => {
       const taskNameRaw = payload?.task_name ?? payload?.taskName ?? null;
       const taskName =
@@ -1429,6 +1456,9 @@ export function AchievementToastManager() {
             break;
           case 'daily_all_complete':
             handleDailyAllComplete(notificationPayload);
+            break;
+          case 'convention_recap_ready':
+            handleConventionRecapReady(notificationPayload);
             break;
           default:
             break;

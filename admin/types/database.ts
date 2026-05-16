@@ -234,51 +234,88 @@ export type Database = {
           },
         ];
       };
-      auth_security_checklist: {
+      catch_performance_events: {
         Row: {
-          category: string;
-          configuration_method: string;
-          configured_at: string | null;
-          configured_by: string | null;
-          description: string;
-          is_configured: boolean;
-          notes: string | null;
-          priority: string;
-          remediation_url: string | null;
-          setting_name: string;
+          app_version: string | null;
+          catch_id: string | null;
+          client_attempt_id: string;
+          convention_id: string | null;
+          created_at: string;
+          error_code: string | null;
+          id: string;
+          method: string;
+          network_type: string | null;
+          platform: string | null;
+          result: string;
+          timings: Json;
+          total_ms: number | null;
+          user_id: string | null;
         };
         Insert: {
-          category: string;
-          configuration_method: string;
-          configured_at?: string | null;
-          configured_by?: string | null;
-          description: string;
-          is_configured?: boolean;
-          notes?: string | null;
-          priority: string;
-          remediation_url?: string | null;
-          setting_name: string;
+          app_version?: string | null;
+          catch_id?: string | null;
+          client_attempt_id: string;
+          convention_id?: string | null;
+          created_at?: string;
+          error_code?: string | null;
+          id?: string;
+          method: string;
+          network_type?: string | null;
+          platform?: string | null;
+          result: string;
+          timings?: Json;
+          total_ms?: number | null;
+          user_id?: string | null;
         };
         Update: {
-          category?: string;
-          configuration_method?: string;
-          configured_at?: string | null;
-          configured_by?: string | null;
-          description?: string;
-          is_configured?: boolean;
-          notes?: string | null;
-          priority?: string;
-          remediation_url?: string | null;
-          setting_name?: string;
+          app_version?: string | null;
+          catch_id?: string | null;
+          client_attempt_id?: string;
+          convention_id?: string | null;
+          created_at?: string;
+          error_code?: string | null;
+          id?: string;
+          method?: string;
+          network_type?: string | null;
+          platform?: string | null;
+          result?: string;
+          timings?: Json;
+          total_ms?: number | null;
+          user_id?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'catch_performance_events_catch_id_fkey';
+            columns: ['catch_id'];
+            isOneToOne: false;
+            referencedRelation: 'catches';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_performance_events_convention_id_fkey';
+            columns: ['convention_id'];
+            isOneToOne: false;
+            referencedRelation: 'conventions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_performance_events_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       catches: {
         Row: {
           catch_number: number | null;
+          catch_photo_path: string | null;
+          catch_photo_source: string | null;
           catch_photo_url: string | null;
           catcher_id: string;
           caught_at: string | null;
+          client_attempt_id: string | null;
           convention_id: string | null;
           decided_at: string | null;
           decided_by_user_id: string | null;
@@ -286,14 +323,18 @@ export type Database = {
           fursuit_id: string;
           id: string;
           is_tutorial: boolean;
+          photo_upload_state: string;
           rejection_reason: string | null;
           status: string;
         };
         Insert: {
           catch_number?: number | null;
+          catch_photo_path?: string | null;
+          catch_photo_source?: string | null;
           catch_photo_url?: string | null;
           catcher_id: string;
           caught_at?: string | null;
+          client_attempt_id?: string | null;
           convention_id?: string | null;
           decided_at?: string | null;
           decided_by_user_id?: string | null;
@@ -301,14 +342,18 @@ export type Database = {
           fursuit_id: string;
           id?: string;
           is_tutorial?: boolean;
+          photo_upload_state?: string;
           rejection_reason?: string | null;
           status?: string;
         };
         Update: {
           catch_number?: number | null;
+          catch_photo_path?: string | null;
+          catch_photo_source?: string | null;
           catch_photo_url?: string | null;
           catcher_id?: string;
           caught_at?: string | null;
+          client_attempt_id?: string | null;
           convention_id?: string | null;
           decided_at?: string | null;
           decided_by_user_id?: string | null;
@@ -316,6 +361,7 @@ export type Database = {
           fursuit_id?: string;
           id?: string;
           is_tutorial?: boolean;
+          photo_upload_state?: string;
           rejection_reason?: string | null;
           status?: string;
         };
@@ -353,6 +399,81 @@ export type Database = {
             columns: ['fursuit_id'];
             isOneToOne: false;
             referencedRelation: 'fursuits_moderation';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      convention_participant_recaps: {
+        Row: {
+          achievements_unlocked_count: number;
+          catch_count: number;
+          convention_id: string;
+          created_at: string;
+          daily_tasks_completed_count: number;
+          final_rank: number | null;
+          fursuits_caught_count: number;
+          generated_at: string;
+          id: string;
+          joined_at: string | null;
+          left_at: string | null;
+          own_fursuits_caught_count: number;
+          profile_id: string;
+          summary: Json;
+          unique_catchers_for_own_fursuits_count: number;
+          unique_fursuits_caught_count: number;
+          updated_at: string;
+        };
+        Insert: {
+          achievements_unlocked_count?: number;
+          catch_count?: number;
+          convention_id: string;
+          created_at?: string;
+          daily_tasks_completed_count?: number;
+          final_rank?: number | null;
+          fursuits_caught_count?: number;
+          generated_at?: string;
+          id?: string;
+          joined_at?: string | null;
+          left_at?: string | null;
+          own_fursuits_caught_count?: number;
+          profile_id: string;
+          summary?: Json;
+          unique_catchers_for_own_fursuits_count?: number;
+          unique_fursuits_caught_count?: number;
+          updated_at?: string;
+        };
+        Update: {
+          achievements_unlocked_count?: number;
+          catch_count?: number;
+          convention_id?: string;
+          created_at?: string;
+          daily_tasks_completed_count?: number;
+          final_rank?: number | null;
+          fursuits_caught_count?: number;
+          generated_at?: string;
+          id?: string;
+          joined_at?: string | null;
+          left_at?: string | null;
+          own_fursuits_caught_count?: number;
+          profile_id?: string;
+          summary?: Json;
+          unique_catchers_for_own_fursuits_count?: number;
+          unique_fursuits_caught_count?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'convention_participant_recaps_convention_id_fkey';
+            columns: ['convention_id'];
+            isOneToOne: false;
+            referencedRelation: 'conventions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'convention_participant_recaps_profile_id_fkey';
+            columns: ['profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
         ];
@@ -452,81 +573,6 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
-      };
-      convention_participant_recaps: {
-        Row: {
-          achievements_unlocked_count: number;
-          catch_count: number;
-          convention_id: string;
-          created_at: string;
-          daily_tasks_completed_count: number;
-          final_rank: number | null;
-          fursuits_caught_count: number;
-          generated_at: string;
-          id: string;
-          joined_at: string | null;
-          left_at: string | null;
-          own_fursuits_caught_count: number;
-          profile_id: string;
-          summary: Json;
-          unique_catchers_for_own_fursuits_count: number;
-          unique_fursuits_caught_count: number;
-          updated_at: string;
-        };
-        Insert: {
-          achievements_unlocked_count?: number;
-          catch_count?: number;
-          convention_id: string;
-          created_at?: string;
-          daily_tasks_completed_count?: number;
-          final_rank?: number | null;
-          fursuits_caught_count?: number;
-          generated_at?: string;
-          id?: string;
-          joined_at?: string | null;
-          left_at?: string | null;
-          own_fursuits_caught_count?: number;
-          profile_id: string;
-          summary?: Json;
-          unique_catchers_for_own_fursuits_count?: number;
-          unique_fursuits_caught_count?: number;
-          updated_at?: string;
-        };
-        Update: {
-          achievements_unlocked_count?: number;
-          catch_count?: number;
-          convention_id?: string;
-          created_at?: string;
-          daily_tasks_completed_count?: number;
-          final_rank?: number | null;
-          fursuits_caught_count?: number;
-          generated_at?: string;
-          id?: string;
-          joined_at?: string | null;
-          left_at?: string | null;
-          own_fursuits_caught_count?: number;
-          profile_id?: string;
-          summary?: Json;
-          unique_catchers_for_own_fursuits_count?: number;
-          unique_fursuits_caught_count?: number;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'convention_participant_recaps_convention_id_fkey';
-            columns: ['convention_id'];
-            isOneToOne: false;
-            referencedRelation: 'conventions';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'convention_participant_recaps_profile_id_fkey';
-            columns: ['profile_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-        ];
       };
       daily_assignments: {
         Row: {
@@ -750,8 +796,8 @@ export type Database = {
           enqueued_at: string | null;
           event_id: string;
           idempotency_key: string | null;
-          last_error: string | null;
           last_attempted_at: string | null;
+          last_error: string | null;
           occurred_at: string;
           payload: Json;
           processed_at: string | null;
@@ -769,8 +815,8 @@ export type Database = {
           enqueued_at?: string | null;
           event_id?: string;
           idempotency_key?: string | null;
-          last_error?: string | null;
           last_attempted_at?: string | null;
+          last_error?: string | null;
           occurred_at?: string;
           payload?: Json;
           processed_at?: string | null;
@@ -788,8 +834,8 @@ export type Database = {
           enqueued_at?: string | null;
           event_id?: string;
           idempotency_key?: string | null;
-          last_error?: string | null;
           last_attempted_at?: string | null;
+          last_error?: string | null;
           occurred_at?: string;
           payload?: Json;
           processed_at?: string | null;
@@ -810,39 +856,48 @@ export type Database = {
           },
         ];
       };
-      extension_migration_status: {
+      experiment_assignments: {
         Row: {
-          blocking_reason: string | null;
-          completed_migration_date: string | null;
-          dependencies: string[] | null;
-          extension_name: string;
-          migration_status: string;
-          notes: string | null;
-          planned_migration_date: string | null;
-          source_schema: string;
-          target_schema: string;
+          assigned_at: string;
+          created_at: string;
+          default_applied_at: string | null;
+          experiment_key: string;
+          exposure_count: number;
+          first_exposed_at: string | null;
+          last_exposed_at: string | null;
+          metadata: Json;
+          subject_id: string;
+          subject_type: string;
+          updated_at: string;
+          variant: string;
         };
         Insert: {
-          blocking_reason?: string | null;
-          completed_migration_date?: string | null;
-          dependencies?: string[] | null;
-          extension_name: string;
-          migration_status: string;
-          notes?: string | null;
-          planned_migration_date?: string | null;
-          source_schema: string;
-          target_schema: string;
+          assigned_at?: string;
+          created_at?: string;
+          default_applied_at?: string | null;
+          experiment_key: string;
+          exposure_count?: number;
+          first_exposed_at?: string | null;
+          last_exposed_at?: string | null;
+          metadata?: Json;
+          subject_id: string;
+          subject_type: string;
+          updated_at?: string;
+          variant: string;
         };
         Update: {
-          blocking_reason?: string | null;
-          completed_migration_date?: string | null;
-          dependencies?: string[] | null;
-          extension_name?: string;
-          migration_status?: string;
-          notes?: string | null;
-          planned_migration_date?: string | null;
-          source_schema?: string;
-          target_schema?: string;
+          assigned_at?: string;
+          created_at?: string;
+          default_applied_at?: string | null;
+          experiment_key?: string;
+          exposure_count?: number;
+          first_exposed_at?: string | null;
+          last_exposed_at?: string | null;
+          metadata?: Json;
+          subject_id?: string;
+          subject_type?: string;
+          updated_at?: string;
+          variant?: string;
         };
         Relationships: [];
       };
@@ -1028,73 +1083,47 @@ export type Database = {
           },
         ];
       };
-      fursuit_moderation_queue: {
+      fursuit_makers: {
         Row: {
-          action_taken: string | null;
           created_at: string;
-          flag_reason: string;
-          flagged_by_user_id: string | null;
-          flagged_content: Json;
           fursuit_id: string;
           id: string;
-          moderator_notes: string | null;
-          reviewed_at: string | null;
-          reviewed_by_user_id: string | null;
-          status: string;
+          maker_name: string;
+          normalized_maker_name: string;
+          position: number;
+          updated_at: string;
         };
         Insert: {
-          action_taken?: string | null;
           created_at?: string;
-          flag_reason: string;
-          flagged_by_user_id?: string | null;
-          flagged_content: Json;
           fursuit_id: string;
           id?: string;
-          moderator_notes?: string | null;
-          reviewed_at?: string | null;
-          reviewed_by_user_id?: string | null;
-          status?: string;
+          maker_name: string;
+          normalized_maker_name: string;
+          position: number;
+          updated_at?: string;
         };
         Update: {
-          action_taken?: string | null;
           created_at?: string;
-          flag_reason?: string;
-          flagged_by_user_id?: string | null;
-          flagged_content?: Json;
           fursuit_id?: string;
           id?: string;
-          moderator_notes?: string | null;
-          reviewed_at?: string | null;
-          reviewed_by_user_id?: string | null;
-          status?: string;
+          maker_name?: string;
+          normalized_maker_name?: string;
+          position?: number;
+          updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: 'fursuit_moderation_queue_flagged_by_user_id_fkey';
-            columns: ['flagged_by_user_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'fursuit_moderation_queue_fursuit_id_fkey';
+            foreignKeyName: 'fursuit_makers_fursuit_id_fkey';
             columns: ['fursuit_id'];
             isOneToOne: false;
             referencedRelation: 'fursuits';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'fursuit_moderation_queue_fursuit_id_fkey';
+            foreignKeyName: 'fursuit_makers_fursuit_id_fkey';
             columns: ['fursuit_id'];
             isOneToOne: false;
             referencedRelation: 'fursuits_moderation';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'fursuit_moderation_queue_reviewed_by_user_id_fkey';
-            columns: ['reviewed_by_user_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
         ];
@@ -1125,6 +1154,7 @@ export type Database = {
       };
       fursuits: {
         Row: {
+          avatar_path: string | null;
           avatar_url: string | null;
           catch_count: number;
           catch_mode: string;
@@ -1141,6 +1171,7 @@ export type Database = {
           unique_code: string;
         };
         Insert: {
+          avatar_path?: string | null;
           avatar_url?: string | null;
           catch_count?: number;
           catch_mode?: string;
@@ -1157,6 +1188,7 @@ export type Database = {
           unique_code: string;
         };
         Update: {
+          avatar_path?: string | null;
           avatar_url?: string | null;
           catch_count?: number;
           catch_mode?: string;
@@ -1185,87 +1217,6 @@ export type Database = {
             columns: ['species_id'];
             isOneToOne: false;
             referencedRelation: 'fursuit_species';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      materialized_view_config: {
-        Row: {
-          access_justification: string | null;
-          approximate_size: string | null;
-          description: string;
-          is_public_api_accessible: boolean;
-          last_refreshed_at: string | null;
-          next_refresh_at: string | null;
-          notes: string | null;
-          refresh_function_name: string | null;
-          refresh_strategy: string;
-          view_name: string;
-        };
-        Insert: {
-          access_justification?: string | null;
-          approximate_size?: string | null;
-          description: string;
-          is_public_api_accessible?: boolean;
-          last_refreshed_at?: string | null;
-          next_refresh_at?: string | null;
-          notes?: string | null;
-          refresh_function_name?: string | null;
-          refresh_strategy: string;
-          view_name: string;
-        };
-        Update: {
-          access_justification?: string | null;
-          approximate_size?: string | null;
-          description?: string;
-          is_public_api_accessible?: boolean;
-          last_refreshed_at?: string | null;
-          next_refresh_at?: string | null;
-          notes?: string | null;
-          refresh_function_name?: string | null;
-          refresh_strategy?: string;
-          view_name?: string;
-        };
-        Relationships: [];
-      };
-      moderation_notes: {
-        Row: {
-          author_id: string;
-          created_at: string;
-          id: string;
-          is_flagged: boolean;
-          note: string;
-          user_id: string;
-        };
-        Insert: {
-          author_id: string;
-          created_at?: string;
-          id?: string;
-          is_flagged?: boolean;
-          note: string;
-          user_id: string;
-        };
-        Update: {
-          author_id?: string;
-          created_at?: string;
-          id?: string;
-          is_flagged?: boolean;
-          note?: string;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'moderation_notes_author_id_fkey';
-            columns: ['author_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'moderation_notes_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
         ];
@@ -1372,8 +1323,10 @@ export type Database = {
       };
       profiles: {
         Row: {
+          avatar_path: string | null;
           avatar_url: string | null;
           bio: string | null;
+          catch_mode_preference_source: string;
           created_at: string | null;
           default_catch_mode: string;
           expo_push_token: string | null;
@@ -1394,8 +1347,10 @@ export type Database = {
           username: string | null;
         };
         Insert: {
+          avatar_path?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
+          catch_mode_preference_source?: string;
           created_at?: string | null;
           default_catch_mode?: string;
           expo_push_token?: string | null;
@@ -1416,8 +1371,10 @@ export type Database = {
           username?: string | null;
         };
         Update: {
+          avatar_path?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
+          catch_mode_preference_source?: string;
           created_at?: string | null;
           default_catch_mode?: string;
           expo_push_token?: string | null;
@@ -1496,189 +1453,6 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'profiles';
             referencedColumns: ['id'];
-          },
-        ];
-      };
-      qr_asset_cleanup_config: {
-        Row: {
-          key: string;
-          value: string;
-        };
-        Insert: {
-          key: string;
-          value: string;
-        };
-        Update: {
-          key?: string;
-          value?: string;
-        };
-        Relationships: [];
-      };
-      qr_asset_cleanup_queue: {
-        Row: {
-          attempts: number;
-          bucket: string;
-          created_at: string;
-          id: string;
-          last_error: string | null;
-          processed_at: string | null;
-          qr_asset_path: string;
-          tag_id: string;
-        };
-        Insert: {
-          attempts?: number;
-          bucket?: string;
-          created_at?: string;
-          id?: string;
-          last_error?: string | null;
-          processed_at?: string | null;
-          qr_asset_path: string;
-          tag_id: string;
-        };
-        Update: {
-          attempts?: number;
-          bucket?: string;
-          created_at?: string;
-          id?: string;
-          last_error?: string | null;
-          processed_at?: string | null;
-          qr_asset_path?: string;
-          tag_id?: string;
-        };
-        Relationships: [];
-      };
-      spatial_ref_sys: {
-        Row: {
-          auth_name: string | null;
-          auth_srid: number | null;
-          proj4text: string | null;
-          srid: number;
-          srtext: string | null;
-        };
-        Insert: {
-          auth_name?: string | null;
-          auth_srid?: number | null;
-          proj4text?: string | null;
-          srid: number;
-          srtext?: string | null;
-        };
-        Update: {
-          auth_name?: string | null;
-          auth_srid?: number | null;
-          proj4text?: string | null;
-          srid?: number;
-          srtext?: string | null;
-        };
-        Relationships: [];
-      };
-      suiting_sessions: {
-        Row: {
-          convention_id: string;
-          ended_at: string | null;
-          fursuit_id: string;
-          id: string;
-          owner_id: string;
-          started_at: string;
-        };
-        Insert: {
-          convention_id: string;
-          ended_at?: string | null;
-          fursuit_id: string;
-          id?: string;
-          owner_id: string;
-          started_at?: string;
-        };
-        Update: {
-          convention_id?: string;
-          ended_at?: string | null;
-          fursuit_id?: string;
-          id?: string;
-          owner_id?: string;
-          started_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'suiting_sessions_convention_id_fkey';
-            columns: ['convention_id'];
-            isOneToOne: false;
-            referencedRelation: 'conventions';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'suiting_sessions_fursuit_id_fkey';
-            columns: ['fursuit_id'];
-            isOneToOne: false;
-            referencedRelation: 'fursuits';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'suiting_sessions_fursuit_id_fkey';
-            columns: ['fursuit_id'];
-            isOneToOne: false;
-            referencedRelation: 'fursuits_moderation';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'suiting_sessions_owner_id_fkey';
-            columns: ['owner_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      tag_activity: {
-        Row: {
-          catcher_id: string | null;
-          convention_id: string | null;
-          created_at: string;
-          device_id: string | null;
-          id: string;
-          location: Json | null;
-          seen_at: string;
-          tag_uid: string;
-        };
-        Insert: {
-          catcher_id?: string | null;
-          convention_id?: string | null;
-          created_at?: string;
-          device_id?: string | null;
-          id?: string;
-          location?: Json | null;
-          seen_at?: string;
-          tag_uid: string;
-        };
-        Update: {
-          catcher_id?: string | null;
-          convention_id?: string | null;
-          created_at?: string;
-          device_id?: string | null;
-          id?: string;
-          location?: Json | null;
-          seen_at?: string;
-          tag_uid?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'tag_activity_catcher_id_fkey';
-            columns: ['catcher_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'tag_activity_convention_id_fkey';
-            columns: ['convention_id'];
-            isOneToOne: false;
-            referencedRelation: 'conventions';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'tag_activity_tag_uid_fkey';
-            columns: ['tag_uid'];
-            isOneToOne: false;
-            referencedRelation: 'tags';
-            referencedColumns: ['nfc_uid'];
           },
         ];
       };
@@ -2043,7 +1817,7 @@ export type Database = {
           report_type: string;
           reported_fursuit_id: string | null;
           reported_user_id: string | null;
-          reporter_id: string;
+          reporter_id: string | null;
           resolution_notes: string | null;
           resolved_at: string | null;
           resolved_by_user_id: string | null;
@@ -2059,7 +1833,7 @@ export type Database = {
           report_type: string;
           reported_fursuit_id?: string | null;
           reported_user_id?: string | null;
-          reporter_id: string;
+          reporter_id?: string | null;
           resolution_notes?: string | null;
           resolved_at?: string | null;
           resolved_by_user_id?: string | null;
@@ -2075,7 +1849,7 @@ export type Database = {
           report_type?: string;
           reported_fursuit_id?: string | null;
           reported_user_id?: string | null;
-          reporter_id?: string;
+          reporter_id?: string | null;
           resolution_notes?: string | null;
           resolved_at?: string | null;
           resolved_by_user_id?: string | null;
@@ -2178,6 +1952,24 @@ export type Database = {
       };
     };
     Views: {
+      catch_mode_default_experiment_results: {
+        Row: {
+          accepted_catches_after_exposure: number | null;
+          assigned_profiles: number | null;
+          catches_after_exposure: number | null;
+          current_auto_profiles: number | null;
+          current_manual_profiles: number | null;
+          defaults_applied: number | null;
+          experiment_key: string | null;
+          exposed_profiles: number | null;
+          fursuits_created_after_exposure: number | null;
+          pending_catches_after_exposure: number | null;
+          switch_away_rate: number | null;
+          switched_away_profiles: number | null;
+          variant: string | null;
+        };
+        Relationships: [];
+      };
       fursuits_moderation: {
         Row: {
           created_at: string | null;
@@ -2218,48 +2010,6 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
-      };
-      geography_columns: {
-        Row: {
-          coord_dimension: number | null;
-          f_geography_column: unknown;
-          f_table_catalog: unknown;
-          f_table_name: unknown;
-          f_table_schema: unknown;
-          srid: number | null;
-          type: string | null;
-        };
-        Relationships: [];
-      };
-      geometry_columns: {
-        Row: {
-          coord_dimension: number | null;
-          f_geometry_column: unknown;
-          f_table_catalog: string | null;
-          f_table_name: unknown;
-          f_table_schema: unknown;
-          srid: number | null;
-          type: string | null;
-        };
-        Insert: {
-          coord_dimension?: number | null;
-          f_geometry_column?: unknown;
-          f_table_catalog?: string | null;
-          f_table_name?: unknown;
-          f_table_schema?: unknown;
-          srid?: number | null;
-          type?: string | null;
-        };
-        Update: {
-          coord_dimension?: number | null;
-          f_geometry_column?: unknown;
-          f_table_catalog?: string | null;
-          f_table_name?: unknown;
-          f_table_schema?: unknown;
-          srid?: number | null;
-          type?: string | null;
-        };
-        Relationships: [];
       };
       mv_achievement_unlocks_daily: {
         Row: {
@@ -2389,137 +2139,20 @@ export type Database = {
       };
     };
     Functions: {
-      _postgis_deprecate: {
-        Args: { newname: string; oldname: string; version: string };
-        Returns: undefined;
-      };
-      _postgis_index_extent: {
-        Args: { col: string; tbl: unknown };
-        Returns: unknown;
-      };
-      _postgis_pgsql_version: { Args: never; Returns: string };
-      _postgis_scripts_pgsql_version: { Args: never; Returns: string };
-      _postgis_selectivity: {
-        Args: { att_name: string; geom: unknown; mode?: string; tbl: unknown };
-        Returns: number;
-      };
-      _postgis_stats: {
-        Args: { ''?: string; att_name: string; tbl: unknown };
-        Returns: string;
-      };
-      _st_3dintersects: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      _st_contains: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      _st_containsproperly: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      _st_coveredby:
-        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
-        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean };
-      _st_covers:
-        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
-        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean };
-      _st_crosses: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      _st_dwithin: {
-        Args: {
-          geog1: unknown;
-          geog2: unknown;
-          tolerance: number;
-          use_spheroid?: boolean;
-        };
-        Returns: boolean;
-      };
-      _st_equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean };
-      _st_intersects: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      _st_linecrossingdirection: {
-        Args: { line1: unknown; line2: unknown };
-        Returns: number;
-      };
-      _st_longestline: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      _st_maxdistance: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: number;
-      };
-      _st_orderingequals: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      _st_overlaps: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      _st_sortablehash: { Args: { geom: unknown }; Returns: number };
-      _st_touches: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      _st_voronoi: {
-        Args: {
-          clip?: unknown;
-          g1: unknown;
-          return_polygons?: boolean;
-          tolerance?: number;
-        };
-        Returns: unknown;
-      };
-      _st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean };
-      addauth: { Args: { '': string }; Returns: boolean };
-      addgeometrycolumn:
-        | {
-            Args: {
-              catalog_name: string;
-              column_name: string;
-              new_dim: number;
-              new_srid_in: number;
-              new_type: string;
-              schema_name: string;
-              table_name: string;
-              use_typmod?: boolean;
-            };
-            Returns: string;
-          }
-        | {
-            Args: {
-              column_name: string;
-              new_dim: number;
-              new_srid: number;
-              new_type: string;
-              schema_name: string;
-              table_name: string;
-              use_typmod?: boolean;
-            };
-            Returns: string;
-          }
-        | {
-            Args: {
-              column_name: string;
-              new_dim: number;
-              new_srid: number;
-              new_type: string;
-              table_name: string;
-              use_typmod?: boolean;
-            };
-            Returns: string;
-          };
-      archive_old_events: { Args: never; Returns: undefined };
       archive_gameplay_event_queue_message: {
         Args: { p_message_id: number };
         Returns: boolean;
+      };
+      archive_old_events: { Args: never; Returns: undefined };
+      attach_catch_photo_after_upload: {
+        Args: {
+          p_catch_id: string;
+          p_catch_photo_path: string;
+          p_catch_photo_source?: string;
+          p_catch_photo_url: string;
+          p_catcher_id: string;
+        };
+        Returns: Json;
       };
       calculate_catch_expiration:
         | { Args: never; Returns: string }
@@ -2532,11 +2165,18 @@ export type Database = {
         Args: { p_batch_size?: number; p_min_age_seconds?: number };
         Returns: {
           convention_id: string | null;
+          dead_letter_reason: string | null;
+          dead_lettered_at: string | null;
+          enqueued_at: string | null;
           event_id: string;
+          idempotency_key: string | null;
+          last_attempted_at: string | null;
           last_error: string | null;
           occurred_at: string;
           payload: Json;
           processed_at: string | null;
+          queue_message_id: number | null;
+          queue_name: string | null;
           received_at: string;
           retry_count: number;
           type: string;
@@ -2560,32 +2200,60 @@ export type Database = {
         };
         Returns: Json;
       };
+      count_accepted_catches_by_catcher_on_date: {
+        Args: {
+          p_catcher_id: string;
+          p_convention_id: string;
+          p_date: string;
+          p_timezone: string;
+        };
+        Returns: number;
+      };
       count_distinct_conventions: { Args: { user_id: string }; Returns: number };
+      count_distinct_conventions_for_fursuit: {
+        Args: { p_fursuit_id: string };
+        Returns: number;
+      };
+      count_distinct_local_days_for_fursuit_at_convention: {
+        Args: {
+          p_convention_id: string;
+          p_fursuit_id: string;
+          p_timezone: string;
+        };
+        Returns: number;
+      };
+      count_distinct_makers_caught_at_convention: {
+        Args: { p_catcher_id: string; p_convention_id: string };
+        Returns: number;
+      };
+      count_distinct_self_made_fursuits_caught: {
+        Args: { p_catcher_id: string; p_self_made_aliases: string[] };
+        Returns: number;
+      };
       count_distinct_species_caught: {
         Args: { user_id: string };
         Returns: number;
       };
+      count_real_achievements_for_user: {
+        Args: { p_user_id: string };
+        Returns: number;
+      };
+      count_unique_catchers_for_fursuit_lifetime: {
+        Args: { p_fursuit_id: string };
+        Returns: number;
+      };
       count_user_fursuits: { Args: { p_user_id: string }; Returns: number };
-      create_catch_with_approval:
-        | {
-            Args: {
-              p_catcher_id: string;
-              p_convention_id?: string;
-              p_fursuit_id: string;
-              p_is_tutorial?: boolean;
-            };
-            Returns: Json;
-          }
-        | {
-            Args: {
-              p_catcher_id: string;
-              p_convention_id?: string;
-              p_force_pending?: boolean;
-              p_fursuit_id: string;
-              p_is_tutorial?: boolean;
-            };
-            Returns: Json;
-          };
+      create_catch_with_approval: {
+        Args: {
+          p_catch_photo_source?: string;
+          p_catcher_id: string;
+          p_convention_id?: string;
+          p_force_pending?: boolean;
+          p_fursuit_id: string;
+          p_is_tutorial?: boolean;
+        };
+        Returns: Json;
+      };
       create_catch_with_event: {
         Args: {
           p_catch_photo_path?: string;
@@ -2597,8 +2265,19 @@ export type Database = {
           p_force_pending?: boolean;
           p_fursuit_id: string;
           p_is_tutorial?: boolean;
+          p_photo_upload_state?: string;
         };
         Returns: Json;
+      };
+      current_user_has_password_credential: { Args: never; Returns: boolean };
+      delete_archived_convention_in_dev: {
+        Args: { p_actor_id: string; p_convention_id: string };
+        Returns: {
+          cleanup_notes: string[];
+          convention_name: string;
+          counts: Json;
+          deleted: boolean;
+        }[];
       };
       delete_gameplay_event_queue_message: {
         Args: { p_message_id: number };
@@ -2612,43 +2291,14 @@ export type Database = {
           scan_count: number;
         }[];
       };
-      disablelongtransactions: { Args: never; Returns: string };
-      dropgeometrycolumn:
-        | {
-            Args: {
-              catalog_name: string;
-              column_name: string;
-              schema_name: string;
-              table_name: string;
-            };
-            Returns: string;
-          }
-        | {
-            Args: {
-              column_name: string;
-              schema_name: string;
-              table_name: string;
-            };
-            Returns: string;
-          }
-        | { Args: { column_name: string; table_name: string }; Returns: string };
-      dropgeometrytable:
-        | {
-            Args: {
-              catalog_name: string;
-              schema_name: string;
-              table_name: string;
-            };
-            Returns: string;
-          }
-        | { Args: { schema_name: string; table_name: string }; Returns: string }
-        | { Args: { table_name: string }; Returns: string };
-      enablelongtransactions: { Args: never; Returns: string };
-      equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean };
       execute_data_retention_cleanup: { Args: never; Returns: Json };
       expire_bans: { Args: never; Returns: Json };
       expire_moderation_actions: { Args: never; Returns: undefined };
       expire_pending_catches: { Args: never; Returns: Json };
+      expire_pending_catches_for_convention_closeout: {
+        Args: { p_convention_id: string };
+        Returns: Json;
+      };
       fetch_unprocessed_events: {
         Args: { batch_size?: number; min_age_seconds?: number };
         Returns: {
@@ -2662,25 +2312,6 @@ export type Database = {
           user_id: string;
         }[];
       };
-      ingest_gameplay_event: {
-        Args: {
-          p_convention_id: string | null;
-          p_idempotency_key?: string | null;
-          p_occurred_at: string;
-          p_payload: Json;
-          p_type: string;
-          p_user_id: string;
-        };
-        Returns: {
-          duplicate: boolean;
-          enqueued: boolean;
-          event_id: string;
-        }[];
-      };
-      insert_catch_notification_once: {
-        Args: { p_payload: Json; p_type: string; p_user_id: string };
-        Returns: undefined;
-      };
       finish_onboarding: { Args: { target_user_id?: string }; Returns: Json };
       generate_profile_avatar_url: {
         Args: { app_meta: Json; user_meta: Json };
@@ -2690,104 +2321,18 @@ export type Database = {
         Args: { app_meta: Json; user_email: string; user_meta: Json };
         Returns: string;
       };
-      geometry: { Args: { '': string }; Returns: unknown };
-      geometry_above: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
+      get_active_profile_convention_ids: {
+        Args: { p_profile_id: string };
+        Returns: {
+          convention_id: string;
+        }[];
       };
-      geometry_below: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
+      get_active_shared_convention_ids: {
+        Args: { p_fursuit_id: string; p_profile_id: string };
+        Returns: {
+          convention_id: string;
+        }[];
       };
-      geometry_cmp: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: number;
-      };
-      geometry_contained_3d: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_contains: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_contains_3d: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_distance_box: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: number;
-      };
-      geometry_distance_centroid: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: number;
-      };
-      geometry_eq: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_ge: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_gt: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_le: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_left: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_lt: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_overabove: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_overbelow: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_overlaps: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_overlaps_3d: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_overleft: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_overright: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_right: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_same: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_same_3d: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geometry_within: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      geomfromewkt: { Args: { '': string }; Returns: unknown };
       get_blocked_users: {
         Args: { p_user_id: string };
         Returns: {
@@ -2812,6 +2357,69 @@ export type Database = {
           username: string;
         }[];
       };
+      get_convention_lifecycle_health_counts: {
+        Args: {
+          p_convention_ids: string[];
+          p_local_days?: Json;
+          p_retry_window_start?: string;
+          p_throttle_window_start?: string;
+        };
+        Returns: {
+          accepted_convention_catches_count: number;
+          active_fursuit_assignments_count: number;
+          active_profile_memberships_count: number;
+          automation_retry_attempts_last_7_days: number;
+          convention_id: string;
+          convention_tasks_count: number;
+          last_automation_attempt_at: string;
+          last_automation_source: string;
+          participant_recaps_count: number;
+          pending_convention_catches_count: number;
+          recent_cron_close_attempt: boolean;
+          recent_cron_retry_attempt: boolean;
+          today_assignments_count: number;
+        }[];
+      };
+      get_convention_suit_leaderboard: {
+        Args: { p_convention_id: string };
+        Returns: {
+          catch_count: number;
+          color_assignments: Json;
+          convention_id: string;
+          first_caught_at: string;
+          fursuit_avatar_url: string;
+          fursuit_id: string;
+          fursuit_name: string;
+          last_caught_at: string;
+          owner_id: string;
+          species_id: string;
+          species_name: string;
+          unique_catchers: number;
+        }[];
+      };
+      get_convention_suit_roster: {
+        Args: { p_convention_id: string };
+        Returns: {
+          color_assignments: Json;
+          convention_catch_count: number;
+          convention_id: string;
+          fursuit_avatar_path: string;
+          fursuit_avatar_url: string;
+          fursuit_id: string;
+          fursuit_name: string;
+          owner_id: string;
+          owner_username: string;
+          roster_visible: boolean;
+          species_id: string;
+          species_name: string;
+        }[];
+      };
+      get_convention_suit_roster_caught_ids: {
+        Args: { p_convention_id: string };
+        Returns: {
+          fursuit_id: string;
+        }[];
+      };
       get_event_dashboard_summary: {
         Args: { p_convention_id: string };
         Returns: {
@@ -2831,6 +2439,18 @@ export type Database = {
           unique_catchers: number;
         }[];
       };
+      get_gallery_profile_convention_ids: {
+        Args: { p_profile_id: string };
+        Returns: {
+          convention_id: string;
+        }[];
+      };
+      get_gallery_shared_convention_ids: {
+        Args: { p_fursuit_id: string; p_profile_id: string };
+        Returns: {
+          convention_id: string;
+        }[];
+      };
       get_global_dashboard_summary: {
         Args: never;
         Returns: {
@@ -2843,11 +2463,107 @@ export type Database = {
           total_catches: number;
         }[];
       };
+      get_joinable_conventions: {
+        Args: never;
+        Returns: {
+          end_date: string;
+          geofence_enabled: boolean;
+          geofence_radius_meters: number;
+          id: string;
+          is_joinable: boolean;
+          latitude: number;
+          local_day: string;
+          location: string;
+          location_verification_required: boolean;
+          longitude: number;
+          name: string;
+          slug: string;
+          start_date: string;
+          status: string;
+          timezone: string;
+        }[];
+      };
+      get_my_convention_memberships: {
+        Args: never;
+        Returns: {
+          closeout_not_before: string;
+          convention_id: string;
+          end_date: string;
+          finalizing_started_at: string;
+          geofence_enabled: boolean;
+          geofence_radius_meters: number;
+          id: string;
+          is_joinable: boolean;
+          joined_at: string;
+          latitude: number;
+          local_day: string;
+          location: string;
+          location_verification_required: boolean;
+          longitude: number;
+          membership_state: string;
+          name: string;
+          override_at: string;
+          playable_notified_at: string;
+          slug: string;
+          start_date: string;
+          status: string;
+          timezone: string;
+          verification_method: string;
+          verified_at: string;
+        }[];
+      };
+      get_my_convention_recap_detail: {
+        Args: { p_recap_id: string };
+        Returns: {
+          achievements: Json;
+          awards: Json;
+          caught_fursuits: Json;
+          daily_summary: Json;
+          owned_fursuits: Json;
+          recap: Json;
+        }[];
+      };
+      get_my_convention_recaps: {
+        Args: never;
+        Returns: {
+          achievements_unlocked_count: number;
+          catch_count: number;
+          convention_id: string;
+          convention_name: string;
+          daily_tasks_completed_count: number;
+          end_date: string;
+          final_rank: number;
+          generated_at: string;
+          location: string;
+          own_fursuits_caught_count: number;
+          recap_id: string;
+          start_date: string;
+          summary: Json;
+          unique_catchers_for_own_fursuits_count: number;
+          unique_fursuits_caught_count: number;
+        }[];
+      };
+      get_or_assign_catch_mode_default_experiment: {
+        Args: never;
+        Returns: {
+          assignment_created: boolean;
+          current_catch_mode: string;
+          current_preference_source: string;
+          default_applied: boolean;
+          experiment_key: string;
+          exposed_at: string;
+          previous_catch_mode: string;
+          previous_preference_source: string;
+          profile_id: string;
+          variant: string;
+        }[];
+      };
       get_pending_catch_count: { Args: { p_user_id: string }; Returns: number };
       get_pending_catches: {
         Args: { p_user_id: string };
         Returns: {
           catch_id: string;
+          catch_photo_source: string;
           catch_photo_url: string;
           catcher_avatar_url: string;
           catcher_id: string;
@@ -2859,6 +2575,7 @@ export type Database = {
           fursuit_avatar_url: string;
           fursuit_id: string;
           fursuit_name: string;
+          photo_upload_state: string;
           time_remaining: string;
         }[];
       };
@@ -2870,17 +2587,64 @@ export type Database = {
         Args: { user_id: string };
         Returns: Database['public']['Enums']['user_role'];
       };
-      gettransactionid: { Args: never; Returns: unknown };
       grant_achievements_batch: { Args: { awards: Json }; Returns: Json };
+      has_new_maker_for_catcher_at_convention: {
+        Args: {
+          p_catch_id: string;
+          p_catcher_id: string;
+          p_convention_id: string;
+          p_normalized_maker_names: string[];
+        };
+        Returns: boolean;
+      };
+      has_visible_gameplay_event_queue_messages: {
+        Args: never;
+        Returns: boolean;
+      };
       hash_ip_address: { Args: { ip_addr: unknown }; Returns: string };
+      ingest_gameplay_event: {
+        Args: {
+          p_convention_id: string;
+          p_idempotency_key?: string;
+          p_occurred_at: string;
+          p_payload: Json;
+          p_type: string;
+          p_user_id: string;
+        };
+        Returns: {
+          duplicate: boolean;
+          enqueued: boolean;
+          event_id: string;
+        }[];
+      };
+      insert_catch_notification_once: {
+        Args: { p_payload: Json; p_type: string; p_user_id: string };
+        Returns: undefined;
+      };
+      insert_convention_recap_ready_notification_once: {
+        Args: { p_payload: Json; p_user_id: string };
+        Returns: boolean;
+      };
       is_admin: { Args: { user_id: string }; Returns: boolean };
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean };
       is_blocked: {
         Args: { p_user_a: string; p_user_b: string };
         Returns: boolean;
       };
-      is_username_available: {
-        Args: { p_current_user_id?: string; p_username: string };
+      is_convention_gallery_catchable: {
+        Args: { p_convention_id: string };
+        Returns: boolean;
+      };
+      is_convention_joinable: {
+        Args: { p_convention_id: string };
+        Returns: boolean;
+      };
+      is_convention_leaderboard_visible: {
+        Args: { p_convention_id: string };
+        Returns: boolean;
+      };
+      is_convention_prejoinable: {
+        Args: { p_convention_id: string };
         Returns: boolean;
       };
       is_event_staff: {
@@ -2891,7 +2655,23 @@ export type Database = {
         Args: { check_user_id: string };
         Returns: boolean;
       };
+      is_profile_convention_gallery_catch_eligible: {
+        Args: { p_convention_id: string; p_profile_id: string };
+        Returns: boolean;
+      };
+      is_profile_convention_gameplay_eligible: {
+        Args: { p_convention_id: string; p_profile_id: string };
+        Returns: boolean;
+      };
+      is_username_available: {
+        Args: { p_current_user_id?: string; p_username: string };
+        Returns: boolean;
+      };
       is_valid_event_type: { Args: { p_event_type: string }; Returns: boolean };
+      leave_convention: {
+        Args: { p_convention_id: string; p_profile_id: string };
+        Returns: undefined;
+      };
       log_admin_action: {
         Args: {
           p_action: string;
@@ -2905,7 +2685,6 @@ export type Database = {
         };
         Returns: string;
       };
-      longtransactionsenabled: { Args: never; Returns: boolean };
       notify_catch_decision: {
         Args: {
           p_catch_id: string;
@@ -2927,10 +2706,6 @@ export type Database = {
         };
         Returns: undefined;
       };
-      remove_fursuit_from_convention: {
-        Args: { p_convention_id: string; p_fursuit_id: string };
-        Returns: undefined;
-      };
       opt_in_to_convention: {
         Args: {
           p_convention_id: string;
@@ -2941,72 +2716,11 @@ export type Database = {
         };
         Returns: undefined;
       };
-      populate_geometry_columns:
-        | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
-        | { Args: { use_typmod?: boolean }; Returns: string };
-      postgis_constraint_dims: {
-        Args: { geomcolumn: string; geomschema: string; geomtable: string };
-        Returns: number;
-      };
-      postgis_constraint_srid: {
-        Args: { geomcolumn: string; geomschema: string; geomtable: string };
-        Returns: number;
-      };
-      postgis_constraint_type: {
-        Args: { geomcolumn: string; geomschema: string; geomtable: string };
-        Returns: string;
-      };
-      postgis_extensions_upgrade: { Args: never; Returns: string };
-      postgis_full_version: { Args: never; Returns: string };
-      postgis_geos_version: { Args: never; Returns: string };
-      postgis_lib_build_date: { Args: never; Returns: string };
-      postgis_lib_revision: { Args: never; Returns: string };
-      postgis_lib_version: { Args: never; Returns: string };
-      postgis_libjson_version: { Args: never; Returns: string };
-      postgis_liblwgeom_version: { Args: never; Returns: string };
-      postgis_libprotobuf_version: { Args: never; Returns: string };
-      postgis_libxml_version: { Args: never; Returns: string };
-      postgis_proj_version: { Args: never; Returns: string };
-      postgis_scripts_build_date: { Args: never; Returns: string };
-      postgis_scripts_installed: { Args: never; Returns: string };
-      postgis_scripts_released: { Args: never; Returns: string };
-      postgis_svn_version: { Args: never; Returns: string };
-      postgis_type_name: {
-        Args: {
-          coord_dimension: number;
-          geomname: string;
-          use_new_name?: boolean;
-        };
-        Returns: string;
-      };
-      postgis_version: { Args: never; Returns: string };
-      postgis_wagyu_version: { Args: never; Returns: string };
       process_achievement_queue_if_active: { Args: never; Returns: undefined };
       process_gameplay_queue_if_active: { Args: never; Returns: undefined };
-      process_qr_asset_cleanup: {
-        Args: { batch_size?: number };
-        Returns: {
-          attempts: number;
-          bucket: string;
-          created_at: string;
-          id: string;
-          last_error: string | null;
-          processed_at: string | null;
-          qr_asset_path: string;
-          tag_id: string;
-        }[];
-        SetofOptions: {
-          from: '*';
-          to: 'qr_asset_cleanup_queue';
-          isOneToOne: false;
-          isSetofReturn: true;
-        };
-      };
+      purge_geo_verification_data: { Args: never; Returns: Json };
       read_gameplay_event_queue: {
-        Args: {
-          p_batch_size?: number;
-          p_visibility_timeout_seconds?: number;
-        };
+        Args: { p_batch_size?: number; p_visibility_timeout_seconds?: number };
         Returns: {
           enqueued_at: string;
           message: Json;
@@ -3015,10 +2729,17 @@ export type Database = {
           vt: string;
         }[];
       };
-      purge_geo_verification_data: { Args: never; Returns: Json };
       refresh_analytics_views: { Args: never; Returns: undefined };
       refresh_fursuit_popularity: {
         Args: { convention_uuid?: string };
+        Returns: undefined;
+      };
+      remove_fursuit_from_convention: {
+        Args: { p_convention_id: string; p_fursuit_id: string };
+        Returns: undefined;
+      };
+      replace_fursuit_makers: {
+        Args: { fursuit_id: string; makers?: Json };
         Returns: undefined;
       };
       search_players: {
@@ -3044,586 +2765,15 @@ export type Database = {
           username: string;
         }[];
       };
-      st_3dclosestpoint: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      st_3ddistance: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: number;
-      };
-      st_3dintersects: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      st_3dlongestline: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      st_3dmakebox: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      st_3dmaxdistance: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: number;
-      };
-      st_3dshortestline: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      st_addpoint: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      st_angle:
-        | { Args: { line1: unknown; line2: unknown }; Returns: number }
-        | {
-            Args: { pt1: unknown; pt2: unknown; pt3: unknown; pt4?: unknown };
-            Returns: number;
-          };
-      st_area:
-        | { Args: { geog: unknown; use_spheroid?: boolean }; Returns: number }
-        | { Args: { '': string }; Returns: number };
-      st_asencodedpolyline: {
-        Args: { geom: unknown; nprecision?: number };
-        Returns: string;
-      };
-      st_asewkt: { Args: { '': string }; Returns: string };
-      st_asgeojson:
-        | {
-            Args: { geog: unknown; maxdecimaldigits?: number; options?: number };
-            Returns: string;
-          }
-        | {
-            Args: { geom: unknown; maxdecimaldigits?: number; options?: number };
-            Returns: string;
-          }
-        | {
-            Args: {
-              geom_column?: string;
-              maxdecimaldigits?: number;
-              pretty_bool?: boolean;
-              r: Record<string, unknown>;
-            };
-            Returns: string;
-          }
-        | { Args: { '': string }; Returns: string };
-      st_asgml:
-        | {
-            Args: {
-              geog: unknown;
-              id?: string;
-              maxdecimaldigits?: number;
-              nprefix?: string;
-              options?: number;
-            };
-            Returns: string;
-          }
-        | {
-            Args: { geom: unknown; maxdecimaldigits?: number; options?: number };
-            Returns: string;
-          }
-        | { Args: { '': string }; Returns: string }
-        | {
-            Args: {
-              geog: unknown;
-              id?: string;
-              maxdecimaldigits?: number;
-              nprefix?: string;
-              options?: number;
-              version: number;
-            };
-            Returns: string;
-          }
-        | {
-            Args: {
-              geom: unknown;
-              id?: string;
-              maxdecimaldigits?: number;
-              nprefix?: string;
-              options?: number;
-              version: number;
-            };
-            Returns: string;
-          };
-      st_askml:
-        | {
-            Args: { geog: unknown; maxdecimaldigits?: number; nprefix?: string };
-            Returns: string;
-          }
-        | {
-            Args: { geom: unknown; maxdecimaldigits?: number; nprefix?: string };
-            Returns: string;
-          }
-        | { Args: { '': string }; Returns: string };
-      st_aslatlontext: {
-        Args: { geom: unknown; tmpl?: string };
-        Returns: string;
-      };
-      st_asmarc21: { Args: { format?: string; geom: unknown }; Returns: string };
-      st_asmvtgeom: {
-        Args: {
-          bounds: unknown;
-          buffer?: number;
-          clip_geom?: boolean;
-          extent?: number;
-          geom: unknown;
-        };
-        Returns: unknown;
-      };
-      st_assvg:
-        | {
-            Args: { geog: unknown; maxdecimaldigits?: number; rel?: number };
-            Returns: string;
-          }
-        | {
-            Args: { geom: unknown; maxdecimaldigits?: number; rel?: number };
-            Returns: string;
-          }
-        | { Args: { '': string }; Returns: string };
-      st_astext: { Args: { '': string }; Returns: string };
-      st_astwkb:
-        | {
-            Args: {
-              geom: unknown;
-              prec?: number;
-              prec_m?: number;
-              prec_z?: number;
-              with_boxes?: boolean;
-              with_sizes?: boolean;
-            };
-            Returns: string;
-          }
-        | {
-            Args: {
-              geom: unknown[];
-              ids: number[];
-              prec?: number;
-              prec_m?: number;
-              prec_z?: number;
-              with_boxes?: boolean;
-              with_sizes?: boolean;
-            };
-            Returns: string;
-          };
-      st_asx3d: {
-        Args: { geom: unknown; maxdecimaldigits?: number; options?: number };
-        Returns: string;
-      };
-      st_azimuth:
-        | { Args: { geog1: unknown; geog2: unknown }; Returns: number }
-        | { Args: { geom1: unknown; geom2: unknown }; Returns: number };
-      st_boundingdiagonal: {
-        Args: { fits?: boolean; geom: unknown };
-        Returns: unknown;
-      };
-      st_buffer:
-        | {
-            Args: { geom: unknown; options?: string; radius: number };
-            Returns: unknown;
-          }
-        | {
-            Args: { geom: unknown; quadsegs: number; radius: number };
-            Returns: unknown;
-          };
-      st_centroid: { Args: { '': string }; Returns: unknown };
-      st_clipbybox2d: {
-        Args: { box: unknown; geom: unknown };
-        Returns: unknown;
-      };
-      st_closestpoint: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      st_collect: { Args: { geom1: unknown; geom2: unknown }; Returns: unknown };
-      st_concavehull: {
-        Args: {
-          param_allow_holes?: boolean;
-          param_geom: unknown;
-          param_pctconvex: number;
-        };
-        Returns: unknown;
-      };
-      st_contains: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      st_containsproperly: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      st_coorddim: { Args: { geometry: unknown }; Returns: number };
-      st_coveredby:
-        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
-        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean };
-      st_covers:
-        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
-        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean };
-      st_crosses: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean };
-      st_curvetoline: {
-        Args: { flags?: number; geom: unknown; tol?: number; toltype?: number };
-        Returns: unknown;
-      };
-      st_delaunaytriangles: {
-        Args: { flags?: number; g1: unknown; tolerance?: number };
-        Returns: unknown;
-      };
-      st_difference: {
-        Args: { geom1: unknown; geom2: unknown; gridsize?: number };
-        Returns: unknown;
-      };
-      st_disjoint: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      st_distance:
-        | {
-            Args: { geog1: unknown; geog2: unknown; use_spheroid?: boolean };
-            Returns: number;
-          }
-        | { Args: { geom1: unknown; geom2: unknown }; Returns: number };
-      st_distancesphere:
-        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
-        | {
-            Args: { geom1: unknown; geom2: unknown; radius: number };
-            Returns: number;
-          };
-      st_distancespheroid: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: number;
-      };
-      st_dwithin: {
-        Args: {
-          geog1: unknown;
-          geog2: unknown;
-          tolerance: number;
-          use_spheroid?: boolean;
-        };
-        Returns: boolean;
-      };
-      st_equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean };
-      st_expand:
-        | { Args: { box: unknown; dx: number; dy: number }; Returns: unknown }
-        | {
-            Args: { box: unknown; dx: number; dy: number; dz?: number };
-            Returns: unknown;
-          }
-        | {
-            Args: {
-              dm?: number;
-              dx: number;
-              dy: number;
-              dz?: number;
-              geom: unknown;
-            };
-            Returns: unknown;
-          };
-      st_force3d: { Args: { geom: unknown; zvalue?: number }; Returns: unknown };
-      st_force3dm: {
-        Args: { geom: unknown; mvalue?: number };
-        Returns: unknown;
-      };
-      st_force3dz: {
-        Args: { geom: unknown; zvalue?: number };
-        Returns: unknown;
-      };
-      st_force4d: {
-        Args: { geom: unknown; mvalue?: number; zvalue?: number };
-        Returns: unknown;
-      };
-      st_generatepoints:
-        | { Args: { area: unknown; npoints: number }; Returns: unknown }
-        | {
-            Args: { area: unknown; npoints: number; seed: number };
-            Returns: unknown;
-          };
-      st_geogfromtext: { Args: { '': string }; Returns: unknown };
-      st_geographyfromtext: { Args: { '': string }; Returns: unknown };
-      st_geohash:
-        | { Args: { geog: unknown; maxchars?: number }; Returns: string }
-        | { Args: { geom: unknown; maxchars?: number }; Returns: string };
-      st_geomcollfromtext: { Args: { '': string }; Returns: unknown };
-      st_geometricmedian: {
-        Args: {
-          fail_if_not_converged?: boolean;
-          g: unknown;
-          max_iter?: number;
-          tolerance?: number;
-        };
-        Returns: unknown;
-      };
-      st_geometryfromtext: { Args: { '': string }; Returns: unknown };
-      st_geomfromewkt: { Args: { '': string }; Returns: unknown };
-      st_geomfromgeojson:
-        | { Args: { '': Json }; Returns: unknown }
-        | { Args: { '': Json }; Returns: unknown }
-        | { Args: { '': string }; Returns: unknown };
-      st_geomfromgml: { Args: { '': string }; Returns: unknown };
-      st_geomfromkml: { Args: { '': string }; Returns: unknown };
-      st_geomfrommarc21: { Args: { marc21xml: string }; Returns: unknown };
-      st_geomfromtext: { Args: { '': string }; Returns: unknown };
-      st_gmltosql: { Args: { '': string }; Returns: unknown };
-      st_hasarc: { Args: { geometry: unknown }; Returns: boolean };
-      st_hausdorffdistance: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: number;
-      };
-      st_hexagon: {
-        Args: { cell_i: number; cell_j: number; origin?: unknown; size: number };
-        Returns: unknown;
-      };
-      st_hexagongrid: {
-        Args: { bounds: unknown; size: number };
-        Returns: Record<string, unknown>[];
-      };
-      st_interpolatepoint: {
-        Args: { line: unknown; point: unknown };
-        Returns: number;
-      };
-      st_intersection: {
-        Args: { geom1: unknown; geom2: unknown; gridsize?: number };
-        Returns: unknown;
-      };
-      st_intersects:
-        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
-        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean };
-      st_isvaliddetail: {
-        Args: { flags?: number; geom: unknown };
-        Returns: Database['public']['CompositeTypes']['valid_detail'];
-        SetofOptions: {
-          from: '*';
-          to: 'valid_detail';
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
-      st_length:
-        | { Args: { geog: unknown; use_spheroid?: boolean }; Returns: number }
-        | { Args: { '': string }; Returns: number };
-      st_letters: { Args: { font?: Json; letters: string }; Returns: unknown };
-      st_linecrossingdirection: {
-        Args: { line1: unknown; line2: unknown };
-        Returns: number;
-      };
-      st_linefromencodedpolyline: {
-        Args: { nprecision?: number; txtin: string };
-        Returns: unknown;
-      };
-      st_linefromtext: { Args: { '': string }; Returns: unknown };
-      st_linelocatepoint: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: number;
-      };
-      st_linetocurve: { Args: { geometry: unknown }; Returns: unknown };
-      st_locatealong: {
-        Args: { geometry: unknown; leftrightoffset?: number; measure: number };
-        Returns: unknown;
-      };
-      st_locatebetween: {
-        Args: {
-          frommeasure: number;
-          geometry: unknown;
-          leftrightoffset?: number;
-          tomeasure: number;
-        };
-        Returns: unknown;
-      };
-      st_locatebetweenelevations: {
-        Args: { fromelevation: number; geometry: unknown; toelevation: number };
-        Returns: unknown;
-      };
-      st_longestline: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      st_makebox2d: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      st_makeline: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      st_makevalid: {
-        Args: { geom: unknown; params: string };
-        Returns: unknown;
-      };
-      st_maxdistance: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: number;
-      };
-      st_minimumboundingcircle: {
-        Args: { inputgeom: unknown; segs_per_quarter?: number };
-        Returns: unknown;
-      };
-      st_mlinefromtext: { Args: { '': string }; Returns: unknown };
-      st_mpointfromtext: { Args: { '': string }; Returns: unknown };
-      st_mpolyfromtext: { Args: { '': string }; Returns: unknown };
-      st_multilinestringfromtext: { Args: { '': string }; Returns: unknown };
-      st_multipointfromtext: { Args: { '': string }; Returns: unknown };
-      st_multipolygonfromtext: { Args: { '': string }; Returns: unknown };
-      st_node: { Args: { g: unknown }; Returns: unknown };
-      st_normalize: { Args: { geom: unknown }; Returns: unknown };
-      st_offsetcurve: {
-        Args: { distance: number; line: unknown; params?: string };
-        Returns: unknown;
-      };
-      st_orderingequals: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      st_overlaps: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: boolean;
-      };
-      st_perimeter: {
-        Args: { geog: unknown; use_spheroid?: boolean };
-        Returns: number;
-      };
-      st_pointfromtext: { Args: { '': string }; Returns: unknown };
-      st_pointm: {
-        Args: {
-          mcoordinate: number;
-          srid?: number;
-          xcoordinate: number;
-          ycoordinate: number;
-        };
-        Returns: unknown;
-      };
-      st_pointz: {
-        Args: {
-          srid?: number;
-          xcoordinate: number;
-          ycoordinate: number;
-          zcoordinate: number;
-        };
-        Returns: unknown;
-      };
-      st_pointzm: {
-        Args: {
-          mcoordinate: number;
-          srid?: number;
-          xcoordinate: number;
-          ycoordinate: number;
-          zcoordinate: number;
-        };
-        Returns: unknown;
-      };
-      st_polyfromtext: { Args: { '': string }; Returns: unknown };
-      st_polygonfromtext: { Args: { '': string }; Returns: unknown };
-      st_project: {
-        Args: { azimuth: number; distance: number; geog: unknown };
-        Returns: unknown;
-      };
-      st_quantizecoordinates: {
-        Args: {
-          g: unknown;
-          prec_m?: number;
-          prec_x: number;
-          prec_y?: number;
-          prec_z?: number;
-        };
-        Returns: unknown;
-      };
-      st_reduceprecision: {
-        Args: { geom: unknown; gridsize: number };
-        Returns: unknown;
-      };
-      st_relate: { Args: { geom1: unknown; geom2: unknown }; Returns: string };
-      st_removerepeatedpoints: {
-        Args: { geom: unknown; tolerance?: number };
-        Returns: unknown;
-      };
-      st_segmentize: {
-        Args: { geog: unknown; max_segment_length: number };
-        Returns: unknown;
-      };
-      st_setsrid:
-        | { Args: { geog: unknown; srid: number }; Returns: unknown }
-        | { Args: { geom: unknown; srid: number }; Returns: unknown };
-      st_sharedpaths: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      st_shortestline: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      st_simplifypolygonhull: {
-        Args: { geom: unknown; is_outer?: boolean; vertex_fraction: number };
-        Returns: unknown;
-      };
-      st_split: { Args: { geom1: unknown; geom2: unknown }; Returns: unknown };
-      st_square: {
-        Args: { cell_i: number; cell_j: number; origin?: unknown; size: number };
-        Returns: unknown;
-      };
-      st_squaregrid: {
-        Args: { bounds: unknown; size: number };
-        Returns: Record<string, unknown>[];
-      };
-      st_srid:
-        | { Args: { geog: unknown }; Returns: number }
-        | { Args: { geom: unknown }; Returns: number };
-      st_subdivide: {
-        Args: { geom: unknown; gridsize?: number; maxvertices?: number };
-        Returns: unknown[];
-      };
-      st_swapordinates: {
-        Args: { geom: unknown; ords: unknown };
-        Returns: unknown;
-      };
-      st_symdifference: {
-        Args: { geom1: unknown; geom2: unknown; gridsize?: number };
-        Returns: unknown;
-      };
-      st_symmetricdifference: {
-        Args: { geom1: unknown; geom2: unknown };
-        Returns: unknown;
-      };
-      st_tileenvelope: {
-        Args: {
-          bounds?: unknown;
-          margin?: number;
-          x: number;
-          y: number;
-          zoom: number;
-        };
-        Returns: unknown;
-      };
-      st_touches: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean };
-      st_transform:
-        | {
-            Args: { from_proj: string; geom: unknown; to_proj: string };
-            Returns: unknown;
-          }
-        | {
-            Args: { from_proj: string; geom: unknown; to_srid: number };
-            Returns: unknown;
-          }
-        | { Args: { geom: unknown; to_proj: string }; Returns: unknown };
-      st_triangulatepolygon: { Args: { g1: unknown }; Returns: unknown };
-      st_union:
-        | { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
-        | {
-            Args: { geom1: unknown; geom2: unknown; gridsize: number };
-            Returns: unknown;
-          };
-      st_voronoilines: {
-        Args: { extend_to?: unknown; g1: unknown; tolerance?: number };
-        Returns: unknown;
-      };
-      st_voronoipolygons: {
-        Args: { extend_to?: unknown; g1: unknown; tolerance?: number };
-        Returns: unknown;
-      };
-      st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean };
-      st_wkbtosql: { Args: { wkb: string }; Returns: unknown };
-      st_wkttosql: { Args: { '': string }; Returns: unknown };
-      st_wrapx: {
-        Args: { geom: unknown; move: number; wrap: number };
-        Returns: unknown;
+      silent_repair_historical_convention: {
+        Args: { p_actor_id: string; p_convention_id: string; p_reason: string };
+        Returns: {
+          convention_id: string;
+          counts: Json;
+          final_status: string;
+          previous_status: string;
+          repaired: boolean;
+        }[];
       };
       submit_user_report: {
         Args: {
@@ -3633,17 +2783,6 @@ export type Database = {
           p_reported_fursuit_id?: string;
           p_reported_user_id?: string;
           p_severity?: string;
-        };
-        Returns: string;
-      };
-      unlockrows: { Args: { '': string }; Returns: number };
-      updategeometrysrid: {
-        Args: {
-          catalogn_name: string;
-          column_name: string;
-          new_srid_in: number;
-          schema_name: string;
-          table_name: string;
         };
         Returns: string;
       };
@@ -3681,15 +2820,7 @@ export type Database = {
       user_role: 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
     };
     CompositeTypes: {
-      geometry_dump: {
-        path: number[] | null;
-        geom: unknown;
-      };
-      valid_detail: {
-        valid: boolean | null;
-        reason: string | null;
-        location: unknown;
-      };
+      [_ in never]: never;
     };
   };
 };
@@ -3829,30 +2960,27 @@ export const Constants = {
   },
 } as const;
 
-// Convenience type exports
-export type AchievementsRow = Database['public']['Tables']['achievements']['Row'];
-export type AchievementEventsRow = Database['public']['Tables']['achievements']['Row'];
-export type UserAchievementsRow = Database['public']['Tables']['user_achievements']['Row'];
-export type AchievementCategory = Database['public']['Enums']['achievement_category'];
-export type AchievementRecipientRole = Database['public']['Enums']['achievement_recipient_role'];
-export type AchievementTriggerEvent = Database['public']['Enums']['achievement_trigger_event'];
-
-export type ConventionStatus = Database['public']['Tables']['conventions']['Row']['status'];
-export type ConventionParticipantRecapRow =
-  Database['public']['Tables']['convention_participant_recaps']['Row'];
-
-export type DailyTasksRow = Database['public']['Tables']['daily_tasks']['Row'];
-export type DailyAssignmentsRow = Database['public']['Tables']['daily_assignments']['Row'];
-export type UserDailyProgressRow = Database['public']['Tables']['user_daily_progress']['Row'];
-export type UserDailyStreaksRow = Database['public']['Tables']['user_daily_streaks']['Row'];
-export type DailyTaskKind = string;
-
-export type FursuitsRow = Database['public']['Tables']['fursuits']['Row'];
-export type FursuitsInsert = Database['public']['Tables']['fursuits']['Insert'];
-export type FursuitBiosInsert = Database['public']['Tables']['fursuit_bios']['Insert'];
+// Type aliases for application use
 export type FursuitSocialLink = {
   label: string;
   url: string;
 };
 
-export type CatchMode = Database['public']['Enums']['catch_mode'];
+export type FursuitsRow = Database['public']['Tables']['fursuits']['Row'];
+export type FursuitsInsert = Database['public']['Tables']['fursuits']['Insert'];
+export type FursuitBiosInsert = Database['public']['Tables']['fursuit_bios']['Insert'];
+export type FursuitMakersInsert = Database['public']['Tables']['fursuit_makers']['Insert'];
+export type ConventionStatus = Database['public']['Tables']['conventions']['Row']['status'];
+export type ConventionParticipantRecapRow =
+  Database['public']['Tables']['convention_participant_recaps']['Row'];
+export type AchievementCategory = Database['public']['Enums']['achievement_category'];
+export type AchievementRecipientRole = Database['public']['Enums']['achievement_recipient_role'];
+export type AchievementTriggerEvent = Database['public']['Enums']['achievement_trigger_event'];
+export type AchievementsRow = Database['public']['Tables']['achievements']['Row'];
+export type UserAchievementsRow = Database['public']['Tables']['user_achievements']['Row'];
+export type AchievementEventsRow = Database['public']['Tables']['user_achievements']['Row'];
+export type DailyTaskKind = string;
+export type DailyAssignmentsRow = Database['public']['Tables']['daily_assignments']['Row'];
+export type DailyTasksRow = Database['public']['Tables']['daily_tasks']['Row'];
+export type UserDailyProgressRow = Database['public']['Tables']['user_daily_progress']['Row'];
+export type UserDailyStreaksRow = Database['public']['Tables']['user_daily_streaks']['Row'];

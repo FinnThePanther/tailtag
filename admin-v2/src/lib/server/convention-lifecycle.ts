@@ -307,7 +307,7 @@ export async function buildConventionLifecycleHealthList(
         .select('id', { count: 'exact', head: true })
         .eq('is_active', true)
         .is('convention_id', null),
-      (supabase as any).rpc('get_convention_lifecycle_health_counts', {
+      supabase.rpc('get_convention_lifecycle_health_counts', {
         p_convention_ids: conventionIds,
         p_local_days: localDaysByConvention,
         p_retry_window_start: sevenDaysAgo,

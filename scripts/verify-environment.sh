@@ -118,6 +118,7 @@ done
 section "Cron jobs (active)"
 
 CRON_JOBS=(
+  "convention-lifecycle-automation"
   "expire-pending-catches"
   "gameplay-queue-worker"
   "purge_geo_verification_data"
@@ -153,6 +154,7 @@ SECRETS=(
   "achievements_processor_secret"
   "ACHIEVEMENTS_PROCESSOR_URL"
   "ACHIEVEMENTS_WEBHOOK_SECRET"
+  "closeout_service_role_key"
   "project_url"
   "rotate_dailys_service_role_key"
   "send_push_service_role_jwt"
@@ -164,6 +166,75 @@ for secret in "${SECRETS[@]}"; do
   check "$secret" \
     "SELECT count(*)::text FROM vault.secrets WHERE name='$secret'"
 done
+
+section "Edge Function secrets"
+
+EDGE_SECRETS_JSON="$($SUPABASE_CLI secrets list --project-ref "$PROJECT_REF" --output json 2>/dev/null || true)"
+
+edge_secret_count() {
+  local secret_name="$1"
+  EDGE_SECRETS_JSON="$EDGE_SECRETS_JSON" SECRET_NAME="$secret_name" python3 - <<'PY'
+import json
+import os
+
+raw = os.environ.get("EDGE_SECRETS_JSON", "")
+secret_name = os.environ.get("SECRET_NAME", "")
+try:
+    parsed = json.loads(raw)
+except Exception:
+    print("0")
+    raise SystemExit
+
+if isinstance(parsed, dict):
+    if isinstance(parsed.get("secrets"), list):
+        items = parsed["secrets"]
+    else:
+        items = list(parsed.values())
+else:
+    items = parsed
+count = 0
+for item in items if isinstance(items, list) else []:
+    if not isinstance(item, dict):
+        continue
+    name = item.get("name") or item.get("Name")
+    if name == secret_name:
+        count += 1
+print(count)
+PY
+}
+
+check_edge_secret() {
+  local label="$1"
+  local secret_name="$2"
+  local result
+  result=$(edge_secret_count "$secret_name")
+  if [[ "$result" == "1" ]]; then
+    pass "$label"
+  else
+    fail "$label"
+  fi
+}
+
+check_edge_secret_any() {
+  local label="$1"
+  shift
+  local total=0
+  local secret
+  for secret in "$@"; do
+    total=$((total + $(edge_secret_count "$secret")))
+  done
+  if [[ "$total" -gt 0 ]]; then
+    pass "$label"
+  else
+    fail "$label"
+  fi
+}
+
+check_edge_secret "SERVICE_ROLE_KEY" "SERVICE_ROLE_KEY"
+check_edge_secret_any \
+  "LIFECYCLE_AUTOMATION_ACTOR_ID or SYSTEM_EVENT_USER_ID" \
+  "LIFECYCLE_AUTOMATION_ACTOR_ID" \
+  "SYSTEM_EVENT_USER_ID"
 
 # ── 5. Storage buckets ───────────────────────────────────────────────────────
 
