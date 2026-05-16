@@ -8,6 +8,7 @@ import {
 } from '../../../utils/supabase-image';
 import type { FursuitPhotoCandidate } from '../../onboarding/api/onboarding';
 import type { Database, FursuitSocialLink } from '../../../types/database';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   buildGeneratedUsername,
   normalizeUsernameForLookup,
@@ -323,6 +324,28 @@ export async function updateProfileCatchMode(userId: string, catchMode: CatchMod
 
   if (error) {
     throw new Error(`Could not save catch settings: ${error.message}`);
+  }
+}
+
+export async function updateProfileVisibilityAudience(
+  userId: string,
+  audience: VisibilityAudience,
+): Promise<void> {
+  const client = supabase as SupabaseClient<Database>;
+  const { error } = await client
+    .from('profiles')
+    .update({
+      visibility_audience: audience,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId);
+
+  if (error) {
+    if (error.code === '42501') {
+      throw new Error('Adult confirmation is required for adults-only visibility.');
+    }
+
+    throw new Error(`Could not save profile visibility: ${error.message}`);
   }
 }
 

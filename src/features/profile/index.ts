@@ -4,6 +4,7 @@ export {
   updateProfileAvatar,
   updateProfileSocialLinks,
   updateProfileCatchMode,
+  updateProfileVisibilityAudience,
   getOrAssignCatchModeDefaultExperiment,
   hasUploadedProfileAvatar,
   checkUsernameAvailability,
