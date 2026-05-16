@@ -24,8 +24,8 @@ export type SuitLeaderboardEntry = {
 
 export const CONVENTION_LEADERBOARD_QUERY_KEY = 'convention-leaderboard';
 
-export const conventionLeaderboardQueryKey = (conventionId: string) =>
-  [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId] as const;
+export const conventionLeaderboardQueryKey = (userId: string, conventionId: string) =>
+  [CONVENTION_LEADERBOARD_QUERY_KEY, userId, conventionId] as const;
 
 export async function fetchConventionLeaderboard(
   conventionId: string,
@@ -58,8 +58,8 @@ export async function fetchConventionLeaderboard(
     }));
 }
 
-export const createConventionLeaderboardQueryOptions = (conventionId: string) => ({
-  queryKey: conventionLeaderboardQueryKey(conventionId),
+export const createConventionLeaderboardQueryOptions = (userId: string, conventionId: string) => ({
+  queryKey: conventionLeaderboardQueryKey(userId, conventionId),
   queryFn: () => fetchConventionLeaderboard(conventionId),
   staleTime: 30_000, // Reduced from 60s to 30s for fresher data
   refetchOnWindowFocus: true, // Refetch when user returns to app
@@ -68,8 +68,8 @@ export const createConventionLeaderboardQueryOptions = (conventionId: string) =>
 
 export const CONVENTION_SUIT_LEADERBOARD_QUERY_KEY = 'convention-suit-leaderboard';
 
-export const conventionSuitLeaderboardQueryKey = (conventionId: string) =>
-  [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, conventionId] as const;
+export const conventionSuitLeaderboardQueryKey = (userId: string, conventionId: string) =>
+  [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, userId, conventionId] as const;
 
 export async function fetchConventionSuitLeaderboard(
   conventionId: string,
@@ -112,8 +112,11 @@ export async function fetchConventionSuitLeaderboard(
     });
 }
 
-export const createConventionSuitLeaderboardQueryOptions = (conventionId: string) => ({
-  queryKey: conventionSuitLeaderboardQueryKey(conventionId),
+export const createConventionSuitLeaderboardQueryOptions = (
+  userId: string,
+  conventionId: string,
+) => ({
+  queryKey: conventionSuitLeaderboardQueryKey(userId, conventionId),
   queryFn: () => fetchConventionSuitLeaderboard(conventionId),
   staleTime: 30_000, // Reduced from 60s to 30s for fresher data
   refetchOnWindowFocus: true, // Refetch when user returns to app

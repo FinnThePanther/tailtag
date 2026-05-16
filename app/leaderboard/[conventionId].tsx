@@ -11,6 +11,8 @@ import { AppAvatar } from '../../src/components/ui/AppAvatar';
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import {
+  CONVENTION_LEADERBOARD_QUERY_KEY,
+  CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
   createConventionLeaderboardQueryOptions,
   createConventionSuitLeaderboardQueryOptions,
   type LeaderboardEntry,
@@ -64,7 +66,15 @@ export default function FullLeaderboardScreen() {
     error: leaderboardError,
     isLoading: isLeaderboardLoading,
     refetch: refetchLeaderboard,
-  } = useQuery<LeaderboardEntry[], Error>(createConventionLeaderboardQueryOptions(conventionId));
+  } = useQuery<LeaderboardEntry[], Error>(
+    userId
+      ? createConventionLeaderboardQueryOptions(userId, conventionId)
+      : {
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, 'idle'],
+          queryFn: async () => [],
+          enabled: false,
+        },
+  );
 
   const {
     data: suitEntries = [],
@@ -72,7 +82,13 @@ export default function FullLeaderboardScreen() {
     isLoading: isSuitLoading,
     refetch: refetchSuits,
   } = useQuery<SuitLeaderboardEntry[], Error>(
-    createConventionSuitLeaderboardQueryOptions(conventionId),
+    userId
+      ? createConventionSuitLeaderboardQueryOptions(userId, conventionId)
+      : {
+          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, 'idle'],
+          queryFn: async () => [],
+          enabled: false,
+        },
   );
 
   const blockedIds = useBlockedIds(userId);

@@ -635,6 +635,30 @@ export type FursuitPickerItem = {
   species: string | null;
 };
 
+type ConventionRosterFursuitRow = {
+  fursuit_id: string | null;
+  fursuit_name: string | null;
+  fursuit_avatar_path: string | null;
+  fursuit_avatar_url: string | null;
+  owner_id: string | null;
+  species_name: string | null;
+};
+
+async function fetchConventionFursuitsForConvention(
+  conventionId: string,
+): Promise<ConventionRosterFursuitRow[]> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('get_convention_suit_roster', {
+    p_convention_id: conventionId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
 /**
  * Fetch fursuits attending any of the given conventions, excluding the user's own fursuits.
  * Used to populate the fursuit picker in the photo catch flow.
@@ -647,51 +671,34 @@ export async function fetchConventionFursuits(
     return [];
   }
 
-  const client = supabase as any;
-  const { data, error } = await client
-    .from('fursuit_conventions')
-    .select(
-      `
-      fursuit:fursuits (
-        id,
-        name,
-        avatar_path,
-        avatar_url,
-        owner_id,
-        is_tutorial,
-        species_entry:fursuit_species (
-          name
-        )
+  let rows: ConventionRosterFursuitRow[];
+  try {
+    rows = (
+      await Promise.all(
+        conventionIds.map((conventionId) => fetchConventionFursuitsForConvention(conventionId)),
       )
-    `,
-    )
-    .in('convention_id', conventionIds)
-    .eq('roster_state', 'active')
-    .is('active_until', null);
-
-  if (error) {
+    ).flat();
+  } catch {
     throw new Error("We couldn't load fursuits for your conventions. Please try again.");
   }
 
   const seen = new Set<string>();
   const results: FursuitPickerItem[] = [];
 
-  for (const row of data ?? []) {
-    const f = row.fursuit;
-    if (!f) continue;
-    if (f.is_tutorial) continue;
-    if (f.owner_id === excludeOwnerId) continue;
-    if (seen.has(f.id)) continue;
-    seen.add(f.id);
+  for (const row of rows) {
+    if (!row.fursuit_id) continue;
+    if (row.owner_id === excludeOwnerId) continue;
+    if (seen.has(row.fursuit_id)) continue;
+    seen.add(row.fursuit_id);
     results.push({
-      id: f.id,
-      name: f.name,
+      id: row.fursuit_id,
+      name: row.fursuit_name ?? 'Unknown suit',
       avatarUrl: resolveStorageMediaUrl({
         bucket: FURSUIT_BUCKET,
-        path: f.avatar_path ?? null,
-        legacyUrl: f.avatar_url ?? null,
+        path: row.fursuit_avatar_path ?? null,
+        legacyUrl: row.fursuit_avatar_url ?? null,
       }),
-      species: f.species_entry?.name ?? null,
+      species: row.species_name ?? null,
     });
   }
 

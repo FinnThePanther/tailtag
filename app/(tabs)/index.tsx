@@ -562,8 +562,8 @@ export default function HomeScreen() {
   }, [dailyTasksData?.resetAt, dailyTimezone]);
 
   const leaderboardQuery = useQuery<LeaderboardEntry[], Error>(
-    selectedConventionId
-      ? createConventionLeaderboardQueryOptions(selectedConventionId)
+    selectedConventionId && userId
+      ? createConventionLeaderboardQueryOptions(userId, selectedConventionId)
       : {
           queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, 'idle'],
           queryFn: async () => [],
@@ -577,8 +577,8 @@ export default function HomeScreen() {
   } = leaderboardQuery;
 
   const suitLeaderboardQuery = useQuery<SuitLeaderboardEntry[], Error>(
-    selectedConventionId
-      ? createConventionSuitLeaderboardQueryOptions(selectedConventionId)
+    selectedConventionId && userId
+      ? createConventionSuitLeaderboardQueryOptions(userId, selectedConventionId)
       : {
           queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, 'idle'],
           queryFn: async () => [],
