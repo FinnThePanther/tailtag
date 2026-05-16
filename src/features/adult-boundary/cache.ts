@@ -36,8 +36,8 @@ export async function refreshAdultBoundaryCaches(params: {
 }) {
   const { queryClient, userId } = params;
 
-  queryClient.invalidateQueries({ queryKey: profileQueryKey(userId) });
   await Promise.all([
+    queryClient.invalidateQueries({ queryKey: profileQueryKey(userId) }),
     clearCatchConventionSnapshotsForUser(userId),
     ...USER_AUDIENCE_QUERY_PREFIXES.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
   ]);

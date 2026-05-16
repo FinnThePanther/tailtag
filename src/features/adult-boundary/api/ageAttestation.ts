@@ -1,5 +1,8 @@
-import { supabase } from '../../../lib/supabase';
-import type { ProfileSummary } from '../../profile';
+import { supabase } from '@/lib/supabase';
+import { captureSupabaseError } from '@/lib/sentry';
+import type { Database } from '@/types/database';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ProfileSummary } from '@/features/profile';
 
 export const CURRENT_AGE_GATE_VERSION = 1;
 
@@ -20,7 +23,8 @@ export function profileNeedsAgeAttestation(profile: ProfileSummary | null | unde
 }
 
 export async function updateAgeAttestation(userId: string, isAdult: boolean): Promise<void> {
-  const { error } = await (supabase as any)
+  const client = supabase as SupabaseClient<Database>;
+  const { error } = await client
     .from('profiles')
     .update({
       is_adult: isAdult,
@@ -30,6 +34,10 @@ export async function updateAgeAttestation(userId: string, isAdult: boolean): Pr
     .eq('id', userId);
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'adultBoundary.updateAgeAttestation',
+      userId,
+    });
     throw new Error(`Could not save age attestation: ${error.message}`);
   }
 }

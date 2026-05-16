@@ -16,9 +16,10 @@ import {
   validateUsername,
 } from '../usernameRules';
 import {
+  CURRENT_AGE_GATE_VERSION,
   normalizeVisibilityAudience,
   type VisibilityAudience,
-} from '../../adult-boundary/api/ageAttestation';
+} from '@/features/adult-boundary/api/ageAttestation';
 
 type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
 export type CatchMode = Database['public']['Enums']['catch_mode'];
@@ -183,7 +184,7 @@ function mapProfileData(data: any, overrides: Partial<ProfileSummary> = {}): Pro
     age_gate_version:
       typeof data.age_gate_version === 'number' && Number.isFinite(data.age_gate_version)
         ? data.age_gate_version
-        : 1,
+        : CURRENT_AGE_GATE_VERSION,
     visibility_audience: normalizeVisibilityAudience(data.visibility_audience),
     default_catch_mode: normalizeCatchMode(data.default_catch_mode),
     catch_mode_preference_source: normalizeCatchModePreferenceSource(

@@ -1,6 +1,6 @@
 // app/_layout.tsx
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useSegments, Stack, Redirect, useNavigationContainerRef, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -37,6 +37,7 @@ import {
 import { handleAuthError } from '../src/lib/authErrorHandler';
 import { SuspensionGate } from '../src/features/moderation';
 import { EnvironmentBanner } from '../src/components/EnvironmentBanner';
+import { TailTagButton } from '../src/components/ui/TailTagButton';
 import {
   completeRecoverySessionFromUrl,
   getCompletedRecoverySessionMarker,
@@ -60,6 +61,57 @@ function LoadingScreen() {
         size="large"
         color={colors.primary}
       />
+    </View>
+  );
+}
+
+function BlockingProfileError({
+  message,
+  onRetry,
+  isRetrying,
+}: {
+  message: string;
+  onRetry: () => void;
+  isRetrying: boolean;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+        padding: 24,
+        backgroundColor: colors.background,
+      }}
+    >
+      <Text
+        style={{
+          color: colors.foreground,
+          fontSize: 20,
+          fontWeight: '700',
+          textAlign: 'center',
+        }}
+      >
+        We could not load your profile
+      </Text>
+      <Text
+        style={{
+          color: colors.textMuted,
+          fontSize: 14,
+          lineHeight: 20,
+          textAlign: 'center',
+        }}
+      >
+        {message}
+      </Text>
+      <TailTagButton
+        variant="outline"
+        onPress={onRetry}
+        loading={isRetrying}
+      >
+        Try again
+      </TailTagButton>
     </View>
   );
 }
@@ -91,6 +143,7 @@ function RootLayoutNav() {
     isLoading: isProfileLoading,
     isFetching: isProfileFetching,
     error: profileError,
+    refetch: refetchProfile,
   } = useQuery({
     ...createProfileQueryOptions(userId ?? ''),
     enabled: Boolean(userId),
@@ -100,11 +153,15 @@ function RootLayoutNav() {
   usePrimeUserData(session?.user.id ?? null);
 
   const hasCompletedOnboarding = profile?.onboarding_completed === true;
+  const hasProfileBlockingError = Boolean(session) && Boolean(profileError);
   const shouldGateAgeAttestation =
-    Boolean(session) && !profileError && profile !== null && profileNeedsAgeAttestation(profile);
+    Boolean(session) &&
+    !hasProfileBlockingError &&
+    profile !== null &&
+    profileNeedsAgeAttestation(profile);
   const shouldGateOnboarding =
     Boolean(session) &&
-    !profileError &&
+    !hasProfileBlockingError &&
     profile !== null && // Explicit null check - don't gate while loading
     !shouldGateAgeAttestation &&
     (profile?.is_new === true || !hasCompletedOnboarding);
@@ -116,7 +173,7 @@ function RootLayoutNav() {
     !inOnboardingFlow &&
     (isProfileLoading || isProfileFetching) &&
     !profile &&
-    !profileError;
+    !hasProfileBlockingError;
 
   const shouldShowAgeGateRedirectLoading =
     !inResetPasswordFlow &&
@@ -124,12 +181,12 @@ function RootLayoutNav() {
     !inAgeGateFlow &&
     (isProfileLoading || isProfileFetching) &&
     !profile &&
-    !profileError;
+    !hasProfileBlockingError;
 
   const shouldResolvePostAuthDestination =
     Boolean(session) &&
     inAuthGroup &&
-    !profileError &&
+    !hasProfileBlockingError &&
     !profile &&
     (isProfileLoading || isProfileFetching);
 
@@ -145,7 +202,12 @@ function RootLayoutNav() {
     !inAuthGroup
   ) {
     redirectHref = '/age-gate';
-  } else if (session && inAuthGroup && !shouldResolvePostAuthDestination) {
+  } else if (
+    session &&
+    inAuthGroup &&
+    !hasProfileBlockingError &&
+    !shouldResolvePostAuthDestination
+  ) {
     redirectHref = shouldGateAgeAttestation
       ? '/age-gate'
       : shouldGateOnboarding
@@ -181,15 +243,30 @@ function RootLayoutNav() {
     status === 'loading' || shouldShowOnboardingRedirectLoading || shouldShowAgeGateRedirectLoading;
 
   useEffect(() => {
+    if (hasProfileBlockingError && !inResetPasswordFlow) {
+      return;
+    }
+
     if (shouldShowLoadingScreen || redirectHref) {
       return;
     }
 
     setNavigationReady();
-  }, [redirectHref, setNavigationReady, shouldShowLoadingScreen]);
+  }, [
+    hasProfileBlockingError,
+    inResetPasswordFlow,
+    redirectHref,
+    setNavigationReady,
+    shouldShowLoadingScreen,
+  ]);
 
   useEffect(() => {
-    if (!session || !inAuthGroup || shouldResolvePostAuthDestination) {
+    if (
+      !session ||
+      !inAuthGroup ||
+      shouldResolvePostAuthDestination ||
+      (hasProfileBlockingError && !inResetPasswordFlow)
+    ) {
       return;
     }
 
@@ -200,6 +277,8 @@ function RootLayoutNav() {
     inAuthGroup,
     router,
     session,
+    hasProfileBlockingError,
+    inResetPasswordFlow,
     shouldGateAgeAttestation,
     shouldGateOnboarding,
     shouldResolvePostAuthDestination,
@@ -306,6 +385,18 @@ function RootLayoutNav() {
   // Not signed in: ensure we're in the auth stack.
   if (!session && !inPublicAuthFlow) {
     return <Redirect href="/auth" />;
+  }
+
+  if (session && profileError && !inResetPasswordFlow) {
+    return (
+      <BlockingProfileError
+        message={profileError.message}
+        onRetry={() => {
+          void refetchProfile();
+        }}
+        isRetrying={isProfileFetching}
+      />
+    );
   }
 
   // Don't redirect mid-flow during password reset — the recovery session
