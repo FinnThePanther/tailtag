@@ -13,10 +13,21 @@ import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 export type CaughtRecord = {
   id: string;
   caught_at: string | null;
+  conventionId: string | null;
+  convention: CaughtRecordConvention | null;
   catchNumber: number | null;
   catchPhotoPath?: string | null;
   catchPhotoUrl: string | null;
   fursuit: FursuitSummary | null;
+};
+
+export type CaughtRecordConvention = {
+  id: string;
+  name: string;
+  location: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  status: string;
 };
 
 export const CAUGHT_SUITS_QUERY_KEY = 'caught-suits';
@@ -32,9 +43,18 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       `
       id,
       caught_at,
+      convention_id,
       catch_number,
       catch_photo_path,
       catch_photo_url,
+      convention:conventions (
+        id,
+        name,
+        location,
+        start_date,
+        end_date,
+        status
+      ),
       fursuit:fursuits (
         id,
         owner_id,
@@ -127,6 +147,8 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       return {
         id: record.id,
         caught_at: record.caught_at ?? null,
+        conventionId: record.convention_id ?? null,
+        convention: mapCaughtRecordConvention(record.convention ?? null),
         catchNumber: typeof record.catch_number === 'number' ? record.catch_number : null,
         catchPhotoPath: record.catch_photo_path ?? null,
         catchPhotoUrl: resolveStorageMediaUrl({
@@ -138,6 +160,21 @@ export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> 
       } satisfies CaughtRecord;
     })
     .filter((entry: CaughtRecord | null): entry is CaughtRecord => Boolean(entry));
+}
+
+export function mapCaughtRecordConvention(rawConvention: any): CaughtRecordConvention | null {
+  if (!rawConvention?.id || !rawConvention?.name || !rawConvention?.status) {
+    return null;
+  }
+
+  return {
+    id: rawConvention.id,
+    name: rawConvention.name,
+    location: rawConvention.location ?? null,
+    startDate: rawConvention.start_date ?? null,
+    endDate: rawConvention.end_date ?? null,
+    status: rawConvention.status,
+  };
 }
 
 export const createCaughtSuitsQueryOptions = (userId: string) => ({
