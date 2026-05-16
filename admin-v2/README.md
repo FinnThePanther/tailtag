@@ -28,4 +28,7 @@ npm run lint
 npm run build
 ```
 
+Convention closeout lifecycle validation uses
+[`../docs/runbooks/convention-closeout-lifecycle.md`](../docs/runbooks/convention-closeout-lifecycle.md).
+
 The old `admin/` app should remain deployed until this app passes workflow and visual parity checks.

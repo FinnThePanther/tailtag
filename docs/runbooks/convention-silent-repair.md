@@ -4,6 +4,9 @@ Silent repair is for historical convention closeout failures that existed before
 ending lifecycle shipped. It is not a normal closeout path and should not be used for active or
 future conventions.
 
+For full closeout lifecycle validation, use
+[`convention-closeout-lifecycle.md`](./convention-closeout-lifecycle.md).
+
 ## When to use it
 
 Use silent repair only in development or staging after validating the new lifecycle foundation.
@@ -29,8 +32,15 @@ It does not generate `convention_participant_recaps` rows and does not create
 
 ## Admin flow
 
-In dev-project admin surfaces, open the historical convention detail page and use **Silent repair**.
-The action is gated by the same dev Supabase project checks as dev delete.
+In configured repair admin surfaces, open the historical convention detail page and use
+**Silent repair**. The action is gated by `ADMIN_REPAIR_SUPABASE_PROJECT_REFS`, a comma-separated
+list of Supabase project refs where historical repair is approved.
+
+Use `rtxbvjicfxgcouufumce` for dev and `yjsadmswobafychfpoxe` for staging. Do not include
+production unless production repair has separate explicit approval.
+
+Dev delete remains separate from silent repair. Dev delete is still dev-only and should not be used
+as part of lifecycle repair validation.
 
 ## Verification
 
