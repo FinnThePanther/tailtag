@@ -111,12 +111,23 @@ function compareConventionFolders(
   if (endDateDiff !== 0) return endDateDiff;
 
   const recentCatchDiff = compareNullableDateDesc(
-    left.catches[0]?.caught_at ?? null,
-    right.catches[0]?.caught_at ?? null,
+    getMostRecentCaughtAt(left.catches),
+    getMostRecentCaughtAt(right.catches),
   );
   if (recentCatchDiff !== 0) return recentCatchDiff;
 
   return left.conventionName.localeCompare(right.conventionName);
+}
+
+function getMostRecentCaughtAt(catches: CaughtRecord[]): string | null {
+  return catches.reduce<string | null>((latest, record) => {
+    if (!record.caught_at) return latest;
+    if (!latest) return record.caught_at;
+
+    return new Date(record.caught_at).getTime() > new Date(latest).getTime()
+      ? record.caught_at
+      : latest;
+  }, null);
 }
 
 function compareNullableDateDesc(left: string | null, right: string | null): number {
