@@ -175,9 +175,10 @@
 
   function getLifecycleCopy(status: string, readiness: typeof data.readiness) {
     if (status === 'archived') return 'Closeout is complete and recaps are available to players';
-    if (status === 'finalizing') return 'Convention has ended and catches are being finalized';
-    if (status === 'closeout_running') return 'Closeout is running and recaps are being prepared';
-    if (status === 'closeout_failed') return 'Closeout needs attention before archiving';
+    if (status === 'finalizing')
+      return 'Convention is in the player cleanup window before closeout';
+    if (status === 'closeout_running') return 'Closeout is processing and recaps are being prepared';
+    if (status === 'closeout_failed') return 'Closeout needs operator attention before archiving';
     if (status === 'closed') return 'Gameplay is stopped; retry closeout to finish archiving';
     if (status === 'canceled') return 'This convention was canceled and is not playable';
     if (status === 'scheduled' && readiness.dateState === 'inside_window')
@@ -229,9 +230,19 @@
   }
 
   function formatAutomationEligibility(diagnostics: typeof data.health.diagnostics) {
+    if (diagnostics.closeoutManualRetryRequired) return 'Manual retry required';
+    if (diagnostics.closeoutAutoRetryEligible) return 'Auto-retry eligible';
     if (diagnostics.automationEligibleForAutoClose) return 'Auto-close eligible';
     if (diagnostics.automationEligibleForRetry) return 'Auto-retry eligible';
     return 'Not eligible';
+  }
+
+  function formatCloseoutStep(step: string | null) {
+    if (!step) return 'Not started';
+    return step
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 
   function formatDateTime(value: string | null) {
@@ -456,6 +467,10 @@
     getNumber(closeoutSummary, 'fursuit_assignments_finalized') ??
       getNumber(closeoutSummary, 'fursuit_assignments_removed')
   );
+  const lastCloseoutAttemptAt = $derived(
+    data.health.diagnostics.closeoutLastAttemptAt ??
+      data.health.diagnostics.lastAutomationAttemptAt
+  );
 </script>
 
 <div class="space-y-4">
@@ -512,10 +527,36 @@
     <div class="mt-3 grid gap-3 md:grid-cols-4">
       <Info label="Closed at">{formatDateTime(data.convention.closed_at) ?? 'Not closed'}</Info>
       <Info label="Archived at">{formatDateTime(data.convention.archived_at) ?? 'Not archived'}</Info>
+      <Info label="Finalizing started">
+        {formatDateTime(data.health.diagnostics.finalizingStartedAt) ?? 'Not started'}
+      </Info>
+      <Info label="Finalizing deadline">
+        {formatDateTime(data.health.diagnostics.closeoutNotBefore) ?? 'Not set'}
+      </Info>
+    </div>
+
+    <div class="mt-3 grid gap-3 md:grid-cols-4">
+      <Info label="Closeout started">
+        {formatDateTime(data.health.diagnostics.closeoutStartedAt) ?? 'Not started'}
+      </Info>
+      <Info label="Closeout completed">
+        {formatDateTime(data.health.diagnostics.closeoutCompletedAt) ?? 'Not completed'}
+      </Info>
+      <Info label="Last closeout attempt">
+        {formatDateTime(lastCloseoutAttemptAt) ?? 'None'}
+      </Info>
+      <Info label="Closeout step">
+        {formatCloseoutStep(data.health.diagnostics.closeoutStep)}
+      </Info>
+    </div>
+
+    <div class="mt-3 grid gap-3 md:grid-cols-4">
       <Info label="Recaps">{recapsGenerated === null ? 'Not generated' : recapsGenerated}</Info>
       <Info label="Expired pending catches">
         {expiredPendingCatches === null ? 'Not run' : expiredPendingCatches}
       </Info>
+      <Info label="Retry count">{data.health.diagnostics.closeoutRetryCount}</Info>
+      <Info label="Retry mode">{formatAutomationEligibility(data.health.diagnostics)}</Info>
     </div>
 
     <div class="mt-3 grid gap-3 md:grid-cols-4">
@@ -536,17 +577,11 @@
     </div>
 
     <div class="mt-3 grid gap-3 md:grid-cols-4">
-      <Info label="Last closeout attempt">
-        {formatDateTime(data.health.diagnostics.lastAutomationAttemptAt) ?? 'None'}
-      </Info>
       <Info label="Closeout source">
         {formatAutomationSource(data.health.diagnostics.lastAutomationSource)}
       </Info>
       <Info label="Retry attempts, 7 days">
         {data.health.diagnostics.automationRetryAttemptsLast7Days}
-      </Info>
-      <Info label="Automation eligibility">
-        {formatAutomationEligibility(data.health.diagnostics)}
       </Info>
     </div>
 

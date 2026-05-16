@@ -129,6 +129,8 @@ export function ConventionLifecycleCard({
   const rosterFinalized =
     getNumber(closeoutSummary, 'fursuit_assignments_finalized') ??
     getNumber(closeoutSummary, 'fursuit_assignments_removed');
+  const lastCloseoutAttemptAt =
+    health.diagnostics.closeoutLastAttemptAt ?? health.diagnostics.lastAutomationAttemptAt;
   const healthBadge = getHealthBadge(health.severity);
   const showStartupReadiness = status === 'draft' || status === 'scheduled';
   const readinessLabel = showStartupReadiness
@@ -181,10 +183,42 @@ export function ConventionLifecycleCard({
       <div className="mt-3 grid gap-3 md:grid-cols-4">
         <Info label="Closed at">{closedAt ? formatDateTime(closedAt) : 'Not closed'}</Info>
         <Info label="Archived at">{archivedAt ? formatDateTime(archivedAt) : 'Not archived'}</Info>
+        <Info label="Finalizing started">
+          {health.diagnostics.finalizingStartedAt
+            ? formatDateTime(health.diagnostics.finalizingStartedAt)
+            : 'Not started'}
+        </Info>
+        <Info label="Finalizing deadline">
+          {health.diagnostics.closeoutNotBefore
+            ? formatDateTime(health.diagnostics.closeoutNotBefore)
+            : 'Not set'}
+        </Info>
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-4">
+        <Info label="Closeout started">
+          {health.diagnostics.closeoutStartedAt
+            ? formatDateTime(health.diagnostics.closeoutStartedAt)
+            : 'Not started'}
+        </Info>
+        <Info label="Closeout completed">
+          {health.diagnostics.closeoutCompletedAt
+            ? formatDateTime(health.diagnostics.closeoutCompletedAt)
+            : 'Not completed'}
+        </Info>
+        <Info label="Last closeout attempt">
+          {lastCloseoutAttemptAt ? formatDateTime(lastCloseoutAttemptAt) : 'None'}
+        </Info>
+        <Info label="Closeout step">{formatCloseoutStep(health.diagnostics.closeoutStep)}</Info>
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-4">
         <Info label="Recaps">{recapsGenerated === null ? 'Not generated' : recapsGenerated}</Info>
         <Info label="Expired pending catches">
           {expiredPendingCatches === null ? 'Not run' : expiredPendingCatches}
         </Info>
+        <Info label="Retry count">{health.diagnostics.closeoutRetryCount}</Info>
+        <Info label="Retry mode">{formatAutomationEligibility(health.diagnostics)}</Info>
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-4">
@@ -203,19 +237,11 @@ export function ConventionLifecycleCard({
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-4">
-        <Info label="Last closeout attempt">
-          {health.diagnostics.lastAutomationAttemptAt
-            ? formatDateTime(health.diagnostics.lastAutomationAttemptAt)
-            : 'None'}
-        </Info>
         <Info label="Closeout source">
           {formatAutomationSource(health.diagnostics.lastAutomationSource)}
         </Info>
         <Info label="Retry attempts, 7 days">
           {health.diagnostics.automationRetryAttemptsLast7Days}
-        </Info>
-        <Info label="Automation eligibility">
-          {formatAutomationEligibility(health.diagnostics)}
         </Info>
       </div>
 
@@ -550,9 +576,9 @@ function ActionButton({
 
 function getLifecycleCopy(status: string, readiness: ConventionReadinessResult) {
   if (status === 'archived') return 'Closeout is complete and recaps are available to players';
-  if (status === 'finalizing') return 'Convention has ended and catches are being finalized';
-  if (status === 'closeout_running') return 'Closeout is running and recaps are being prepared';
-  if (status === 'closeout_failed') return 'Closeout needs attention before archiving';
+  if (status === 'finalizing') return 'Convention is in the player cleanup window before closeout';
+  if (status === 'closeout_running') return 'Closeout is processing and recaps are being prepared';
+  if (status === 'closeout_failed') return 'Closeout needs operator attention before archiving';
   if (status === 'closed') return 'Gameplay is stopped; retry closeout to finish archiving';
   if (status === 'canceled') return 'This convention was canceled and is not playable';
   if (status === 'scheduled' && readiness.dateState === 'inside_window') {
@@ -589,9 +615,19 @@ function formatAutomationSource(source: string | null) {
 }
 
 function formatAutomationEligibility(health: ConventionLifecycleHealthResult['diagnostics']) {
+  if (health.closeoutManualRetryRequired) return 'Manual retry required';
+  if (health.closeoutAutoRetryEligible) return 'Auto-retry eligible';
   if (health.automationEligibleForAutoClose) return 'Auto-close eligible';
   if (health.automationEligibleForRetry) return 'Auto-retry eligible';
   return 'Not eligible';
+}
+
+function formatCloseoutStep(step: string | null) {
+  if (!step) return 'Not started';
+  return step
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 function getHealthBadge(severity: string) {
