@@ -593,7 +593,7 @@ export default function HomeScreen() {
 
   // Subscribe to realtime changes for leaderboard updates
   useEffect(() => {
-    if (!selectedConventionId) return;
+    if (!selectedConventionId || !userId) return;
 
     const instanceId = Math.random().toString(36).substring(2, 11);
 
@@ -609,10 +609,10 @@ export default function HomeScreen() {
         },
         () => {
           void queryClient.invalidateQueries({
-            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId],
+            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, userId, selectedConventionId],
           });
           void queryClient.invalidateQueries({
-            queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId],
+            queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, userId, selectedConventionId],
           });
         },
       )
@@ -631,7 +631,7 @@ export default function HomeScreen() {
         },
         () => {
           void queryClient.invalidateQueries({
-            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, selectedConventionId],
+            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, userId, selectedConventionId],
           });
         },
       )
@@ -650,7 +650,7 @@ export default function HomeScreen() {
         },
         () => {
           void queryClient.invalidateQueries({
-            queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, selectedConventionId],
+            queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, userId, selectedConventionId],
           });
           void queryClient.invalidateQueries({
             queryKey: [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId ?? 'guest', selectedConventionId],

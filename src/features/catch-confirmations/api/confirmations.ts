@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { supabase } from '../../../lib/supabase';
 import {
@@ -32,6 +33,7 @@ import type {
   UpdateCatchPhotoResult,
   MarkCatchPhotoUploadFailedResult,
 } from '@/features/catch-confirmations/types';
+import type { Database } from '@/types/database';
 
 // Query keys
 export const PENDING_CATCHES_QUERY_KEY = 'pending-catches';
@@ -635,19 +637,13 @@ export type FursuitPickerItem = {
   species: string | null;
 };
 
-type ConventionRosterFursuitRow = {
-  fursuit_id: string | null;
-  fursuit_name: string | null;
-  fursuit_avatar_path: string | null;
-  fursuit_avatar_url: string | null;
-  owner_id: string | null;
-  species_name: string | null;
-};
+type ConventionRosterFursuitRow =
+  Database['public']['Functions']['get_convention_suit_roster']['Returns'][number];
 
 async function fetchConventionFursuitsForConvention(
   conventionId: string,
 ): Promise<ConventionRosterFursuitRow[]> {
-  const client = supabase as any;
+  const client = supabase as SupabaseClient<Database>;
   const { data, error } = await client.rpc('get_convention_suit_roster', {
     p_convention_id: conventionId,
   });
