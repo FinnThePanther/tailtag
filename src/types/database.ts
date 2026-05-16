@@ -2492,8 +2492,10 @@ export type Database = {
       get_my_convention_memberships: {
         Args: never
         Returns: {
+          closeout_not_before: string
           convention_id: string
           end_date: string
+          finalizing_started_at: string
           geofence_enabled: boolean
           geofence_radius_meters: number
           id: string

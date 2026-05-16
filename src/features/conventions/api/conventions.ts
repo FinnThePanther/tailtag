@@ -28,7 +28,9 @@ export type ConventionSummary = {
   start_date: string | null;
   end_date: string | null;
   timezone: string;
-  status?: string;
+  status?: ConventionLifecycleStatus;
+  finalizing_started_at: string | null;
+  closeout_not_before: string | null;
   local_day?: string | null;
   is_joinable?: boolean;
   latitude: number | null;
@@ -38,6 +40,17 @@ export type ConventionSummary = {
   location_verification_required: boolean;
 };
 
+export type ConventionLifecycleStatus =
+  | 'draft'
+  | 'scheduled'
+  | 'live'
+  | 'finalizing'
+  | 'closeout_running'
+  | 'closeout_failed'
+  | 'closed'
+  | 'archived'
+  | 'canceled';
+
 export type ConventionMembershipState =
   | 'upcoming'
   | 'awaiting_start'
@@ -45,6 +58,11 @@ export type ConventionMembershipState =
   | 'active'
   | 'leaderboard_open'
   | 'past';
+
+export type ConventionPlayerLifecycleState =
+  | ConventionMembershipState
+  | 'finalizing'
+  | 'recap_delayed';
 
 export type ConventionMembership = ConventionSummary & {
   convention_id: string;
@@ -238,6 +256,20 @@ const asNullableString = (value: unknown): string | null => {
 };
 
 const asString = (value: unknown, fallback = ''): string => asNullableString(value) ?? fallback;
+
+const isConventionLifecycleStatus = (value: unknown): value is ConventionLifecycleStatus =>
+  value === 'draft' ||
+  value === 'scheduled' ||
+  value === 'live' ||
+  value === 'finalizing' ||
+  value === 'closeout_running' ||
+  value === 'closeout_failed' ||
+  value === 'closed' ||
+  value === 'archived' ||
+  value === 'canceled';
+
+const asConventionLifecycleStatus = (value: unknown): ConventionLifecycleStatus | undefined =>
+  isConventionLifecycleStatus(value) ? value : undefined;
 
 const asNonNegativeInteger = (value: unknown): number => {
   const normalized =
@@ -518,7 +550,9 @@ function mapConventionSummary(convention: any): ConventionSummary {
     start_date: convention.start_date ?? null,
     end_date: convention.end_date ?? null,
     timezone: convention.timezone ?? 'UTC',
-    status: convention.status ?? undefined,
+    status: asConventionLifecycleStatus(convention.status),
+    finalizing_started_at: convention.finalizing_started_at ?? null,
+    closeout_not_before: convention.closeout_not_before ?? null,
     local_day: convention.local_day ?? null,
     is_joinable: typeof convention.is_joinable === 'boolean' ? convention.is_joinable : undefined,
     latitude:
@@ -533,6 +567,58 @@ function mapConventionSummary(convention: any): ConventionSummary {
     geofence_enabled: Boolean(convention.geofence_enabled),
     location_verification_required: Boolean(convention.location_verification_required),
   };
+}
+
+export function getConventionPlayerLifecycleState(
+  membership: Pick<ConventionMembership, 'status' | 'membership_state'>,
+): ConventionPlayerLifecycleState {
+  if (membership.status === 'finalizing') {
+    return 'finalizing';
+  }
+
+  if (membership.status === 'closeout_running' || membership.status === 'closeout_failed') {
+    return 'recap_delayed';
+  }
+
+  if (
+    membership.status === 'closed' ||
+    membership.status === 'archived' ||
+    membership.status === 'canceled'
+  ) {
+    return 'past';
+  }
+
+  return membership.membership_state;
+}
+
+export function formatConventionCloseoutDeadline(
+  closeoutNotBefore: string | null | undefined,
+  timezone: string | null | undefined,
+): string | null {
+  if (!closeoutNotBefore) {
+    return null;
+  }
+
+  const parsed = new Date(closeoutNotBefore);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  const formatOptions: Intl.DateTimeFormatOptions = {
+    weekday: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: timezone || 'UTC',
+  };
+
+  try {
+    return new Intl.DateTimeFormat('en-US', formatOptions).format(parsed);
+  } catch {
+    return new Intl.DateTimeFormat('en-US', {
+      ...formatOptions,
+      timeZone: 'UTC',
+    }).format(parsed);
+  }
 }
 
 function mapConventionMembership(row: any): ConventionMembership {

@@ -1,7 +1,9 @@
 export type {
   ConventionSummary,
+  ConventionLifecycleStatus,
   ConventionMembership,
   ConventionMembershipState,
+  ConventionPlayerLifecycleState,
   PastConventionRecap,
   PastConventionRecapSummary,
   PastConventionRecapSummaryCaughtFursuit,
@@ -42,6 +44,8 @@ export {
   parsePastConventionRecapSummary,
   fetchActiveProfileConventionIds,
   fetchProfileConventionMemberships,
+  getConventionPlayerLifecycleState,
+  formatConventionCloseoutDeadline,
   fetchActiveSharedConventionIds,
   fetchGalleryProfileConventionIds,
   fetchGallerySharedConventionIds,
