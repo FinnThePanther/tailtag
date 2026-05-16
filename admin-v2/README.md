@@ -18,6 +18,7 @@ Start with the dev Supabase project:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY=<dev anon key>`
 - `SUPABASE_SERVICE_ROLE_KEY=<dev service role key>`
 - `MAPBOX_ACCESS_TOKEN=<mapbox token>`
+- `ADMIN_REPAIR_SUPABASE_PROJECT_REFS=rtxbvjicfxgcouufumce` for dev silent repair, or add staging `yjsadmswobafychfpoxe` only where historical repair is approved
 
 ## Validation
 

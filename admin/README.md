@@ -26,6 +26,7 @@ npm install
   - `SUPABASE_SERVICE_ROLE_KEY` (server actions; never expose client-side)
   - `ADMIN_IS_DEV_PROJECT=true` only for the dev Supabase project when enabling dev-only destructive cleanup actions
   - `ADMIN_DEV_SUPABASE_PROJECT_REF` set to the expected dev Supabase project ref; dev-only cleanup stays disabled unless this matches `NEXT_PUBLIC_SUPABASE_URL`
+  - `ADMIN_REPAIR_SUPABASE_PROJECT_REFS` set to a comma-separated list of project refs where historical silent repair is approved, such as dev `rtxbvjicfxgcouufumce` and staging `yjsadmswobafychfpoxe`
 
 ## Running locally
 

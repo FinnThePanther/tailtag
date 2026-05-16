@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { assertAdminAction } from '@/lib/auth';
 import { createServiceRoleClient } from '@/lib/supabase/service';
 import { logAudit } from '@/lib/audit';
-import { isDevSupabaseProject } from '@/lib/env';
+import { isDevSupabaseProject, isRepairSupabaseProject } from '@/lib/env';
 import {
   closeOutConvention,
   ensureConventionDailies,
@@ -519,8 +519,8 @@ export async function deleteArchivedConventionInDevAction(conventionId: string) 
 export async function silentRepairHistoricalConventionAction(conventionId: string) {
   const { profile } = await assertAdminAction([...CONFIG_ROLES]);
 
-  if (!isDevSupabaseProject()) {
-    throw new Error('Silent repair is only available in the dev Supabase project.');
+  if (!isRepairSupabaseProject()) {
+    throw new Error('Silent repair is only available in configured repair Supabase projects.');
   }
 
   const supabase = createServiceRoleClient();
