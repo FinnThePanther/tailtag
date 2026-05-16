@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import type { FursuitSummary } from '../types';
+import { normalizeVisibilityAudience } from '../../adult-boundary';
 import {
   applyProfileSocialLinksToBio,
   mapFursuitColors,
@@ -42,6 +43,7 @@ const CATCH_SELECT = `
     is_tutorial,
     description,
     unique_code,
+    visibility_audience,
     created_at,
     species_entry:fursuit_species (
       id,
@@ -116,6 +118,7 @@ export async function fetchCatchById(catchId: string): Promise<CaughtRecord | nu
         }),
         description: rawFursuit.description ?? null,
         unique_code: rawFursuit.unique_code ?? null,
+        visibility_audience: normalizeVisibilityAudience(rawFursuit.visibility_audience),
         catchCount: typeof rawFursuit.catch_count === 'number' ? rawFursuit.catch_count : 0,
         created_at: rawFursuit.created_at ?? null,
         conventions: [],

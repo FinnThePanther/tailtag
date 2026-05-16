@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { captureHandledException } from '@/lib/sentry';
 import type { FursuitPhotoCandidate } from '@/features/onboarding/api/onboarding';
+import { normalizeVisibilityAudience, type VisibilityAudience } from '@/features/adult-boundary';
 
 export const ONBOARDING_STEPS = [
   'welcome',
@@ -22,6 +23,7 @@ export type OnboardingFursuitDraft = {
   selectedColorIds: string[];
   selectedConventionIds: string[];
   selectedPhoto: FursuitPhotoCandidate | null;
+  visibilityAudience: VisibilityAudience;
 };
 
 export type OnboardingProgress = {
@@ -40,6 +42,7 @@ export const createEmptyFursuitDraft = (): OnboardingFursuitDraft => ({
   selectedColorIds: [],
   selectedConventionIds: [],
   selectedPhoto: null,
+  visibilityAudience: 'everyone',
 });
 
 export const createInitialOnboardingProgress = (): OnboardingProgress => ({
@@ -159,6 +162,7 @@ const normalizeFursuitDraft = (value: unknown): OnboardingFursuitDraft => {
     selectedColorIds,
     selectedConventionIds,
     selectedPhoto: isPhotoCandidate(draft.selectedPhoto) ? draft.selectedPhoto : null,
+    visibilityAudience: normalizeVisibilityAudience(draft.visibilityAudience),
   };
 };
 

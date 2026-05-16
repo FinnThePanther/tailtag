@@ -15,6 +15,7 @@ import type { FursuitsInsert } from '../../../types/database';
 import { MAX_FURSUIT_COLORS } from '../../colors';
 import { MAX_FURSUITS_PER_USER } from '../../../constants/fursuits';
 import { ensureSpeciesEntry } from '../../species';
+import { normalizeVisibilityAudience, type VisibilityAudience } from '../../adult-boundary';
 
 export const GETTING_STARTED_ACHIEVEMENT_KEY = 'getting_started';
 
@@ -80,6 +81,7 @@ export async function createQuickFursuit(options: {
   description: string | null;
   photo: FursuitPhotoCandidate | null;
   colorIds: string[];
+  visibilityAudience?: VisibilityAudience;
 }): Promise<string> {
   const { userId, name, species, description, photo, colorIds } = options;
   const client = supabase as any;
@@ -112,6 +114,7 @@ export async function createQuickFursuit(options: {
     const normalizedName = name.trim();
     const normalizedSpecies = species.trim();
     const normalizedDescription = description?.trim() ?? null;
+    const visibilityAudience = normalizeVisibilityAudience(options.visibilityAudience);
     const normalizedColorIds = Array.from(
       new Set(
         (Array.isArray(colorIds) ? colorIds : [])
@@ -146,6 +149,7 @@ export async function createQuickFursuit(options: {
         avatar_url: avatarUrl,
         unique_code: uniqueCode,
         description: normalizedDescription,
+        visibility_audience: visibilityAudience,
         is_tutorial: false,
       };
 

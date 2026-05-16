@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 
 import * as FileSystem from 'expo-file-system/legacy';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -43,11 +44,13 @@ import {
   type FursuitColorOption,
 } from '@/features/colors';
 import { styles } from './FursuitStep.styles';
+import { profileNeedsAgeAttestation, type VisibilityAudience } from '@/features/adult-boundary';
 
 const EXPERIMENT_EVENT_TIMEOUT_MS = 5000;
 
 type FursuitStepProps = {
   userId: string;
+  profile: ProfileSummary | null | undefined;
   onSkip: () => void;
   onComplete: (options: { created: boolean }) => void;
   draft: OnboardingFursuitDraft;
@@ -117,6 +120,7 @@ const copyDraftPhoto = async (
 
 export function FursuitStep({
   userId,
+  profile,
   onSkip,
   onComplete,
   draft,
@@ -147,6 +151,9 @@ export function FursuitStep({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedColorIds, setSelectedColorIds] = useState<string[]>(draft.selectedColorIds);
+  const [visibilityAudience, setVisibilityAudience] = useState<VisibilityAudience>(
+    draft.visibilityAudience,
+  );
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(
     new Set(draft.selectedConventionIds),
   );
@@ -154,6 +161,10 @@ export function FursuitStep({
   const hasAppliedDefaultConventionsRef = useRef(draft.selectedConventionIds.length > 0);
   const colorLoadError = colorError?.message ?? null;
   const isColorBusy = isColorLoading;
+  const hasLoadedProfile = profile !== undefined;
+  const canUseAdultsOnlyFursuitVisibility =
+    profile?.is_adult === true && !profileNeedsAgeAttestation(profile);
+  const profileAlreadyAdultsOnly = profile?.visibility_audience === 'adults_only';
 
   const {
     data: conventions = [],
@@ -201,6 +212,16 @@ export function FursuitStep({
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      hasLoadedProfile &&
+      !canUseAdultsOnlyFursuitVisibility &&
+      visibilityAudience === 'adults_only'
+    ) {
+      setVisibilityAudience('everyone');
+    }
+  }, [canUseAdultsOnlyFursuitVisibility, hasLoadedProfile, visibilityAudience]);
 
   const createTimeoutPromise = useCallback(
     (eventType: string) =>
@@ -304,6 +325,7 @@ export function FursuitStep({
       selectedColorIds,
       selectedConventionIds: [...selectedConventionIds],
       selectedPhoto,
+      visibilityAudience,
     });
   }, [
     descriptionInput,
@@ -314,6 +336,7 @@ export function FursuitStep({
     selectedConventionIds,
     selectedPhoto,
     speciesInput,
+    visibilityAudience,
   ]);
 
   useEffect(() => {
@@ -445,6 +468,7 @@ export function FursuitStep({
     setDescriptionInput(emptyDraft.descriptionInput);
     setSelectedColorIds(emptyDraft.selectedColorIds);
     setSelectedConventionIds(new Set(profileConventionIdSet));
+    setVisibilityAudience('everyone');
     hasAppliedDefaultConventionsRef.current = true;
     setSelectedPhoto(null);
     setPhotoError(null);
@@ -452,6 +476,7 @@ export function FursuitStep({
     onDraftChange({
       ...emptyDraft,
       selectedConventionIds: [...profileConventionIdSet],
+      visibilityAudience: 'everyone',
     });
   };
 
@@ -495,6 +520,11 @@ export function FursuitStep({
       return;
     }
 
+    if (visibilityAudience === 'adults_only' && !canUseAdultsOnlyFursuitVisibility) {
+      setSubmitError('Adult confirmation is required for adults-only fursuits.');
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -506,6 +536,7 @@ export function FursuitStep({
         description: trimmedDescription.length > 0 ? trimmedDescription : null,
         photo: selectedPhoto,
         colorIds,
+        visibilityAudience,
       });
 
       const listedConventionIds = [...selectedConventionIds].filter((conventionId) =>
@@ -603,6 +634,103 @@ export function FursuitStep({
                 autoCorrect
                 returnKeyType="done"
               />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Fursuit visibility</Text>
+              <Text style={styles.helperLabel}>
+                Adults-only fursuits are hidden from players who have not confirmed they are 18 or
+                older.
+              </Text>
+              {profileAlreadyAdultsOnly ? (
+                <Text style={styles.helperLabel}>
+                  Your profile is adults-only, so this fursuit is already restricted by your profile
+                  setting.
+                </Text>
+              ) : null}
+              <View style={styles.visibilityOptions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: visibilityAudience === 'everyone' }}
+                  disabled={isSubmitting}
+                  onPress={() => setVisibilityAudience('everyone')}
+                  style={({ pressed }) => [
+                    styles.visibilityOption,
+                    visibilityAudience === 'everyone' && styles.visibilityOptionSelected,
+                    pressed && styles.visibilityOptionPressed,
+                  ]}
+                >
+                  <View style={styles.visibilityOptionText}>
+                    <Text
+                      style={[
+                        styles.visibilityOptionTitle,
+                        visibilityAudience === 'everyone' && styles.visibilityOptionTitleSelected,
+                      ]}
+                    >
+                      Everyone
+                    </Text>
+                    <Text style={styles.visibilityOptionDescription}>
+                      Any signed-in player can view this fursuit.
+                    </Text>
+                  </View>
+                  {visibilityAudience === 'everyone' ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={22}
+                      color={colors.primary}
+                    />
+                  ) : null}
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: visibilityAudience === 'adults_only',
+                    disabled: isSubmitting || !canUseAdultsOnlyFursuitVisibility,
+                  }}
+                  disabled={isSubmitting || !canUseAdultsOnlyFursuitVisibility}
+                  onPress={() => setVisibilityAudience('adults_only')}
+                  style={({ pressed }) => [
+                    styles.visibilityOption,
+                    visibilityAudience === 'adults_only' && styles.visibilityOptionSelected,
+                    !canUseAdultsOnlyFursuitVisibility && styles.visibilityOptionDisabled,
+                    pressed && styles.visibilityOptionPressed,
+                  ]}
+                >
+                  <View style={styles.visibilityOptionText}>
+                    <Text
+                      style={[
+                        styles.visibilityOptionTitle,
+                        visibilityAudience === 'adults_only' &&
+                          styles.visibilityOptionTitleSelected,
+                        !canUseAdultsOnlyFursuitVisibility && styles.visibilityOptionTitleDisabled,
+                      ]}
+                    >
+                      Adults only
+                    </Text>
+                    <Text
+                      style={[
+                        styles.visibilityOptionDescription,
+                        !canUseAdultsOnlyFursuitVisibility &&
+                          styles.visibilityOptionDescriptionDisabled,
+                      ]}
+                    >
+                      Only players who have confirmed they are 18 or older can view this fursuit.
+                    </Text>
+                  </View>
+                  {visibilityAudience === 'adults_only' ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={22}
+                      color={colors.primary}
+                    />
+                  ) : null}
+                </Pressable>
+              </View>
+              {hasLoadedProfile && !canUseAdultsOnlyFursuitVisibility ? (
+                <Text style={styles.helperLabel}>
+                  Adult confirmation is required for adults-only fursuits.
+                </Text>
+              ) : null}
             </View>
 
             <View style={styles.fieldGroup}>

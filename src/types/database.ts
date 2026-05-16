@@ -1175,6 +1175,7 @@ export type Database = {
           owner_id: string
           species_id: string | null
           unique_code: string
+          visibility_audience: string
         }
         Insert: {
           avatar_path?: string | null
@@ -1192,6 +1193,7 @@ export type Database = {
           owner_id: string
           species_id?: string | null
           unique_code: string
+          visibility_audience?: string
         }
         Update: {
           avatar_path?: string | null
@@ -1209,6 +1211,7 @@ export type Database = {
           owner_id?: string
           species_id?: string | null
           unique_code?: string
+          visibility_audience?: string
         }
         Relationships: [
           {
