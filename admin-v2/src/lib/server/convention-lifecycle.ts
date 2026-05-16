@@ -552,18 +552,23 @@ function buildLifecycleHealthResult({
     warning: string,
     nextAction: ConventionLifecycleRecommendedAction,
     nextSeverity: ConventionLifecycleHealthSeverity = 'warning',
+    options: { recommendAction?: boolean } = {},
   ) => {
     warnings.push(warning);
+    const shouldRecommendAction = options.recommendAction !== false;
     const nextSeverityRank = severityRank(nextSeverity);
     const currentSeverityRank = severityRank(severity);
     // Break same-severity ties with an explicit action priority instead of relying on call order.
     if (
       nextSeverityRank > currentSeverityRank ||
-      (nextSeverityRank === currentSeverityRank &&
+      (shouldRecommendAction &&
+        nextSeverityRank === currentSeverityRank &&
         recommendedActionRank(nextAction) > recommendedActionRank(recommendedAction))
     ) {
       severity = nextSeverity;
-      recommendedAction = nextAction;
+      if (shouldRecommendAction) {
+        recommendedAction = nextAction;
+      }
     }
   };
 
@@ -620,8 +625,14 @@ function buildLifecycleHealthResult({
         'review_dates',
         'warning',
       );
-    } else if (closeoutDue) {
+    } else if (closeoutDue && automationEligibleForAutoClose) {
       addWarning('Closeout window has been reached. Auto-close scheduled.', 'none', 'info');
+    } else if (closeoutDue) {
+      addWarning(
+        'Closeout window has been reached. Auto-close is deferred while automation is throttled.',
+        'none',
+        'info',
+      );
     } else {
       addWarning('Convention is in the player cleanup window before closeout.', 'none', 'info');
     }
@@ -639,7 +650,9 @@ function buildLifecycleHealthResult({
         'critical',
       );
     } else if (closeoutAutoRetryEligible) {
-      addWarning('Auto-retry scheduled.', 'retry_closeout', 'warning');
+      addWarning('Auto-retry scheduled.', 'retry_closeout', 'warning', {
+        recommendAction: false,
+      });
     } else {
       addWarning(
         diagnostics.closeoutError
