@@ -2,13 +2,14 @@ import { error, fail, isRedirect, redirect } from '@sveltejs/kit';
 import {
   buildConventionLifecycleHealth,
   buildConventionReadiness,
+  type ConventionCloseoutResult,
 } from '$lib/server/convention-lifecycle';
 import {
   fetchConvention,
   fetchConventionAchievements,
   fetchConventionTasks,
 } from '$lib/server/data';
-import { isDevSupabaseProject } from '$lib/server/env';
+import { isDevSupabaseProject, isRepairSupabaseProject } from '$lib/server/env';
 import { requireAdminDataContext } from '$lib/server/auth';
 import {
   closeConventionAction,
@@ -50,6 +51,7 @@ export async function load({ cookies, params, setHeaders, url }) {
     readiness,
     health,
     showDevDelete: isDevSupabaseProject(),
+    showSilentRepair: isRepairSupabaseProject(),
     startSkipped: url.searchParams.get('startSkipped'),
   };
 }
@@ -63,6 +65,22 @@ const ok = async (run: () => Promise<unknown>, message: string) => {
     return fail(400, { error: error instanceof Error ? error.message : 'Action failed.' });
   }
 };
+
+function formatCloseoutActionResult(
+  result: ConventionCloseoutResult,
+  mode: 'close' | 'retry' | 'regenerate',
+) {
+  if (result.already_running) return 'Closeout is already running.';
+  if (result.not_due) return 'Closeout is not due yet.';
+  if (result.already_archived && mode !== 'regenerate') return 'Convention was already archived.';
+  if (mode === 'regenerate') {
+    return `Recaps regenerated with ${result.recaps_generated} participant recap(s).`;
+  }
+  if (mode === 'retry') {
+    return `Closeout retried and archived with ${result.recaps_generated} recap(s).`;
+  }
+  return `Convention archived with ${result.recaps_generated} recap(s).`;
+}
 
 export const actions = {
   details: async ({ cookies, params, request }) => {
@@ -118,19 +136,15 @@ export const actions = {
       },
       close: async () => {
         const result = await closeConventionAction(cookies, params.id);
-        return result.already_archived
-          ? 'Convention was already archived.'
-          : `Convention archived with ${result.recaps_generated} recap(s).`;
+        return formatCloseoutActionResult(result, 'close');
       },
       retry: async () => {
         const result = await retryConventionCloseoutAction(cookies, params.id);
-        return result.already_archived
-          ? 'Convention was already archived.'
-          : `Closeout retried and archived with ${result.recaps_generated} recap(s).`;
+        return formatCloseoutActionResult(result, 'retry');
       },
       regenerate: async () => {
         const result = await regenerateConventionRecapsAction(cookies, params.id);
-        return `Recaps regenerated with ${result.recaps_generated} participant recap(s).`;
+        return formatCloseoutActionResult(result, 'regenerate');
       },
       silentRepair: async () => {
         const result = await silentRepairHistoricalConventionAction(cookies, params.id);

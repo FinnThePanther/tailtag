@@ -101,9 +101,17 @@
   const rotateDisabled = $derived(
     data.convention.status !== 'live' || data.readiness.dateState !== 'inside_window'
   );
-  const closeDisabled = $derived(data.convention.status !== 'finalizing');
+  const closeoutDueForAdminClose = $derived(
+    data.convention.status === 'finalizing' &&
+      data.health.diagnostics.automationEligibleForAutoClose
+  );
+  const legacyFailedClosedConvention = $derived(
+    data.convention.status === 'closed' &&
+      (Boolean(data.convention.closeout_error) || data.convention.archived_at === null)
+  );
+  const closeDisabled = $derived(!closeoutDueForAdminClose);
   const retryCloseoutDisabled = $derived(
-    data.convention.status !== 'closeout_failed' && data.convention.status !== 'closed'
+    data.convention.status !== 'closeout_failed' && !legacyFailedClosedConvention
   );
   const regenerateDisabled = $derived(data.convention.status !== 'archived');
   const devDeleteDisabled = $derived(data.convention.status !== 'archived');
@@ -668,16 +676,18 @@
       <ActionButton name="action" value="regenerate" icon={RefreshCcw} disabled={regenerateDisabled}>
         Regenerate recaps
       </ActionButton>
-      {#if data.showDevDelete}
+      {#if data.showSilentRepair}
         <ActionButton
           name="action"
           value="silentRepair"
           icon={Wrench}
           disabled={silentRepairDisabled}
-          confirmText="Silently repair this historical convention?\n\nThis archives stale closeout failure state for development/staging validation.\nIt does not generate recaps.\nIt does not create player notifications.\n\nUse this only for historical broken conventions."
+          confirmText="Silently repair this historical convention?\n\nThis is only for historical conventions that failed before the lifecycle shipped.\nIt archives stale closeout failure state for development/staging validation.\nIt does not generate recaps.\nIt does not create player notifications.\n\nUse this only for historical broken conventions."
         >
           Silent repair
         </ActionButton>
+      {/if}
+      {#if data.showDevDelete}
         <ActionButton
           name="action"
           value="delete"
@@ -696,8 +706,8 @@
     {/if}
     {#if closeDisabled}
       <p class="mt-2 text-xs text-muted">
-        Closeout is available after the convention enters finalizing. Failed closeouts can be
-        retried.
+        Closeout is available after the convention enters finalizing and reaches the finalizing
+        deadline. Failed closeouts can be retried.
       </p>
     {/if}
     {#if regenerateDisabled && data.convention.status !== 'archived'}
@@ -705,10 +715,14 @@
         Recap regeneration is available after the convention is archived.
       </p>
     {/if}
-    {#if data.showDevDelete}
+    {#if data.showSilentRepair || data.showDevDelete}
       <p class="mt-2 text-xs text-muted">
-        Silent repair is for broken historical dev/staging conventions. Dev delete is available only
-        for archived conventions and removes test data permanently.
+        {data.showSilentRepair
+          ? 'Silent repair is for broken historical dev/staging conventions and does not create recaps or notifications.'
+          : ''}
+        {data.showDevDelete
+          ? ' Dev delete is available only for archived conventions and removes test data permanently.'
+          : ''}
       </p>
     {/if}
   </Card>

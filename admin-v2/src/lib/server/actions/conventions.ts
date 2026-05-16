@@ -2,7 +2,7 @@ import { redirect, type Cookies } from '@sveltejs/kit';
 import { assertAdminAction } from '$lib/server/auth';
 import { createServiceRoleClient } from '$lib/server/supabase/service';
 import { logAudit } from '$lib/server/audit';
-import { isDevSupabaseProject } from '$lib/server/env';
+import { isDevSupabaseProject, isRepairSupabaseProject } from '$lib/server/env';
 import {
   closeOutConvention,
   ensureConventionDailies,
@@ -445,8 +445,8 @@ export async function silentRepairHistoricalConventionAction(
 ) {
   const { profile } = await assertAdminAction(cookies, [...CONFIG_ROLES]);
 
-  if (!isDevSupabaseProject()) {
-    throw new Error('Silent repair is only available in the dev Supabase project.');
+  if (!isRepairSupabaseProject()) {
+    throw new Error('Silent repair is only available in configured repair Supabase projects.');
   }
 
   const supabase = createServiceRoleClient();

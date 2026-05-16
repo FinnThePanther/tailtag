@@ -14,6 +14,14 @@ export const env = {
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
 };
 
+function getSupabaseProjectRef() {
+  try {
+    return new URL(env.supabaseUrl).hostname.split('.')[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function isDevSupabaseProject() {
   if (process.env.ADMIN_IS_DEV_PROJECT !== 'true') {
     return false;
@@ -25,8 +33,21 @@ export function isDevSupabaseProject() {
   }
 
   try {
-    return new URL(env.supabaseUrl).hostname === `${expectedProjectRef}.supabase.co`;
+    return getSupabaseProjectRef() === expectedProjectRef;
   } catch {
     return false;
   }
+}
+
+export function isRepairSupabaseProject() {
+  const allowedProjectRefs = process.env.ADMIN_REPAIR_SUPABASE_PROJECT_REFS?.split(',')
+    .map((ref) => ref.trim())
+    .filter(Boolean);
+
+  if (!allowedProjectRefs?.length) {
+    return false;
+  }
+
+  const currentProjectRef = getSupabaseProjectRef();
+  return Boolean(currentProjectRef && allowedProjectRefs.includes(currentProjectRef));
 }

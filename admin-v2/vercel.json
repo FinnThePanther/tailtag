@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "sveltekit",
+  "ignoreCommand": "node ../scripts/vercel-ignore-admin-v2.mjs",
   "installCommand": "npm install",
   "buildCommand": "npm run build"
 }
