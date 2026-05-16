@@ -226,7 +226,7 @@ export default function FursuitDetailScreen() {
               </TailTagButton>
             </View>
           ) : fursuitNotFound ? (
-            <Text style={styles.message}>That fursuit could not be found.</Text>
+            <Text style={styles.message}>Fursuit unavailable</Text>
           ) : (
             <View>
               {detail && (

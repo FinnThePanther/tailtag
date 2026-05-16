@@ -10,6 +10,7 @@ import type { FursuitDetail } from '../types';
 import { captureHandledMessage } from '../../../lib/sentry';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
+import { normalizeVisibilityAudience } from '@/features/adult-boundary';
 
 export const FURSUIT_DETAIL_QUERY_KEY = 'fursuit-detail';
 export const fursuitDetailQueryKey = (fursuitId: string, viewerId?: string | null) =>
@@ -34,6 +35,7 @@ export async function fetchFursuitDetail(
       avatar_url,
       is_tutorial,
       description,
+      visibility_audience,
       catch_count,
       created_at,
       species_entry:fursuit_species (
@@ -104,7 +106,7 @@ export async function fetchFursuitDetail(
       },
       'warning',
     );
-    throw new Error('That fursuit was not found. It may have been removed.');
+    throw new Error('Fursuit unavailable');
   }
 
   const conventions = (data.fursuit_conventions ?? [])
@@ -192,6 +194,7 @@ export async function fetchFursuitDetail(
     }),
     description: data.description ?? null,
     unique_code: uniqueCode,
+    visibility_audience: normalizeVisibilityAudience(data.visibility_audience),
     catchCount: resolvedCatchCount,
     created_at: data.created_at ?? null,
     conventions,

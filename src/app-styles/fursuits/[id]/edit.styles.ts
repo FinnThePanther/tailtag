@@ -52,6 +52,52 @@ export const styles = StyleSheet.create({
   helperColumn: {
     gap: spacing.sm,
   },
+  visibilityOptions: {
+    gap: spacing.sm,
+  },
+  visibilityOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderMuted,
+    backgroundColor: colors.surfaceInset,
+    padding: spacing.md,
+  },
+  visibilityOptionSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySurface,
+  },
+  visibilityOptionPressed: {
+    opacity: 0.72,
+  },
+  visibilityOptionDisabled: {
+    opacity: 0.55,
+  },
+  visibilityOptionText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  visibilityOptionTitle: {
+    color: colors.foreground,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  visibilityOptionTitleSelected: {
+    color: colors.primary,
+  },
+  visibilityOptionTitleDisabled: {
+    color: colors.textSubtle,
+  },
+  visibilityOptionDescription: {
+    color: colors.textSubtle,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  visibilityOptionDescriptionDisabled: {
+    color: colors.textPlaceholder,
+  },
   colorSelectedList: {
     flexDirection: 'row',
     flexWrap: 'wrap',

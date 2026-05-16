@@ -9,6 +9,7 @@ import {
 import { fetchFursuitMakersByFursuitIds } from './makers';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
+import { normalizeVisibilityAudience } from '@/features/adult-boundary';
 
 export const MY_SUITS_QUERY_KEY = 'my-suits';
 export const MY_SUITS_COUNT_QUERY_KEY = 'my-suits-count';
@@ -34,6 +35,7 @@ export async function fetchMySuits(
       avatar_url,
       description,
       ${includeUniqueCodes ? 'unique_code,' : ''}
+      visibility_audience,
       catch_count,
       created_at,
       species_entry:fursuit_species (
@@ -150,6 +152,7 @@ export async function fetchMySuits(
       }),
       description: item.description ?? null,
       unique_code: includeUniqueCodes ? (item.unique_code ?? null) : null,
+      visibility_audience: normalizeVisibilityAudience(item.visibility_audience),
       catchCount: typeof item.catch_count === 'number' ? item.catch_count : 0,
       created_at: item.created_at ?? null,
       conventions,
