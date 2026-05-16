@@ -19,6 +19,7 @@ import { AuthProvider, useAuth, usePrimeUserData } from '../src/features/auth';
 import { NavigationReadyProvider, useSetNavigationReady } from '../src/hooks/useNavigationReady';
 import { OtaUpdateProvider } from '../src/hooks/useOtaUpdateCheck';
 import { createProfileQueryOptions } from '../src/features/profile';
+import { profileNeedsAgeAttestation } from '../src/features/adult-boundary';
 import { colors } from '../src/theme';
 import { ToastProvider } from '../src/hooks/useToast';
 import { DailyTaskToastManager } from '../src/features/daily-tasks/components/DailyTaskToastManager';
@@ -77,6 +78,7 @@ function RootLayoutNav() {
   const inAuthGroup = firstSegment === '(auth)';
   const inAuthCallbackFlow = firstSegment === 'auth' && secondSegment === 'callback';
   const inOnboardingFlow = firstSegment === 'onboarding';
+  const inAgeGateFlow = firstSegment === 'age-gate';
   const inResetPasswordFlow = firstSegment === 'reset-password';
   const inPublicAuthFlow = inAuthGroup || inAuthCallbackFlow || inResetPasswordFlow;
   const userId = session?.user.id ?? null;
@@ -98,10 +100,13 @@ function RootLayoutNav() {
   usePrimeUserData(session?.user.id ?? null);
 
   const hasCompletedOnboarding = profile?.onboarding_completed === true;
+  const shouldGateAgeAttestation =
+    Boolean(session) && !profileError && profile !== null && profileNeedsAgeAttestation(profile);
   const shouldGateOnboarding =
     Boolean(session) &&
     !profileError &&
     profile !== null && // Explicit null check - don't gate while loading
+    !shouldGateAgeAttestation &&
     (profile?.is_new === true || !hasCompletedOnboarding);
 
   const shouldShowOnboardingRedirectLoading =
@@ -113,6 +118,14 @@ function RootLayoutNav() {
     !profile &&
     !profileError;
 
+  const shouldShowAgeGateRedirectLoading =
+    !inResetPasswordFlow &&
+    Boolean(session) &&
+    !inAgeGateFlow &&
+    (isProfileLoading || isProfileFetching) &&
+    !profile &&
+    !profileError;
+
   const shouldResolvePostAuthDestination =
     Boolean(session) &&
     inAuthGroup &&
@@ -120,12 +133,24 @@ function RootLayoutNav() {
     !profile &&
     (isProfileLoading || isProfileFetching);
 
-  let redirectHref: '/' | '/auth' | '/onboarding' | null = null;
+  let redirectHref: '/' | '/auth' | '/onboarding' | '/age-gate' | null = null;
 
   if (!session && !inPublicAuthFlow) {
     redirectHref = '/auth';
+  } else if (
+    !inResetPasswordFlow &&
+    session &&
+    shouldGateAgeAttestation &&
+    !inAgeGateFlow &&
+    !inAuthGroup
+  ) {
+    redirectHref = '/age-gate';
   } else if (session && inAuthGroup && !shouldResolvePostAuthDestination) {
-    redirectHref = shouldGateOnboarding ? '/onboarding' : '/';
+    redirectHref = shouldGateAgeAttestation
+      ? '/age-gate'
+      : shouldGateOnboarding
+        ? '/onboarding'
+        : '/';
   } else if (
     !inResetPasswordFlow &&
     session &&
@@ -136,6 +161,14 @@ function RootLayoutNav() {
     redirectHref = '/onboarding';
   } else if (
     session &&
+    inAgeGateFlow &&
+    !shouldGateAgeAttestation &&
+    !isProfileLoading &&
+    !isProfileFetching
+  ) {
+    redirectHref = shouldGateOnboarding ? '/onboarding' : '/';
+  } else if (
+    session &&
     inOnboardingFlow &&
     hasCompletedOnboarding &&
     !isProfileLoading &&
@@ -144,7 +177,8 @@ function RootLayoutNav() {
     redirectHref = '/';
   }
 
-  const shouldShowLoadingScreen = status === 'loading' || shouldShowOnboardingRedirectLoading;
+  const shouldShowLoadingScreen =
+    status === 'loading' || shouldShowOnboardingRedirectLoading || shouldShowAgeGateRedirectLoading;
 
   useEffect(() => {
     if (shouldShowLoadingScreen || redirectHref) {
@@ -159,8 +193,17 @@ function RootLayoutNav() {
       return;
     }
 
-    router.replace(shouldGateOnboarding ? '/onboarding' : '/');
-  }, [inAuthGroup, router, session, shouldGateOnboarding, shouldResolvePostAuthDestination]);
+    router.replace(
+      shouldGateAgeAttestation ? '/age-gate' : shouldGateOnboarding ? '/onboarding' : '/',
+    );
+  }, [
+    inAuthGroup,
+    router,
+    session,
+    shouldGateAgeAttestation,
+    shouldGateOnboarding,
+    shouldResolvePostAuthDestination,
+  ]);
 
   useEffect(() => {
     if (status === 'loading') {
@@ -269,6 +312,24 @@ function RootLayoutNav() {
   // makes the user appear authenticated, but they need to stay on this screen.
   if (inResetPasswordFlow) {
     // Fall through to normal Stack rendering below
+  } else if (session && shouldGateAgeAttestation && !inAgeGateFlow && !inAuthGroup) {
+    if (shouldShowAgeGateRedirectLoading) {
+      return <LoadingScreen />;
+    }
+
+    addMonitoringBreadcrumb({
+      category: 'routing',
+      message: 'Redirecting to age gate',
+      data: {
+        userId,
+        profileIsAdult: profile?.is_adult,
+        profileAgeGateVersion: profile?.age_gate_version,
+        isProfileLoading,
+        isProfileFetching,
+      },
+    });
+
+    return <Redirect href="/age-gate" />;
   } else if (session && shouldGateOnboarding && !inOnboardingFlow && !inAuthGroup) {
     if (shouldShowOnboardingRedirectLoading) {
       return <LoadingScreen />;
@@ -288,6 +349,16 @@ function RootLayoutNav() {
     });
 
     return <Redirect href="/onboarding" />;
+  }
+
+  if (
+    session &&
+    inAgeGateFlow &&
+    !shouldGateAgeAttestation &&
+    !isProfileLoading &&
+    !isProfileFetching
+  ) {
+    return <Redirect href={shouldGateOnboarding ? '/onboarding' : '/'} />;
   }
 
   if (
@@ -342,6 +413,12 @@ function RootLayoutNav() {
       {/* Onboarding - no header (custom multi-step wizard) */}
       <Stack.Screen
         name="onboarding/index"
+        options={{ headerShown: false }}
+      />
+
+      {/* Age attestation gate - no header */}
+      <Stack.Screen
+        name="age-gate"
         options={{ headerShown: false }}
       />
 

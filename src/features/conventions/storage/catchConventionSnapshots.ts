@@ -12,6 +12,9 @@ const contextKeyForUser = (userId: string) =>
 const rosterKeyForConvention = (userId: string, conventionId: string) =>
   `tailtag:catch-convention-roster:v${STORAGE_VERSION}:${userId}:${conventionId}`;
 
+const SNAPSHOT_KEY_PREFIX = 'tailtag:catch-convention-';
+const snapshotKeySuffixForUser = (userId: string) => `:${userId}`;
+
 export type CatchConventionContextSnapshot = {
   userId: string;
   activeConventionIds: string[];
@@ -195,6 +198,32 @@ export async function clearCatchConventionContextSnapshot(userId: string) {
   } catch (error) {
     captureHandledException(error, {
       scope: 'catch-convention-snapshot.clearContext',
+      additionalContext: { userId },
+    });
+  }
+}
+
+export async function clearCatchConventionSnapshotsForUser(userId: string) {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const userSnapshotKeys = keys.filter(
+      (key) =>
+        key.startsWith(SNAPSHOT_KEY_PREFIX) &&
+        (key.endsWith(snapshotKeySuffixForUser(userId)) || key.includes(`:${userId}:`)),
+    );
+
+    if (userSnapshotKeys.length === 0) {
+      return;
+    }
+
+    await AsyncStorage.multiRemove(userSnapshotKeys);
+    recordSnapshotBreadcrumb('user snapshots cleared', {
+      userId,
+      keyCount: userSnapshotKeys.length,
+    });
+  } catch (error) {
+    captureHandledException(error, {
+      scope: 'catch-convention-snapshot.clearUser',
       additionalContext: { userId },
     });
   }

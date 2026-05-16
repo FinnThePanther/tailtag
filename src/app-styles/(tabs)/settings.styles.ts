@@ -121,6 +121,23 @@ export const styles = StyleSheet.create({
     color: colors.textSubtle,
     fontSize: 12,
   },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderMuted,
+    backgroundColor: colors.surfaceInset,
+    padding: spacing.md,
+  },
+  detailValue: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
   warning: {
     color: '#ef4444',
     fontSize: 12,
