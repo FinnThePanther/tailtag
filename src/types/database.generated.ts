@@ -583,6 +583,7 @@ export type Database = {
           species: string | null;
           species_id: string | null;
           unique_code: string;
+          visibility_audience: string;
         };
         Insert: {
           avatar_url?: string | null;
@@ -597,6 +598,7 @@ export type Database = {
           species?: string | null;
           species_id?: string | null;
           unique_code: string;
+          visibility_audience?: string;
         };
         Update: {
           avatar_url?: string | null;
@@ -611,6 +613,7 @@ export type Database = {
           species?: string | null;
           species_id?: string | null;
           unique_code?: string;
+          visibility_audience?: string;
         };
         Relationships: [
           {
@@ -688,37 +691,49 @@ export type Database = {
       };
       profiles: {
         Row: {
+          age_confirmed_at: string | null;
+          age_gate_version: number;
           avatar_url: string | null;
           bio: string | null;
           created_at: string | null;
           default_catch_mode: string;
           id: string;
+          is_adult: boolean | null;
           is_new: boolean;
           onboarding_completed: boolean;
           updated_at: string | null;
           username: string | null;
+          visibility_audience: string;
         };
         Insert: {
+          age_confirmed_at?: string | null;
+          age_gate_version?: number;
           avatar_url?: string | null;
           bio?: string | null;
           created_at?: string | null;
           default_catch_mode?: string;
           id: string;
+          is_adult?: boolean | null;
           is_new?: boolean;
           onboarding_completed?: boolean;
           updated_at?: string | null;
           username?: string | null;
+          visibility_audience?: string;
         };
         Update: {
+          age_confirmed_at?: string | null;
+          age_gate_version?: number;
           avatar_url?: string | null;
           bio?: string | null;
           created_at?: string | null;
           default_catch_mode?: string;
           id?: string;
+          is_adult?: boolean | null;
           is_new?: boolean;
           onboarding_completed?: boolean;
           updated_at?: string | null;
           username?: string | null;
+          visibility_audience?: string;
         };
         Relationships: [];
       };

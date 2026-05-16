@@ -62,3 +62,4 @@ export {
 export { useConventionVerificationAction } from './hooks/useConventionVerificationAction';
 export { useCatchConventionContext } from './hooks/useCatchConventionContext';
 export { formatConventionDateRange, isConventionEnded } from './utils';
+export { clearCatchConventionSnapshotsForUser } from './storage/catchConventionSnapshots';

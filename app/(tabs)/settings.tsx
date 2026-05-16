@@ -14,6 +14,12 @@ import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
+import {
+  CURRENT_AGE_GATE_VERSION,
+  profileNeedsAgeAttestation,
+  refreshAdultBoundaryCaches,
+  updateAgeAttestation,
+} from '../../src/features/adult-boundary';
 import { STAFF_MODE_ENABLED } from '../../src/constants/features';
 import {
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
@@ -111,6 +117,14 @@ const TERMS_URL = 'https://playtailtag.com/terms';
 const DELETE_ACCOUNT_URL = 'https://playtailtag.com/delete-account';
 const SUPPORT_EMAIL_URL = 'mailto:finn@finnthepanther.com';
 const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
+
+function ageAttestationLabel(profile: ProfileSummary | null) {
+  if (!profile || profileNeedsAgeAttestation(profile)) {
+    return 'Not confirmed';
+  }
+
+  return profile.is_adult ? '18 or older' : 'Under 18';
+}
 
 function conventionBadgeText(
   convention: ConventionSummary,
@@ -289,6 +303,9 @@ export default function SettingsScreen() {
   const [isSavingSocialLinks, setIsSavingSocialLinks] = useState(false);
   const [socialLinksError, setSocialLinksError] = useState<string | null>(null);
   const [socialLinksMessage, setSocialLinksMessage] = useState<string | null>(null);
+  const [isSavingAgeAttestation, setIsSavingAgeAttestation] = useState(false);
+  const [ageAttestationError, setAgeAttestationError] = useState<string | null>(null);
+  const [ageAttestationMessage, setAgeAttestationMessage] = useState<string | null>(null);
   const [isSavingCatchMode, setIsSavingCatchMode] = useState(false);
   const [catchModeError, setCatchModeError] = useState<string | null>(null);
   const [catchModeMessage, setCatchModeMessage] = useState<string | null>(null);
@@ -649,6 +666,8 @@ export default function SettingsScreen() {
     () => STAFF_MODE_ENABLED && canUseStaffMode(profile?.role ?? null),
     [profile?.role],
   );
+  const ageStatusLabel = ageAttestationLabel(profile);
+  const ageActionLabel = profile?.is_adult === true ? 'Update to under 18' : 'Confirm 18 or older';
   const isPushDenied = permissionStatus === 'denied';
   const canTogglePush = isPushSupported && !isPushRegistering;
   const isPushToggleOn = isPushSupported && permissionStatus === 'granted' && isPushEnabled;
@@ -810,6 +829,10 @@ export default function SettingsScreen() {
               avatar_path: null,
               avatar_url: null,
               social_links: [],
+              is_adult: null,
+              age_confirmed_at: null,
+              age_gate_version: CURRENT_AGE_GATE_VERSION,
+              visibility_audience: 'everyone',
               default_catch_mode: 'AUTO_ACCEPT',
               catch_mode_preference_source: 'system_default',
               is_new: false,
@@ -1053,6 +1076,65 @@ export default function SettingsScreen() {
       setIsSavingSocialLinks(false);
     }
   }, [userId, isSavingSocialLinks, socialLinks, profileQueryKey, queryClient]);
+
+  const saveAgeAttestation = useCallback(
+    async (isAdult: boolean) => {
+      if (!userId || isSavingAgeAttestation) {
+        return;
+      }
+
+      setIsSavingAgeAttestation(true);
+      setAgeAttestationError(null);
+      setAgeAttestationMessage(null);
+
+      try {
+        await updateAgeAttestation(userId, isAdult);
+        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+          current
+            ? {
+                ...current,
+                is_adult: isAdult,
+                age_gate_version: CURRENT_AGE_GATE_VERSION,
+              }
+            : current,
+        );
+        await refreshAdultBoundaryCaches({ queryClient, userId });
+        setAgeAttestationMessage('Age attestation saved');
+      } catch (caught) {
+        setAgeAttestationError(
+          caught instanceof Error
+            ? caught.message
+            : 'Could not save age attestation. Please try again.',
+        );
+      } finally {
+        setIsSavingAgeAttestation(false);
+      }
+    },
+    [isSavingAgeAttestation, profileQueryKey, queryClient, userId],
+  );
+
+  const handleAgeAttestationPress = useCallback(() => {
+    if (!userId || isSavingAgeAttestation) {
+      return;
+    }
+
+    const nextIsAdult = profile?.is_adult !== true;
+    Alert.alert(
+      'Update age attestation?',
+      nextIsAdult
+        ? 'Confirm that you are 18 or older. Some profiles and fursuits are only available to players who confirm they are 18 or older.'
+        : 'Confirm that you are under 18. Adults-only visibility settings on your profile and fursuits will no longer be effective.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: nextIsAdult ? 'I am 18 or older' : 'I am under 18',
+          onPress: () => {
+            void saveAgeAttestation(nextIsAdult);
+          },
+        },
+      ],
+    );
+  }, [isSavingAgeAttestation, profile?.is_adult, saveAgeAttestation, userId]);
 
   const handleToggleProfileConvention = useCallback(
     async (
@@ -1785,6 +1867,32 @@ export default function SettingsScreen() {
           >
             Save links
           </TailTagButton>
+        </View>
+      </TailTagCard>
+
+      <TailTagCard>
+        <View style={styles.accountSection}>
+          <Text style={styles.sectionTitle}>Age attestation</Text>
+          <Text style={styles.sectionDescription}>
+            TailTag uses this to apply player-controlled visibility settings. It is not displayed on
+            your public profile.
+          </Text>
+          <View style={styles.detailRow}>
+            <Text style={styles.sectionSubtitle}>Current status</Text>
+            <Text style={styles.detailValue}>{ageStatusLabel}</Text>
+          </View>
+          <TailTagButton
+            variant="outline"
+            onPress={handleAgeAttestationPress}
+            loading={isSavingAgeAttestation}
+            disabled={!userId || isProfileLoading}
+          >
+            {ageActionLabel}
+          </TailTagButton>
+          {ageAttestationError ? <Text style={styles.error}>{ageAttestationError}</Text> : null}
+          {ageAttestationMessage ? (
+            <Text style={styles.success}>{ageAttestationMessage}</Text>
+          ) : null}
         </View>
       </TailTagCard>
 

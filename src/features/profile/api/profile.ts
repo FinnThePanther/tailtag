@@ -15,6 +15,11 @@ import {
   toValidUsernameOrNull,
   validateUsername,
 } from '../usernameRules';
+import {
+  CURRENT_AGE_GATE_VERSION,
+  normalizeVisibilityAudience,
+  type VisibilityAudience,
+} from '@/features/adult-boundary/api/ageAttestation';
 
 type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
 export type CatchMode = Database['public']['Enums']['catch_mode'];
@@ -43,6 +48,10 @@ export type ProfileSummary = {
   avatar_path?: string | null;
   avatar_url: string | null;
   social_links: FursuitSocialLink[];
+  is_adult: boolean | null;
+  age_confirmed_at: string | null;
+  age_gate_version: number;
+  visibility_audience: VisibilityAudience;
   default_catch_mode: CatchMode;
   catch_mode_preference_source: CatchModePreferenceSource;
   is_new: boolean;
@@ -63,7 +72,7 @@ export const profileQueryKey = (userId: string) => [PROFILE_QUERY_KEY, userId] a
 // Stable columns that have always existed — used as fallback when new columns aren't migrated yet.
 const STABLE_COLUMNS =
   'username, bio, is_new, onboarding_completed, role, push_notifications_enabled, push_notifications_prompted';
-const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, avatar_path, social_links, default_catch_mode, catch_mode_preference_source, is_suspended, suspended_until, suspension_reason`;
+const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, avatar_path, social_links, is_adult, age_confirmed_at, age_gate_version, visibility_audience, default_catch_mode, catch_mode_preference_source, is_suspended, suspended_until, suspension_reason`;
 const NEW_USER_PROFILE_RETRY_DELAYS_MS = [150, 500] as const;
 
 const normalizeCatchMode = (value: unknown): CatchMode =>
@@ -170,6 +179,13 @@ function mapProfileData(data: any, overrides: Partial<ProfileSummary> = {}): Pro
     social_links: Array.isArray(data.social_links)
       ? (data.social_links as FursuitSocialLink[])
       : [],
+    is_adult: typeof data.is_adult === 'boolean' ? data.is_adult : null,
+    age_confirmed_at: typeof data.age_confirmed_at === 'string' ? data.age_confirmed_at : null,
+    age_gate_version:
+      typeof data.age_gate_version === 'number' && Number.isFinite(data.age_gate_version)
+        ? data.age_gate_version
+        : CURRENT_AGE_GATE_VERSION,
+    visibility_audience: normalizeVisibilityAudience(data.visibility_audience),
     default_catch_mode: normalizeCatchMode(data.default_catch_mode),
     catch_mode_preference_source: normalizeCatchModePreferenceSource(
       data.catch_mode_preference_source,
