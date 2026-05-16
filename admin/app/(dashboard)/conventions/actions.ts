@@ -526,7 +526,7 @@ export async function silentRepairHistoricalConventionAction(conventionId: strin
   const supabase = createServiceRoleClient();
   const reason = 'Phase 1.5 historical silent repair from admin';
 
-  const { data: result, error } = await (supabase as any)
+  const { data: result, error } = await supabase
     .rpc('silent_repair_historical_convention', {
       p_actor_id: profile.id,
       p_convention_id: conventionId,

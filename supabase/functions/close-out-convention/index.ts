@@ -24,15 +24,18 @@ const closeoutSteps = [
 
 type CloseoutStep = (typeof closeoutSteps)[number];
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL');
-const serviceRoleKey =
+const rawSupabaseUrl = Deno.env.get('SUPABASE_URL');
+const rawServiceRoleKey =
   Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const automationActorId =
   Deno.env.get('LIFECYCLE_AUTOMATION_ACTOR_ID') ?? Deno.env.get('SYSTEM_EVENT_USER_ID') ?? '';
 
-if (!supabaseUrl || !serviceRoleKey) {
+if (!rawSupabaseUrl || !rawServiceRoleKey) {
   throw new Error('Missing SUPABASE_URL or SERVICE_ROLE_KEY environment variables');
 }
+
+const supabaseUrl: string = rawSupabaseUrl;
+const serviceRoleKey: string = rawServiceRoleKey;
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   auth: {
@@ -136,6 +139,10 @@ type RecapInsert = {
 type RecapNotificationRow = {
   id: string;
   profile_id: string;
+  catch_count: number | null;
+  unique_fursuits_caught_count: number | null;
+  own_fursuits_caught_count: number | null;
+  achievements_unlocked_count: number | null;
 };
 
 type ExpireResult = {
@@ -344,7 +351,7 @@ async function loadConvention(conventionId: string) {
   if (error) throw error;
   if (!data) throw new HttpError('Convention not found.', 404);
 
-  return data as ConventionRow;
+  return data as unknown as ConventionRow;
 }
 
 async function updateCloseoutSummary(conventionId: string, patch: Record<string, unknown>) {
@@ -665,29 +672,34 @@ async function buildRecaps(conventionId: string, closedAt: string) {
 }
 
 async function upsertRecaps(recaps: RecapInsert[]) {
-  const rows: RecapNotificationRow[] = [];
-
   for (const recapChunk of chunk(recaps, UPSERT_CHUNK_SIZE)) {
-    const { data, error } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('convention_participant_recaps')
-      .upsert(recapChunk, { onConflict: 'convention_id,profile_id' })
-      .select('id, profile_id');
+      .upsert(recapChunk, { onConflict: 'convention_id,profile_id' });
 
     if (error) throw error;
-    rows.push(...((data ?? []) as RecapNotificationRow[]));
   }
-
-  return rows;
 }
 
 async function loadRecapNotificationRows(conventionId: string) {
-  return fetchAll<RecapNotificationRow>((from, to) =>
-    supabaseAdmin
+  return fetchAll<RecapNotificationRow>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
       .from('convention_participant_recaps')
-      .select('id, profile_id')
+      .select(
+        [
+          'id',
+          'profile_id',
+          'catch_count',
+          'unique_fursuits_caught_count',
+          'own_fursuits_caught_count',
+          'achievements_unlocked_count',
+        ].join(', '),
+      )
       .eq('convention_id', conventionId)
-      .range(from, to),
-  );
+      .range(from, to);
+
+    return { data: data as unknown as RecapNotificationRow[] | null, error };
+  });
 }
 
 async function createRecapNotifications(convention: ConventionRow) {
@@ -705,6 +717,10 @@ async function createRecapNotifications(convention: ConventionRow) {
               recap_id: recap.id,
               convention_id: convention.id,
               convention_name: convention.name ?? 'your convention',
+              catch_count: Number(recap.catch_count ?? 0),
+              unique_fursuits_caught_count: Number(recap.unique_fursuits_caught_count ?? 0),
+              own_fursuits_caught_count: Number(recap.own_fursuits_caught_count ?? 0),
+              achievements_unlocked_count: Number(recap.achievements_unlocked_count ?? 0),
             },
           },
         );
@@ -788,10 +804,20 @@ async function claimCloseout(conventionId: string, source: CloseoutSource, curre
     closeout_error: null,
   };
 
-  let query = supabaseAdmin
-    .from('conventions')
-    .update(baseUpdate)
-    .eq('id', conventionId)
+  let query = supabaseAdmin.from('conventions').update(baseUpdate).eq('id', conventionId);
+
+  if (current.status === 'closed') {
+    query = query.eq('status', 'closed');
+  } else if (isRetrySource(source)) {
+    query = query.eq('status', 'closeout_failed');
+  } else {
+    query = query.eq('status', 'finalizing');
+    if (source === 'cron_close') {
+      query = query.not('closeout_not_before', 'is', null).lte('closeout_not_before', startedAt);
+    }
+  }
+
+  const { data, error } = await query
     .select(
       [
         'id',
@@ -810,22 +836,9 @@ async function claimCloseout(conventionId: string, source: CloseoutSource, curre
       ].join(', '),
     )
     .limit(1);
-
-  if (current.status === 'closed') {
-    query = query.eq('status', 'closed');
-  } else if (isRetrySource(source)) {
-    query = query.eq('status', 'closeout_failed');
-  } else {
-    query = query.eq('status', 'finalizing');
-    if (source === 'cron_close') {
-      query = query.not('closeout_not_before', 'is', null).lte('closeout_not_before', startedAt);
-    }
-  }
-
-  const { data, error } = await query;
   if (error) throw error;
 
-  const claimed = ((data ?? []) as ConventionRow[])[0] ?? null;
+  const claimed = ((data ?? []) as unknown as ConventionRow[])[0] ?? null;
   if (!claimed) {
     const refreshed = await loadConvention(conventionId);
     if (refreshed.status === 'closeout_running') {
