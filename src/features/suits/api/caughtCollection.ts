@@ -1,10 +1,11 @@
-import { fetchPastConventionRecaps } from '../../conventions/api/conventions';
+import { fetchPastConventionRecaps } from '@/features/conventions/api/conventions';
+import { captureHandledException } from '@/lib/sentry';
 import {
   CAUGHT_SUITS_STALE_TIME,
   fetchCaughtSuits,
   type CaughtRecord,
   type CaughtRecordConvention,
-} from './caughtSuits';
+} from '@/features/suits/api/caughtSuits';
 
 export type CaughtConventionFolder = {
   conventionId: string;
@@ -27,6 +28,13 @@ export const CAUGHT_COLLECTION_QUERY_KEY = 'caught-collection';
 export const caughtCollectionQueryKey = (userId: string) =>
   [CAUGHT_COLLECTION_QUERY_KEY, userId] as const;
 
+const isSupabaseError = (
+  error: unknown,
+): error is { code?: string; details?: string; hint?: string; message?: string } =>
+  typeof error === 'object' &&
+  error !== null &&
+  ('code' in error || 'details' in error || 'hint' in error);
+
 export async function fetchCaughtCollection(userId: string): Promise<CaughtCollection> {
   const allCatches = await fetchCaughtSuits(userId);
   const recapIdsByConventionId = await fetchRecapIdsByConventionId();
@@ -41,7 +49,14 @@ async function fetchRecapIdsByConventionId(): Promise<Map<string, string>> {
   try {
     const recaps = await fetchPastConventionRecaps();
     return new Map(recaps.map((recap) => [recap.conventionId, recap.recapId]));
-  } catch {
+  } catch (error) {
+    if (!isSupabaseError(error)) {
+      captureHandledException(error, {
+        scope: 'fetchRecapIdsByConventionId',
+        additionalContext: { function: 'fetchRecapIdsByConventionId' },
+      });
+    }
+
     return new Map();
   }
 }
