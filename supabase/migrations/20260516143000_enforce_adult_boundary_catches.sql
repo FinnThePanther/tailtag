@@ -396,3 +396,29 @@ BEGIN
   RETURN v_result;
 END;
 $$;
+
+REVOKE EXECUTE ON FUNCTION public.create_catch_with_event(
+  uuid,
+  uuid,
+  uuid,
+  boolean,
+  boolean,
+  text,
+  text,
+  text,
+  text,
+  text
+) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.create_catch_with_event(
+  uuid,
+  uuid,
+  uuid,
+  boolean,
+  boolean,
+  text,
+  text,
+  text,
+  text,
+  text
+) TO service_role;
