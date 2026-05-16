@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSegments } from 'expo-router';
 
 import { useAuth } from '../../auth';
@@ -27,6 +28,8 @@ import type { Json } from '../../../types/database';
 
 const CATCH_RECONCILE_DEBOUNCE_MS = 800;
 const CATCH_RECONCILE_FOLLOW_UP_MS = 6_000;
+const CONVENTION_RECAP_READY_TOAST_STORAGE_PREFIX = '@convention-recap-ready-toasts:';
+const MAX_STORED_CONVENTION_RECAP_READY_TOAST_KEYS = 200;
 
 type NotificationRow = {
   id: string;
@@ -56,6 +59,43 @@ type DailyTaskMetadata = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function conventionRecapReadyToastStorageKey(userId: string) {
+  return `${CONVENTION_RECAP_READY_TOAST_STORAGE_PREFIX}${userId}`;
+}
+
+function parseConventionRecapReadyToastKeys(raw: string | null): Set<string> {
+  if (!raw) {
+    return new Set();
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return new Set();
+    }
+
+    return new Set(parsed.filter((key): key is string => typeof key === 'string'));
+  } catch {
+    return new Set();
+  }
+}
+
+function trimConventionRecapReadyToastKeys(keys: Set<string>) {
+  if (keys.size <= MAX_STORED_CONVENTION_RECAP_READY_TOAST_KEYS) {
+    return keys;
+  }
+
+  return new Set(Array.from(keys).slice(-MAX_STORED_CONVENTION_RECAP_READY_TOAST_KEYS));
+}
+
+function conventionRecapReadyToastKey(
+  userId: string,
+  conventionName: string,
+  recapId: string | null,
+) {
+  return recapId ?? `${userId}:${conventionName}`;
 }
 
 function getValueAtPath(root: Record<string, unknown>, path: string): unknown {
@@ -188,6 +228,9 @@ export function AchievementToastManager() {
   const surfacedAchievementSurfaceKeysRef = useRef<Set<string>>(new Set());
   const surfacedDailyTaskKeysRef = useRef<Set<string>>(new Set());
   const surfacedDailyAllCompleteKeysRef = useRef<Set<string>>(new Set());
+  const surfacedConventionRecapReadyKeysRef = useRef<Set<string>>(new Set());
+  const conventionRecapReadyDedupeUserRef = useRef<string | null>(null);
+  const conventionRecapReadyDedupeLoadPromiseRef = useRef<Promise<void> | null>(null);
   const sessionStartedAtRef = useRef<string>(new Date().toISOString());
   const notificationCatchupCursorRef = useRef<string>(sessionStartedAtRef.current);
   const catchReconcileTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -200,11 +243,124 @@ export function AchievementToastManager() {
     routeRef.current = segments.join('/') || 'root';
   }, [segments]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    surfacedConventionRecapReadyKeysRef.current = new Set();
+    conventionRecapReadyDedupeUserRef.current = null;
+    conventionRecapReadyDedupeLoadPromiseRef.current = null;
+
+    if (!userId) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const loadPromise = AsyncStorage.getItem(conventionRecapReadyToastStorageKey(userId))
+      .then((storedValue) => {
+        if (!isActive) {
+          return;
+        }
+
+        surfacedConventionRecapReadyKeysRef.current =
+          parseConventionRecapReadyToastKeys(storedValue);
+        conventionRecapReadyDedupeUserRef.current = userId;
+      })
+      .catch((error) => {
+        if (!isActive) {
+          return;
+        }
+
+        surfacedConventionRecapReadyKeysRef.current = new Set();
+        conventionRecapReadyDedupeUserRef.current = userId;
+        captureHandledException(error, {
+          scope: 'notifications.realtime',
+          action: 'load-recap-ready-toast-dedupe',
+          userId,
+        });
+      })
+      .finally(() => {
+        if (isActive) {
+          conventionRecapReadyDedupeLoadPromiseRef.current = null;
+        }
+      });
+
+    conventionRecapReadyDedupeLoadPromiseRef.current = loadPromise;
+
+    return () => {
+      isActive = false;
+      conventionRecapReadyDedupeLoadPromiseRef.current = null;
+    };
+  }, [userId]);
+
   const statusQueryKey = useMemo(
     () =>
       userId ? achievementsStatusQueryKey(userId) : (['achievements-status', 'guest'] as const),
     [userId],
   );
+
+  const ensureConventionRecapReadyDedupeLoaded = useCallback(async (currentUserId: string) => {
+    if (conventionRecapReadyDedupeUserRef.current === currentUserId) {
+      return;
+    }
+
+    const pendingLoad = conventionRecapReadyDedupeLoadPromiseRef.current;
+    if (pendingLoad) {
+      await pendingLoad;
+      if (conventionRecapReadyDedupeUserRef.current === currentUserId) {
+        return;
+      }
+    }
+
+    try {
+      const storedValue = await AsyncStorage.getItem(
+        conventionRecapReadyToastStorageKey(currentUserId),
+      );
+      surfacedConventionRecapReadyKeysRef.current = parseConventionRecapReadyToastKeys(storedValue);
+    } catch (error) {
+      surfacedConventionRecapReadyKeysRef.current = new Set();
+      captureHandledException(error, {
+        scope: 'notifications.realtime',
+        action: 'load-recap-ready-toast-dedupe',
+        userId: currentUserId,
+      });
+    } finally {
+      conventionRecapReadyDedupeUserRef.current = currentUserId;
+    }
+  }, []);
+
+  const recordConventionRecapReadyToast = useCallback(
+    async (currentUserId: string, recapKey: string) => {
+      const nextKeys = trimConventionRecapReadyToastKeys(
+        new Set([...surfacedConventionRecapReadyKeysRef.current, recapKey]),
+      );
+      surfacedConventionRecapReadyKeysRef.current = nextKeys;
+
+      try {
+        await AsyncStorage.setItem(
+          conventionRecapReadyToastStorageKey(currentUserId),
+          JSON.stringify(Array.from(nextKeys)),
+        );
+      } catch (error) {
+        captureHandledException(error, {
+          scope: 'notifications.realtime',
+          action: 'persist-recap-ready-toast-dedupe',
+          userId: currentUserId,
+        });
+      }
+    },
+    [],
+  );
+
+  const invalidateConventionRecaps = useCallback(() => {
+    if (!userId) {
+      return;
+    }
+
+    void queryClient.invalidateQueries({
+      queryKey: [PAST_CONVENTION_RECAPS_QUERY_KEY, userId],
+    });
+  }, [queryClient, userId]);
 
   const clearCatchReconcileTimer = useCallback(() => {
     if (catchReconcileTimeoutRef.current) {
@@ -1226,24 +1382,32 @@ export function AchievementToastManager() {
         typeof conventionNameRaw === 'string' && conventionNameRaw.trim().length > 0
           ? conventionNameRaw.trim()
           : 'Your convention';
-      const recapId = typeof payload?.recap_id === 'string' ? payload.recap_id : null;
+      const recapIdRaw = payload?.recap_id ?? payload?.recapId ?? null;
+      const recapId =
+        typeof recapIdRaw === 'string' && recapIdRaw.trim().length > 0 ? recapIdRaw.trim() : null;
+      const recapKey = conventionRecapReadyToastKey(userId, conventionName, recapId);
 
-      showToast(`${conventionName} recap is ready`);
-      addMonitoringBreadcrumb({
-        category: 'convention-recaps',
-        message: 'Convention recap ready notification received',
-        data: {
-          userId,
-          conventionName,
-          recapId,
-        },
-      });
+      void (async () => {
+        try {
+          await ensureConventionRecapReadyDedupeLoaded(userId);
 
-      if (userId) {
-        void queryClient.invalidateQueries({
-          queryKey: [PAST_CONVENTION_RECAPS_QUERY_KEY, userId],
-        });
-      }
+          if (!surfacedConventionRecapReadyKeysRef.current.has(recapKey)) {
+            showToast(`${conventionName} recap is ready`);
+            addMonitoringBreadcrumb({
+              category: 'convention-recaps',
+              message: 'Convention recap ready notification received',
+              data: {
+                userId,
+                conventionName,
+                recapId,
+              },
+            });
+            await recordConventionRecapReadyToast(userId, recapKey);
+          }
+        } finally {
+          invalidateConventionRecaps();
+        }
+      })();
     };
 
     const handleDailyTaskCompleted = (payload: Record<string, unknown> | null) => {
@@ -1559,6 +1723,9 @@ export function AchievementToastManager() {
     showToast,
     hasAchievementBeenSurfaced,
     markAchievementAsSurfaced,
+    ensureConventionRecapReadyDedupeLoaded,
+    recordConventionRecapReadyToast,
+    invalidateConventionRecaps,
   ]);
 
   return null;
