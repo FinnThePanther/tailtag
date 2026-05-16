@@ -141,7 +141,10 @@ export async function createQuickFursuit(options: {
       // Ensure species entry exists in database
       const speciesRecord = await ensureSpeciesEntry(normalizedSpecies);
 
-      const payload: FursuitsInsert & { avatar_path?: string | null } = {
+      const payload: FursuitsInsert & {
+        avatar_path?: string | null;
+        visibility_audience?: VisibilityAudience;
+      } = {
         owner_id: userId,
         name: normalizedName,
         species_id: speciesRecord.id,
