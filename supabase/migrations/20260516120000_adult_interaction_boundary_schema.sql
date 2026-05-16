@@ -16,10 +16,22 @@ SET visibility_audience = 'everyone'
 WHERE visibility_audience IS NULL
   OR visibility_audience NOT IN ('everyone', 'adults_only');
 
+UPDATE public.profiles
+SET visibility_audience = 'everyone'
+WHERE visibility_audience = 'adults_only'
+  AND (is_adult IS NULL OR is_adult = false);
+
 UPDATE public.fursuits
 SET visibility_audience = 'everyone'
 WHERE visibility_audience IS NULL
   OR visibility_audience NOT IN ('everyone', 'adults_only');
+
+UPDATE public.fursuits f
+SET visibility_audience = 'everyone'
+FROM public.profiles p
+WHERE f.owner_id = p.id
+  AND f.visibility_audience = 'adults_only'
+  AND (p.is_adult IS NULL OR p.is_adult = false);
 
 ALTER TABLE public.profiles
   DROP CONSTRAINT IF EXISTS profiles_visibility_audience_check;
@@ -86,6 +98,7 @@ AS $function$
     SELECT 1
     FROM public.profiles target_profile
     WHERE target_profile.id = p_target_id
+      AND p_viewer_id = auth.uid()
       AND (
         p_viewer_id = p_target_id
         OR public.is_elevated_privacy_viewer(p_viewer_id)
@@ -113,6 +126,7 @@ AS $function$
     FROM public.fursuits f
     JOIN public.profiles owner_profile ON owner_profile.id = f.owner_id
     WHERE f.id = p_fursuit_id
+      AND p_viewer_id = auth.uid()
       AND (
         p_viewer_id = f.owner_id
         OR public.is_elevated_privacy_viewer(p_viewer_id)
@@ -145,6 +159,7 @@ AS $function$
     SELECT 1
     FROM public.fursuits f
     WHERE f.id = p_fursuit_id
+      AND p_catcher_id = auth.uid()
       AND f.owner_id IS DISTINCT FROM p_catcher_id
       AND public.can_view_fursuit(p_catcher_id, p_fursuit_id)
   );
@@ -161,12 +176,12 @@ BEGIN
   NEW.visibility_audience := coalesce(NEW.visibility_audience, 'everyone');
 
   IF TG_OP = 'INSERT'
-    AND NEW.is_adult IS NOT NULL
+    AND NEW.is_adult = true
     AND NEW.age_confirmed_at IS NULL THEN
     NEW.age_confirmed_at := now();
   ELSIF TG_OP = 'UPDATE'
     AND NEW.is_adult IS DISTINCT FROM OLD.is_adult
-    AND NEW.is_adult IS NOT NULL
+    AND NEW.is_adult = true
     AND NEW.age_confirmed_at IS NOT DISTINCT FROM OLD.age_confirmed_at THEN
     NEW.age_confirmed_at := now();
   END IF;
