@@ -1,6 +1,6 @@
 # Convention Closeout Lifecycle
 
-Use this runbook to validate and operate the convention ending lifecycle in development or staging.
+Use this runbook to validate and operate the convention-ending lifecycle in development or staging.
 It covers normal finalizing closeout, failed closeout retry, recap regeneration, and historical
 silent repair.
 
