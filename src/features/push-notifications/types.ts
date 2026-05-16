@@ -1,6 +1,7 @@
 export type PushNotificationType =
   | 'achievement_awarded'
   | 'convention_started'
+  | 'convention_recap_ready'
   | 'daily_all_complete'
   | 'fursuit_caught'
   | 'catch_pending'
@@ -8,7 +9,14 @@ export type PushNotificationType =
   | 'catch_rejected'
   | 'catch_expired';
 
-export const NOTIFICATION_DEEP_LINKS: Record<PushNotificationType, string> = {
+type StaticPushNotificationType = Exclude<PushNotificationType, 'convention_recap_ready'>;
+
+export type PushNotificationData = {
+  type?: unknown;
+  recap_id?: unknown;
+};
+
+export const NOTIFICATION_DEEP_LINKS: Record<StaticPushNotificationType, string> = {
   achievement_awarded: '/achievements',
   convention_started: '/catch',
   daily_all_complete: '/daily-tasks',
@@ -20,13 +28,34 @@ export const NOTIFICATION_DEEP_LINKS: Record<PushNotificationType, string> = {
 };
 
 export const isPushNotificationType = (value: unknown): value is PushNotificationType => {
-  return typeof value === 'string' && value in NOTIFICATION_DEEP_LINKS;
+  return (
+    typeof value === 'string' &&
+    (value === 'convention_recap_ready' || value in NOTIFICATION_DEEP_LINKS)
+  );
 };
 
 export const getDeepLinkForNotificationType = (value: unknown): string | null => {
-  if (!isPushNotificationType(value)) {
+  if (!isPushNotificationType(value) || value === 'convention_recap_ready') {
     return null;
   }
 
   return NOTIFICATION_DEEP_LINKS[value];
+};
+
+export const getDeepLinkForNotificationData = (
+  data: PushNotificationData | null | undefined,
+): string | null => {
+  const type = data?.type;
+
+  if (type === 'convention_recap_ready') {
+    const recapId = data?.recap_id;
+    const normalizedRecapId = typeof recapId === 'string' ? recapId.trim() : '';
+    if (!normalizedRecapId) {
+      return null;
+    }
+
+    return `/convention-recaps/${encodeURIComponent(normalizedRecapId)}`;
+  }
+
+  return getDeepLinkForNotificationType(type);
 };
