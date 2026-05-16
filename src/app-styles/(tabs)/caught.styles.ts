@@ -86,13 +86,16 @@ export const styles = StyleSheet.create({
     color: colors.textMutedStrong,
   },
   folderSummary: {
-    gap: 2,
+    gap: spacing.sm,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderMuted,
     backgroundColor: colors.surfacePanelMuted,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
+  },
+  folderSummaryText: {
+    gap: 2,
   },
   folderTitle: {
     color: colors.foreground,
@@ -102,6 +105,9 @@ export const styles = StyleSheet.create({
   folderMeta: {
     color: colors.textSubtle,
     fontSize: 13,
+  },
+  folderRecapAction: {
+    alignSelf: 'flex-start',
   },
   separator: {
     height: spacing.xs,

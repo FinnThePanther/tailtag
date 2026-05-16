@@ -230,6 +230,17 @@ export default function CaughtSuitsScreen() {
     [renderFilterButton, selectedConventionId],
   );
 
+  const handleOpenSelectedFolderRecap = useCallback(() => {
+    if (!selectedFolder?.recapId) {
+      return;
+    }
+
+    router.push({
+      pathname: '/convention-recaps/[recapId]',
+      params: { recapId: selectedFolder.recapId },
+    });
+  }, [router, selectedFolder]);
+
   const FilterControls = useMemo(() => {
     if (isLoading || errorMessage || collection.allCatches.length === 0) {
       return null;
@@ -253,23 +264,37 @@ export default function CaughtSuitsScreen() {
         </ScrollView>
         {selectedFolder ? (
           <View style={styles.folderSummary}>
-            <Text
-              style={styles.folderTitle}
-              numberOfLines={1}
-            >
-              {selectedFolder.conventionName}
-            </Text>
-            <Text
-              style={styles.folderMeta}
-              numberOfLines={2}
-            >
-              {[
-                formatConventionDateRange(selectedFolder.startDate, selectedFolder.endDate),
-                formatCatchCount(selectedFolder.catchCount),
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </Text>
+            <View style={styles.folderSummaryText}>
+              <Text
+                style={styles.folderTitle}
+                numberOfLines={1}
+              >
+                {selectedFolder.conventionName}
+              </Text>
+              <Text
+                style={styles.folderMeta}
+                numberOfLines={2}
+              >
+                {[
+                  formatConventionDateRange(selectedFolder.startDate, selectedFolder.endDate),
+                  formatCatchCount(selectedFolder.catchCount),
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
+            </View>
+            {selectedFolder.recapId ? (
+              <View style={styles.folderRecapAction}>
+                <TailTagButton
+                  size="sm"
+                  onPress={handleOpenSelectedFolderRecap}
+                  accessibilityLabel={`View recap for ${selectedFolder.conventionName}`}
+                  accessibilityHint="Opens your convention recap details"
+                >
+                  View recap
+                </TailTagButton>
+              </View>
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -279,6 +304,7 @@ export default function CaughtSuitsScreen() {
     collection.conventionFolders,
     errorMessage,
     isLoading,
+    handleOpenSelectedFolderRecap,
     renderFilterButton,
     renderFolderFilter,
     selectedConventionId,
