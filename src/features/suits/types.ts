@@ -1,7 +1,7 @@
 import type { ConventionSummary } from '../conventions';
 import type { FursuitColorOption } from '../colors';
 import type { FursuitSocialLink } from '../../types/database';
-import type { VisibilityAudience } from '../adult-boundary';
+import type { VisibilityAudience } from '@/features/adult-boundary';
 
 export type FursuitBio = {
   version: number;

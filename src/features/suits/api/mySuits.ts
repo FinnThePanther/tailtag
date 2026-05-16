@@ -9,7 +9,7 @@ import {
 import { fetchFursuitMakersByFursuitIds } from './makers';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
-import { normalizeVisibilityAudience } from '../../adult-boundary';
+import { normalizeVisibilityAudience } from '@/features/adult-boundary';
 
 export const MY_SUITS_QUERY_KEY = 'my-suits';
 export const MY_SUITS_COUNT_QUERY_KEY = 'my-suits-count';

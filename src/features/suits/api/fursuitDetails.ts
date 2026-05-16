@@ -10,7 +10,7 @@ import type { FursuitDetail } from '../types';
 import { captureHandledMessage } from '../../../lib/sentry';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
-import { normalizeVisibilityAudience } from '../../adult-boundary';
+import { normalizeVisibilityAudience } from '@/features/adult-boundary';
 
 export const FURSUIT_DETAIL_QUERY_KEY = 'fursuit-detail';
 export const fursuitDetailQueryKey = (fursuitId: string, viewerId?: string | null) =>

@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import type { FursuitSummary } from '../types';
-import { normalizeVisibilityAudience } from '../../adult-boundary';
+import { normalizeVisibilityAudience } from '@/features/adult-boundary';
 import {
   applyProfileSocialLinksToBio,
   mapFursuitColors,

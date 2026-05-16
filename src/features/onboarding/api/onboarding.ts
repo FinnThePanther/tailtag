@@ -15,7 +15,7 @@ import type { FursuitsInsert } from '../../../types/database';
 import { MAX_FURSUIT_COLORS } from '../../colors';
 import { MAX_FURSUITS_PER_USER } from '../../../constants/fursuits';
 import { ensureSpeciesEntry } from '../../species';
-import { normalizeVisibilityAudience, type VisibilityAudience } from '../../adult-boundary';
+import { normalizeVisibilityAudience, type VisibilityAudience } from '@/features/adult-boundary';
 
 export const GETTING_STARTED_ACHIEVEMENT_KEY = 'getting_started';
 

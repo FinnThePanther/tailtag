@@ -67,6 +67,7 @@ import { launchFursuitPhotoPickerAsync } from '../../../src/utils/imagePicker';
 import { buildAuthenticatedStorageObjectUrl } from '../../../src/utils/supabase-image';
 import { colors } from '../../../src/theme';
 import { styles } from '../../../src/app-styles/fursuits/[id]/edit.styles';
+import { captureHandledException } from '../../../src/lib/sentry';
 import {
   profileNeedsAgeAttestation,
   refreshAdultBoundaryCaches,
@@ -785,7 +786,15 @@ export default function EditFursuitScreen() {
         },
       );
       if (selectedVisibilityAudience !== initialVisibilityAudience) {
-        await refreshAdultBoundaryCaches({ queryClient, userId });
+        try {
+          await refreshAdultBoundaryCaches({ queryClient, userId });
+        } catch (cacheError) {
+          captureHandledException(cacheError, {
+            scope: 'suits.edit.refreshAdultBoundaryCaches',
+            userId,
+            fursuitId,
+          });
+        }
       }
 
       setInitialConventionIds(new Set(selectedConventionIds));
