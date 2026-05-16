@@ -39,7 +39,14 @@ export {
   caughtSuitsQueryKey,
   createCaughtSuitsQueryOptions,
 } from './api/caughtSuits';
-export type { CaughtRecord } from './api/caughtSuits';
+export type { CaughtRecord, CaughtRecordConvention } from './api/caughtSuits';
+export {
+  fetchCaughtCollection,
+  CAUGHT_COLLECTION_QUERY_KEY,
+  caughtCollectionQueryKey,
+  createCaughtCollectionQueryOptions,
+} from './api/caughtCollection';
+export type { CaughtCollection, CaughtConventionFolder } from './api/caughtCollection';
 export {
   mapFursuitBio,
   mapLatestFursuitBio,

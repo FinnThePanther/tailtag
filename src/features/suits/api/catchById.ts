@@ -7,7 +7,7 @@ import {
   parseSocialLinks,
 } from './utils';
 import { fetchFursuitMakersByFursuitIds } from './makers';
-import type { CaughtRecord } from './caughtSuits';
+import { mapCaughtRecordConvention, type CaughtRecord } from './caughtSuits';
 import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
@@ -19,9 +19,18 @@ export const catchByIdQueryKey = (catchId: string) => [CATCH_BY_ID_QUERY_KEY, ca
 const CATCH_SELECT = `
   id,
   caught_at,
+  convention_id,
   catch_number,
   catch_photo_path,
   catch_photo_url,
+  convention:conventions (
+    id,
+    name,
+    location,
+    start_date,
+    end_date,
+    status
+  ),
   fursuit:fursuits (
     id,
     owner_id,
@@ -121,6 +130,8 @@ export async function fetchCatchById(catchId: string): Promise<CaughtRecord | nu
   return {
     id: record.id,
     caught_at: record.caught_at ?? null,
+    conventionId: record.convention_id ?? null,
+    convention: mapCaughtRecordConvention(record.convention ?? null),
     catchNumber: typeof record.catch_number === 'number' ? record.catch_number : null,
     catchPhotoPath: record.catch_photo_path ?? null,
     catchPhotoUrl: resolveStorageMediaUrl({
