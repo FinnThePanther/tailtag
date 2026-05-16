@@ -24,6 +24,8 @@ import {
   type PastConventionRecap,
   fetchProfileConventionMemberships,
   fetchPastConventionRecaps,
+  formatConventionCloseoutDeadline,
+  getConventionPlayerLifecycleState,
   PAST_CONVENTION_RECAPS_QUERY_KEY,
   useConventionVerificationAction,
 } from '../../src/features/conventions';
@@ -74,6 +76,11 @@ const MAX_LEADERBOARD_ENTRIES = 5;
 const recapBannerStateKey = (userId: string) => `tailtag:recap-banner-state:${userId}`;
 
 const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);
+
+type HomeLifecycleConvention = {
+  membership: ConventionMembership;
+  state: 'finalizing' | 'recap_delayed';
+};
 
 type RecapBannerState = {
   seenRecapIds: string[];
@@ -444,6 +451,33 @@ export default function HomeScreen() {
       (membership) => membership.membership_state === 'leaderboard_open',
     );
   }, [conventionMemberships]);
+  const homeLifecycleConvention = useMemo<HomeLifecycleConvention | null>(() => {
+    const finalizingConvention = conventionMemberships.find(
+      (membership) => getConventionPlayerLifecycleState(membership) === 'finalizing',
+    );
+    if (finalizingConvention) {
+      return { membership: finalizingConvention, state: 'finalizing' };
+    }
+
+    const delayedConvention = conventionMemberships.find(
+      (membership) => getConventionPlayerLifecycleState(membership) === 'recap_delayed',
+    );
+    if (delayedConvention) {
+      return { membership: delayedConvention, state: 'recap_delayed' };
+    }
+
+    return null;
+  }, [conventionMemberships]);
+  const homeLifecycleDeadlineLabel = useMemo(() => {
+    if (homeLifecycleConvention?.state !== 'finalizing') {
+      return null;
+    }
+
+    return formatConventionCloseoutDeadline(
+      homeLifecycleConvention.membership.closeout_not_before,
+      homeLifecycleConvention.membership.timezone,
+    );
+  }, [homeLifecycleConvention]);
 
   const selectedConvention = useMemo(() => {
     return activeConventions[0] ?? leaderboardOpenConventions[0] ?? null;
@@ -972,6 +1006,36 @@ export default function HomeScreen() {
                   </Pressable>
                 </View>
               </View>
+            </View>
+          </TailTagCard>
+        ) : null}
+
+        {homeLifecycleConvention ? (
+          <TailTagCard style={[styles.lifecycleCard, contentWidthStyle]}>
+            <View style={styles.lifecycleContent}>
+              <View style={styles.lifecycleTextBlock}>
+                <Text style={styles.lifecycleEyebrow}>Convention update</Text>
+                <Text style={styles.lifecycleTitle}>
+                  {homeLifecycleConvention.state === 'finalizing'
+                    ? `${homeLifecycleConvention.membership.name} has ended`
+                    : 'Recap delayed'}
+                </Text>
+                <Text style={styles.lifecycleBody}>
+                  {homeLifecycleConvention.state === 'finalizing'
+                    ? homeLifecycleDeadlineLabel
+                      ? `We're finalizing catches until ${homeLifecycleDeadlineLabel}.`
+                      : "We're finalizing catches now."
+                    : `Your ${homeLifecycleConvention.membership.name} recap is delayed while we finish finalizing this convention.`}
+                </Text>
+              </View>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => router.push('/caught')}
+                style={styles.lifecycleCta}
+              >
+                Review catches
+              </TailTagButton>
             </View>
           </TailTagCard>
         ) : null}
