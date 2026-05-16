@@ -99,6 +99,26 @@ export const styles = StyleSheet.create({
     color: colors.amber,
     fontWeight: '600',
   },
+  lifecycleCard: {
+    marginBottom: spacing.lg,
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderMuted,
+    backgroundColor: colors.surfaceMutedSoft,
+  },
+  lifecycleTextBlock: {
+    gap: spacing.xs,
+  },
+  lifecycleEyebrow: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  lifecycleCta: {
+    alignSelf: 'flex-start',
+  },
   bioSpacing: {
     marginTop: spacing.md,
   },

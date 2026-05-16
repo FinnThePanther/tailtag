@@ -45,6 +45,9 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { useAuth } from '../../src/features/auth';
 import {
+  formatConventionCloseoutDeadline,
+  getConventionPlayerLifecycleState,
+  type ConventionMembership,
   useCatchConventionContext,
   useConventionVerificationAction,
 } from '../../src/features/conventions';
@@ -92,6 +95,11 @@ type CatchRecord = {
   caught_at: string | null;
   catch_number: number | null;
   status: CatchStatus;
+};
+
+type CatchLifecycleConvention = {
+  membership: ConventionMembership;
+  state: 'finalizing' | 'recap_delayed';
 };
 
 const SHARED_CONVENTION_HELP =
@@ -167,6 +175,42 @@ export default function CatchScreen() {
           ) ?? null),
     [conventionMemberships, hasActiveConvention],
   );
+  const catchLifecycleConvention = useMemo<CatchLifecycleConvention | null>(() => {
+    const relevantConventionMemberships =
+      activeConventionIds.length > 0
+        ? conventionMemberships.filter(
+            (membership) =>
+              activeConventionIds.includes(membership.convention_id) ||
+              activeConventionIds.includes(membership.id),
+          )
+        : conventionMemberships;
+
+    const finalizingConvention = relevantConventionMemberships.find(
+      (membership) => getConventionPlayerLifecycleState(membership) === 'finalizing',
+    );
+    if (finalizingConvention) {
+      return { membership: finalizingConvention, state: 'finalizing' };
+    }
+
+    const delayedConvention = relevantConventionMemberships.find(
+      (membership) => getConventionPlayerLifecycleState(membership) === 'recap_delayed',
+    );
+    if (delayedConvention) {
+      return { membership: delayedConvention, state: 'recap_delayed' };
+    }
+
+    return null;
+  }, [activeConventionIds, conventionMemberships]);
+  const catchLifecycleDeadlineLabel = useMemo(() => {
+    if (catchLifecycleConvention?.state !== 'finalizing') {
+      return null;
+    }
+
+    return formatConventionCloseoutDeadline(
+      catchLifecycleConvention.membership.closeout_not_before,
+      catchLifecycleConvention.membership.timezone,
+    );
+  }, [catchLifecycleConvention]);
   const { verifyConvention, verificationModals, isVerifyingConvention } =
     useConventionVerificationAction({
       profileId: userId,
@@ -187,6 +231,7 @@ export default function CatchScreen() {
   const [lastCatchConventionId, setLastCatchConventionId] = useState<string | null>(null);
   const [lastCatchConventionIds, setLastCatchConventionIds] = useState<string[]>([]);
   const isCodeCatchConventionContextReady = Boolean(singleActiveConventionId);
+  const isLifecycleCatchBlocked = Boolean(catchLifecycleConvention);
 
   const resetCatchState = useCallback(() => {
     setCaughtFursuit(null);
@@ -319,6 +364,11 @@ export default function CatchScreen() {
 
     if (isMembershipLoading && activeConventionIds.length === 0) {
       setSubmitError('Loading your playable convention. Please try again in a moment.');
+      return;
+    }
+
+    if (isLifecycleCatchBlocked) {
+      setSubmitError('Catching has ended for this convention. Review your catches instead.');
       return;
     }
 
@@ -685,7 +735,34 @@ export default function CatchScreen() {
 
       {!caughtFursuit && userId ? (
         <View style={styles.photoCatchSpacing}>
-          {leaderboardOpenConvention ? (
+          {catchLifecycleConvention ? (
+            <TailTagCard style={styles.lifecycleCard}>
+              <View style={styles.lifecycleTextBlock}>
+                <Text style={styles.lifecycleEyebrow}>Convention update</Text>
+                <Text style={styles.sectionTitle}>
+                  {catchLifecycleConvention.state === 'finalizing'
+                    ? `${catchLifecycleConvention.membership.name} has ended`
+                    : 'Recap delayed'}
+                </Text>
+                <Text style={styles.sectionBody}>
+                  {catchLifecycleConvention.state === 'finalizing'
+                    ? catchLifecycleDeadlineLabel
+                      ? `${catchLifecycleConvention.membership.name} has ended. We're finalizing catches until ${catchLifecycleDeadlineLabel}.`
+                      : `${catchLifecycleConvention.membership.name} has ended. We're finalizing catches now.`
+                    : `Your ${catchLifecycleConvention.membership.name} recap is delayed while we finish finalizing this convention.`}
+                </Text>
+              </View>
+              <TailTagButton
+                variant="outline"
+                size="sm"
+                onPress={() => router.push('/caught')}
+                style={styles.lifecycleCta}
+              >
+                Review catches
+              </TailTagButton>
+            </TailTagCard>
+          ) : null}
+          {!catchLifecycleConvention && leaderboardOpenConvention ? (
             <TailTagCard style={styles.cardSpacing}>
               <Text style={styles.sectionTitle}>Catching has ended</Text>
               <Text style={styles.sectionBody}>
@@ -714,16 +791,18 @@ export default function CatchScreen() {
               </TailTagButton>
             </TailTagCard>
           ) : null}
-          <PhotoCatchCard
-            userId={userId}
-            onCatchSubmit={handlePhotoCatch}
-            isSubmitting={isPhotoSubmitting}
-            disabled={!hasActiveConvention || Boolean(verificationRequiredConvention)}
-            submitError={photoSubmitError}
-            activeConventionIds={activeConventionIds}
-            preloadedFursuits={pickerItems}
-            isRosterRefreshing={isRosterRefreshing || (isUsingRosterSnapshot && isRosterLoading)}
-          />
+          {!isLifecycleCatchBlocked ? (
+            <PhotoCatchCard
+              userId={userId}
+              onCatchSubmit={handlePhotoCatch}
+              isSubmitting={isPhotoSubmitting}
+              disabled={!hasActiveConvention || Boolean(verificationRequiredConvention)}
+              submitError={photoSubmitError}
+              activeConventionIds={activeConventionIds}
+              preloadedFursuits={pickerItems}
+              isRosterRefreshing={isRosterRefreshing || (isUsingRosterSnapshot && isRosterLoading)}
+            />
+          ) : null}
         </View>
       ) : null}
 
@@ -739,7 +818,7 @@ export default function CatchScreen() {
             placeholder="PH17719"
             autoCapitalize="characters"
             maxLength={UNIQUE_CODE_LENGTH}
-            editable={!isSubmitting}
+            editable={!isSubmitting && !isLifecycleCatchBlocked}
             returnKeyType="done"
             onSubmitEditing={handleSubmit}
             style={styles.codeInput}
@@ -794,6 +873,7 @@ export default function CatchScreen() {
           disabled={
             !userId ||
             isSubmitting ||
+            isLifecycleCatchBlocked ||
             Boolean(leaderboardOpenConvention) ||
             !isCodeCatchConventionContextReady
           }
