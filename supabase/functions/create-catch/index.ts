@@ -469,6 +469,54 @@ async function handlePost(req: Request): Promise<Response> {
       return failureResponse(400, { error: 'Missing fursuit_id' }, 'missing_fursuit_id');
     }
 
+    const fursuitBoundaryRow = await trace.measure('metadata_ms', async () => {
+      const { data: fursuitRow, error: fursuitError } = await supabaseAdmin
+        .from('fursuits')
+        .select('owner_id')
+        .eq('id', body.fursuit_id)
+        .maybeSingle();
+
+      if (fursuitError) {
+        throw fursuitError;
+      }
+
+      return fursuitRow;
+    });
+
+    if (!fursuitBoundaryRow?.owner_id) {
+      return failureResponse(404, { error: 'Fursuit not found' }, 'fursuit_not_found');
+    }
+
+    if (fursuitBoundaryRow.owner_id === userId) {
+      return failureResponse(400, { error: 'Cannot catch your own fursuit' }, 'self_catch');
+    }
+
+    const { data: canCatchFursuit, error: canCatchFursuitError } = await trace.measure(
+      'metadata_ms',
+      () =>
+        supabaseAdmin.rpc('can_catch_fursuit_as_profile', {
+          p_catcher_id: userId,
+          p_fursuit_id: body.fursuit_id,
+        }),
+    );
+
+    if (canCatchFursuitError) {
+      console.error('[create-catch] Adult boundary lookup error:', canCatchFursuitError);
+      return failureResponse(
+        500,
+        { error: 'Failed to verify fursuit availability' },
+        'adult_boundary_lookup_failed',
+      );
+    }
+
+    if (canCatchFursuit !== true) {
+      return failureResponse(
+        404,
+        { error: 'This fursuit is not available to your account.' },
+        'adult_boundary_restricted',
+      );
+    }
+
     if (!body.convention_id && method === 'code') {
       const { data: sharedConventionRows, error: sharedConventionError } = await trace.measure(
         'metadata_ms',
@@ -551,6 +599,13 @@ async function handlePost(req: Request): Promise<Response> {
       // Handle specific error cases
       if (error.message?.includes('Cannot catch your own fursuit')) {
         return failureResponse(400, { error: 'Cannot catch your own fursuit' }, 'self_catch');
+      }
+      if (error.message?.includes('Adult boundary restricted catch')) {
+        return failureResponse(
+          404,
+          { error: 'This fursuit is not available to your account.' },
+          'adult_boundary_restricted',
+        );
       }
       if (error.message?.includes('already caught')) {
         return failureResponse(

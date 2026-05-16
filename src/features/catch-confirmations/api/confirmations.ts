@@ -281,6 +281,12 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       });
 
       // Return user-friendly messages for known errors
+      if (errorMessage === 'This fursuit is not available to your account.') {
+        throw withCatchPerformanceError(new Error(errorMessage), {
+          result: 'failed',
+          edgeRequestMs,
+        });
+      }
       if (errorMessage.includes('Cannot catch your own')) {
         throw withCatchPerformanceError(
           new Error(
