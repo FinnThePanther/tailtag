@@ -31,7 +31,7 @@ export async function fetchCatchesByFursuit(fursuitId: string): Promise<CatchOfF
   return (data ?? []).map((row: FursuitCatchRpcRow) => ({
     id: row.catch_id,
     caught_at: row.caught_at ?? null,
-    catch_photo_path: row.catch_photo_path ?? null,
+    catch_photo_path: row.is_redacted === true ? null : (row.catch_photo_path ?? null),
     catch_photo_url:
       row.is_redacted === true
         ? null

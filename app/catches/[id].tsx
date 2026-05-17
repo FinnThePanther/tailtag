@@ -57,7 +57,7 @@ export default function CatchDetailScreen() {
     queryKey: catchByIdQueryKey(catchId ?? '', userId),
     queryFn: () => fetchCatchById(catchId!),
     enabled: Boolean(userId && catchId),
-    initialData: recordFromCache ?? undefined,
+    placeholderData: recordFromCache ?? undefined,
     staleTime: 2 * 60_000,
   });
 
