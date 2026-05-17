@@ -967,6 +967,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      ensure_own_profile_exists: {
+        Args: { p_username?: string };
+        Returns: undefined;
+      };
       expire_pending_catches: { Args: Record<PropertyKey, never>; Returns: Json };
       finish_onboarding: { Args: { target_user_id?: string }; Returns: Json };
       get_fursuit_convention_stats: {

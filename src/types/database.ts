@@ -2348,6 +2348,10 @@ export type Database = {
           scan_count: number
         }[]
       }
+      ensure_own_profile_exists: {
+        Args: { p_username?: string }
+        Returns: undefined
+      }
       execute_data_retention_cleanup: { Args: never; Returns: Json }
       expire_bans: { Args: never; Returns: Json }
       expire_moderation_actions: { Args: never; Returns: undefined }
