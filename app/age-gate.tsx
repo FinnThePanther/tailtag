@@ -125,6 +125,10 @@ export default function AgeGateScreen() {
             TailTag includes player-controlled visibility settings. Some profiles and fursuits are
             only available to players who confirm they are 18 or older.
           </Text>
+          <Text style={styles.body}>
+            Choose carefully. After you confirm, this setting can only be changed by contacting
+            support.
+          </Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <View style={styles.actionGroup}>
             <TailTagButton

@@ -18,7 +18,6 @@ import {
   CURRENT_AGE_GATE_VERSION,
   profileNeedsAgeAttestation,
   refreshAdultBoundaryCaches,
-  updateAgeAttestation,
   type VisibilityAudience,
 } from '../../src/features/adult-boundary';
 import { STAFF_MODE_ENABLED } from '../../src/constants/features';
@@ -71,7 +70,6 @@ import {
   updateProfileCatchMode,
   updateProfileAvatar,
   updateProfileSocialLinks,
-  updateProfileVisibilityAudience,
   validateUsername,
   PROFILE_QUERY_KEY,
   PROFILE_STALE_TIME,
@@ -305,12 +303,8 @@ export default function SettingsScreen() {
   const [isSavingSocialLinks, setIsSavingSocialLinks] = useState(false);
   const [socialLinksError, setSocialLinksError] = useState<string | null>(null);
   const [socialLinksMessage, setSocialLinksMessage] = useState<string | null>(null);
-  const [isSavingAgeAttestation, setIsSavingAgeAttestation] = useState(false);
-  const [ageAttestationError, setAgeAttestationError] = useState<string | null>(null);
-  const [ageAttestationMessage, setAgeAttestationMessage] = useState<string | null>(null);
-  const [isSavingProfileVisibility, setIsSavingProfileVisibility] = useState(false);
-  const [profileVisibilityError, setProfileVisibilityError] = useState<string | null>(null);
-  const [profileVisibilityMessage, setProfileVisibilityMessage] = useState<string | null>(null);
+  const [profileVisibilityInput, setProfileVisibilityInput] =
+    useState<VisibilityAudience>('everyone');
   const [isSavingCatchMode, setIsSavingCatchMode] = useState(false);
   const [catchModeError, setCatchModeError] = useState<string | null>(null);
   const [catchModeMessage, setCatchModeMessage] = useState<string | null>(null);
@@ -395,8 +389,17 @@ export default function SettingsScreen() {
   const isDirty = useMemo(() => {
     const usernameChanged = normalizedCurrentUsername !== normalizedUsernameInput;
     const bioChanged = (profile?.bio ?? '') !== bioInput.trim();
-    return usernameChanged || bioChanged;
-  }, [bioInput, normalizedCurrentUsername, normalizedUsernameInput, profile?.bio]);
+    const profileVisibilityChanged =
+      (profile?.visibility_audience ?? 'everyone') !== profileVisibilityInput;
+    return usernameChanged || bioChanged || profileVisibilityChanged;
+  }, [
+    bioInput,
+    normalizedCurrentUsername,
+    normalizedUsernameInput,
+    profile?.bio,
+    profile?.visibility_audience,
+    profileVisibilityInput,
+  ]);
 
   const resetDraftFromProfile = useCallback(
     (summary: ProfileSummary | null, options: { resetMessages?: boolean } = {}) => {
@@ -405,6 +408,7 @@ export default function SettingsScreen() {
       const summaryUsername = normalizeUsernameInput(summary?.username ?? '');
       setUsernameInput(summaryUsername || normalizedSessionUsername);
       setBioInput(summary?.bio ?? '');
+      setProfileVisibilityInput(summary?.visibility_audience ?? 'everyone');
 
       if (resetMessages) {
         setSaveMessage(null);
@@ -671,11 +675,10 @@ export default function SettingsScreen() {
     () => STAFF_MODE_ENABLED && canUseStaffMode(profile?.role ?? null),
     [profile?.role],
   );
-  const profileVisibilityAudience = profile?.visibility_audience ?? 'everyone';
+  const profileVisibilityAudience = profileVisibilityInput;
   const canUseAdultsOnlyProfileVisibility =
     profile !== null && profile.is_adult === true && !profileNeedsAgeAttestation(profile);
   const ageStatusLabel = ageAttestationLabel(profile);
-  const ageActionLabel = profile?.is_adult === true ? 'Update to under 18' : 'Confirm 18 or older';
   const isPushDenied = permissionStatus === 'denied';
   const canTogglePush = isPushSupported && !isPushRegistering;
   const isPushToggleOn = isPushSupported && permissionStatus === 'granted' && isPushEnabled;
@@ -776,6 +779,8 @@ export default function SettingsScreen() {
     const trimmedBio = bioInput.trim();
     const normalizedUsername = trimmedUsername.length > 0 ? trimmedUsername : null;
     const normalizedBio = trimmedBio.length > 0 ? trimmedBio : null;
+    const profileVisibilityChanged =
+      (profile?.visibility_audience ?? 'everyone') !== profileVisibilityInput;
 
     if (normalizedUsername) {
       const validation = validateUsername(normalizedUsername);
@@ -783,6 +788,11 @@ export default function SettingsScreen() {
         setSaveError(validation.message ?? 'Please enter a valid username.');
         return;
       }
+    }
+
+    if (profileVisibilityInput === 'adults_only' && !canUseAdultsOnlyProfileVisibility) {
+      setSaveError('Adult confirmation is required for adults-only visibility.');
+      return;
     }
 
     setIsSaving(true);
@@ -810,6 +820,7 @@ export default function SettingsScreen() {
           id: userId,
           username: normalizedUsername,
           bio: normalizedBio,
+          visibility_audience: profileVisibilityInput,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' },
@@ -830,6 +841,7 @@ export default function SettingsScreen() {
               ...current,
               username: normalizedUsername,
               bio: normalizedBio,
+              visibility_audience: profileVisibilityInput,
             }
           : {
               username: normalizedUsername,
@@ -840,7 +852,7 @@ export default function SettingsScreen() {
               is_adult: null,
               age_confirmed_at: null,
               age_gate_version: CURRENT_AGE_GATE_VERSION,
-              visibility_audience: 'everyone',
+              visibility_audience: profileVisibilityInput,
               default_catch_mode: 'AUTO_ACCEPT',
               catch_mode_preference_source: 'system_default',
               is_new: false,
@@ -851,6 +863,10 @@ export default function SettingsScreen() {
       setBioInput(trimmedBio);
       setHasEditedDraft(false);
       setSaveMessage('Profile saved');
+
+      if (profileVisibilityChanged) {
+        await refreshAdultBoundaryCaches({ queryClient, userId });
+      }
 
       if (normalizedUsername && validateUsername(normalizedUsername).isValid) {
         void markUsernameReviewed();
@@ -888,6 +904,9 @@ export default function SettingsScreen() {
     usernameLookupInput,
     currentUsernameLookup,
     bioInput,
+    profile?.visibility_audience,
+    profileVisibilityInput,
+    canUseAdultsOnlyProfileVisibility,
     profile?.avatar_path,
     profile?.avatar_url,
     profileQueryKey,
@@ -1085,116 +1104,20 @@ export default function SettingsScreen() {
     }
   }, [userId, isSavingSocialLinks, socialLinks, profileQueryKey, queryClient]);
 
-  const saveAgeAttestation = useCallback(
-    async (isAdult: boolean) => {
-      if (!userId || isSavingAgeAttestation) {
-        return;
-      }
-
-      setIsSavingAgeAttestation(true);
-      setAgeAttestationError(null);
-      setAgeAttestationMessage(null);
-
-      try {
-        await updateAgeAttestation(userId, isAdult);
-        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
-          current
-            ? {
-                ...current,
-                is_adult: isAdult,
-                age_gate_version: CURRENT_AGE_GATE_VERSION,
-                visibility_audience: isAdult ? current.visibility_audience : 'everyone',
-              }
-            : current,
-        );
-        await refreshAdultBoundaryCaches({ queryClient, userId });
-        setAgeAttestationMessage('Age attestation saved');
-      } catch (caught) {
-        setAgeAttestationError(
-          caught instanceof Error
-            ? caught.message
-            : 'Could not save age attestation. Please try again.',
-        );
-      } finally {
-        setIsSavingAgeAttestation(false);
-      }
-    },
-    [isSavingAgeAttestation, profileQueryKey, queryClient, userId],
-  );
-
   const handleProfileVisibilityChange = useCallback(
-    async (nextAudience: VisibilityAudience) => {
-      if (!userId || isSavingProfileVisibility || !profile) {
-        return;
-      }
-
+    (nextAudience: VisibilityAudience) => {
       if (nextAudience === 'adults_only' && !canUseAdultsOnlyProfileVisibility) {
-        setProfileVisibilityError('Adult confirmation is required for adults-only visibility.');
-        setProfileVisibilityMessage(null);
+        setSaveError('Adult confirmation is required for adults-only visibility.');
         return;
       }
 
-      if (profile.visibility_audience === nextAudience) {
-        return;
-      }
-
-      const previousAudience = profile.visibility_audience;
-      setIsSavingProfileVisibility(true);
-      setProfileVisibilityError(null);
-      setProfileVisibilityMessage(null);
-
-      try {
-        await updateProfileVisibilityAudience(userId, nextAudience);
-        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
-          current ? { ...current, visibility_audience: nextAudience } : current,
-        );
-        await refreshAdultBoundaryCaches({ queryClient, userId });
-        setProfileVisibilityMessage('Profile visibility saved');
-      } catch (caught) {
-        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
-          current ? { ...current, visibility_audience: previousAudience } : current,
-        );
-        setProfileVisibilityError(
-          caught instanceof Error
-            ? caught.message
-            : 'Could not save profile visibility. Please try again.',
-        );
-      } finally {
-        setIsSavingProfileVisibility(false);
-      }
+      setHasEditedDraft(true);
+      setProfileVisibilityInput(nextAudience);
+      setSaveMessage(null);
+      setSaveError(null);
     },
-    [
-      canUseAdultsOnlyProfileVisibility,
-      isSavingProfileVisibility,
-      profile,
-      profileQueryKey,
-      queryClient,
-      userId,
-    ],
+    [canUseAdultsOnlyProfileVisibility],
   );
-
-  const handleAgeAttestationPress = useCallback(() => {
-    if (!userId || isSavingAgeAttestation) {
-      return;
-    }
-
-    const nextIsAdult = profile?.is_adult !== true;
-    Alert.alert(
-      'Update age attestation?',
-      nextIsAdult
-        ? 'Confirm that you are 18 or older. Some profiles and fursuits are only available to players who confirm they are 18 or older.'
-        : 'Confirm that you are under 18. Adults-only visibility settings on your profile and fursuits will no longer be effective.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: nextIsAdult ? 'I am 18 or older' : 'I am under 18',
-          onPress: () => {
-            void saveAgeAttestation(nextIsAdult);
-          },
-        },
-      ],
-    );
-  }, [isSavingAgeAttestation, profile?.is_adult, saveAgeAttestation, userId]);
 
   const handleToggleProfileConvention = useCallback(
     async (
@@ -1770,11 +1693,11 @@ export default function SettingsScreen() {
                   accessibilityRole="button"
                   accessibilityState={{
                     selected: profileVisibilityAudience === 'everyone',
-                    disabled: isSavingProfileVisibility,
+                    disabled: isSaving,
                   }}
-                  disabled={isSavingProfileVisibility}
+                  disabled={isSaving}
                   onPress={() => {
-                    void handleProfileVisibilityChange('everyone');
+                    handleProfileVisibilityChange('everyone');
                   }}
                   style={({ pressed }) => [
                     styles.visibilityOption,
@@ -1808,11 +1731,11 @@ export default function SettingsScreen() {
                   accessibilityRole="button"
                   accessibilityState={{
                     selected: profileVisibilityAudience === 'adults_only',
-                    disabled: isSavingProfileVisibility || !canUseAdultsOnlyProfileVisibility,
+                    disabled: isSaving || !canUseAdultsOnlyProfileVisibility,
                   }}
-                  disabled={isSavingProfileVisibility || !canUseAdultsOnlyProfileVisibility}
+                  disabled={isSaving || !canUseAdultsOnlyProfileVisibility}
                   onPress={() => {
-                    void handleProfileVisibilityChange('adults_only');
+                    handleProfileVisibilityChange('adults_only');
                   }}
                   style={({ pressed }) => [
                     styles.visibilityOption,
@@ -1855,12 +1778,6 @@ export default function SettingsScreen() {
                 <Text style={styles.sectionHint}>
                   Adult confirmation is required for adults-only visibility.
                 </Text>
-              ) : null}
-              {profileVisibilityError ? (
-                <Text style={styles.error}>{profileVisibilityError}</Text>
-              ) : null}
-              {profileVisibilityMessage ? (
-                <Text style={styles.success}>{profileVisibilityMessage}</Text>
               ) : null}
             </View>
             {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
@@ -2039,7 +1956,7 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>Age attestation</Text>
           <Text style={styles.sectionDescription}>
             TailTag uses this to apply player-controlled visibility settings. It is not displayed on
-            your public profile.
+            your public profile and can only be changed by contacting support.
           </Text>
           <View style={styles.detailRow}>
             <Text style={styles.sectionSubtitle}>Current status</Text>
@@ -2047,16 +1964,10 @@ export default function SettingsScreen() {
           </View>
           <TailTagButton
             variant="outline"
-            onPress={handleAgeAttestationPress}
-            loading={isSavingAgeAttestation}
-            disabled={!userId || isProfileLoading}
+            onPress={() => void handleOpenExternalUrl(SUPPORT_EMAIL_URL)}
           >
-            {ageActionLabel}
+            Contact Support
           </TailTagButton>
-          {ageAttestationError ? <Text style={styles.error}>{ageAttestationError}</Text> : null}
-          {ageAttestationMessage ? (
-            <Text style={styles.success}>{ageAttestationMessage}</Text>
-          ) : null}
         </View>
       </TailTagCard>
 
