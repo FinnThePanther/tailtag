@@ -88,7 +88,7 @@ export default function ConventionRecapDetailScreen() {
     }
 
     return recapDetail.caughtFursuits.filter((entry) => {
-      if (!entry.ownerId || blockedIds.has(entry.ownerId)) {
+      if (entry.isRedacted || !entry.ownerId || blockedIds.has(entry.ownerId)) {
         return false;
       }
 
@@ -263,18 +263,29 @@ export default function ConventionRecapDetailScreen() {
                   return (
                     <Pressable
                       key={entry.fursuitId}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Open ${entry.name ?? 'fursuit'} profile`}
-                      onPress={() =>
-                        router.push({
-                          pathname: '/fursuits/[id]',
-                          params: { id: entry.fursuitId },
-                        })
+                      accessibilityRole={entry.isRedacted ? undefined : 'button'}
+                      accessibilityLabel={
+                        entry.isRedacted
+                          ? 'Unavailable fursuit'
+                          : `Open ${entry.name ?? 'fursuit'} profile`
                       }
-                      style={({ pressed }) => [styles.rowCard, pressed && styles.rowCardPressed]}
+                      disabled={entry.isRedacted}
+                      onPress={
+                        entry.isRedacted
+                          ? undefined
+                          : () =>
+                              router.push({
+                                pathname: '/fursuits/[id]',
+                                params: { id: entry.fursuitId },
+                              })
+                      }
+                      style={({ pressed }) => [
+                        styles.rowCard,
+                        pressed && !entry.isRedacted && styles.rowCardPressed,
+                      ]}
                     >
                       <AppAvatar
-                        url={entry.avatarUrl}
+                        url={entry.isRedacted ? null : entry.avatarUrl}
                         size="sm"
                         fallback="fursuit"
                         style={styles.rowAvatar}
@@ -284,14 +295,19 @@ export default function ConventionRecapDetailScreen() {
                           style={styles.rowTitle}
                           numberOfLines={1}
                         >
-                          {entry.name ?? 'Unknown fursuit'}
+                          {entry.isRedacted
+                            ? 'Unavailable fursuit'
+                            : (entry.name ?? 'Unknown fursuit')}
                         </Text>
                         <Text
                           style={styles.rowMeta}
                           numberOfLines={2}
                         >
-                          {entry.species ?? 'Species unknown'}
-                          {entry.colors.length > 0 ? ` · ${entry.colors.join(', ')}` : ''}
+                          {entry.isRedacted
+                            ? 'Details unavailable'
+                            : `${entry.species ?? 'Species unknown'}${
+                                entry.colors.length > 0 ? ` · ${entry.colors.join(', ')}` : ''
+                              }`}
                         </Text>
                         <Text style={styles.rowSubtle}>
                           {formatCount(entry.catchCount)} catches

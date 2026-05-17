@@ -28,6 +28,7 @@ export type FursuitConvention = ConventionSummary & {
 
 export type FursuitSummary = {
   id: string;
+  isRedacted?: boolean;
   owner_id?: string | null;
   name: string;
   species: string | null;

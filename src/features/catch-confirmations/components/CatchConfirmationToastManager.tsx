@@ -9,6 +9,7 @@ import { addMonitoringBreadcrumb, captureHandledException } from '../../../lib/s
 import { pendingCatchesQueryKey } from '../api/confirmations';
 import { myPendingCatchesQueryKey } from '../api/myPendingCatches';
 import {
+  CAUGHT_COLLECTION_QUERY_KEY,
   CAUGHT_SUITS_QUERY_KEY,
   catchesByFursuitQueryKey,
   fursuitDetailQueryKey,
@@ -25,6 +26,10 @@ const CATCH_NOTIFICATION_TYPES = [
   'catch_rejected',
   'catch_expired',
 ] as const;
+
+function isAdultBoundaryChecked(payload: Record<string, unknown> | null): boolean {
+  return payload?.adult_boundary_checked === true;
+}
 
 type CatchNotificationRow = {
   id: string;
@@ -125,6 +130,11 @@ export function CatchConfirmationToastManager() {
     });
 
     const handleCatchPending = (payload: Record<string, unknown> | null) => {
+      if (!isAdultBoundaryChecked(payload)) {
+        showToast('Someone wants to catch your fursuit');
+        void refreshOwnerPendingCatches();
+        return;
+      }
       const catcherUsername =
         typeof payload?.catcher_username === 'string' ? payload.catcher_username : 'Someone';
       const fursuitName =
@@ -151,7 +161,34 @@ export function CatchConfirmationToastManager() {
       });
     };
 
+    const invalidateCaughtHistory = () => {
+      void queryClient.invalidateQueries({
+        queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [CAUGHT_COLLECTION_QUERY_KEY, userId],
+      });
+    };
+
     const handleFursuitCaught = (payload: Record<string, unknown> | null) => {
+      if (!isAdultBoundaryChecked(payload)) {
+        showToast('Someone caught your fursuit');
+        addMonitoringBreadcrumb({
+          category: 'catch-confirmations',
+          message: 'Fursuit caught notification received',
+          data: { userId, adultBoundaryChecked: false },
+        });
+        void queryClient.invalidateQueries({
+          queryKey: mySuitsQueryKey(userId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [DAILY_TASKS_QUERY_KEY],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: achievementsStatusQueryKey(userId),
+        });
+        return;
+      }
       const catcherUsername =
         typeof payload?.catcher_username === 'string' ? payload.catcher_username : 'Someone';
       const fursuitName =
@@ -183,12 +220,26 @@ export function CatchConfirmationToastManager() {
           queryKey: fursuitDetailQueryKey(fursuitId),
         });
         void queryClient.invalidateQueries({
-          queryKey: catchesByFursuitQueryKey(fursuitId),
+          queryKey: catchesByFursuitQueryKey(fursuitId, userId),
         });
       }
     };
 
     const handleCatchConfirmed = (payload: Record<string, unknown> | null) => {
+      if (!isAdultBoundaryChecked(payload)) {
+        showToast('Your catch was approved');
+        invalidateCaughtHistory();
+        void queryClient.invalidateQueries({
+          queryKey: myPendingCatchesQueryKey(userId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [DAILY_TASKS_QUERY_KEY],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: achievementsStatusQueryKey(userId),
+        });
+        return;
+      }
       const fursuitName =
         typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'The fursuit';
 
@@ -201,9 +252,7 @@ export function CatchConfirmationToastManager() {
       });
 
       // Invalidate caught suits to show the confirmed catch
-      void queryClient.invalidateQueries({
-        queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
-      });
+      invalidateCaughtHistory();
 
       // Invalidate my pending catches so the list on Caught tab updates
       void queryClient.invalidateQueries({
@@ -223,6 +272,14 @@ export function CatchConfirmationToastManager() {
     };
 
     const handleCatchRejected = (payload: Record<string, unknown> | null) => {
+      if (!isAdultBoundaryChecked(payload)) {
+        showToast('Your catch request was declined');
+        invalidateCaughtHistory();
+        void queryClient.invalidateQueries({
+          queryKey: myPendingCatchesQueryKey(userId),
+        });
+        return;
+      }
       const fursuitName =
         typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'The fursuit owner';
 
@@ -235,9 +292,7 @@ export function CatchConfirmationToastManager() {
       });
 
       // Invalidate caught suits to remove the rejected catch
-      void queryClient.invalidateQueries({
-        queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
-      });
+      invalidateCaughtHistory();
 
       void queryClient.invalidateQueries({
         queryKey: myPendingCatchesQueryKey(userId),
@@ -245,6 +300,15 @@ export function CatchConfirmationToastManager() {
     };
 
     const handleCatchExpired = (payload: Record<string, unknown> | null) => {
+      if (!isAdultBoundaryChecked(payload)) {
+        showToast('Your catch request expired');
+        void refreshOwnerPendingCatches();
+        invalidateCaughtHistory();
+        void queryClient.invalidateQueries({
+          queryKey: myPendingCatchesQueryKey(userId),
+        });
+        return;
+      }
       const fursuitName =
         typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'A fursuit';
 
@@ -257,9 +321,7 @@ export function CatchConfirmationToastManager() {
       });
 
       void refreshOwnerPendingCatches();
-      void queryClient.invalidateQueries({
-        queryKey: [CAUGHT_SUITS_QUERY_KEY, userId],
-      });
+      invalidateCaughtHistory();
       void queryClient.invalidateQueries({
         queryKey: myPendingCatchesQueryKey(userId),
       });

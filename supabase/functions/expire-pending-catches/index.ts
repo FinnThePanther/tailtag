@@ -39,6 +39,9 @@ interface ExpiredCatch {
   fursuit_name: string;
   owner_id: string;
   catcher_username: string | null;
+  catcher_can_view_fursuit: boolean | null;
+  owner_can_view_fursuit: boolean | null;
+  owner_can_view_catcher: boolean | null;
 }
 
 interface ExpireResult {
@@ -85,15 +88,20 @@ async function batchInsertNotifications(
  * Build notification objects for a single expired catch
  */
 function buildNotificationsForExpiredCatch(catchData: ExpiredCatch) {
-  const catcherUsername = catchData.catcher_username || 'Someone';
-  const fursuitName = catchData.fursuit_name || 'a fursuit';
+  const catcherCanViewFursuit = catchData.catcher_can_view_fursuit === true;
+  const ownerCanViewFursuit = catchData.owner_can_view_fursuit === true;
+  const ownerCanViewCatcher = catchData.owner_can_view_catcher === true;
+  const fursuitName = catchData.fursuit_name || null;
+  const catcherUsername = catchData.catcher_username || null;
 
   return [
     {
       user_id: catchData.catcher_id,
       type: 'catch_expired' as const,
       payload: {
-        fursuit_name: fursuitName,
+        adult_boundary_checked: true,
+        recipient_role: 'catcher',
+        ...(catcherCanViewFursuit && fursuitName ? { fursuit_name: fursuitName } : {}),
         catch_id: catchData.id,
       },
     },
@@ -101,8 +109,10 @@ function buildNotificationsForExpiredCatch(catchData: ExpiredCatch) {
       user_id: catchData.owner_id,
       type: 'catch_expired' as const,
       payload: {
-        fursuit_name: fursuitName,
-        catcher_username: catcherUsername,
+        adult_boundary_checked: true,
+        recipient_role: 'owner',
+        ...(ownerCanViewFursuit && fursuitName ? { fursuit_name: fursuitName } : {}),
+        ...(ownerCanViewCatcher && catcherUsername ? { catcher_username: catcherUsername } : {}),
         catch_id: catchData.id,
       },
     },

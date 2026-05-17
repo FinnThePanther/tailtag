@@ -9,8 +9,8 @@ type CatchNotificationContext = {
   catcherId: string;
   fursuitId: string;
   fursuitOwnerId: string;
-  fursuitName: string;
-  catcherUsername: string;
+  fursuitName: string | null;
+  catcherUsername: string | null;
   conventionId: string | null;
 };
 
@@ -69,13 +69,47 @@ async function loadCatchNotificationContext(
     return null;
   }
 
+  const [canOwnerViewFursuitResult, canOwnerViewCatcherResult] = await Promise.all([
+    supabaseAdmin.rpc('can_view_fursuit_as_profile', {
+      p_viewer_id: fursuitOwnerId,
+      p_fursuit_id: fursuitId,
+    }),
+    supabaseAdmin.rpc('can_view_profile_as_profile', {
+      p_viewer_id: fursuitOwnerId,
+      p_target_id: catcherId,
+    }),
+  ]);
+
+  if (canOwnerViewFursuitResult.error) {
+    console.error('[catchNotifications] Failed checking fursuit notification visibility', {
+      event_id: event.event_id,
+      fursuit_id: fursuitId,
+      error: canOwnerViewFursuitResult.error.message,
+    });
+  }
+
+  if (canOwnerViewCatcherResult.error) {
+    console.error('[catchNotifications] Failed checking catcher notification visibility', {
+      event_id: event.event_id,
+      catcher_id: catcherId,
+      error: canOwnerViewCatcherResult.error.message,
+    });
+  }
+
+  const canOwnerViewFursuit = canOwnerViewFursuitResult.data === true;
+  const canOwnerViewCatcher = canOwnerViewCatcherResult.data === true;
+
   return {
     catchId,
     catcherId,
     fursuitId,
     fursuitOwnerId,
-    fursuitName: (fursuitResult.data as { name?: string } | null)?.name ?? 'Unknown Fursuit',
-    catcherUsername: (catcherResult.data as { username?: string } | null)?.username ?? 'Someone',
+    fursuitName: canOwnerViewFursuit
+      ? ((fursuitResult.data as { name?: string } | null)?.name ?? null)
+      : null,
+    catcherUsername: canOwnerViewCatcher
+      ? ((catcherResult.data as { username?: string } | null)?.username ?? null)
+      : null,
     conventionId,
   };
 }
@@ -88,17 +122,19 @@ async function insertCatchNotification(
   const payload =
     type === 'catch_pending'
       ? {
+          adult_boundary_checked: true,
           catch_id: context.catchId,
           catcher_id: context.catcherId,
-          fursuit_name: context.fursuitName,
-          catcher_username: context.catcherUsername,
+          ...(context.fursuitName ? { fursuit_name: context.fursuitName } : {}),
+          ...(context.catcherUsername ? { catcher_username: context.catcherUsername } : {}),
         }
       : {
+          adult_boundary_checked: true,
           catch_id: context.catchId,
           catcher_id: context.catcherId,
           fursuit_id: context.fursuitId,
-          fursuit_name: context.fursuitName,
-          catcher_username: context.catcherUsername,
+          ...(context.fursuitName ? { fursuit_name: context.fursuitName } : {}),
+          ...(context.catcherUsername ? { catcher_username: context.catcherUsername } : {}),
           convention_id: context.conventionId,
         };
 

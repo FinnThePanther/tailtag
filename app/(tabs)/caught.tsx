@@ -159,9 +159,9 @@ export default function CaughtSuitsScreen() {
   const renderItem = useCallback(
     ({ item }: { item: CaughtRecord }) => (
       <CaughtSuitRow
-        name={item.fursuit?.name ?? 'Unknown'}
-        species={item.fursuit?.species}
-        avatarUrl={item.fursuit?.avatar_url}
+        name={item.fursuitRedacted ? 'Unavailable fursuit' : (item.fursuit?.name ?? 'Unknown')}
+        species={item.fursuitRedacted ? null : item.fursuit?.species}
+        avatarUrl={item.fursuitRedacted ? null : item.fursuit?.avatar_url}
         caughtAt={item.caught_at}
         onPress={() => {
           router.push({

@@ -147,6 +147,7 @@ export type ConventionRecapHeader = {
 
 export type ConventionRecapCaughtFursuit = {
   fursuitId: string;
+  isRedacted: boolean;
   name: string | null;
   catchCount: number;
   firstCaughtAt: string | null;
@@ -165,6 +166,7 @@ export type ConventionRecapCaughtFursuit = {
 
 export type ConventionRecapOwnedFursuit = {
   fursuitId: string;
+  isRedacted: boolean;
   name: string | null;
   timesCaught: number;
   uniqueCatchers: number;
@@ -352,6 +354,7 @@ function mapConventionRecapCaughtFursuits(raw: unknown): ConventionRecapCaughtFu
 
       return {
         fursuitId,
+        isRedacted: entry.is_redacted === true,
         name: asNullableString(entry.name),
         catchCount: asNonNegativeInteger(entry.catch_count),
         firstCaughtAt: asNullableString(entry.first_caught_at),
@@ -379,6 +382,7 @@ function mapConventionRecapOwnedFursuits(raw: unknown): ConventionRecapOwnedFurs
 
       return {
         fursuitId,
+        isRedacted: entry.is_redacted === true,
         name: asNullableString(entry.name),
         timesCaught: asNonNegativeInteger(entry.times_caught),
         uniqueCatchers: asNonNegativeInteger(entry.unique_catchers),
@@ -464,6 +468,7 @@ async function applyProfileSocialLinksToConventionRecapDetail(
   const ownerIds = Array.from(
     new Set(
       detail.caughtFursuits
+        .filter((fursuit) => !fursuit.isRedacted)
         .map((fursuit) => fursuit.ownerId)
         .filter((ownerId): ownerId is string => Boolean(ownerId)),
     ),
@@ -496,7 +501,10 @@ async function applyProfileSocialLinksToConventionRecapDetail(
     ...detail,
     caughtFursuits: detail.caughtFursuits.map((fursuit) => ({
       ...fursuit,
-      socialLinks: fursuit.ownerId ? (socialLinksByOwnerId.get(fursuit.ownerId) ?? []) : [],
+      socialLinks:
+        !fursuit.isRedacted && fursuit.ownerId
+          ? (socialLinksByOwnerId.get(fursuit.ownerId) ?? [])
+          : [],
     })),
   };
 }
