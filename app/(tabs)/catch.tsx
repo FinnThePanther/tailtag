@@ -628,7 +628,7 @@ export default function CatchScreen() {
 
       if (fursuitError) throw fursuitError;
       if (!fursuit) {
-        setPhotoSubmitError("Couldn't load fursuit details. Please try again.");
+        setPhotoSubmitError('Fursuit unavailable');
         return;
       }
 

@@ -8,6 +8,7 @@ import {
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   clearCatchConventionSnapshotsForUser,
 } from '../conventions';
+import { redactCatchOutboxAdultBoundaryMetadata } from '@/features/catch-outbox/storage';
 import { DAILY_TASKS_QUERY_KEY } from '../daily-tasks/hooks';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
@@ -39,6 +40,7 @@ export async function refreshAdultBoundaryCaches(params: {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: profileQueryKey(userId) }),
     clearCatchConventionSnapshotsForUser(userId),
+    redactCatchOutboxAdultBoundaryMetadata(userId),
     ...USER_AUDIENCE_QUERY_PREFIXES.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
   ]);
 }

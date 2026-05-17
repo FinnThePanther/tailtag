@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { addMonitoringBreadcrumb, captureHandledException } from '@/lib/sentry';
 import type { ConventionSuitRosterEntry } from '../api/conventions';
 
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2;
 const SNAPSHOT_TTL_MS = 72 * 60 * 60 * 1000;
 
 const contextKeyForUser = (userId: string) =>

@@ -7,6 +7,7 @@ const STORAGE_VERSION = 1;
 const keyForUser = (userId: string) => `tailtag:catch-outbox:v${STORAGE_VERSION}:${userId}`;
 
 const listeners = new Set<(items: CatchOutboxItem[]) => void>();
+const writeQueues = new Map<string, Promise<void>>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -104,6 +105,23 @@ function emit(items: CatchOutboxItem[]) {
   listeners.forEach((listener) => listener(sorted));
 }
 
+function withUserOutboxWriteLock<T>(userId: string, operation: () => Promise<T>): Promise<T> {
+  const previous = writeQueues.get(userId) ?? Promise.resolve();
+  const run = previous.catch(() => undefined).then(operation);
+  const tail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+
+  writeQueues.set(userId, tail);
+
+  return run.finally(() => {
+    if (writeQueues.get(userId) === tail) {
+      writeQueues.delete(userId);
+    }
+  });
+}
+
 export function subscribeCatchOutbox(listener: (items: CatchOutboxItem[]) => void) {
   listeners.add(listener);
   return () => {
@@ -112,6 +130,10 @@ export function subscribeCatchOutbox(listener: (items: CatchOutboxItem[]) => voi
 }
 
 export async function loadCatchOutbox(userId: string): Promise<CatchOutboxItem[]> {
+  return loadCatchOutboxUnlocked(userId);
+}
+
+async function loadCatchOutboxUnlocked(userId: string): Promise<CatchOutboxItem[]> {
   const raw = await AsyncStorage.getItem(keyForUser(userId));
 
   if (!raw) {
@@ -134,18 +156,35 @@ export async function loadCatchOutbox(userId: string): Promise<CatchOutboxItem[]
 }
 
 export async function saveCatchOutbox(userId: string, items: CatchOutboxItem[]) {
+  await withUserOutboxWriteLock(userId, () => saveCatchOutboxUnlocked(userId, items));
+}
+
+async function saveCatchOutboxUnlocked(userId: string, items: CatchOutboxItem[]) {
   const sorted = sortItems(items);
   await AsyncStorage.setItem(keyForUser(userId), JSON.stringify(sorted));
   emit(sorted);
 }
 
+export async function mutateCatchOutbox(
+  userId: string,
+  updater: (items: CatchOutboxItem[]) => CatchOutboxItem[],
+) {
+  await withUserOutboxWriteLock(userId, async () => {
+    const items = await loadCatchOutboxUnlocked(userId);
+    const next = updater(items);
+    if (next === items) {
+      return;
+    }
+
+    await saveCatchOutboxUnlocked(userId, next);
+  });
+}
+
 export async function upsertCatchOutboxItem(userId: string, item: CatchOutboxItem) {
-  const items = await loadCatchOutbox(userId);
-  const next = [
+  await mutateCatchOutbox(userId, (items) => [
     item,
     ...items.filter((existing) => existing.clientAttemptId !== item.clientAttemptId),
-  ];
-  await saveCatchOutbox(userId, next);
+  ]);
 }
 
 export async function updateCatchOutboxItem(
@@ -153,17 +192,54 @@ export async function updateCatchOutboxItem(
   clientAttemptId: string,
   updater: (item: CatchOutboxItem) => CatchOutboxItem,
 ) {
-  const items = await loadCatchOutbox(userId);
-  const next = items.map((item) =>
-    item.clientAttemptId === clientAttemptId ? updater(item) : item,
+  await mutateCatchOutbox(userId, (items) =>
+    items.map((item) => (item.clientAttemptId === clientAttemptId ? updater(item) : item)),
   );
-  await saveCatchOutbox(userId, next);
 }
 
 export async function removeCatchOutboxItem(userId: string, clientAttemptId: string) {
-  const items = await loadCatchOutbox(userId);
-  await saveCatchOutbox(
-    userId,
+  await mutateCatchOutbox(userId, (items) =>
     items.filter((item) => item.clientAttemptId !== clientAttemptId),
   );
+}
+
+function redactAdultBoundaryMetadata(item: CatchOutboxItem): CatchOutboxItem {
+  return {
+    ...item,
+    fursuitId: undefined,
+    fursuitOwnerId: undefined,
+    fursuitName: undefined,
+    fursuitAvatarUrl: undefined,
+    fursuitAvatarPath: undefined,
+    fursuitSpeciesName: undefined,
+  };
+}
+
+function hasAdultBoundaryMetadata(item: CatchOutboxItem) {
+  return (
+    item.fursuitId !== undefined ||
+    item.fursuitOwnerId !== undefined ||
+    item.fursuitName !== undefined ||
+    item.fursuitAvatarUrl !== undefined ||
+    item.fursuitAvatarPath !== undefined ||
+    item.fursuitSpeciesName !== undefined
+  );
+}
+
+export async function redactCatchOutboxAdultBoundaryMetadata(userId: string) {
+  try {
+    await withUserOutboxWriteLock(userId, async () => {
+      const items = await loadCatchOutboxUnlocked(userId);
+      if (!items.some(hasAdultBoundaryMetadata)) {
+        return;
+      }
+
+      await saveCatchOutboxUnlocked(userId, items.map(redactAdultBoundaryMetadata));
+    });
+  } catch (error) {
+    captureHandledException(error, {
+      scope: 'catch-outbox.storage.redactAdultBoundaryMetadata',
+      additionalContext: { userId },
+    });
+  }
 }
