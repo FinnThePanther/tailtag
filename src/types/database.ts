@@ -2393,29 +2393,29 @@ export type Database = {
         Args: { p_catch_id: string }
         Returns: {
           catch_id: string
-          catch_number: number | null
-          catch_photo_path: string | null
-          catch_photo_url: string | null
-          caught_at: string | null
-          color_assignments: Json | null
-          convention: Json | null
-          convention_id: string | null
-          fursuit_avatar_path: string | null
-          fursuit_avatar_url: string | null
-          fursuit_bio: Json | null
+          catch_number: number
+          catch_photo_path: string
+          catch_photo_url: string
+          caught_at: string
+          color_assignments: Json
+          convention: Json
+          convention_id: string
+          fursuit_avatar_path: string
+          fursuit_avatar_url: string
+          fursuit_bio: Json
           fursuit_catch_count: number
-          fursuit_created_at: string | null
-          fursuit_description: string | null
-          fursuit_id: string | null
-          fursuit_name: string | null
-          fursuit_owner_id: string | null
+          fursuit_created_at: string
+          fursuit_description: string
+          fursuit_id: string
+          fursuit_name: string
+          fursuit_owner_id: string
           fursuit_redacted: boolean
-          fursuit_unique_code: string | null
+          fursuit_unique_code: string
           fursuit_visibility_audience: string
-          makers: Json | null
-          owner_social_links: Json | null
-          species_id: string | null
-          species_name: string | null
+          makers: Json
+          owner_social_links: Json
+          species_id: string
+          species_name: string
         }[]
       }
       get_convention_leaderboard: {
@@ -2510,9 +2510,9 @@ export type Database = {
         Args: { p_fursuit_id: string }
         Returns: {
           catch_id: string
-          catch_photo_path: string | null
-          catch_photo_url: string | null
-          caught_at: string | null
+          catch_photo_path: string
+          catch_photo_url: string
+          caught_at: string
           is_redacted: boolean
         }[]
       }
@@ -2571,29 +2571,29 @@ export type Database = {
         Args: never
         Returns: {
           catch_id: string
-          catch_number: number | null
-          catch_photo_path: string | null
-          catch_photo_url: string | null
-          caught_at: string | null
-          color_assignments: Json | null
-          convention: Json | null
-          convention_id: string | null
-          fursuit_avatar_path: string | null
-          fursuit_avatar_url: string | null
-          fursuit_bio: Json | null
+          catch_number: number
+          catch_photo_path: string
+          catch_photo_url: string
+          caught_at: string
+          color_assignments: Json
+          convention: Json
+          convention_id: string
+          fursuit_avatar_path: string
+          fursuit_avatar_url: string
+          fursuit_bio: Json
           fursuit_catch_count: number
-          fursuit_created_at: string | null
-          fursuit_description: string | null
-          fursuit_id: string | null
-          fursuit_name: string | null
-          fursuit_owner_id: string | null
+          fursuit_created_at: string
+          fursuit_description: string
+          fursuit_id: string
+          fursuit_name: string
+          fursuit_owner_id: string
           fursuit_redacted: boolean
-          fursuit_unique_code: string | null
+          fursuit_unique_code: string
           fursuit_visibility_audience: string
-          makers: Json | null
-          owner_social_links: Json | null
-          species_id: string | null
-          species_name: string | null
+          makers: Json
+          owner_social_links: Json
+          species_id: string
+          species_name: string
         }[]
       }
       get_my_convention_memberships: {
