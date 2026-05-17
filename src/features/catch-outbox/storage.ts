@@ -167,3 +167,39 @@ export async function removeCatchOutboxItem(userId: string, clientAttemptId: str
     items.filter((item) => item.clientAttemptId !== clientAttemptId),
   );
 }
+
+function redactAdultBoundaryMetadata(item: CatchOutboxItem): CatchOutboxItem {
+  return {
+    ...item,
+    fursuitId: undefined,
+    fursuitOwnerId: undefined,
+    fursuitName: undefined,
+    fursuitAvatarUrl: undefined,
+    fursuitAvatarPath: undefined,
+    fursuitSpeciesName: undefined,
+  };
+}
+
+function hasAdultBoundaryMetadata(item: CatchOutboxItem) {
+  return (
+    item.fursuitId !== undefined ||
+    item.fursuitOwnerId !== undefined ||
+    item.fursuitName !== undefined ||
+    item.fursuitAvatarUrl !== undefined ||
+    item.fursuitAvatarPath !== undefined ||
+    item.fursuitSpeciesName !== undefined
+  );
+}
+
+export async function redactCatchOutboxAdultBoundaryMetadata(userId: string) {
+  try {
+    const items = await loadCatchOutbox(userId);
+    if (!items.some(hasAdultBoundaryMetadata)) {
+      return;
+    }
+
+    await saveCatchOutbox(userId, items.map(redactAdultBoundaryMetadata));
+  } catch (error) {
+    captureHandledException(error, { scope: 'catch-outbox.storage.redactAdultBoundaryMetadata' });
+  }
+}
