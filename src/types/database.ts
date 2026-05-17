@@ -2190,6 +2190,10 @@ export type Database = {
         Args: { p_catcher_id: string; p_fursuit_id: string }
         Returns: boolean
       }
+      can_view_catch_photo_object: {
+        Args: { p_object_name: string; p_viewer_id: string }
+        Returns: boolean
+      }
       can_view_fursuit: {
         Args: { p_fursuit_id: string; p_viewer_id: string }
         Returns: boolean
@@ -2198,12 +2202,20 @@ export type Database = {
         Args: { p_fursuit_id: string; p_viewer_id: string }
         Returns: boolean
       }
+      can_view_fursuit_avatar_object: {
+        Args: { p_object_name: string; p_viewer_id: string }
+        Returns: boolean
+      }
       can_view_profile: {
         Args: { p_target_id: string; p_viewer_id: string }
         Returns: boolean
       }
       can_view_profile_as_profile: {
         Args: { p_target_id: string; p_viewer_id: string }
+        Returns: boolean
+      }
+      can_view_profile_avatar_object: {
+        Args: { p_object_name: string; p_viewer_id: string }
         Returns: boolean
       }
       claim_unprocessed_events: {
