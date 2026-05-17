@@ -53,16 +53,17 @@ export default function CatchDetailScreen() {
     return records?.find((r) => r.id === catchId) ?? null;
   }, [queryClient, userId, catchId]);
 
-  const shouldFetchById = Boolean(catchId && !recordFromCache);
   const { data: recordFromApi, isLoading: isFetchingCatch } = useQuery({
-    queryKey: catchByIdQueryKey(catchId ?? ''),
+    queryKey: catchByIdQueryKey(catchId ?? '', userId),
     queryFn: () => fetchCatchById(catchId!),
-    enabled: shouldFetchById,
+    enabled: Boolean(userId && catchId),
+    initialData: recordFromCache ?? undefined,
     staleTime: 2 * 60_000,
   });
 
-  const record = recordFromCache ?? recordFromApi ?? null;
+  const record = recordFromApi ?? recordFromCache ?? null;
   const details = record?.fursuit ?? null;
+  const isFursuitRedacted = record?.fursuitRedacted === true || details?.isRedacted === true;
 
   const caughtLabel = toDisplayDateTime(record?.caught_at) ?? 'Caught just now';
   const pieces = [caughtLabel];
@@ -73,7 +74,7 @@ export default function CatchDetailScreen() {
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [photoFullscreen, setPhotoFullscreen] = useState(false);
-  const ownerId = details?.owner_id ?? null;
+  const ownerId = isFursuitRedacted ? null : (details?.owner_id ?? null);
   const canModerateOwnerContent = Boolean(ownerId && userId && ownerId !== userId);
 
   const handleDownloadPhoto = useCallback(
@@ -102,7 +103,7 @@ export default function CatchDetailScreen() {
   );
 
   if (!record || !details) {
-    const isLoading = shouldFetchById && isFetchingCatch;
+    const isLoading = Boolean(userId && catchId && isFetchingCatch);
     return (
       <View style={styles.screen}>
         <ScreenHeader
@@ -134,7 +135,7 @@ export default function CatchDetailScreen() {
   return (
     <View style={styles.screen}>
       <ScreenHeader
-        title={`Caught: ${details.name}`}
+        title={isFursuitRedacted ? 'Catch' : `Caught: ${details.name}`}
         onBack={() => router.back()}
         right={
           canModerateOwnerContent ? (
@@ -157,19 +158,24 @@ export default function CatchDetailScreen() {
         <TailTagCard>
           <View style={styles.detailStack}>
             <Pressable
-              onPress={() =>
-                router.push({ pathname: '/fursuits/[id]', params: { id: details.id } })
+              onPress={
+                isFursuitRedacted
+                  ? undefined
+                  : () => router.push({ pathname: '/fursuits/[id]', params: { id: details.id } })
               }
-              style={({ pressed }) => pressed && styles.pressed}
-              accessibilityRole="button"
-              accessibilityLabel={`View ${details.name}'s fursuit profile`}
+              disabled={isFursuitRedacted}
+              style={({ pressed }) => pressed && !isFursuitRedacted && styles.pressed}
+              accessibilityRole={isFursuitRedacted ? undefined : 'button'}
+              accessibilityLabel={
+                isFursuitRedacted ? 'Unavailable fursuit' : `View ${details.name}'s fursuit profile`
+              }
             >
               <FursuitCard
-                name={details.name}
-                species={details.species}
-                colors={details.colors}
-                avatarUrl={details.avatar_url}
-                uniqueCode={details.unique_code}
+                name={isFursuitRedacted ? 'Unavailable fursuit' : details.name}
+                species={isFursuitRedacted ? null : details.species}
+                colors={isFursuitRedacted ? [] : details.colors}
+                avatarUrl={isFursuitRedacted ? null : details.avatar_url}
+                uniqueCode={isFursuitRedacted ? null : details.unique_code}
                 timelineLabel={timelineLabel}
                 codeLabel={null}
               />
@@ -200,7 +206,7 @@ export default function CatchDetailScreen() {
                 </TailTagButton>
               </View>
             ) : null}
-            {fursuitBioHasDisplayableContent(details.bio, details.makers) ? (
+            {!isFursuitRedacted && fursuitBioHasDisplayableContent(details.bio, details.makers) ? (
               <FursuitBioDetails
                 bio={details.bio}
                 makers={details.makers}

@@ -107,6 +107,10 @@ function extractString(value: unknown): string | null {
   return null;
 }
 
+function isAdultBoundaryChecked(payload: Record<string, unknown>): boolean {
+  return payload.adult_boundary_checked === true;
+}
+
 function isUserFacingAchievementName(value: string): boolean {
   const looksLikeInternalKey = /^[A-Z0-9_]+$/.test(value) || /^[a-z0-9_]+$/.test(value);
   const containsUuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(value);
@@ -169,6 +173,12 @@ async function buildMessage(
       };
     }
     case 'catch_pending': {
+      if (!isAdultBoundaryChecked(payload)) {
+        return {
+          title: 'Catch Request',
+          body: 'Someone wants to catch your fursuit',
+        };
+      }
       const catcherUsername = extractString(payload.catcher_username) ?? 'Someone';
       const fursuitName = extractString(payload.fursuit_name) ?? 'your fursuit';
       return {
@@ -177,6 +187,12 @@ async function buildMessage(
       };
     }
     case 'fursuit_caught': {
+      if (!isAdultBoundaryChecked(payload)) {
+        return {
+          title: 'Your Fursuit Was Caught!',
+          body: 'Someone caught your fursuit',
+        };
+      }
       const catcherUsername = extractString(payload.catcher_username) ?? 'Someone';
       const fursuitName = extractString(payload.fursuit_name) ?? 'your fursuit';
       return {
@@ -185,6 +201,12 @@ async function buildMessage(
       };
     }
     case 'catch_confirmed': {
+      if (!isAdultBoundaryChecked(payload)) {
+        return {
+          title: 'Catch Approved!',
+          body: 'Your catch was approved',
+        };
+      }
       const fursuitName = extractString(payload.fursuit_name) ?? 'a fursuit';
       return {
         title: 'Catch Approved!',
@@ -192,6 +214,12 @@ async function buildMessage(
       };
     }
     case 'catch_rejected': {
+      if (!isAdultBoundaryChecked(payload)) {
+        return {
+          title: 'Catch Declined',
+          body: 'Your catch request was declined',
+        };
+      }
       const fursuitName = extractString(payload.fursuit_name) ?? 'a fursuit';
       return {
         title: 'Catch Declined',
@@ -199,12 +227,19 @@ async function buildMessage(
       };
     }
     case 'catch_expired': {
+      if (!isAdultBoundaryChecked(payload)) {
+        return {
+          title: 'Catch Expired',
+          body: 'A pending catch request expired',
+        };
+      }
       const fursuitName = extractString(payload.fursuit_name) ?? 'a fursuit';
       const catcherUsername = extractString(payload.catcher_username);
-      if (catcherUsername) {
+      const recipientRole = extractString(payload.recipient_role);
+      if (recipientRole === 'owner') {
         return {
           title: 'Catch Request Expired',
-          body: `${catcherUsername}'s request for ${fursuitName} expired`,
+          body: `${catcherUsername ?? 'Someone'}'s request for ${fursuitName} expired`,
         };
       }
       return {
