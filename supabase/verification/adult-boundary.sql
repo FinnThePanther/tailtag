@@ -143,7 +143,7 @@ BEGIN
       v_profile_restricted_owner,
       'abprowner',
       'player',
-      'adult-boundary/restricted-profile.jpg',
+      NULL,
       'https://example.supabase.co/storage/v1/object/authenticated/profile-avatars/adult-boundary/restricted-profile.jpg',
       true,
       1,
@@ -219,7 +219,7 @@ BEGIN
       v_public_owner,
       'Suit Restricted Suit',
       'ABS1',
-      'adult-boundary/suit-restricted-suit.jpg',
+      NULL,
       'https://example.supabase.co/storage/v1/object/authenticated/fursuit-avatars/adult-boundary/suit-restricted-suit.jpg',
       'adults_only',
       false,
@@ -340,7 +340,7 @@ BEGIN
       'ACCEPTED',
       1,
       now(),
-      'adult-boundary/restricted-catch.jpg',
+      NULL,
       'https://example.supabase.co/storage/v1/object/authenticated/catch-photos/adult-boundary/restricted-catch.jpg',
       false
     ),
@@ -601,6 +601,30 @@ BEGIN
     HAVING count(*) = 2
   ) THEN
     RAISE EXCEPTION 'adult direct fursuit bio select cannot see restricted rows';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.fursuit_color_assignments
+    WHERE fursuit_id IN (v_profile_restricted_suit, v_suit_restricted_suit)
+    HAVING count(*) = 2
+  ) THEN
+    RAISE EXCEPTION 'adult direct fursuit_color_assignments select cannot see restricted rows';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.fursuit_makers
+    WHERE fursuit_id IN (v_profile_restricted_suit, v_suit_restricted_suit)
+    HAVING count(*) = 2
+  ) THEN
+    RAISE EXCEPTION 'adult direct fursuit_makers select cannot see restricted rows';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.fursuit_conventions
+    WHERE fursuit_id IN (v_profile_restricted_suit, v_suit_restricted_suit)
+    HAVING count(*) = 2
+  ) THEN
+    RAISE EXCEPTION 'adult direct fursuit_conventions select cannot see restricted rows';
   END IF;
   IF NOT EXISTS (
     SELECT 1

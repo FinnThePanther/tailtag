@@ -16,7 +16,8 @@ AS $function$
     FROM public.profiles p
     WHERE (
         p.avatar_path = p_object_name
-        OR coalesce(p.avatar_url, '') = '/profile-avatars/' || p_object_name
+        OR right(coalesce(p.avatar_url, ''), length('/profile-avatars/' || p_object_name)) =
+          '/profile-avatars/' || p_object_name
       )
       AND public.can_view_profile(p_viewer_id, p.id)
   );
@@ -37,7 +38,8 @@ AS $function$
     FROM public.fursuits f
     WHERE (
         f.avatar_path = p_object_name
-        OR coalesce(f.avatar_url, '') = '/fursuit-avatars/' || p_object_name
+        OR right(coalesce(f.avatar_url, ''), length('/fursuit-avatars/' || p_object_name)) =
+          '/fursuit-avatars/' || p_object_name
       )
       AND public.can_view_fursuit(p_viewer_id, f.id)
   );
@@ -58,7 +60,8 @@ AS $function$
     FROM public.catches c
     WHERE (
         c.catch_photo_path = p_object_name
-        OR coalesce(c.catch_photo_url, '') = '/catch-photos/' || p_object_name
+        OR right(coalesce(c.catch_photo_url, ''), length('/catch-photos/' || p_object_name)) =
+          '/catch-photos/' || p_object_name
       )
       AND public.can_view_fursuit(p_viewer_id, c.fursuit_id)
   );
