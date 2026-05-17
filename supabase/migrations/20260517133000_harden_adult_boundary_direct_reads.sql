@@ -70,7 +70,7 @@ USING (
     FROM public.catches c
     WHERE (
         c.catch_photo_path = storage.objects.name
-        OR position('/catch-photos/' || storage.objects.name IN coalesce(c.catch_photo_url, '')) > 0
+        OR coalesce(c.catch_photo_url, '') = '/catch-photos/' || storage.objects.name
       )
       AND public.can_view_fursuit(auth.uid(), c.fursuit_id)
   )
@@ -90,7 +90,7 @@ USING (
     FROM public.fursuits f
     WHERE (
         f.avatar_path = storage.objects.name
-        OR position('/fursuit-avatars/' || storage.objects.name IN coalesce(f.avatar_url, '')) > 0
+        OR coalesce(f.avatar_url, '') = '/fursuit-avatars/' || storage.objects.name
       )
       AND public.can_view_fursuit(auth.uid(), f.id)
   )
@@ -110,7 +110,7 @@ USING (
     FROM public.profiles p
     WHERE (
         p.avatar_path = storage.objects.name
-        OR position('/profile-avatars/' || storage.objects.name IN coalesce(p.avatar_url, '')) > 0
+        OR coalesce(p.avatar_url, '') = '/profile-avatars/' || storage.objects.name
       )
       AND public.can_view_profile(auth.uid(), p.id)
   )
