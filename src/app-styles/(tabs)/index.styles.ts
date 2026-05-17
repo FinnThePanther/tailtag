@@ -369,6 +369,10 @@ export const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primarySurface,
   },
+  leaderboardRowRedacted: {
+    backgroundColor: colors.surfaceMutedSoft,
+    opacity: 0.82,
+  },
   leaderboardRowPressed: {
     opacity: 0.7,
   },
@@ -389,6 +393,9 @@ export const styles = StyleSheet.create({
     color: colors.foreground,
     fontSize: 16,
     fontWeight: '600',
+  },
+  leaderboardNameRedacted: {
+    color: colors.textSubtle,
   },
   leaderboardCatchLabel: {
     color: 'rgba(203,213,225,0.8)',
