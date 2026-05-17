@@ -8,7 +8,7 @@ import {
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   clearCatchConventionSnapshotsForUser,
 } from '../conventions';
-import { redactCatchOutboxAdultBoundaryMetadata } from '../catch-outbox/storage';
+import { redactCatchOutboxAdultBoundaryMetadata } from '@/features/catch-outbox/storage';
 import { DAILY_TASKS_QUERY_KEY } from '../daily-tasks/hooks';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,

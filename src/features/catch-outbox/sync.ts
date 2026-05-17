@@ -17,8 +17,8 @@ import { CAUGHT_SUITS_QUERY_KEY } from '../suits';
 import { captureHandledException } from '../../lib/sentry';
 import {
   loadCatchOutbox,
+  mutateCatchOutbox,
   removeCatchOutboxItem,
-  saveCatchOutbox,
   updateCatchOutboxItem,
 } from './storage';
 import { catchOutboxBackoffMs, classifyCatchOutboxError } from './errors';
@@ -86,19 +86,18 @@ function notifyPhotoCatchResolved(options: {
 }
 
 async function cleanupResolvedItems(userId: string) {
-  const items = await loadCatchOutbox(userId);
   const cutoff = Date.now() - RESOLVED_ITEM_TTL_MS;
-  const next = items.filter((item) => {
-    if (item.status !== 'confirmed' && item.status !== 'pending_approval') {
-      return true;
-    }
+  await mutateCatchOutbox(userId, (items) => {
+    const next = items.filter((item) => {
+      if (item.status !== 'confirmed' && item.status !== 'pending_approval') {
+        return true;
+      }
 
-    return !item.resolvedAt || Date.parse(item.resolvedAt) > cutoff;
+      return !item.resolvedAt || Date.parse(item.resolvedAt) > cutoff;
+    });
+
+    return next.length === items.length ? items : next;
   });
-
-  if (next.length !== items.length) {
-    await saveCatchOutbox(userId, next);
-  }
 }
 
 export async function syncCatchOutbox(options: {
