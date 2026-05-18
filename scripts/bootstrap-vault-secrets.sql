@@ -58,6 +58,21 @@ BEGIN
     );
   END IF;
 
+  -- ── closeout_service_role_key ────────────────────────────────────────────
+  -- Used by app_private.convention_lifecycle_automation_job() to authenticate
+  -- to the close-out-convention edge function. Always tracks SERVICE_ROLE_KEY.
+  SELECT id INTO v_existing_id
+    FROM vault.secrets WHERE name = 'closeout_service_role_key';
+  IF v_existing_id IS NOT NULL THEN
+    PERFORM vault.update_secret(v_existing_id, v_service_key);
+  ELSE
+    PERFORM vault.create_secret(
+      v_service_key,
+      'closeout_service_role_key',
+      'Used by convention lifecycle cron to authenticate to its edge function'
+    );
+  END IF;
+
   -- ── send_push_service_role_jwt ────────────────────────────────────────────
   -- Reserved for legacy push pipeline. Kept in parity with dev so it's
   -- available if anything falls back to it.
