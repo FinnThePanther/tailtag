@@ -347,9 +347,11 @@ BEGIN
         'event_enqueued', false
       );
     WHEN OTHERS THEN
+      RAISE WARNING 'process_catch_reciprocal_offer failed for offer %: %', v_offer.id, SQLERRM;
+
       UPDATE public.catch_reciprocal_offers
          SET status = 'FAILED',
-             failure_reason = SQLERRM,
+             failure_reason = 'DB_ERROR',
              updated_at = now(),
              processed_at = now()
        WHERE id = v_offer.id;
@@ -357,7 +359,7 @@ BEGIN
       RETURN json_build_object(
         'offer_id', v_offer.id,
         'status', 'FAILED',
-        'failure_reason', SQLERRM,
+        'failure_reason', 'DB_ERROR',
         'event_enqueued', false
       );
   END;
@@ -392,7 +394,7 @@ BEGIN
   WHERE primary_catch_id = p_primary_catch_id
   LIMIT 1;
 
-  IF FOUND THEN
+  IF FOUND AND v_existing_offer.status NOT IN ('FAILED', 'CANCELED') THEN
     RETURN json_build_object(
       'offer_id', v_existing_offer.id,
       'status', v_existing_offer.status,
@@ -433,8 +435,20 @@ BEGIN
         recipient_profile_id = EXCLUDED.recipient_profile_id,
         convention_id = EXCLUDED.convention_id,
         status = CASE
-          WHEN catch_reciprocal_offers.status = 'PENDING' THEN 'PENDING'
+          WHEN catch_reciprocal_offers.status IN ('PENDING', 'FAILED', 'CANCELED') THEN 'PENDING'
           ELSE catch_reciprocal_offers.status
+        END,
+        reciprocal_catch_id = CASE
+          WHEN catch_reciprocal_offers.status IN ('FAILED', 'CANCELED') THEN NULL
+          ELSE catch_reciprocal_offers.reciprocal_catch_id
+        END,
+        failure_reason = CASE
+          WHEN catch_reciprocal_offers.status IN ('FAILED', 'CANCELED') THEN NULL
+          ELSE catch_reciprocal_offers.failure_reason
+        END,
+        processed_at = CASE
+          WHEN catch_reciprocal_offers.status IN ('FAILED', 'CANCELED') THEN NULL
+          ELSE catch_reciprocal_offers.processed_at
         END,
         updated_at = now()
   RETURNING id INTO v_offer_id;

@@ -145,7 +145,18 @@ export function PhotoCatchCard({
           current && items.some((item) => item.id === current) ? current : null,
         );
       })
-      .catch(() => {
+      .catch((error) => {
+        if (isSupabaseError(error)) {
+          captureSupabaseError(error, {
+            scope: 'PhotoCatchCard',
+            action: 'loadReciprocalFursuits',
+          });
+        } else {
+          captureHandledException(error, {
+            scope: 'PhotoCatchCard',
+            additionalContext: { action: 'loadReciprocalFursuits' },
+          });
+        }
         setReciprocalFursuits([]);
         setSelectedReciprocalFursuitId(null);
       });

@@ -1,10 +1,10 @@
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { AppAvatar } from '../../../components/ui/AppAvatar';
-import { TailTagButton } from '../../../components/ui/TailTagButton';
-import { colors } from '../../../theme';
-import type { ReciprocalFursuitPickerItem } from '../api';
+import { AppAvatar } from '@/components/ui/AppAvatar';
+import { TailTagButton } from '@/components/ui/TailTagButton';
+import type { ReciprocalFursuitPickerItem } from '@/features/catch-confirmations/api';
+import { colors } from '@/theme';
 import { styles } from './ReciprocalCatchSelector.styles';
 
 type ReciprocalCatchSelectorProps = {
