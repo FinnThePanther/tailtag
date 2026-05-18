@@ -9,6 +9,7 @@ import {
   FursuitCard,
   FursuitBioDetails,
   fursuitBioHasDisplayableContent,
+  CAUGHT_COLLECTION_QUERY_KEY,
   CAUGHT_SUITS_QUERY_KEY,
   applyProfileSocialLinksToBio,
   mapLatestFursuitBio,
@@ -372,6 +373,9 @@ export default function CatchScreen() {
         });
         void queryClient.invalidateQueries({
           queryKey: [CAUGHT_SUITS_QUERY_KEY, currentUserId],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [CAUGHT_COLLECTION_QUERY_KEY, currentUserId],
         });
         void queryClient.invalidateQueries({
           queryKey: achievementsStatusQueryKey(currentUserId),
