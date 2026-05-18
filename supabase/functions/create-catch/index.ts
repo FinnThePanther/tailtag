@@ -45,6 +45,7 @@ interface CreateCatchRequest {
   fursuit_id?: string;
   fursuit_code?: string;
   convention_id?: string | null;
+  reciprocal_fursuit_id?: string | null;
   is_tutorial?: boolean;
   force_pending?: boolean;
   has_photo?: boolean;
@@ -78,6 +79,18 @@ interface CreateCatchResponse {
   fursuit_species_id?: string | null;
   fursuit_species_name?: string | null;
   photo_upload_state?: string;
+  reciprocal_offer?: {
+    offer_id?: string;
+    status?: string;
+    reciprocal_catch_id?: string | null;
+    failure_reason?: string | null;
+    event_enqueued?: boolean;
+    offered_fursuit_id?: string;
+    offered_fursuit_name?: string;
+    offered_fursuit_avatar_path?: string | null;
+    offered_fursuit_avatar_url?: string | null;
+    recipient_profile_id?: string;
+  } | null;
   event_id: string | null;
   event_duplicate?: boolean;
   event_enqueued?: boolean;
@@ -248,6 +261,19 @@ function normalizeFursuitCode(value: unknown): string | null {
   return /^[A-Z0-9]{4,8}$/.test(normalized) ? normalized : null;
 }
 
+function normalizeUuidLike(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    normalized,
+  )
+    ? normalized
+    : null;
+}
+
 function extractBearerToken(req: Request): string | null {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
@@ -310,6 +336,170 @@ function scheduleQueueWakeup(): void {
       maxDurationMs: queueConfig.wakeupMaxDurationMs,
     });
   });
+}
+
+async function validateReciprocalOfferRequest(params: {
+  offeredByProfileId: string;
+  recipientProfileId: string;
+  offeredFursuitId: string;
+  conventionId: string | null | undefined;
+  isGalleryCatch: boolean;
+}): Promise<{ ok: true } | { ok: false; status: number; error: string; errorCode: string }> {
+  if (!params.conventionId) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Back-tags require a playable convention.',
+      errorCode: 'reciprocal_convention_required',
+    };
+  }
+
+  if (params.offeredByProfileId === params.recipientProfileId) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Cannot create a back-tag with yourself.',
+      errorCode: 'reciprocal_self_catch',
+    };
+  }
+
+  const { data: offeredFursuit, error: offeredFursuitError } = await supabaseAdmin
+    .from('fursuits')
+    .select('id, owner_id, is_tutorial, is_flagged')
+    .eq('id', params.offeredFursuitId)
+    .maybeSingle();
+
+  if (offeredFursuitError) {
+    console.error('[create-catch] Reciprocal fursuit lookup error:', offeredFursuitError);
+    return {
+      ok: false,
+      status: 500,
+      error: 'Failed to verify back-tag suit.',
+      errorCode: 'reciprocal_lookup_failed',
+    };
+  }
+
+  if (!offeredFursuit?.id) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'Back-tag suit not found.',
+      errorCode: 'reciprocal_fursuit_not_found',
+    };
+  }
+
+  if (offeredFursuit.owner_id !== params.offeredByProfileId) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'You can only offer one of your own suits for a back-tag.',
+      errorCode: 'reciprocal_not_owner',
+    };
+  }
+
+  if (offeredFursuit.is_tutorial === true || offeredFursuit.is_flagged === true) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'This suit cannot be offered for a back-tag.',
+      errorCode: 'reciprocal_fursuit_unavailable',
+    };
+  }
+
+  const eligibilityRpc = params.isGalleryCatch
+    ? 'is_profile_convention_gallery_catch_eligible'
+    : 'is_profile_convention_gameplay_eligible';
+  const eligibilityError = params.isGalleryCatch
+    ? 'Both players must be gallery-eligible for this convention before creating a back-tag.'
+    : 'Both players must be ready to catch for this convention before creating a back-tag.';
+
+  const [
+    blockedResult,
+    offeredByConventionResult,
+    recipientConventionResult,
+    boundaryResult,
+    rosterResult,
+  ] = await Promise.all([
+    supabaseAdmin.rpc('is_blocked', {
+      p_user_a: params.offeredByProfileId,
+      p_user_b: params.recipientProfileId,
+    }),
+    supabaseAdmin.rpc(eligibilityRpc, {
+      p_profile_id: params.offeredByProfileId,
+      p_convention_id: params.conventionId,
+    }),
+    supabaseAdmin.rpc(eligibilityRpc, {
+      p_profile_id: params.recipientProfileId,
+      p_convention_id: params.conventionId,
+    }),
+    supabaseAdmin.rpc('can_catch_fursuit_as_profile', {
+      p_catcher_id: params.recipientProfileId,
+      p_fursuit_id: params.offeredFursuitId,
+    }),
+    supabaseAdmin
+      .from('fursuit_conventions')
+      .select('fursuit_id')
+      .eq('fursuit_id', params.offeredFursuitId)
+      .eq('convention_id', params.conventionId)
+      .eq('roster_state', 'active')
+      .is('active_until', null)
+      .maybeSingle(),
+  ]);
+
+  const lookupError =
+    blockedResult.error ??
+    offeredByConventionResult.error ??
+    recipientConventionResult.error ??
+    boundaryResult.error ??
+    rosterResult.error;
+
+  if (lookupError) {
+    console.error('[create-catch] Reciprocal validation error:', lookupError);
+    return {
+      ok: false,
+      status: 500,
+      error: 'Failed to verify back-tag eligibility.',
+      errorCode: 'reciprocal_validation_failed',
+    };
+  }
+
+  if (blockedResult.data === true) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Cannot create a back-tag for this player.',
+      errorCode: 'reciprocal_blocked_user',
+    };
+  }
+
+  if (offeredByConventionResult.data !== true || recipientConventionResult.data !== true) {
+    return {
+      ok: false,
+      status: 400,
+      error: eligibilityError,
+      errorCode: 'reciprocal_shared_convention_required',
+    };
+  }
+
+  if (boundaryResult.data !== true) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'This back-tag suit is not available to that player.',
+      errorCode: 'reciprocal_adult_boundary_restricted',
+    };
+  }
+
+  if (!rosterResult.data?.fursuit_id) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Back-tag suit must be listed for this convention.',
+      errorCode: 'reciprocal_fursuit_not_listed',
+    };
+  }
+
+  return { ok: true };
 }
 
 async function enqueuePendingCatchAfterPhotoUpload(catchRow: {
@@ -395,6 +585,15 @@ async function handlePost(req: Request): Promise<Response> {
 
   const catchPhotoSource = normalizeCatchPhotoSource(body.catch_photo_source);
   const photoUploadState = normalizeCreatePhotoUploadState(body.photo_upload_state);
+  const reciprocalFursuitId = normalizeUuidLike(body.reciprocal_fursuit_id);
+
+  if (body.reciprocal_fursuit_id && !reciprocalFursuitId) {
+    return failureResponse(
+      400,
+      { error: 'Invalid back-tag fursuit.' },
+      'invalid_reciprocal_fursuit_id',
+    );
+  }
 
   if (body.catch_photo_source && !catchPhotoSource) {
     return failureResponse(400, { error: 'Invalid catch_photo_source' }, 'invalid_photo_source');
@@ -554,6 +753,24 @@ async function handlePost(req: Request): Promise<Response> {
       body.convention_id = sharedConventionId;
     }
 
+    if (reciprocalFursuitId) {
+      const reciprocalValidation = await validateReciprocalOfferRequest({
+        offeredByProfileId: userId,
+        recipientProfileId: fursuitBoundaryRow.owner_id,
+        offeredFursuitId: reciprocalFursuitId,
+        conventionId: body.convention_id,
+        isGalleryCatch: catchPhotoSource === 'gallery',
+      });
+
+      if (!reciprocalValidation.ok) {
+        return failureResponse(
+          reciprocalValidation.status,
+          { error: reciprocalValidation.error },
+          reciprocalValidation.errorCode,
+        );
+      }
+    }
+
     // Check if catcher and fursuit owner have blocked each other
     const fursuitRow = await trace.measure('block_check_ms', async () => {
       const { data: ownerRow } = await supabaseAdmin
@@ -652,7 +869,36 @@ async function handlePost(req: Request): Promise<Response> {
     catchId = result.catch_id;
     resolvedConventionId = result.convention_id ?? body.convention_id ?? null;
 
+    if (reciprocalFursuitId) {
+      const { data: reciprocalOffer, error: reciprocalOfferError } = await trace.measure(
+        'metadata_ms',
+        () =>
+          supabaseAdmin.rpc('create_catch_reciprocal_offer', {
+            p_primary_catch_id: result.catch_id,
+            p_offered_fursuit_id: reciprocalFursuitId,
+            p_offered_by_profile_id: userId,
+          }),
+      );
+
+      if (reciprocalOfferError) {
+        console.error('[create-catch] Reciprocal offer error:', reciprocalOfferError);
+        result.reciprocal_offer = {
+          status: 'FAILED',
+          failure_reason: reciprocalOfferError.message ?? 'Failed to create back-tag offer',
+          event_enqueued: false,
+          offered_fursuit_id: reciprocalFursuitId,
+        };
+      } else {
+        result.reciprocal_offer =
+          (reciprocalOffer as CreateCatchResponse['reciprocal_offer']) ?? null;
+      }
+    }
+
     if (result.event_enqueued === true && result.event_duplicate !== true) {
+      scheduleQueueWakeup();
+    }
+
+    if (result.reciprocal_offer?.event_enqueued === true) {
       scheduleQueueWakeup();
     }
 

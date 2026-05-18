@@ -143,6 +143,7 @@ export async function queueCodeCatchOutboxItem(params: {
   clientAttemptId: string;
   fursuitCode: string;
   conventionId?: string | null;
+  reciprocalFursuitId?: string | null;
 }) {
   const now = new Date().toISOString();
   await upsertCatchOutboxItem(params.userId, {
@@ -151,6 +152,7 @@ export async function queueCodeCatchOutboxItem(params: {
     status: 'queued',
     fursuitCode: params.fursuitCode,
     conventionId: params.conventionId,
+    reciprocalFursuitId: params.reciprocalFursuitId,
     createdAt: now,
     retryCount: 0,
   });

@@ -4,3 +4,4 @@ export { PendingCatchesList } from './PendingCatchesList';
 export { PendingConfirmationsList } from './PendingConfirmationsList';
 export { CatchConfirmationToastManager } from './CatchConfirmationToastManager';
 export { PhotoCatchCard } from './PhotoCatchCard';
+export { ReciprocalCatchSelector } from './ReciprocalCatchSelector';

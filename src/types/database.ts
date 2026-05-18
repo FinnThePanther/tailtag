@@ -313,6 +313,101 @@ export type Database = {
           },
         ]
       }
+      catch_reciprocal_offers: {
+        Row: {
+          convention_id: string
+          created_at: string
+          failure_reason: string | null
+          id: string
+          offered_by_profile_id: string
+          offered_fursuit_id: string
+          primary_catch_id: string
+          processed_at: string | null
+          recipient_profile_id: string
+          reciprocal_catch_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          convention_id: string
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          offered_by_profile_id: string
+          offered_fursuit_id: string
+          primary_catch_id: string
+          processed_at?: string | null
+          recipient_profile_id: string
+          reciprocal_catch_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          convention_id?: string
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          offered_by_profile_id?: string
+          offered_fursuit_id?: string
+          primary_catch_id?: string
+          processed_at?: string | null
+          recipient_profile_id?: string
+          reciprocal_catch_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catch_reciprocal_offers_convention_id_fkey"
+            columns: ["convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_reciprocal_offers_offered_by_profile_id_fkey"
+            columns: ["offered_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_reciprocal_offers_offered_fursuit_id_fkey"
+            columns: ["offered_fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_reciprocal_offers_offered_fursuit_id_fkey"
+            columns: ["offered_fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_reciprocal_offers_primary_catch_id_fkey"
+            columns: ["primary_catch_id"]
+            isOneToOne: false
+            referencedRelation: "catches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_reciprocal_offers_recipient_profile_id_fkey"
+            columns: ["recipient_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_reciprocal_offers_reciprocal_catch_id_fkey"
+            columns: ["reciprocal_catch_id"]
+            isOneToOne: false
+            referencedRelation: "catches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catches: {
         Row: {
           catch_number: number | null
@@ -2300,6 +2395,14 @@ export type Database = {
         Returns: number
       }
       count_user_fursuits: { Args: { p_user_id: string }; Returns: number }
+      create_catch_reciprocal_offer: {
+        Args: {
+          p_offered_by_profile_id: string
+          p_offered_fursuit_id: string
+          p_primary_catch_id: string
+        }
+        Returns: Json
+      }
       create_catch_with_approval: {
         Args: {
           p_catch_photo_source?: string
@@ -2707,6 +2810,10 @@ export type Database = {
           fursuit_id: string
           fursuit_name: string
           photo_upload_state: string
+          reciprocal_fursuit_avatar_url: string
+          reciprocal_fursuit_id: string
+          reciprocal_fursuit_name: string
+          reciprocal_offer_id: string
           time_remaining: string
         }[]
       }
@@ -2853,6 +2960,10 @@ export type Database = {
         Returns: undefined
       }
       process_achievement_queue_if_active: { Args: never; Returns: undefined }
+      process_catch_reciprocal_offer: {
+        Args: { p_offer_id: string }
+        Returns: Json
+      }
       process_gameplay_queue_if_active: { Args: never; Returns: undefined }
       purge_geo_verification_data: { Args: never; Returns: Json }
       read_gameplay_event_queue: {
@@ -2928,6 +3039,20 @@ export type Database = {
           closeout_not_before: string
           convention_id: string
           finalizing_started_at: string
+        }[]
+      }
+      validate_catch_reciprocal_offer: {
+        Args: {
+          p_offered_by_profile_id: string
+          p_offered_fursuit_id: string
+          p_primary_catch_id: string
+        }
+        Returns: {
+          convention_id: string
+          offered_fursuit_avatar_path: string
+          offered_fursuit_avatar_url: string
+          offered_fursuit_name: string
+          recipient_profile_id: string
         }[]
       }
       verify_convention_location: {

@@ -178,6 +178,7 @@ export async function syncCatchOutbox(options: {
           conventionId: item.conventionId ?? null,
           method: 'code',
           timeoutMs: CODE_CATCH_OUTBOX_TIMEOUT_MS,
+          reciprocalFursuitId: item.reciprocalFursuitId ?? null,
         });
 
         const resolvedStatus = result.requiresApproval ? 'pending_approval' : 'confirmed';
