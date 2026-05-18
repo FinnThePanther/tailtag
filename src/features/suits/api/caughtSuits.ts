@@ -1,22 +1,40 @@
 import { supabase } from '../../../lib/supabase';
 import type { FursuitSummary } from '../types';
+import { normalizeVisibilityAudience } from '@/features/adult-boundary';
 import {
   applyProfileSocialLinksToBio,
   mapFursuitColors,
+  mapFursuitMakers,
   mapLatestFursuitBio,
   parseSocialLinks,
 } from './utils';
-import { fetchFursuitMakersByFursuitIds } from './makers';
 import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
+import type { Database } from '../../../types/database';
+
+type CaughtSuitRpcRow = Database['public']['Functions']['get_my_caught_suits']['Returns'][number];
+type CatchDetailRpcRow = Database['public']['Functions']['get_catch_detail']['Returns'][number];
+type HistoricalCatchRpcRow = CaughtSuitRpcRow | CatchDetailRpcRow;
 
 export type CaughtRecord = {
   id: string;
   caught_at: string | null;
+  conventionId: string | null;
+  convention: CaughtRecordConvention | null;
   catchNumber: number | null;
   catchPhotoPath?: string | null;
   catchPhotoUrl: string | null;
+  fursuitRedacted: boolean;
   fursuit: FursuitSummary | null;
+};
+
+export type CaughtRecordConvention = {
+  id: string;
+  name: string;
+  location: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  status: string;
 };
 
 export const CAUGHT_SUITS_QUERY_KEY = 'caught-suits';
@@ -24,120 +42,87 @@ export const CAUGHT_SUITS_STALE_TIME = 2 * 60_000;
 
 export const caughtSuitsQueryKey = (userId: string) => [CAUGHT_SUITS_QUERY_KEY, userId] as const;
 
-export async function fetchCaughtSuits(userId: string): Promise<CaughtRecord[]> {
-  const client = supabase as any;
-  const { data, error } = await client
-    .from('catches')
-    .select(
-      `
-      id,
-      caught_at,
-      catch_number,
-      catch_photo_path,
-      catch_photo_url,
-      fursuit:fursuits (
-        id,
-        owner_id,
-        name,
-        species_id,
-        avatar_path,
-        avatar_url,
-        catch_count,
-        is_tutorial,
-        description,
-        unique_code,
-        created_at,
-        species_entry:fursuit_species (
-          id,
-          name,
-          normalized_name
-        ),
-        color_assignments:fursuit_color_assignments (
-          position,
-          color:fursuit_colors (
-            id,
-            name,
-            normalized_name
-          )
-        ),
-        fursuit_bios (
-          version,
-          owner_name,
-          photo_credit,
-          pronouns,
-          likes_and_interests,
-          ask_me_about,
-          social_links,
-          created_at,
-          updated_at
-        ),
-        owner_profile:profiles!fursuits_owner_id_fkey (
-          social_links
-        )
-      )
-    `,
-    )
-    .eq('catcher_id', userId)
-    .eq('status', 'ACCEPTED')
-    .order('caught_at', { ascending: false });
+export async function fetchCaughtSuits(_userId: string): Promise<CaughtRecord[]> {
+  const { data, error } = await supabase.rpc('get_my_caught_suits');
 
   if (error) {
     throw new Error(`We couldn't load your catches: ${error.message}`);
   }
 
-  const makersByFursuitId = await fetchFursuitMakersByFursuitIds(
-    (data ?? []).map((record: any) => record.fursuit?.id).filter(Boolean),
-  );
+  return (data ?? []).map(mapCaughtRecordFromRpcRow);
+}
 
-  return (data ?? [])
-    .map((record: any) => {
-      const rawFursuit = record.fursuit;
-
-      if (rawFursuit?.is_tutorial) {
-        return null;
-      }
-
-      const fursuit = rawFursuit
-        ? ({
-            id: rawFursuit.id,
-            owner_id: rawFursuit.owner_id ?? null,
-            name: rawFursuit.name,
-            species: rawFursuit.species_entry?.name ?? null,
-            speciesId: rawFursuit.species_entry?.id ?? rawFursuit.species_id ?? null,
-            colors: mapFursuitColors(rawFursuit.color_assignments ?? null),
-            avatar_path: rawFursuit.avatar_path ?? null,
-            avatar_url: resolveStorageMediaUrl({
+export function mapCaughtRecordFromRpcRow(record: HistoricalCatchRpcRow): CaughtRecord {
+  const fursuitId = typeof record.fursuit_id === 'string' ? record.fursuit_id : '';
+  const fursuitRedacted = record.fursuit_redacted === true;
+  const fursuit = fursuitId
+    ? ({
+        id: fursuitId,
+        isRedacted: fursuitRedacted,
+        owner_id: fursuitRedacted ? null : (record.fursuit_owner_id ?? null),
+        name: fursuitRedacted ? 'Unavailable fursuit' : (record.fursuit_name ?? 'Unknown'),
+        species: fursuitRedacted ? null : (record.species_name ?? null),
+        speciesId: fursuitRedacted ? null : (record.species_id ?? null),
+        colors: fursuitRedacted ? [] : mapFursuitColors(record.color_assignments ?? null),
+        avatar_path: fursuitRedacted ? null : (record.fursuit_avatar_path ?? null),
+        avatar_url: fursuitRedacted
+          ? null
+          : resolveStorageMediaUrl({
               bucket: FURSUIT_BUCKET,
-              path: rawFursuit.avatar_path ?? null,
-              legacyUrl: rawFursuit.avatar_url ?? null,
+              path: record.fursuit_avatar_path ?? null,
+              legacyUrl: record.fursuit_avatar_url ?? null,
             }),
-            description: rawFursuit.description ?? null,
-            unique_code: rawFursuit.unique_code ?? null,
-            catchCount: typeof rawFursuit.catch_count === 'number' ? rawFursuit.catch_count : 0,
-            created_at: rawFursuit.created_at ?? null,
-            conventions: [],
-            makers: makersByFursuitId.get(rawFursuit.id) ?? [],
-            bio: applyProfileSocialLinksToBio(
-              mapLatestFursuitBio(rawFursuit.fursuit_bios ?? null),
-              parseSocialLinks(rawFursuit.owner_profile?.social_links ?? null),
+        description: fursuitRedacted ? null : (record.fursuit_description ?? null),
+        unique_code: fursuitRedacted ? null : (record.fursuit_unique_code ?? null),
+        visibility_audience: normalizeVisibilityAudience(record.fursuit_visibility_audience),
+        catchCount:
+          !fursuitRedacted && typeof record.fursuit_catch_count === 'number'
+            ? record.fursuit_catch_count
+            : 0,
+        created_at: fursuitRedacted ? null : (record.fursuit_created_at ?? null),
+        conventions: [],
+        makers: fursuitRedacted ? [] : mapFursuitMakers(record.makers ?? null),
+        bio: fursuitRedacted
+          ? null
+          : applyProfileSocialLinksToBio(
+              mapLatestFursuitBio(record.fursuit_bio ?? null),
+              parseSocialLinks(record.owner_social_links ?? null),
             ),
-          } satisfies FursuitSummary)
-        : null;
+      } satisfies FursuitSummary)
+    : null;
 
-      return {
-        id: record.id,
-        caught_at: record.caught_at ?? null,
-        catchNumber: typeof record.catch_number === 'number' ? record.catch_number : null,
-        catchPhotoPath: record.catch_photo_path ?? null,
-        catchPhotoUrl: resolveStorageMediaUrl({
+  return {
+    id: record.catch_id,
+    caught_at: record.caught_at ?? null,
+    conventionId: record.convention_id ?? null,
+    convention: mapCaughtRecordConvention(record.convention ?? null),
+    catchNumber: typeof record.catch_number === 'number' ? record.catch_number : null,
+    catchPhotoPath: record.catch_photo_path ?? null,
+    catchPhotoUrl: fursuitRedacted
+      ? null
+      : resolveStorageMediaUrl({
           bucket: CATCH_PHOTO_BUCKET,
           path: record.catch_photo_path ?? null,
           legacyUrl: record.catch_photo_url ?? null,
         }),
-        fursuit,
-      } satisfies CaughtRecord;
-    })
-    .filter((entry: CaughtRecord | null): entry is CaughtRecord => Boolean(entry));
+    fursuitRedacted,
+    fursuit,
+  } satisfies CaughtRecord;
+}
+
+export function mapCaughtRecordConvention(rawConvention: any): CaughtRecordConvention | null {
+  if (!rawConvention?.id || !rawConvention?.name || !rawConvention?.status) {
+    return null;
+  }
+
+  return {
+    id: rawConvention.id,
+    name: rawConvention.name,
+    location: rawConvention.location ?? null,
+    startDate: rawConvention.start_date ?? null,
+    endDate: rawConvention.end_date ?? null,
+    status: rawConvention.status,
+  };
 }
 
 export const createCaughtSuitsQueryOptions = (userId: string) => ({

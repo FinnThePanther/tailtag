@@ -1,6 +1,5 @@
 import { Switch, Text, View } from 'react-native';
 
-import { colors } from '../../theme';
 import { styles } from './FursuitConventionRosterControls.styles';
 
 export type FursuitConventionRosterControlValue = {
@@ -37,8 +36,6 @@ export function FursuitConventionRosterControls({
           value={value.rosterVisible}
           disabled={disabled}
           onValueChange={handleVisibleChange}
-          trackColor={{ false: colors.borderDefault, true: colors.primarySurfaceStrong }}
-          thumbColor={value.rosterVisible ? colors.primary : 'rgba(203,213,225,0.9)'}
           accessibilityLabel="Show this suit on the convention roster"
         />
       </View>

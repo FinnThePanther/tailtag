@@ -38,6 +38,7 @@ const SUPPORTED_TYPES = new Set([
   'catch_rejected',
   'catch_expired',
   'daily_all_complete',
+  'convention_recap_ready',
 ]);
 
 type NotificationRecord = {
@@ -106,6 +107,10 @@ function extractString(value: unknown): string | null {
   return null;
 }
 
+function isAdultBoundaryChecked(payload: Record<string, unknown>): boolean {
+  return payload.adult_boundary_checked === true;
+}
+
 function isUserFacingAchievementName(value: string): boolean {
   const looksLikeInternalKey = /^[A-Z0-9_]+$/.test(value) || /^[a-z0-9_]+$/.test(value);
   const containsUuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(value);
@@ -162,12 +167,21 @@ async function buildMessage(
     }
     case 'convention_started': {
       const conventionName = extractString(payload.convention_name) ?? 'your convention';
+      const requiresLocationVerification = payload.location_verification_required === true;
       return {
         title: 'TailTag is live',
-        body: `TailTag is live at ${conventionName}. You can start catching now.`,
+        body: requiresLocationVerification
+          ? `TailTag is live at ${conventionName}. Verify on-site to start catching.`
+          : `TailTag is live at ${conventionName}. You can start catching now.`,
       };
     }
     case 'catch_pending': {
+      if (!isAdultBoundaryChecked(payload)) {
+        return {
+          title: 'Catch Request',
+          body: 'Someone wants to catch your fursuit',
+        };
+      }
       const catcherUsername = extractString(payload.catcher_username) ?? 'Someone';
       const fursuitName = extractString(payload.fursuit_name) ?? 'your fursuit';
       return {
@@ -176,6 +190,12 @@ async function buildMessage(
       };
     }
     case 'fursuit_caught': {
+      if (!isAdultBoundaryChecked(payload)) {
+        return {
+          title: 'Your Fursuit Was Caught!',
+          body: 'Someone caught your fursuit',
+        };
+      }
       const catcherUsername = extractString(payload.catcher_username) ?? 'Someone';
       const fursuitName = extractString(payload.fursuit_name) ?? 'your fursuit';
       return {
@@ -184,6 +204,12 @@ async function buildMessage(
       };
     }
     case 'catch_confirmed': {
+      if (!isAdultBoundaryChecked(payload)) {
+        return {
+          title: 'Catch Approved!',
+          body: 'Your catch was approved',
+        };
+      }
       const fursuitName = extractString(payload.fursuit_name) ?? 'a fursuit';
       return {
         title: 'Catch Approved!',
@@ -191,6 +217,12 @@ async function buildMessage(
       };
     }
     case 'catch_rejected': {
+      if (!isAdultBoundaryChecked(payload)) {
+        return {
+          title: 'Catch Declined',
+          body: 'Your catch request was declined',
+        };
+      }
       const fursuitName = extractString(payload.fursuit_name) ?? 'a fursuit';
       return {
         title: 'Catch Declined',
@@ -198,12 +230,19 @@ async function buildMessage(
       };
     }
     case 'catch_expired': {
+      if (!isAdultBoundaryChecked(payload)) {
+        return {
+          title: 'Catch Expired',
+          body: 'A pending catch request expired',
+        };
+      }
       const fursuitName = extractString(payload.fursuit_name) ?? 'a fursuit';
       const catcherUsername = extractString(payload.catcher_username);
-      if (catcherUsername) {
+      const recipientRole = extractString(payload.recipient_role);
+      if (recipientRole === 'owner') {
         return {
           title: 'Catch Request Expired',
-          body: `${catcherUsername}'s request for ${fursuitName} expired`,
+          body: `${catcherUsername ?? 'Someone'}'s request for ${fursuitName} expired`,
         };
       }
       return {
@@ -216,6 +255,13 @@ async function buildMessage(
         title: 'All Tasks Complete!',
         body: "Great job finishing today's tasks!",
       };
+    case 'convention_recap_ready': {
+      const conventionName = extractString(payload.convention_name) ?? 'your convention';
+      return {
+        title: 'Convention Recap Ready',
+        body: `Your ${conventionName} recap is ready.`,
+      };
+    }
     default:
       return null;
   }

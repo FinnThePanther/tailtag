@@ -9,7 +9,9 @@ export {
 } from './api/pushNotifications';
 export {
   NOTIFICATION_DEEP_LINKS,
+  getDeepLinkForNotificationData,
   getDeepLinkForNotificationType,
   isPushNotificationType,
+  type PushNotificationData,
   type PushNotificationType,
 } from './types';

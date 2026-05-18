@@ -9,6 +9,7 @@ import {
 import { fetchFursuitMakersByFursuitIds } from './makers';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
+import { normalizeVisibilityAudience } from '@/features/adult-boundary';
 
 export const MY_SUITS_QUERY_KEY = 'my-suits';
 export const MY_SUITS_COUNT_QUERY_KEY = 'my-suits-count';
@@ -34,6 +35,7 @@ export async function fetchMySuits(
       avatar_url,
       description,
       ${includeUniqueCodes ? 'unique_code,' : ''}
+      visibility_audience,
       catch_count,
       created_at,
       species_entry:fursuit_species (
@@ -51,6 +53,8 @@ export async function fetchMySuits(
       ),
       fursuit_conventions:fursuit_conventions (
         roster_visible,
+        roster_state,
+        active_until,
         convention:conventions (
           id,
           slug,
@@ -59,6 +63,9 @@ export async function fetchMySuits(
           start_date,
           end_date,
           timezone,
+          status,
+          finalizing_started_at,
+          closeout_not_before,
           latitude,
           longitude,
           geofence_radius_meters,
@@ -96,7 +103,12 @@ export async function fetchMySuits(
 
   return (data ?? []).map((item: any) => {
     const conventions: FursuitConvention[] = (item.fursuit_conventions ?? [])
-      .filter((entry: any) => Boolean(entry?.convention))
+      .filter(
+        (entry: any) =>
+          Boolean(entry?.convention) &&
+          entry.roster_state === 'active' &&
+          entry.active_until === null,
+      )
       .map((entry: any) => ({
         id: entry.convention.id,
         slug: entry.convention.slug,
@@ -105,6 +117,9 @@ export async function fetchMySuits(
         start_date: entry.convention.start_date ?? null,
         end_date: entry.convention.end_date ?? null,
         timezone: entry.convention.timezone ?? 'UTC',
+        status: entry.convention.status ?? undefined,
+        finalizing_started_at: entry.convention.finalizing_started_at ?? null,
+        closeout_not_before: entry.convention.closeout_not_before ?? null,
         latitude: entry.convention.latitude ?? null,
         longitude: entry.convention.longitude ?? null,
         geofence_radius_meters: entry.convention.geofence_radius_meters ?? null,
@@ -137,6 +152,7 @@ export async function fetchMySuits(
       }),
       description: item.description ?? null,
       unique_code: includeUniqueCodes ? (item.unique_code ?? null) : null,
+      visibility_audience: normalizeVisibilityAudience(item.visibility_audience),
       catchCount: typeof item.catch_count === 'number' ? item.catch_count : 0,
       created_at: item.created_at ?? null,
       conventions,

@@ -57,12 +57,22 @@ export type ConventionLifecycleDiagnostics = {
   participantRecaps: number;
   archivedAt: string | null;
   closedAt: string | null;
+  finalizingStartedAt: string | null;
+  closeoutNotBefore: string | null;
+  closeoutStartedAt: string | null;
+  closeoutCompletedAt: string | null;
+  closeoutLastAttemptAt: string | null;
+  closeoutStep: string | null;
+  closeoutRetryCount: number;
   closeoutError: string | null;
+  closeoutManualRetryRequired: boolean;
+  closeoutAutoRetryEligible: boolean;
   lastAutomationAttemptAt: string | null;
   lastAutomationSource: string | null;
   automationRetryAttemptsLast7Days: number;
   automationEligibleForAutoClose: boolean;
   automationEligibleForRetry: boolean;
+  silentRepairApplied: boolean;
 };
 
 export type ConventionLifecycleHealthResult = {
@@ -264,7 +274,15 @@ export async function buildConventionLifecycleHealthList(
       | 'timezone'
       | 'closed_at'
       | 'archived_at'
+      | 'finalizing_started_at'
+      | 'closeout_not_before'
+      | 'closeout_started_at'
+      | 'closeout_completed_at'
+      | 'closeout_last_attempt_at'
+      | 'closeout_step'
+      | 'closeout_retry_count'
       | 'closeout_error'
+      | 'closeout_summary'
     >
   >,
   supabase = createServiceRoleClient(),
@@ -286,7 +304,7 @@ export async function buildConventionLifecycleHealthList(
         .select('id', { count: 'exact', head: true })
         .eq('is_active', true)
         .is('convention_id', null),
-      (supabase as any).rpc('get_convention_lifecycle_health_counts', {
+      supabase.rpc('get_convention_lifecycle_health_counts', {
         p_convention_ids: conventionIds,
         p_local_days: localDaysByConvention,
         p_retry_window_start: sevenDaysAgo,
@@ -330,7 +348,6 @@ export async function buildConventionLifecycleHealthList(
         localDay,
         localClock,
         dateState,
-        retryAttemptsLast7Days,
         recentCronCloseAttempt: Boolean(counts?.recent_cron_close_attempt),
         recentCronRetryAttempt: Boolean(counts?.recent_cron_retry_attempt),
       }),
@@ -350,7 +367,15 @@ export async function buildConventionLifecycleHealth(
     | 'timezone'
     | 'closed_at'
     | 'archived_at'
+    | 'finalizing_started_at'
+    | 'closeout_not_before'
+    | 'closeout_started_at'
+    | 'closeout_completed_at'
+    | 'closeout_last_attempt_at'
+    | 'closeout_step'
+    | 'closeout_retry_count'
     | 'closeout_error'
+    | 'closeout_summary'
   >,
   supabase = createServiceRoleClient(),
 ): Promise<ConventionLifecycleHealthResult> {
@@ -393,11 +418,15 @@ export async function buildConventionLifecycleHealth(
     supabase
       .from('profile_conventions')
       .select('profile_id', { count: 'exact', head: true })
-      .eq('convention_id', convention.id),
+      .eq('convention_id', convention.id)
+      .eq('attendance_state', 'active')
+      .is('active_until', null),
     supabase
       .from('fursuit_conventions')
       .select('fursuit_id', { count: 'exact', head: true })
-      .eq('convention_id', convention.id),
+      .eq('convention_id', convention.id)
+      .eq('roster_state', 'active')
+      .is('active_until', null),
     supabase
       .from('convention_participant_recaps')
       .select('id', { count: 'exact', head: true })
@@ -445,7 +474,6 @@ export async function buildConventionLifecycleHealth(
     localDay,
     localClock,
     dateState,
-    retryAttemptsLast7Days: automation.retryAttemptsLast7Days,
     recentCronCloseAttempt: automation.recentCronCloseAttempt,
     recentCronRetryAttempt: automation.recentCronRetryAttempt,
   });
@@ -457,7 +485,6 @@ function buildLifecycleHealthResult({
   localDay,
   localClock,
   dateState,
-  retryAttemptsLast7Days,
   recentCronCloseAttempt,
   recentCronRetryAttempt,
 }: {
@@ -470,31 +497,48 @@ function buildLifecycleHealthResult({
     | 'timezone'
     | 'closed_at'
     | 'archived_at'
+    | 'finalizing_started_at'
+    | 'closeout_not_before'
+    | 'closeout_started_at'
+    | 'closeout_completed_at'
+    | 'closeout_last_attempt_at'
+    | 'closeout_step'
+    | 'closeout_retry_count'
     | 'closeout_error'
+    | 'closeout_summary'
   >;
   diagnostics: ConventionLifecycleDiagnostics;
   localDay: string;
   localClock: { hour: number; minute: number };
   dateState: ConventionDateState;
-  retryAttemptsLast7Days: number;
   recentCronCloseAttempt: boolean;
   recentCronRetryAttempt: boolean;
 }): ConventionLifecycleHealthResult {
+  const closeoutRetryCount = convention.closeout_retry_count ?? 0;
+  const closeoutDue = isCloseoutDue(convention.closeout_not_before);
+  const failedCloseoutStatus =
+    convention.status === 'closeout_failed' ||
+    (convention.status === 'closed' &&
+      (convention.closeout_error !== null || convention.archived_at === null));
+  const closeoutManualRetryRequired = failedCloseoutStatus && closeoutRetryCount >= 5;
+  const closeoutAutoRetryEligible =
+    failedCloseoutStatus && !closeoutManualRetryRequired && !recentCronRetryAttempt;
   const automationEligibleForAutoClose =
-    convention.status === 'live' &&
-    dateState === 'after_window' &&
-    localClock.hour >= 6 &&
+    ((convention.status === 'finalizing' && closeoutDue) ||
+      (convention.status === 'live' && dateState === 'after_window' && localClock.hour >= 6)) &&
     !recentCronCloseAttempt;
-  const automationEligibleForRetry =
-    convention.status === 'closed' &&
-    (convention.closeout_error !== null || convention.archived_at === null) &&
-    retryAttemptsLast7Days < 5 &&
-    !recentCronRetryAttempt;
 
   const diagnosticsWithAutomationFlags = {
     ...diagnostics,
     automationEligibleForAutoClose,
-    automationEligibleForRetry,
+    automationEligibleForRetry: closeoutAutoRetryEligible,
+    closeoutManualRetryRequired,
+    closeoutAutoRetryEligible,
+    silentRepairApplied:
+      typeof convention.closeout_summary === 'object' &&
+      convention.closeout_summary !== null &&
+      !Array.isArray(convention.closeout_summary) &&
+      convention.closeout_summary.silent_repair === true,
   };
 
   const warnings: string[] = [];
@@ -505,18 +549,23 @@ function buildLifecycleHealthResult({
     warning: string,
     nextAction: ConventionLifecycleRecommendedAction,
     nextSeverity: ConventionLifecycleHealthSeverity = 'warning',
+    options: { recommendAction?: boolean } = {},
   ) => {
     warnings.push(warning);
+    const shouldRecommendAction = options.recommendAction !== false;
     const nextSeverityRank = severityRank(nextSeverity);
     const currentSeverityRank = severityRank(severity);
     // Break same-severity ties with an explicit action priority instead of relying on call order.
     if (
       nextSeverityRank > currentSeverityRank ||
-      (nextSeverityRank === currentSeverityRank &&
+      (shouldRecommendAction &&
+        nextSeverityRank === currentSeverityRank &&
         recommendedActionRank(nextAction) > recommendedActionRank(recommendedAction))
     ) {
       severity = nextSeverity;
-      recommendedAction = nextAction;
+      if (shouldRecommendAction) {
+        recommendedAction = nextAction;
+      }
     }
   };
 
@@ -566,15 +615,41 @@ function buildLifecycleHealthResult({
     }
   }
 
-  if (convention.status === 'closed') {
-    if (retryAttemptsLast7Days >= 5) {
+  if (convention.status === 'finalizing') {
+    if (!convention.closeout_not_before) {
+      addWarning(
+        'Finalizing convention is missing a closeout deadline.',
+        'review_dates',
+        'warning',
+      );
+    } else if (closeoutDue && automationEligibleForAutoClose) {
+      addWarning('Closeout window has been reached. Auto-close scheduled.', 'none', 'info');
+    } else if (closeoutDue) {
+      addWarning(
+        'Closeout window has been reached. Auto-close is deferred while automation is throttled.',
+        'none',
+        'info',
+      );
+    } else {
+      addWarning('Convention is in the player cleanup window before closeout.', 'none', 'info');
+    }
+  }
+
+  if (convention.status === 'closeout_running') {
+    addWarning('Closeout is running and recaps are being prepared.', 'none', 'info');
+  }
+
+  if (failedCloseoutStatus) {
+    if (closeoutManualRetryRequired) {
       addWarning(
         'Manual retry required. Automation hit the retry cap.',
         'retry_closeout',
         'critical',
       );
-    } else if (automationEligibleForRetry) {
-      addWarning('Auto-retry scheduled.', 'retry_closeout', 'warning');
+    } else if (closeoutAutoRetryEligible) {
+      addWarning('Auto-retry scheduled.', 'retry_closeout', 'warning', {
+        recommendAction: false,
+      });
     } else {
       addWarning(
         diagnostics.closeoutError
@@ -588,6 +663,7 @@ function buildLifecycleHealthResult({
 
   if (
     convention.status === 'archived' &&
+    !diagnosticsWithAutomationFlags.silentRepairApplied &&
     diagnostics.acceptedConventionCatches > 0 &&
     diagnostics.participantRecaps === 0
   ) {
@@ -610,7 +686,19 @@ function buildLifecycleHealthResult({
 }
 
 function createLifecycleDiagnostics(
-  convention: Pick<ConventionRow, 'closed_at' | 'archived_at' | 'closeout_error'>,
+  convention: Pick<
+    ConventionRow,
+    | 'closed_at'
+    | 'archived_at'
+    | 'finalizing_started_at'
+    | 'closeout_not_before'
+    | 'closeout_started_at'
+    | 'closeout_completed_at'
+    | 'closeout_last_attempt_at'
+    | 'closeout_step'
+    | 'closeout_retry_count'
+    | 'closeout_error'
+  >,
   overrides: Partial<ConventionLifecycleDiagnostics>,
 ): ConventionLifecycleDiagnostics {
   return {
@@ -623,18 +711,34 @@ function createLifecycleDiagnostics(
     participantRecaps: 0,
     archivedAt: convention.archived_at ?? null,
     closedAt: convention.closed_at ?? null,
+    finalizingStartedAt: convention.finalizing_started_at ?? null,
+    closeoutNotBefore: convention.closeout_not_before ?? null,
+    closeoutStartedAt: convention.closeout_started_at ?? null,
+    closeoutCompletedAt: convention.closeout_completed_at ?? null,
+    closeoutLastAttemptAt: convention.closeout_last_attempt_at ?? null,
+    closeoutStep: convention.closeout_step ?? null,
+    closeoutRetryCount: convention.closeout_retry_count ?? 0,
     closeoutError: convention.closeout_error ?? null,
+    closeoutManualRetryRequired: false,
+    closeoutAutoRetryEligible: false,
     lastAutomationAttemptAt: null,
     lastAutomationSource: null,
     automationRetryAttemptsLast7Days: 0,
     automationEligibleForAutoClose: false,
     automationEligibleForRetry: false,
+    silentRepairApplied: false,
     ...overrides,
   };
 }
 
 function numberFromCount(value: number | string | null | undefined) {
   return Number(value ?? 0);
+}
+
+function isCloseoutDue(closeoutNotBefore: string | null) {
+  if (!closeoutNotBefore) return false;
+  const parsed = new Date(closeoutNotBefore).getTime();
+  return Number.isFinite(parsed) && parsed <= Date.now();
 }
 
 function getAutomationAuditSummary<
@@ -702,7 +806,15 @@ async function fetchLifecycleConvention(supabase: ServiceClient, conventionId: s
         'timezone',
         'closed_at',
         'archived_at',
+        'finalizing_started_at',
+        'closeout_not_before',
+        'closeout_started_at',
+        'closeout_completed_at',
+        'closeout_last_attempt_at',
+        'closeout_step',
+        'closeout_retry_count',
         'closeout_error',
+        'closeout_summary',
         'latitude',
         'longitude',
         'geofence_radius_meters',

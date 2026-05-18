@@ -2,12 +2,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { supabase } from '../../../lib/supabase';
 import { emitGameplayEvent } from '../../events';
-import { captureSupabaseError } from '@/lib/sentry';
+import { captureHandledException, captureSupabaseError } from '@/lib/sentry';
 import { FURSUIT_BUCKET } from '@/constants/storage';
 import type { FursuitColorOption } from '@/features/colors';
 import { mapFursuitColors } from '@/features/suits/api/utils';
 import { resolveStorageMediaUrl } from '@/utils/supabase-image';
 import type { Database, FursuitSocialLink } from '@/types/database';
+
+const GAMEPLAY_EVENT_TIMEOUT_MS = 5000;
+
+const createGameplayEventTimeout = (eventType: string) =>
+  new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(
+        new Error(`Gameplay event timed out after ${GAMEPLAY_EVENT_TIMEOUT_MS}ms (${eventType})`),
+      );
+    }, GAMEPLAY_EVENT_TIMEOUT_MS);
+  });
 
 export type ConventionSummary = {
   id: string;
@@ -17,7 +28,9 @@ export type ConventionSummary = {
   start_date: string | null;
   end_date: string | null;
   timezone: string;
-  status?: string;
+  status?: ConventionLifecycleStatus;
+  finalizing_started_at: string | null;
+  closeout_not_before: string | null;
   local_day?: string | null;
   is_joinable?: boolean;
   latitude: number | null;
@@ -27,6 +40,17 @@ export type ConventionSummary = {
   location_verification_required: boolean;
 };
 
+export type ConventionLifecycleStatus =
+  | 'draft'
+  | 'scheduled'
+  | 'live'
+  | 'finalizing'
+  | 'closeout_running'
+  | 'closeout_failed'
+  | 'closed'
+  | 'archived'
+  | 'canceled';
+
 export type ConventionMembershipState =
   | 'upcoming'
   | 'awaiting_start'
@@ -34,6 +58,11 @@ export type ConventionMembershipState =
   | 'active'
   | 'leaderboard_open'
   | 'past';
+
+export type ConventionPlayerLifecycleState =
+  | ConventionMembershipState
+  | 'finalizing'
+  | 'recap_delayed';
 
 export type ConventionMembership = ConventionSummary & {
   convention_id: string;
@@ -57,6 +86,33 @@ export type OptInParams = {
   verifiedLocation?: VerifiedLocation | null;
   verificationMethod?: 'none' | 'gps' | 'manual_override' | 'grandfathered';
   overrideReason?: string | null;
+};
+
+export type VerifyAndOptInParams = {
+  profileId: string;
+  conventionId: string;
+  verifiedLocation: VerifiedLocation;
+};
+
+export type ConventionVerificationErrorCode =
+  | 'convention_not_found'
+  | 'profile_not_found'
+  | 'registration_closed'
+  | 'geofence_not_configured'
+  | 'location_required'
+  | 'rate_limited'
+  | 'poor_accuracy'
+  | 'outside_geofence'
+  | 'unknown';
+
+export type VerifyAndOptInToConventionResponse = {
+  verified: boolean;
+  requires_location_verification: boolean;
+  distance_meters: number | null;
+  geofence_radius_meters: number | null;
+  effective_radius_meters: number | null;
+  error_code: ConventionVerificationErrorCode | null;
+  error: string | null;
 };
 
 export type PastConventionRecap = {
@@ -118,6 +174,7 @@ export type ConventionRecapHeader = {
 
 export type ConventionRecapCaughtFursuit = {
   fursuitId: string;
+  isRedacted: boolean;
   name: string | null;
   catchCount: number;
   firstCaughtAt: string | null;
@@ -136,6 +193,7 @@ export type ConventionRecapCaughtFursuit = {
 
 export type ConventionRecapOwnedFursuit = {
   fursuitId: string;
+  isRedacted: boolean;
   name: string | null;
   timesCaught: number;
   uniqueCatchers: number;
@@ -228,6 +286,20 @@ const asNullableString = (value: unknown): string | null => {
 
 const asString = (value: unknown, fallback = ''): string => asNullableString(value) ?? fallback;
 
+const isConventionLifecycleStatus = (value: unknown): value is ConventionLifecycleStatus =>
+  value === 'draft' ||
+  value === 'scheduled' ||
+  value === 'live' ||
+  value === 'finalizing' ||
+  value === 'closeout_running' ||
+  value === 'closeout_failed' ||
+  value === 'closed' ||
+  value === 'archived' ||
+  value === 'canceled';
+
+const asConventionLifecycleStatus = (value: unknown): ConventionLifecycleStatus | undefined =>
+  isConventionLifecycleStatus(value) ? value : undefined;
+
 const asNonNegativeInteger = (value: unknown): number => {
   const normalized =
     typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
@@ -241,6 +313,12 @@ const asPositiveIntegerOrNull = (value: unknown): number | null => {
   if (!Number.isFinite(normalized)) return null;
   const integer = Math.trunc(normalized);
   return integer > 0 ? integer : null;
+};
+
+const asNumberOrNull = (value: unknown): number | null => {
+  const normalized =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  return Number.isFinite(normalized) ? normalized : null;
 };
 
 const asStringArray = (value: unknown): string[] => {
@@ -309,6 +387,7 @@ function mapConventionRecapCaughtFursuits(raw: unknown): ConventionRecapCaughtFu
 
       return {
         fursuitId,
+        isRedacted: entry.is_redacted === true,
         name: asNullableString(entry.name),
         catchCount: asNonNegativeInteger(entry.catch_count),
         firstCaughtAt: asNullableString(entry.first_caught_at),
@@ -336,6 +415,7 @@ function mapConventionRecapOwnedFursuits(raw: unknown): ConventionRecapOwnedFurs
 
       return {
         fursuitId,
+        isRedacted: entry.is_redacted === true,
         name: asNullableString(entry.name),
         timesCaught: asNonNegativeInteger(entry.times_caught),
         uniqueCatchers: asNonNegativeInteger(entry.unique_catchers),
@@ -421,6 +501,7 @@ async function applyProfileSocialLinksToConventionRecapDetail(
   const ownerIds = Array.from(
     new Set(
       detail.caughtFursuits
+        .filter((fursuit) => !fursuit.isRedacted)
         .map((fursuit) => fursuit.ownerId)
         .filter((ownerId): ownerId is string => Boolean(ownerId)),
     ),
@@ -453,7 +534,10 @@ async function applyProfileSocialLinksToConventionRecapDetail(
     ...detail,
     caughtFursuits: detail.caughtFursuits.map((fursuit) => ({
       ...fursuit,
-      socialLinks: fursuit.ownerId ? (socialLinksByOwnerId.get(fursuit.ownerId) ?? []) : [],
+      socialLinks:
+        !fursuit.isRedacted && fursuit.ownerId
+          ? (socialLinksByOwnerId.get(fursuit.ownerId) ?? [])
+          : [],
     })),
   };
 }
@@ -507,7 +591,9 @@ function mapConventionSummary(convention: any): ConventionSummary {
     start_date: convention.start_date ?? null,
     end_date: convention.end_date ?? null,
     timezone: convention.timezone ?? 'UTC',
-    status: convention.status ?? undefined,
+    status: asConventionLifecycleStatus(convention.status),
+    finalizing_started_at: convention.finalizing_started_at ?? null,
+    closeout_not_before: convention.closeout_not_before ?? null,
     local_day: convention.local_day ?? null,
     is_joinable: typeof convention.is_joinable === 'boolean' ? convention.is_joinable : undefined,
     latitude:
@@ -522,6 +608,58 @@ function mapConventionSummary(convention: any): ConventionSummary {
     geofence_enabled: Boolean(convention.geofence_enabled),
     location_verification_required: Boolean(convention.location_verification_required),
   };
+}
+
+export function getConventionPlayerLifecycleState(
+  membership: Pick<ConventionMembership, 'status' | 'membership_state'>,
+): ConventionPlayerLifecycleState {
+  if (membership.status === 'finalizing') {
+    return 'finalizing';
+  }
+
+  if (membership.status === 'closeout_running' || membership.status === 'closeout_failed') {
+    return 'recap_delayed';
+  }
+
+  if (
+    membership.status === 'closed' ||
+    membership.status === 'archived' ||
+    membership.status === 'canceled'
+  ) {
+    return 'past';
+  }
+
+  return membership.membership_state;
+}
+
+export function formatConventionCloseoutDeadline(
+  closeoutNotBefore: string | null | undefined,
+  timezone: string | null | undefined,
+): string | null {
+  if (!closeoutNotBefore) {
+    return null;
+  }
+
+  const parsed = new Date(closeoutNotBefore);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  const formatOptions: Intl.DateTimeFormatOptions = {
+    weekday: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: timezone || 'UTC',
+  };
+
+  try {
+    return new Intl.DateTimeFormat('en-US', formatOptions).format(parsed);
+  } catch {
+    return new Intl.DateTimeFormat('en-US', {
+      ...formatOptions,
+      timeZone: 'UTC',
+    }).format(parsed);
+  }
 }
 
 function mapConventionMembership(row: any): ConventionMembership {
@@ -742,6 +880,38 @@ export async function fetchActiveSharedConventionIds(
   return (data ?? []).map((row: any) => row.convention_id);
 }
 
+export async function fetchGalleryProfileConventionIds(profileId: string): Promise<string[]> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('get_gallery_profile_convention_ids', {
+    p_profile_id: profileId,
+  });
+
+  if (error) {
+    throw new Error(`We couldn't load your gallery-eligible conventions: ${error.message}`);
+  }
+
+  return (data ?? []).map((row: any) => row.convention_id);
+}
+
+export async function fetchGallerySharedConventionIds(
+  profileId: string,
+  fursuitId: string,
+): Promise<string[]> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('get_gallery_shared_convention_ids', {
+    p_profile_id: profileId,
+    p_fursuit_id: fursuitId,
+  });
+
+  if (error) {
+    throw new Error(
+      `We couldn't resolve your gallery-eligible shared conventions: ${error.message}`,
+    );
+  }
+
+  return (data ?? []).map((row: any) => row.convention_id);
+}
+
 export async function optInToConvention(params: OptInParams): Promise<void> {
   const {
     profileId,
@@ -782,6 +952,91 @@ export async function optInToConvention(params: OptInParams): Promise<void> {
   });
 }
 
+const normalizeConventionVerificationErrorCode = (
+  value: unknown,
+): ConventionVerificationErrorCode | null => {
+  if (
+    value === 'convention_not_found' ||
+    value === 'profile_not_found' ||
+    value === 'registration_closed' ||
+    value === 'geofence_not_configured' ||
+    value === 'location_required' ||
+    value === 'rate_limited' ||
+    value === 'poor_accuracy' ||
+    value === 'outside_geofence' ||
+    value === 'unknown'
+  ) {
+    return value;
+  }
+
+  return value ? 'unknown' : null;
+};
+
+function mapVerifyAndOptInResponse(raw: unknown): VerifyAndOptInToConventionResponse {
+  const source = isRecord(raw) ? raw : {};
+
+  return {
+    verified: source.verified === true,
+    requires_location_verification: source.requires_location_verification === true,
+    distance_meters: asNumberOrNull(source.distance_meters),
+    geofence_radius_meters: asNumberOrNull(source.geofence_radius_meters),
+    effective_radius_meters: asNumberOrNull(source.effective_radius_meters),
+    error_code: normalizeConventionVerificationErrorCode(source.error_code),
+    error: asNullableString(source.error),
+  };
+}
+
+export async function verifyAndOptInToConvention(
+  params: VerifyAndOptInParams,
+): Promise<VerifyAndOptInToConventionResponse> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('verify_and_opt_in_to_convention', {
+    p_profile_id: params.profileId,
+    p_convention_id: params.conventionId,
+    p_verified_location: {
+      lat: params.verifiedLocation.latitude,
+      lng: params.verifiedLocation.longitude,
+      accuracy: params.verifiedLocation.accuracy,
+    },
+  });
+
+  if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.verifyAndOptInToConvention',
+      profileId: params.profileId,
+      conventionId: params.conventionId,
+    });
+    throw new Error(`We couldn't verify your convention location: ${error.message}`);
+  }
+
+  const result = mapVerifyAndOptInResponse(data);
+
+  if (result.verified) {
+    const eventType = 'convention_joined';
+    void Promise.race([
+      emitGameplayEvent({
+        type: eventType,
+        conventionId: params.conventionId,
+        payload: {
+          profile_id: params.profileId,
+          convention_id: params.conventionId,
+          verification_method: result.requires_location_verification ? 'gps' : 'none',
+        },
+      }),
+      createGameplayEventTimeout(eventType),
+    ]).catch((eventError) => {
+      captureHandledException(eventError, {
+        scope: 'conventions.verifyAndOptInToConvention.event',
+        eventType,
+        profileId: params.profileId,
+        conventionId: params.conventionId,
+      });
+    });
+  }
+
+  return result;
+}
+
 export async function optOutOfConvention(profileId: string, conventionId: string): Promise<void> {
   const client = supabase as any;
   const { error } = await client.rpc('leave_convention', {
@@ -819,6 +1074,10 @@ export async function addFursuitConvention(
       fursuit_id: fursuitId,
       convention_id: conventionId,
       roster_visible: rosterVisible,
+      roster_state: 'active',
+      removed_at: null,
+      active_until: null,
+      finalized_at: null,
     },
     { onConflict: 'fursuit_id, convention_id' },
   );
@@ -832,14 +1091,25 @@ export async function addFursuitConvention(
     throw new Error(`We couldn't add that convention to the fursuit: ${error.message}`);
   }
 
+  const eventType = 'fursuit_convention_joined';
   // Fire-and-forget: emit event without blocking user flow
-  void emitGameplayEvent({
-    type: 'fursuit_convention_joined',
-    conventionId,
-    payload: {
-      fursuit_id: fursuitId,
-      convention_id: conventionId,
-    },
+  void Promise.race([
+    emitGameplayEvent({
+      type: eventType,
+      conventionId,
+      payload: {
+        fursuit_id: fursuitId,
+        convention_id: conventionId,
+      },
+    }),
+    createGameplayEventTimeout(eventType),
+  ]).catch((eventError) => {
+    captureHandledException(eventError, {
+      scope: 'conventions.addFursuitConvention.event',
+      eventType,
+      fursuitId,
+      conventionId,
+    });
   });
 }
 
@@ -847,24 +1117,39 @@ export async function removeFursuitConvention(
   fursuitId: string,
   conventionId: string,
 ): Promise<void> {
-  const client = supabase as any;
-  const { error } = await client
-    .from('fursuit_conventions')
-    .delete()
-    .eq('fursuit_id', fursuitId)
-    .eq('convention_id', conventionId);
+  const client = supabase as SupabaseClient<Database>;
+  const { error } = await client.rpc('remove_fursuit_from_convention', {
+    p_fursuit_id: fursuitId,
+    p_convention_id: conventionId,
+  });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.removeFursuitConvention',
+      fursuitId,
+      conventionId,
+    });
     throw new Error(`We couldn't remove that convention from the fursuit: ${error.message}`);
   }
 
+  const eventType = 'fursuit_convention_left';
   // Fire-and-forget: emit event without blocking user flow
-  void emitGameplayEvent({
-    type: 'fursuit_convention_left',
-    conventionId,
-    payload: {
-      fursuit_id: fursuitId,
-      convention_id: conventionId,
-    },
+  void Promise.race([
+    emitGameplayEvent({
+      type: eventType,
+      conventionId,
+      payload: {
+        fursuit_id: fursuitId,
+        convention_id: conventionId,
+      },
+    }),
+    createGameplayEventTimeout(eventType),
+  ]).catch((eventError) => {
+    captureHandledException(eventError, {
+      scope: 'conventions.removeFursuitConvention.event',
+      eventType,
+      fursuitId,
+      conventionId,
+    });
   });
 }

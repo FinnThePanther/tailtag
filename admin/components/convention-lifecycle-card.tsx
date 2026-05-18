@@ -12,6 +12,7 @@ import {
   RefreshCcw,
   Trash2,
   Wand2,
+  Wrench,
 } from 'lucide-react';
 
 import {
@@ -22,11 +23,13 @@ import {
   rotateConventionDailiesAction,
   retryConventionCloseoutAction,
   runConventionReadinessCheckAction,
+  silentRepairHistoricalConventionAction,
   startConventionAction,
 } from '@/app/(dashboard)/conventions/actions';
 import { Card } from '@/components/card';
 import { formatRecommendedAction, StatusBadge } from '@/components/convention-lifecycle-ui';
 import type {
+  ConventionCloseoutResult,
   ConventionLifecycleHealthResult,
   ConventionReadinessResult,
 } from '@/lib/convention-lifecycle';
@@ -44,6 +47,7 @@ type Props = {
   readiness: ConventionReadinessResult;
   health: ConventionLifecycleHealthResult;
   showDevDelete: boolean;
+  showSilentRepair: boolean;
 };
 
 export function ConventionLifecycleCard({
@@ -59,6 +63,7 @@ export function ConventionLifecycleCard({
   readiness,
   health,
   showDevDelete,
+  showSilentRepair,
 }: Props) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -106,14 +111,34 @@ export function ConventionLifecycleCard({
         : readiness.dateState === 'before_window'
           ? 'Schedule convention'
           : 'Start convention';
-  const closeDisabled = isPending || status !== 'live';
-  const retryCloseoutDisabled = isPending || status !== 'closed';
+  const closeoutDueForAdminClose =
+    status === 'finalizing' && health.diagnostics.automationEligibleForAutoClose;
+  const legacyFailedClosedConvention =
+    status === 'closed' && (Boolean(closeoutError) || archivedAt === null);
+  const closeDisabled = isPending || !closeoutDueForAdminClose;
+  const retryCloseoutDisabled =
+    isPending || (status !== 'closeout_failed' && !legacyFailedClosedConvention);
   const regenerateDisabled = isPending || status !== 'archived';
   const devDeleteDisabled = isPending || status !== 'archived';
   const recapsGenerated = getNumber(closeoutSummary, 'recaps_generated');
+  const silentRepairApplied = closeoutSummary?.silent_repair === true;
+  const silentRepairDisabled =
+    isPending ||
+    silentRepairApplied ||
+    !(
+      status === 'closed' ||
+      status === 'closeout_failed' ||
+      (status === 'archived' && (Boolean(closeoutError) || recapsGenerated === 0))
+    );
   const expiredPendingCatches = getNumber(closeoutSummary, 'pending_catches_expired');
-  const membershipsRemoved = getNumber(closeoutSummary, 'profile_memberships_removed');
-  const rosterRemoved = getNumber(closeoutSummary, 'fursuit_assignments_removed');
+  const membershipsFinalized =
+    getNumber(closeoutSummary, 'profile_memberships_finalized') ??
+    getNumber(closeoutSummary, 'profile_memberships_removed');
+  const rosterFinalized =
+    getNumber(closeoutSummary, 'fursuit_assignments_finalized') ??
+    getNumber(closeoutSummary, 'fursuit_assignments_removed');
+  const lastCloseoutAttemptAt =
+    health.diagnostics.closeoutLastAttemptAt ?? health.diagnostics.lastAutomationAttemptAt;
   const healthBadge = getHealthBadge(health.severity);
   const showStartupReadiness = status === 'draft' || status === 'scheduled';
   const readinessLabel = showStartupReadiness
@@ -166,10 +191,42 @@ export function ConventionLifecycleCard({
       <div className="mt-3 grid gap-3 md:grid-cols-4">
         <Info label="Closed at">{closedAt ? formatDateTime(closedAt) : 'Not closed'}</Info>
         <Info label="Archived at">{archivedAt ? formatDateTime(archivedAt) : 'Not archived'}</Info>
+        <Info label="Finalizing started">
+          {health.diagnostics.finalizingStartedAt
+            ? formatDateTime(health.diagnostics.finalizingStartedAt)
+            : 'Not started'}
+        </Info>
+        <Info label="Finalizing deadline">
+          {health.diagnostics.closeoutNotBefore
+            ? formatDateTime(health.diagnostics.closeoutNotBefore)
+            : 'Not set'}
+        </Info>
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-4">
+        <Info label="Closeout started">
+          {health.diagnostics.closeoutStartedAt
+            ? formatDateTime(health.diagnostics.closeoutStartedAt)
+            : 'Not started'}
+        </Info>
+        <Info label="Closeout completed">
+          {health.diagnostics.closeoutCompletedAt
+            ? formatDateTime(health.diagnostics.closeoutCompletedAt)
+            : 'Not completed'}
+        </Info>
+        <Info label="Last closeout attempt">
+          {lastCloseoutAttemptAt ? formatDateTime(lastCloseoutAttemptAt) : 'None'}
+        </Info>
+        <Info label="Closeout step">{formatCloseoutStep(health.diagnostics.closeoutStep)}</Info>
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-4">
         <Info label="Recaps">{recapsGenerated === null ? 'Not generated' : recapsGenerated}</Info>
         <Info label="Expired pending catches">
           {expiredPendingCatches === null ? 'Not run' : expiredPendingCatches}
         </Info>
+        <Info label="Retry count">{health.diagnostics.closeoutRetryCount}</Info>
+        <Info label="Retry mode">{formatAutomationEligibility(health.diagnostics)}</Info>
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-4">
@@ -188,19 +245,11 @@ export function ConventionLifecycleCard({
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-4">
-        <Info label="Last closeout attempt">
-          {health.diagnostics.lastAutomationAttemptAt
-            ? formatDateTime(health.diagnostics.lastAutomationAttemptAt)
-            : 'None'}
-        </Info>
         <Info label="Closeout source">
           {formatAutomationSource(health.diagnostics.lastAutomationSource)}
         </Info>
         <Info label="Retry attempts, 7 days">
           {health.diagnostics.automationRetryAttemptsLast7Days}
-        </Info>
-        <Info label="Automation eligibility">
-          {formatAutomationEligibility(health.diagnostics)}
         </Info>
       </div>
 
@@ -208,8 +257,17 @@ export function ConventionLifecycleCard({
         <div className="mt-4 rounded-lg border border-emerald-300/30 bg-emerald-400/10 p-3">
           <p className="text-sm font-semibold text-emerald-100">Archive complete</p>
           <p className="mt-1 text-sm text-emerald-50">
-            {recapsGenerated ?? 0} participant recap(s), {membershipsRemoved ?? 0} active
-            membership(s), and {rosterRemoved ?? 0} fursuit roster assignment(s) were processed.
+            {recapsGenerated ?? 0} participant recap(s), {membershipsFinalized ?? 0} active
+            membership(s), and {rosterFinalized ?? 0} fursuit roster assignment(s) were finalized.
+          </p>
+        </div>
+      ) : null}
+
+      {silentRepairApplied ? (
+        <div className="mt-4 rounded-lg border border-sky-300/30 bg-sky-400/10 p-3">
+          <p className="text-sm font-semibold text-sky-100">Silent historical repair applied</p>
+          <p className="mt-1 text-sm text-sky-50">
+            Stale closeout state was archived without generating recaps or notifying players.
           </p>
         </div>
       ) : null}
@@ -328,7 +386,7 @@ export function ConventionLifecycleCard({
                 '',
                 'Players will no longer be able to join or play in this convention.',
                 'Pending catches will expire.',
-                'Active player memberships and fursuit roster entries will be removed.',
+                'Active player memberships and fursuit roster entries will be finalized.',
                 'Catches, achievements, and recap data will be preserved.',
                 '',
                 'This is not a hard delete.',
@@ -337,9 +395,7 @@ export function ConventionLifecycleCard({
             if (!confirmed) return;
             runAction('close', async () => {
               const result = await closeConventionAction(conventionId);
-              return result.already_archived
-                ? 'Convention was already archived.'
-                : `Convention archived with ${result.recaps_generated} recap(s).`;
+              return formatCloseoutActionResult(result, 'close');
             });
           }}
         >
@@ -352,9 +408,7 @@ export function ConventionLifecycleCard({
           onClick={() =>
             runAction('retry-closeout', async () => {
               const result = await retryConventionCloseoutAction(conventionId);
-              return result.already_archived
-                ? 'Convention was already archived.'
-                : `Closeout retried and archived with ${result.recaps_generated} recap(s).`;
+              return formatCloseoutActionResult(result, 'retry');
             })
           }
         >
@@ -367,12 +421,42 @@ export function ConventionLifecycleCard({
           onClick={() =>
             runAction('regenerate', async () => {
               const result = await regenerateConventionRecapsAction(conventionId);
-              return `Recaps regenerated with ${result.recaps_generated} participant recap(s).`;
+              return formatCloseoutActionResult(result, 'regenerate');
             })
           }
         >
           Regenerate recaps
         </ActionButton>
+        {showSilentRepair ? (
+          <ActionButton
+            disabled={silentRepairDisabled}
+            loading={action === 'silent-repair'}
+            icon={<Wrench size={14} />}
+            onClick={() => {
+              const confirmed = window.confirm(
+                [
+                  'Silently repair this historical convention?',
+                  '',
+                  'This is only for historical conventions that failed before the lifecycle shipped.',
+                  'It archives stale closeout failure state for development/staging validation.',
+                  'It does not generate recaps.',
+                  'It does not create player notifications.',
+                  '',
+                  'Use this only for historical broken conventions.',
+                ].join('\n'),
+              );
+              if (!confirmed) return;
+              runAction('silent-repair', async () => {
+                const result = await silentRepairHistoricalConventionAction(conventionId);
+                return result.repaired
+                  ? 'Historical convention silently repaired.'
+                  : 'Silent repair did not change this convention.';
+              });
+            }}
+          >
+            Silent repair
+          </ActionButton>
+        ) : null}
         {showDevDelete ? (
           <ActionButton
             disabled={devDeleteDisabled}
@@ -410,9 +494,10 @@ export function ConventionLifecycleCard({
           Daily rotation is available after the convention is live.
         </p>
       ) : null}
-      {closeDisabled && status !== 'live' ? (
+      {closeDisabled && !isPending ? (
         <p className="mt-2 text-xs text-muted">
-          Closeout is available only for live conventions. Closed conventions can be retried.
+          Closeout is available after the convention enters finalizing and reaches the finalizing
+          deadline. Failed closeouts can be retried.
         </p>
       ) : null}
       {regenerateDisabled && status !== 'archived' ? (
@@ -420,9 +505,14 @@ export function ConventionLifecycleCard({
           Recap regeneration is available after the convention is archived.
         </p>
       ) : null}
-      {showDevDelete ? (
+      {showSilentRepair || showDevDelete ? (
         <p className="mt-2 text-xs text-muted">
-          Dev delete is available only for archived conventions and removes test data permanently.
+          {showSilentRepair
+            ? 'Silent repair is for broken historical dev/staging conventions and does not create recaps or notifications.'
+            : null}
+          {showDevDelete
+            ? ' Dev delete is available only for archived conventions and removes test data permanently.'
+            : null}
         </p>
       ) : null}
     </Card>
@@ -495,6 +585,9 @@ function ActionButton({
 
 function getLifecycleCopy(status: string, readiness: ConventionReadinessResult) {
   if (status === 'archived') return 'Closeout is complete and recaps are available to players';
+  if (status === 'finalizing') return 'Convention is in the player cleanup window before closeout';
+  if (status === 'closeout_running') return 'Closeout is processing and recaps are being prepared';
+  if (status === 'closeout_failed') return 'Closeout needs operator attention before archiving';
   if (status === 'closed') return 'Gameplay is stopped; retry closeout to finish archiving';
   if (status === 'canceled') return 'This convention was canceled and is not playable';
   if (status === 'scheduled' && readiness.dateState === 'inside_window') {
@@ -521,6 +614,22 @@ function getNumber(summary: Record<string, unknown> | null, key: string) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function formatCloseoutActionResult(
+  result: ConventionCloseoutResult,
+  mode: 'close' | 'retry' | 'regenerate',
+) {
+  if (result.already_running) return 'Closeout is already running.';
+  if (result.not_due) return 'Closeout is not due yet.';
+  if (result.already_archived && mode !== 'regenerate') return 'Convention was already archived.';
+  if (mode === 'regenerate') {
+    return `Recaps regenerated with ${result.recaps_generated} participant recap(s).`;
+  }
+  if (mode === 'retry') {
+    return `Closeout retried and archived with ${result.recaps_generated} recap(s).`;
+  }
+  return `Convention archived with ${result.recaps_generated} recap(s).`;
+}
+
 function formatAutomationSource(source: string | null) {
   if (source === 'cron_close') return 'Auto-close';
   if (source === 'cron_retry') return 'Auto-retry';
@@ -531,9 +640,19 @@ function formatAutomationSource(source: string | null) {
 }
 
 function formatAutomationEligibility(health: ConventionLifecycleHealthResult['diagnostics']) {
+  if (health.closeoutManualRetryRequired) return 'Manual retry required';
+  if (health.closeoutAutoRetryEligible) return 'Auto-retry eligible';
   if (health.automationEligibleForAutoClose) return 'Auto-close eligible';
   if (health.automationEligibleForRetry) return 'Auto-retry eligible';
   return 'Not eligible';
+}
+
+function formatCloseoutStep(step: string | null) {
+  if (!step) return 'Not started';
+  return step
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 function getHealthBadge(severity: string) {

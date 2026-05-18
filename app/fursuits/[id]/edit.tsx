@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -66,6 +67,12 @@ import { launchFursuitPhotoPickerAsync } from '../../../src/utils/imagePicker';
 import { buildAuthenticatedStorageObjectUrl } from '../../../src/utils/supabase-image';
 import { colors } from '../../../src/theme';
 import { styles } from '../../../src/app-styles/fursuits/[id]/edit.styles';
+import { captureHandledException } from '../../../src/lib/sentry';
+import {
+  profileNeedsAgeAttestation,
+  refreshAdultBoundaryCaches,
+  type VisibilityAudience,
+} from '../../../src/features/adult-boundary';
 
 const PRONOUN_OPTIONS = [
   'he/him',
@@ -206,6 +213,10 @@ export default function EditFursuitScreen() {
   const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption | null>(null);
   const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
   const [initialColors, setInitialColors] = useState<FursuitColorOption[]>([]);
+  const [selectedVisibilityAudience, setSelectedVisibilityAudience] =
+    useState<VisibilityAudience>('everyone');
+  const [initialVisibilityAudience, setInitialVisibilityAudience] =
+    useState<VisibilityAudience>('everyone');
   const [selectedPhoto, setSelectedPhoto] = useState<UploadCandidate>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -214,6 +225,10 @@ export default function EditFursuitScreen() {
   const isSpeciesBusy = isSpeciesLoading;
   const colorLoadError = colorError?.message ?? null;
   const isColorBusy = isColorLoading;
+  const hasLoadedProfile = profile !== undefined;
+  const canUseAdultsOnlyFursuitVisibility =
+    profile?.is_adult === true && !profileNeedsAgeAttestation(profile);
+  const profileAlreadyAdultsOnly = profile?.visibility_audience === 'adults_only';
 
   const normalizedSpeciesInput = useMemo(() => normalizeSpeciesName(speciesInput), [speciesInput]);
 
@@ -338,6 +353,8 @@ export default function EditFursuitScreen() {
     const resolvedColors = detail.colors ?? [];
     setSelectedColors(resolvedColors);
     setInitialColors(resolvedColors);
+    setSelectedVisibilityAudience(detail.visibility_audience);
+    setInitialVisibilityAudience(detail.visibility_audience);
 
     setHasHydratedForm(true);
   }, [detail, hasHydratedForm, isProfileConventionsLoading, profileConventionIdSet]);
@@ -349,6 +366,16 @@ export default function EditFursuitScreen() {
 
     return detail.owner_id === userId;
   }, [detail, userId]);
+
+  useEffect(() => {
+    if (
+      hasLoadedProfile &&
+      !canUseAdultsOnlyFursuitVisibility &&
+      selectedVisibilityAudience === 'adults_only'
+    ) {
+      setSelectedVisibilityAudience('everyone');
+    }
+  }, [canUseAdultsOnlyFursuitVisibility, hasLoadedProfile, selectedVisibilityAudience]);
 
   const makersCanAddMore = useMemo(() => makers.length < FURSUIT_MAKER_LIMIT, [makers.length]);
 
@@ -532,6 +559,11 @@ export default function EditFursuitScreen() {
       return;
     }
 
+    if (selectedVisibilityAudience === 'adults_only' && !canUseAdultsOnlyFursuitVisibility) {
+      setSubmitError('Adult confirmation is required for adults-only fursuits.');
+      return;
+    }
+
     const toAdd = Array.from(selectedConventionIds).filter(
       (id) => !initialConventionIds.has(id) && profileConventionIdSet.has(id),
     );
@@ -556,6 +588,7 @@ export default function EditFursuitScreen() {
     const previousSpeciesId = detail.speciesId ?? null;
     const previousAvatarPath = detail.avatar_path ?? null;
     const previousAvatarUrl = detail.avatar_url;
+    const previousVisibilityAudience = detail.visibility_audience;
     const initialNormalizedMakers = fursuitMakersToSave(initialMakers);
     let updatedCoreRecord = false;
     let replacedColors = false;
@@ -618,6 +651,7 @@ export default function EditFursuitScreen() {
         .update({
           name: trimmedName,
           species_id: speciesRecord.id,
+          visibility_audience: selectedVisibilityAudience,
           ...(newAvatarPath !== undefined
             ? { avatar_path: newAvatarPath, avatar_url: newAvatarUrl }
             : {}),
@@ -751,11 +785,23 @@ export default function EditFursuitScreen() {
           });
         },
       );
+      if (selectedVisibilityAudience !== initialVisibilityAudience) {
+        try {
+          await refreshAdultBoundaryCaches({ queryClient, userId });
+        } catch (cacheError) {
+          captureHandledException(cacheError, {
+            scope: 'suits.edit.refreshAdultBoundaryCaches',
+            userId,
+            fursuitId,
+          });
+        }
+      }
 
       setInitialConventionIds(new Set(selectedConventionIds));
       setInitialConventionRosterSettingsById(conventionRosterSettingsById);
       setInitialColors(selectedColors);
       setInitialMakers(makers);
+      setInitialVisibilityAudience(selectedVisibilityAudience);
 
       router.back();
     } catch (caught) {
@@ -837,6 +883,7 @@ export default function EditFursuitScreen() {
           .update({
             name: previousName,
             species_id: previousSpeciesId,
+            visibility_audience: previousVisibilityAudience,
             avatar_path: previousAvatarPath,
             avatar_url: previousAvatarUrl,
           })
@@ -1063,6 +1110,106 @@ export default function EditFursuitScreen() {
                       })}
                     </View>
                   </View>
+                ) : null}
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Fursuit visibility</Text>
+                <Text style={styles.helperLabel}>
+                  Adults-only fursuits are hidden from players who have not confirmed they are 18 or
+                  older.
+                </Text>
+                {profileAlreadyAdultsOnly ? (
+                  <Text style={styles.helperLabel}>
+                    Your profile is adults-only, so this fursuit is already restricted by your
+                    profile setting.
+                  </Text>
+                ) : null}
+                <View style={styles.visibilityOptions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedVisibilityAudience === 'everyone' }}
+                    disabled={disableForm}
+                    onPress={() => setSelectedVisibilityAudience('everyone')}
+                    style={({ pressed }) => [
+                      styles.visibilityOption,
+                      selectedVisibilityAudience === 'everyone' && styles.visibilityOptionSelected,
+                      pressed && styles.visibilityOptionPressed,
+                    ]}
+                  >
+                    <View style={styles.visibilityOptionText}>
+                      <Text
+                        style={[
+                          styles.visibilityOptionTitle,
+                          selectedVisibilityAudience === 'everyone' &&
+                            styles.visibilityOptionTitleSelected,
+                        ]}
+                      >
+                        Everyone
+                      </Text>
+                      <Text style={styles.visibilityOptionDescription}>
+                        Any signed-in player can view this fursuit.
+                      </Text>
+                    </View>
+                    {selectedVisibilityAudience === 'everyone' ? (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={22}
+                        color={colors.primary}
+                      />
+                    ) : null}
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{
+                      selected: selectedVisibilityAudience === 'adults_only',
+                      disabled: disableForm || !canUseAdultsOnlyFursuitVisibility,
+                    }}
+                    disabled={disableForm || !canUseAdultsOnlyFursuitVisibility}
+                    onPress={() => setSelectedVisibilityAudience('adults_only')}
+                    style={({ pressed }) => [
+                      styles.visibilityOption,
+                      selectedVisibilityAudience === 'adults_only' &&
+                        styles.visibilityOptionSelected,
+                      !canUseAdultsOnlyFursuitVisibility && styles.visibilityOptionDisabled,
+                      pressed && styles.visibilityOptionPressed,
+                    ]}
+                  >
+                    <View style={styles.visibilityOptionText}>
+                      <Text
+                        style={[
+                          styles.visibilityOptionTitle,
+                          selectedVisibilityAudience === 'adults_only' &&
+                            styles.visibilityOptionTitleSelected,
+                          !canUseAdultsOnlyFursuitVisibility &&
+                            styles.visibilityOptionTitleDisabled,
+                        ]}
+                      >
+                        Adults only
+                      </Text>
+                      <Text
+                        style={[
+                          styles.visibilityOptionDescription,
+                          !canUseAdultsOnlyFursuitVisibility &&
+                            styles.visibilityOptionDescriptionDisabled,
+                        ]}
+                      >
+                        Only players who have confirmed they are 18 or older can view this fursuit.
+                      </Text>
+                    </View>
+                    {selectedVisibilityAudience === 'adults_only' ? (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={22}
+                        color={colors.primary}
+                      />
+                    ) : null}
+                  </Pressable>
+                </View>
+                {hasLoadedProfile && !canUseAdultsOnlyFursuitVisibility ? (
+                  <Text style={styles.helperLabel}>
+                    Adult confirmation is required for adults-only fursuits.
+                  </Text>
                 ) : null}
               </View>
 

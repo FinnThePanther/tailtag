@@ -1,7 +1,9 @@
 export type {
   ConventionSummary,
+  ConventionLifecycleStatus,
   ConventionMembership,
   ConventionMembershipState,
+  ConventionPlayerLifecycleState,
   PastConventionRecap,
   PastConventionRecapSummary,
   PastConventionRecapSummaryCaughtFursuit,
@@ -17,6 +19,9 @@ export type {
   ConventionSuitRosterViewEntry,
   FursuitConventionRosterSettings,
   VerifiedLocation,
+  VerifyAndOptInParams,
+  VerifyAndOptInToConventionResponse,
+  ConventionVerificationErrorCode,
 } from './api/conventions';
 export {
   fetchJoinableConventions,
@@ -42,8 +47,13 @@ export {
   parsePastConventionRecapSummary,
   fetchActiveProfileConventionIds,
   fetchProfileConventionMemberships,
+  getConventionPlayerLifecycleState,
+  formatConventionCloseoutDeadline,
   fetchActiveSharedConventionIds,
+  fetchGalleryProfileConventionIds,
+  fetchGallerySharedConventionIds,
   optInToConvention,
+  verifyAndOptInToConvention,
   optOutOfConvention,
   addFursuitConvention,
   removeFursuitConvention,
@@ -54,4 +64,6 @@ export {
   type LocationVerificationResponse,
 } from './api/geoVerification';
 export { useConventionVerificationAction } from './hooks/useConventionVerificationAction';
+export { useCatchConventionContext } from './hooks/useCatchConventionContext';
 export { formatConventionDateRange, isConventionEnded } from './utils';
+export { clearCatchConventionSnapshotsForUser } from './storage/catchConventionSnapshots';

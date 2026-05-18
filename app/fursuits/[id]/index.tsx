@@ -93,7 +93,7 @@ export default function FursuitDetailScreen() {
     detail.catchCount > 0,
   );
   const catchesQuery = useQuery({
-    queryKey: catchesByFursuitQueryKey(fursuitId ?? ''),
+    queryKey: catchesByFursuitQueryKey(fursuitId ?? '', userId),
     queryFn: () => fetchCatchesByFursuit(fursuitId!),
     enabled: shouldFetchCatchesOfFursuit,
     staleTime: 2 * 60_000,
@@ -226,7 +226,7 @@ export default function FursuitDetailScreen() {
               </TailTagButton>
             </View>
           ) : fursuitNotFound ? (
-            <Text style={styles.message}>That fursuit could not be found.</Text>
+            <Text style={styles.message}>Fursuit unavailable</Text>
           ) : (
             <View>
               {detail && (

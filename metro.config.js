@@ -5,15 +5,7 @@ const config = getSentryExpoConfig(__dirname);
 
 const escapePathForRegex = (filePath) => filePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const ignoredPaths = [
-  'admin/.next',
-  'admin/node_modules',
-  'admin-v2/.svelte-kit',
-  'admin-v2/build',
-  'admin-v2/node_modules',
-  'web/dist',
-  'web/node_modules',
-].map(
+const ignoredPaths = ['admin/.next', 'admin/node_modules', 'web/dist', 'web/node_modules'].map(
   (relativePath) =>
     new RegExp(`^${escapePathForRegex(path.join(__dirname, relativePath))}[\\\\/].*`),
 );

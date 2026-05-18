@@ -22,7 +22,7 @@ interface KeyboardAwareFormWrapperProps {
 export function KeyboardAwareFormWrapper({
   children,
   contentContainerStyle,
-  keyboardShouldPersistTaps = 'always',
+  keyboardShouldPersistTaps = 'handled',
 }: KeyboardAwareFormWrapperProps) {
   return (
     <KeyboardAwareScrollView

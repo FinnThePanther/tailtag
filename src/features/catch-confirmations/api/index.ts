@@ -1,12 +1,18 @@
 export {
   PENDING_CATCHES_QUERY_KEY,
   PENDING_CATCHES_STALE_TIME,
+  CODE_CATCH_OUTBOX_TIMEOUT_MS,
   pendingCatchesQueryKey,
+  normalizeCatchPhotoUploadState,
   fetchPendingCatches,
   confirmCatch,
   createCatch,
+  createReciprocalCatchOffer,
   updateCatchPhoto,
+  markCatchPhotoUploadFailed,
+  uploadCatchPhotoFromUri,
   fetchConventionFursuits,
+  fetchOwnedConventionFursuits,
 } from './confirmations';
 export {
   MY_PENDING_CATCHES_QUERY_KEY,
@@ -14,4 +20,4 @@ export {
   myPendingCatchesQueryKey,
   fetchMyPendingCatches,
 } from './myPendingCatches';
-export type { FursuitPickerItem } from './confirmations';
+export type { FursuitPickerItem, ReciprocalFursuitPickerItem } from './confirmations';

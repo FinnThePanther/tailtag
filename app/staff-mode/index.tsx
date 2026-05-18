@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActionSheetIOS, Alert, FlatList, Platform, Pressable, Text, View } from 'react-native';
+import {
+  ActionSheetIOS,
+  Alert,
+  FlatList,
+  Keyboard,
+  Platform,
+  Pressable,
+  Text,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -142,112 +152,117 @@ export default function StaffModeScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <TailTagCard>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.eyebrow}>Staff Mode</Text>
-            <Text style={styles.title}>On-site tools</Text>
-            <Text style={styles.subtitle}>
-              Look up players, review status, and open profiles quickly during the event.
-            </Text>
-          </View>
-          <TailTagButton
-            variant="ghost"
-            size="sm"
-            onPress={() => router.back()}
-          >
-            Back
-          </TailTagButton>
-        </View>
-
-        {statusMessage ? <Text style={styles.message}>{statusMessage}</Text> : null}
-        {profileError ? <Text style={styles.error}>{profileError.message}</Text> : null}
-
-        {staffAllowed ? (
-          <View style={styles.searchSection}>
-            <Text style={styles.sectionTitle}>Lookup</Text>
-            <TailTagInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search by handle or email"
-            />
-            <View style={styles.helperRow}>
-              <Text style={styles.helperText}>Min 3 characters to search</Text>
-              <TailTagButton
-                variant="outline"
-                size="sm"
-                onPress={() => refetch()}
-                loading={isFetching}
-              >
-                Refresh
-              </TailTagButton>
+    <TouchableWithoutFeedback
+      onPress={Keyboard.dismiss}
+      accessible={false}
+    >
+      <View style={styles.container}>
+        <TailTagCard>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.eyebrow}>Staff Mode</Text>
+              <Text style={styles.title}>On-site tools</Text>
+              <Text style={styles.subtitle}>
+                Look up players, review status, and open profiles quickly during the event.
+              </Text>
             </View>
-            {searchError ? <Text style={styles.error}>{searchError.message}</Text> : null}
+            <TailTagButton
+              variant="ghost"
+              size="sm"
+              onPress={() => router.back()}
+            >
+              Back
+            </TailTagButton>
           </View>
-        ) : null}
 
-        {staffAllowed ? (
-          <View style={styles.resultsSection}>
-            {isFetching ? (
-              <Text style={styles.message}>Searching…</Text>
-            ) : results.length === 0 ? (
-              <Text style={styles.message}>No results yet.</Text>
-            ) : (
-              <FlatList
-                data={results}
-                keyExtractor={(item) => item.id}
-                scrollEnabled={false}
-                ItemSeparatorComponent={() => <View style={styles.separator} />}
-                renderItem={({ item }) => (
-                  <PlayerRow
-                    player={item}
-                    disabled={isSubmittingModeration}
-                    onBan={() => openModerationModal(item, 'ban')}
-                    onUnban={() => openModerationModal(item, 'unban')}
-                    onViewProfile={() => handleViewProfile(item.id)}
-                  />
-                )}
+          {statusMessage ? <Text style={styles.message}>{statusMessage}</Text> : null}
+          {profileError ? <Text style={styles.error}>{profileError.message}</Text> : null}
+
+          {staffAllowed ? (
+            <View style={styles.searchSection}>
+              <Text style={styles.sectionTitle}>Lookup</Text>
+              <TailTagInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search by handle or email"
               />
-            )}
-          </View>
-        ) : null}
-
-        {staffAllowed && lastResult ? (
-          <View style={styles.lastSection}>
-            <View style={styles.headerRow}>
-              <Text style={styles.sectionTitle}>Last lookup</Text>
-              <TailTagButton
-                variant="ghost"
-                size="sm"
-                onPress={() => setSearch(lastResult.username ?? '')}
-              >
-                Search again
-              </TailTagButton>
+              <View style={styles.helperRow}>
+                <Text style={styles.helperText}>Min 3 characters to search</Text>
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => refetch()}
+                  loading={isFetching}
+                >
+                  Refresh
+                </TailTagButton>
+              </View>
+              {searchError ? <Text style={styles.error}>{searchError.message}</Text> : null}
             </View>
-            <PlayerRow
-              player={lastResult}
-              disabled={isSubmittingModeration}
-              onBan={() => openModerationModal(lastResult, 'ban')}
-              onUnban={() => openModerationModal(lastResult, 'unban')}
-              onViewProfile={() => handleViewProfile(lastResult.id)}
-            />
-          </View>
-        ) : null}
-      </TailTagCard>
+          ) : null}
 
-      <StaffModerationModal
-        visible={Boolean(selectedPlayer && pendingAction)}
-        action={pendingAction}
-        username={selectedPlayer?.username ?? null}
-        reason={reason}
-        error={modalError}
-        isSubmitting={isSubmittingModeration}
-        onChangeReason={setReason}
-        onClose={closeModerationModal}
-        onSubmit={() => void handleModerationSubmit()}
-      />
-    </View>
+          {staffAllowed ? (
+            <View style={styles.resultsSection}>
+              {isFetching ? (
+                <Text style={styles.message}>Searching…</Text>
+              ) : results.length === 0 ? (
+                <Text style={styles.message}>No results yet.</Text>
+              ) : (
+                <FlatList
+                  data={results}
+                  keyExtractor={(item) => item.id}
+                  scrollEnabled={false}
+                  ItemSeparatorComponent={() => <View style={styles.separator} />}
+                  renderItem={({ item }) => (
+                    <PlayerRow
+                      player={item}
+                      disabled={isSubmittingModeration}
+                      onBan={() => openModerationModal(item, 'ban')}
+                      onUnban={() => openModerationModal(item, 'unban')}
+                      onViewProfile={() => handleViewProfile(item.id)}
+                    />
+                  )}
+                />
+              )}
+            </View>
+          ) : null}
+
+          {staffAllowed && lastResult ? (
+            <View style={styles.lastSection}>
+              <View style={styles.headerRow}>
+                <Text style={styles.sectionTitle}>Last lookup</Text>
+                <TailTagButton
+                  variant="ghost"
+                  size="sm"
+                  onPress={() => setSearch(lastResult.username ?? '')}
+                >
+                  Search again
+                </TailTagButton>
+              </View>
+              <PlayerRow
+                player={lastResult}
+                disabled={isSubmittingModeration}
+                onBan={() => openModerationModal(lastResult, 'ban')}
+                onUnban={() => openModerationModal(lastResult, 'unban')}
+                onViewProfile={() => handleViewProfile(lastResult.id)}
+              />
+            </View>
+          ) : null}
+        </TailTagCard>
+
+        <StaffModerationModal
+          visible={Boolean(selectedPlayer && pendingAction)}
+          action={pendingAction}
+          username={selectedPlayer?.username ?? null}
+          reason={reason}
+          error={modalError}
+          isSubmitting={isSubmittingModeration}
+          onChangeReason={setReason}
+          onClose={closeModerationModal}
+          onSubmit={() => void handleModerationSubmit()}
+        />
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 

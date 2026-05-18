@@ -2,6 +2,7 @@
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote esm.sh imports.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
 import { processAchievementsForEvent } from '../_shared/achievements.ts';
+import { processCatchNotificationForEvent } from '../_shared/catchNotifications.ts';
 import { loadGameplayQueueConfig } from '../_shared/gameplayQueue.ts';
 import type { InsertableEventRow } from '../_shared/types.ts';
 
@@ -236,6 +237,7 @@ async function processQueueMessage(
   await updateEventAttempt(eventId, queueMessage.read_ct);
 
   try {
+    await processCatchNotificationForEvent(supabaseAdmin, eventRow);
     await processAchievementsForEvent(supabaseAdmin, eventRow);
     await markEventSuccess(eventId, queueMessage.read_ct);
     await deleteQueueMessage(queueMessage.msg_id);

@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Switch, Text, View } from 'react-native';
 
-import { colors } from '../../../theme';
 import type { CatchMode } from '../types';
 import { styles } from './CatchModeSwitch.styles';
 
@@ -24,23 +23,19 @@ export function CatchModeSwitch({
     scope === 'profile'
       ? {
           label: 'Auto-catching for all suits',
-          autoDescription: 'Catches for your suits are recorded instantly without your approval.',
-          manualDescription: 'Players must wait for you to approve catches for your suits.',
+          description:
+            'Turn on to record catch code and in-app camera catches instantly. Turn off to review and approve those catches before they count. Gallery photo catches always require approval.',
           accessibilityLabel: 'Auto-catching for all suits',
-          autoHint:
-            'Currently enabled for all your suits. Toggle to require manual approval for catches.',
-          manualHint:
-            'Currently disabled for all your suits. Players must wait for approval. Toggle to auto-accept catches.',
+          accessibilityHint:
+            'Controls whether catch code and in-app camera catches count instantly or require your approval.',
         }
       : {
           label: 'Auto-catching',
-          autoDescription: 'Catches are recorded instantly without requiring your approval.',
-          manualDescription: 'Players must wait for you to approve their catch before it counts.',
+          description:
+            'Turn on to record catch code and in-app camera catches instantly. Turn off to review and approve those catches before they count. Gallery photo catches always require approval.',
           accessibilityLabel: 'Auto-catching',
-          autoHint:
-            'Currently enabled. Catches are recorded instantly. Toggle to require manual approval.',
-          manualHint:
-            'Currently disabled. Players must wait for approval. Toggle to auto-accept catches.',
+          accessibilityHint:
+            'Controls whether catch code and in-app camera catches count instantly or require your approval.',
         };
 
   const handleToggle = useCallback(
@@ -64,23 +59,15 @@ export function CatchModeSwitch({
     <View style={styles.container}>
       <View style={styles.textContainer}>
         <Text style={styles.label}>{copy.label}</Text>
-        <Text style={styles.description}>
-          {isAutoCatchingEnabled ? copy.autoDescription : copy.manualDescription}
-        </Text>
+        <Text style={styles.description}>{copy.description}</Text>
       </View>
       <Switch
         value={isAutoCatchingEnabled}
         onValueChange={handleToggle}
         disabled={disabled || isUpdating}
-        trackColor={{
-          false: 'rgba(148,163,184,0.3)',
-          true: colors.primaryDark,
-        }}
-        thumbColor={isAutoCatchingEnabled ? colors.primary : 'rgba(203,213,225,0.9)'}
-        ios_backgroundColor="rgba(148,163,184,0.3)"
         accessibilityRole="switch"
         accessibilityLabel={copy.accessibilityLabel}
-        accessibilityHint={isAutoCatchingEnabled ? copy.autoHint : copy.manualHint}
+        accessibilityHint={copy.accessibilityHint}
         accessibilityState={{
           checked: isAutoCatchingEnabled,
           disabled: disabled || isUpdating,

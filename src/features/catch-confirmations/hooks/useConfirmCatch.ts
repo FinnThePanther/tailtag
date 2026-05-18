@@ -69,7 +69,9 @@ export function useConfirmCatch(options?: UseConfirmCatchOptions) {
     onSuccess: (result) => {
       const message =
         result.decision === 'accept'
-          ? 'Catch approved! The catcher has been notified and it now counts in their collection.'
+          ? result.reciprocalOffer?.status === 'COMPLETED'
+            ? 'Catch approved and back-tag recorded.'
+            : 'Catch approved! The catcher has been notified and it now counts in their collection.'
           : 'Catch request declined. The catcher has been notified.';
       showToast(message);
 

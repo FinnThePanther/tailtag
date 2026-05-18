@@ -18,6 +18,35 @@ if len(sys.argv) != 2:
 committed = open("src/types/database.ts").read()
 generated = open(sys.argv[1]).read()
 
+
+def replace_required(source, anchor, replacement):
+    if anchor not in source:
+        print(f"ERROR: expected generated type anchor not found: {anchor!r}")
+        sys.exit(1)
+    updated = source.replace(anchor, replacement)
+    if updated == source:
+        print(f"ERROR: generated type replacement did not change output for: {anchor!r}")
+        sys.exit(1)
+    return updated
+
+
+generated = replace_required(
+    generated,
+    '  | Json[]\n\nexport type Database = {',
+    '  | Json[]\n\n'
+    'export type AttendanceState = "active" | "left" | "removed" | "finalized"\n'
+    'export type RosterState = "active" | "removed" | "finalized"\n\n'
+    'export type Database = {',
+)
+generated = replace_required(generated, "roster_state: string", "roster_state: RosterState")
+generated = replace_required(generated, "roster_state?: string", "roster_state?: RosterState")
+generated = replace_required(
+    generated, "attendance_state: string", "attendance_state: AttendanceState"
+)
+generated = replace_required(
+    generated, "attendance_state?: string", "attendance_state?: AttendanceState"
+)
+
 boundary = "// Type aliases for application use"
 idx = committed.find(boundary)
 committed_gen = committed[:idx].rstrip() if idx != -1 else committed.rstrip()

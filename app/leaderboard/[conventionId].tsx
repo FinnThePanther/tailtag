@@ -11,6 +11,8 @@ import { AppAvatar } from '../../src/components/ui/AppAvatar';
 import { ScreenHeader } from '../../src/components/ui/ScreenHeader';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import {
+  CONVENTION_LEADERBOARD_QUERY_KEY,
+  CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
   createConventionLeaderboardQueryOptions,
   createConventionSuitLeaderboardQueryOptions,
   type LeaderboardEntry,
@@ -22,6 +24,10 @@ import { captureNonCriticalError } from '../../src/lib/sentry';
 import { colors } from '../../src/theme';
 import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/leaderboard/[conventionId].styles';
+import {
+  REDACTED_FURSUIT_LABEL,
+  REDACTED_PLAYER_LABEL,
+} from '../../src/features/leaderboard/constants';
 
 const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);
 
@@ -64,7 +70,15 @@ export default function FullLeaderboardScreen() {
     error: leaderboardError,
     isLoading: isLeaderboardLoading,
     refetch: refetchLeaderboard,
-  } = useQuery<LeaderboardEntry[], Error>(createConventionLeaderboardQueryOptions(conventionId));
+  } = useQuery<LeaderboardEntry[], Error>(
+    userId
+      ? createConventionLeaderboardQueryOptions(userId, conventionId)
+      : {
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, 'idle'],
+          queryFn: async () => [],
+          enabled: false,
+        },
+  );
 
   const {
     data: suitEntries = [],
@@ -72,7 +86,13 @@ export default function FullLeaderboardScreen() {
     isLoading: isSuitLoading,
     refetch: refetchSuits,
   } = useQuery<SuitLeaderboardEntry[], Error>(
-    createConventionSuitLeaderboardQueryOptions(conventionId),
+    userId
+      ? createConventionSuitLeaderboardQueryOptions(userId, conventionId)
+      : {
+          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, 'idle'],
+          queryFn: async () => [],
+          enabled: false,
+        },
   );
 
   const blockedIds = useBlockedIds(userId);
@@ -145,14 +165,26 @@ export default function FullLeaderboardScreen() {
                 {entriesWithCatches.map((entry, index) => {
                   const rank = index + 1;
                   const isSelf = entry.profileId === userId;
+                  const displayName = entry.isRedacted
+                    ? REDACTED_PLAYER_LABEL
+                    : (entry.username ?? 'Unnamed player');
                   return (
                     <Pressable
                       key={entry.profileId}
                       style={({ pressed }) => [
                         styles.row,
                         isSelf && styles.rowHighlight,
+                        entry.isRedacted && styles.rowRedacted,
                         pressed && styles.rowPressed,
                       ]}
+                      disabled={entry.isRedacted}
+                      accessibilityRole={entry.isRedacted ? undefined : 'button'}
+                      accessibilityLabel={
+                        entry.isRedacted
+                          ? `Restricted catcher standing, rank ${rank}, ${formatCatchCount(entry.catchCount)}`
+                          : `View ${displayName}'s profile`
+                      }
+                      accessibilityState={{ disabled: entry.isRedacted }}
                       onPress={() =>
                         router.push({ pathname: '/profile/[id]', params: { id: entry.profileId } })
                       }
@@ -165,10 +197,10 @@ export default function FullLeaderboardScreen() {
                       </Text>
                       <View style={styles.details}>
                         <Text
-                          style={styles.name}
+                          style={[styles.name, entry.isRedacted && styles.nameRedacted]}
                           numberOfLines={1}
                         >
-                          {entry.username ?? 'Unnamed player'}
+                          {displayName}
                           {isSelf ? ' · You' : ''}
                         </Text>
                         <Text
@@ -183,6 +215,12 @@ export default function FullLeaderboardScreen() {
                           name="person"
                           size={14}
                           color={colors.primary}
+                        />
+                      ) : entry.isRedacted ? (
+                        <Ionicons
+                          name="lock-closed"
+                          size={14}
+                          color={colors.textSubtle}
                         />
                       ) : null}
                     </Pressable>
@@ -216,44 +254,67 @@ export default function FullLeaderboardScreen() {
               <Text style={styles.message}>No suit catches recorded yet.</Text>
             ) : (
               <View style={styles.list}>
-                {filteredSuitEntries.map((entry, index) => (
-                  <Pressable
-                    key={entry.fursuitId}
-                    style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                    onPress={() =>
-                      router.push({ pathname: '/fursuits/[id]', params: { id: entry.fursuitId } })
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={`View ${entry.name}'s fursuit profile`}
-                  >
-                    <Text
-                      style={styles.rank}
-                      numberOfLines={1}
+                {filteredSuitEntries.map((entry, index) => {
+                  const rank = index + 1;
+                  return (
+                    <Pressable
+                      key={entry.fursuitId}
+                      style={({ pressed }) => [
+                        styles.row,
+                        entry.isRedacted && styles.rowRedacted,
+                        pressed && styles.rowPressed,
+                      ]}
+                      disabled={entry.isRedacted}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/fursuits/[id]',
+                          params: { id: entry.fursuitId },
+                        })
+                      }
+                      accessibilityRole={entry.isRedacted ? undefined : 'button'}
+                      accessibilityLabel={
+                        entry.isRedacted
+                          ? `Restricted fursuit standing, rank ${rank}, ${formatCatchCount(entry.catchCount)}`
+                          : `View ${entry.name}'s fursuit profile`
+                      }
+                      accessibilityState={{ disabled: entry.isRedacted }}
                     >
-                      #{index + 1}
-                    </Text>
-                    <AppAvatar
-                      url={entry.avatarUrl}
-                      size="xs"
-                      fallback="fursuit"
-                      style={styles.avatarMargin}
-                    />
-                    <View style={styles.details}>
                       <Text
-                        style={styles.name}
+                        style={styles.rank}
                         numberOfLines={1}
                       >
-                        {entry.name}
+                        #{rank}
                       </Text>
-                      <Text
-                        style={styles.catchLabel}
-                        numberOfLines={1}
-                      >
-                        {formatCatchCount(entry.catchCount)}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))}
+                      <AppAvatar
+                        url={entry.avatarUrl}
+                        size="xs"
+                        fallback="fursuit"
+                        style={styles.avatarMargin}
+                      />
+                      <View style={styles.details}>
+                        <Text
+                          style={[styles.name, entry.isRedacted && styles.nameRedacted]}
+                          numberOfLines={1}
+                        >
+                          {entry.isRedacted ? REDACTED_FURSUIT_LABEL : entry.name}
+                        </Text>
+                        <Text
+                          style={styles.catchLabel}
+                          numberOfLines={1}
+                        >
+                          {formatCatchCount(entry.catchCount)}
+                        </Text>
+                      </View>
+                      {entry.isRedacted ? (
+                        <Ionicons
+                          name="lock-closed"
+                          size={14}
+                          color={colors.textSubtle}
+                        />
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
               </View>
             )}
           </>

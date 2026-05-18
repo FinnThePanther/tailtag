@@ -85,6 +85,38 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  lifecycleCard: {
+    marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.borderMuted,
+    backgroundColor: colors.surfaceMutedSoft,
+  },
+  lifecycleContent: {
+    gap: spacing.md,
+  },
+  lifecycleTextBlock: {
+    gap: spacing.xs,
+  },
+  lifecycleEyebrow: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  lifecycleTitle: {
+    color: colors.foreground,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  lifecycleBody: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  lifecycleCta: {
+    alignSelf: 'flex-start',
+  },
   guidanceCard: {
     marginBottom: spacing.xl,
     gap: spacing.md,
@@ -337,6 +369,10 @@ export const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primarySurface,
   },
+  leaderboardRowRedacted: {
+    backgroundColor: colors.surfaceMutedSoft,
+    opacity: 0.82,
+  },
   leaderboardRowPressed: {
     opacity: 0.7,
   },
@@ -357,6 +393,9 @@ export const styles = StyleSheet.create({
     color: colors.foreground,
     fontSize: 16,
     fontWeight: '600',
+  },
+  leaderboardNameRedacted: {
+    color: colors.textSubtle,
   },
   leaderboardCatchLabel: {
     color: 'rgba(203,213,225,0.8)',

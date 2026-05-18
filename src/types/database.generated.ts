@@ -114,6 +114,7 @@ export type Database = {
           catch_number: number | null;
           catcher_id: string;
           caught_at: string | null;
+          client_attempt_id: string | null;
           convention_id: string | null;
           decided_at: string | null;
           decided_by_user_id: string | null;
@@ -128,6 +129,7 @@ export type Database = {
           catch_number?: number | null;
           catcher_id: string;
           caught_at?: string | null;
+          client_attempt_id?: string | null;
           convention_id?: string | null;
           decided_at?: string | null;
           decided_by_user_id?: string | null;
@@ -142,6 +144,7 @@ export type Database = {
           catch_number?: number | null;
           catcher_id?: string;
           caught_at?: string | null;
+          client_attempt_id?: string | null;
           convention_id?: string | null;
           decided_at?: string | null;
           decided_by_user_id?: string | null;
@@ -580,6 +583,7 @@ export type Database = {
           species: string | null;
           species_id: string | null;
           unique_code: string;
+          visibility_audience: string;
         };
         Insert: {
           avatar_url?: string | null;
@@ -594,6 +598,7 @@ export type Database = {
           species?: string | null;
           species_id?: string | null;
           unique_code: string;
+          visibility_audience?: string;
         };
         Update: {
           avatar_url?: string | null;
@@ -608,6 +613,7 @@ export type Database = {
           species?: string | null;
           species_id?: string | null;
           unique_code?: string;
+          visibility_audience?: string;
         };
         Relationships: [
           {
@@ -685,37 +691,49 @@ export type Database = {
       };
       profiles: {
         Row: {
+          age_confirmed_at: string | null;
+          age_gate_version: number;
           avatar_url: string | null;
           bio: string | null;
           created_at: string | null;
           default_catch_mode: string;
           id: string;
+          is_adult: boolean | null;
           is_new: boolean;
           onboarding_completed: boolean;
           updated_at: string | null;
           username: string | null;
+          visibility_audience: string;
         };
         Insert: {
+          age_confirmed_at?: string | null;
+          age_gate_version?: number;
           avatar_url?: string | null;
           bio?: string | null;
           created_at?: string | null;
           default_catch_mode?: string;
           id: string;
+          is_adult?: boolean | null;
           is_new?: boolean;
           onboarding_completed?: boolean;
           updated_at?: string | null;
           username?: string | null;
+          visibility_audience?: string;
         };
         Update: {
+          age_confirmed_at?: string | null;
+          age_gate_version?: number;
           avatar_url?: string | null;
           bio?: string | null;
           created_at?: string | null;
           default_catch_mode?: string;
           id?: string;
+          is_adult?: boolean | null;
           is_new?: boolean;
           onboarding_completed?: boolean;
           updated_at?: string | null;
           username?: string | null;
+          visibility_audience?: string;
         };
         Relationships: [];
       };
@@ -935,6 +953,24 @@ export type Database = {
         };
         Returns: Json;
       };
+      create_catch_with_event: {
+        Args: {
+          p_catch_photo_path?: string;
+          p_catch_photo_source?: string;
+          p_catch_photo_url?: string;
+          p_catcher_id: string;
+          p_client_attempt_id?: string;
+          p_convention_id?: string;
+          p_force_pending?: boolean;
+          p_fursuit_id: string;
+          p_is_tutorial?: boolean;
+        };
+        Returns: Json;
+      };
+      ensure_own_profile_exists: {
+        Args: { p_username?: string };
+        Returns: undefined;
+      };
       expire_pending_catches: { Args: Record<PropertyKey, never>; Returns: Json };
       finish_onboarding: { Args: { target_user_id?: string }; Returns: Json };
       get_fursuit_convention_stats: {
@@ -1005,6 +1041,10 @@ export type Database = {
           p_fursuit_name: string;
           p_fursuit_owner_id: string;
         };
+        Returns: undefined;
+      };
+      insert_catch_notification_once: {
+        Args: { p_payload: Json; p_type: string; p_user_id: string };
         Returns: undefined;
       };
       refresh_convention_leaderboard: {

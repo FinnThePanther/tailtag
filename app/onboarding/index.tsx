@@ -228,6 +228,7 @@ export default function OnboardingScreen() {
         ) : currentStep === 'fursuit' ? (
           <FursuitStep
             userId={userId}
+            profile={profile}
             onSkip={() => {
               setHasRegisteredFursuit(mySuits.length > 0);
               setFursuitDraft(createEmptyFursuitDraft());

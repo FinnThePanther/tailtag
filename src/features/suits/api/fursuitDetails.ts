@@ -10,6 +10,7 @@ import type { FursuitDetail } from '../types';
 import { captureHandledMessage } from '../../../lib/sentry';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
+import { normalizeVisibilityAudience } from '@/features/adult-boundary';
 
 export const FURSUIT_DETAIL_QUERY_KEY = 'fursuit-detail';
 export const fursuitDetailQueryKey = (fursuitId: string, viewerId?: string | null) =>
@@ -34,6 +35,7 @@ export async function fetchFursuitDetail(
       avatar_url,
       is_tutorial,
       description,
+      visibility_audience,
       catch_count,
       created_at,
       species_entry:fursuit_species (
@@ -51,6 +53,8 @@ export async function fetchFursuitDetail(
       ),
       fursuit_conventions:fursuit_conventions (
         roster_visible,
+        roster_state,
+        active_until,
         convention:conventions (
           id,
           slug,
@@ -59,6 +63,9 @@ export async function fetchFursuitDetail(
           start_date,
           end_date,
           timezone,
+          status,
+          finalizing_started_at,
+          closeout_not_before,
           latitude,
           longitude,
           geofence_radius_meters,
@@ -99,11 +106,16 @@ export async function fetchFursuitDetail(
       },
       'warning',
     );
-    throw new Error('That fursuit was not found. It may have been removed.');
+    throw new Error('Fursuit unavailable');
   }
 
   const conventions = (data.fursuit_conventions ?? [])
-    .filter((entry: any) => Boolean(entry?.convention))
+    .filter(
+      (entry: any) =>
+        Boolean(entry?.convention) &&
+        entry.roster_state === 'active' &&
+        entry.active_until === null,
+    )
     .map((entry: any) => ({
       id: entry.convention.id,
       slug: entry.convention.slug,
@@ -112,6 +124,9 @@ export async function fetchFursuitDetail(
       start_date: entry.convention.start_date ?? null,
       end_date: entry.convention.end_date ?? null,
       timezone: entry.convention.timezone ?? 'UTC',
+      status: entry.convention.status ?? undefined,
+      finalizing_started_at: entry.convention.finalizing_started_at ?? null,
+      closeout_not_before: entry.convention.closeout_not_before ?? null,
       latitude: entry.convention.latitude ?? null,
       longitude: entry.convention.longitude ?? null,
       geofence_radius_meters: entry.convention.geofence_radius_meters ?? null,
@@ -179,6 +194,7 @@ export async function fetchFursuitDetail(
     }),
     description: data.description ?? null,
     unique_code: uniqueCode,
+    visibility_audience: normalizeVisibilityAudience(data.visibility_audience),
     catchCount: resolvedCatchCount,
     created_at: data.created_at ?? null,
     conventions,

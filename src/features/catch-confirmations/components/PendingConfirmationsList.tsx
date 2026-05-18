@@ -13,6 +13,12 @@ type PendingConfirmationsListProps = {
 
 function PendingConfirmationRow({ item }: { item: MyPendingCatch }) {
   const displayDate = toDisplayDate(item.caughtAt);
+  const subtitle =
+    item.photoUploadState === 'pending_upload' || item.photoUploadState === 'failed'
+      ? 'Photo upload needs attention'
+      : item.catchPhotoSource === 'gallery'
+        ? 'Awaiting owner approval · Gallery catch'
+        : 'Awaiting owner approval';
 
   return (
     <View style={styles.row}>
@@ -32,7 +38,7 @@ function PendingConfirmationRow({ item }: { item: MyPendingCatch }) {
           style={styles.subtitle}
           numberOfLines={1}
         >
-          Awaiting owner approval
+          {subtitle}
         </Text>
         {displayDate ? (
           <Text
@@ -85,13 +91,14 @@ export function PendingConfirmationsList({ pendingCatches }: PendingConfirmation
       </View>
       {isEmpty ? (
         <Text style={styles.description}>
-          No pending confirmations. When you catch a fursuit that requires owner approval, it will
-          appear here until they approve or decline.
+          No pending confirmations. Manual-approval catches and gallery catches will appear here
+          until the owner approves or declines them.
         </Text>
       ) : (
         <>
           <Text style={styles.description}>
-            These catches are waiting for the fursuit owner to approve.
+            These catches are waiting for the fursuit owner to approve. Gallery catches need
+            approval before they count.
           </Text>
           <View style={styles.list}>
             {pendingCatches.map((item, index) => (

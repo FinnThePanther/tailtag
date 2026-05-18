@@ -1,139 +1,35 @@
 import { supabase } from '../../../lib/supabase';
-import type { FursuitSummary } from '../types';
-import {
-  applyProfileSocialLinksToBio,
-  mapFursuitColors,
-  mapLatestFursuitBio,
-  parseSocialLinks,
-} from './utils';
-import { fetchFursuitMakersByFursuitIds } from './makers';
-import type { CaughtRecord } from './caughtSuits';
-import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET } from '../../../constants/storage';
-import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
+import { mapCaughtRecordFromRpcRow, type CaughtRecord } from './caughtSuits';
 
 export const CATCH_BY_ID_QUERY_KEY = 'catch-by-id';
 export const CATCH_BY_ID_STALE_TIME = 2 * 60_000;
 
-export const catchByIdQueryKey = (catchId: string) => [CATCH_BY_ID_QUERY_KEY, catchId] as const;
-
-const CATCH_SELECT = `
-  id,
-  caught_at,
-  catch_number,
-  catch_photo_path,
-  catch_photo_url,
-  fursuit:fursuits (
-    id,
-    owner_id,
-    name,
-    species_id,
-    avatar_path,
-    avatar_url,
-    catch_count,
-    is_tutorial,
-    description,
-    unique_code,
-    created_at,
-    species_entry:fursuit_species (
-      id,
-      name,
-      normalized_name
-    ),
-    color_assignments:fursuit_color_assignments (
-      position,
-      color:fursuit_colors (
-        id,
-        name,
-        normalized_name
-      )
-    ),
-    fursuit_bios (
-      version,
-      owner_name,
-      photo_credit,
-      pronouns,
-      likes_and_interests,
-      ask_me_about,
-      social_links,
-      created_at,
-      updated_at
-    ),
-    owner_profile:profiles!fursuits_owner_id_fkey (
-      social_links
-    )
-  )
-`;
+export const catchByIdQueryKey = (catchId: string, userId?: string | null) =>
+  userId
+    ? ([CATCH_BY_ID_QUERY_KEY, catchId, userId] as const)
+    : ([CATCH_BY_ID_QUERY_KEY, catchId] as const);
 
 export async function fetchCatchById(catchId: string): Promise<CaughtRecord | null> {
   const client = supabase as any;
-  const { data: record, error } = await client
-    .from('catches')
-    .select(CATCH_SELECT)
-    .eq('id', catchId)
-    .eq('status', 'ACCEPTED')
-    .maybeSingle();
+  const { data, error } = await client.rpc('get_catch_detail', {
+    p_catch_id: catchId,
+  });
 
   if (error) {
     throw new Error(`We couldn't load that catch: ${error.message}`);
   }
 
+  const record = Array.isArray(data) ? data[0] : null;
+
   if (!record) {
     return null;
   }
 
-  const rawFursuit = record.fursuit;
-
-  if (rawFursuit?.is_tutorial) {
-    return null;
-  }
-
-  const makersByFursuitId = await fetchFursuitMakersByFursuitIds(
-    rawFursuit?.id ? [rawFursuit.id] : [],
-  );
-
-  const fursuit: FursuitSummary | null = rawFursuit
-    ? {
-        id: rawFursuit.id,
-        owner_id: rawFursuit.owner_id ?? null,
-        name: rawFursuit.name,
-        species: rawFursuit.species_entry?.name ?? null,
-        speciesId: rawFursuit.species_entry?.id ?? rawFursuit.species_id ?? null,
-        colors: mapFursuitColors(rawFursuit.color_assignments ?? null),
-        avatar_path: rawFursuit.avatar_path ?? null,
-        avatar_url: resolveStorageMediaUrl({
-          bucket: FURSUIT_BUCKET,
-          path: rawFursuit.avatar_path ?? null,
-          legacyUrl: rawFursuit.avatar_url ?? null,
-        }),
-        description: rawFursuit.description ?? null,
-        unique_code: rawFursuit.unique_code ?? null,
-        catchCount: typeof rawFursuit.catch_count === 'number' ? rawFursuit.catch_count : 0,
-        created_at: rawFursuit.created_at ?? null,
-        conventions: [],
-        makers: makersByFursuitId.get(rawFursuit.id) ?? [],
-        bio: applyProfileSocialLinksToBio(
-          mapLatestFursuitBio(rawFursuit.fursuit_bios ?? null),
-          parseSocialLinks(rawFursuit.owner_profile?.social_links ?? null),
-        ),
-      }
-    : null;
-
-  return {
-    id: record.id,
-    caught_at: record.caught_at ?? null,
-    catchNumber: typeof record.catch_number === 'number' ? record.catch_number : null,
-    catchPhotoPath: record.catch_photo_path ?? null,
-    catchPhotoUrl: resolveStorageMediaUrl({
-      bucket: CATCH_PHOTO_BUCKET,
-      path: record.catch_photo_path ?? null,
-      legacyUrl: record.catch_photo_url ?? null,
-    }),
-    fursuit,
-  } satisfies CaughtRecord;
+  return mapCaughtRecordFromRpcRow(record);
 }
 
-export const createCatchByIdQueryOptions = (catchId: string) => ({
-  queryKey: catchByIdQueryKey(catchId),
+export const createCatchByIdQueryOptions = (catchId: string, userId?: string | null) => ({
+  queryKey: catchByIdQueryKey(catchId, userId),
   queryFn: () => fetchCatchById(catchId),
   staleTime: CATCH_BY_ID_STALE_TIME,
   refetchOnWindowFocus: false,

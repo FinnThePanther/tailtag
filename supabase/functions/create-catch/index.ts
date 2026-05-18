@@ -8,17 +8,12 @@
 
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
-import {
-  ingestGameplayEvent,
-  loadGameplayQueueConfig,
-  scheduleGameplayQueueDrain,
-} from '../_shared/gameplayQueue.ts';
-import { processAchievementsForEvent } from '../_shared/achievements.ts';
-import type { InsertableEventRow } from '../_shared/types.ts';
+import { loadGameplayQueueConfig, scheduleGameplayQueueDrain } from '../_shared/gameplayQueue.ts';
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, x-client-attempt-id, apikey, content-type',
 };
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -42,22 +37,34 @@ const supabaseAdmin = createClient(resolvedSupabaseUrl, resolvedServiceRoleKey, 
 });
 
 interface CreateCatchRequest {
-  fursuit_id: string;
+  client_attempt_id?: string;
+  app_version?: string | null;
+  platform?: string | null;
+  network_type?: string | null;
+  method?: 'code' | 'camera_photo' | 'gallery_photo';
+  fursuit_id?: string;
+  fursuit_code?: string;
   convention_id?: string | null;
+  reciprocal_fursuit_id?: string | null;
   is_tutorial?: boolean;
   force_pending?: boolean;
   has_photo?: boolean;
   catch_photo_path?: string | null;
   catch_photo_url?: string | null;
+  catch_photo_source?: 'camera' | 'gallery' | null;
+  photo_upload_state?: 'pending_upload' | 'uploaded' | null;
 }
 
 interface UpdateCatchPhotoRequest {
   catch_id: string;
   catch_photo_path?: string;
-  catch_photo_url: string;
+  catch_photo_url?: string;
+  catch_photo_source?: 'camera' | 'gallery' | null;
+  photo_upload_state?: 'uploaded' | 'failed';
 }
 
 interface CreateCatchResponse {
+  client_attempt_id?: string;
   catch_id: string;
   status: string;
   expires_at: string | null;
@@ -65,133 +72,150 @@ interface CreateCatchResponse {
   requires_approval: boolean;
   fursuit_owner_id: string;
   convention_id?: string | null;
+  fursuit_id?: string;
+  fursuit_name?: string;
+  fursuit_avatar_path?: string | null;
+  fursuit_avatar_url?: string | null;
+  fursuit_species_id?: string | null;
+  fursuit_species_name?: string | null;
+  photo_upload_state?: string;
+  reciprocal_offer?: {
+    offer_id?: string;
+    status?: string;
+    reciprocal_catch_id?: string | null;
+    failure_reason?: string | null;
+    event_enqueued?: boolean;
+    offered_fursuit_id?: string;
+    offered_fursuit_name?: string;
+    offered_fursuit_avatar_path?: string | null;
+    offered_fursuit_avatar_url?: string | null;
+    recipient_profile_id?: string;
+  } | null;
+  event_id: string | null;
+  event_duplicate?: boolean;
+  event_enqueued?: boolean;
 }
 
-type FursuitMakerMetadata = {
-  makerNames: string[];
-  normalizedMakerNames: string[];
-  hasSelfMadeMaker: boolean;
-};
+type CatchPerformanceMethod = 'code' | 'camera_photo' | 'gallery_photo';
+type CatchPerformanceResult = 'success' | 'pending_approval' | 'failed' | 'timeout';
+type ServerTimingKey =
+  | 'auth_ms'
+  | 'block_check_ms'
+  | 'catch_insert_ms'
+  | 'photo_attach_ms'
+  | 'metadata_ms'
+  | 'notification_ms'
+  | 'event_ingest_ms'
+  | 'queue_config_ms'
+  | 'inline_processing_ms'
+  | 'edge_total_ms';
 
-const SELF_MADE_MAKER_ALIASES = [
-  'self-made',
-  'self made',
-  'selfmade',
-  'handmade',
-  'hand made',
-  'owner-made',
-  'owner made',
-  'made by me',
-  'me',
-  'myself',
-];
-const GENERIC_MAKER_MATCH_EXCLUSIONS = ['self-made', 'made by me'];
+const now = () => performance.now();
+const roundMs = (duration: number) => Math.max(0, Math.round(duration));
 
-type InlineEventRow = {
-  event_id: string;
-  user_id: string;
-  convention_id: string | null;
-  type: string;
-  payload: Record<string, unknown> | null;
-  occurred_at: string;
-  processed_at: string | null;
-  queue_message_id: number | string | null;
-};
+function normalizeClientAttemptId(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
 
-function parseQueueMessageId(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
-    return Math.trunc(value);
+function normalizeCatchMethod(value: unknown): CatchPerformanceMethod {
+  if (value === 'camera_photo' || value === 'gallery_photo' || value === 'code') {
+    return value;
   }
 
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      return parsed;
+  return 'code';
+}
+
+function createServerCatchPerformanceTrace(initialClientAttemptId: string | null) {
+  let clientAttemptId = initialClientAttemptId;
+  const startedAt = now();
+  const timings: Partial<Record<ServerTimingKey, number>> = {};
+
+  const recordTiming = (key: ServerTimingKey, durationMs: number | null | undefined) => {
+    if (typeof durationMs !== 'number' || !Number.isFinite(durationMs)) {
+      return;
     }
-  }
 
-  return null;
-}
-
-async function processEventInline(eventId: string): Promise<{
-  processed: boolean;
-  awards: unknown[];
-}> {
-  const { data, error } = await supabaseAdmin
-    .from('events')
-    .select('event_id,user_id,convention_id,type,payload,occurred_at,processed_at,queue_message_id')
-    .eq('event_id', eventId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Failed to load event ${eventId}: ${error.message}`);
-  }
-
-  const row = (data ?? null) as InlineEventRow | null;
-
-  if (!row) {
-    return { processed: false, awards: [] };
-  }
-
-  if (row.processed_at) {
-    return { processed: false, awards: [] };
-  }
-
-  const eventRow: InsertableEventRow = {
-    event_id: row.event_id,
-    user_id: row.user_id,
-    convention_id: row.convention_id,
-    type: row.type,
-    payload: row.payload ?? {},
-    occurred_at: row.occurred_at,
+    timings[key] = roundMs(durationMs);
   };
 
-  const processResult = await processAchievementsForEvent(supabaseAdmin, eventRow);
-  const now = new Date().toISOString();
-
-  const { error: stampError } = await supabaseAdmin
-    .from('events')
-    .update({
-      retry_count: 0,
-      processed_at: now,
-      last_attempted_at: now,
-      last_error: null,
-    })
-    .eq('event_id', eventId)
-    .is('processed_at', null);
-
-  if (stampError) {
-    console.error('[create-catch] Failed to stamp processed event after inline processing', {
-      eventId,
-      error: stampError,
-    });
-  }
-
-  const queueMessageId = parseQueueMessageId(row.queue_message_id);
-  if (queueMessageId !== null) {
-    const { error: queueDeleteError } = await supabaseAdmin.rpc(
-      'delete_gameplay_event_queue_message',
-      {
-        p_message_id: queueMessageId,
-      },
-    );
-    if (queueDeleteError) {
-      console.error('[create-catch] Failed deleting queue message after inline processing', {
-        eventId,
-        queueMessageId,
-        error: queueDeleteError,
-      });
+  const measure = async <T>(
+    key: ServerTimingKey,
+    operation: () => T | PromiseLike<T>,
+  ): Promise<Awaited<T>> => {
+    const phaseStartedAt = now();
+    try {
+      return (await operation()) as Awaited<T>;
+    } finally {
+      recordTiming(key, now() - phaseStartedAt);
     }
-  }
+  };
+
+  const finish = (options: {
+    userId?: string | null;
+    catchId?: string | null;
+    conventionId?: string | null;
+    method: CatchPerformanceMethod;
+    result: CatchPerformanceResult;
+    appVersion?: string | null;
+    platform?: string | null;
+    networkType?: string | null;
+    errorCode?: string | null;
+  }) => {
+    if (!clientAttemptId) {
+      return;
+    }
+
+    const totalMs = roundMs(now() - startedAt);
+    timings.edge_total_ms = totalMs;
+
+    void Promise.resolve(
+      supabaseAdmin.from('catch_performance_events').insert({
+        client_attempt_id: clientAttemptId,
+        user_id: options.userId ?? null,
+        catch_id: options.catchId ?? null,
+        convention_id: options.conventionId ?? null,
+        method: options.method,
+        result: options.result,
+        total_ms: totalMs,
+        timings: { ...timings },
+        app_version: options.appVersion ?? null,
+        platform: options.platform ?? null,
+        network_type: options.networkType ?? null,
+        error_code: options.errorCode ?? null,
+      }),
+    )
+      .then(({ error }) => {
+        if (error) {
+          console.error('[create-catch] Failed to record catch performance telemetry:', error);
+        }
+      })
+      .catch((error) => {
+        console.error('[create-catch] Failed to record catch performance telemetry:', error);
+      });
+  };
 
   return {
-    processed: true,
-    awards: processResult.awards,
+    get clientAttemptId() {
+      return clientAttemptId;
+    },
+    setClientAttemptId(value: string | null) {
+      if (value) {
+        clientAttemptId = value;
+      }
+    },
+    finish,
+    measure,
+    recordTiming,
   };
 }
 
-function jsonResponse(status: number, payload: unknown) {
-  return new Response(JSON.stringify(payload), {
+function jsonResponse(status: number, payload: unknown, clientAttemptId?: string | null) {
+  const responsePayload =
+    clientAttemptId && typeof payload === 'object' && payload !== null && !Array.isArray(payload)
+      ? { ...payload, client_attempt_id: clientAttemptId }
+      : payload;
+
+  return new Response(JSON.stringify(responsePayload), {
     status,
     headers: {
       ...corsHeaders,
@@ -200,123 +224,54 @@ function jsonResponse(status: number, payload: unknown) {
   });
 }
 
-async function fetchFursuitMakerMetadata(fursuitId: string): Promise<FursuitMakerMetadata> {
-  const { data, error } = await supabaseAdmin
-    .from('fursuit_makers')
-    .select('maker_name,normalized_maker_name')
-    .eq('fursuit_id', fursuitId)
-    .order('position', { ascending: true });
-
-  if (error) {
-    console.error('[create-catch] Failed loading fursuit makers:', error);
-    return { makerNames: [], normalizedMakerNames: [], hasSelfMadeMaker: false };
+function normalizeCatchPhotoSource(value: unknown): 'camera' | 'gallery' | null {
+  if (value === 'camera' || value === 'gallery') {
+    return value;
   }
 
-  const makerNames: string[] = [];
-  const normalizedMakerNames: string[] = [];
-  for (const row of data ?? []) {
-    if (typeof row.maker_name === 'string' && row.maker_name.trim().length > 0) {
-      makerNames.push(row.maker_name);
-    }
-    if (
-      typeof row.normalized_maker_name === 'string' &&
-      row.normalized_maker_name.trim().length > 0
-    ) {
-      normalizedMakerNames.push(row.normalized_maker_name.trim().toLowerCase());
-    }
-  }
-
-  return {
-    makerNames,
-    normalizedMakerNames,
-    hasSelfMadeMaker: normalizedMakerNames.some((maker) => SELF_MADE_MAKER_ALIASES.includes(maker)),
-  };
+  return null;
 }
 
-async function hasCatcherOwnedMakerMatch(
-  catcherId: string,
-  normalizedMakerNames: string[],
-): Promise<boolean> {
-  if (normalizedMakerNames.length === 0) {
-    return false;
+function normalizeCreatePhotoUploadState(value: unknown): 'pending_upload' | 'uploaded' | null {
+  if (value === 'pending_upload' || value === 'uploaded') {
+    return value;
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('fursuits')
-    .select('id,makers:fursuit_makers(normalized_maker_name)')
-    .eq('owner_id', catcherId)
-    .limit(20000);
-
-  if (error) {
-    console.error('[create-catch] Failed loading catcher-owned makers:', error);
-    return false;
-  }
-
-  const targetMakers = new Set(normalizedMakerNames);
-  for (const suit of data ?? []) {
-    const makers = (suit.makers ?? []) as Array<{ normalized_maker_name?: unknown }>;
-    for (const maker of makers) {
-      const normalizedMakerName =
-        typeof maker.normalized_maker_name === 'string'
-          ? maker.normalized_maker_name.trim().toLowerCase()
-          : '';
-      if (GENERIC_MAKER_MATCH_EXCLUSIONS.includes(normalizedMakerName)) {
-        continue;
-      }
-      if (targetMakers.has(normalizedMakerName)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  return null;
 }
 
-async function hasNewMakerForCatcherAtConvention(options: {
-  catcherId: string;
-  conventionId: string | null;
-  catchId: string;
-  normalizedMakerNames: string[];
-}): Promise<boolean> {
-  if (!options.conventionId || options.normalizedMakerNames.length === 0) {
-    return false;
+function normalizePatchPhotoUploadState(value: unknown): 'uploaded' | 'failed' | null {
+  if (value === 'uploaded' || value === 'failed') {
+    return value;
   }
 
-  const { data, error } = await supabaseAdmin.rpc('has_new_maker_for_catcher_at_convention', {
-    p_catcher_id: options.catcherId,
-    p_convention_id: options.conventionId,
-    p_catch_id: options.catchId,
-    p_normalized_maker_names: options.normalizedMakerNames,
-  });
-
-  if (error) {
-    console.error('[create-catch] Failed checking previous maker catch:', error);
-    return false;
-  }
-
-  return data === true;
+  return null;
 }
 
-async function resolveCreatedCatchConventionId(
-  result: CreateCatchResponse,
-  fallbackConventionId: string | null,
-): Promise<string | null> {
-  if (typeof result.convention_id === 'string' && result.convention_id.length > 0) {
-    return result.convention_id;
+function normalizeFursuitCode(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('catches')
-    .select('convention_id')
-    .eq('id', result.catch_id)
-    .maybeSingle();
+  const normalized = value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
 
-  if (error) {
-    console.error('[create-catch] Failed resolving created catch convention:', error);
-    return fallbackConventionId;
+  return /^[A-Z0-9]{4,8}$/.test(normalized) ? normalized : null;
+}
+
+function normalizeUuidLike(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
   }
 
-  return data?.convention_id ?? fallbackConventionId;
+  const normalized = value.trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    normalized,
+  )
+    ? normalized
+    : null;
 }
 
 function extractBearerToken(req: Request): string | null {
@@ -350,285 +305,610 @@ async function getUserIdFromRequest(req: Request): Promise<string | null> {
   return data.user.id;
 }
 
-async function handlePost(req: Request): Promise<Response> {
-  const userId = await getUserIdFromRequest(req);
-  if (!userId) {
-    return jsonResponse(401, { error: 'Unauthorized' });
+function scheduleBackgroundTask(label: string, task: () => Promise<void>): void {
+  const promise = task().catch((error) => {
+    console.error(`[create-catch] Background task failed: ${label}`, error);
+  });
+
+  const edgeRuntime = (
+    globalThis as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }
+  ).EdgeRuntime;
+
+  if (edgeRuntime?.waitUntil) {
+    edgeRuntime.waitUntil(promise);
+    return;
   }
 
-  let body: CreateCatchRequest;
+  void promise;
+}
+
+function scheduleQueueWakeup(): void {
+  scheduleBackgroundTask('wake gameplay queue', async () => {
+    const queueConfig = await loadGameplayQueueConfig(supabaseAdmin);
+    if (!queueConfig.queueEnabled || !queueConfig.wakeupEnabled) {
+      return;
+    }
+
+    scheduleGameplayQueueDrain({
+      supabaseUrl: resolvedSupabaseUrl,
+      serviceRoleKey: resolvedServiceRoleKey,
+      maxMessages: queueConfig.wakeupMaxMessages,
+      maxDurationMs: queueConfig.wakeupMaxDurationMs,
+    });
+  });
+}
+
+async function validateReciprocalOfferRequest(params: {
+  offeredByProfileId: string;
+  recipientProfileId: string;
+  offeredFursuitId: string;
+  conventionId: string | null | undefined;
+  isGalleryCatch: boolean;
+}): Promise<{ ok: true } | { ok: false; status: number; error: string; errorCode: string }> {
+  if (!params.conventionId) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Back-tags require a playable convention.',
+      errorCode: 'reciprocal_convention_required',
+    };
+  }
+
+  if (params.offeredByProfileId === params.recipientProfileId) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Cannot create a back-tag with yourself.',
+      errorCode: 'reciprocal_self_catch',
+    };
+  }
+
+  const { data: offeredFursuit, error: offeredFursuitError } = await supabaseAdmin
+    .from('fursuits')
+    .select('id, owner_id, is_tutorial, is_flagged')
+    .eq('id', params.offeredFursuitId)
+    .maybeSingle();
+
+  if (offeredFursuitError) {
+    console.error('[create-catch] Reciprocal fursuit lookup error:', offeredFursuitError);
+    return {
+      ok: false,
+      status: 500,
+      error: 'Failed to verify back-tag suit.',
+      errorCode: 'reciprocal_lookup_failed',
+    };
+  }
+
+  if (!offeredFursuit?.id) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'Back-tag suit not found.',
+      errorCode: 'reciprocal_fursuit_not_found',
+    };
+  }
+
+  if (offeredFursuit.owner_id !== params.offeredByProfileId) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'You can only offer one of your own suits for a back-tag.',
+      errorCode: 'reciprocal_not_owner',
+    };
+  }
+
+  if (offeredFursuit.is_tutorial === true || offeredFursuit.is_flagged === true) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'This suit cannot be offered for a back-tag.',
+      errorCode: 'reciprocal_fursuit_unavailable',
+    };
+  }
+
+  const eligibilityRpc = params.isGalleryCatch
+    ? 'is_profile_convention_gallery_catch_eligible'
+    : 'is_profile_convention_gameplay_eligible';
+  const eligibilityError = params.isGalleryCatch
+    ? 'Both players must be gallery-eligible for this convention before creating a back-tag.'
+    : 'Both players must be ready to catch for this convention before creating a back-tag.';
+
+  const [
+    blockedResult,
+    offeredByConventionResult,
+    recipientConventionResult,
+    boundaryResult,
+    rosterResult,
+  ] = await Promise.all([
+    supabaseAdmin.rpc('is_blocked', {
+      p_user_a: params.offeredByProfileId,
+      p_user_b: params.recipientProfileId,
+    }),
+    supabaseAdmin.rpc(eligibilityRpc, {
+      p_profile_id: params.offeredByProfileId,
+      p_convention_id: params.conventionId,
+    }),
+    supabaseAdmin.rpc(eligibilityRpc, {
+      p_profile_id: params.recipientProfileId,
+      p_convention_id: params.conventionId,
+    }),
+    supabaseAdmin.rpc('can_catch_fursuit_as_profile', {
+      p_catcher_id: params.recipientProfileId,
+      p_fursuit_id: params.offeredFursuitId,
+    }),
+    supabaseAdmin
+      .from('fursuit_conventions')
+      .select('fursuit_id')
+      .eq('fursuit_id', params.offeredFursuitId)
+      .eq('convention_id', params.conventionId)
+      .eq('roster_state', 'active')
+      .is('active_until', null)
+      .maybeSingle(),
+  ]);
+
+  const lookupError =
+    blockedResult.error ??
+    offeredByConventionResult.error ??
+    recipientConventionResult.error ??
+    boundaryResult.error ??
+    rosterResult.error;
+
+  if (lookupError) {
+    console.error('[create-catch] Reciprocal validation error:', lookupError);
+    return {
+      ok: false,
+      status: 500,
+      error: 'Failed to verify back-tag eligibility.',
+      errorCode: 'reciprocal_validation_failed',
+    };
+  }
+
+  if (blockedResult.data === true) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Cannot create a back-tag for this player.',
+      errorCode: 'reciprocal_blocked_user',
+    };
+  }
+
+  if (offeredByConventionResult.data !== true || recipientConventionResult.data !== true) {
+    return {
+      ok: false,
+      status: 400,
+      error: eligibilityError,
+      errorCode: 'reciprocal_shared_convention_required',
+    };
+  }
+
+  if (boundaryResult.data !== true) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'This back-tag suit is not available to that player.',
+      errorCode: 'reciprocal_adult_boundary_restricted',
+    };
+  }
+
+  if (!rosterResult.data?.fursuit_id) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Back-tag suit must be listed for this convention.',
+      errorCode: 'reciprocal_fursuit_not_listed',
+    };
+  }
+
+  return { ok: true };
+}
+
+async function enqueuePendingCatchAfterPhotoUpload(catchRow: {
+  id: string;
+  catcher_id: string;
+  catch_photo_path: string;
+  catch_photo_url: string;
+  catch_photo_source: string | null;
+}): Promise<void> {
+  const { data, error } = await supabaseAdmin.rpc('attach_catch_photo_after_upload', {
+    p_catch_id: catchRow.id,
+    p_catcher_id: catchRow.catcher_id,
+    p_catch_photo_path: catchRow.catch_photo_path,
+    p_catch_photo_url: catchRow.catch_photo_url,
+    p_catch_photo_source: catchRow.catch_photo_source,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = Array.isArray(data)
+    ? (data[0] as { duplicate?: boolean; enqueued?: boolean } | undefined)
+    : (data as { duplicate?: boolean; enqueued?: boolean } | null);
+
+  if (row?.enqueued === true && row.duplicate !== true) {
+    scheduleQueueWakeup();
+  }
+}
+
+async function handlePost(req: Request): Promise<Response> {
+  const trace = createServerCatchPerformanceTrace(
+    normalizeClientAttemptId(req.headers.get('x-client-attempt-id')),
+  );
+  let userId: string | null = null;
+  let body: CreateCatchRequest | null = null;
+  let method: CatchPerformanceMethod = 'code';
+  let catchId: string | null = null;
+  let resolvedConventionId: string | null = null;
+
+  const finishTrace = async (options: {
+    result: CatchPerformanceResult;
+    errorCode?: string | null;
+  }) =>
+    await trace.finish({
+      userId,
+      catchId,
+      conventionId: resolvedConventionId ?? body?.convention_id ?? null,
+      method,
+      result: options.result,
+      appVersion:
+        typeof body?.app_version === 'string' && body.app_version.trim().length > 0
+          ? body.app_version
+          : null,
+      platform:
+        typeof body?.platform === 'string' && body.platform.trim().length > 0
+          ? body.platform
+          : null,
+      networkType:
+        typeof body?.network_type === 'string' && body.network_type.trim().length > 0
+          ? body.network_type
+          : null,
+      errorCode: options.errorCode ?? null,
+    });
+
+  const failureResponse = async (status: number, payload: unknown, errorCode: string) => {
+    await finishTrace({ result: 'failed', errorCode });
+    return jsonResponse(status, payload, trace.clientAttemptId);
+  };
+
+  userId = await trace.measure('auth_ms', () => getUserIdFromRequest(req));
+  if (!userId) {
+    return failureResponse(401, { error: 'Unauthorized' }, 'unauthorized');
+  }
+
   try {
     body = (await req.json()) as CreateCatchRequest;
+    trace.setClientAttemptId(normalizeClientAttemptId(body.client_attempt_id));
+    method = normalizeCatchMethod(body.method);
   } catch {
-    return jsonResponse(400, { error: 'Invalid JSON payload' });
+    return failureResponse(400, { error: 'Invalid JSON payload' }, 'invalid_json');
   }
 
-  if (!body.fursuit_id) {
-    return jsonResponse(400, { error: 'Missing fursuit_id' });
+  const catchPhotoSource = normalizeCatchPhotoSource(body.catch_photo_source);
+  const photoUploadState = normalizeCreatePhotoUploadState(body.photo_upload_state);
+  const reciprocalFursuitId = normalizeUuidLike(body.reciprocal_fursuit_id);
+
+  if (body.reciprocal_fursuit_id && !reciprocalFursuitId) {
+    return failureResponse(
+      400,
+      { error: 'Invalid back-tag fursuit.' },
+      'invalid_reciprocal_fursuit_id',
+    );
+  }
+
+  if (body.catch_photo_source && !catchPhotoSource) {
+    return failureResponse(400, { error: 'Invalid catch_photo_source' }, 'invalid_photo_source');
+  }
+
+  if (body.photo_upload_state && !photoUploadState) {
+    return failureResponse(
+      400,
+      { error: 'Invalid photo_upload_state' },
+      'invalid_photo_upload_state',
+    );
   }
 
   if (body.has_photo === true && !body.catch_photo_url) {
-    return jsonResponse(400, { error: 'Missing catch_photo_url' });
+    if (photoUploadState !== 'pending_upload' || !catchPhotoSource) {
+      return failureResponse(400, { error: 'Missing catch_photo_url' }, 'missing_photo_url');
+    }
+  }
+
+  if (body.catch_photo_url && photoUploadState === 'pending_upload') {
+    return failureResponse(
+      400,
+      { error: 'Pending uploads cannot include catch_photo_url' },
+      'pending_upload_with_photo_url',
+    );
+  }
+
+  if (catchPhotoSource === 'gallery' && !body.has_photo) {
+    return failureResponse(
+      400,
+      { error: 'Gallery catches require a photo' },
+      'gallery_photo_required',
+    );
   }
 
   try {
-    // Check if catcher and fursuit owner have blocked each other
-    const { data: fursuitRow } = await supabaseAdmin
-      .from('fursuits')
-      .select('owner_id')
-      .eq('id', body.fursuit_id)
-      .single();
+    if (!body.fursuit_id && method === 'code') {
+      const fursuitCode = normalizeFursuitCode(body.fursuit_code);
 
-    if (fursuitRow?.owner_id) {
-      const { data: blocked } = await supabaseAdmin.rpc('is_blocked', {
-        p_user_a: userId,
-        p_user_b: fursuitRow.owner_id,
+      if (!fursuitCode) {
+        return failureResponse(400, { error: 'Missing fursuit_code' }, 'missing_fursuit_code');
+      }
+
+      const { data: fursuitByCode, error: fursuitByCodeError } = await trace.measure(
+        'metadata_ms',
+        () =>
+          supabaseAdmin
+            .from('fursuits')
+            .select('id')
+            .ilike('unique_code', fursuitCode)
+            .eq('is_tutorial', false)
+            .maybeSingle(),
+      );
+
+      if (fursuitByCodeError) {
+        console.error('[create-catch] Code lookup error:', fursuitByCodeError);
+        return failureResponse(
+          500,
+          { error: 'Failed to resolve fursuit code' },
+          'code_lookup_failed',
+        );
+      }
+
+      if (!fursuitByCode?.id) {
+        return failureResponse(404, { error: 'Fursuit not found' }, 'fursuit_not_found');
+      }
+
+      body.fursuit_id = fursuitByCode.id;
+    }
+
+    if (!body.fursuit_id) {
+      return failureResponse(400, { error: 'Missing fursuit_id' }, 'missing_fursuit_id');
+    }
+
+    const fursuitBoundaryRow = await trace.measure('metadata_ms', async () => {
+      const { data: fursuitRow, error: fursuitError } = await supabaseAdmin
+        .from('fursuits')
+        .select('owner_id')
+        .eq('id', body.fursuit_id)
+        .maybeSingle();
+
+      if (fursuitError) {
+        throw fursuitError;
+      }
+
+      return fursuitRow;
+    });
+
+    if (!fursuitBoundaryRow?.owner_id) {
+      return failureResponse(404, { error: 'Fursuit not found' }, 'fursuit_not_found');
+    }
+
+    if (fursuitBoundaryRow.owner_id === userId) {
+      return failureResponse(400, { error: 'Cannot catch your own fursuit' }, 'self_catch');
+    }
+
+    const { data: canCatchFursuit, error: canCatchFursuitError } = await trace.measure(
+      'metadata_ms',
+      () =>
+        supabaseAdmin.rpc('can_catch_fursuit_as_profile', {
+          p_catcher_id: userId,
+          p_fursuit_id: body.fursuit_id,
+        }),
+    );
+
+    if (canCatchFursuitError) {
+      console.error('[create-catch] Adult boundary lookup error:', canCatchFursuitError);
+      return failureResponse(
+        500,
+        { error: 'Failed to verify fursuit availability' },
+        'adult_boundary_lookup_failed',
+      );
+    }
+
+    if (canCatchFursuit !== true) {
+      return failureResponse(
+        404,
+        { error: 'This fursuit is not available to your account.' },
+        'adult_boundary_restricted',
+      );
+    }
+
+    if (!body.convention_id && method === 'code') {
+      const { data: sharedConventionRows, error: sharedConventionError } = await trace.measure(
+        'metadata_ms',
+        () =>
+          supabaseAdmin.rpc('get_active_shared_convention_ids', {
+            p_profile_id: userId,
+            p_fursuit_id: body.fursuit_id,
+          }),
+      );
+
+      if (sharedConventionError) {
+        console.error('[create-catch] Shared convention lookup error:', sharedConventionError);
+        return failureResponse(
+          500,
+          { error: 'Failed to resolve shared convention' },
+          'shared_convention_lookup_failed',
+        );
+      }
+
+      const sharedConventionId = Array.isArray(sharedConventionRows)
+        ? sharedConventionRows[0]?.convention_id
+        : null;
+
+      if (!sharedConventionId) {
+        return failureResponse(
+          400,
+          {
+            error:
+              'You and this fursuit must share a playable convention, and the fursuit must be assigned to that convention before catching.',
+          },
+          'shared_convention_required',
+        );
+      }
+
+      body.convention_id = sharedConventionId;
+    }
+
+    if (reciprocalFursuitId) {
+      const reciprocalValidation = await validateReciprocalOfferRequest({
+        offeredByProfileId: userId,
+        recipientProfileId: fursuitBoundaryRow.owner_id,
+        offeredFursuitId: reciprocalFursuitId,
+        conventionId: body.convention_id,
+        isGalleryCatch: catchPhotoSource === 'gallery',
       });
 
-      if (blocked === true) {
-        return jsonResponse(403, { error: 'Cannot catch this fursuit' });
+      if (!reciprocalValidation.ok) {
+        return failureResponse(
+          reciprocalValidation.status,
+          { error: reciprocalValidation.error },
+          reciprocalValidation.errorCode,
+        );
       }
     }
 
-    // Call the create_catch_with_approval function. The RPC reads the fursuit owner's
-    // profile-level catch mode preference.
-    const { data, error } = await supabaseAdmin.rpc('create_catch_with_approval', {
-      p_fursuit_id: body.fursuit_id,
-      p_catcher_id: userId,
-      p_convention_id: body.convention_id || null,
-      p_is_tutorial: body.is_tutorial || false,
-      p_force_pending: body.force_pending || false,
+    // Check if catcher and fursuit owner have blocked each other
+    const fursuitRow = await trace.measure('block_check_ms', async () => {
+      const { data: ownerRow } = await supabaseAdmin
+        .from('fursuits')
+        .select('owner_id')
+        .eq('id', body.fursuit_id)
+        .single();
+
+      if (ownerRow?.owner_id) {
+        const { data: blocked } = await supabaseAdmin.rpc('is_blocked', {
+          p_user_a: userId,
+          p_user_b: ownerRow.owner_id,
+        });
+
+        return { owner_id: ownerRow.owner_id, blocked };
+      }
+
+      return { owner_id: ownerRow?.owner_id ?? null, blocked: false };
     });
+
+    if (fursuitRow?.blocked === true) {
+      return failureResponse(403, { error: 'Cannot catch this fursuit' }, 'blocked_user');
+    }
+
+    // The RPC performs catch validation, inserts the catch/photo fields, and durably
+    // enqueues the canonical gameplay event in one database transaction.
+    const { data, error } = await trace.measure('catch_insert_ms', () =>
+      supabaseAdmin.rpc('create_catch_with_event', {
+        p_fursuit_id: body.fursuit_id,
+        p_catcher_id: userId,
+        p_convention_id: body.convention_id || null,
+        p_is_tutorial: body.is_tutorial || false,
+        p_force_pending: body.force_pending || catchPhotoSource === 'gallery',
+        p_catch_photo_source: catchPhotoSource,
+        p_catch_photo_path: body.catch_photo_path ?? null,
+        p_catch_photo_url: body.catch_photo_url ?? null,
+        p_client_attempt_id: trace.clientAttemptId ?? null,
+        p_photo_upload_state: photoUploadState,
+      }),
+    );
 
     if (error) {
       // Handle specific error cases
       if (error.message?.includes('Cannot catch your own fursuit')) {
-        return jsonResponse(400, { error: 'Cannot catch your own fursuit' });
+        return failureResponse(400, { error: 'Cannot catch your own fursuit' }, 'self_catch');
+      }
+      if (error.message?.includes('Adult boundary restricted catch')) {
+        return failureResponse(
+          404,
+          { error: 'This fursuit is not available to your account.' },
+          'adult_boundary_restricted',
+        );
       }
       if (error.message?.includes('already caught')) {
-        return jsonResponse(400, { error: 'Fursuit already caught at this convention' });
+        return failureResponse(
+          400,
+          { error: 'Fursuit already caught at this convention' },
+          'already_caught',
+        );
       }
       if (error.message?.includes('Convention is not live')) {
-        return jsonResponse(400, { error: 'Convention is not live' });
+        return failureResponse(400, { error: 'Convention is not live' }, 'convention_not_live');
+      }
+      if (error.message?.includes('Convention is not accepting gallery catches')) {
+        return failureResponse(
+          400,
+          { error: 'Convention is not accepting gallery catches' },
+          'gallery_closed',
+        );
       }
       if (
         error.message?.includes('Catcher must join the live convention') ||
+        error.message?.includes('Catcher must have a playable convention') ||
         error.message?.includes('Fursuit owner must join the live convention') ||
+        error.message?.includes('Fursuit owner must have a playable convention') ||
         error.message?.includes('Fursuit must be assigned to the live convention')
       ) {
-        return jsonResponse(400, {
-          error:
-            'You and this fursuit must share a playable convention, and the fursuit must be assigned to that convention before catching.',
-        });
+        return failureResponse(
+          400,
+          {
+            error:
+              'You and this fursuit must share a playable convention, and the fursuit must be assigned to that convention before catching.',
+          },
+          'shared_convention_required',
+        );
       }
       if (error.message?.includes('not found')) {
-        return jsonResponse(404, { error: 'Fursuit not found' });
+        return failureResponse(404, { error: 'Fursuit not found' }, 'fursuit_not_found');
       }
 
       console.error('[create-catch] RPC error:', error);
-      return jsonResponse(500, { error: 'Failed to create catch' });
+      return failureResponse(500, { error: 'Failed to create catch' }, 'catch_insert_failed');
     }
 
     const result = data as CreateCatchResponse;
-    const resolvedConventionId = await resolveCreatedCatchConventionId(
-      result,
-      body.convention_id ?? null,
-    );
+    catchId = result.catch_id;
+    resolvedConventionId = result.convention_id ?? body.convention_id ?? null;
 
-    if (body.has_photo === true) {
-      const { error: photoUpdateError } = await supabaseAdmin
-        .from('catches')
-        .update({
-          catch_photo_path: body.catch_photo_path ?? null,
-          catch_photo_url: body.catch_photo_url,
-        })
-        .eq('id', result.catch_id);
+    if (reciprocalFursuitId) {
+      const { data: reciprocalOffer, error: reciprocalOfferError } = await trace.measure(
+        'metadata_ms',
+        () =>
+          supabaseAdmin.rpc('create_catch_reciprocal_offer', {
+            p_primary_catch_id: result.catch_id,
+            p_offered_fursuit_id: reciprocalFursuitId,
+            p_offered_by_profile_id: userId,
+          }),
+      );
 
-      if (photoUpdateError) {
-        await supabaseAdmin.from('catches').delete().eq('id', result.catch_id);
-        console.error(
-          '[create-catch] Failed to attach photo during catch creation:',
-          photoUpdateError,
-        );
-        return jsonResponse(500, { error: 'Failed to attach photo to catch' });
+      if (reciprocalOfferError) {
+        console.error('[create-catch] Reciprocal offer error:', reciprocalOfferError);
+        result.reciprocal_offer = {
+          status: 'FAILED',
+          failure_reason: reciprocalOfferError.message ?? 'Failed to create back-tag offer',
+          event_enqueued: false,
+          offered_fursuit_id: reciprocalFursuitId,
+        };
+      } else {
+        result.reciprocal_offer =
+          (reciprocalOffer as CreateCatchResponse['reciprocal_offer']) ?? null;
       }
     }
 
-    // Fetch fursuit metadata (species + colors) for enriching the event payload.
-    // Also fetch fursuit name + catcher username for owner-facing notifications.
-    // These run in parallel so we don't add latency.
-    let speciesName: string | null = null;
-    let colorNames: string[] = [];
-    let makerMetadata: FursuitMakerMetadata = {
-      makerNames: [],
-      normalizedMakerNames: [],
-      hasSelfMadeMaker: false,
-    };
-    let hasMakerMatchWithCatcherOwnedSuit = false;
-    let isNewMakerForCatcherAtConvention = false;
-    const shouldNotifyPendingCatch = result.requires_approval;
-    const shouldNotifyAcceptedCatch = !result.requires_approval && !body.is_tutorial;
-
-    try {
-      const fursuitPromise = (async () =>
-        await supabaseAdmin
-          .from('fursuits')
-          .select('name, species:fursuit_species(name)')
-          .eq('id', body.fursuit_id)
-          .single())();
-      const colorsPromise = (async () =>
-        await supabaseAdmin
-          .from('fursuit_color_assignments')
-          .select('color:fursuit_colors(name)')
-          .eq('fursuit_id', body.fursuit_id)
-          .order('position', { ascending: true }))();
-      const makersPromise = fetchFursuitMakerMetadata(body.fursuit_id);
-      const catcherPromise =
-        shouldNotifyPendingCatch || shouldNotifyAcceptedCatch
-          ? (async () =>
-              await supabaseAdmin.from('profiles').select('username').eq('id', userId).single())()
-          : Promise.resolve(undefined);
-
-      const [fursuitResult, colorsResult, makerResult, catcherResult] = await Promise.all([
-        fursuitPromise,
-        colorsPromise,
-        makersPromise,
-        catcherPromise,
-      ]);
-
-      const speciesRow = Array.isArray(fursuitResult.data?.species)
-        ? fursuitResult.data?.species[0]
-        : fursuitResult.data?.species;
-
-      speciesName = speciesRow?.name ?? null;
-      colorNames = (colorsResult.data ?? [])
-        .map((row) => {
-          const colorRow = Array.isArray(row.color) ? row.color[0] : row.color;
-          return colorRow?.name;
-        })
-        .filter((name): name is string => !!name);
-      makerMetadata = makerResult;
-      const [makerMatch, hasNewMaker] = await Promise.all([
-        hasCatcherOwnedMakerMatch(userId, makerMetadata.normalizedMakerNames),
-        hasNewMakerForCatcherAtConvention({
-          catcherId: userId,
-          conventionId: resolvedConventionId,
-          catchId: result.catch_id,
-          normalizedMakerNames: makerMetadata.normalizedMakerNames,
-        }),
-      ]);
-      hasMakerMatchWithCatcherOwnedSuit = makerMatch;
-      isNewMakerForCatcherAtConvention = hasNewMaker;
-
-      if (shouldNotifyPendingCatch && fursuitResult.data && catcherResult?.data) {
-        const { error: notifError } = await supabaseAdmin.rpc('notify_catch_pending', {
-          p_catch_id: result.catch_id,
-          p_fursuit_owner_id: result.fursuit_owner_id,
-          p_catcher_id: userId,
-          p_fursuit_name: fursuitResult.data.name,
-          p_catcher_username: catcherResult.data.username || 'Someone',
-        });
-
-        if (notifError) {
-          console.error('[create-catch] Failed to send notification:', notifError);
-        }
-      }
-
-      if (shouldNotifyAcceptedCatch && fursuitResult.data && catcherResult?.data) {
-        const { error: notifError } = await supabaseAdmin.from('notifications').insert({
-          user_id: result.fursuit_owner_id,
-          type: 'fursuit_caught',
-          payload: {
-            catch_id: result.catch_id,
-            catcher_id: userId,
-            fursuit_id: body.fursuit_id,
-            fursuit_name: fursuitResult.data.name,
-            catcher_username: catcherResult.data.username || 'Someone',
-            convention_id: resolvedConventionId,
-          },
-        });
-
-        if (notifError) {
-          console.error('[create-catch] Failed to send accepted catch notification:', notifError);
-        }
-      }
-    } catch (metadataError) {
-      console.error('[create-catch] Metadata/notification error:', metadataError);
-      // Don't fail the catch creation if metadata fetch fails
+    if (result.event_enqueued === true && result.event_duplicate !== true) {
+      scheduleQueueWakeup();
     }
 
-    // Persist the canonical gameplay event before returning.
-    const eventType = result.requires_approval ? 'catch_pending' : 'catch_performed';
-    const ingestResult = await ingestGameplayEvent(supabaseAdmin, {
-      type: eventType,
-      userId,
-      conventionId: resolvedConventionId,
-      payload: {
-        catch_id: result.catch_id,
-        fursuit_id: body.fursuit_id,
-        catcher_id: userId,
-        fursuit_owner_id: result.fursuit_owner_id,
-        convention_id: resolvedConventionId,
-        is_tutorial: body.is_tutorial ?? false,
-        status: result.status,
-        species: speciesName,
-        colors: colorNames,
-        maker_names: makerMetadata.makerNames,
-        normalized_maker_names: makerMetadata.normalizedMakerNames,
-        has_maker: makerMetadata.normalizedMakerNames.length > 0,
-        is_self_made: makerMetadata.hasSelfMadeMaker,
-        has_catcher_owned_maker_match: hasMakerMatchWithCatcherOwnedSuit,
-        is_new_maker_for_catcher_at_convention: isNewMakerForCatcherAtConvention,
-      },
-      occurredAt: new Date().toISOString(),
-      idempotencyKey: `catch:${result.catch_id}:${eventType}`,
-    });
-
-    const queueConfig = await loadGameplayQueueConfig(supabaseAdmin);
-    let inlineAwards: unknown[] = [];
-    let processedInline = false;
-
-    if (
-      !ingestResult.duplicate &&
-      queueConfig.inlineProcessingEnabled &&
-      eventType === 'catch_performed'
-    ) {
-      try {
-        const inlineResult = await processEventInline(ingestResult.eventId);
-        processedInline = inlineResult.processed;
-        inlineAwards = inlineResult.awards;
-      } catch (inlineError) {
-        console.error(
-          '[create-catch] Inline gameplay processing failed; falling back to queue wakeup',
-          {
-            eventId: ingestResult.eventId,
-            error: inlineError,
-          },
-        );
-      }
+    if (result.reciprocal_offer?.event_enqueued === true) {
+      scheduleQueueWakeup();
     }
 
-    if (ingestResult.enqueued && !ingestResult.duplicate && !processedInline) {
-      if (queueConfig.queueEnabled && queueConfig.wakeupEnabled) {
-        scheduleGameplayQueueDrain({
-          supabaseUrl: resolvedSupabaseUrl,
-          serviceRoleKey: resolvedServiceRoleKey,
-          maxMessages: queueConfig.wakeupMaxMessages,
-          maxDurationMs: queueConfig.wakeupMaxDurationMs,
-        });
-      }
-    }
+    await finishTrace({ result: result.requires_approval ? 'pending_approval' : 'success' });
 
-    return jsonResponse(201, {
-      ...result,
-      event_id: ingestResult.eventId,
-      awards: inlineAwards,
-      species: speciesName,
-      colors: colorNames,
-    });
+    return jsonResponse(201, result, trace.clientAttemptId);
   } catch (error) {
     console.error('[create-catch] Unexpected error:', error);
-    return jsonResponse(500, { error: 'Internal server error' });
+    await finishTrace({ result: 'failed', errorCode: 'internal_error' });
+    return jsonResponse(500, { error: 'Internal server error' }, trace.clientAttemptId);
   }
 }
 
@@ -645,14 +925,36 @@ async function handlePatch(req: Request): Promise<Response> {
     return jsonResponse(400, { error: 'Invalid JSON payload' });
   }
 
-  if (!body.catch_id || !body.catch_photo_url) {
-    return jsonResponse(400, { error: 'Missing catch_id or catch_photo_url' });
+  if (!body.catch_id) {
+    return jsonResponse(400, { error: 'Missing catch_id' });
+  }
+
+  const requestedPhotoUploadState = normalizePatchPhotoUploadState(body.photo_upload_state);
+
+  if (!requestedPhotoUploadState) {
+    return jsonResponse(400, { error: 'Invalid photo_upload_state' });
+  }
+
+  if (
+    requestedPhotoUploadState === 'uploaded' &&
+    (!body.catch_photo_path || !body.catch_photo_url)
+  ) {
+    return jsonResponse(400, { error: 'Missing catch_photo_path or catch_photo_url' });
   }
 
   // Verify the catch belongs to this user
   const { data: catchRow, error: fetchError } = await supabaseAdmin
     .from('catches')
-    .select('id, catcher_id')
+    .select(
+      `
+      id,
+      catcher_id,
+      catch_photo_path,
+      catch_photo_url,
+      catch_photo_source,
+      photo_upload_state
+    `,
+    )
     .eq('id', body.catch_id)
     .single();
 
@@ -660,81 +962,122 @@ async function handlePatch(req: Request): Promise<Response> {
     return jsonResponse(404, { error: 'Catch not found' });
   }
 
-  if ((catchRow as { catcher_id: string }).catcher_id !== userId) {
+  const normalizedCatchRow = catchRow as {
+    id: string;
+    catcher_id: string;
+    catch_photo_path: string | null;
+    catch_photo_url: string | null;
+    catch_photo_source: string | null;
+    photo_upload_state: string;
+  };
+
+  if (normalizedCatchRow.catcher_id !== userId) {
     return jsonResponse(403, { error: 'Forbidden' });
   }
 
-  const { error: updateError } = await supabaseAdmin
-    .from('catches')
-    .update({
-      catch_photo_path: body.catch_photo_path ?? null,
-      catch_photo_url: body.catch_photo_url,
-    })
-    .eq('id', body.catch_id);
+  if (requestedPhotoUploadState === 'failed') {
+    if (normalizedCatchRow.photo_upload_state === 'failed') {
+      return jsonResponse(200, { success: true, photo_upload_state: 'failed' });
+    }
 
-  if (updateError) {
-    console.error('[create-catch] Failed to update catch photo:', updateError);
-    return jsonResponse(500, { error: 'Failed to update catch photo' });
-  }
+    if (normalizedCatchRow.photo_upload_state === 'uploaded') {
+      return jsonResponse(200, {
+        success: true,
+        photo_upload_state: 'uploaded',
+        already_uploaded: true,
+        catch_photo_path: normalizedCatchRow.catch_photo_path,
+        catch_photo_url: normalizedCatchRow.catch_photo_url,
+      });
+    }
 
-  // Now that the photo URL is attached, notify the fursuit owner.
-  // We do this here (not in POST) so the owner sees the photo immediately on their card.
-  try {
-    const { data: catchCtx, error: catchCtxError } = await supabaseAdmin
+    if (normalizedCatchRow.photo_upload_state !== 'pending_upload') {
+      return jsonResponse(409, { error: 'Catch photo upload is not pending' });
+    }
+
+    const { data: updatedRows, error: updateError } = await supabaseAdmin
       .from('catches')
-      .select(
-        'catcher_id, fursuit_id, status, fursuits!catches_fursuit_id_fkey(owner_id, name), profiles!catches_catcher_id_fkey(username)',
-      )
+      .update({ photo_upload_state: 'failed' })
       .eq('id', body.catch_id)
-      .single();
+      .eq('catcher_id', userId)
+      .eq('photo_upload_state', 'pending_upload')
+      .select('photo_upload_state');
 
-    if (catchCtxError) {
-      throw catchCtxError;
+    if (updateError) {
+      console.error('[create-catch] Failed to mark catch photo failed:', updateError);
+      return jsonResponse(500, { error: 'Failed to mark photo upload failed' });
     }
 
-    if (catchCtx) {
-      const fursuit = Array.isArray(catchCtx.fursuits) ? catchCtx.fursuits[0] : catchCtx.fursuits;
-      const profile = Array.isArray(catchCtx.profiles) ? catchCtx.profiles[0] : catchCtx.profiles;
-      const fursuitOwnerId = (fursuit as { owner_id: string } | null)?.owner_id;
-      const fursuitName = (fursuit as { name: string } | null)?.name ?? 'Unknown Fursuit';
-      const catcherUsername = (profile as { username: string } | null)?.username ?? 'Someone';
-      const catchStatus = (catchCtx as { status?: string }).status;
+    if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
+      const { data: currentCatchRow, error: currentCatchError } = await supabaseAdmin
+        .from('catches')
+        .select('photo_upload_state, catch_photo_path, catch_photo_url')
+        .eq('id', body.catch_id)
+        .eq('catcher_id', userId)
+        .maybeSingle();
 
-      if (fursuitOwnerId) {
-        const { error: notifError } =
-          catchStatus === 'PENDING'
-            ? await supabaseAdmin.rpc('notify_catch_pending', {
-                p_catch_id: body.catch_id,
-                p_fursuit_owner_id: fursuitOwnerId,
-                p_catcher_id: catchCtx.catcher_id,
-                p_fursuit_name: fursuitName,
-                p_catcher_username: catcherUsername,
-              })
-            : catchStatus === 'ACCEPTED'
-              ? await supabaseAdmin.from('notifications').insert({
-                  user_id: fursuitOwnerId,
-                  type: 'fursuit_caught',
-                  payload: {
-                    catch_id: body.catch_id,
-                    catcher_id: catchCtx.catcher_id,
-                    fursuit_id: catchCtx.fursuit_id,
-                    fursuit_name: fursuitName,
-                    catcher_username: catcherUsername,
-                  },
-                })
-              : { error: null };
-
-        if (notifError) {
-          console.error('[create-catch] Failed to send photo catch notification:', notifError);
-        }
+      if (currentCatchError) {
+        console.error(
+          '[create-catch] Failed to read current catch photo state:',
+          currentCatchError,
+        );
+        return jsonResponse(500, { error: 'Failed to verify photo upload state' });
       }
+
+      if (!currentCatchRow) {
+        return jsonResponse(404, { error: 'Catch not found' });
+      }
+
+      return jsonResponse(409, {
+        error: 'Catch photo upload state changed',
+        photo_upload_state: currentCatchRow.photo_upload_state,
+        catch_photo_path: currentCatchRow.catch_photo_path,
+        catch_photo_url: currentCatchRow.catch_photo_url,
+      });
     }
-  } catch (notifError) {
-    console.error('[create-catch] Error sending photo catch notification:', notifError);
-    // Don't fail the response — the photo was attached successfully
+
+    return jsonResponse(200, { success: true, photo_upload_state: 'failed' });
   }
 
-  return jsonResponse(200, { success: true });
+  const catchPhotoSource = normalizeCatchPhotoSource(body.catch_photo_source);
+
+  if (body.catch_photo_source && !catchPhotoSource) {
+    return jsonResponse(400, { error: 'Invalid catch_photo_source' });
+  }
+
+  if (normalizedCatchRow.photo_upload_state === 'uploaded') {
+    return jsonResponse(200, {
+      success: true,
+      photo_upload_state: 'uploaded',
+      already_uploaded: true,
+      catch_photo_path: normalizedCatchRow.catch_photo_path,
+      catch_photo_url: normalizedCatchRow.catch_photo_url,
+    });
+  } else if (
+    normalizedCatchRow.photo_upload_state !== 'pending_upload' &&
+    normalizedCatchRow.photo_upload_state !== 'failed'
+  ) {
+    return jsonResponse(409, { error: 'Catch photo upload is not pending' });
+  }
+
+  try {
+    await enqueuePendingCatchAfterPhotoUpload({
+      id: normalizedCatchRow.id,
+      catcher_id: normalizedCatchRow.catcher_id,
+      catch_photo_path: body.catch_photo_path!,
+      catch_photo_url: body.catch_photo_url!,
+      catch_photo_source: catchPhotoSource ?? normalizedCatchRow.catch_photo_source ?? 'camera',
+    });
+  } catch (error) {
+    console.error('[create-catch] Failed to enqueue pending catch after photo upload:', error);
+    return jsonResponse(500, { error: 'Failed to finalize catch photo' });
+  }
+
+  return jsonResponse(200, {
+    success: true,
+    photo_upload_state: 'uploaded',
+    catch_photo_path: body.catch_photo_path,
+    catch_photo_url: body.catch_photo_url,
+  });
 }
 
 Deno.serve(async (req) => {

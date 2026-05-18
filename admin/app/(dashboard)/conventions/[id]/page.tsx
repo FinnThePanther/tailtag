@@ -14,7 +14,7 @@ import {
   buildConventionLifecycleHealth,
   buildConventionReadiness,
 } from '@/lib/convention-lifecycle';
-import { isDevSupabaseProject } from '@/lib/env';
+import { isDevSupabaseProject, isRepairSupabaseProject } from '@/lib/env';
 import { requireAdminDataContext } from '@/lib/auth';
 
 export default async function ConventionDetail({
@@ -62,6 +62,7 @@ export default async function ConventionDetail({
         readiness={readiness}
         health={health}
         showDevDelete={isDevSupabaseProject()}
+        showSilentRepair={isRepairSupabaseProject()}
       />
 
       <Card
@@ -139,7 +140,7 @@ export default async function ConventionDetail({
             icon={<MapPin size={14} />}
             label="Verification"
           >
-            {convention.location_verification_required ? 'Required on opt-in' : 'Optional'}
+            {convention.location_verification_required ? 'Required for gameplay' : 'Optional'}
           </Info>
         </div>
       </Card>

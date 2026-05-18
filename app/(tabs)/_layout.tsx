@@ -8,11 +8,14 @@ import { colors } from '../../src/theme';
 import { TabBadge } from '../../src/components/TabBadge';
 import { TabNotificationDot } from '../../src/components/TabNotificationDot';
 import { usePendingCatches } from '../../src/features/catch-confirmations';
+import { useCatchOutbox } from '../../src/features/catch-outbox';
+import { useAuth } from '../../src/features/auth';
 import { useOtaUpdateCheck } from '../../src/hooks/useOtaUpdateCheck';
 
 type IconOptions = {
   isUpdateReady?: boolean;
   pendingCatchCount?: number;
+  outboxCount?: number;
 };
 
 const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => {
@@ -37,11 +40,14 @@ const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => 
       );
     case 'catch':
       return (
-        <Ionicons
-          name={focused ? 'scan' : 'scan-outline'}
-          size={22}
-          color={color}
-        />
+        <View>
+          <Ionicons
+            name={focused ? 'scan' : 'scan-outline'}
+            size={22}
+            color={color}
+          />
+          <TabBadge count={options?.outboxCount ?? 0} />
+        </View>
       );
     case 'suits':
       return (
@@ -77,9 +83,13 @@ const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => 
 };
 
 export default function TabsLayout() {
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
   const { isUpdateReady } = useOtaUpdateCheck();
   const { data: pendingCatches = [] } = usePendingCatches();
+  const { visibleItems: outboxItems } = useCatchOutbox(userId);
   const pendingCatchCount = pendingCatches.length;
+  const outboxCount = outboxItems.length;
   const insets = useSafeAreaInsets();
 
   return (
@@ -93,7 +103,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: 'rgba(203,213,225,0.8)',
         tabBarIcon: ({ focused }) =>
-          iconForRoute(route.name, focused, { isUpdateReady, pendingCatchCount }),
+          iconForRoute(route.name, focused, { isUpdateReady, pendingCatchCount, outboxCount }),
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',

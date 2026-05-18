@@ -13,24 +13,20 @@ import {
   registerPushToken,
   updatePushPreference,
 } from '../api/pushNotifications';
-import { getDeepLinkForNotificationType } from '../types';
+import { getDeepLinkForNotificationData } from '../types';
+import type { PushNotificationData } from '../types';
 import { getExpoProjectId } from '../utils';
 
 type PermissionStatus = 'undetermined' | 'granted' | 'denied';
 
-type NotificationData = {
-  type?: unknown;
-};
-
 const MAX_HANDLED_NOTIFICATION_IDS = 1000;
 
-function extractTypeFromNotification(response: Notifications.NotificationResponse | null) {
+function extractDataFromNotification(response: Notifications.NotificationResponse | null) {
   if (!response) {
     return null;
   }
 
-  const data = response.notification.request.content.data as NotificationData | undefined;
-  return data?.type ?? null;
+  return response.notification.request.content.data as PushNotificationData | undefined;
 }
 
 export function PushNotificationManager() {
@@ -110,8 +106,8 @@ export function PushNotificationManager() {
   }, []);
 
   const handleNavigation = useCallback(
-    (notificationType: unknown) => {
-      const route = getDeepLinkForNotificationType(notificationType);
+    (notificationData: PushNotificationData | null | undefined) => {
+      const route = getDeepLinkForNotificationData(notificationData);
       if (!route) {
         return;
       }
@@ -138,8 +134,8 @@ export function PushNotificationManager() {
       // Mark as handled (with LRU eviction)
       addHandledNotificationId(notificationId);
 
-      const notificationType = extractTypeFromNotification(response);
-      handleNavigation(notificationType);
+      const notificationData = extractDataFromNotification(response);
+      handleNavigation(notificationData);
     };
 
     const responseSubscription =
@@ -176,8 +172,8 @@ export function PushNotificationManager() {
         // Mark as handled (with LRU eviction)
         addHandledNotificationId(notificationId);
 
-        const notificationType = extractTypeFromNotification(response);
-        handleNavigation(notificationType);
+        const notificationData = extractDataFromNotification(response);
+        handleNavigation(notificationData);
       })
       .catch((error) => {
         if (!isMounted) {

@@ -1,6 +1,7 @@
 import type { ConventionSummary } from '../conventions';
 import type { FursuitColorOption } from '../colors';
 import type { FursuitSocialLink } from '../../types/database';
+import type { VisibilityAudience } from '@/features/adult-boundary';
 
 export type FursuitBio = {
   version: number;
@@ -27,6 +28,7 @@ export type FursuitConvention = ConventionSummary & {
 
 export type FursuitSummary = {
   id: string;
+  isRedacted?: boolean;
   owner_id?: string | null;
   name: string;
   species: string | null;
@@ -36,6 +38,7 @@ export type FursuitSummary = {
   avatar_url: string | null;
   description: string | null;
   unique_code: string | null;
+  visibility_audience: VisibilityAudience;
   catchCount: number;
   created_at: string | null;
   conventions: FursuitConvention[];

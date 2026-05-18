@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
-import type { MyPendingCatch } from '../types';
+import { normalizeCatchPhotoUploadState } from './confirmations';
+import type { CatchPhotoSource, MyPendingCatch } from '../types';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 
@@ -9,6 +10,10 @@ export const myPendingCatchesQueryKey = (userId: string) =>
   [MY_PENDING_CATCHES_QUERY_KEY, userId] as const;
 
 export const MY_PENDING_CATCHES_STALE_TIME = 15 * 1000; // 15 seconds
+
+function normalizeCatchPhotoSource(raw: unknown): CatchPhotoSource | null {
+  return raw === 'camera' || raw === 'gallery' ? raw : null;
+}
 
 /**
  * Fetch catches the current user made that are pending owner approval (catcher's view).
@@ -22,6 +27,8 @@ export async function fetchMyPendingCatches(userId: string): Promise<MyPendingCa
       id,
       caught_at,
       expires_at,
+      catch_photo_source,
+      photo_upload_state,
       convention_id,
       fursuit:fursuits (
         id,
@@ -60,6 +67,8 @@ export async function fetchMyPendingCatches(userId: string): Promise<MyPendingCa
       conventionName: convention?.name ?? 'Unknown Convention',
       caughtAt: row.caught_at ?? '',
       expiresAt: row.expires_at ?? null,
+      catchPhotoSource: normalizeCatchPhotoSource(row.catch_photo_source),
+      photoUploadState: normalizeCatchPhotoUploadState(row.photo_upload_state),
     } satisfies MyPendingCatch;
   });
 }

@@ -14,6 +14,12 @@ import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
+import {
+  CURRENT_AGE_GATE_VERSION,
+  profileNeedsAgeAttestation,
+  refreshAdultBoundaryCaches,
+  type VisibilityAudience,
+} from '../../src/features/adult-boundary';
 import { STAFF_MODE_ENABLED } from '../../src/constants/features';
 import {
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
@@ -111,6 +117,14 @@ const TERMS_URL = 'https://playtailtag.com/terms';
 const DELETE_ACCOUNT_URL = 'https://playtailtag.com/delete-account';
 const SUPPORT_EMAIL_URL = 'mailto:finn@finnthepanther.com';
 const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
+
+function ageAttestationLabel(profile: ProfileSummary | null) {
+  if (!profile || profileNeedsAgeAttestation(profile)) {
+    return 'Not confirmed';
+  }
+
+  return profile.is_adult ? '18 or older' : 'Under 18';
+}
 
 function conventionBadgeText(
   convention: ConventionSummary,
@@ -289,6 +303,8 @@ export default function SettingsScreen() {
   const [isSavingSocialLinks, setIsSavingSocialLinks] = useState(false);
   const [socialLinksError, setSocialLinksError] = useState<string | null>(null);
   const [socialLinksMessage, setSocialLinksMessage] = useState<string | null>(null);
+  const [profileVisibilityInput, setProfileVisibilityInput] =
+    useState<VisibilityAudience>('everyone');
   const [isSavingCatchMode, setIsSavingCatchMode] = useState(false);
   const [catchModeError, setCatchModeError] = useState<string | null>(null);
   const [catchModeMessage, setCatchModeMessage] = useState<string | null>(null);
@@ -373,8 +389,17 @@ export default function SettingsScreen() {
   const isDirty = useMemo(() => {
     const usernameChanged = normalizedCurrentUsername !== normalizedUsernameInput;
     const bioChanged = (profile?.bio ?? '') !== bioInput.trim();
-    return usernameChanged || bioChanged;
-  }, [bioInput, normalizedCurrentUsername, normalizedUsernameInput, profile?.bio]);
+    const profileVisibilityChanged =
+      (profile?.visibility_audience ?? 'everyone') !== profileVisibilityInput;
+    return usernameChanged || bioChanged || profileVisibilityChanged;
+  }, [
+    bioInput,
+    normalizedCurrentUsername,
+    normalizedUsernameInput,
+    profile?.bio,
+    profile?.visibility_audience,
+    profileVisibilityInput,
+  ]);
 
   const resetDraftFromProfile = useCallback(
     (summary: ProfileSummary | null, options: { resetMessages?: boolean } = {}) => {
@@ -383,6 +408,7 @@ export default function SettingsScreen() {
       const summaryUsername = normalizeUsernameInput(summary?.username ?? '');
       setUsernameInput(summaryUsername || normalizedSessionUsername);
       setBioInput(summary?.bio ?? '');
+      setProfileVisibilityInput(summary?.visibility_audience ?? 'everyone');
 
       if (resetMessages) {
         setSaveMessage(null);
@@ -649,6 +675,10 @@ export default function SettingsScreen() {
     () => STAFF_MODE_ENABLED && canUseStaffMode(profile?.role ?? null),
     [profile?.role],
   );
+  const profileVisibilityAudience = profileVisibilityInput;
+  const canUseAdultsOnlyProfileVisibility =
+    profile !== null && profile.is_adult === true && !profileNeedsAgeAttestation(profile);
+  const ageStatusLabel = ageAttestationLabel(profile);
   const isPushDenied = permissionStatus === 'denied';
   const canTogglePush = isPushSupported && !isPushRegistering;
   const isPushToggleOn = isPushSupported && permissionStatus === 'granted' && isPushEnabled;
@@ -749,6 +779,8 @@ export default function SettingsScreen() {
     const trimmedBio = bioInput.trim();
     const normalizedUsername = trimmedUsername.length > 0 ? trimmedUsername : null;
     const normalizedBio = trimmedBio.length > 0 ? trimmedBio : null;
+    const profileVisibilityChanged =
+      (profile?.visibility_audience ?? 'everyone') !== profileVisibilityInput;
 
     if (normalizedUsername) {
       const validation = validateUsername(normalizedUsername);
@@ -756,6 +788,11 @@ export default function SettingsScreen() {
         setSaveError(validation.message ?? 'Please enter a valid username.');
         return;
       }
+    }
+
+    if (profileVisibilityInput === 'adults_only' && !canUseAdultsOnlyProfileVisibility) {
+      setSaveError('Adult confirmation is required for adults-only visibility.');
+      return;
     }
 
     setIsSaving(true);
@@ -783,6 +820,7 @@ export default function SettingsScreen() {
           id: userId,
           username: normalizedUsername,
           bio: normalizedBio,
+          visibility_audience: profileVisibilityInput,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' },
@@ -803,6 +841,7 @@ export default function SettingsScreen() {
               ...current,
               username: normalizedUsername,
               bio: normalizedBio,
+              visibility_audience: profileVisibilityInput,
             }
           : {
               username: normalizedUsername,
@@ -810,6 +849,10 @@ export default function SettingsScreen() {
               avatar_path: null,
               avatar_url: null,
               social_links: [],
+              is_adult: null,
+              age_confirmed_at: null,
+              age_gate_version: CURRENT_AGE_GATE_VERSION,
+              visibility_audience: profileVisibilityInput,
               default_catch_mode: 'AUTO_ACCEPT',
               catch_mode_preference_source: 'system_default',
               is_new: false,
@@ -820,6 +863,10 @@ export default function SettingsScreen() {
       setBioInput(trimmedBio);
       setHasEditedDraft(false);
       setSaveMessage('Profile saved');
+
+      if (profileVisibilityChanged) {
+        await refreshAdultBoundaryCaches({ queryClient, userId });
+      }
 
       if (normalizedUsername && validateUsername(normalizedUsername).isValid) {
         void markUsernameReviewed();
@@ -857,6 +904,9 @@ export default function SettingsScreen() {
     usernameLookupInput,
     currentUsernameLookup,
     bioInput,
+    profile?.visibility_audience,
+    profileVisibilityInput,
+    canUseAdultsOnlyProfileVisibility,
     profile?.avatar_path,
     profile?.avatar_url,
     profileQueryKey,
@@ -1053,6 +1103,21 @@ export default function SettingsScreen() {
       setIsSavingSocialLinks(false);
     }
   }, [userId, isSavingSocialLinks, socialLinks, profileQueryKey, queryClient]);
+
+  const handleProfileVisibilityChange = useCallback(
+    (nextAudience: VisibilityAudience) => {
+      if (nextAudience === 'adults_only' && !canUseAdultsOnlyProfileVisibility) {
+        setSaveError('Adult confirmation is required for adults-only visibility.');
+        return;
+      }
+
+      setHasEditedDraft(true);
+      setProfileVisibilityInput(nextAudience);
+      setSaveMessage(null);
+      setSaveError(null);
+    },
+    [canUseAdultsOnlyProfileVisibility],
+  );
 
   const handleToggleProfileConvention = useCallback(
     async (
@@ -1617,6 +1682,104 @@ export default function SettingsScreen() {
               {catchModeError ? <Text style={styles.error}>{catchModeError}</Text> : null}
               {catchModeMessage ? <Text style={styles.success}>{catchModeMessage}</Text> : null}
             </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.sectionTitle}>Profile visibility</Text>
+              <Text style={styles.sectionDescription}>
+                Adults-only profiles are hidden from players who have not confirmed they are 18 or
+                older.
+              </Text>
+              <View style={styles.visibilityOptions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: profileVisibilityAudience === 'everyone',
+                    disabled: isSaving,
+                  }}
+                  disabled={isSaving}
+                  onPress={() => {
+                    handleProfileVisibilityChange('everyone');
+                  }}
+                  style={({ pressed }) => [
+                    styles.visibilityOption,
+                    profileVisibilityAudience === 'everyone' && styles.visibilityOptionSelected,
+                    pressed && styles.visibilityOptionPressed,
+                  ]}
+                >
+                  <View style={styles.visibilityOptionText}>
+                    <Text
+                      style={[
+                        styles.visibilityOptionTitle,
+                        profileVisibilityAudience === 'everyone' &&
+                          styles.visibilityOptionTitleSelected,
+                      ]}
+                    >
+                      Everyone
+                    </Text>
+                    <Text style={styles.visibilityOptionDescription}>
+                      Any signed-in player can view your profile.
+                    </Text>
+                  </View>
+                  {profileVisibilityAudience === 'everyone' ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={22}
+                      color={colors.primary}
+                    />
+                  ) : null}
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: profileVisibilityAudience === 'adults_only',
+                    disabled: isSaving || !canUseAdultsOnlyProfileVisibility,
+                  }}
+                  disabled={isSaving || !canUseAdultsOnlyProfileVisibility}
+                  onPress={() => {
+                    handleProfileVisibilityChange('adults_only');
+                  }}
+                  style={({ pressed }) => [
+                    styles.visibilityOption,
+                    profileVisibilityAudience === 'adults_only' && styles.visibilityOptionSelected,
+                    !canUseAdultsOnlyProfileVisibility && styles.visibilityOptionDisabled,
+                    pressed && styles.visibilityOptionPressed,
+                  ]}
+                >
+                  <View style={styles.visibilityOptionText}>
+                    <Text
+                      style={[
+                        styles.visibilityOptionTitle,
+                        profileVisibilityAudience === 'adults_only' &&
+                          styles.visibilityOptionTitleSelected,
+                        !canUseAdultsOnlyProfileVisibility && styles.visibilityOptionTitleDisabled,
+                      ]}
+                    >
+                      Adults only
+                    </Text>
+                    <Text
+                      style={[
+                        styles.visibilityOptionDescription,
+                        !canUseAdultsOnlyProfileVisibility &&
+                          styles.visibilityOptionDescriptionDisabled,
+                      ]}
+                    >
+                      Only players who have confirmed they are 18 or older can view your profile.
+                    </Text>
+                  </View>
+                  {profileVisibilityAudience === 'adults_only' ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={22}
+                      color={colors.primary}
+                    />
+                  ) : null}
+                </Pressable>
+              </View>
+              {!canUseAdultsOnlyProfileVisibility ? (
+                <Text style={styles.sectionHint}>
+                  Adult confirmation is required for adults-only visibility.
+                </Text>
+              ) : null}
+            </View>
             {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
             <TailTagButton
               onPress={handleSave}
@@ -1784,6 +1947,26 @@ export default function SettingsScreen() {
             style={styles.saveSocialLinksButton}
           >
             Save links
+          </TailTagButton>
+        </View>
+      </TailTagCard>
+
+      <TailTagCard>
+        <View style={styles.accountSection}>
+          <Text style={styles.sectionTitle}>Age attestation</Text>
+          <Text style={styles.sectionDescription}>
+            TailTag uses this to apply player-controlled visibility settings. It is not displayed on
+            your public profile and can only be changed by contacting support.
+          </Text>
+          <View style={styles.detailRow}>
+            <Text style={styles.sectionSubtitle}>Current status</Text>
+            <Text style={styles.detailValue}>{ageStatusLabel}</Text>
+          </View>
+          <TailTagButton
+            variant="outline"
+            onPress={() => void handleOpenExternalUrl(SUPPORT_EMAIL_URL)}
+          >
+            Contact Support
           </TailTagButton>
         </View>
       </TailTagCard>

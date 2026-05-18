@@ -26,6 +26,7 @@ npm install
   - `SUPABASE_SERVICE_ROLE_KEY` (server actions; never expose client-side)
   - `ADMIN_IS_DEV_PROJECT=true` only for the dev Supabase project when enabling dev-only destructive cleanup actions
   - `ADMIN_DEV_SUPABASE_PROJECT_REF` set to the expected dev Supabase project ref; dev-only cleanup stays disabled unless this matches `NEXT_PUBLIC_SUPABASE_URL`
+  - `ADMIN_REPAIR_SUPABASE_PROJECT_REFS` set to a comma-separated list of project refs where historical silent repair is approved, such as dev `rtxbvjicfxgcouufumce` and staging `yjsadmswobafychfpoxe`
 
 ## Running locally
 
@@ -46,6 +47,8 @@ App runs on http://localhost:3000. Login with a Supabase Auth user whose `profil
 ## Notes
 
 - Server actions use the service role; ensure env var is present before running.
+- Convention closeout lifecycle validation uses
+  [`../docs/runbooks/convention-closeout-lifecycle.md`](../docs/runbooks/convention-closeout-lifecycle.md).
 - CSV export currently limits to 2000 rows per request.
 - Mobile Staff Mode in the main app is gated by `EXPO_PUBLIC_STAFF_MODE_ENABLED` and roles.
 - Database types (`types/database.ts`) are copied from the main app. If schema changes, re-copy from `../src/types/database.ts`.

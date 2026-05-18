@@ -1,6 +1,6 @@
 // app/_layout.tsx
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useSegments, Stack, Redirect, useNavigationContainerRef, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -19,11 +19,13 @@ import { AuthProvider, useAuth, usePrimeUserData } from '../src/features/auth';
 import { NavigationReadyProvider, useSetNavigationReady } from '../src/hooks/useNavigationReady';
 import { OtaUpdateProvider } from '../src/hooks/useOtaUpdateCheck';
 import { createProfileQueryOptions } from '../src/features/profile';
+import { profileNeedsAgeAttestation } from '../src/features/adult-boundary';
 import { colors } from '../src/theme';
 import { ToastProvider } from '../src/hooks/useToast';
 import { DailyTaskToastManager } from '../src/features/daily-tasks/components/DailyTaskToastManager';
 import { AchievementToastManager } from '../src/features/achievements';
 import { CatchConfirmationToastManager } from '../src/features/catch-confirmations';
+import { CatchOutboxSyncManager } from '../src/features/catch-outbox';
 import { PushNotificationManager } from '../src/features/push-notifications';
 import {
   Sentry,
@@ -35,6 +37,7 @@ import {
 import { handleAuthError } from '../src/lib/authErrorHandler';
 import { SuspensionGate } from '../src/features/moderation';
 import { EnvironmentBanner } from '../src/components/EnvironmentBanner';
+import { TailTagButton } from '../src/components/ui/TailTagButton';
 import {
   completeRecoverySessionFromUrl,
   getCompletedRecoverySessionMarker,
@@ -62,6 +65,57 @@ function LoadingScreen() {
   );
 }
 
+function BlockingProfileError({
+  message,
+  onRetry,
+  isRetrying,
+}: {
+  message: string;
+  onRetry: () => void;
+  isRetrying: boolean;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+        padding: 24,
+        backgroundColor: colors.background,
+      }}
+    >
+      <Text
+        style={{
+          color: colors.foreground,
+          fontSize: 20,
+          fontWeight: '700',
+          textAlign: 'center',
+        }}
+      >
+        We could not load your profile
+      </Text>
+      <Text
+        style={{
+          color: colors.textMuted,
+          fontSize: 14,
+          lineHeight: 20,
+          textAlign: 'center',
+        }}
+      >
+        {message}
+      </Text>
+      <TailTagButton
+        variant="outline"
+        onPress={onRetry}
+        loading={isRetrying}
+      >
+        Try again
+      </TailTagButton>
+    </View>
+  );
+}
+
 /**
  * Auth-aware root layout:
  * - Uses <Redirect /> for gating (replaces history cleanly).
@@ -76,6 +130,7 @@ function RootLayoutNav() {
   const inAuthGroup = firstSegment === '(auth)';
   const inAuthCallbackFlow = firstSegment === 'auth' && secondSegment === 'callback';
   const inOnboardingFlow = firstSegment === 'onboarding';
+  const inAgeGateFlow = firstSegment === 'age-gate';
   const inResetPasswordFlow = firstSegment === 'reset-password';
   const inPublicAuthFlow = inAuthGroup || inAuthCallbackFlow || inResetPasswordFlow;
   const userId = session?.user.id ?? null;
@@ -88,6 +143,7 @@ function RootLayoutNav() {
     isLoading: isProfileLoading,
     isFetching: isProfileFetching,
     error: profileError,
+    refetch: refetchProfile,
   } = useQuery({
     ...createProfileQueryOptions(userId ?? ''),
     enabled: Boolean(userId),
@@ -97,10 +153,17 @@ function RootLayoutNav() {
   usePrimeUserData(session?.user.id ?? null);
 
   const hasCompletedOnboarding = profile?.onboarding_completed === true;
+  const hasProfileBlockingError = Boolean(session) && Boolean(profileError);
+  const shouldGateAgeAttestation =
+    Boolean(session) &&
+    !hasProfileBlockingError &&
+    profile !== null &&
+    profileNeedsAgeAttestation(profile);
   const shouldGateOnboarding =
     Boolean(session) &&
-    !profileError &&
+    !hasProfileBlockingError &&
     profile !== null && // Explicit null check - don't gate while loading
+    !shouldGateAgeAttestation &&
     (profile?.is_new === true || !hasCompletedOnboarding);
 
   const shouldShowOnboardingRedirectLoading =
@@ -110,21 +173,46 @@ function RootLayoutNav() {
     !inOnboardingFlow &&
     (isProfileLoading || isProfileFetching) &&
     !profile &&
-    !profileError;
+    !hasProfileBlockingError;
+
+  const shouldShowAgeGateRedirectLoading =
+    !inResetPasswordFlow &&
+    Boolean(session) &&
+    !inAgeGateFlow &&
+    (isProfileLoading || isProfileFetching) &&
+    !profile &&
+    !hasProfileBlockingError;
 
   const shouldResolvePostAuthDestination =
     Boolean(session) &&
     inAuthGroup &&
-    !profileError &&
+    !hasProfileBlockingError &&
     !profile &&
     (isProfileLoading || isProfileFetching);
 
-  let redirectHref: '/' | '/auth' | '/onboarding' | null = null;
+  let redirectHref: '/' | '/auth' | '/onboarding' | '/age-gate' | null = null;
 
   if (!session && !inPublicAuthFlow) {
     redirectHref = '/auth';
-  } else if (session && inAuthGroup && !shouldResolvePostAuthDestination) {
-    redirectHref = shouldGateOnboarding ? '/onboarding' : '/';
+  } else if (
+    !inResetPasswordFlow &&
+    session &&
+    shouldGateAgeAttestation &&
+    !inAgeGateFlow &&
+    !inAuthGroup
+  ) {
+    redirectHref = '/age-gate';
+  } else if (
+    session &&
+    inAuthGroup &&
+    !hasProfileBlockingError &&
+    !shouldResolvePostAuthDestination
+  ) {
+    redirectHref = shouldGateAgeAttestation
+      ? '/age-gate'
+      : shouldGateOnboarding
+        ? '/onboarding'
+        : '/';
   } else if (
     !inResetPasswordFlow &&
     session &&
@@ -135,6 +223,14 @@ function RootLayoutNav() {
     redirectHref = '/onboarding';
   } else if (
     session &&
+    inAgeGateFlow &&
+    !shouldGateAgeAttestation &&
+    !isProfileLoading &&
+    !isProfileFetching
+  ) {
+    redirectHref = shouldGateOnboarding ? '/onboarding' : '/';
+  } else if (
+    session &&
     inOnboardingFlow &&
     hasCompletedOnboarding &&
     !isProfileLoading &&
@@ -143,23 +239,50 @@ function RootLayoutNav() {
     redirectHref = '/';
   }
 
-  const shouldShowLoadingScreen = status === 'loading' || shouldShowOnboardingRedirectLoading;
+  const shouldShowLoadingScreen =
+    status === 'loading' || shouldShowOnboardingRedirectLoading || shouldShowAgeGateRedirectLoading;
 
   useEffect(() => {
+    if (hasProfileBlockingError && !inResetPasswordFlow) {
+      return;
+    }
+
     if (shouldShowLoadingScreen || redirectHref) {
       return;
     }
 
     setNavigationReady();
-  }, [redirectHref, setNavigationReady, shouldShowLoadingScreen]);
+  }, [
+    hasProfileBlockingError,
+    inResetPasswordFlow,
+    redirectHref,
+    setNavigationReady,
+    shouldShowLoadingScreen,
+  ]);
 
   useEffect(() => {
-    if (!session || !inAuthGroup || shouldResolvePostAuthDestination) {
+    if (
+      !session ||
+      !inAuthGroup ||
+      shouldResolvePostAuthDestination ||
+      (hasProfileBlockingError && !inResetPasswordFlow)
+    ) {
       return;
     }
 
-    router.replace(shouldGateOnboarding ? '/onboarding' : '/');
-  }, [inAuthGroup, router, session, shouldGateOnboarding, shouldResolvePostAuthDestination]);
+    router.replace(
+      shouldGateAgeAttestation ? '/age-gate' : shouldGateOnboarding ? '/onboarding' : '/',
+    );
+  }, [
+    inAuthGroup,
+    router,
+    session,
+    hasProfileBlockingError,
+    inResetPasswordFlow,
+    shouldGateAgeAttestation,
+    shouldGateOnboarding,
+    shouldResolvePostAuthDestination,
+  ]);
 
   useEffect(() => {
     if (status === 'loading') {
@@ -264,10 +387,40 @@ function RootLayoutNav() {
     return <Redirect href="/auth" />;
   }
 
+  if (session && profileError && !inResetPasswordFlow) {
+    return (
+      <BlockingProfileError
+        message={profileError.message}
+        onRetry={() => {
+          void refetchProfile();
+        }}
+        isRetrying={isProfileFetching}
+      />
+    );
+  }
+
   // Don't redirect mid-flow during password reset — the recovery session
   // makes the user appear authenticated, but they need to stay on this screen.
   if (inResetPasswordFlow) {
     // Fall through to normal Stack rendering below
+  } else if (session && shouldGateAgeAttestation && !inAgeGateFlow && !inAuthGroup) {
+    if (shouldShowAgeGateRedirectLoading) {
+      return <LoadingScreen />;
+    }
+
+    addMonitoringBreadcrumb({
+      category: 'routing',
+      message: 'Redirecting to age gate',
+      data: {
+        userId,
+        profileIsAdult: profile?.is_adult,
+        profileAgeGateVersion: profile?.age_gate_version,
+        isProfileLoading,
+        isProfileFetching,
+      },
+    });
+
+    return <Redirect href="/age-gate" />;
   } else if (session && shouldGateOnboarding && !inOnboardingFlow && !inAuthGroup) {
     if (shouldShowOnboardingRedirectLoading) {
       return <LoadingScreen />;
@@ -287,6 +440,16 @@ function RootLayoutNav() {
     });
 
     return <Redirect href="/onboarding" />;
+  }
+
+  if (
+    session &&
+    inAgeGateFlow &&
+    !shouldGateAgeAttestation &&
+    !isProfileLoading &&
+    !isProfileFetching
+  ) {
+    return <Redirect href={shouldGateOnboarding ? '/onboarding' : '/'} />;
   }
 
   if (
@@ -341,6 +504,12 @@ function RootLayoutNav() {
       {/* Onboarding - no header (custom multi-step wizard) */}
       <Stack.Screen
         name="onboarding/index"
+        options={{ headerShown: false }}
+      />
+
+      {/* Age attestation gate - no header */}
+      <Stack.Screen
+        name="age-gate"
         options={{ headerShown: false }}
       />
 
@@ -527,6 +696,7 @@ function Layout() {
                     <AchievementToastManager />
                     <DailyTaskToastManager />
                     <CatchConfirmationToastManager />
+                    <CatchOutboxSyncManager />
                     <RootLayoutNav />
                   </OtaUpdateProvider>
                 </ToastProvider>
