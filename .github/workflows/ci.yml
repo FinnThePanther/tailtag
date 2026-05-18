@@ -50,15 +50,16 @@ jobs:
       - name: Validate mobile app
         run: npm run ci:validate
 
-      - name: Install admin-v2 dependencies
+      - name: Install admin dependencies
         run: npm ci
-        working-directory: admin-v2
+        working-directory: admin
 
-      - name: Validate admin-v2
-        working-directory: admin-v2
+      - name: Validate admin dashboard
+        working-directory: admin
         run: |
           npm run lint
           npm run typecheck
+          npm run test:security
           npm run build
 
       - name: Validate migration files

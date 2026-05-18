@@ -380,81 +380,65 @@ describe('Checked In achievement hardening', () => {
   });
 
   it('prevents admin gameplay packs from creating convention-scoped Checked In achievements', () => {
-    for (const path of [
-      'admin/lib/convention-gameplay-pack.ts',
-      'admin-v2/src/lib/server/convention-gameplay-pack.ts',
-    ]) {
-      const source = read(path);
+    const path = 'admin/lib/convention-gameplay-pack.ts';
+    const source = read(path);
 
-      assert.doesNotMatch(
-        source,
-        /keySuffix\s*:\s*["']CHECKED_IN["']/,
-        `${path} must not seed Checked In`,
-      );
-      assert.match(
-        source,
-        /isCheckedInAchievementIdentity/,
-        `${path} must identify catalog clones`,
-      );
-      assert.match(source, /triggerEvent\s*:\s*catalogAchievement\s*\.\s*trigger_event/);
-      assert.match(source, /continue;/, `${path} must skip Checked In catalog clones`);
-    }
+    assert.doesNotMatch(
+      source,
+      /keySuffix\s*:\s*["']CHECKED_IN["']/,
+      `${path} must not seed Checked In`,
+    );
+    assert.match(source, /isCheckedInAchievementIdentity/, `${path} must identify catalog clones`);
+    assert.match(source, /triggerEvent\s*:\s*catalogAchievement\s*\.\s*trigger_event/);
+    assert.match(source, /continue;/, `${path} must skip Checked In catalog clones`);
   });
 
-  it('blocks Checked In-style convention achievements in both admin write surfaces', () => {
-    for (const path of [
-      'admin/app/(dashboard)/conventions/actions.ts',
-      'admin-v2/src/lib/server/actions/conventions.ts',
-    ]) {
-      const source = read(path);
+  it('blocks Checked In-style convention achievements in the admin write surface', () => {
+    const path = 'admin/app/(dashboard)/conventions/actions.ts';
+    const source = read(path);
 
-      assert.match(source, /assertNotCheckedInConventionAchievement/);
-      assert.ok(
-        countMatches(source, /assertNotCheckedInConventionAchievement\s*\(/g) >= 3,
-        `${path} must guard create, reactivate, and active update paths`,
-      );
-      assert.match(source, /\.select\s*\(\s*["']key\s*,\s*name\s*,\s*trigger_event["']\s*\)/);
-      assert.match(source, /\.select\s*\(\s*["']key\s*,\s*is_active["']\s*\)/);
-    }
+    assert.match(source, /assertNotCheckedInConventionAchievement/);
+    assert.ok(
+      countMatches(source, /assertNotCheckedInConventionAchievement\s*\(/g) >= 3,
+      `${path} must guard create, reactivate, and active update paths`,
+    );
+    assert.match(source, /\.select\s*\(\s*["']key\s*,\s*name\s*,\s*trigger_event["']\s*\)/);
+    assert.match(source, /\.select\s*\(\s*["']key\s*,\s*is_active["']\s*\)/);
   });
 
-  it('classifies Checked In identities consistently across both admin apps', async () => {
-    for (const path of [
-      'admin/lib/achievement-identity.ts',
-      'admin-v2/src/lib/server/achievement-identity.ts',
-    ]) {
-      const { assertNotCheckedInConventionAchievement, isCheckedInAchievementIdentity } =
-        await importTypeScriptModule(path);
+  it('classifies Checked In identities in the admin app', async () => {
+    const path = 'admin/lib/achievement-identity.ts';
+    const { assertNotCheckedInConventionAchievement, isCheckedInAchievementIdentity } =
+      await importTypeScriptModule(path);
 
-      assert.equal(
-        isCheckedInAchievementIdentity({ key: 'CONVENTION_ALPHA_CHECKED_IN', name: 'Checked In' }),
-        true,
-      );
-      assert.equal(
-        isCheckedInAchievementIdentity({
-          key: 'EXPLORER',
-          name: 'Explorer',
-          triggerEvent: 'convention.checkin',
+    assert.equal(
+      isCheckedInAchievementIdentity({ key: 'CONVENTION_ALPHA_CHECKED_IN', name: 'Checked In' }),
+      true,
+    );
+    assert.equal(
+      isCheckedInAchievementIdentity({
+        key: 'EXPLORER',
+        name: 'Explorer',
+        triggerEvent: 'convention.checkin',
+      }),
+      true,
+    );
+    assert.equal(
+      isCheckedInAchievementIdentity({
+        key: 'CONVENTION_ALPHA_CROWD_FAVORITE',
+        name: 'Crowd Favorite',
+        triggerEvent: 'catch_performed',
+      }),
+      false,
+    );
+    assert.throws(
+      () =>
+        assertNotCheckedInConventionAchievement({
+          key: 'CONVENTION_ALPHA_CHECKIN',
+          name: 'Alpha Checkin',
         }),
-        true,
-      );
-      assert.equal(
-        isCheckedInAchievementIdentity({
-          key: 'CONVENTION_ALPHA_CROWD_FAVORITE',
-          name: 'Crowd Favorite',
-          triggerEvent: 'catch_performed',
-        }),
-        false,
-      );
-      assert.throws(
-        () =>
-          assertNotCheckedInConventionAchievement({
-            key: 'CONVENTION_ALPHA_CHECKIN',
-            name: 'Alpha Checkin',
-          }),
-        /Checked In is an account-level achievement/,
-      );
-    }
+      /Checked In is an account-level achievement/,
+    );
   });
 
   it('has a database backstop for active convention-scoped Checked In identities', () => {
