@@ -52,6 +52,8 @@ const verificationErrorMessage = (
       return 'This convention is not open for registration right now.';
     case 'convention_not_found':
       return 'This convention is no longer available.';
+    case 'profile_not_found':
+      return 'Unable to verify location without profile.';
     case 'location_required':
       return 'TailTag needs a fresh location check before catching unlocks.';
     default:

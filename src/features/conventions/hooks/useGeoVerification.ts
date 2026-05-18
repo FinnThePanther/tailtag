@@ -26,6 +26,8 @@ const verificationErrorMessage = (
   switch (errorCode) {
     case 'outside_geofence':
       return "TailTag couldn't confirm you're inside the convention area. Move closer to the venue and try again.";
+    case 'profile_not_found':
+      return 'Unable to verify location without profile.';
     case 'poor_accuracy':
       return 'Your GPS signal is not accurate enough to verify you. Step outside or move closer to the venue, then try again.';
     case 'rate_limited':

@@ -96,6 +96,7 @@ export type VerifyAndOptInParams = {
 
 export type ConventionVerificationErrorCode =
   | 'convention_not_found'
+  | 'profile_not_found'
   | 'registration_closed'
   | 'geofence_not_configured'
   | 'location_required'
@@ -956,6 +957,7 @@ const normalizeConventionVerificationErrorCode = (
 ): ConventionVerificationErrorCode | null => {
   if (
     value === 'convention_not_found' ||
+    value === 'profile_not_found' ||
     value === 'registration_closed' ||
     value === 'geofence_not_configured' ||
     value === 'location_required' ||
