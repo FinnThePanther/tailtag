@@ -24,10 +24,12 @@ import { captureNonCriticalError } from '../../src/lib/sentry';
 import { colors } from '../../src/theme';
 import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/leaderboard/[conventionId].styles';
+import {
+  REDACTED_FURSUIT_LABEL,
+  REDACTED_PLAYER_LABEL,
+} from '../../src/features/leaderboard/constants';
 
 const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);
-const REDACTED_PLAYER_LABEL = 'Age-restricted player';
-const REDACTED_FURSUIT_LABEL = 'Age-restricted fursuit';
 
 export default function FullLeaderboardScreen() {
   const router = useRouter();

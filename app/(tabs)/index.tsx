@@ -71,10 +71,12 @@ import { useToast } from '../../src/hooks/useToast';
 import { colors, spacing } from '../../src/theme';
 import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/(tabs)/index.styles';
+import {
+  REDACTED_FURSUIT_LABEL,
+  REDACTED_PLAYER_LABEL,
+} from '../../src/features/leaderboard/constants';
 
 const MAX_LEADERBOARD_ENTRIES = 5;
-const REDACTED_PLAYER_LABEL = 'Age-restricted player';
-const REDACTED_FURSUIT_LABEL = 'Age-restricted fursuit';
 const recapBannerStateKey = (userId: string) => `tailtag:recap-banner-state:${userId}`;
 
 const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);

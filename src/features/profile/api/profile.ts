@@ -126,6 +126,11 @@ async function selectProfileWithColumnFallback(userId: string) {
   };
 }
 
+async function confirmOwnProfileExists(userId: string): Promise<boolean> {
+  const result = await selectProfileWithColumnFallback(userId);
+  return result.data != null;
+}
+
 async function ensureOwnProfileExists(userId: string): Promise<void> {
   const client = supabase as any;
   const {
@@ -158,7 +163,11 @@ async function ensureOwnProfileExists(userId: string): Promise<void> {
     .from('profiles')
     .upsert(payload, { onConflict: 'id', ignoreDuplicates: true });
 
-  if (!error || error.code === '23505') {
+  if (!error) {
+    return;
+  }
+
+  if (error.code === '23505' && (await confirmOwnProfileExists(userId))) {
     return;
   }
 
@@ -167,7 +176,11 @@ async function ensureOwnProfileExists(userId: string): Promise<void> {
       p_username: payload.username ?? null,
     });
 
-    if (!rpcError || rpcError.code === '23505') {
+    if (!rpcError) {
+      return;
+    }
+
+    if (rpcError.code === '23505' && (await confirmOwnProfileExists(userId))) {
       return;
     }
 
