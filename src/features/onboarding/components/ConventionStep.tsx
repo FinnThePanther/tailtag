@@ -105,6 +105,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
     [existingMemberships],
   );
   const handleVerifiedConvention = useCallback((convention: ConventionSummary) => {
+    hasInitializedSelectionsRef.current = true;
     setSelectedConventionIds((current) => new Set([...current, convention.id]));
     setCommittedConventionIds((current) => new Set([...current, convention.id]));
   }, []);
@@ -144,6 +145,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
     nextSelected: boolean,
     verifiedLocation?: VerifiedLocation | null,
   ) => {
+    hasInitializedSelectionsRef.current = true;
     setSelectedConventionIds((current) =>
       nextSelected
         ? new Set([...current, conventionId])
