@@ -9,6 +9,7 @@ import {
   FursuitCard,
   FursuitBioDetails,
   fursuitBioHasDisplayableContent,
+  CAUGHT_COLLECTION_QUERY_KEY,
   CAUGHT_SUITS_QUERY_KEY,
   applyProfileSocialLinksToBio,
   mapLatestFursuitBio,
@@ -24,6 +25,7 @@ import {
 } from '../../src/features/leaderboard';
 import {
   createCatch,
+  createReciprocalCatchOffer,
   CODE_CATCH_OUTBOX_TIMEOUT_MS,
   myPendingCatchesQueryKey,
   pendingCatchesQueryKey,
@@ -62,7 +64,7 @@ import {
   createCatchPerformanceTrace,
   createClientAttemptId,
 } from '../../src/features/catch-confirmations/lib/catchPerformance';
-import { spacing } from '../../src/theme';
+import { colors, spacing } from '../../src/theme';
 import { isValidUniqueCodeInput, normalizeUniqueCodeInput } from '../../src/utils/code';
 import { toDisplayDateTime } from '../../src/utils/dates';
 import { UNIQUE_CODE_LENGTH, UNIQUE_CODE_MIN_LENGTH } from '../../src/constants/codes';
@@ -97,6 +99,7 @@ type CatchRecord = {
   caught_at: string | null;
   catch_number: number | null;
   status: CatchStatus;
+  photo_upload_state?: CreateCatchResult['photoUploadState'];
 };
 
 type CatchLifecycleConvention = {
@@ -252,6 +255,8 @@ export default function CatchScreen() {
   const [selectedReciprocalFursuitId, setSelectedReciprocalFursuitId] = useState<string | null>(
     null,
   );
+  const [isOfferingReciprocalCatch, setIsOfferingReciprocalCatch] = useState(false);
+  const [hasSubmittedReciprocalOffer, setHasSubmittedReciprocalOffer] = useState(false);
   const [reciprocalFeedback, setReciprocalFeedback] = useState<string | null>(null);
   const [lastCatchConventionId, setLastCatchConventionId] = useState<string | null>(null);
   const [lastCatchConventionIds, setLastCatchConventionIds] = useState<string[]>([]);
@@ -263,19 +268,20 @@ export default function CatchScreen() {
     setCatchRecord(null);
     setCatchNumber(null);
     setConversationPrompt(null);
+    setSelectedReciprocalFursuitId(null);
+    setIsOfferingReciprocalCatch(false);
+    setHasSubmittedReciprocalOffer(false);
     setReciprocalFeedback(null);
     setLastCatchConventionId(null);
     setLastCatchConventionIds([]);
   }, []);
 
-  const codeReciprocalFursuits = useMemo(
+  const completedCatchReciprocalFursuits = useMemo(
     () =>
-      singleActiveConventionId
-        ? reciprocalPickerItems.filter((item) =>
-            item.conventionIds.includes(singleActiveConventionId),
-          )
+      lastCatchConventionId
+        ? reciprocalPickerItems.filter((item) => item.conventionIds.includes(lastCatchConventionId))
         : [],
-    [reciprocalPickerItems, singleActiveConventionId],
+    [lastCatchConventionId, reciprocalPickerItems],
   );
 
   const handleEditOutboxCode = useCallback(
@@ -369,6 +375,9 @@ export default function CatchScreen() {
           queryKey: [CAUGHT_SUITS_QUERY_KEY, currentUserId],
         });
         void queryClient.invalidateQueries({
+          queryKey: [CAUGHT_COLLECTION_QUERY_KEY, currentUserId],
+        });
+        void queryClient.invalidateQueries({
           queryKey: achievementsStatusQueryKey(currentUserId),
         });
 
@@ -423,11 +432,6 @@ export default function CatchScreen() {
     }
 
     const catchConventionId = singleActiveConventionId;
-    const reciprocalFursuitId = codeReciprocalFursuits.some(
-      (item) => item.id === selectedReciprocalFursuitId,
-    )
-      ? selectedReciprocalFursuitId
-      : null;
 
     setIsSubmitting(true);
     setSubmitError(null);
@@ -440,7 +444,6 @@ export default function CatchScreen() {
         clientAttemptId,
         fursuitCode: normalizedCode,
         conventionId: catchConventionId,
-        reciprocalFursuitId,
       });
     } catch (caught) {
       captureHandledException(caught, {
@@ -480,7 +483,6 @@ export default function CatchScreen() {
         clientAttemptId,
         method: 'code',
         timeoutMs: CODE_CATCH_OUTBOX_TIMEOUT_MS,
-        reciprocalFursuitId,
       });
       catchTrace.recordTiming('edge_request_ms', catchResult.edgeRequestMs);
 
@@ -491,6 +493,7 @@ export default function CatchScreen() {
         caught_at: new Date().toISOString(),
         catch_number: catchResult.catchNumber,
         status: catchResult.status,
+        photo_upload_state: catchResult.photoUploadState,
       };
       const normalizedFursuit: FursuitDetails = {
         id: catchResult.fursuitId ?? catchResult.catchId,
@@ -553,7 +556,6 @@ export default function CatchScreen() {
       }
 
       setCodeInput('');
-      setSelectedReciprocalFursuitId(null);
 
       // Events are now fired by the Edge Function, no need to emit here
     } catch (caught) {
@@ -617,6 +619,66 @@ export default function CatchScreen() {
     setSubmitError(null);
     setCodeInput('');
     setSelectedReciprocalFursuitId(null);
+  };
+
+  const handleOfferReciprocalCatch = async () => {
+    if (!catchRecord || !selectedReciprocalFursuitId || isOfferingReciprocalCatch) {
+      return;
+    }
+
+    const reciprocalFursuitId = completedCatchReciprocalFursuits.some(
+      (item) => item.id === selectedReciprocalFursuitId,
+    )
+      ? selectedReciprocalFursuitId
+      : null;
+
+    if (!reciprocalFursuitId) {
+      setReciprocalFeedback('Choose one of your listed suits to offer a back-tag.');
+      return;
+    }
+
+    setIsOfferingReciprocalCatch(true);
+    setReciprocalFeedback(null);
+
+    try {
+      const reciprocalOffer = await createReciprocalCatchOffer({
+        primaryCatchId: catchRecord.id,
+        offeredFursuitId: reciprocalFursuitId,
+      });
+
+      setReciprocalFeedback(reciprocalOfferMessage(reciprocalOffer));
+      setSelectedReciprocalFursuitId(null);
+      setHasSubmittedReciprocalOffer(true);
+
+      if (reciprocalOffer.status === 'COMPLETED' && reciprocalOffer.offeredFursuitId) {
+        void queryClient.invalidateQueries({
+          queryKey: fursuitDetailQueryKey(reciprocalOffer.offeredFursuitId),
+        });
+      }
+
+      void refreshCatchConventionContext();
+      lastCatchConventionIds.forEach((conventionId) => {
+        void queryClient.invalidateQueries({
+          queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, conventionId],
+        });
+      });
+    } catch (caught) {
+      setReciprocalFeedback(
+        caught instanceof Error
+          ? caught.message
+          : "We couldn't offer that back-tag. Please try again.",
+      );
+      captureHandledException(caught, {
+        scope: 'catch.offerReciprocalCatch',
+        userId,
+        catchId: catchRecord.id,
+      });
+    } finally {
+      setIsOfferingReciprocalCatch(false);
+    }
   };
 
   const handlePhotoCatch = async (params: {
@@ -745,6 +807,7 @@ export default function CatchScreen() {
         caught_at: new Date().toISOString(),
         catch_number: catchResult.catchNumber,
         status: catchResult.status,
+        photo_upload_state: catchResult.photoUploadState,
       });
       setLastCatchConventionId(params.conventionId);
       setLastCatchConventionIds(params.conventionId ? [params.conventionId] : []);
@@ -777,7 +840,8 @@ export default function CatchScreen() {
         <Text style={styles.eyebrow}>Tag Fursuits Here</Text>
         <Text style={styles.title}>Log a new catch</Text>
         <Text style={styles.subtitle}>
-          Enter a fursuit's catch code to add them to your collection.
+          Catch with a live photo, a gallery photo, or a catch code from a badge. Fursuiters do not
+          need to memorize or share their code to be caught.
         </Text>
       </View>
 
@@ -862,92 +926,85 @@ export default function CatchScreen() {
         </View>
       ) : null}
 
-      <TailTagCard style={styles.cardSpacing}>
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Catch code</Text>
-          <TailTagInput
-            value={codeInput}
-            onChangeText={(value) => {
-              setCodeInput(normalizeUniqueCodeInput(value));
-              setSubmitError(null);
-            }}
-            placeholder="PH17719"
-            autoCapitalize="characters"
-            maxLength={UNIQUE_CODE_LENGTH}
-            editable={!isSubmitting && !isLifecycleCatchBlocked}
-            returnKeyType="done"
-            onSubmitEditing={handleSubmit}
-            style={styles.codeInput}
-          />
-          <Text style={styles.helpText}>
-            Letters or numbers, {codeInput.length}/{UNIQUE_CODE_LENGTH} characters.
-          </Text>
-          <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
-            Some owners require manual approval. If so, they will be notified and your catch will
-            count once approved.
-          </Text>
-        </View>
-
-        <ReciprocalCatchSelector
-          items={codeReciprocalFursuits}
-          selectedId={selectedReciprocalFursuitId}
-          onSelect={(id) => {
-            setSelectedReciprocalFursuitId(id);
-            setSubmitError(null);
-          }}
-          disabled={isSubmitting || isLifecycleCatchBlocked}
-        />
-
-        {submitError ? (
-          <View style={styles.errorContainer}>
-            <View style={styles.errorMessageRow}>
-              <Ionicons
-                name="alert-circle"
-                size={18}
-                color="#f87171"
-              />
-              <Text style={styles.errorText}>{submitError}</Text>
-            </View>
-            {verificationRequiredConvention ? (
-              <TailTagButton
-                variant="outline"
-                size="sm"
-                onPress={() => {
-                  void verifyConvention(verificationRequiredConvention);
-                }}
-                loading={isVerifyingConvention}
-                disabled={isVerifyingConvention}
-              >
-                Verify location
-              </TailTagButton>
-            ) : null}
-            {showConventionSettingsAction ? (
-              <TailTagButton
-                variant="outline"
-                size="sm"
-                onPress={() => router.push('/settings')}
-              >
-                Open Settings
-              </TailTagButton>
-            ) : null}
+      {!caughtFursuit ? (
+        <TailTagCard style={styles.cardSpacing}>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Catch code</Text>
+            <TailTagInput
+              value={codeInput}
+              onChangeText={(value) => {
+                setCodeInput(normalizeUniqueCodeInput(value));
+                setSubmitError(null);
+              }}
+              placeholder="PH17719"
+              autoCapitalize="characters"
+              maxLength={UNIQUE_CODE_LENGTH}
+              editable={!isSubmitting && !isLifecycleCatchBlocked}
+              returnKeyType="done"
+              onSubmitEditing={handleSubmit}
+              style={styles.codeInput}
+            />
+            <Text style={styles.helpText}>
+              Use this when the fursuit has a code displayed or already knows it. Otherwise, make
+              the catch with a photo above.
+            </Text>
+            <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
+              Some owners require manual approval. If so, they will be notified and your catch will
+              count once approved.
+            </Text>
           </View>
-        ) : null}
 
-        <TailTagButton
-          onPress={handleSubmit}
-          loading={isSubmitting}
-          disabled={
-            !userId ||
-            isSubmitting ||
-            isLifecycleCatchBlocked ||
-            Boolean(leaderboardOpenConvention) ||
-            !isCodeCatchConventionContextReady
-          }
-          style={styles.fullWidthButton}
-        >
-          Record catch
-        </TailTagButton>
-      </TailTagCard>
+          {submitError ? (
+            <View style={styles.errorContainer}>
+              <View style={styles.errorMessageRow}>
+                <Ionicons
+                  name="alert-circle"
+                  size={18}
+                  color="#f87171"
+                />
+                <Text style={styles.errorText}>{submitError}</Text>
+              </View>
+              {verificationRequiredConvention ? (
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void verifyConvention(verificationRequiredConvention);
+                  }}
+                  loading={isVerifyingConvention}
+                  disabled={isVerifyingConvention}
+                >
+                  Verify location
+                </TailTagButton>
+              ) : null}
+              {showConventionSettingsAction ? (
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => router.push('/settings')}
+                >
+                  Open Settings
+                </TailTagButton>
+              ) : null}
+            </View>
+          ) : null}
+
+          <TailTagButton
+            onPress={handleSubmit}
+            loading={isSubmitting}
+            disabled={
+              !userId ||
+              isSubmitting ||
+              isLifecycleCatchBlocked ||
+              Boolean(leaderboardOpenConvention) ||
+              !isCodeCatchConventionContextReady
+            }
+            style={styles.fullWidthButton}
+          >
+            Record catch
+          </TailTagButton>
+        </TailTagCard>
+      ) : null}
 
       {caughtFursuit ? (
         <TailTagCard
@@ -975,8 +1032,48 @@ export default function CatchScreen() {
               ? 'In the meantime, check out their bio below and start a conversation!'
               : `You just tagged ${caughtFursuit.name}. Scroll through their bio below and start a conversation!`}
           </Text>
+          {catchRecord?.photo_upload_state === 'pending_upload' ? (
+            <View style={styles.catchProgressNotice}>
+              <Ionicons
+                name="cloud-upload-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <View style={styles.catchProgressTextBlock}>
+                <Text style={styles.catchProgressTitle}>Finalizing photo</Text>
+                <Text style={styles.catchProgressBody}>
+                  Your catch is saved. We&apos;ll finish the photo upload in the background.
+                </Text>
+              </View>
+            </View>
+          ) : null}
           {reciprocalFeedback ? (
             <Text style={[styles.sectionBody, styles.sectionHighlight]}>{reciprocalFeedback}</Text>
+          ) : null}
+          {catchRecord && !hasSubmittedReciprocalOffer ? (
+            <View style={styles.reciprocalPromptGroup}>
+              <ReciprocalCatchSelector
+                items={completedCatchReciprocalFursuits}
+                selectedId={selectedReciprocalFursuitId}
+                onSelect={(id) => {
+                  setSelectedReciprocalFursuitId(id);
+                  setReciprocalFeedback(null);
+                }}
+                disabled={isOfferingReciprocalCatch}
+                targetName={caughtFursuit.name}
+              />
+              {selectedReciprocalFursuitId ? (
+                <TailTagButton
+                  variant="outline"
+                  onPress={handleOfferReciprocalCatch}
+                  loading={isOfferingReciprocalCatch}
+                  disabled={isOfferingReciprocalCatch}
+                  style={styles.fullWidthButton}
+                >
+                  Send back-tag offer
+                </TailTagButton>
+              ) : null}
+            </View>
           ) : null}
           {conversationPrompt ? (
             <TailTagCard style={isPending ? styles.pendingPromptCard : styles.promptCard}>

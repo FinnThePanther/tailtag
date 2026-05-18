@@ -7,6 +7,7 @@ export {
   fetchPendingCatches,
   confirmCatch,
   createCatch,
+  createReciprocalCatchOffer,
   updateCatchPhoto,
   markCatchPhotoUploadFailed,
   uploadCatchPhotoFromUri,

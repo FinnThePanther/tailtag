@@ -14,7 +14,6 @@ import { catchOutboxBackoffMs, classifyCatchOutboxError } from '@/features/catch
 import {
   createCatch,
   fetchConventionFursuits,
-  fetchOwnedConventionFursuits,
   markCatchPhotoUploadFailed,
   updateCatchPhoto,
   uploadCatchPhotoFromUri,
@@ -26,8 +25,7 @@ import {
   fetchGallerySharedConventionIds,
 } from '../../conventions';
 import { FursuitPicker } from './FursuitPicker';
-import { ReciprocalCatchSelector } from './ReciprocalCatchSelector';
-import type { FursuitPickerItem, ReciprocalFursuitPickerItem } from '../api';
+import type { FursuitPickerItem } from '../api';
 import type { CatchPhotoSource, CreateCatchResult } from '../types';
 import { styles } from './PhotoCatchCard.styles';
 
@@ -97,11 +95,7 @@ export function PhotoCatchCard({
   const [photo, setPhoto] = useState<PhotoCandidate | null>(null);
   const [photoSource, setPhotoSource] = useState<CatchPhotoSource | null>(null);
   const [selectedFursuit, setSelectedFursuit] = useState<FursuitPickerItem | null>(null);
-  const [selectedReciprocalFursuitId, setSelectedReciprocalFursuitId] = useState<string | null>(
-    null,
-  );
   const [fursuits, setFursuits] = useState<FursuitPickerItem[]>([]);
-  const [reciprocalFursuits, setReciprocalFursuits] = useState<ReciprocalFursuitPickerItem[]>([]);
   const [conventionIds, setConventionIds] = useState<string[]>([]);
   const [isLoadingFursuits, setIsLoadingFursuits] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -130,37 +124,6 @@ export function PhotoCatchCard({
       .catch(() => setLocalError("Couldn't load fursuits. Please try again."))
       .finally(() => setIsLoadingFursuits(false));
   }, [step, conventionIds, photoSource, preloadedFursuits, userId]);
-
-  useEffect(() => {
-    if (step !== 'photo_taken' || conventionIds.length === 0) {
-      setReciprocalFursuits([]);
-      setSelectedReciprocalFursuitId(null);
-      return;
-    }
-
-    fetchOwnedConventionFursuits(conventionIds, userId)
-      .then((items) => {
-        setReciprocalFursuits(items);
-        setSelectedReciprocalFursuitId((current) =>
-          current && items.some((item) => item.id === current) ? current : null,
-        );
-      })
-      .catch((error) => {
-        if (isSupabaseError(error)) {
-          captureSupabaseError(error, {
-            scope: 'PhotoCatchCard',
-            action: 'loadReciprocalFursuits',
-          });
-        } else {
-          captureHandledException(error, {
-            scope: 'PhotoCatchCard',
-            additionalContext: { action: 'loadReciprocalFursuits' },
-          });
-        }
-        setReciprocalFursuits([]);
-        setSelectedReciprocalFursuitId(null);
-      });
-  }, [step, conventionIds, userId]);
 
   const handleTakePhoto = async () => {
     if (disabled) return;
@@ -204,7 +167,6 @@ export function PhotoCatchCard({
       setFursuits(preloadedFursuits);
       setStep('photo_taken');
       setSelectedFursuit(null);
-      setSelectedReciprocalFursuitId(null);
     } catch {
       setPhotoProcessingMs(null);
       setLocalError("We couldn't process your photo. Please try again.");
@@ -255,7 +217,6 @@ export function PhotoCatchCard({
       setIsLoadingFursuits(true);
       setStep('photo_taken');
       setSelectedFursuit(null);
-      setSelectedReciprocalFursuitId(null);
     } catch {
       setPhotoProcessingMs(null);
       setLocalError("We couldn't process that gallery photo. Please try another.");
@@ -271,9 +232,7 @@ export function PhotoCatchCard({
     setPhotoSource(null);
     setPhotoProcessingMs(null);
     setSelectedFursuit(null);
-    setSelectedReciprocalFursuitId(null);
     setFursuits([]);
-    setReciprocalFursuits([]);
     setStep('idle');
     setLocalError(null);
   };
@@ -336,11 +295,6 @@ export function PhotoCatchCard({
 
     // Step 2: Create the catch first. The photo upload is retried through the local outbox.
     let catchResult: CreateCatchResult;
-    const reciprocalFursuitId = reciprocalFursuits.some(
-      (item) => item.id === selectedReciprocalFursuitId,
-    )
-      ? selectedReciprocalFursuitId
-      : null;
     try {
       catchResult = await createCatch({
         fursuitId: selectedFursuit.id,
@@ -352,7 +306,6 @@ export function PhotoCatchCard({
         hasPhoto: true,
         photoSource,
         photoUploadState: 'pending_upload',
-        reciprocalFursuitId,
       });
       catchTrace.recordTiming('edge_request_ms', catchResult.edgeRequestMs);
       const uploadStartedAt = new Date().toISOString();
@@ -403,9 +356,7 @@ export function PhotoCatchCard({
     setPhotoSource(null);
     setPhotoProcessingMs(null);
     setSelectedFursuit(null);
-    setSelectedReciprocalFursuitId(null);
     setFursuits([]);
-    setReciprocalFursuits([]);
     setStep('idle');
 
     finishCatchTrace({
@@ -548,7 +499,10 @@ export function PhotoCatchCard({
         />
         <Text style={styles.title}>Photo Catch</Text>
       </View>
-      <Text style={styles.subtitle}>Take or choose a photo with a fursuiter to log the catch.</Text>
+      <Text style={styles.subtitle}>
+        Take a photo now, or choose one from your gallery later. No catch code is needed for photo
+        catches.
+      </Text>
 
       {step === 'idle' ? (
         isProcessingPhoto ? (
@@ -641,18 +595,6 @@ export function PhotoCatchCard({
               />
             </ScrollView>
           </View>
-
-          {selectedFursuit ? (
-            <View style={styles.reciprocalSection}>
-              <ReciprocalCatchSelector
-                items={reciprocalFursuits}
-                selectedId={selectedReciprocalFursuitId}
-                onSelect={setSelectedReciprocalFursuitId}
-                disabled={disabled || isBusy}
-                targetName={selectedFursuit.name}
-              />
-            </View>
-          ) : null}
         </>
       )}
 

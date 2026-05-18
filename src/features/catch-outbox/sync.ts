@@ -13,7 +13,7 @@ import {
   conventionSuitRosterCaughtIdsQueryKey,
   conventionSuitRosterQueryKey,
 } from '../conventions';
-import { CAUGHT_SUITS_QUERY_KEY } from '../suits';
+import { CAUGHT_COLLECTION_QUERY_KEY, CAUGHT_SUITS_QUERY_KEY } from '../suits';
 import { captureHandledException } from '../../lib/sentry';
 import {
   loadCatchOutbox,
@@ -69,6 +69,7 @@ function notifyPhotoCatchResolved(options: {
   }
 
   void queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
+  void queryClient.invalidateQueries({ queryKey: [CAUGHT_COLLECTION_QUERY_KEY, userId] });
   void queryClient.invalidateQueries({ queryKey: myPendingCatchesQueryKey(userId) });
   if (item.conventionId) {
     void queryClient.invalidateQueries({
@@ -212,6 +213,9 @@ export async function syncCatchOutbox(options: {
 
         if (queryClient) {
           void queryClient.invalidateQueries({ queryKey: [CAUGHT_SUITS_QUERY_KEY, userId] });
+          void queryClient.invalidateQueries({
+            queryKey: [CAUGHT_COLLECTION_QUERY_KEY, userId],
+          });
           void queryClient.invalidateQueries({ queryKey: myPendingCatchesQueryKey(userId) });
           if (resolvedItem.conventionId) {
             void queryClient.invalidateQueries({
