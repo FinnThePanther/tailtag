@@ -165,8 +165,8 @@ export function ConventionGeofenceForm({
           Enable geofence for this convention
         </label>
         <p className="text-xs text-muted">
-          When enabled, players must pass on-site location verification before they can join this
-          convention.
+          When enabled, players must pass on-site location verification before they can catch or
+          unlock live gameplay.
         </p>
       </div>
 

@@ -19,6 +19,9 @@ export type {
   ConventionSuitRosterViewEntry,
   FursuitConventionRosterSettings,
   VerifiedLocation,
+  VerifyAndOptInParams,
+  VerifyAndOptInToConventionResponse,
+  ConventionVerificationErrorCode,
 } from './api/conventions';
 export {
   fetchJoinableConventions,
@@ -50,6 +53,7 @@ export {
   fetchGalleryProfileConventionIds,
   fetchGallerySharedConventionIds,
   optInToConvention,
+  verifyAndOptInToConvention,
   optOutOfConvention,
   addFursuitConvention,
   removeFursuitConvention,

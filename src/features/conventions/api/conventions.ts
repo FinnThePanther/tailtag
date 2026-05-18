@@ -88,6 +88,33 @@ export type OptInParams = {
   overrideReason?: string | null;
 };
 
+export type VerifyAndOptInParams = {
+  profileId: string;
+  conventionId: string;
+  verifiedLocation: VerifiedLocation;
+};
+
+export type ConventionVerificationErrorCode =
+  | 'convention_not_found'
+  | 'profile_not_found'
+  | 'registration_closed'
+  | 'geofence_not_configured'
+  | 'location_required'
+  | 'rate_limited'
+  | 'poor_accuracy'
+  | 'outside_geofence'
+  | 'unknown';
+
+export type VerifyAndOptInToConventionResponse = {
+  verified: boolean;
+  requires_location_verification: boolean;
+  distance_meters: number | null;
+  geofence_radius_meters: number | null;
+  effective_radius_meters: number | null;
+  error_code: ConventionVerificationErrorCode | null;
+  error: string | null;
+};
+
 export type PastConventionRecap = {
   recapId: string;
   conventionId: string;
@@ -286,6 +313,12 @@ const asPositiveIntegerOrNull = (value: unknown): number | null => {
   if (!Number.isFinite(normalized)) return null;
   const integer = Math.trunc(normalized);
   return integer > 0 ? integer : null;
+};
+
+const asNumberOrNull = (value: unknown): number | null => {
+  const normalized =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  return Number.isFinite(normalized) ? normalized : null;
 };
 
 const asStringArray = (value: unknown): string[] => {
@@ -917,6 +950,91 @@ export async function optInToConvention(params: OptInParams): Promise<void> {
       verification_method: verificationMethod,
     },
   });
+}
+
+const normalizeConventionVerificationErrorCode = (
+  value: unknown,
+): ConventionVerificationErrorCode | null => {
+  if (
+    value === 'convention_not_found' ||
+    value === 'profile_not_found' ||
+    value === 'registration_closed' ||
+    value === 'geofence_not_configured' ||
+    value === 'location_required' ||
+    value === 'rate_limited' ||
+    value === 'poor_accuracy' ||
+    value === 'outside_geofence' ||
+    value === 'unknown'
+  ) {
+    return value;
+  }
+
+  return value ? 'unknown' : null;
+};
+
+function mapVerifyAndOptInResponse(raw: unknown): VerifyAndOptInToConventionResponse {
+  const source = isRecord(raw) ? raw : {};
+
+  return {
+    verified: source.verified === true,
+    requires_location_verification: source.requires_location_verification === true,
+    distance_meters: asNumberOrNull(source.distance_meters),
+    geofence_radius_meters: asNumberOrNull(source.geofence_radius_meters),
+    effective_radius_meters: asNumberOrNull(source.effective_radius_meters),
+    error_code: normalizeConventionVerificationErrorCode(source.error_code),
+    error: asNullableString(source.error),
+  };
+}
+
+export async function verifyAndOptInToConvention(
+  params: VerifyAndOptInParams,
+): Promise<VerifyAndOptInToConventionResponse> {
+  const client = supabase as any;
+  const { data, error } = await client.rpc('verify_and_opt_in_to_convention', {
+    p_profile_id: params.profileId,
+    p_convention_id: params.conventionId,
+    p_verified_location: {
+      lat: params.verifiedLocation.latitude,
+      lng: params.verifiedLocation.longitude,
+      accuracy: params.verifiedLocation.accuracy,
+    },
+  });
+
+  if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.verifyAndOptInToConvention',
+      profileId: params.profileId,
+      conventionId: params.conventionId,
+    });
+    throw new Error(`We couldn't verify your convention location: ${error.message}`);
+  }
+
+  const result = mapVerifyAndOptInResponse(data);
+
+  if (result.verified) {
+    const eventType = 'convention_joined';
+    void Promise.race([
+      emitGameplayEvent({
+        type: eventType,
+        conventionId: params.conventionId,
+        payload: {
+          profile_id: params.profileId,
+          convention_id: params.conventionId,
+          verification_method: result.requires_location_verification ? 'gps' : 'none',
+        },
+      }),
+      createGameplayEventTimeout(eventType),
+    ]).catch((eventError) => {
+      captureHandledException(eventError, {
+        scope: 'conventions.verifyAndOptInToConvention.event',
+        eventType,
+        profileId: params.profileId,
+        conventionId: params.conventionId,
+      });
+    });
+  }
+
+  return result;
 }
 
 export async function optOutOfConvention(profileId: string, conventionId: string): Promise<void> {

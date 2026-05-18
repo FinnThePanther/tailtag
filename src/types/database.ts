@@ -3055,6 +3055,14 @@ export type Database = {
           recipient_profile_id: string
         }[]
       }
+      verify_and_opt_in_to_convention: {
+        Args: {
+          p_convention_id: string
+          p_profile_id: string
+          p_verified_location: Json
+        }
+        Returns: Json
+      }
       verify_convention_location: {
         Args: {
           p_accuracy: number

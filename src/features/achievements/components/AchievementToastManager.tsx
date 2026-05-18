@@ -20,7 +20,11 @@ import {
 } from '../../events/localGameplayEventsBus';
 import { DAILY_TASKS_QUERY_KEY, dailyTasksQueryKey } from '../../daily-tasks';
 import type { DailyTasksSummary } from '../../daily-tasks';
-import { PAST_CONVENTION_RECAPS_QUERY_KEY } from '../../conventions';
+import {
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
+  PAST_CONVENTION_RECAPS_QUERY_KEY,
+  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+} from '../../conventions';
 import type { AchievementWithStatus } from '../api/achievements';
 import { caughtSuitsQueryKey, type CaughtRecord } from '../../suits';
 import { hasUploadedProfileAvatar, profileQueryKey, type ProfileSummary } from '../../profile';
@@ -29,6 +33,7 @@ import type { Json } from '../../../types/database';
 const CATCH_RECONCILE_DEBOUNCE_MS = 800;
 const CATCH_RECONCILE_FOLLOW_UP_MS = 6_000;
 const CONVENTION_RECAP_READY_TOAST_STORAGE_PREFIX = '@convention-recap-ready-toasts:';
+const CONVENTION_STARTED_TOAST_STORAGE_PREFIX = '@convention-started-toasts:';
 const MAX_STORED_CONVENTION_RECAP_READY_TOAST_KEYS = 200;
 
 type NotificationRow = {
@@ -63,6 +68,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function conventionRecapReadyToastStorageKey(userId: string) {
   return `${CONVENTION_RECAP_READY_TOAST_STORAGE_PREFIX}${userId}`;
+}
+
+function conventionStartedToastStorageKey(userId: string, conventionId: string | null) {
+  return `${CONVENTION_STARTED_TOAST_STORAGE_PREFIX}${userId}:${conventionId ?? 'unknown'}`;
 }
 
 function parseConventionRecapReadyToastKeys(raw: string | null): Set<string> {
@@ -1410,6 +1419,72 @@ export function AchievementToastManager() {
       })();
     };
 
+    const handleConventionStarted = (payload: Record<string, unknown> | null) => {
+      const conventionNameRaw = payload?.convention_name ?? payload?.conventionName ?? null;
+      const conventionName =
+        typeof conventionNameRaw === 'string' && conventionNameRaw.trim().length > 0
+          ? conventionNameRaw.trim()
+          : 'Your convention';
+      const conventionId =
+        typeof payload?.convention_id === 'string' ? payload.convention_id : null;
+      const requiresLocationVerification = payload?.location_verification_required === true;
+
+      void (async () => {
+        const storageKey = conventionStartedToastStorageKey(userId, conventionId);
+
+        try {
+          const alreadyShown = await AsyncStorage.getItem(storageKey);
+          if (alreadyShown === 'true') {
+            return;
+          }
+        } catch (error) {
+          captureHandledException(error, {
+            scope: 'notifications.realtime',
+            action: 'load-convention-started-toast-dedupe',
+            userId,
+            conventionId,
+          });
+        }
+
+        showToast(
+          requiresLocationVerification
+            ? `${conventionName} is live. Verify on-site to start catching.`
+            : `${conventionName} is live. You can start catching now.`,
+        );
+        addMonitoringBreadcrumb({
+          category: 'conventions',
+          message: 'Convention started notification received',
+          data: {
+            userId,
+            conventionId,
+            requiresLocationVerification,
+          },
+        });
+
+        try {
+          await AsyncStorage.setItem(storageKey, 'true');
+        } catch (error) {
+          captureHandledException(error, {
+            scope: 'notifications.realtime',
+            action: 'persist-convention-started-toast-dedupe',
+            userId,
+            conventionId,
+          });
+        }
+      })();
+
+      void queryClient.invalidateQueries({
+        queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+      });
+      if (conventionId) {
+        void queryClient.invalidateQueries({ queryKey: dailyTasksQueryKey(userId, conventionId) });
+      }
+      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+    };
+
     const handleDailyTaskCompleted = (payload: Record<string, unknown> | null) => {
       const taskNameRaw = payload?.task_name ?? payload?.taskName ?? null;
       const taskName =
@@ -1623,6 +1698,9 @@ export function AchievementToastManager() {
             break;
           case 'convention_recap_ready':
             handleConventionRecapReady(notificationPayload);
+            break;
+          case 'convention_started':
+            handleConventionStarted(notificationPayload);
             break;
           default:
             break;
