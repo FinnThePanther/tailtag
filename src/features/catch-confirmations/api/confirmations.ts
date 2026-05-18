@@ -450,40 +450,54 @@ export async function createReciprocalCatchOffer(params: {
     throw new Error('Supabase configuration not set.');
   }
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/create-reciprocal-catch-offer`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      apikey: supabaseKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      primary_catch_id: params.primaryCatchId,
-      offered_fursuit_id: params.offeredFursuitId,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), EDGE_FUNCTION_TIMEOUT_MS);
 
-  const responseData = await response.json();
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/create-reciprocal-catch-offer`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        apikey: supabaseKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        primary_catch_id: params.primaryCatchId,
+        offered_fursuit_id: params.offeredFursuitId,
+      }),
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const errorMessage = responseData?.error;
-    if (typeof errorMessage === 'string' && errorMessage.includes('back-tag')) {
-      throw new Error(errorMessage);
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      const errorMessage = responseData?.error;
+      if (typeof errorMessage === 'string' && errorMessage.includes('back-tag')) {
+        throw new Error(errorMessage);
+      }
+
+      throw new Error("We couldn't offer that back-tag. Please try again.");
     }
 
-    throw new Error("We couldn't offer that back-tag. Please try again.");
+    return (
+      normalizeReciprocalOffer(responseData.reciprocal_offer) ?? {
+        offerId: null,
+        status: 'FAILED',
+        reciprocalCatchId: null,
+        failureReason: null,
+        eventEnqueued: false,
+        offeredFursuitId: params.offeredFursuitId,
+      }
+    );
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('The request took too long. Please check your connection and try again.');
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return (
-    normalizeReciprocalOffer(responseData.reciprocal_offer) ?? {
-      offerId: null,
-      status: 'FAILED',
-      reciprocalCatchId: null,
-      failureReason: null,
-      eventEnqueued: false,
-      offeredFursuitId: params.offeredFursuitId,
-    }
-  );
 }
 
 /**

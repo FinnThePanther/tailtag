@@ -24,18 +24,18 @@ export function CatchModeSwitch({
       ? {
           label: 'Auto-catching for all suits',
           description:
-            'Turn on to record catch-code and in-app camera catches instantly. Turn off to review and approve those catches before they count. Gallery photo catches always require approval.',
+            'Turn on to record catch code and in-app camera catches instantly. Turn off to review and approve those catches before they count. Gallery photo catches always require approval.',
           accessibilityLabel: 'Auto-catching for all suits',
           accessibilityHint:
-            'Controls whether catch-code and in-app camera catches count instantly or require your approval.',
+            'Controls whether catch code and in-app camera catches count instantly or require your approval.',
         }
       : {
           label: 'Auto-catching',
           description:
-            'Turn on to record catch-code and in-app camera catches instantly. Turn off to review and approve those catches before they count. Gallery photo catches always require approval.',
+            'Turn on to record catch code and in-app camera catches instantly. Turn off to review and approve those catches before they count. Gallery photo catches always require approval.',
           accessibilityLabel: 'Auto-catching',
           accessibilityHint:
-            'Controls whether catch-code and in-app camera catches count instantly or require your approval.',
+            'Controls whether catch code and in-app camera catches count instantly or require your approval.',
         };
 
   const handleToggle = useCallback(
