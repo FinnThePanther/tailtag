@@ -1,6 +1,4 @@
--- Keep leaderboards complete while redacting restricted profile/fursuit content.
-
-DROP FUNCTION IF EXISTS public.get_convention_leaderboard(uuid);
+-- Remove hidden identity fields from redacted leaderboard ordering.
 
 CREATE OR REPLACE FUNCTION public.get_convention_leaderboard(p_convention_id uuid DEFAULT NULL::uuid)
 RETURNS TABLE(
@@ -62,8 +60,6 @@ $function$;
 REVOKE ALL ON FUNCTION public.get_convention_leaderboard(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.get_convention_leaderboard(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.get_convention_leaderboard(uuid) TO authenticated;
-
-DROP FUNCTION IF EXISTS public.get_convention_suit_leaderboard(uuid);
 
 CREATE OR REPLACE FUNCTION public.get_convention_suit_leaderboard(p_convention_id uuid)
 RETURNS TABLE(

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,6 +18,9 @@ import { useAuth } from '../src/features/auth';
 import { createProfileQueryOptions, type ProfileSummary } from '../src/features/profile';
 import { colors } from '../src/theme';
 import { styles } from '../src/app-styles/age-gate.styles';
+
+const AGE_CHANGE_SUPPORT_URL =
+  'mailto:finn@finnthepanther.com?subject=TailTag%20age%20setting%20change%20request&body=Please%20include%20your%20TailTag%20username%20and%20the%20age%20setting%20change%20you%20need%20help%20with.';
 
 function destinationForProfile(profile: ProfileSummary | null | undefined): '/' | '/onboarding' {
   return profile?.onboarding_completed === true && profile?.is_new !== true ? '/' : '/onboarding';
@@ -85,6 +88,10 @@ export default function AgeGateScreen() {
     [profile, queryClient, router, savingChoice, userId],
   );
 
+  const handleContactSupport = useCallback(async () => {
+    await Linking.openURL(AGE_CHANGE_SUPPORT_URL);
+  }, []);
+
   if (!userId || isLoading || (isFetching && !profile)) {
     return (
       <SafeAreaView
@@ -130,6 +137,13 @@ export default function AgeGateScreen() {
             Choose carefully. After you confirm, this setting can only be changed by contacting
             support.
           </Text>
+          <TailTagButton
+            variant="outline"
+            onPress={() => void handleContactSupport()}
+            disabled={savingChoice !== null}
+          >
+            Contact Support
+          </TailTagButton>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <View style={styles.actionGroup}>
             <TailTagButton
