@@ -191,10 +191,7 @@ export function PhotoCatchCard({
     setFursuits([]);
     try {
       const processingStartedAt = Date.now();
-      const processed = await processImageForUpload(asset.uri, {
-        ...IMAGE_UPLOAD_PRESETS.catchPhoto,
-        flipHorizontal: true,
-      });
+      const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.catchPhoto);
       setPhotoProcessingMs(Math.max(0, Date.now() - processingStartedAt));
       setPhoto({
         uri: processed.uri,
