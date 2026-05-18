@@ -386,13 +386,17 @@ describe('Checked In achievement hardening', () => {
     ]) {
       const source = read(path);
 
-      assert.doesNotMatch(source, /keySuffix:\s*'CHECKED_IN'/, `${path} must not seed Checked In`);
+      assert.doesNotMatch(
+        source,
+        /keySuffix\s*:\s*["']CHECKED_IN["']/,
+        `${path} must not seed Checked In`,
+      );
       assert.match(
         source,
         /isCheckedInAchievementIdentity/,
         `${path} must identify catalog clones`,
       );
-      assert.match(source, /triggerEvent:\s*catalogAchievement\.trigger_event/);
+      assert.match(source, /triggerEvent\s*:\s*catalogAchievement\s*\.\s*trigger_event/);
       assert.match(source, /continue;/, `${path} must skip Checked In catalog clones`);
     }
   });
@@ -406,11 +410,11 @@ describe('Checked In achievement hardening', () => {
 
       assert.match(source, /assertNotCheckedInConventionAchievement/);
       assert.ok(
-        countMatches(source, /assertNotCheckedInConventionAchievement\(/g) >= 3,
+        countMatches(source, /assertNotCheckedInConventionAchievement\s*\(/g) >= 3,
         `${path} must guard create, reactivate, and active update paths`,
       );
-      assert.match(source, /\.select\('key, name, trigger_event'\)/);
-      assert.match(source, /\.select\('key, is_active'\)/);
+      assert.match(source, /\.select\s*\(\s*["']key\s*,\s*name\s*,\s*trigger_event["']\s*\)/);
+      assert.match(source, /\.select\s*\(\s*["']key\s*,\s*is_active["']\s*\)/);
     }
   });
 
