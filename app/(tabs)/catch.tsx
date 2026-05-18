@@ -63,7 +63,7 @@ import {
   createCatchPerformanceTrace,
   createClientAttemptId,
 } from '../../src/features/catch-confirmations/lib/catchPerformance';
-import { spacing } from '../../src/theme';
+import { colors, spacing } from '../../src/theme';
 import { isValidUniqueCodeInput, normalizeUniqueCodeInput } from '../../src/utils/code';
 import { toDisplayDateTime } from '../../src/utils/dates';
 import { UNIQUE_CODE_LENGTH, UNIQUE_CODE_MIN_LENGTH } from '../../src/constants/codes';
@@ -98,6 +98,7 @@ type CatchRecord = {
   caught_at: string | null;
   catch_number: number | null;
   status: CatchStatus;
+  photo_upload_state?: CreateCatchResult['photoUploadState'];
 };
 
 type CatchLifecycleConvention = {
@@ -488,6 +489,7 @@ export default function CatchScreen() {
         caught_at: new Date().toISOString(),
         catch_number: catchResult.catchNumber,
         status: catchResult.status,
+        photo_upload_state: catchResult.photoUploadState,
       };
       const normalizedFursuit: FursuitDetails = {
         id: catchResult.fursuitId ?? catchResult.catchId,
@@ -801,6 +803,7 @@ export default function CatchScreen() {
         caught_at: new Date().toISOString(),
         catch_number: catchResult.catchNumber,
         status: catchResult.status,
+        photo_upload_state: catchResult.photoUploadState,
       });
       setLastCatchConventionId(params.conventionId);
       setLastCatchConventionIds(params.conventionId ? [params.conventionId] : []);
@@ -918,82 +921,84 @@ export default function CatchScreen() {
         </View>
       ) : null}
 
-      <TailTagCard style={styles.cardSpacing}>
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Catch code</Text>
-          <TailTagInput
-            value={codeInput}
-            onChangeText={(value) => {
-              setCodeInput(normalizeUniqueCodeInput(value));
-              setSubmitError(null);
-            }}
-            placeholder="PH17719"
-            autoCapitalize="characters"
-            maxLength={UNIQUE_CODE_LENGTH}
-            editable={!isSubmitting && !isLifecycleCatchBlocked}
-            returnKeyType="done"
-            onSubmitEditing={handleSubmit}
-            style={styles.codeInput}
-          />
-          <Text style={styles.helpText}>
-            Letters or numbers, {codeInput.length}/{UNIQUE_CODE_LENGTH} characters.
-          </Text>
-          <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
-            Some owners require manual approval. If so, they will be notified and your catch will
-            count once approved.
-          </Text>
-        </View>
-
-        {submitError ? (
-          <View style={styles.errorContainer}>
-            <View style={styles.errorMessageRow}>
-              <Ionicons
-                name="alert-circle"
-                size={18}
-                color="#f87171"
-              />
-              <Text style={styles.errorText}>{submitError}</Text>
-            </View>
-            {verificationRequiredConvention ? (
-              <TailTagButton
-                variant="outline"
-                size="sm"
-                onPress={() => {
-                  void verifyConvention(verificationRequiredConvention);
-                }}
-                loading={isVerifyingConvention}
-                disabled={isVerifyingConvention}
-              >
-                Verify location
-              </TailTagButton>
-            ) : null}
-            {showConventionSettingsAction ? (
-              <TailTagButton
-                variant="outline"
-                size="sm"
-                onPress={() => router.push('/settings')}
-              >
-                Open Settings
-              </TailTagButton>
-            ) : null}
+      {!caughtFursuit ? (
+        <TailTagCard style={styles.cardSpacing}>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Catch code</Text>
+            <TailTagInput
+              value={codeInput}
+              onChangeText={(value) => {
+                setCodeInput(normalizeUniqueCodeInput(value));
+                setSubmitError(null);
+              }}
+              placeholder="PH17719"
+              autoCapitalize="characters"
+              maxLength={UNIQUE_CODE_LENGTH}
+              editable={!isSubmitting && !isLifecycleCatchBlocked}
+              returnKeyType="done"
+              onSubmitEditing={handleSubmit}
+              style={styles.codeInput}
+            />
+            <Text style={styles.helpText}>
+              Letters or numbers, {codeInput.length}/{UNIQUE_CODE_LENGTH} characters.
+            </Text>
+            <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
+              Some owners require manual approval. If so, they will be notified and your catch will
+              count once approved.
+            </Text>
           </View>
-        ) : null}
 
-        <TailTagButton
-          onPress={handleSubmit}
-          loading={isSubmitting}
-          disabled={
-            !userId ||
-            isSubmitting ||
-            isLifecycleCatchBlocked ||
-            Boolean(leaderboardOpenConvention) ||
-            !isCodeCatchConventionContextReady
-          }
-          style={styles.fullWidthButton}
-        >
-          Record catch
-        </TailTagButton>
-      </TailTagCard>
+          {submitError ? (
+            <View style={styles.errorContainer}>
+              <View style={styles.errorMessageRow}>
+                <Ionicons
+                  name="alert-circle"
+                  size={18}
+                  color="#f87171"
+                />
+                <Text style={styles.errorText}>{submitError}</Text>
+              </View>
+              {verificationRequiredConvention ? (
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    void verifyConvention(verificationRequiredConvention);
+                  }}
+                  loading={isVerifyingConvention}
+                  disabled={isVerifyingConvention}
+                >
+                  Verify location
+                </TailTagButton>
+              ) : null}
+              {showConventionSettingsAction ? (
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => router.push('/settings')}
+                >
+                  Open Settings
+                </TailTagButton>
+              ) : null}
+            </View>
+          ) : null}
+
+          <TailTagButton
+            onPress={handleSubmit}
+            loading={isSubmitting}
+            disabled={
+              !userId ||
+              isSubmitting ||
+              isLifecycleCatchBlocked ||
+              Boolean(leaderboardOpenConvention) ||
+              !isCodeCatchConventionContextReady
+            }
+            style={styles.fullWidthButton}
+          >
+            Record catch
+          </TailTagButton>
+        </TailTagCard>
+      ) : null}
 
       {caughtFursuit ? (
         <TailTagCard
@@ -1021,6 +1026,21 @@ export default function CatchScreen() {
               ? 'In the meantime, check out their bio below and start a conversation!'
               : `You just tagged ${caughtFursuit.name}. Scroll through their bio below and start a conversation!`}
           </Text>
+          {catchRecord?.photo_upload_state === 'pending_upload' ? (
+            <View style={styles.catchProgressNotice}>
+              <Ionicons
+                name="cloud-upload-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <View style={styles.catchProgressTextBlock}>
+                <Text style={styles.catchProgressTitle}>Finalizing photo</Text>
+                <Text style={styles.catchProgressBody}>
+                  Your catch is saved. We&apos;ll finish the photo upload in the background.
+                </Text>
+              </View>
+            </View>
+          ) : null}
           {reciprocalFeedback ? (
             <Text style={[styles.sectionBody, styles.sectionHighlight]}>{reciprocalFeedback}</Text>
           ) : null}

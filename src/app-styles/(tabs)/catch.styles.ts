@@ -99,6 +99,31 @@ export const styles = StyleSheet.create({
     color: colors.amber,
     fontWeight: '600',
   },
+  catchProgressNotice: {
+    alignItems: 'flex-start',
+    backgroundColor: colors.primarySurface,
+    borderColor: colors.primaryBorder,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+  },
+  catchProgressTextBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  catchProgressTitle: {
+    color: colors.foreground,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  catchProgressBody: {
+    color: colors.textDim,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   lifecycleCard: {
     marginBottom: spacing.lg,
     gap: spacing.md,
