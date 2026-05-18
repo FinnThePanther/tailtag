@@ -1307,7 +1307,7 @@ async function hasHybridOrMultiSpecies(
 ) {
   const { data, error } = await supabaseAdmin
     .from('fursuits')
-    .select('species_id')
+    .select('species:fursuit_species(name,normalized_name)')
     .eq('id', fursuitId)
     .limit(1)
     .maybeSingle();
@@ -1319,46 +1319,9 @@ async function hasHybridOrMultiSpecies(
     return false;
   }
 
-  if (data.species_id) {
-    const { data: speciesRows, error: speciesError } = await supabaseAdmin
-      .from('fursuit_species')
-      .select('name,normalized_name')
-      .eq('id', data.species_id)
-      .limit(1)
-      .maybeSingle();
-    if (speciesError) {
-      console.error('[events-ingress] Failed loading species metadata', {
-        fursuitId,
-        species_id: data.species_id,
-        error: speciesError,
-      });
-    } else if (speciesRows) {
-      const name = (speciesRows.normalized_name ?? speciesRows.name ?? '').toString().toLowerCase();
-      if (name.includes('hybrid')) {
-        return true;
-      }
-    }
-  }
-
-  const { data: mapRows, error: mapError } = await supabaseAdmin
-    .from('fursuit_species_map')
-    .select('species_id')
-    .eq('fursuit_id', fursuitId)
-    .limit(MAX_QUERY_LIMIT);
-
-  if (mapError) {
-    console.error('[events-ingress] Failed loading fursuit species map', {
-      fursuitId,
-      error: mapError,
-    });
-    return false;
-  }
-
-  const ids = new Set<string>();
-  for (const row of mapRows ?? []) {
-    if (row.species_id) ids.add(row.species_id);
-  }
-  return ids.size > 1;
+  const species = Array.isArray(data.species) ? data.species[0] : data.species;
+  const name = (species?.normalized_name ?? species?.name ?? '').toString().toLowerCase();
+  return name.includes('hybrid');
 }
 
 async function hasSecondCatchWithinMinute(
