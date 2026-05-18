@@ -10,12 +10,23 @@ type CaughtSuitRowProps = {
   species?: string | null;
   avatarUrl?: string | null;
   caughtAt?: string | null;
+  conventionName?: string | null;
+  catchCount?: number;
   onPress?: () => void;
 };
 
-export function CaughtSuitRow({ name, species, avatarUrl, caughtAt, onPress }: CaughtSuitRowProps) {
+export function CaughtSuitRow({
+  name,
+  species,
+  avatarUrl,
+  caughtAt,
+  conventionName,
+  catchCount = 1,
+  onPress,
+}: CaughtSuitRowProps) {
   const displaySpecies = species?.trim() || 'Species not set';
   const displayDate = toDisplayDate(caughtAt);
+  const displayContext = [conventionName?.trim(), displayDate].filter(Boolean).join(' · ');
 
   return (
     <Pressable
@@ -30,24 +41,31 @@ export function CaughtSuitRow({ name, species, avatarUrl, caughtAt, onPress }: C
         fallback="fursuit"
       />
       <View style={styles.textCol}>
-        <Text
-          style={styles.name}
-          numberOfLines={1}
-        >
-          {name}
-        </Text>
+        <View style={styles.nameRow}>
+          <Text
+            style={styles.name}
+            numberOfLines={1}
+          >
+            {name}
+          </Text>
+          {catchCount > 1 ? (
+            <View style={styles.catchCountBadge}>
+              <Text style={styles.catchCountText}>{catchCount}x</Text>
+            </View>
+          ) : null}
+        </View>
         <Text
           style={styles.species}
           numberOfLines={1}
         >
           {displaySpecies}
         </Text>
-        {displayDate ? (
+        {displayContext ? (
           <Text
             style={styles.date}
             numberOfLines={1}
           >
-            {displayDate}
+            {displayContext}
           </Text>
         ) : null}
       </View>

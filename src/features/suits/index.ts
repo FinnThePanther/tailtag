@@ -46,7 +46,11 @@ export {
   caughtCollectionQueryKey,
   createCaughtCollectionQueryOptions,
 } from './api/caughtCollection';
-export type { CaughtCollection, CaughtConventionFolder } from './api/caughtCollection';
+export type {
+  CaughtCollection,
+  CaughtConventionFolder,
+  CaughtSuitAggregate,
+} from './api/caughtCollection';
 export {
   mapFursuitBio,
   mapLatestFursuitBio,

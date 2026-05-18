@@ -4,7 +4,6 @@ import {
   CAUGHT_SUITS_STALE_TIME,
   fetchCaughtSuits,
   type CaughtRecord,
-  type CaughtRecordConvention,
 } from '@/features/suits/api/caughtSuits';
 
 export type CaughtConventionFolder = {
@@ -18,8 +17,16 @@ export type CaughtConventionFolder = {
   catches: CaughtRecord[];
 };
 
+export type CaughtSuitAggregate = {
+  id: string;
+  catchCount: number;
+  latestCatch: CaughtRecord;
+  catches: CaughtRecord[];
+};
+
 export type CaughtCollection = {
   allCatches: CaughtRecord[];
+  allCaughtSuits: CaughtSuitAggregate[];
   conventionFolders: CaughtConventionFolder[];
 };
 
@@ -41,6 +48,7 @@ export async function fetchCaughtCollection(userId: string): Promise<CaughtColle
 
   return {
     allCatches,
+    allCaughtSuits: buildCaughtSuitAggregates(allCatches),
     conventionFolders: buildConventionFolders(allCatches, recapIdsByConventionId),
   };
 }
@@ -70,7 +78,7 @@ function buildConventionFolders(
   allCatches.forEach((record) => {
     const convention = record.convention;
 
-    if (!record.conventionId || !isArchivedConvention(convention)) {
+    if (!record.conventionId || !convention) {
       return;
     }
 
@@ -97,12 +105,6 @@ function buildConventionFolders(
   return Array.from(foldersByConventionId.values()).sort(compareConventionFolders);
 }
 
-function isArchivedConvention(
-  convention: CaughtRecordConvention | null,
-): convention is CaughtRecordConvention {
-  return convention?.status === 'archived';
-}
-
 function compareConventionFolders(
   left: CaughtConventionFolder,
   right: CaughtConventionFolder,
@@ -117,6 +119,57 @@ function compareConventionFolders(
   if (recentCatchDiff !== 0) return recentCatchDiff;
 
   return left.conventionName.localeCompare(right.conventionName);
+}
+
+function buildCaughtSuitAggregates(allCatches: CaughtRecord[]): CaughtSuitAggregate[] {
+  const catchesBySuitId = new Map<string, CaughtRecord[]>();
+
+  allCatches.forEach((record) => {
+    const suitId = record.fursuit?.id ?? record.id;
+    const existing = catchesBySuitId.get(suitId);
+
+    if (existing) {
+      existing.push(record);
+      return;
+    }
+
+    catchesBySuitId.set(suitId, [record]);
+  });
+
+  return Array.from(catchesBySuitId.entries())
+    .map(([id, catches]) => ({
+      id,
+      catchCount: catches.length,
+      latestCatch: getLatestCatch(catches),
+      catches,
+    }))
+    .sort(compareCaughtSuitAggregates);
+}
+
+function getLatestCatch(catches: CaughtRecord[]): CaughtRecord {
+  return catches.reduce((latest, record) => {
+    if (!record.caught_at) return latest;
+    if (!latest.caught_at) return record;
+
+    return new Date(record.caught_at).getTime() > new Date(latest.caught_at).getTime()
+      ? record
+      : latest;
+  }, catches[0]);
+}
+
+function compareCaughtSuitAggregates(
+  left: CaughtSuitAggregate,
+  right: CaughtSuitAggregate,
+): number {
+  const latestCatchDiff = compareNullableDateDesc(
+    left.latestCatch.caught_at,
+    right.latestCatch.caught_at,
+  );
+  if (latestCatchDiff !== 0) return latestCatchDiff;
+
+  const leftName = left.latestCatch.fursuit?.name ?? '';
+  const rightName = right.latestCatch.fursuit?.name ?? '';
+  return leftName.localeCompare(rightName);
 }
 
 function getMostRecentCaughtAt(catches: CaughtRecord[]): string | null {
