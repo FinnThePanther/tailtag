@@ -71,6 +71,10 @@ import { useToast } from '../../src/hooks/useToast';
 import { colors, spacing } from '../../src/theme';
 import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/(tabs)/index.styles';
+import {
+  REDACTED_FURSUIT_LABEL,
+  REDACTED_PLAYER_LABEL,
+} from '../../src/features/leaderboard/constants';
 
 const MAX_LEADERBOARD_ENTRIES = 5;
 const recapBannerStateKey = (userId: string) => `tailtag:recap-banner-state:${userId}`;
@@ -1251,6 +1255,9 @@ export default function HomeScreen() {
                           {displayEntries.map((entry) => {
                             const rank = rankByProfileId.get(entry.profileId) ?? 0;
                             const isSelf = entry.profileId === userId;
+                            const displayName = entry.isRedacted
+                              ? REDACTED_PLAYER_LABEL
+                              : (entry.username ?? 'Unnamed player');
 
                             return (
                               <Pressable
@@ -1258,8 +1265,17 @@ export default function HomeScreen() {
                                 style={({ pressed }) => [
                                   styles.leaderboardRow,
                                   isSelf && styles.leaderboardRowHighlight,
+                                  entry.isRedacted && styles.leaderboardRowRedacted,
                                   pressed && styles.leaderboardRowPressed,
                                 ]}
+                                disabled={entry.isRedacted}
+                                accessibilityRole={entry.isRedacted ? undefined : 'button'}
+                                accessibilityLabel={
+                                  entry.isRedacted
+                                    ? `Restricted catcher standing, rank ${rank}, ${formatCatchCount(entry.catchCount)}`
+                                    : `View ${displayName}'s profile`
+                                }
+                                accessibilityState={{ disabled: entry.isRedacted }}
                                 onPress={() =>
                                   router.push({
                                     pathname: '/profile/[id]',
@@ -1270,10 +1286,13 @@ export default function HomeScreen() {
                                 <Text style={styles.leaderboardRank}>#{rank}</Text>
                                 <View style={styles.leaderboardDetails}>
                                   <Text
-                                    style={styles.leaderboardName}
+                                    style={[
+                                      styles.leaderboardName,
+                                      entry.isRedacted && styles.leaderboardNameRedacted,
+                                    ]}
                                     numberOfLines={1}
                                   >
-                                    {entry.username ?? 'Unnamed player'}
+                                    {displayName}
                                   </Text>
                                   <Text
                                     style={styles.leaderboardCatchLabel}
@@ -1283,6 +1302,13 @@ export default function HomeScreen() {
                                     {isSelf ? ' · You' : ''}
                                   </Text>
                                 </View>
+                                {entry.isRedacted ? (
+                                  <Ionicons
+                                    name="lock-closed"
+                                    size={14}
+                                    color={colors.textSubtle}
+                                  />
+                                ) : null}
                               </Pressable>
                             );
                           })}
@@ -1347,45 +1373,65 @@ export default function HomeScreen() {
                     ) : hasSuitEntries ? (
                       <View style={styles.leaderboardSection}>
                         <View style={styles.leaderboardList}>
-                          {topSuitEntries.map((entry, index) => (
-                            <Pressable
-                              key={entry.fursuitId}
-                              style={({ pressed }) => [
-                                styles.leaderboardRow,
-                                pressed && styles.leaderboardRowPressed,
-                              ]}
-                              onPress={() =>
-                                router.push({
-                                  pathname: '/fursuits/[id]',
-                                  params: { id: entry.fursuitId },
-                                })
-                              }
-                              accessibilityRole="button"
-                              accessibilityLabel={`View ${entry.name}'s fursuit profile`}
-                            >
-                              <Text style={styles.leaderboardRank}>#{index + 1}</Text>
-                              <AppAvatar
-                                url={entry.avatarUrl}
-                                size="xs"
-                                fallback="fursuit"
-                                style={styles.avatarMargin}
-                              />
-                              <View style={styles.leaderboardDetails}>
-                                <Text
-                                  style={styles.leaderboardName}
-                                  numberOfLines={1}
-                                >
-                                  {entry.name}
-                                </Text>
-                                <Text
-                                  style={styles.leaderboardCatchLabel}
-                                  numberOfLines={1}
-                                >
-                                  {formatCatchCount(entry.catchCount)}
-                                </Text>
-                              </View>
-                            </Pressable>
-                          ))}
+                          {topSuitEntries.map((entry, index) => {
+                            const rank = index + 1;
+                            return (
+                              <Pressable
+                                key={entry.fursuitId}
+                                style={({ pressed }) => [
+                                  styles.leaderboardRow,
+                                  entry.isRedacted && styles.leaderboardRowRedacted,
+                                  pressed && styles.leaderboardRowPressed,
+                                ]}
+                                disabled={entry.isRedacted}
+                                onPress={() =>
+                                  router.push({
+                                    pathname: '/fursuits/[id]',
+                                    params: { id: entry.fursuitId },
+                                  })
+                                }
+                                accessibilityRole={entry.isRedacted ? undefined : 'button'}
+                                accessibilityLabel={
+                                  entry.isRedacted
+                                    ? `Restricted fursuit standing, rank ${rank}, ${formatCatchCount(entry.catchCount)}`
+                                    : `View ${entry.name}'s fursuit profile`
+                                }
+                                accessibilityState={{ disabled: entry.isRedacted }}
+                              >
+                                <Text style={styles.leaderboardRank}>#{rank}</Text>
+                                <AppAvatar
+                                  url={entry.avatarUrl}
+                                  size="xs"
+                                  fallback="fursuit"
+                                  style={styles.avatarMargin}
+                                />
+                                <View style={styles.leaderboardDetails}>
+                                  <Text
+                                    style={[
+                                      styles.leaderboardName,
+                                      entry.isRedacted && styles.leaderboardNameRedacted,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {entry.isRedacted ? REDACTED_FURSUIT_LABEL : entry.name}
+                                  </Text>
+                                  <Text
+                                    style={styles.leaderboardCatchLabel}
+                                    numberOfLines={1}
+                                  >
+                                    {formatCatchCount(entry.catchCount)}
+                                  </Text>
+                                </View>
+                                {entry.isRedacted ? (
+                                  <Ionicons
+                                    name="lock-closed"
+                                    size={14}
+                                    color={colors.textSubtle}
+                                  />
+                                ) : null}
+                              </Pressable>
+                            );
+                          })}
                         </View>
                         <Pressable
                           style={({ pressed }) => [

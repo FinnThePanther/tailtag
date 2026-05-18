@@ -8,6 +8,7 @@ export type LeaderboardEntry = {
   profileId: string;
   username: string | null;
   catchCount: number;
+  isRedacted: boolean;
 };
 
 export type SuitLeaderboardEntry = {
@@ -20,6 +21,7 @@ export type SuitLeaderboardEntry = {
   ownerProfileId: string | null;
   ownerUsername: string | null;
   catchCount: number;
+  isRedacted: boolean;
 };
 
 export const CONVENTION_LEADERBOARD_QUERY_KEY = 'convention-leaderboard';
@@ -40,21 +42,11 @@ export async function fetchConventionLeaderboard(
 
   return (data ?? [])
     .filter((row) => row.catcher_id != null && row.catch_count != null)
-    .sort((a, b) => {
-      const countDiff = Number(b.catch_count ?? 0) - Number(a.catch_count ?? 0);
-      if (countDiff !== 0) return countDiff;
-
-      const usernameA = a.username ?? '\uffff';
-      const usernameB = b.username ?? '\uffff';
-      const usernameDiff = usernameA.localeCompare(usernameB);
-      if (usernameDiff !== 0) return usernameDiff;
-
-      return (a.catcher_id ?? '').localeCompare(b.catcher_id ?? '');
-    })
     .map((row) => ({
       profileId: row.catcher_id!,
       username: row.username,
       catchCount: row.catch_count!,
+      isRedacted: row.profile_redacted === true,
     }));
 }
 
@@ -84,30 +76,25 @@ export async function fetchConventionSuitLeaderboard(
 
   return (data ?? [])
     .filter((row) => row.fursuit_id != null && row.catch_count != null)
-    .sort((a, b) => {
-      const countDiff = Number(b.catch_count ?? 0) - Number(a.catch_count ?? 0);
-      if (countDiff !== 0) return countDiff;
-
-      const nameDiff = (a.fursuit_name ?? '').localeCompare(b.fursuit_name ?? '');
-      if (nameDiff !== 0) return nameDiff;
-
-      return (a.fursuit_id ?? '').localeCompare(b.fursuit_id ?? '');
-    })
     .map((row) => {
+      const isRedacted = row.fursuit_redacted === true;
       return {
         fursuitId: row.fursuit_id!,
-        name: row.fursuit_name ?? 'Unknown suit',
+        name: isRedacted ? 'Age-restricted fursuit' : (row.fursuit_name ?? 'Unknown suit'),
         species: row.species_name,
         speciesId: row.species_id,
         colors: mapFursuitColors(row.color_assignments),
-        avatarUrl: resolveStorageMediaUrl({
-          bucket: FURSUIT_BUCKET,
-          path: null,
-          legacyUrl: row.fursuit_avatar_url,
-        }),
+        avatarUrl: isRedacted
+          ? null
+          : resolveStorageMediaUrl({
+              bucket: FURSUIT_BUCKET,
+              path: null,
+              legacyUrl: row.fursuit_avatar_url,
+            }),
         ownerProfileId: row.owner_id,
         ownerUsername: null, // Not in materialized view, but not displayed in UI
         catchCount: row.catch_count!,
+        isRedacted,
       } satisfies SuitLeaderboardEntry;
     });
 }

@@ -34,6 +34,10 @@ export const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: 'rgba(56,189,248,0.12)',
   },
+  rowRedacted: {
+    backgroundColor: colors.surfaceMutedSoft,
+    opacity: 0.82,
+  },
   rowPressed: {
     opacity: 0.7,
   },
@@ -53,6 +57,9 @@ export const styles = StyleSheet.create({
     color: colors.foreground,
     fontSize: 16,
     fontWeight: '600',
+  },
+  nameRedacted: {
+    color: colors.textSubtle,
   },
   catchLabel: {
     color: 'rgba(203,213,225,0.8)',

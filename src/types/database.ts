@@ -2348,6 +2348,10 @@ export type Database = {
           scan_count: number
         }[]
       }
+      ensure_own_profile_exists: {
+        Args: { p_username?: string }
+        Returns: undefined
+      }
       execute_data_retention_cleanup: { Args: never; Returns: Json }
       expire_bans: { Args: never; Returns: Json }
       expire_moderation_actions: { Args: never; Returns: undefined }
@@ -2438,6 +2442,7 @@ export type Database = {
           convention_id: string
           first_catch_at: string
           last_catch_at: string
+          profile_redacted: boolean
           unique_fursuits: number
           unique_species: number
           username: string
@@ -2476,6 +2481,7 @@ export type Database = {
           fursuit_avatar_url: string
           fursuit_id: string
           fursuit_name: string
+          fursuit_redacted: boolean
           last_caught_at: string
           owner_id: string
           species_id: string

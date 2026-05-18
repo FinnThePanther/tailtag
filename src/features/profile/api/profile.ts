@@ -8,7 +8,6 @@ import {
 } from '../../../utils/supabase-image';
 import type { FursuitPhotoCandidate } from '../../onboarding/api/onboarding';
 import type { Database, FursuitSocialLink } from '../../../types/database';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   buildGeneratedUsername,
   normalizeUsernameForLookup,
@@ -127,6 +126,11 @@ async function selectProfileWithColumnFallback(userId: string) {
   };
 }
 
+async function confirmOwnProfileExists(userId: string): Promise<boolean> {
+  const result = await selectProfileWithColumnFallback(userId);
+  return result.data != null;
+}
+
 async function ensureOwnProfileExists(userId: string): Promise<void> {
   const client = supabase as any;
   const {
@@ -159,9 +163,31 @@ async function ensureOwnProfileExists(userId: string): Promise<void> {
     .from('profiles')
     .upsert(payload, { onConflict: 'id', ignoreDuplicates: true });
 
-  if (error && error.code !== '23505') {
-    throw new Error(error.message);
+  if (!error) {
+    return;
   }
+
+  if (error.code === '23505' && (await confirmOwnProfileExists(userId))) {
+    return;
+  }
+
+  if (error.code === '42501') {
+    const { error: rpcError } = await client.rpc('ensure_own_profile_exists', {
+      p_username: payload.username ?? null,
+    });
+
+    if (!rpcError) {
+      return;
+    }
+
+    if (rpcError.code === '23505' && (await confirmOwnProfileExists(userId))) {
+      return;
+    }
+
+    throw new Error(rpcError.message);
+  }
+
+  throw new Error(error.message);
 }
 
 function mapProfileData(data: any, overrides: Partial<ProfileSummary> = {}): ProfileSummary {
@@ -324,28 +350,6 @@ export async function updateProfileCatchMode(userId: string, catchMode: CatchMod
 
   if (error) {
     throw new Error(`Could not save catch settings: ${error.message}`);
-  }
-}
-
-export async function updateProfileVisibilityAudience(
-  userId: string,
-  audience: VisibilityAudience,
-): Promise<void> {
-  const client = supabase as SupabaseClient<Database>;
-  const { error } = await client
-    .from('profiles')
-    .update({
-      visibility_audience: audience,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', userId);
-
-  if (error) {
-    if (error.code === '42501') {
-      throw new Error('Adult confirmation is required for adults-only visibility.');
-    }
-
-    throw new Error(`Could not save profile visibility: ${error.message}`);
   }
 }
 
