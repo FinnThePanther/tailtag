@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const query = url.searchParams.get('q');
+  const query = url.searchParams.get('q')?.trim();
   if (!query) {
     return NextResponse.json({ error: 'Missing query' }, { status: 400 });
   }
@@ -17,6 +17,7 @@ export async function GET(request: Request) {
   );
   endpoint.searchParams.set('access_token', token);
   endpoint.searchParams.set('limit', '5');
+  endpoint.searchParams.set('types', 'poi,address,place,locality,neighborhood');
 
   const response = await fetch(endpoint.toString(), {
     headers: {
