@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 
 import { verifyConventionLocation } from '../api/geoVerification';
 import { captureNonCriticalError, captureHandledMessage } from '@/lib/sentry';
-import type { VerifiedLocation } from '../api/conventions';
+import type { ConventionVerificationErrorCode, VerifiedLocation } from '../api/conventions';
 
 export type VerificationResult =
   | { verified: true; location: VerifiedLocation }
@@ -11,7 +11,7 @@ export type VerificationResult =
       verified: false;
       distance_meters?: number | null;
       error?: string | null;
-      error_code?: string | null;
+      error_code?: ConventionVerificationErrorCode | null;
     };
 
 type UseGeoVerificationReturn = {
@@ -19,7 +19,10 @@ type UseGeoVerificationReturn = {
   isVerifying: boolean;
 };
 
-const verificationErrorMessage = (errorCode: string | null | undefined, fallback?: string) => {
+const verificationErrorMessage = (
+  errorCode: ConventionVerificationErrorCode | null | undefined,
+  fallback?: string,
+) => {
   switch (errorCode) {
     case 'outside_geofence':
       return "TailTag couldn't confirm you're inside the convention area. Move closer to the venue and try again.";

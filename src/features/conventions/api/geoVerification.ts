@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import type { ConventionVerificationErrorCode } from './conventions';
 
 export type LocationVerificationRequest = {
   profileId: string;
@@ -14,7 +15,7 @@ export type LocationVerificationResponse = {
   convention_name: string;
   geofence_radius_meters: number;
   effective_radius_meters: number | null;
-  error_code?: string | null;
+  error_code?: ConventionVerificationErrorCode | null;
   error?: string;
 };
 

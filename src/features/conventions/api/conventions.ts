@@ -999,20 +999,36 @@ export async function verifyAndOptInToConvention(
   });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'conventions.verifyAndOptInToConvention',
+      profileId: params.profileId,
+      conventionId: params.conventionId,
+    });
     throw new Error(`We couldn't verify your convention location: ${error.message}`);
   }
 
   const result = mapVerifyAndOptInResponse(data);
 
   if (result.verified) {
-    void emitGameplayEvent({
-      type: 'convention_joined',
-      conventionId: params.conventionId,
-      payload: {
-        profile_id: params.profileId,
-        convention_id: params.conventionId,
-        verification_method: result.requires_location_verification ? 'gps' : 'none',
-      },
+    const eventType = 'convention_joined';
+    void Promise.race([
+      emitGameplayEvent({
+        type: eventType,
+        conventionId: params.conventionId,
+        payload: {
+          profile_id: params.profileId,
+          convention_id: params.conventionId,
+          verification_method: result.requires_location_verification ? 'gps' : 'none',
+        },
+      }),
+      createGameplayEventTimeout(eventType),
+    ]).catch((eventError) => {
+      captureHandledException(eventError, {
+        scope: 'conventions.verifyAndOptInToConvention.event',
+        eventType,
+        profileId: params.profileId,
+        conventionId: params.conventionId,
+      });
     });
   }
 

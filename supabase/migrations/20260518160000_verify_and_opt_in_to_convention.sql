@@ -11,6 +11,8 @@ SECURITY DEFINER
 SET search_path TO 'public', 'pg_temp'
 AS $$
 DECLARE
+  v_actor_id uuid := auth.uid();
+  v_actor_is_admin boolean := auth.role() = 'service_role';
   v_convention RECORD;
   v_distance_meters DECIMAL;
   v_effective_radius INTEGER := NULL;
@@ -20,6 +22,18 @@ DECLARE
   v_profile_role public.user_role := 'player';
   v_accuracy INTEGER := COALESCE(p_accuracy, 0);
 BEGIN
+  IF NOT v_actor_is_admin THEN
+    v_actor_is_admin := COALESCE(public.is_admin(v_actor_id), false);
+  END IF;
+
+  IF auth.role() <> 'service_role' AND v_actor_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  IF auth.role() <> 'service_role' AND v_actor_id IS DISTINCT FROM p_profile_id AND NOT v_actor_is_admin THEN
+    RAISE EXCEPTION 'Not authorized to verify convention location for this profile';
+  END IF;
+
   SELECT role
   INTO v_profile_role
   FROM profiles
@@ -87,7 +101,9 @@ BEGIN
     v_verified := true;
     v_effective_radius := v_convention.geofence_radius_meters;
   ELSE
-    IF v_convention.latitude IS NULL OR v_convention.longitude IS NULL THEN
+    IF v_convention.latitude IS NULL
+      OR v_convention.longitude IS NULL
+      OR v_convention.geofence_radius_meters IS NULL THEN
       v_error := 'Convention geofence not configured';
       v_error_code := 'geofence_not_configured';
       v_verified := false;

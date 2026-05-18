@@ -33,6 +33,7 @@ import type { Json } from '../../../types/database';
 const CATCH_RECONCILE_DEBOUNCE_MS = 800;
 const CATCH_RECONCILE_FOLLOW_UP_MS = 6_000;
 const CONVENTION_RECAP_READY_TOAST_STORAGE_PREFIX = '@convention-recap-ready-toasts:';
+const CONVENTION_STARTED_TOAST_STORAGE_PREFIX = '@convention-started-toasts:';
 const MAX_STORED_CONVENTION_RECAP_READY_TOAST_KEYS = 200;
 
 type NotificationRow = {
@@ -67,6 +68,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function conventionRecapReadyToastStorageKey(userId: string) {
   return `${CONVENTION_RECAP_READY_TOAST_STORAGE_PREFIX}${userId}`;
+}
+
+function conventionStartedToastStorageKey(userId: string, conventionId: string | null) {
+  return `${CONVENTION_STARTED_TOAST_STORAGE_PREFIX}${userId}:${conventionId ?? 'unknown'}`;
 }
 
 function parseConventionRecapReadyToastKeys(raw: string | null): Set<string> {
@@ -1424,20 +1429,49 @@ export function AchievementToastManager() {
         typeof payload?.convention_id === 'string' ? payload.convention_id : null;
       const requiresLocationVerification = payload?.location_verification_required === true;
 
-      showToast(
-        requiresLocationVerification
-          ? `${conventionName} is live. Verify on-site to start catching.`
-          : `${conventionName} is live. You can start catching now.`,
-      );
-      addMonitoringBreadcrumb({
-        category: 'conventions',
-        message: 'Convention started notification received',
-        data: {
-          userId,
-          conventionId,
-          requiresLocationVerification,
-        },
-      });
+      void (async () => {
+        const storageKey = conventionStartedToastStorageKey(userId, conventionId);
+
+        try {
+          const alreadyShown = await AsyncStorage.getItem(storageKey);
+          if (alreadyShown === 'true') {
+            return;
+          }
+        } catch (error) {
+          captureHandledException(error, {
+            scope: 'notifications.realtime',
+            action: 'load-convention-started-toast-dedupe',
+            userId,
+            conventionId,
+          });
+        }
+
+        showToast(
+          requiresLocationVerification
+            ? `${conventionName} is live. Verify on-site to start catching.`
+            : `${conventionName} is live. You can start catching now.`,
+        );
+        addMonitoringBreadcrumb({
+          category: 'conventions',
+          message: 'Convention started notification received',
+          data: {
+            userId,
+            conventionId,
+            requiresLocationVerification,
+          },
+        });
+
+        try {
+          await AsyncStorage.setItem(storageKey, 'true');
+        } catch (error) {
+          captureHandledException(error, {
+            scope: 'notifications.realtime',
+            action: 'persist-convention-started-toast-dedupe',
+            userId,
+            conventionId,
+          });
+        }
+      })();
 
       void queryClient.invalidateQueries({
         queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],

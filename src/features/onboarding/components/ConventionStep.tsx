@@ -104,11 +104,18 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
     () => new Map(existingMemberships.map((membership) => [membership.convention_id, membership])),
     [existingMemberships],
   );
-  const handleVerifiedConvention = useCallback((convention: ConventionSummary) => {
-    hasInitializedSelectionsRef.current = true;
-    setSelectedConventionIds((current) => new Set([...current, convention.id]));
-    setCommittedConventionIds((current) => new Set([...current, convention.id]));
-  }, []);
+  const handleVerifiedConvention = useCallback(
+    (convention: ConventionSummary, payload: { verifiedLocation: VerifiedLocation }) => {
+      hasInitializedSelectionsRef.current = true;
+      setSelectedConventionIds((current) => new Set([...current, convention.id]));
+      setCommittedConventionIds((current) => new Set([...current, convention.id]));
+      setVerifiedLocations((current) => ({
+        ...current,
+        [convention.id]: payload.verifiedLocation,
+      }));
+    },
+    [],
+  );
   const { verifyConvention, verificationModals, isVerifyingConvention } =
     useConventionVerificationAction({
       profileId: userId,

@@ -8,6 +8,7 @@ import {
   verifyAndOptInToConvention,
   type ConventionVerificationErrorCode,
   type ConventionSummary,
+  type VerifiedLocation,
 } from '@/features/conventions/api/conventions';
 import { DAILY_TASKS_QUERY_KEY } from '@/features/daily-tasks';
 import {
@@ -21,7 +22,10 @@ import { captureHandledException, captureHandledMessage, captureSupabaseError } 
 
 type UseConventionVerificationActionOptions = {
   profileId: string | null | undefined;
-  onVerified?: (convention: ConventionSummary) => void | Promise<unknown>;
+  onVerified?: (
+    convention: ConventionSummary,
+    payload: { verifiedLocation: VerifiedLocation },
+  ) => void | Promise<unknown>;
 };
 
 const isSupabaseError = (
@@ -122,11 +126,12 @@ export function useConventionVerificationAction({
         const { latitude, longitude, accuracy } = position.coords;
         const effectiveAccuracy = typeof accuracy === 'number' ? accuracy : 50;
         const roundedAccuracy = Math.max(1, Math.round(effectiveAccuracy));
+        const verifiedLocation = { latitude, longitude, accuracy: roundedAccuracy };
 
         const result = await verifyAndOptInToConvention({
           profileId,
           conventionId: convention.id,
-          verifiedLocation: { latitude, longitude, accuracy: roundedAccuracy },
+          verifiedLocation,
         });
 
         captureHandledMessage('geo_verification_result', {
@@ -148,7 +153,7 @@ export function useConventionVerificationAction({
 
         try {
           await refreshConventionAccess(convention.id);
-          await onVerified?.(convention);
+          await onVerified?.(convention, { verifiedLocation });
         } catch (caught) {
           if (isSupabaseError(caught)) {
             captureSupabaseError(caught, {
