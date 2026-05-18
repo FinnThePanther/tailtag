@@ -156,3 +156,11 @@ BEGIN
   );
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION public.verify_convention_location(
+  uuid,
+  uuid,
+  double precision,
+  double precision,
+  integer
+) TO authenticated;
