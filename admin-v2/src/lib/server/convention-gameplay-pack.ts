@@ -1,3 +1,4 @@
+import { isCheckedInAchievementIdentity } from '$lib/server/achievement-identity';
 import { createServiceRoleClient } from '$lib/server/supabase/service';
 import type { Database } from '$types/database';
 
@@ -135,17 +136,6 @@ const DEFAULT_TASKS: DefaultTaskSpec[] = [
 ];
 
 const DEFAULT_ACHIEVEMENTS: DefaultAchievementSpec[] = [
-  {
-    keySuffix: 'CHECKED_IN',
-    slugSuffix: 'checked-in',
-    name: 'Checked In',
-    description: 'Join this convention in TailTag.',
-    category: 'meta',
-    kind: 'convention_joined',
-    recipientRole: 'any',
-    triggerEvent: 'convention_joined',
-    rule: {},
-  },
   {
     keySuffix: 'CROWD_FAVORITE',
     slugSuffix: 'crowd-favorite',
@@ -438,6 +428,16 @@ async function ensureDefaultAchievements(
 
   for (const catalogAchievement of (catalogAchievements ??
     []) as unknown as CatalogAchievementRow[]) {
+    if (
+      isCheckedInAchievementIdentity({
+        key: catalogAchievement.key,
+        name: catalogAchievement.name,
+        triggerEvent: catalogAchievement.trigger_event,
+      })
+    ) {
+      continue;
+    }
+
     const sourceRule = sourceAchievementRule(catalogAchievement.achievement_rules);
     const sourceMetadata = metadataRecord(sourceRule?.metadata);
     const sourceRuleId = sourceRule?.rule_id;
