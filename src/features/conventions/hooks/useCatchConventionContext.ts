@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { FursuitPickerItem } from '@/features/catch-confirmations';
+import type {
+  FursuitPickerItem,
+  ReciprocalFursuitPickerItem,
+} from '@/features/catch-confirmations';
 import {
   CONVENTIONS_STALE_TIME,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
@@ -236,6 +239,36 @@ export function useCatchConventionContext(userId: string | null) {
     return items.sort((a, b) => a.name.localeCompare(b.name));
   }, [rosterPickerSources.entries, userId]);
 
+  const reciprocalPickerItems = useMemo<ReciprocalFursuitPickerItem[]>(() => {
+    if (!userId) {
+      return [];
+    }
+
+    const byId = new Map<string, ReciprocalFursuitPickerItem>();
+
+    rosterPickerSources.entries.forEach((entry) => {
+      if (entry.ownerProfileId !== userId || entry.rosterVisible === false) return;
+
+      const existing = byId.get(entry.fursuitId);
+      if (existing) {
+        if (!existing.conventionIds.includes(entry.conventionId)) {
+          existing.conventionIds.push(entry.conventionId);
+        }
+        return;
+      }
+
+      byId.set(entry.fursuitId, {
+        id: entry.fursuitId,
+        name: entry.name,
+        avatarUrl: entry.avatarUrl,
+        species: entry.species,
+        conventionIds: [entry.conventionId],
+      });
+    });
+
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [rosterPickerSources.entries, userId]);
+
   const refresh = useCallback(async () => {
     const membershipResult = await refetchMemberships();
     const nextMemberships = membershipResult.data ?? [];
@@ -258,6 +291,7 @@ export function useCatchConventionContext(userId: string | null) {
     activeConventionIds,
     singleActiveConventionId,
     pickerItems,
+    reciprocalPickerItems,
     isMembershipLoading: membershipQuery.isPending,
     // isRosterLoading: initial load when activeConventionIds exist, rosterQueries are pending, and no rosterQueries have resolved data.
     isRosterLoading:

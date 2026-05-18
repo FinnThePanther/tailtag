@@ -19,6 +19,7 @@ export type CatchOutboxItem = {
   fursuitAvatarUrl?: string | null;
   fursuitAvatarPath?: string | null;
   fursuitSpeciesName?: string | null;
+  reciprocalFursuitId?: string | null;
   localPhotoUri?: string;
   photoSource?: CatchPhotoSource;
   photoPath?: string;

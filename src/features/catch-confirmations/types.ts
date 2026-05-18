@@ -24,6 +24,10 @@ export type PendingCatch = {
   catchPhotoUrl: string | null;
   catchPhotoSource?: CatchPhotoSource | null;
   photoUploadState?: CatchPhotoUploadState;
+  reciprocalOfferId?: string | null;
+  reciprocalFursuitId?: string | null;
+  reciprocalFursuitName?: string | null;
+  reciprocalFursuitAvatarUrl?: string | null;
 };
 
 /** Catches the current user made that are awaiting owner approval (catcher's view). */
@@ -46,6 +50,22 @@ export type ConfirmCatchResult = {
   catchId: string;
   decision: 'accept' | 'reject';
   message?: string;
+  reciprocalOffer?: ReciprocalCatchOfferResult | null;
+};
+
+export type ReciprocalCatchOfferStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELED';
+
+export type ReciprocalCatchOfferResult = {
+  offerId: string | null;
+  status: ReciprocalCatchOfferStatus;
+  reciprocalCatchId: string | null;
+  failureReason: string | null;
+  eventEnqueued?: boolean;
+  offeredFursuitId?: string | null;
+  offeredFursuitName?: string | null;
+  offeredFursuitAvatarPath?: string | null;
+  offeredFursuitAvatarUrl?: string | null;
+  recipientProfileId?: string | null;
 };
 
 export type CreateCatchResult = {
@@ -64,6 +84,7 @@ export type CreateCatchResult = {
   fursuitSpeciesId?: string | null;
   fursuitSpeciesName?: string | null;
   photoUploadState: CatchPhotoUploadState;
+  reciprocalOffer?: ReciprocalCatchOfferResult | null;
   edgeRequestMs: number | null;
 };
 
@@ -81,6 +102,7 @@ export type CreateCatchParams = {
   photoUrl?: string | null;
   photoSource?: CatchPhotoSource | null;
   photoUploadState?: Extract<CatchPhotoUploadState, 'pending_upload' | 'uploaded'> | null;
+  reciprocalFursuitId?: string | null;
 };
 
 export type UpdateCatchPhotoResult = {

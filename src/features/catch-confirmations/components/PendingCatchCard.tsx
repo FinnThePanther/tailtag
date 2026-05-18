@@ -273,6 +273,19 @@ export function PendingCatchCard({
             {pendingCatch.conventionName}
           </Text>
         </View>
+        {pendingCatch.reciprocalOfferId && pendingCatch.reciprocalFursuitName ? (
+          <View style={styles.reciprocalNotice}>
+            <Ionicons
+              name="swap-horizontal-outline"
+              size={14}
+              color={colors.primary}
+            />
+            <Text style={styles.reciprocalNoticeText}>
+              {pendingCatch.catcherUsername} offered you a back-tag for{' '}
+              {pendingCatch.reciprocalFursuitName}. Approving records both catches.
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.actions}>

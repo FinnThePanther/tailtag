@@ -11,6 +11,7 @@ export {
   markCatchPhotoUploadFailed,
   uploadCatchPhotoFromUri,
   fetchConventionFursuits,
+  fetchOwnedConventionFursuits,
 } from './confirmations';
 export {
   MY_PENDING_CATCHES_QUERY_KEY,
@@ -18,4 +19,4 @@ export {
   myPendingCatchesQueryKey,
   fetchMyPendingCatches,
 } from './myPendingCatches';
-export type { FursuitPickerItem } from './confirmations';
+export type { FursuitPickerItem, ReciprocalFursuitPickerItem } from './confirmations';

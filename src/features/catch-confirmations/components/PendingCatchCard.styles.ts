@@ -136,6 +136,23 @@ export const styles = StyleSheet.create({
     color: colors.textDim,
     fontSize: 12,
   },
+  reciprocalNotice: {
+    backgroundColor: colors.primarySurface,
+    borderColor: colors.primaryBorder,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  reciprocalNoticeText: {
+    color: colors.textMuted,
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

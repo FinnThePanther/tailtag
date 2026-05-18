@@ -9,6 +9,8 @@ export type {
   ConfirmCatchResult,
   CreateCatchResult,
   CreateCatchParams,
+  ReciprocalCatchOfferResult,
+  ReciprocalCatchOfferStatus,
 } from './types';
 
 // Components
@@ -19,6 +21,7 @@ export {
   PendingConfirmationsList,
   CatchConfirmationToastManager,
   PhotoCatchCard,
+  ReciprocalCatchSelector,
 } from './components';
 
 // Hooks
@@ -38,9 +41,10 @@ export {
   markCatchPhotoUploadFailed,
   uploadCatchPhotoFromUri,
   fetchConventionFursuits,
+  fetchOwnedConventionFursuits,
   MY_PENDING_CATCHES_QUERY_KEY,
   MY_PENDING_CATCHES_STALE_TIME,
   myPendingCatchesQueryKey,
   fetchMyPendingCatches,
 } from './api';
-export type { FursuitPickerItem } from './api';
+export type { FursuitPickerItem, ReciprocalFursuitPickerItem } from './api';

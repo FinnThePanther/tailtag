@@ -93,6 +93,11 @@ export const styles = StyleSheet.create({
   pickerScroll: {
     maxHeight: 280,
   },
+  reciprocalSection: {
+    borderTopColor: colors.borderMuted,
+    borderTopWidth: 1,
+    paddingTop: spacing.sm,
+  },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',

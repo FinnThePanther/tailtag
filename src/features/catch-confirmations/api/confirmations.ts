@@ -30,6 +30,8 @@ import type {
   ConfirmCatchResult,
   CreateCatchResult,
   CreateCatchParams,
+  ReciprocalCatchOfferResult,
+  ReciprocalCatchOfferStatus,
   UpdateCatchPhotoResult,
   MarkCatchPhotoUploadFailedResult,
 } from '@/features/catch-confirmations/types';
@@ -90,6 +92,30 @@ function stringField(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+function normalizeReciprocalOfferStatus(raw: unknown): ReciprocalCatchOfferStatus {
+  return raw === 'COMPLETED' || raw === 'FAILED' || raw === 'CANCELED' ? raw : 'PENDING';
+}
+
+function normalizeReciprocalOffer(raw: unknown): ReciprocalCatchOfferResult | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const value = raw as Record<string, unknown>;
+  return {
+    offerId: stringField(value.offer_id),
+    status: normalizeReciprocalOfferStatus(value.status),
+    reciprocalCatchId: stringField(value.reciprocal_catch_id),
+    failureReason: stringField(value.failure_reason),
+    eventEnqueued: value.event_enqueued === true,
+    offeredFursuitId: stringField(value.offered_fursuit_id),
+    offeredFursuitName: stringField(value.offered_fursuit_name),
+    offeredFursuitAvatarPath: stringField(value.offered_fursuit_avatar_path),
+    offeredFursuitAvatarUrl: stringField(value.offered_fursuit_avatar_url),
+    recipientProfileId: stringField(value.recipient_profile_id),
+  };
+}
+
 async function wakeGameplayQueue(): Promise<void> {
   const { error } = await supabase.rpc('process_gameplay_queue_if_active');
   if (error) {
@@ -144,6 +170,14 @@ export async function fetchPendingCatches(userId: string): Promise<PendingCatch[
     }),
     catchPhotoSource: normalizeCatchPhotoSource(row.catch_photo_source),
     photoUploadState: normalizeCatchPhotoUploadState(row.photo_upload_state),
+    reciprocalOfferId: row.reciprocal_offer_id ?? null,
+    reciprocalFursuitId: row.reciprocal_fursuit_id ?? null,
+    reciprocalFursuitName: row.reciprocal_fursuit_name ?? null,
+    reciprocalFursuitAvatarUrl: resolveStorageMediaUrl({
+      bucket: FURSUIT_BUCKET,
+      path: null,
+      legacyUrl: row.reciprocal_fursuit_avatar_url ?? null,
+    }),
   }));
 }
 
@@ -179,7 +213,7 @@ export async function confirmCatch(
     );
   }
 
-  const result = data as { success: boolean; message?: string } | null;
+  const result = data as { success: boolean; message?: string; reciprocal_offer?: unknown } | null;
 
   if (!result?.success) {
     throw new Error(result?.message ?? 'Failed to process catch decision.');
@@ -200,6 +234,7 @@ export async function confirmCatch(
     catchId,
     decision,
     message: result.message,
+    reciprocalOffer: normalizeReciprocalOffer(result.reciprocal_offer),
   };
 }
 
@@ -261,6 +296,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         catch_photo_url: params.photoUrl ?? null,
         catch_photo_source: params.photoSource ?? null,
         photo_upload_state: params.photoUploadState ?? null,
+        reciprocal_fursuit_id: params.reciprocalFursuitId ?? null,
       }),
       signal: controller.signal,
     });
@@ -296,6 +332,12 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
           ),
           { result: 'failed', edgeRequestMs },
         );
+      }
+      if (errorMessage.includes('back-tag') || errorMessage.includes('Back-tag')) {
+        throw withCatchPerformanceError(new Error(errorMessage), {
+          result: 'failed',
+          edgeRequestMs,
+        });
       }
       if (errorMessage.includes('share a playable convention')) {
         throw withCatchPerformanceError(
@@ -361,6 +403,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       fursuitSpeciesId: responseData.fursuit_species_id ?? null,
       fursuitSpeciesName: responseData.fursuit_species_name ?? null,
       photoUploadState: normalizeCatchPhotoUploadState(responseData.photo_upload_state),
+      reciprocalOffer: normalizeReciprocalOffer(responseData.reciprocal_offer),
       edgeRequestMs,
     };
 
@@ -637,6 +680,10 @@ export type FursuitPickerItem = {
   species: string | null;
 };
 
+export type ReciprocalFursuitPickerItem = FursuitPickerItem & {
+  conventionIds: string[];
+};
+
 type ConventionRosterFursuitRow =
   Database['public']['Functions']['get_convention_suit_roster']['Returns'][number];
 
@@ -699,4 +746,52 @@ export async function fetchConventionFursuits(
   }
 
   return results.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function fetchOwnedConventionFursuits(
+  conventionIds: string[],
+  ownerId: string,
+): Promise<ReciprocalFursuitPickerItem[]> {
+  if (conventionIds.length === 0) {
+    return [];
+  }
+
+  let rows: ConventionRosterFursuitRow[];
+  try {
+    rows = (
+      await Promise.all(
+        conventionIds.map((conventionId) => fetchConventionFursuitsForConvention(conventionId)),
+      )
+    ).flat();
+  } catch {
+    throw new Error("We couldn't load your fursuits for back-tags. Please try again.");
+  }
+
+  const byId = new Map<string, ReciprocalFursuitPickerItem>();
+
+  for (const row of rows) {
+    if (!row.fursuit_id || row.owner_id !== ownerId || !row.convention_id) continue;
+
+    const existing = byId.get(row.fursuit_id);
+    if (existing) {
+      if (!existing.conventionIds.includes(row.convention_id)) {
+        existing.conventionIds.push(row.convention_id);
+      }
+      continue;
+    }
+
+    byId.set(row.fursuit_id, {
+      id: row.fursuit_id,
+      name: row.fursuit_name ?? 'Unknown suit',
+      avatarUrl: resolveStorageMediaUrl({
+        bucket: FURSUIT_BUCKET,
+        path: row.fursuit_avatar_path ?? null,
+        legacyUrl: row.fursuit_avatar_url ?? null,
+      }),
+      species: row.species_name ?? null,
+      conventionIds: [row.convention_id],
+    });
+  }
+
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }

@@ -28,8 +28,10 @@ import {
   myPendingCatchesQueryKey,
   pendingCatchesQueryKey,
   PhotoCatchCard,
+  ReciprocalCatchSelector,
   type CatchStatus,
   type CreateCatchResult,
+  type ReciprocalCatchOfferResult,
 } from '../../src/features/catch-confirmations';
 import {
   CatchOutboxList,
@@ -105,6 +107,24 @@ type CatchLifecycleConvention = {
 const SHARED_CONVENTION_HELP =
   'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.';
 
+function reciprocalOfferMessage(offer: ReciprocalCatchOfferResult | null | undefined) {
+  if (!offer) return null;
+  if (offer.status === 'COMPLETED') {
+    return offer.offeredFursuitName
+      ? `Back-tag recorded for ${offer.offeredFursuitName}.`
+      : 'Back-tag recorded.';
+  }
+  if (offer.status === 'PENDING') {
+    return offer.offeredFursuitName
+      ? `Back-tag for ${offer.offeredFursuitName} will complete if they approve this catch.`
+      : 'Back-tag will complete if they approve this catch.';
+  }
+  if (offer.status === 'FAILED') {
+    return "Original catch saved, but the back-tag couldn't be completed.";
+  }
+  return null;
+}
+
 function isRetryableCatchSubmissionError(error: unknown) {
   if (!(error instanceof Error)) {
     return true;
@@ -150,6 +170,7 @@ export default function CatchScreen() {
     activeConventionIds,
     singleActiveConventionId,
     pickerItems,
+    reciprocalPickerItems,
     isMembershipLoading,
     isRosterLoading,
     isRosterRefreshing,
@@ -228,6 +249,10 @@ export default function CatchScreen() {
   const [catchRecord, setCatchRecord] = useState<CatchRecord | null>(null);
   const [catchNumber, setCatchNumber] = useState<number | null>(null);
   const [conversationPrompt, setConversationPrompt] = useState<string | null>(null);
+  const [selectedReciprocalFursuitId, setSelectedReciprocalFursuitId] = useState<string | null>(
+    null,
+  );
+  const [reciprocalFeedback, setReciprocalFeedback] = useState<string | null>(null);
   const [lastCatchConventionId, setLastCatchConventionId] = useState<string | null>(null);
   const [lastCatchConventionIds, setLastCatchConventionIds] = useState<string[]>([]);
   const isCodeCatchConventionContextReady = Boolean(singleActiveConventionId);
@@ -238,9 +263,20 @@ export default function CatchScreen() {
     setCatchRecord(null);
     setCatchNumber(null);
     setConversationPrompt(null);
+    setReciprocalFeedback(null);
     setLastCatchConventionId(null);
     setLastCatchConventionIds([]);
   }, []);
+
+  const codeReciprocalFursuits = useMemo(
+    () =>
+      singleActiveConventionId
+        ? reciprocalPickerItems.filter((item) =>
+            item.conventionIds.includes(singleActiveConventionId),
+          )
+        : [],
+    [reciprocalPickerItems, singleActiveConventionId],
+  );
 
   const handleEditOutboxCode = useCallback(
     (item: CatchOutboxItem) => {
@@ -264,6 +300,7 @@ export default function CatchScreen() {
         // Cleanup on blur (when navigating away)
         resetCatchState();
         setSubmitError(null);
+        setSelectedReciprocalFursuitId(null);
       };
     }, [resetCatchState, syncOutbox]),
   );
@@ -312,6 +349,14 @@ export default function CatchScreen() {
         void queryClient.invalidateQueries({
           queryKey: fursuitDetailQueryKey(params.fursuitId),
         });
+        if (params.catchResult.reciprocalOffer?.status === 'COMPLETED') {
+          const reciprocalFursuitId = params.catchResult.reciprocalOffer.offeredFursuitId;
+          if (reciprocalFursuitId) {
+            void queryClient.invalidateQueries({
+              queryKey: fursuitDetailQueryKey(reciprocalFursuitId),
+            });
+          }
+        }
         params.conventionIds.forEach((conventionId) => {
           void queryClient.invalidateQueries({
             queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
@@ -378,6 +423,11 @@ export default function CatchScreen() {
     }
 
     const catchConventionId = singleActiveConventionId;
+    const reciprocalFursuitId = codeReciprocalFursuits.some(
+      (item) => item.id === selectedReciprocalFursuitId,
+    )
+      ? selectedReciprocalFursuitId
+      : null;
 
     setIsSubmitting(true);
     setSubmitError(null);
@@ -390,6 +440,7 @@ export default function CatchScreen() {
         clientAttemptId,
         fursuitCode: normalizedCode,
         conventionId: catchConventionId,
+        reciprocalFursuitId,
       });
     } catch (caught) {
       captureHandledException(caught, {
@@ -429,6 +480,7 @@ export default function CatchScreen() {
         clientAttemptId,
         method: 'code',
         timeoutMs: CODE_CATCH_OUTBOX_TIMEOUT_MS,
+        reciprocalFursuitId,
       });
       catchTrace.recordTiming('edge_request_ms', catchResult.edgeRequestMs);
 
@@ -485,6 +537,7 @@ export default function CatchScreen() {
       setLastCatchConventionIds(catchResult.conventionId ? [catchResult.conventionId] : []);
       setCatchNumber(normalizedCatchRecord.catch_number ?? normalizedFursuit.catch_count);
       setConversationPrompt(null);
+      setReciprocalFeedback(reciprocalOfferMessage(catchResult.reciprocalOffer));
       stopPostCreateRenderTiming();
       finishCatchTrace({
         result: catchResult.requiresApproval ? 'pending_approval' : 'success',
@@ -500,6 +553,7 @@ export default function CatchScreen() {
       }
 
       setCodeInput('');
+      setSelectedReciprocalFursuitId(null);
 
       // Events are now fired by the Edge Function, no need to emit here
     } catch (caught) {
@@ -562,6 +616,7 @@ export default function CatchScreen() {
     resetCatchState();
     setSubmitError(null);
     setCodeInput('');
+    setSelectedReciprocalFursuitId(null);
   };
 
   const handlePhotoCatch = async (params: {
@@ -695,6 +750,7 @@ export default function CatchScreen() {
       setLastCatchConventionIds(params.conventionId ? [params.conventionId] : []);
       setCatchNumber(catchResult.catchNumber);
       setConversationPrompt(promptCandidate ?? null);
+      setReciprocalFeedback(reciprocalOfferMessage(catchResult.reciprocalOffer));
       scheduleCatchSurfaceRefresh({
         fursuitId: params.fursuitId,
         conventionIds: params.conventionId ? [params.conventionId] : [],
@@ -832,6 +888,16 @@ export default function CatchScreen() {
           </Text>
         </View>
 
+        <ReciprocalCatchSelector
+          items={codeReciprocalFursuits}
+          selectedId={selectedReciprocalFursuitId}
+          onSelect={(id) => {
+            setSelectedReciprocalFursuitId(id);
+            setSubmitError(null);
+          }}
+          disabled={isSubmitting || isLifecycleCatchBlocked}
+        />
+
         {submitError ? (
           <View style={styles.errorContainer}>
             <View style={styles.errorMessageRow}>
@@ -909,6 +975,9 @@ export default function CatchScreen() {
               ? 'In the meantime, check out their bio below and start a conversation!'
               : `You just tagged ${caughtFursuit.name}. Scroll through their bio below and start a conversation!`}
           </Text>
+          {reciprocalFeedback ? (
+            <Text style={[styles.sectionBody, styles.sectionHighlight]}>{reciprocalFeedback}</Text>
+          ) : null}
           {conversationPrompt ? (
             <TailTagCard style={isPending ? styles.pendingPromptCard : styles.promptCard}>
               <Text style={isPending ? styles.pendingPromptLabel : styles.promptLabel}>
