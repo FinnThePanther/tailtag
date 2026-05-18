@@ -433,6 +433,59 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
   }
 }
 
+export async function createReciprocalCatchOffer(params: {
+  primaryCatchId: string;
+  offeredFursuitId: string;
+}): Promise<ReciprocalCatchOfferResult> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  const supabaseKey = SUPABASE_ANON_KEY;
+
+  if (!accessToken) {
+    throw new Error('You must be signed in to offer a back-tag.');
+  }
+
+  const supabaseUrl = SUPABASE_URL;
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase configuration not set.');
+  }
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/create-reciprocal-catch-offer`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      apikey: supabaseKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      primary_catch_id: params.primaryCatchId,
+      offered_fursuit_id: params.offeredFursuitId,
+    }),
+  });
+
+  const responseData = await response.json();
+
+  if (!response.ok) {
+    const errorMessage = responseData?.error;
+    if (typeof errorMessage === 'string' && errorMessage.includes('back-tag')) {
+      throw new Error(errorMessage);
+    }
+
+    throw new Error("We couldn't offer that back-tag. Please try again.");
+  }
+
+  return (
+    normalizeReciprocalOffer(responseData.reciprocal_offer) ?? {
+      offerId: null,
+      status: 'FAILED',
+      reciprocalCatchId: null,
+      failureReason: null,
+      eventEnqueued: false,
+      offeredFursuitId: params.offeredFursuitId,
+    }
+  );
+}
+
 /**
  * Attach a photo URL to an existing catch via the Edge Function (uses service role).
  * Called after the photo has been successfully uploaded to storage.

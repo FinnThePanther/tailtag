@@ -139,6 +139,10 @@ export const styles = StyleSheet.create({
   fullWidthButton: {
     width: '100%',
   },
+  reciprocalPromptGroup: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   promptCard: {
     marginBottom: spacing.md,
     backgroundColor: colors.primaryMuted,
