@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { assertAdminAction } from '@/lib/auth';
 import { createServiceRoleClient } from '@/lib/supabase/service';
 import { logAudit } from '@/lib/audit';
+import { assertNotCheckedInConventionAchievement } from '@/lib/achievement-identity';
 import { isDevSupabaseProject, isRepairSupabaseProject } from '@/lib/env';
 import {
   closeOutConvention,
@@ -893,6 +894,12 @@ export async function createConventionAchievementAction(input: {
   const meta = KIND_META[input.kind];
   if (!meta) throw new Error(`Unsupported rule kind: ${input.kind}`);
 
+  assertNotCheckedInConventionAchievement({
+    key: input.key,
+    name: input.name,
+    triggerEvent: meta.triggerEvent,
+  });
+
   const rule = input.rule ?? {};
 
   const slug = `convention-${input.conventionId.slice(0, 8)}-${input.key.toLowerCase()}`;
@@ -954,6 +961,24 @@ export async function toggleConventionAchievementAction(input: {
   const { profile } = await assertAdminAction([...CONTENT_ROLES]);
   const supabase = createServiceRoleClient();
 
+  if (input.isActive) {
+    const { data: achievement, error: fetchError } = await supabase
+      .from('achievements')
+      .select('key, name, trigger_event')
+      .eq('id', input.achievementId)
+      .eq('convention_id', input.conventionId)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+    if (!achievement) throw new Error('Achievement not found.');
+
+    assertNotCheckedInConventionAchievement({
+      key: achievement.key,
+      name: achievement.name,
+      triggerEvent: achievement.trigger_event,
+    });
+  }
+
   const { error } = await supabase
     .from('achievements')
     .update({ is_active: input.isActive })
@@ -990,6 +1015,24 @@ export async function updateConventionAchievementAction(input: {
 
   const meta = KIND_META[input.kind];
   if (!meta) throw new Error(`Unsupported rule kind: ${input.kind}`);
+
+  const { data: currentAchievement, error: fetchError } = await supabase
+    .from('achievements')
+    .select('key, is_active')
+    .eq('id', input.achievementId)
+    .eq('convention_id', input.conventionId)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+  if (!currentAchievement) throw new Error('Achievement not found.');
+
+  if (currentAchievement.is_active) {
+    assertNotCheckedInConventionAchievement({
+      key: currentAchievement.key,
+      name: input.name,
+      triggerEvent: meta.triggerEvent,
+    });
+  }
 
   const rule = input.rule ?? {};
 
