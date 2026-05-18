@@ -14,6 +14,7 @@ export type LocationVerificationResponse = {
   convention_name: string;
   geofence_radius_meters: number;
   effective_radius_meters: number | null;
+  error_code?: string | null;
   error?: string;
 };
 

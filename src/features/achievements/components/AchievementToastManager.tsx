@@ -20,7 +20,11 @@ import {
 } from '../../events/localGameplayEventsBus';
 import { DAILY_TASKS_QUERY_KEY, dailyTasksQueryKey } from '../../daily-tasks';
 import type { DailyTasksSummary } from '../../daily-tasks';
-import { PAST_CONVENTION_RECAPS_QUERY_KEY } from '../../conventions';
+import {
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
+  PAST_CONVENTION_RECAPS_QUERY_KEY,
+  PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+} from '../../conventions';
 import type { AchievementWithStatus } from '../api/achievements';
 import { caughtSuitsQueryKey, type CaughtRecord } from '../../suits';
 import { hasUploadedProfileAvatar, profileQueryKey, type ProfileSummary } from '../../profile';
@@ -1410,6 +1414,43 @@ export function AchievementToastManager() {
       })();
     };
 
+    const handleConventionStarted = (payload: Record<string, unknown> | null) => {
+      const conventionNameRaw = payload?.convention_name ?? payload?.conventionName ?? null;
+      const conventionName =
+        typeof conventionNameRaw === 'string' && conventionNameRaw.trim().length > 0
+          ? conventionNameRaw.trim()
+          : 'Your convention';
+      const conventionId =
+        typeof payload?.convention_id === 'string' ? payload.convention_id : null;
+      const requiresLocationVerification = payload?.location_verification_required === true;
+
+      showToast(
+        requiresLocationVerification
+          ? `${conventionName} is live. Verify on-site to start catching.`
+          : `${conventionName} is live. You can start catching now.`,
+      );
+      addMonitoringBreadcrumb({
+        category: 'conventions',
+        message: 'Convention started notification received',
+        data: {
+          userId,
+          conventionId,
+          requiresLocationVerification,
+        },
+      });
+
+      void queryClient.invalidateQueries({
+        queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+      });
+      if (conventionId) {
+        void queryClient.invalidateQueries({ queryKey: dailyTasksQueryKey(userId, conventionId) });
+      }
+      void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+    };
+
     const handleDailyTaskCompleted = (payload: Record<string, unknown> | null) => {
       const taskNameRaw = payload?.task_name ?? payload?.taskName ?? null;
       const taskName =
@@ -1623,6 +1664,9 @@ export function AchievementToastManager() {
             break;
           case 'convention_recap_ready':
             handleConventionRecapReady(notificationPayload);
+            break;
+          case 'convention_started':
+            handleConventionStarted(notificationPayload);
             break;
           default:
             break;

@@ -241,7 +241,7 @@ export async function startConventionAction(conventionId: string) {
 
   const { data: current, error: currentError } = await supabase
     .from('conventions')
-    .select('name, status, started_at')
+    .select('name, status, started_at, geofence_enabled, location_verification_required')
     .eq('id', conventionId)
     .single();
 
@@ -365,6 +365,8 @@ export async function startConventionAction(conventionId: string) {
       payload: {
         convention_id: conventionId,
         convention_name: current.name,
+        location_verification_required:
+          Boolean(current.geofence_enabled) && Boolean(current.location_verification_required),
         started_at: notifiedAt,
       },
     }));

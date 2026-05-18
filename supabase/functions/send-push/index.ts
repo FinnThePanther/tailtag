@@ -167,9 +167,12 @@ async function buildMessage(
     }
     case 'convention_started': {
       const conventionName = extractString(payload.convention_name) ?? 'your convention';
+      const requiresLocationVerification = payload.location_verification_required === true;
       return {
         title: 'TailTag is live',
-        body: `TailTag is live at ${conventionName}. You can start catching now.`,
+        body: requiresLocationVerification
+          ? `TailTag is live at ${conventionName}. Verify on-site to start catching.`
+          : `TailTag is live at ${conventionName}. You can start catching now.`,
       };
     }
     case 'catch_pending': {

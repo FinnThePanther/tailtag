@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, Text, View } from 'react-native';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ import {
   type ConventionMembershipState,
   type ConventionSummary,
   type VerifiedLocation,
+  useConventionVerificationAction,
 } from '../../conventions';
 import { ConventionToggle } from '../../../components/conventions/ConventionToggle';
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../leaderboard/api/leaderboard';
@@ -67,6 +68,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
   const hasInitializedSelectionsRef = useRef(false);
   const [searchInput, setSearchInput] = useState('');
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(new Set());
+  const [committedConventionIds, setCommittedConventionIds] = useState<Set<string>>(new Set());
   const [verifiedLocations, setVerifiedLocations] = useState<Record<string, VerifiedLocation>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,6 +104,15 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
     () => new Map(existingMemberships.map((membership) => [membership.convention_id, membership])),
     [existingMemberships],
   );
+  const handleVerifiedConvention = useCallback((convention: ConventionSummary) => {
+    setSelectedConventionIds((current) => new Set([...current, convention.id]));
+    setCommittedConventionIds((current) => new Set([...current, convention.id]));
+  }, []);
+  const { verifyConvention, verificationModals, isVerifyingConvention } =
+    useConventionVerificationAction({
+      profileId: userId,
+      onVerified: handleVerifiedConvention,
+    });
 
   // Pre-populate selected conventions with existing ones on initial load only
   // This ensures we don't overwrite user's in-progress edits if the query refetches
@@ -169,7 +180,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
 
     try {
       const selections = [...selectedConventionIds];
-      const existing = existingConventionIds;
+      const existing = Array.from(new Set([...existingConventionIds, ...committedConventionIds]));
 
       // Calculate delta: what to add and what to remove
       const toAdd = selections.filter((id) => !existing.includes(id));
@@ -213,6 +224,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
       void queryClient.invalidateQueries({
         queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
       });
+      setCommittedConventionIds(new Set());
 
       // Invalidate leaderboard cache for joined conventions
       affectedConventionIds.forEach((conventionId) => {
@@ -317,7 +329,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
                     convention={convention}
                     selected={selected}
                     pending={isSubmitting}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isVerifyingConvention}
                     badgeText={conventionBadgeText(
                       convention,
                       selected,
@@ -325,6 +337,7 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
                     )}
                     membershipState={membership?.membership_state}
                     profileId={userId}
+                    onVerifyLocation={verifyConvention}
                     onToggle={(conventionId, nextSelected, verifiedLocation) =>
                       toggleConvention(conventionId, nextSelected, verifiedLocation)
                     }
@@ -335,19 +348,21 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
           )}
         </ScrollView>
 
+        {verificationModals}
+
         {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
 
         <TailTagButton
           onPress={handleSubmit}
           loading={isSubmitting}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isVerifyingConvention}
         >
           Continue
         </TailTagButton>
         <TailTagButton
           variant="ghost"
           onPress={onSkip}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isVerifyingConvention}
         >
           Skip for now
         </TailTagButton>

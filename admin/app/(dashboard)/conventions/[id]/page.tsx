@@ -140,7 +140,7 @@ export default async function ConventionDetail({
             icon={<MapPin size={14} />}
             label="Verification"
           >
-            {convention.location_verification_required ? 'Required on opt-in' : 'Optional'}
+            {convention.location_verification_required ? 'Required for gameplay' : 'Optional'}
           </Info>
         </div>
       </Card>
