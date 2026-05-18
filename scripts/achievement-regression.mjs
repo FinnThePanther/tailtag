@@ -48,6 +48,22 @@ async function importTypeScriptModule(path) {
     },
     fileName: path,
   });
+  const unresolvedImport = transpiled.outputText
+    .split('\n')
+    .map((line) => line.trim())
+    .find(
+      (line) =>
+        line.length > 0 &&
+        (line.startsWith('import ') ||
+          /^export\s+.*\s+from\s+['"]/.test(line) ||
+          /import\s*\(/.test(line)),
+    );
+
+  if (unresolvedImport) {
+    throw new Error(
+      `importTypeScriptModule cannot load ${path} because transpiled.outputText still contains a runtime import: ${unresolvedImport}`,
+    );
+  }
 
   return import(
     `data:text/javascript;base64,${Buffer.from(transpiled.outputText, 'utf8').toString('base64')}`
