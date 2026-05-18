@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Switch, Text, View } from 'react-native';
 
-import { colors } from '../../../theme';
 import type { CatchMode } from '../types';
 import { styles } from './CatchModeSwitch.styles';
 
@@ -66,12 +65,6 @@ export function CatchModeSwitch({
         value={isAutoCatchingEnabled}
         onValueChange={handleToggle}
         disabled={disabled || isUpdating}
-        trackColor={{
-          false: 'rgba(148,163,184,0.3)',
-          true: colors.primaryDark,
-        }}
-        thumbColor={isAutoCatchingEnabled ? colors.primary : 'rgba(203,213,225,0.9)'}
-        ios_backgroundColor="rgba(148,163,184,0.3)"
         accessibilityRole="switch"
         accessibilityLabel={copy.accessibilityLabel}
         accessibilityHint={copy.accessibilityHint}
