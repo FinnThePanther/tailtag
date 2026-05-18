@@ -1491,13 +1491,14 @@ export default function HomeScreen() {
               {
                 step: '1',
                 title: 'Add your fursuit (if you have one)',
-                description: 'Each fursuit gets an auto-generated catch code to share.',
+                description:
+                  'Each fursuit gets an auto-generated catch code, but players can catch you with a photo too.',
               },
               {
                 step: '2',
                 title: 'Start catching fursuiters',
                 description:
-                  'Tag fursuits with a selfie or catch code and watch your collection grow.',
+                  'Tag fursuits with a live photo, a gallery photo, or a visible catch code.',
               },
               {
                 step: '3',

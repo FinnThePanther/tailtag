@@ -840,7 +840,8 @@ export default function CatchScreen() {
         <Text style={styles.eyebrow}>Tag Fursuits Here</Text>
         <Text style={styles.title}>Log a new catch</Text>
         <Text style={styles.subtitle}>
-          Enter a fursuit's catch code to add them to your collection.
+          Catch with a live photo, a gallery photo, or a catch code from a badge. Fursuiters do not
+          need to memorize or share their code to be caught.
         </Text>
       </View>
 
@@ -944,7 +945,8 @@ export default function CatchScreen() {
               style={styles.codeInput}
             />
             <Text style={styles.helpText}>
-              Letters or numbers, {codeInput.length}/{UNIQUE_CODE_LENGTH} characters.
+              Use this when the fursuit has a code displayed or already knows it. Otherwise, make
+              the catch with a photo above.
             </Text>
             <Text style={[styles.helpText, { marginTop: spacing.xs }]}>
               Some owners require manual approval. If so, they will be notified and your catch will

@@ -499,7 +499,10 @@ export function PhotoCatchCard({
         />
         <Text style={styles.title}>Photo Catch</Text>
       </View>
-      <Text style={styles.subtitle}>Take or choose a photo with a fursuiter to log the catch.</Text>
+      <Text style={styles.subtitle}>
+        Take a photo now, or choose one from your gallery later. No catch code is needed for photo
+        catches.
+      </Text>
 
       {step === 'idle' ? (
         isProcessingPhoto ? (
