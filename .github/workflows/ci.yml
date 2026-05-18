@@ -58,6 +58,7 @@ jobs:
         working-directory: admin
         run: |
           npm run lint
+          npm run typecheck
           npm run test:security
           npm run build
 

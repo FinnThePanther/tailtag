@@ -28,6 +28,8 @@
     "tailtag-admin:dev": "npm --prefix admin run dev",
     "tailtag-admin:build": "npm --prefix admin run build",
     "tailtag-admin:lint": "npm --prefix admin run lint",
+    "tailtag-admin:typecheck": "npm --prefix admin run typecheck",
+    "tailtag-admin:format": "npm --prefix admin run format",
     "tailtag-admin:test:security": "npm --prefix admin run test:security",
     "doctor": "npx --cache /tmp/npm-cache expo-doctor",
     "lint": "eslint app src --max-warnings=0",
