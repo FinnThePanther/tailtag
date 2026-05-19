@@ -66,7 +66,7 @@ export default function CatchDetailScreen() {
   const isFursuitRedacted = record?.fursuitRedacted === true || details?.isRedacted === true;
 
   const caughtLabel = toDisplayDateTime(record?.caught_at) ?? 'Caught just now';
-  const pieces = [caughtLabel];
+  const pieces = [record?.convention?.name, caughtLabel].filter(Boolean);
   if (typeof record?.catchNumber === 'number' && record.catchNumber > 0) {
     pieces.push(`Catcher #${record.catchNumber}`);
   }

@@ -8,9 +8,11 @@ import {
   CAUGHT_COLLECTION_QUERY_KEY,
   CaughtSuitRow,
   CAUGHT_SUITS_STALE_TIME,
+  caughtSuitsQueryKey,
   fetchCaughtCollection,
 } from '../../src/features/suits';
 import type {
+  CaughtSuitAggregate,
   CaughtCollection,
   CaughtConventionFolder,
   CaughtRecord,
@@ -35,8 +37,21 @@ import { styles } from '../../src/app-styles/(tabs)/caught.styles';
 
 const EMPTY_CAUGHT_COLLECTION: CaughtCollection = {
   allCatches: [],
+  allCaughtSuits: [],
   conventionFolders: [],
 };
+
+const ALL_CATCHES_FILTER_ID = 'all';
+
+type CaughtListItem =
+  | {
+      kind: 'catch';
+      record: CaughtRecord;
+    }
+  | {
+      kind: 'suit';
+      aggregate: CaughtSuitAggregate;
+    };
 
 function ListHeader() {
   return (
@@ -58,16 +73,28 @@ function formatCatchCount(count: number) {
   return count === 1 ? '1 catch' : `${count.toLocaleString()} catches`;
 }
 
+function shouldCollapseCaughtSuitAggregate(aggregate: CaughtSuitAggregate) {
+  return aggregate.catchCount === 1 || aggregate.catches.every((record) => record.conventionId);
+}
+
+function mapAggregateToListItems(aggregate: CaughtSuitAggregate): CaughtListItem[] {
+  if (shouldCollapseCaughtSuitAggregate(aggregate)) {
+    return [{ kind: 'suit', aggregate }];
+  }
+
+  return aggregate.catches.map((record) => ({ kind: 'catch', record }));
+}
+
 export default function CaughtSuitsScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const router = useRouter();
-  const listRef = useRef<FlatList<CaughtRecord>>(null);
+  const listRef = useRef<FlatList<CaughtListItem>>(null);
   const caughtCollectionKey = useMemo(
     () => [CAUGHT_COLLECTION_QUERY_KEY, userId] as const,
     [userId],
   );
-  const [selectedConventionId, setSelectedConventionId] = useState<string | null>(null);
+  const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
   const { visibleItems: outboxItems } = useCatchOutbox(userId);
@@ -96,24 +123,41 @@ export default function CaughtSuitsScreen() {
 
   const selectedFolder = useMemo(
     () =>
-      selectedConventionId
-        ? (collection.conventionFolders.find(
-            (folder) => folder.conventionId === selectedConventionId,
-          ) ?? null)
+      activeFilterId && activeFilterId !== ALL_CATCHES_FILTER_ID
+        ? (collection.conventionFolders.find((folder) => folder.conventionId === activeFilterId) ??
+          null)
         : null,
-    [collection.conventionFolders, selectedConventionId],
+    [activeFilterId, collection.conventionFolders],
   );
 
-  const records = selectedFolder ? selectedFolder.catches : collection.allCatches;
+  const records = useMemo<CaughtListItem[]>(() => {
+    if (activeFilterId === ALL_CATCHES_FILTER_ID || !selectedFolder) {
+      return collection.allCaughtSuits.flatMap(mapAggregateToListItems);
+    }
+
+    return selectedFolder.catches.map((record) => ({ kind: 'catch', record }));
+  }, [activeFilterId, collection.allCaughtSuits, selectedFolder]);
 
   useEffect(() => {
-    if (
-      selectedConventionId &&
-      !collection.conventionFolders.some((folder) => folder.conventionId === selectedConventionId)
-    ) {
-      setSelectedConventionId(null);
+    if (collection.allCatches.length === 0) {
+      setActiveFilterId(null);
+      return;
     }
-  }, [collection.conventionFolders, selectedConventionId]);
+
+    const fallbackFilterId = collection.conventionFolders[0]?.conventionId ?? ALL_CATCHES_FILTER_ID;
+
+    if (activeFilterId === null) {
+      setActiveFilterId(fallbackFilterId);
+      return;
+    }
+
+    if (
+      activeFilterId !== ALL_CATCHES_FILTER_ID &&
+      !collection.conventionFolders.some((folder) => folder.conventionId === activeFilterId)
+    ) {
+      setActiveFilterId(fallbackFilterId);
+    }
+  }, [activeFilterId, collection.allCatches.length, collection.conventionFolders]);
 
   useFocusEffect(
     useCallback(() => {
@@ -156,25 +200,58 @@ export default function CaughtSuitsScreen() {
     }, [isRefetching]),
   );
 
-  const renderItem = useCallback(
-    ({ item }: { item: CaughtRecord }) => (
-      <CaughtSuitRow
-        name={item.fursuitRedacted ? 'Unavailable fursuit' : (item.fursuit?.name ?? 'Unknown')}
-        species={item.fursuitRedacted ? null : item.fursuit?.species}
-        avatarUrl={item.fursuitRedacted ? null : item.fursuit?.avatar_url}
-        caughtAt={item.caught_at}
-        onPress={() => {
-          router.push({
-            pathname: '/catches/[id]',
-            params: { id: item.id },
-          });
-        }}
-      />
-    ),
-    [router],
+  const handleOpenCatch = useCallback(
+    (record: CaughtRecord) => {
+      if (userId) {
+        queryClient.setQueryData<CaughtRecord[]>(caughtSuitsQueryKey(userId), (existing) => {
+          const sourceRecords = existing ?? collection.allCatches;
+
+          if (sourceRecords.some((existingRecord) => existingRecord.id === record.id)) {
+            return sourceRecords.map((existingRecord) =>
+              existingRecord.id === record.id ? record : existingRecord,
+            );
+          }
+
+          return [record, ...sourceRecords];
+        });
+      }
+
+      router.push({
+        pathname: '/catches/[id]',
+        params: { id: record.id },
+      });
+    },
+    [collection.allCatches, queryClient, router, userId],
   );
 
-  const keyExtractor = useCallback((item: CaughtRecord) => item.id, []);
+  const renderItem = useCallback(
+    ({ item }: { item: CaughtListItem }) => {
+      const record = item.kind === 'suit' ? item.aggregate.latestCatch : item.record;
+
+      return (
+        <CaughtSuitRow
+          name={
+            record.fursuitRedacted ? 'Unavailable fursuit' : (record.fursuit?.name ?? 'Unknown')
+          }
+          species={record.fursuitRedacted ? null : record.fursuit?.species}
+          avatarUrl={record.fursuitRedacted ? null : record.fursuit?.avatar_url}
+          caughtAt={record.caught_at}
+          conventionName={record.convention?.name}
+          catchCount={item.kind === 'suit' ? item.aggregate.catchCount : 1}
+          onPress={() => handleOpenCatch(record)}
+        />
+      );
+    },
+    [handleOpenCatch],
+  );
+
+  const keyExtractor = useCallback((item: CaughtListItem) => {
+    if (item.kind === 'suit') {
+      return `suit-${item.aggregate.id}`;
+    }
+
+    return `catch-${item.record.id}`;
+  }, []);
 
   const renderFilterButton = useCallback(
     ({
@@ -224,10 +301,10 @@ export default function CaughtSuitsScreen() {
         id: folder.conventionId,
         label: folder.conventionName,
         meta: formatCatchCount(folder.catchCount),
-        isActive: selectedConventionId === folder.conventionId,
-        onPress: () => setSelectedConventionId(folder.conventionId),
+        isActive: activeFilterId === folder.conventionId,
+        onPress: () => setActiveFilterId(folder.conventionId),
       }),
-    [renderFilterButton, selectedConventionId],
+    [activeFilterId, renderFilterButton],
   );
 
   const handleOpenSelectedFolderRecap = useCallback(() => {
@@ -253,14 +330,17 @@ export default function CaughtSuitsScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterRow}
         >
-          {renderFilterButton({
-            id: 'all',
-            label: 'All catches',
-            meta: formatCatchCount(collection.allCatches.length),
-            isActive: selectedConventionId === null,
-            onPress: () => setSelectedConventionId(null),
-          })}
           {collection.conventionFolders.map(renderFolderFilter)}
+          {renderFilterButton({
+            id: ALL_CATCHES_FILTER_ID,
+            label: 'All catches',
+            meta:
+              collection.allCaughtSuits.length === 1
+                ? '1 suit'
+                : `${collection.allCaughtSuits.length.toLocaleString()} suits`,
+            isActive: activeFilterId === ALL_CATCHES_FILTER_ID,
+            onPress: () => setActiveFilterId(ALL_CATCHES_FILTER_ID),
+          })}
         </ScrollView>
         {selectedFolder ? (
           <View style={styles.folderSummary}>
@@ -301,13 +381,14 @@ export default function CaughtSuitsScreen() {
     );
   }, [
     collection.allCatches.length,
+    collection.allCaughtSuits.length,
     collection.conventionFolders,
     errorMessage,
     isLoading,
     handleOpenSelectedFolderRecap,
     renderFilterButton,
     renderFolderFilter,
-    selectedConventionId,
+    activeFilterId,
     selectedFolder,
   ]);
 

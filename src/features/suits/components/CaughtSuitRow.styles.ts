@@ -18,11 +18,34 @@ export const styles = StyleSheet.create({
   textCol: {
     flex: 1,
     gap: 2,
+    minWidth: 0,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minWidth: 0,
   },
   name: {
+    flexShrink: 1,
     color: colors.foreground,
     fontSize: 15,
     fontWeight: '600',
+  },
+  catchCountBadge: {
+    flexShrink: 0,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySurface,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+  },
+  catchCountText: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   species: {
     color: 'rgba(203,213,225,0.9)',
