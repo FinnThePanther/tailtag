@@ -8,6 +8,7 @@ import {
   CAUGHT_COLLECTION_QUERY_KEY,
   CaughtSuitRow,
   CAUGHT_SUITS_STALE_TIME,
+  caughtSuitsQueryKey,
   fetchCaughtCollection,
 } from '../../src/features/suits';
 import type {
@@ -72,6 +73,18 @@ function formatCatchCount(count: number) {
   return count === 1 ? '1 catch' : `${count.toLocaleString()} catches`;
 }
 
+function shouldCollapseCaughtSuitAggregate(aggregate: CaughtSuitAggregate) {
+  return aggregate.catchCount === 1 || aggregate.catches.every((record) => record.conventionId);
+}
+
+function mapAggregateToListItems(aggregate: CaughtSuitAggregate): CaughtListItem[] {
+  if (shouldCollapseCaughtSuitAggregate(aggregate)) {
+    return [{ kind: 'suit', aggregate }];
+  }
+
+  return aggregate.catches.map((record) => ({ kind: 'catch', record }));
+}
+
 export default function CaughtSuitsScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
@@ -119,7 +132,7 @@ export default function CaughtSuitsScreen() {
 
   const records = useMemo<CaughtListItem[]>(() => {
     if (activeFilterId === ALL_CATCHES_FILTER_ID || !selectedFolder) {
-      return collection.allCaughtSuits.map((aggregate) => ({ kind: 'suit', aggregate }));
+      return collection.allCaughtSuits.flatMap(mapAggregateToListItems);
     }
 
     return selectedFolder.catches.map((record) => ({ kind: 'catch', record }));
@@ -187,6 +200,30 @@ export default function CaughtSuitsScreen() {
     }, [isRefetching]),
   );
 
+  const handleOpenCatch = useCallback(
+    (record: CaughtRecord) => {
+      if (userId) {
+        queryClient.setQueryData<CaughtRecord[]>(caughtSuitsQueryKey(userId), (existing) => {
+          const sourceRecords = existing ?? collection.allCatches;
+
+          if (sourceRecords.some((existingRecord) => existingRecord.id === record.id)) {
+            return sourceRecords.map((existingRecord) =>
+              existingRecord.id === record.id ? record : existingRecord,
+            );
+          }
+
+          return [record, ...sourceRecords];
+        });
+      }
+
+      router.push({
+        pathname: '/catches/[id]',
+        params: { id: record.id },
+      });
+    },
+    [collection.allCatches, queryClient, router, userId],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: CaughtListItem }) => {
       const record = item.kind === 'suit' ? item.aggregate.latestCatch : item.record;
@@ -201,16 +238,11 @@ export default function CaughtSuitsScreen() {
           caughtAt={record.caught_at}
           conventionName={record.convention?.name}
           catchCount={item.kind === 'suit' ? item.aggregate.catchCount : 1}
-          onPress={() => {
-            router.push({
-              pathname: '/catches/[id]',
-              params: { id: record.id },
-            });
-          }}
+          onPress={() => handleOpenCatch(record)}
         />
       );
     },
-    [router],
+    [handleOpenCatch],
   );
 
   const keyExtractor = useCallback((item: CaughtListItem) => {
