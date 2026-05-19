@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -89,7 +89,6 @@ export default function CaughtSuitsScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const router = useRouter();
-  const listRef = useRef<FlatList<CaughtListItem>>(null);
   const caughtCollectionKey = useMemo(
     () => [CAUGHT_COLLECTION_QUERY_KEY, userId] as const,
     [userId],
@@ -189,16 +188,6 @@ export default function CaughtSuitsScreen() {
 
   const errorMessage = error?.message ?? null;
   const pullHint = usePullToRefreshHint({ isRefreshing: isRefetching });
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!isRefetching) {
-        requestAnimationFrame(() => {
-          listRef.current?.scrollToOffset({ offset: 0, animated: false });
-        });
-      }
-    }, [isRefetching]),
-  );
 
   const handleOpenCatch = useCallback(
     (record: CaughtRecord) => {
@@ -439,7 +428,6 @@ export default function CaughtSuitsScreen() {
 
   return (
     <FlatList
-      ref={listRef}
       style={styles.list}
       contentContainerStyle={styles.container}
       data={records}
