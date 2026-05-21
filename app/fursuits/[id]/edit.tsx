@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,11 +73,7 @@ import {
   refreshAdultBoundaryCaches,
   type VisibilityAudience,
 } from '../../../src/features/adult-boundary';
-import {
-  generateUniqueCodeCandidate,
-  normalizeUniqueCodeInput,
-  isValidUniqueCodeInput,
-} from '../../../src/utils/code';
+import { normalizeUniqueCodeInput, isValidUniqueCodeInput } from '../../../src/utils/code';
 
 const PRONOUN_OPTIONS = [
   'he/him',
@@ -229,6 +225,7 @@ export default function EditFursuitScreen() {
   const [initialCode, setInitialCode] = useState('');
   const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
+  const codeCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const speciesLoadError = speciesError?.message ?? null;
   const isSpeciesBusy = isSpeciesLoading;
@@ -388,6 +385,56 @@ export default function EditFursuitScreen() {
       setSelectedVisibilityAudience('everyone');
     }
   }, [canUseAdultsOnlyFursuitVisibility, hasLoadedProfile, selectedVisibilityAudience]);
+
+  useEffect(() => {
+    if (!hasHydratedForm || !fursuitId || codeInput === initialCode) {
+      return;
+    }
+
+    if (!isValidUniqueCodeInput(codeInput)) {
+      return;
+    }
+
+    if (codeCheckTimeoutRef.current !== null) {
+      clearTimeout(codeCheckTimeoutRef.current);
+    }
+
+    setCodeError(null);
+    setIsCheckingCode(true);
+
+    const normalized = normalizeUniqueCodeInput(codeInput);
+
+    codeCheckTimeoutRef.current = setTimeout(async () => {
+      codeCheckTimeoutRef.current = null;
+
+      const { data: existingCode, error: codeCheckError } = await supabase
+        .from('fursuits')
+        .select('id')
+        .eq('unique_code', normalized)
+        .neq('id', fursuitId)
+        .is('is_tutorial', false)
+        .limit(1)
+        .maybeSingle();
+
+      setIsCheckingCode(false);
+
+      if (codeCheckError) {
+        setCodeError('Could not verify catch code availability. Please try again.');
+        return;
+      }
+
+      if (existingCode) {
+        setCodeError('That code is already taken. Try another.');
+      }
+    }, 400);
+
+    return () => {
+      if (codeCheckTimeoutRef.current !== null) {
+        clearTimeout(codeCheckTimeoutRef.current);
+        codeCheckTimeoutRef.current = null;
+      }
+    };
+  }, [codeInput, hasHydratedForm, initialCode, fursuitId]);
 
   const makersCanAddMore = useMemo(() => makers.length < FURSUIT_MAKER_LIMIT, [makers.length]);
 
@@ -1174,7 +1221,7 @@ export default function EditFursuitScreen() {
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Catch code</Text>
                 <Text style={styles.helperLabel}>
-                  Other players type this to catch your suit. 4\u20138 letters and numbers.
+                  Other players type this to catch your suit. 4-8 letters and numbers.
                 </Text>
                 <View style={styles.codeRow}>
                   <TailTagInput
@@ -1186,14 +1233,6 @@ export default function EditFursuitScreen() {
                     returnKeyType="next"
                     style={styles.codeInput}
                   />
-                  <TailTagButton
-                    variant="outline"
-                    size="sm"
-                    onPress={() => setCodeInput(generateUniqueCodeCandidate())}
-                    disabled={disableForm}
-                  >
-                    Generate
-                  </TailTagButton>
                 </View>
                 {isCheckingCode ? (
                   <ActivityIndicator color={colors.primary} />
