@@ -587,7 +587,7 @@ export default function EditFursuitScreen() {
       setCodeError(null);
       setIsCheckingCode(true);
 
-      const { data: existingCode } = await supabase
+      const { data: existingCode, error: codeCheckError } = await supabase
         .from('fursuits')
         .select('id')
         .eq('unique_code', normalizedCode)
@@ -597,6 +597,11 @@ export default function EditFursuitScreen() {
         .maybeSingle();
 
       setIsCheckingCode(false);
+
+      if (codeCheckError) {
+        setCodeError('Could not verify catch code availability. Please try again.');
+        return;
+      }
 
       if (existingCode) {
         setCodeError('That code is already taken. Try another.');
@@ -1194,7 +1199,9 @@ export default function EditFursuitScreen() {
                   <ActivityIndicator color={colors.primary} />
                 ) : codeError ? (
                   <Text style={styles.errorText}>{codeError}</Text>
-                ) : codeInput !== initialCode && !submitError ? (
+                ) : codeInput !== initialCode &&
+                  isValidUniqueCodeInput(codeInput) &&
+                  !submitError ? (
                   <Text style={styles.codeValidText}>Valid code</Text>
                 ) : null}
               </View>
