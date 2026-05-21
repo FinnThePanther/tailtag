@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,6 +73,7 @@ import {
   refreshAdultBoundaryCaches,
   type VisibilityAudience,
 } from '../../../src/features/adult-boundary';
+import { normalizeUniqueCodeInput, isValidUniqueCodeInput } from '../../../src/utils/code';
 
 const PRONOUN_OPTIONS = [
   'he/him',
@@ -220,6 +221,11 @@ export default function EditFursuitScreen() {
   const [selectedPhoto, setSelectedPhoto] = useState<UploadCandidate>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [codeInput, setCodeInput] = useState('');
+  const [initialCode, setInitialCode] = useState('');
+  const [isCheckingCode, setIsCheckingCode] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const codeCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const speciesLoadError = speciesError?.message ?? null;
   const isSpeciesBusy = isSpeciesLoading;
@@ -355,6 +361,9 @@ export default function EditFursuitScreen() {
     setInitialColors(resolvedColors);
     setSelectedVisibilityAudience(detail.visibility_audience);
     setInitialVisibilityAudience(detail.visibility_audience);
+    const normalizedCode = normalizeUniqueCodeInput(detail.unique_code ?? '');
+    setCodeInput(normalizedCode);
+    setInitialCode(normalizedCode);
 
     setHasHydratedForm(true);
   }, [detail, hasHydratedForm, isProfileConventionsLoading, profileConventionIdSet]);
@@ -376,6 +385,56 @@ export default function EditFursuitScreen() {
       setSelectedVisibilityAudience('everyone');
     }
   }, [canUseAdultsOnlyFursuitVisibility, hasLoadedProfile, selectedVisibilityAudience]);
+
+  useEffect(() => {
+    if (!hasHydratedForm || !fursuitId || codeInput === initialCode) {
+      return;
+    }
+
+    if (!isValidUniqueCodeInput(codeInput)) {
+      return;
+    }
+
+    if (codeCheckTimeoutRef.current !== null) {
+      clearTimeout(codeCheckTimeoutRef.current);
+    }
+
+    setCodeError(null);
+    setIsCheckingCode(true);
+
+    const normalized = normalizeUniqueCodeInput(codeInput);
+
+    codeCheckTimeoutRef.current = setTimeout(async () => {
+      codeCheckTimeoutRef.current = null;
+
+      const { data: existingCode, error: codeCheckError } = await supabase
+        .from('fursuits')
+        .select('id')
+        .eq('unique_code', normalized)
+        .neq('id', fursuitId)
+        .is('is_tutorial', false)
+        .limit(1)
+        .maybeSingle();
+
+      setIsCheckingCode(false);
+
+      if (codeCheckError) {
+        setCodeError('Could not verify catch code availability. Please try again.');
+        return;
+      }
+
+      if (existingCode) {
+        setCodeError('That code is already taken. Try another.');
+      }
+    }, 400);
+
+    return () => {
+      if (codeCheckTimeoutRef.current !== null) {
+        clearTimeout(codeCheckTimeoutRef.current);
+        codeCheckTimeoutRef.current = null;
+      }
+    };
+  }, [codeInput, hasHydratedForm, initialCode, fursuitId]);
 
   const makersCanAddMore = useMemo(() => makers.length < FURSUIT_MAKER_LIMIT, [makers.length]);
 
@@ -563,6 +622,39 @@ export default function EditFursuitScreen() {
       setSubmitError('Adult confirmation is required for adults-only fursuits.');
       return;
     }
+    const normalizedCode = normalizeUniqueCodeInput(codeInput);
+    const codeChanged = normalizedCode !== initialCode;
+
+    if (codeChanged) {
+      if (!isValidUniqueCodeInput(normalizedCode)) {
+        setCodeError('Catch code must be 4\u20138 letters or numbers.');
+        return;
+      }
+
+      setCodeError(null);
+      setIsCheckingCode(true);
+
+      const { data: existingCode, error: codeCheckError } = await supabase
+        .from('fursuits')
+        .select('id')
+        .eq('unique_code', normalizedCode)
+        .neq('id', fursuitId)
+        .is('is_tutorial', false)
+        .limit(1)
+        .maybeSingle();
+
+      setIsCheckingCode(false);
+
+      if (codeCheckError) {
+        setCodeError('Could not verify catch code availability. Please try again.');
+        return;
+      }
+
+      if (existingCode) {
+        setCodeError('That code is already taken. Try another.');
+        return;
+      }
+    }
 
     const toAdd = Array.from(selectedConventionIds).filter(
       (id) => !initialConventionIds.has(id) && profileConventionIdSet.has(id),
@@ -589,6 +681,7 @@ export default function EditFursuitScreen() {
     const previousAvatarPath = detail.avatar_path ?? null;
     const previousAvatarUrl = detail.avatar_url;
     const previousVisibilityAudience = detail.visibility_audience;
+    const previousUniqueCode = detail.unique_code ?? null;
     const initialNormalizedMakers = fursuitMakersToSave(initialMakers);
     let updatedCoreRecord = false;
     let replacedColors = false;
@@ -655,6 +748,7 @@ export default function EditFursuitScreen() {
           ...(newAvatarPath !== undefined
             ? { avatar_path: newAvatarPath, avatar_url: newAvatarUrl }
             : {}),
+          ...(codeChanged ? { unique_code: normalizedCode } : {}),
         })
         .eq('id', fursuitId)
         .eq('owner_id', userId);
@@ -805,6 +899,17 @@ export default function EditFursuitScreen() {
 
       router.back();
     } catch (caught) {
+      if (
+        caught &&
+        typeof caught === 'object' &&
+        'code' in caught &&
+        (caught as any).code === '23505'
+      ) {
+        setCodeError('That code is already taken. Try another.');
+        setSubmitError(null);
+        return;
+      }
+
       const fallbackMessage =
         caught instanceof Error
           ? caught.message
@@ -884,6 +989,7 @@ export default function EditFursuitScreen() {
             name: previousName,
             species_id: previousSpeciesId,
             visibility_audience: previousVisibilityAudience,
+            unique_code: previousUniqueCode,
             avatar_path: previousAvatarPath,
             avatar_url: previousAvatarUrl,
           })
@@ -1110,6 +1216,32 @@ export default function EditFursuitScreen() {
                       })}
                     </View>
                   </View>
+                ) : null}
+              </View>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Catch code</Text>
+                <Text style={styles.helperLabel}>
+                  Other players type this to catch your suit. 4-8 letters and numbers.
+                </Text>
+                <View style={styles.codeRow}>
+                  <TailTagInput
+                    value={codeInput}
+                    onChangeText={(v) => setCodeInput(normalizeUniqueCodeInput(v))}
+                    placeholder="Your unique catch code"
+                    editable={!disableForm}
+                    autoCapitalize="characters"
+                    returnKeyType="next"
+                    style={styles.codeInput}
+                  />
+                </View>
+                {isCheckingCode ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : codeError ? (
+                  <Text style={styles.errorText}>{codeError}</Text>
+                ) : codeInput !== initialCode &&
+                  isValidUniqueCodeInput(codeInput) &&
+                  !submitError ? (
+                  <Text style={styles.codeValidText}>Valid code</Text>
                 ) : null}
               </View>
 

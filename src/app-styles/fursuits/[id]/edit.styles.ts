@@ -311,4 +311,16 @@ export const styles = StyleSheet.create({
   photoButtons: {
     gap: spacing.sm,
   },
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  codeInput: {
+    flex: 1,
+  },
+  codeValidText: {
+    color: colors.primary,
+    fontSize: 14,
+  },
 });
