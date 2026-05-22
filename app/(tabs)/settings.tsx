@@ -818,16 +818,13 @@ export default function SettingsScreen() {
 
       const { data, error } = await (supabase as any)
         .from('profiles')
-        .upsert(
-          {
-            id: userId,
-            username: normalizedUsername,
-            bio: normalizedBio,
-            visibility_audience: profileVisibilityInput,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'id' },
-        )
+        .update({
+          username: normalizedUsername,
+          bio: normalizedBio,
+          visibility_audience: profileVisibilityInput,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId)
         .select('username,bio,visibility_audience')
         .single();
 
