@@ -177,6 +177,62 @@ BEGIN
 
   PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
 
+  BEGIN
+    UPDATE public.profiles
+    SET visibility_audience = 'adults_only'
+    WHERE id = v_unknown;
+
+    RAISE EXCEPTION 'unknown-age profile visibility update did not fail';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE <> '42501' THEN
+      RAISE;
+    END IF;
+  END;
+
+  BEGIN
+    UPDATE public.profiles
+    SET visibility_audience = 'adults_only'
+    WHERE id = v_minor;
+
+    RAISE EXCEPTION 'under-18 profile visibility update did not fail';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE <> '42501' THEN
+      RAISE;
+    END IF;
+  END;
+
+  UPDATE public.profiles
+  SET visibility_audience = 'adults_only'
+  WHERE id = v_adult;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = v_adult
+      AND visibility_audience = 'adults_only'
+  ) THEN
+    RAISE EXCEPTION 'adult profile visibility update did not persist';
+  END IF;
+
+  UPDATE public.profiles
+  SET is_adult = false
+  WHERE id = v_adult;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = v_adult
+      AND visibility_audience = 'everyone'
+  ) THEN
+    RAISE EXCEPTION 'adult profile visibility was not cleared after age downgrade';
+  END IF;
+
+  UPDATE public.profiles
+  SET
+    is_adult = true,
+    visibility_audience = 'everyone'
+  WHERE id = v_adult;
+
   PERFORM set_config('request.jwt.claim.sub', v_profile_restricted_owner::text, true);
   INSERT INTO public.fursuits (
     id,

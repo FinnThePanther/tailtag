@@ -24,14 +24,17 @@ export function profileNeedsAgeAttestation(profile: ProfileSummary | null | unde
 
 export async function updateAgeAttestation(userId: string, isAdult: boolean): Promise<void> {
   const client = supabase as SupabaseClient<Database>;
-  const { error } = await client
-    .from('profiles')
-    .update({
-      is_adult: isAdult,
-      age_gate_version: CURRENT_AGE_GATE_VERSION,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', userId);
+  const payload: Database['public']['Tables']['profiles']['Update'] = {
+    is_adult: isAdult,
+    age_gate_version: CURRENT_AGE_GATE_VERSION,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (!isAdult) {
+    payload.visibility_audience = 'everyone';
+  }
+
+  const { error } = await client.from('profiles').update(payload).eq('id', userId);
 
   if (error) {
     captureSupabaseError(error, {

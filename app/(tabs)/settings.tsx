@@ -16,6 +16,7 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import {
   CURRENT_AGE_GATE_VERSION,
+  normalizeVisibilityAudience,
   profileNeedsAgeAttestation,
   refreshAdultBoundaryCaches,
   type VisibilityAudience,
@@ -815,16 +816,20 @@ export default function SettingsScreen() {
         setUsernameCheckStatus('available');
       }
 
-      const { error } = await (supabase as any).from('profiles').upsert(
-        {
-          id: userId,
-          username: normalizedUsername,
-          bio: normalizedBio,
-          visibility_audience: profileVisibilityInput,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' },
-      );
+      const { data, error } = await (supabase as any)
+        .from('profiles')
+        .upsert(
+          {
+            id: userId,
+            username: normalizedUsername,
+            bio: normalizedBio,
+            visibility_audience: profileVisibilityInput,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' },
+        )
+        .select('username,bio,visibility_audience')
+        .single();
 
       if (error) {
         if (error.code === '23505') {
@@ -832,41 +837,59 @@ export default function SettingsScreen() {
           throw new Error('Username is already taken.');
         }
 
+        if (error.code === '42501') {
+          throw new Error('Adult confirmation is required for adults-only visibility.');
+        }
+
         throw error;
       }
+
+      const persistedUsername =
+        typeof data?.username === 'string' && data.username.length > 0 ? data.username : null;
+      const persistedBio = typeof data?.bio === 'string' && data.bio.length > 0 ? data.bio : null;
+      const persistedVisibilityAudience = normalizeVisibilityAudience(data?.visibility_audience);
+      const persistedVisibilityChanged =
+        (profile?.visibility_audience ?? 'everyone') !== persistedVisibilityAudience;
 
       queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
         current
           ? {
               ...current,
-              username: normalizedUsername,
-              bio: normalizedBio,
-              visibility_audience: profileVisibilityInput,
+              username: persistedUsername,
+              bio: persistedBio,
+              visibility_audience: persistedVisibilityAudience,
             }
           : {
-              username: normalizedUsername,
-              bio: normalizedBio,
+              username: persistedUsername,
+              bio: persistedBio,
               avatar_path: null,
               avatar_url: null,
               social_links: [],
               is_adult: null,
               age_confirmed_at: null,
               age_gate_version: CURRENT_AGE_GATE_VERSION,
-              visibility_audience: profileVisibilityInput,
+              visibility_audience: persistedVisibilityAudience,
               default_catch_mode: 'AUTO_ACCEPT',
               catch_mode_preference_source: 'system_default',
               is_new: false,
               onboarding_completed: false,
             },
       );
-      setUsernameInput(trimmedUsername);
-      setBioInput(trimmedBio);
+      setUsernameInput(persistedUsername ?? '');
+      setBioInput(persistedBio ?? '');
+      setProfileVisibilityInput(persistedVisibilityAudience);
       setHasEditedDraft(false);
-      setSaveMessage('Profile saved');
 
-      if (profileVisibilityChanged) {
+      if (profileVisibilityChanged || persistedVisibilityChanged) {
         await refreshAdultBoundaryCaches({ queryClient, userId });
       }
+
+      if (persistedVisibilityAudience !== profileVisibilityInput) {
+        setSaveError('Adult confirmation is required for adults-only visibility.');
+        return;
+      }
+
+      setSaveMessage('Profile saved');
 
       if (normalizedUsername && validateUsername(normalizedUsername).isValid) {
         void markUsernameReviewed();
