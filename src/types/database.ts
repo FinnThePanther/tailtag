@@ -3041,6 +3041,13 @@ export type Database = {
           finalizing_started_at: string
         }[]
       }
+      transition_started_conventions_to_live: {
+        Args: { p_now?: string }
+        Returns: {
+          convention_id: string
+          started_at: string
+        }[]
+      }
       validate_catch_reciprocal_offer: {
         Args: {
           p_offered_by_profile_id: string
