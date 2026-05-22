@@ -308,7 +308,7 @@ export default function SettingsScreen() {
   const [isSavingCatchMode, setIsSavingCatchMode] = useState(false);
   const [catchModeError, setCatchModeError] = useState<string | null>(null);
   const [catchModeMessage, setCatchModeMessage] = useState<string | null>(null);
-  const [hasHydratedSocialLinks, setHasHydratedSocialLinks] = useState(false);
+  const hasHydratedSocialLinksRef = useRef(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -425,7 +425,7 @@ export default function SettingsScreen() {
         return;
       }
 
-      if (!hasEditedDraft) {
+      if (!hasEditedDraft && profile) {
         resetDraftFromProfile(profile, { resetMessages: true });
       }
       const profileState = queryClient.getQueryState<ProfileSummary | null>(profileQueryKey);
@@ -516,7 +516,7 @@ export default function SettingsScreen() {
       return;
     }
 
-    if (hasEditedDraft || isSaving) {
+    if (hasEditedDraft || isSaving || !profile) {
       return;
     }
 
@@ -558,11 +558,11 @@ export default function SettingsScreen() {
 
   // Hydrate social links from profile once on first load
   useEffect(() => {
-    if (hasHydratedSocialLinks || !profile) return;
+    if (hasHydratedSocialLinksRef.current || !profile) return;
     const existing = profile.social_links ?? [];
     setSocialLinks(mapEditableSocialLinks(existing));
-    setHasHydratedSocialLinks(true);
-  }, [profile, hasHydratedSocialLinks]);
+    hasHydratedSocialLinksRef.current = true;
+  }, [profile]);
 
   useEffect(() => {
     if (!userId) {
@@ -1635,7 +1635,7 @@ export default function SettingsScreen() {
                   setSaveMessage(null);
                   setSaveError(null);
                 }}
-                editable={!isProfileLoading && !isSaving}
+                editable={!isSaving}
                 autoCapitalize="none"
                 autoCorrect={false}
                 maxLength={USERNAME_MAX_LENGTH}
@@ -1663,7 +1663,7 @@ export default function SettingsScreen() {
                   setSaveMessage(null);
                   setSaveError(null);
                 }}
-                editable={!isProfileLoading && !isSaving}
+                editable={!isSaving}
                 autoCapitalize="sentences"
                 multiline
                 numberOfLines={4}
@@ -1783,13 +1783,7 @@ export default function SettingsScreen() {
             {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
             <TailTagButton
               onPress={handleSave}
-              disabled={
-                !isDirty ||
-                isProfileLoading ||
-                isSaving ||
-                hasUsernameValidationError ||
-                isUsernameTaken
-              }
+              disabled={!isDirty || isSaving || hasUsernameValidationError || isUsernameTaken}
               loading={isSaving}
             >
               {saveMessage ?? 'Save profile'}

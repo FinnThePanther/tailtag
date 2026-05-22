@@ -199,7 +199,7 @@ export default function EditFursuitScreen() {
   const conventionsLoadError =
     conventionsError?.message ?? profileConventionsError?.message ?? null;
 
-  const [hasHydratedForm, setHasHydratedForm] = useState(false);
+  const hasHydratedFormRef = useRef(false);
   const [nameInput, setNameInput] = useState('');
   const [speciesInput, setSpeciesInput] = useState('');
   const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
@@ -301,7 +301,7 @@ export default function EditFursuitScreen() {
   }, []);
 
   useEffect(() => {
-    if (!detail || hasHydratedForm || isProfileConventionsLoading) {
+    if (!detail || hasHydratedFormRef.current || isProfileConventionsLoading) {
       return;
     }
 
@@ -365,8 +365,8 @@ export default function EditFursuitScreen() {
     setCodeInput(normalizedCode);
     setInitialCode(normalizedCode);
 
-    setHasHydratedForm(true);
-  }, [detail, hasHydratedForm, isProfileConventionsLoading, profileConventionIdSet]);
+    hasHydratedFormRef.current = true;
+  }, [detail, isProfileConventionsLoading, profileConventionIdSet]);
 
   const isOwner = useMemo(() => {
     if (!detail || !userId) {
@@ -387,7 +387,7 @@ export default function EditFursuitScreen() {
   }, [canUseAdultsOnlyFursuitVisibility, hasLoadedProfile, selectedVisibilityAudience]);
 
   useEffect(() => {
-    if (!hasHydratedForm || !fursuitId || codeInput === initialCode) {
+    if (!hasHydratedFormRef.current || !fursuitId || codeInput === initialCode) {
       return;
     }
 
@@ -434,7 +434,7 @@ export default function EditFursuitScreen() {
         codeCheckTimeoutRef.current = null;
       }
     };
-  }, [codeInput, hasHydratedForm, initialCode, fursuitId]);
+  }, [codeInput, initialCode, fursuitId]);
 
   const makersCanAddMore = useMemo(() => makers.length < FURSUIT_MAKER_LIMIT, [makers.length]);
 
