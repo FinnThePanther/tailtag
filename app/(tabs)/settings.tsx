@@ -1182,6 +1182,10 @@ export default function SettingsScreen() {
             verifiedLocation: verifiedLocation ?? undefined,
             verificationMethod: verifiedLocation ? 'gps' : 'none',
           });
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] }),
+            queryClient.invalidateQueries({ queryKey: [FURSUIT_DETAIL_QUERY_KEY] }),
+          ]);
           const conventionName =
             conventions.find((convention) => convention.id === conventionId)?.name ??
             'this convention';

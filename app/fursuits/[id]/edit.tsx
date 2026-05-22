@@ -105,6 +105,11 @@ type UploadCandidate = {
   fileSize: number;
 } | null;
 
+type DetailConventionAssignment = {
+  id: string;
+  roster_visible: boolean;
+};
+
 export default function EditFursuitScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -200,6 +205,7 @@ export default function EditFursuitScreen() {
     conventionsError?.message ?? profileConventionsError?.message ?? null;
 
   const hasHydratedFormRef = useRef(false);
+  const hasTouchedConventionRosterRef = useRef(false);
   const [nameInput, setNameInput] = useState('');
   const [speciesInput, setSpeciesInput] = useState('');
   const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
@@ -300,6 +306,29 @@ export default function EditFursuitScreen() {
     });
   }, []);
 
+  const applyConventionRosterState = useCallback(
+    (detailConventions: DetailConventionAssignment[]) => {
+      const eligibleConventions = (detailConventions ?? []).filter((entry) =>
+        profileConventionIdSet.has(entry.id),
+      );
+      const initialConventionSet = new Set(eligibleConventions.map((entry) => entry.id));
+      const initialRosterSettings = Object.fromEntries(
+        eligibleConventions.map((entry) => [
+          entry.id,
+          {
+            rosterVisible: entry.roster_visible !== false,
+          } satisfies FursuitConventionRosterSettings,
+        ]),
+      );
+
+      setSelectedConventionIds(new Set(initialConventionSet));
+      setInitialConventionIds(initialConventionSet);
+      setConventionRosterSettingsById(initialRosterSettings);
+      setInitialConventionRosterSettingsById(initialRosterSettings);
+    },
+    [profileConventionIdSet],
+  );
+
   useEffect(() => {
     if (!detail || hasHydratedFormRef.current || isProfileConventionsLoading) {
       return;
@@ -340,22 +369,7 @@ export default function EditFursuitScreen() {
     setMakers(mappedMakers);
     setInitialMakers(mappedMakers);
 
-    const eligibleConventions = (detail.conventions ?? []).filter((entry) =>
-      profileConventionIdSet.has(entry.id),
-    );
-    const initialConventionSet = new Set(eligibleConventions.map((entry) => entry.id));
-    const initialRosterSettings = Object.fromEntries(
-      eligibleConventions.map((entry) => [
-        entry.id,
-        {
-          rosterVisible: entry.roster_visible !== false,
-        } satisfies FursuitConventionRosterSettings,
-      ]),
-    );
-    setSelectedConventionIds(new Set(initialConventionSet));
-    setInitialConventionIds(initialConventionSet);
-    setConventionRosterSettingsById(initialRosterSettings);
-    setInitialConventionRosterSettingsById(initialRosterSettings);
+    applyConventionRosterState(detail.conventions ?? []);
     const resolvedColors = detail.colors ?? [];
     setSelectedColors(resolvedColors);
     setInitialColors(resolvedColors);
@@ -366,7 +380,20 @@ export default function EditFursuitScreen() {
     setInitialCode(normalizedCode);
 
     hasHydratedFormRef.current = true;
-  }, [detail, isProfileConventionsLoading, profileConventionIdSet]);
+  }, [applyConventionRosterState, detail, isProfileConventionsLoading]);
+
+  useEffect(() => {
+    if (
+      !detail ||
+      !hasHydratedFormRef.current ||
+      hasTouchedConventionRosterRef.current ||
+      isProfileConventionsLoading
+    ) {
+      return;
+    }
+
+    applyConventionRosterState(detail.conventions ?? []);
+  }, [applyConventionRosterState, detail, isProfileConventionsLoading]);
 
   const isOwner = useMemo(() => {
     if (!detail || !userId) {
@@ -1013,6 +1040,7 @@ export default function EditFursuitScreen() {
         return;
       }
 
+      hasTouchedConventionRosterRef.current = true;
       setSelectedConventionIds((current) => {
         const next = new Set(current);
 
@@ -1039,6 +1067,21 @@ export default function EditFursuitScreen() {
       });
     },
     [disableForm, profileConventionIdSet],
+  );
+
+  const handleConventionRosterSettingsChange = useCallback(
+    (conventionId: string, nextValue: FursuitConventionRosterSettings) => {
+      if (disableForm) {
+        return;
+      }
+
+      hasTouchedConventionRosterRef.current = true;
+      setConventionRosterSettingsById((current) => ({
+        ...current,
+        [conventionId]: nextValue,
+      }));
+    },
+    [disableForm],
   );
 
   const handleAskMeAboutSuggestion = useCallback((suggestion: string) => {
@@ -1601,10 +1644,7 @@ export default function EditFursuitScreen() {
                               value={rosterSettings}
                               disabled={disableForm}
                               onChange={(nextValue) =>
-                                setConventionRosterSettingsById((current) => ({
-                                  ...current,
-                                  [convention.id]: nextValue,
-                                }))
+                                handleConventionRosterSettingsChange(convention.id, nextValue)
                               }
                             />
                           ) : null}
