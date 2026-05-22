@@ -245,7 +245,9 @@ export async function buildConventionReadiness(
     warnings.push('Convention is scheduled for a future local date.');
   }
   if (convention.status === 'scheduled' && dateState === 'inside_window') {
-    warnings.push('Ready to start manually.');
+    warnings.push(
+      'Auto-start is due; the lifecycle cron will promote this convention to live shortly. You can start manually if needed.',
+    );
   }
 
   const ready = blockingIssues.length === 0;
