@@ -2981,6 +2981,10 @@ export type Database = {
         Args: { convention_uuid?: string }
         Returns: undefined
       }
+      register_push_token: {
+        Args: { p_expo_push_token: string; p_user_id: string }
+        Returns: undefined
+      }
       remove_fursuit_from_convention: {
         Args: { p_convention_id: string; p_fursuit_id: string }
         Returns: undefined

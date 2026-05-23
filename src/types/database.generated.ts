@@ -1047,6 +1047,10 @@ export type Database = {
         Args: { p_payload: Json; p_type: string; p_user_id: string };
         Returns: undefined;
       };
+      register_push_token: {
+        Args: { p_expo_push_token: string; p_user_id: string };
+        Returns: undefined;
+      };
       refresh_convention_leaderboard: {
         Args: { convention_uuid?: string };
         Returns: undefined;

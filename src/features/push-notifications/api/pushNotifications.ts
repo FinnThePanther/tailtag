@@ -23,14 +23,10 @@ export async function fetchPushSettings(userId: string): Promise<PushSettings> {
 }
 
 export async function registerPushToken(userId: string, token: string): Promise<void> {
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      expo_push_token: token,
-      push_notifications_enabled: true,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', userId);
+  const { error } = await supabase.rpc('register_push_token', {
+    p_user_id: userId,
+    p_expo_push_token: token,
+  });
 
   if (error) {
     throw new Error(error.message);
