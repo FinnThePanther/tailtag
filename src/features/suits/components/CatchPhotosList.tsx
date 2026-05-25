@@ -20,7 +20,7 @@ import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { useAuth } from '../../auth/providers/AuthProvider';
 import { inferImageExtension, inferImageMimeType } from '../../../utils/images';
 import { getStorageAuthHeaders, toExpoImageSource } from '../../../utils/supabase-image';
-import { captureHandledException } from '../../../lib/sentry';
+import { captureHandledException, captureSupabaseError } from '../../../lib/sentry';
 import type { CatchOfFursuitItem } from '../api/catchesByFursuit';
 import { styles } from './CatchPhotosList.styles';
 
@@ -79,7 +79,9 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
           dialogTitle: 'Save catch photo',
         });
       } catch (error) {
-        if (!isSupabaseError(error)) {
+        if (isSupabaseError(error)) {
+          captureSupabaseError(error);
+        } else {
           captureHandledException(error, {
             scope: 'CatchPhotosList.download',
           });
