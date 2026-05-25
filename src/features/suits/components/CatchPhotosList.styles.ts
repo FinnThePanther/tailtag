@@ -1,4 +1,4 @@
-import { Dimensions, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { radius, spacing, typography } from '../../../theme';
 
@@ -38,7 +38,6 @@ export const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   gallerySlide: {
-    width: Dimensions.get('window').width,
     justifyContent: 'center',
     alignItems: 'center',
   },

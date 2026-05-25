@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Dimensions, FlatList, Modal, Pressable, StatusBar, Text, View } from 'react-native';
+import {
+  Alert,
+  Dimensions,
+  FlatList,
+  Modal,
+  Pressable,
+  StatusBar,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
@@ -10,6 +20,7 @@ import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { useAuth } from '../../auth/providers/AuthProvider';
 import { inferImageExtension, inferImageMimeType } from '../../../utils/images';
 import { getStorageAuthHeaders, toExpoImageSource } from '../../../utils/supabase-image';
+import { captureHandledException } from '../../../lib/sentry';
 import type { CatchOfFursuitItem } from '../api/catchesByFursuit';
 import { styles } from './CatchPhotosList.styles';
 
@@ -20,8 +31,16 @@ type CatchPhotosListProps = {
   onAllLoaded?: () => void;
 };
 
+const isSupabaseError = (
+  error: unknown,
+): error is { code?: string; details?: string; hint?: string; message?: string } =>
+  typeof error === 'object' &&
+  error !== null &&
+  ('code' in error || 'details' in error || 'hint' in error);
+
 export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   const { session } = useAuth();
+  const { width: windowWidth } = useWindowDimensions();
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [settledCount, setSettledCount] = useState(0);
@@ -59,7 +78,12 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
           mimeType,
           dialogTitle: 'Save catch photo',
         });
-      } catch {
+      } catch (error) {
+        if (!isSupabaseError(error)) {
+          captureHandledException(error, {
+            scope: 'CatchPhotosList.download',
+          });
+        }
         Alert.alert('Download failed', 'Could not download the photo. Please try again.');
       } finally {
         setIsDownloading(false);
@@ -125,17 +149,17 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
               showsHorizontalScrollIndicator={false}
               initialScrollIndex={galleryIndex}
               getItemLayout={(_, index) => ({
-                length: SCREEN_WIDTH,
-                offset: SCREEN_WIDTH * index,
+                length: windowWidth,
+                offset: windowWidth * index,
                 index,
               })}
               onMomentumScrollEnd={(e) => {
-                const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                const idx = Math.round(e.nativeEvent.contentOffset.x / windowWidth);
                 if (idx !== galleryIndex) setGalleryIndex(idx);
               }}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <View style={styles.gallerySlide}>
+                <View style={[styles.gallerySlide, { width: windowWidth }]}>
                   <Image
                     source={toExpoImageSource(item.catch_photo_url, session?.access_token)}
                     style={styles.fullscreenImage}
