@@ -59,6 +59,12 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
     }
   }, [settledCount, withPhoto.length, onAllLoaded]);
 
+  useEffect(() => {
+    if (galleryIndex !== null && galleryIndex >= withPhoto.length) {
+      setGalleryIndex(withPhoto.length > 0 ? withPhoto.length - 1 : null);
+    }
+  }, [galleryIndex, withPhoto.length]);
+
   const handleDownloadPhoto = useCallback(
     async (url: string) => {
       setIsDownloading(true);
@@ -97,6 +103,11 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   if (withPhoto.length === 0) {
     return null;
   }
+
+  const safePhotoUrl =
+    galleryIndex !== null
+      ? withPhoto[Math.min(galleryIndex, withPhoto.length - 1)]?.catch_photo_url
+      : null;
 
   return (
     <>
@@ -149,7 +160,7 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
-              initialScrollIndex={galleryIndex}
+              initialScrollIndex={Math.min(galleryIndex, withPhoto.length - 1)}
               getItemLayout={(_, index) => ({
                 length: windowWidth,
                 offset: windowWidth * index,
@@ -174,7 +185,7 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
             {withPhoto.length > 1 ? (
               <View style={styles.galleryCounter}>
                 <Text style={styles.galleryCounterText}>
-                  {galleryIndex + 1} / {withPhoto.length}
+                  {Math.min(galleryIndex, withPhoto.length - 1) + 1} / {withPhoto.length}
                 </Text>
               </View>
             ) : null}
@@ -183,7 +194,9 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
                 variant="outline"
                 size="sm"
                 loading={isDownloading}
-                onPress={() => void handleDownloadPhoto(withPhoto[galleryIndex].catch_photo_url)}
+                onPress={() => {
+                  if (safePhotoUrl) void handleDownloadPhoto(safePhotoUrl);
+                }}
               >
                 Save photo
               </TailTagButton>
