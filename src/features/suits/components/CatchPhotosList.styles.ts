@@ -38,6 +38,7 @@ export const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   gallerySlide: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
