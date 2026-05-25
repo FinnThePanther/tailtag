@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -48,6 +48,7 @@ const clampGalleryIndex = (index: number, length: number): number | null => {
 export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   const { session } = useAuth();
   const { width: windowWidth } = useWindowDimensions();
+  const flatListRef = useRef<FlatList<CatchOfFursuitItem & { catch_photo_url: string }>>(null);
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [settledCount, setSettledCount] = useState(0);
@@ -72,6 +73,15 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
     }
   }, [galleryIndex, withPhoto.length]);
 
+  const clampedIndex =
+    galleryIndex !== null ? clampGalleryIndex(galleryIndex, withPhoto.length) : null;
+
+  useEffect(() => {
+    if (clampedIndex !== null) {
+      flatListRef.current?.scrollToIndex({ index: clampedIndex, animated: false });
+    }
+  }, [clampedIndex, windowWidth]);
+
   const handleDownloadPhoto = useCallback(
     async (url: string) => {
       setIsDownloading(true);
@@ -93,7 +103,9 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
         });
       } catch (error) {
         if (isSupabaseError(error)) {
-          captureSupabaseError(error);
+          captureSupabaseError(error, {
+            scope: 'CatchPhotosList.download',
+          });
         } else {
           captureHandledException(error, {
             scope: 'CatchPhotosList.download',
@@ -110,9 +122,6 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   if (withPhoto.length === 0) {
     return null;
   }
-
-  const clampedIndex =
-    galleryIndex !== null ? clampGalleryIndex(galleryIndex, withPhoto.length) : null;
 
   return (
     <>
@@ -161,6 +170,7 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
               />
             </Pressable>
             <FlatList
+              ref={flatListRef}
               data={withPhoto}
               horizontal
               pagingEnabled
