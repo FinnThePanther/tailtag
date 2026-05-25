@@ -33,10 +33,17 @@ type CatchPhotosListProps = {
 
 const isSupabaseError = (
   error: unknown,
-): error is { code?: string; details?: string; hint?: string; message?: string } =>
+): error is { code?: string; details?: string; hint?: string; message: string } =>
   typeof error === 'object' &&
   error !== null &&
+  typeof (error as Record<string, unknown>).message === 'string' &&
   ('code' in error || 'details' in error || 'hint' in error);
+
+const clampGalleryIndex = (index: number, length: number): number | null => {
+  if (length === 0) return null;
+  if (!Number.isFinite(index)) return null;
+  return Math.max(0, Math.min(index, length - 1));
+};
 
 export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   const { session } = useAuth();
@@ -60,8 +67,8 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   }, [settledCount, withPhoto.length, onAllLoaded]);
 
   useEffect(() => {
-    if (galleryIndex !== null && galleryIndex >= withPhoto.length) {
-      setGalleryIndex(withPhoto.length > 0 ? withPhoto.length - 1 : null);
+    if (galleryIndex !== null) {
+      setGalleryIndex(clampGalleryIndex(galleryIndex, withPhoto.length));
     }
   }, [galleryIndex, withPhoto.length]);
 
@@ -104,10 +111,8 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
     return null;
   }
 
-  const safePhotoUrl =
-    galleryIndex !== null
-      ? withPhoto[Math.min(galleryIndex, withPhoto.length - 1)]?.catch_photo_url
-      : null;
+  const clampedIndex =
+    galleryIndex !== null ? clampGalleryIndex(galleryIndex, withPhoto.length) : null;
 
   return (
     <>
@@ -133,7 +138,7 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
         ))}
       </View>
 
-      {galleryIndex !== null ? (
+      {clampedIndex !== null ? (
         <Modal
           visible
           transparent
@@ -160,7 +165,7 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
-              initialScrollIndex={Math.min(galleryIndex, withPhoto.length - 1)}
+              initialScrollIndex={clampedIndex}
               getItemLayout={(_, index) => ({
                 length: windowWidth,
                 offset: windowWidth * index,
@@ -168,7 +173,7 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
               })}
               onMomentumScrollEnd={(e) => {
                 const idx = Math.round(e.nativeEvent.contentOffset.x / windowWidth);
-                if (idx !== galleryIndex) setGalleryIndex(idx);
+                setGalleryIndex(clampGalleryIndex(idx, withPhoto.length));
               }}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
@@ -185,7 +190,7 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
             {withPhoto.length > 1 ? (
               <View style={styles.galleryCounter}>
                 <Text style={styles.galleryCounterText}>
-                  {Math.min(galleryIndex, withPhoto.length - 1) + 1} / {withPhoto.length}
+                  {clampedIndex + 1} / {withPhoto.length}
                 </Text>
               </View>
             ) : null}
@@ -194,9 +199,7 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
                 variant="outline"
                 size="sm"
                 loading={isDownloading}
-                onPress={() => {
-                  if (safePhotoUrl) void handleDownloadPhoto(safePhotoUrl);
-                }}
+                onPress={() => void handleDownloadPhoto(withPhoto[clampedIndex].catch_photo_url)}
               >
                 Save photo
               </TailTagButton>
