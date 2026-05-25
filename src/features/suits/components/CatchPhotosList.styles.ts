@@ -1,6 +1,6 @@
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 
-import { radius, spacing } from '../../../theme';
+import { radius, spacing, typography } from '../../../theme';
 
 export const styles = StyleSheet.create({
   grid: {
@@ -37,9 +37,28 @@ export const styles = StyleSheet.create({
     zIndex: 10,
     padding: spacing.sm,
   },
+  gallerySlide: {
+    width: Dimensions.get('window').width,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   fullscreenImage: {
     width: '100%',
     height: '100%',
+  },
+  galleryCounter: {
+    position: 'absolute',
+    top: 58,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 9999,
+  },
+  galleryCounterText: {
+    ...typography.body,
+    color: '#fff',
+    fontSize: 13,
   },
   fullscreenActions: {
     position: 'absolute',

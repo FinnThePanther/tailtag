@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Dimensions, Modal, Pressable, StatusBar, View } from 'react-native';
+import { Alert, Dimensions, FlatList, Modal, Pressable, StatusBar, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
@@ -22,7 +22,7 @@ type CatchPhotosListProps = {
 
 export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   const { session } = useAuth();
-  const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [settledCount, setSettledCount] = useState(0);
 
@@ -75,11 +75,11 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   return (
     <>
       <View style={styles.grid}>
-        {withPhoto.map((item) => (
+        {withPhoto.map((item, index) => (
           <Pressable
             key={item.id}
             style={({ pressed }) => [styles.thumbnailWrap, pressed && styles.thumbnailPressed]}
-            onPress={() => setFullscreenUrl(item.catch_photo_url)}
+            onPress={() => setGalleryIndex(index)}
             accessibilityRole="button"
             accessibilityLabel="View catch photo fullscreen"
           >
@@ -96,21 +96,21 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
         ))}
       </View>
 
-      {fullscreenUrl ? (
+      {galleryIndex !== null ? (
         <Modal
-          visible={Boolean(fullscreenUrl)}
+          visible
           transparent
           animationType="fade"
-          onRequestClose={() => setFullscreenUrl(null)}
+          onRequestClose={() => setGalleryIndex(null)}
           statusBarTranslucent
         >
           <StatusBar hidden />
           <View style={styles.fullscreenBackdrop}>
             <Pressable
               style={styles.fullscreenClose}
-              onPress={() => setFullscreenUrl(null)}
+              onPress={() => setGalleryIndex(null)}
               accessibilityRole="button"
-              accessibilityLabel="Close fullscreen photo"
+              accessibilityLabel="Close gallery"
             >
               <Ionicons
                 name="close"
@@ -118,18 +118,46 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
                 color="#fff"
               />
             </Pressable>
-            <Image
-              source={toExpoImageSource(fullscreenUrl, session?.access_token)}
-              style={styles.fullscreenImage}
-              contentFit="contain"
-              accessibilityLabel="Catch photo fullscreen"
+            <FlatList
+              data={withPhoto}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              initialScrollIndex={galleryIndex}
+              getItemLayout={(_, index) => ({
+                length: SCREEN_WIDTH,
+                offset: SCREEN_WIDTH * index,
+                index,
+              })}
+              onMomentumScrollEnd={(e) => {
+                const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                if (idx !== galleryIndex) setGalleryIndex(idx);
+              }}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={styles.gallerySlide}>
+                  <Image
+                    source={toExpoImageSource(item.catch_photo_url, session?.access_token)}
+                    style={styles.fullscreenImage}
+                    contentFit="contain"
+                    accessibilityLabel="Catch photo fullscreen"
+                  />
+                </View>
+              )}
             />
+            {withPhoto.length > 1 ? (
+              <View style={styles.galleryCounter}>
+                <Text style={styles.galleryCounterText}>
+                  {galleryIndex + 1} / {withPhoto.length}
+                </Text>
+              </View>
+            ) : null}
             <View style={styles.fullscreenActions}>
               <TailTagButton
                 variant="outline"
                 size="sm"
                 loading={isDownloading}
-                onPress={() => void handleDownloadPhoto(fullscreenUrl)}
+                onPress={() => void handleDownloadPhoto(withPhoto[galleryIndex].catch_photo_url)}
               >
                 Save photo
               </TailTagButton>
