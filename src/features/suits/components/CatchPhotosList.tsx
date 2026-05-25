@@ -15,11 +15,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
-import { AppImage } from '../../../components/ui/AppImage';
-import { TailTagButton } from '../../../components/ui/TailTagButton';
-import { useAuth } from '../../auth/providers/AuthProvider';
-import { inferImageExtension, inferImageMimeType } from '../../../utils/images';
-import { getStorageAuthHeaders, toExpoImageSource } from '../../../utils/supabase-image';
+import { AppImage } from '@/components/ui/AppImage';
+import { TailTagButton } from '@/components/ui/TailTagButton';
+import { useAuth } from '@/features/auth/providers/AuthProvider';
+import { inferImageExtension, inferImageMimeType } from '@/utils/images';
+import { getStorageAuthHeaders, toExpoImageSource } from '@/utils/supabase-image';
 import { captureHandledException, captureSupabaseError } from '@/lib/sentry';
 import type { CatchOfFursuitItem } from '../api/catchesByFursuit';
 import { styles } from './CatchPhotosList.styles';
