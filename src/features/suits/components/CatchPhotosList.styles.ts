@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { radius, spacing, typography } from '../../../theme';
+import { radius, spacing, typography } from '@/theme';
 
 export const styles = StyleSheet.create({
   grid: {

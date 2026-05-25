@@ -20,7 +20,7 @@ import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { useAuth } from '../../auth/providers/AuthProvider';
 import { inferImageExtension, inferImageMimeType } from '../../../utils/images';
 import { getStorageAuthHeaders, toExpoImageSource } from '../../../utils/supabase-image';
-import { captureHandledException, captureSupabaseError } from '../../../lib/sentry';
+import { captureHandledException, captureSupabaseError } from '@/lib/sentry';
 import type { CatchOfFursuitItem } from '../api/catchesByFursuit';
 import { styles } from './CatchPhotosList.styles';
 
