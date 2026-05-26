@@ -410,8 +410,7 @@ export async function buildConventionLifecycleHealth(
       .from('catches')
       .select('id', { count: 'exact', head: true })
       .eq('convention_id', convention.id)
-      .eq('status', 'ACCEPTED')
-      .eq('is_tutorial', false),
+      .eq('status', 'ACCEPTED'),
     supabase
       .from('catches')
       .select('id', { count: 'exact', head: true })

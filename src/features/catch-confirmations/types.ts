@@ -95,7 +95,6 @@ export type CreateCatchParams = {
   clientAttemptId?: string;
   method?: 'code' | 'camera_photo' | 'gallery_photo';
   timeoutMs?: number;
-  isTutorial?: boolean;
   forcePending?: boolean;
   hasPhoto?: boolean;
   photoPath?: string | null;

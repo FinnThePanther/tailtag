@@ -301,7 +301,6 @@ export function PhotoCatchCard({
         conventionId: sharedConventionId,
         clientAttemptId: catchTrace.clientAttemptId,
         method: catchMethod,
-        isTutorial: false,
         forcePending: photoSource === 'gallery',
         hasPhoto: true,
         photoSource,

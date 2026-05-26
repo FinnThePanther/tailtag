@@ -33,7 +33,6 @@ export async function fetchFursuitDetail(
       species_id,
       avatar_path,
       avatar_url,
-      is_tutorial,
       description,
       visibility_audience,
       catch_count,
@@ -90,7 +89,6 @@ export async function fetchFursuitDetail(
     `,
     )
     .eq('id', fursuitId)
-    .eq('is_tutorial', false)
     .maybeSingle();
 
   if (error) {

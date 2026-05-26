@@ -90,7 +90,6 @@ export async function fetchMySuits(
     `,
     )
     .eq('owner_id', userId)
-    .eq('is_tutorial', false)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -175,8 +174,7 @@ export async function fetchMySuitsCount(userId: string): Promise<number> {
   const { count, error } = await client
     .from('fursuits')
     .select('id', { count: 'exact', head: true })
-    .eq('owner_id', userId)
-    .eq('is_tutorial', false);
+    .eq('owner_id', userId);
 
   if (error) {
     throw new Error(`We couldn't count your suits: ${error.message}`);

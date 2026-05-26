@@ -423,7 +423,6 @@ export type Database = {
           expires_at: string | null
           fursuit_id: string
           id: string
-          is_tutorial: boolean
           photo_upload_state: string
           rejection_reason: string | null
           status: string
@@ -442,7 +441,6 @@ export type Database = {
           expires_at?: string | null
           fursuit_id: string
           id?: string
-          is_tutorial?: boolean
           photo_upload_state?: string
           rejection_reason?: string | null
           status?: string
@@ -461,7 +459,6 @@ export type Database = {
           expires_at?: string | null
           fursuit_id?: string
           id?: string
-          is_tutorial?: boolean
           photo_upload_state?: string
           rejection_reason?: string | null
           status?: string
@@ -1265,7 +1262,6 @@ export type Database = {
           flagged_reason: string | null
           id: string
           is_flagged: boolean
-          is_tutorial: boolean
           name: string
           owner_id: string
           species_id: string | null
@@ -1283,7 +1279,6 @@ export type Database = {
           flagged_reason?: string | null
           id?: string
           is_flagged?: boolean
-          is_tutorial?: boolean
           name: string
           owner_id: string
           species_id?: string | null
@@ -1301,7 +1296,6 @@ export type Database = {
           flagged_reason?: string | null
           id?: string
           is_flagged?: boolean
-          is_tutorial?: boolean
           name?: string
           owner_id?: string
           species_id?: string | null
@@ -2068,24 +2062,6 @@ export type Database = {
       }
     }
     Views: {
-      catch_mode_default_experiment_results: {
-        Row: {
-          accepted_catches_after_exposure: number | null
-          assigned_profiles: number | null
-          catches_after_exposure: number | null
-          current_auto_profiles: number | null
-          current_manual_profiles: number | null
-          defaults_applied: number | null
-          experiment_key: string | null
-          exposed_profiles: number | null
-          fursuits_created_after_exposure: number | null
-          pending_catches_after_exposure: number | null
-          switch_away_rate: number | null
-          switched_away_profiles: number | null
-          variant: string | null
-        }
-        Relationships: []
-      }
       fursuits_moderation: {
         Row: {
           created_at: string | null
@@ -2178,77 +2154,6 @@ export type Database = {
             columns: ["convention_id"]
             isOneToOne: false
             referencedRelation: "conventions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      mv_convention_leaderboard: {
-        Row: {
-          catch_count: number | null
-          catcher_id: string | null
-          convention_id: string | null
-          first_catch_at: string | null
-          last_catch_at: string | null
-          unique_fursuits: number | null
-          unique_species: number | null
-          username: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catches_catcher_id_fkey"
-            columns: ["catcher_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "catches_convention_id_fkey"
-            columns: ["convention_id"]
-            isOneToOne: false
-            referencedRelation: "conventions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      mv_fursuit_popularity: {
-        Row: {
-          catch_count: number | null
-          convention_id: string | null
-          first_caught_at: string | null
-          fursuit_avatar_url: string | null
-          fursuit_id: string | null
-          fursuit_name: string | null
-          last_caught_at: string | null
-          owner_id: string | null
-          unique_catchers: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catches_convention_id_fkey"
-            columns: ["convention_id"]
-            isOneToOne: false
-            referencedRelation: "conventions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "catches_fursuit_id_fkey"
-            columns: ["fursuit_id"]
-            isOneToOne: false
-            referencedRelation: "fursuits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "catches_fursuit_id_fkey"
-            columns: ["fursuit_id"]
-            isOneToOne: false
-            referencedRelation: "fursuits_moderation"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fursuits_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2410,7 +2315,6 @@ export type Database = {
           p_convention_id?: string
           p_force_pending?: boolean
           p_fursuit_id: string
-          p_is_tutorial?: boolean
         }
         Returns: Json
       }
@@ -2424,7 +2328,6 @@ export type Database = {
           p_convention_id?: string
           p_force_pending?: boolean
           p_fursuit_id: string
-          p_is_tutorial?: boolean
           p_photo_upload_state?: string
         }
         Returns: Json

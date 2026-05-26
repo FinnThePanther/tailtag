@@ -46,17 +46,15 @@ interface CreateCatchRequest {
   fursuit_code?: string;
   convention_id?: string | null;
   reciprocal_fursuit_id?: string | null;
-  is_tutorial?: boolean;
   force_pending?: boolean;
   has_photo?: boolean;
   catch_photo_path?: string | null;
-  catch_photo_url?: string | null;
   catch_photo_source?: 'camera' | 'gallery' | null;
+  catch_photo_url?: string | null;
   photo_upload_state?: 'pending_upload' | 'uploaded' | null;
 }
 
 interface UpdateCatchPhotoRequest {
-  catch_id: string;
   catch_photo_path?: string;
   catch_photo_url?: string;
   catch_photo_source?: 'camera' | 'gallery' | null;
@@ -365,7 +363,7 @@ async function validateReciprocalOfferRequest(params: {
 
   const { data: offeredFursuit, error: offeredFursuitError } = await supabaseAdmin
     .from('fursuits')
-    .select('id, owner_id, is_tutorial, is_flagged')
+    .select('id, owner_id, is_flagged')
     .eq('id', params.offeredFursuitId)
     .maybeSingle();
 
@@ -397,7 +395,7 @@ async function validateReciprocalOfferRequest(params: {
     };
   }
 
-  if (offeredFursuit.is_tutorial === true || offeredFursuit.is_flagged === true) {
+  if (offeredFursuit.is_flagged === true) {
     return {
       ok: false,
       status: 400,
@@ -644,7 +642,6 @@ async function handlePost(req: Request): Promise<Response> {
             .from('fursuits')
             .select('id')
             .ilike('unique_code', fursuitCode)
-            .eq('is_tutorial', false)
             .maybeSingle(),
       );
 
@@ -802,7 +799,6 @@ async function handlePost(req: Request): Promise<Response> {
         p_fursuit_id: body.fursuit_id,
         p_catcher_id: userId,
         p_convention_id: body.convention_id || null,
-        p_is_tutorial: body.is_tutorial || false,
         p_force_pending: body.force_pending || catchPhotoSource === 'gallery',
         p_catch_photo_source: catchPhotoSource,
         p_catch_photo_path: body.catch_photo_path ?? null,

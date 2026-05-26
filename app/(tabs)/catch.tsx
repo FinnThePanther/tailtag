@@ -77,14 +77,7 @@ import type { FursuitColorOption } from '../../src/features/colors';
 
 type FursuitDetails = Pick<
   FursuitsRow,
-  | 'id'
-  | 'name'
-  | 'species_id'
-  | 'avatar_url'
-  | 'unique_code'
-  | 'owner_id'
-  | 'is_tutorial'
-  | 'catch_count'
+  'id' | 'name' | 'species_id' | 'avatar_url' | 'unique_code' | 'owner_id' | 'catch_count'
 > & {
   avatar_path?: string | null;
   created_at: string | null;
@@ -513,7 +506,6 @@ export default function CatchScreen() {
         bio: null,
         colors: [],
         makers: [],
-        is_tutorial: false,
       };
 
       await updateCatchOutboxItem(userId, clientAttemptId, (item) => ({
@@ -705,7 +697,6 @@ export default function CatchScreen() {
           species_id,
           avatar_path,
           avatar_url,
-          is_tutorial,
           unique_code,
           catch_count,
           owner_id,
@@ -740,7 +731,6 @@ export default function CatchScreen() {
         `,
         )
         .eq('id', params.fursuitId)
-        .eq('is_tutorial', false)
         .maybeSingle();
 
       if (fursuitError) throw fursuitError;
@@ -773,7 +763,6 @@ export default function CatchScreen() {
         ),
         colors: mapFursuitColors((fursuit as any)?.color_assignments ?? null),
         makers: makersByFursuitId.get(fursuit.id) ?? [],
-        is_tutorial: false,
       };
 
       addMonitoringBreadcrumb({
