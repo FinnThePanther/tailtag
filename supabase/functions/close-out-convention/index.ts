@@ -497,7 +497,6 @@ async function buildRecaps(conventionId: string, closedAt: string) {
           .select('catcher_id, fursuit_id, caught_at, fursuit:fursuits(id, name, owner_id)')
           .eq('convention_id', conventionId)
           .eq('status', 'ACCEPTED')
-          .eq('is_tutorial', false)
           .range(from, to),
       ),
       fetchAll<DailyProgressRow>((from, to) =>

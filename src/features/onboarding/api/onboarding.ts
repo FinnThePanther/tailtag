@@ -90,8 +90,7 @@ export async function createQuickFursuit(options: {
   const { count, error: countError } = await client
     .from('fursuits')
     .select('id', { count: 'exact', head: true })
-    .eq('owner_id', userId)
-    .eq('is_tutorial', false);
+    .eq('owner_id', userId);
 
   if (countError) {
     throw new Error(`We couldn't verify your fursuit count: ${countError.message}`);
@@ -153,7 +152,6 @@ export async function createQuickFursuit(options: {
         unique_code: uniqueCode,
         description: normalizedDescription,
         visibility_audience: visibilityAudience,
-        is_tutorial: false,
       };
 
       const { data: inserted, error } = await client

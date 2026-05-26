@@ -759,26 +759,19 @@ export function AchievementToastManager() {
         if (!isSelfCatchPerformedEvent) {
           scheduleCatchReconcile();
         } else {
-          const tutorialValue = normalizedEventPayload.is_tutorial;
-          const isTutorialCatch = tutorialValue === true || tutorialValue === 'true';
+          const caughtSuits = queryClient.getQueryData<CaughtRecord[] | undefined>(
+            caughtSuitsQueryKey(userId),
+          );
+          const estimatedTotalCatches = Array.isArray(caughtSuits) ? caughtSuits.length + 1 : null;
 
-          if (!isTutorialCatch) {
-            const caughtSuits = queryClient.getQueryData<CaughtRecord[] | undefined>(
-              caughtSuitsQueryKey(userId),
-            );
-            const estimatedTotalCatches = Array.isArray(caughtSuits)
-              ? caughtSuits.length + 1
-              : null;
-
-            if (estimatedTotalCatches === 1) {
-              predictedAchievementKeys.push('FIRST_CATCH');
-            }
-            if (estimatedTotalCatches === 10) {
-              predictedAchievementKeys.push('GETTING_THE_HANG_OF_IT');
-            }
-            if (estimatedTotalCatches === 25) {
-              predictedAchievementKeys.push('SUPER_CATCHER');
-            }
+          if (estimatedTotalCatches === 1) {
+            predictedAchievementKeys.push('FIRST_CATCH');
+          }
+          if (estimatedTotalCatches === 10) {
+            predictedAchievementKeys.push('GETTING_THE_HANG_OF_IT');
+          }
+          if (estimatedTotalCatches === 25) {
+            predictedAchievementKeys.push('SUPER_CATCHER');
           }
 
           scheduleCatchReconcile();

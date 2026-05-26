@@ -232,13 +232,6 @@ async function processCatchEvent(
     })
     .filter((name): name is string => Boolean(name));
   const rawOwnerId = catchFursuit?.owner_id ?? null;
-  const tutorialValue = payload['is_tutorial'];
-  const payloadTutorialFlag =
-    tutorialValue === true || (typeof tutorialValue === 'string' && tutorialValue === 'true');
-  const wasTutorialCatch = catchRow.is_tutorial === true || payloadTutorialFlag;
-  if (wasTutorialCatch) {
-    return { awards: [] };
-  }
 
   const candidateConventionIds = collectConventionIds(event, payload, catchRow.convention_id);
   const uniqueConventionIds = candidateConventionIds.filter(
@@ -282,7 +275,7 @@ async function processCatchEvent(
     isNewMakerForCatcherAtConvention,
   ] = await Promise.all([
     countCatchesByUser(supabaseAdmin, catcherId),
-    fursuitOwnerId ? countCatchesByFursuit(supabaseAdmin, fursuitId, true) : Promise.resolve(0),
+    fursuitOwnerId ? countCatchesByFursuit(supabaseAdmin, fursuitId) : Promise.resolve(0),
     countDistinctSpeciesCaught(supabaseAdmin, catcherId),
     countDistinctConventionsForUser(supabaseAdmin, catcherId),
     fursuitOwnerId
@@ -312,7 +305,6 @@ async function processCatchEvent(
     fursuit_owner_id: rawOwnerId ?? null,
     convention_id: primaryConventionId,
     status: catchRow.status,
-    is_tutorial: wasTutorialCatch,
     species: speciesEntry?.name ?? null,
     colors: colorNames,
     maker_names: makerMetadata.makerNames,
@@ -406,7 +398,6 @@ async function processCatchEvent(
     fursuitOwnerId,
     conventionId: primaryConventionId,
     conventionInfo,
-    isTutorial: wasTutorialCatch,
     timing: {
       isConventionDayOne,
       isLateNight,
@@ -613,7 +604,6 @@ async function processCatchConfirmedEvent(
       fursuit_owner_id: catchFursuit?.owner_id ?? null,
       convention_id: resolvedConventionId,
       status: 'ACCEPTED',
-      is_tutorial: false,
       source: 'catch_confirmed',
       species: speciesEntry?.name ?? null,
       colors: colorNames,
@@ -1084,7 +1074,7 @@ async function fetchCatchWithRelations(
   const { data, error } = await supabaseAdmin
     .from('catches')
     .select(
-      'id,catcher_id,fursuit_id,convention_id,is_tutorial,status,caught_at,catch_photo_url,fursuit:fursuits(id,owner_id,species_id,species:fursuit_species(name),color_assignments:fursuit_color_assignments(color:fursuit_colors(name)))',
+      'id,catcher_id,fursuit_id,convention_id,status,caught_at,catch_photo_url,fursuit:fursuits(id,owner_id,species_id,species:fursuit_species(name),color_assignments:fursuit_color_assignments(color:fursuit_colors(name)))',
     )
     .eq('id', catchId)
     .limit(1)
@@ -1105,7 +1095,6 @@ async function countCatchesByUser(
     .from('catches')
     .select('id', { count: 'exact', head: true })
     .eq('catcher_id', userId)
-    .eq('is_tutorial', false)
     .eq('status', 'ACCEPTED');
   if (error) {
     console.error('[events-ingress] Failed counting catches for user', { userId, error });
@@ -1117,16 +1106,12 @@ async function countCatchesByUser(
 async function countCatchesByFursuit(
   supabaseAdmin: SupabaseClient<any, 'public', any>,
   fursuitId: string,
-  excludeTutorials: boolean,
 ) {
   let query = supabaseAdmin
     .from('catches')
     .select('id', { count: 'exact', head: true })
     .eq('fursuit_id', fursuitId)
     .eq('status', 'ACCEPTED');
-  if (excludeTutorials) {
-    query = query.eq('is_tutorial', false);
-  }
   const { count, error } = await query;
   if (error) {
     console.error('[events-ingress] Failed counting catches for fursuit', { fursuitId, error });
@@ -1335,7 +1320,7 @@ async function hasSecondCatchWithinMinute(
 
   const { data, error } = await supabaseAdmin
     .from('catches')
-    .select('id,is_tutorial,caught_at')
+    .select('id,caught_at')
     .eq('catcher_id', userId)
     .eq('status', 'ACCEPTED')
     .gte('caught_at', windowStart)
@@ -1347,7 +1332,7 @@ async function hasSecondCatchWithinMinute(
     return false;
   }
 
-  return (data ?? []).filter((row) => row.is_tutorial !== true).length >= 2;
+  return (data ?? []).length >= 2;
 }
 
 async function fetchCatchEventsForFursuitAtConvention(

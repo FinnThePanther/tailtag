@@ -439,7 +439,6 @@ export default function EditFursuitScreen() {
         .select('id')
         .eq('unique_code', normalized)
         .neq('id', fursuitId)
-        .is('is_tutorial', false)
         .limit(1)
         .maybeSingle();
 
@@ -666,7 +665,6 @@ export default function EditFursuitScreen() {
         .select('id')
         .eq('unique_code', normalizedCode)
         .neq('id', fursuitId)
-        .is('is_tutorial', false)
         .limit(1)
         .maybeSingle();
 

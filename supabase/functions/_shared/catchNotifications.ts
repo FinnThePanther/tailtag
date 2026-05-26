@@ -165,7 +165,7 @@ export async function processCatchNotificationForEvent(
   const payload = isRecord(event.payload) ? event.payload : {};
 
   if (event.type === 'catch_performed') {
-    if (readBoolean(payload.is_tutorial) || readString(payload.source) === 'catch_confirmed') {
+    if (readString(payload.source) === 'catch_confirmed') {
       return;
     }
   }
