@@ -68,14 +68,17 @@ import {
   normalizeUsernameInput,
   USERNAME_MAX_LENGTH,
   uploadProfileAvatar,
-  updateProfileCatchMode,
   updateProfileAvatar,
   updateProfileSocialLinks,
   validateUsername,
   PROFILE_QUERY_KEY,
   PROFILE_STALE_TIME,
 } from '../../src/features/profile';
-import type { CatchMode, ProfileSummary } from '../../src/features/profile';
+import type {
+  CatchMode,
+  CatchModePreferenceSource,
+  ProfileSummary,
+} from '../../src/features/profile';
 import { CatchModeSwitch } from '../../src/features/catch-confirmations';
 import type { FursuitPhotoCandidate } from '../../src/features/onboarding/api/onboarding';
 import type { EditableSocialLink } from '../../src/features/suits/forms/socialLinks';
@@ -286,6 +289,7 @@ export default function SettingsScreen() {
     refreshState: refreshPushState,
   } = usePushNotifications({ userId });
 
+  const [catchModeInput, setCatchModeInput] = useState<CatchMode>('AUTO_ACCEPT');
   const [usernameInput, setUsernameInput] = useState('');
   const [bioInput, setBioInput] = useState('');
 
@@ -306,9 +310,7 @@ export default function SettingsScreen() {
   const [socialLinksMessage, setSocialLinksMessage] = useState<string | null>(null);
   const [profileVisibilityInput, setProfileVisibilityInput] =
     useState<VisibilityAudience>('everyone');
-  const [isSavingCatchMode, setIsSavingCatchMode] = useState(false);
-  const [catchModeError, setCatchModeError] = useState<string | null>(null);
-  const [catchModeMessage, setCatchModeMessage] = useState<string | null>(null);
+
   const hasHydratedSocialLinksRef = useRef(false);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -392,12 +394,15 @@ export default function SettingsScreen() {
     const bioChanged = (profile?.bio ?? '') !== bioInput.trim();
     const profileVisibilityChanged =
       (profile?.visibility_audience ?? 'everyone') !== profileVisibilityInput;
-    return usernameChanged || bioChanged || profileVisibilityChanged;
+    const catchModeChanged = (profile?.default_catch_mode ?? 'AUTO_ACCEPT') !== catchModeInput;
+    return usernameChanged || bioChanged || profileVisibilityChanged || catchModeChanged;
   }, [
     bioInput,
+    catchModeInput,
     normalizedCurrentUsername,
     normalizedUsernameInput,
     profile?.bio,
+    profile?.default_catch_mode,
     profile?.visibility_audience,
     profileVisibilityInput,
   ]);
@@ -410,6 +415,7 @@ export default function SettingsScreen() {
       setUsernameInput(summaryUsername || normalizedSessionUsername);
       setBioInput(summary?.bio ?? '');
       setProfileVisibilityInput(summary?.visibility_audience ?? 'everyone');
+      setCatchModeInput(summary?.default_catch_mode ?? 'AUTO_ACCEPT');
 
       if (resetMessages) {
         setSaveMessage(null);
@@ -782,6 +788,7 @@ export default function SettingsScreen() {
     const normalizedBio = trimmedBio.length > 0 ? trimmedBio : null;
     const profileVisibilityChanged =
       (profile?.visibility_audience ?? 'everyone') !== profileVisibilityInput;
+    const catchModeChanged = (profile?.default_catch_mode ?? 'AUTO_ACCEPT') !== catchModeInput;
 
     if (normalizedUsername) {
       const validation = validateUsername(normalizedUsername);
@@ -816,16 +823,26 @@ export default function SettingsScreen() {
         setUsernameCheckStatus('available');
       }
 
+      const updatePayload: Record<string, unknown> = {
+        username: normalizedUsername,
+        bio: normalizedBio,
+        visibility_audience: profileVisibilityInput,
+        updated_at: new Date().toISOString(),
+      };
+      if (catchModeChanged) {
+        updatePayload.default_catch_mode = catchModeInput;
+        updatePayload.catch_mode_preference_source = 'user_selected';
+      }
+
+      const selectColumns = catchModeChanged
+        ? 'username,bio,visibility_audience,default_catch_mode,catch_mode_preference_source'
+        : 'username,bio,visibility_audience';
+
       const { data, error } = await (supabase as any)
         .from('profiles')
-        .update({
-          username: normalizedUsername,
-          bio: normalizedBio,
-          visibility_audience: profileVisibilityInput,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', userId)
-        .select('username,bio,visibility_audience')
+        .select(selectColumns)
         .single();
 
       if (error) {
@@ -847,6 +864,14 @@ export default function SettingsScreen() {
       const persistedVisibilityAudience = normalizeVisibilityAudience(data?.visibility_audience);
       const persistedVisibilityChanged =
         (profile?.visibility_audience ?? 'everyone') !== persistedVisibilityAudience;
+      const persistedCatchMode: CatchMode = catchModeChanged
+        ? data?.default_catch_mode === 'MANUAL_APPROVAL'
+          ? 'MANUAL_APPROVAL'
+          : 'AUTO_ACCEPT'
+        : (profile?.default_catch_mode ?? 'AUTO_ACCEPT');
+      const persistedCatchModePreferenceSource: CatchModePreferenceSource = catchModeChanged
+        ? (data?.catch_mode_preference_source ?? 'user_selected')
+        : (profile?.catch_mode_preference_source ?? 'system_default');
 
       queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
         current
@@ -855,6 +880,12 @@ export default function SettingsScreen() {
               username: persistedUsername,
               bio: persistedBio,
               visibility_audience: persistedVisibilityAudience,
+              ...(catchModeChanged
+                ? {
+                    default_catch_mode: persistedCatchMode,
+                    catch_mode_preference_source: persistedCatchModePreferenceSource,
+                  }
+                : {}),
             }
           : {
               username: persistedUsername,
@@ -866,8 +897,8 @@ export default function SettingsScreen() {
               age_confirmed_at: null,
               age_gate_version: CURRENT_AGE_GATE_VERSION,
               visibility_audience: persistedVisibilityAudience,
-              default_catch_mode: 'AUTO_ACCEPT',
-              catch_mode_preference_source: 'system_default',
+              default_catch_mode: persistedCatchMode,
+              catch_mode_preference_source: persistedCatchModePreferenceSource,
               is_new: false,
               onboarding_completed: false,
             },
@@ -877,6 +908,7 @@ export default function SettingsScreen() {
       setProfileVisibilityInput(persistedVisibilityAudience);
       setHasEditedDraft(false);
 
+      setCatchModeInput(persistedCatchMode);
       if (profileVisibilityChanged || persistedVisibilityChanged) {
         await refreshAdultBoundaryCaches({ queryClient, userId });
       }
@@ -907,6 +939,24 @@ export default function SettingsScreen() {
         });
       });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      if (catchModeChanged) {
+        void emitGameplayEvent({
+          type: 'profile_catch_mode_changed',
+          payload: {
+            previous_catch_mode: profile?.default_catch_mode ?? 'AUTO_ACCEPT',
+            new_catch_mode: catchModeInput,
+            previous_preference_source: profile?.catch_mode_preference_source ?? 'system_default',
+            preference_source: persistedCatchModePreferenceSource,
+            source: 'settings',
+          },
+          idempotencyKey: `profile-catch-mode:${userId}:${Date.now()}`,
+        }).catch((error) => {
+          captureHandledException(error, {
+            scope: 'settings.handleSave.catchModeChanged',
+            userId,
+          });
+        });
+      }
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error
@@ -924,11 +974,14 @@ export default function SettingsScreen() {
     usernameLookupInput,
     currentUsernameLookup,
     bioInput,
+    catchModeInput,
     profile?.visibility_audience,
     profileVisibilityInput,
     canUseAdultsOnlyProfileVisibility,
     profile?.avatar_path,
     profile?.avatar_url,
+    profile?.default_catch_mode,
+    profile?.catch_mode_preference_source,
     profileQueryKey,
     queryClient,
     markUsernameReviewed,
@@ -999,80 +1052,6 @@ export default function SettingsScreen() {
       setIsUploadingAvatar(false);
     }
   }, [userId, isUploadingAvatar, profile?.bio, profile?.username, profileQueryKey, queryClient]);
-
-  const handleCatchModeChange = useCallback(
-    async (nextCatchMode: CatchMode) => {
-      if (!userId || isSavingCatchMode) {
-        return;
-      }
-
-      const previousCatchMode = profile?.default_catch_mode ?? 'AUTO_ACCEPT';
-      const previousPreferenceSource = profile?.catch_mode_preference_source ?? 'system_default';
-      if (previousCatchMode === nextCatchMode) {
-        return;
-      }
-
-      setIsSavingCatchMode(true);
-      setCatchModeError(null);
-      setCatchModeMessage(null);
-
-      try {
-        await updateProfileCatchMode(userId, nextCatchMode);
-
-        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
-          current
-            ? {
-                ...current,
-                default_catch_mode: nextCatchMode,
-                catch_mode_preference_source: 'user_selected',
-              }
-            : current,
-        );
-
-        setCatchModeMessage('Catch settings saved');
-
-        void emitGameplayEvent({
-          type: 'profile_catch_mode_changed',
-          payload: {
-            previous_catch_mode: previousCatchMode,
-            new_catch_mode: nextCatchMode,
-            previous_preference_source: profile?.catch_mode_preference_source ?? 'system_default',
-            preference_source: 'user_selected',
-            source: 'settings',
-          },
-          idempotencyKey: `profile-catch-mode:${userId}:${Date.now()}`,
-        }).catch((error) => {
-          captureHandledException(error, {
-            scope: 'settings.handleCatchModeChange.event',
-            userId,
-          });
-        });
-      } catch (caught) {
-        setCatchModeError(
-          caught instanceof Error ? caught.message : 'Could not save catch settings. Try again.',
-        );
-        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
-          current
-            ? {
-                ...current,
-                default_catch_mode: previousCatchMode,
-                catch_mode_preference_source: previousPreferenceSource,
-              }
-            : current,
-        );
-      } finally {
-        setIsSavingCatchMode(false);
-      }
-    },
-    [
-      userId,
-      isSavingCatchMode,
-      profile?.default_catch_mode,
-      profile?.catch_mode_preference_source,
-      profileQueryKey,
-      queryClient,
-    ],
-  );
 
   const socialLinksCanAddMore = socialLinks.length < SOCIAL_LINK_LIMIT;
 
@@ -1698,13 +1677,16 @@ export default function SettingsScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.sectionTitle}>Catch settings</Text>
               <CatchModeSwitch
-                value={profile?.default_catch_mode ?? 'AUTO_ACCEPT'}
-                onChange={handleCatchModeChange}
-                disabled={isProfileLoading || isSavingCatchMode}
+                value={catchModeInput}
+                onChange={(nextMode) => {
+                  setCatchModeInput(nextMode);
+                  setHasEditedDraft(true);
+                  setSaveMessage(null);
+                  setSaveError(null);
+                }}
+                disabled={isProfileLoading || isSaving}
                 scope="profile"
               />
-              {catchModeError ? <Text style={styles.error}>{catchModeError}</Text> : null}
-              {catchModeMessage ? <Text style={styles.success}>{catchModeMessage}</Text> : null}
             </View>
             <View style={styles.fieldGroup}>
               <Text style={styles.sectionTitle}>Profile visibility</Text>
