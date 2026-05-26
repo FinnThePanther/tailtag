@@ -3,6 +3,7 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  ViewToken,
   Modal,
   Pressable,
   StatusBar,
@@ -20,7 +21,11 @@ import { TailTagButton } from '@/components/ui/TailTagButton';
 import { useAuth } from '@/features/auth/providers/AuthProvider';
 import { inferImageExtension, inferImageMimeType } from '@/utils/images';
 import { getStorageAuthHeaders, toExpoImageSource } from '@/utils/supabase-image';
-import { captureHandledException, captureSupabaseError } from '@/lib/sentry';
+import {
+  addMonitoringBreadcrumb,
+  captureHandledException,
+  captureSupabaseError,
+} from '@/lib/sentry';
 import type { CatchOfFursuitItem } from '../api/catchesByFursuit';
 import { styles } from './CatchPhotosList.styles';
 
@@ -53,6 +58,21 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [settledCount, setSettledCount] = useState(0);
 
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+    waitForInteraction: false,
+  }).current;
+
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const firstVisible = viewableItems.find((v) => v.isViewable);
+      if (firstVisible?.index != null) {
+        setGalleryIndex(firstVisible.index);
+      }
+    },
+    [],
+  );
+
   const withPhoto = items.filter((item): item is CatchOfFursuitItem & { catch_photo_url: string } =>
     Boolean(item.catch_photo_url?.trim()),
   );
@@ -83,12 +103,23 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   }, [clampedIndex, windowWidth]);
 
   const handleDownloadPhoto = useCallback(
-    async (url: string) => {
+    async (url: string, context: { photoId: string; galleryIndex: number }) => {
+      addMonitoringBreadcrumb({
+        category: 'catch-photos',
+        message: 'save_photo_started',
+        data: context,
+      });
       setIsDownloading(true);
       try {
         const canShare = await Sharing.isAvailableAsync();
         if (!canShare) {
           Alert.alert('Not supported', 'Sharing is not available on this device.');
+          addMonitoringBreadcrumb({
+            category: 'catch-photos',
+            message: 'save_photo_failed',
+            level: 'warning',
+            data: { ...context, reason: 'sharing_unavailable' },
+          });
           return;
         }
         const extension = inferImageExtension({ uri: url }) || 'jpg';
@@ -101,6 +132,11 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
           mimeType,
           dialogTitle: 'Save catch photo',
         });
+        addMonitoringBreadcrumb({
+          category: 'catch-photos',
+          message: 'save_photo_succeeded',
+          data: context,
+        });
       } catch (error) {
         if (isSupabaseError(error)) {
           captureSupabaseError(error, {
@@ -111,6 +147,12 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
             scope: 'CatchPhotosList.download',
           });
         }
+        addMonitoringBreadcrumb({
+          category: 'catch-photos',
+          message: 'save_photo_failed',
+          level: 'error',
+          data: { ...context },
+        });
         Alert.alert('Download failed', 'Could not download the photo. Please try again.');
       } finally {
         setIsDownloading(false);
@@ -175,7 +217,9 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
+              viewabilityConfig={viewabilityConfig}
               initialScrollIndex={clampedIndex}
+              onViewableItemsChanged={onViewableItemsChanged}
               getItemLayout={(_, index) => ({
                 length: windowWidth,
                 offset: windowWidth * index,
@@ -209,7 +253,12 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
                 variant="outline"
                 size="sm"
                 loading={isDownloading}
-                onPress={() => void handleDownloadPhoto(withPhoto[clampedIndex].catch_photo_url)}
+                onPress={() =>
+                  void handleDownloadPhoto(withPhoto[clampedIndex].catch_photo_url, {
+                    photoId: withPhoto[clampedIndex].id,
+                    galleryIndex: clampedIndex,
+                  })
+                }
               >
                 Save photo
               </TailTagButton>
