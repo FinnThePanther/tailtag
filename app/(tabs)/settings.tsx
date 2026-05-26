@@ -74,7 +74,11 @@ import {
   PROFILE_QUERY_KEY,
   PROFILE_STALE_TIME,
 } from '../../src/features/profile';
-import type { CatchMode, ProfileSummary } from '../../src/features/profile';
+import type {
+  CatchMode,
+  CatchModePreferenceSource,
+  ProfileSummary,
+} from '../../src/features/profile';
 import { CatchModeSwitch } from '../../src/features/catch-confirmations';
 import type { FursuitPhotoCandidate } from '../../src/features/onboarding/api/onboarding';
 import type { EditableSocialLink } from '../../src/features/suits/forms/socialLinks';
@@ -865,6 +869,9 @@ export default function SettingsScreen() {
           ? 'MANUAL_APPROVAL'
           : 'AUTO_ACCEPT'
         : (profile?.default_catch_mode ?? 'AUTO_ACCEPT');
+      const persistedCatchModePreferenceSource: CatchModePreferenceSource = catchModeChanged
+        ? (data?.catch_mode_preference_source ?? 'user_selected')
+        : (profile?.catch_mode_preference_source ?? 'system_default');
 
       queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
         current
@@ -876,7 +883,7 @@ export default function SettingsScreen() {
               ...(catchModeChanged
                 ? {
                     default_catch_mode: persistedCatchMode,
-                    catch_mode_preference_source: 'user_selected' as const,
+                    catch_mode_preference_source: persistedCatchModePreferenceSource,
                   }
                 : {}),
             }
@@ -891,9 +898,7 @@ export default function SettingsScreen() {
               age_gate_version: CURRENT_AGE_GATE_VERSION,
               visibility_audience: persistedVisibilityAudience,
               default_catch_mode: persistedCatchMode,
-              catch_mode_preference_source: catchModeChanged
-                ? ('user_selected' as const)
-                : (profile?.catch_mode_preference_source ?? ('system_default' as const)),
+              catch_mode_preference_source: persistedCatchModePreferenceSource,
               is_new: false,
               onboarding_completed: false,
             },
@@ -941,7 +946,7 @@ export default function SettingsScreen() {
             previous_catch_mode: profile?.default_catch_mode ?? 'AUTO_ACCEPT',
             new_catch_mode: catchModeInput,
             previous_preference_source: profile?.catch_mode_preference_source ?? 'system_default',
-            preference_source: 'user_selected',
+            preference_source: persistedCatchModePreferenceSource,
             source: 'settings',
           },
           idempotencyKey: `profile-catch-mode:${userId}:${Date.now()}`,
