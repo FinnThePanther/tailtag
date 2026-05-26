@@ -35,12 +35,6 @@ export const styles = StyleSheet.create({
     borderColor: colors.amber,
     borderWidth: 2,
   },
-  pendingCardBorder: {
-    borderRadius: radius.xl,
-    borderWidth: 2,
-    borderColor: colors.amber,
-    overflow: 'hidden',
-  },
   fieldGroup: {
     marginBottom: spacing.lg,
   },
@@ -144,9 +138,6 @@ export const styles = StyleSheet.create({
   lifecycleCta: {
     alignSelf: 'flex-start',
   },
-  bioSpacing: {
-    marginTop: spacing.md,
-  },
   buttonRow: {
     flexDirection: 'column',
     marginTop: spacing.md,
@@ -172,11 +163,17 @@ export const styles = StyleSheet.create({
     marginBottom: spacing.md,
     backgroundColor: colors.primaryMuted,
     borderColor: colors.primaryDark,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    padding: spacing.md,
   },
   pendingPromptCard: {
     marginBottom: spacing.md,
     backgroundColor: 'rgba(251, 191, 36, 0.1)',
     borderColor: 'rgba(251, 191, 36, 0.3)',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    padding: spacing.md,
   },
   promptLabel: {
     fontSize: 12,
@@ -198,6 +195,40 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.foreground,
     lineHeight: 22,
+  },
+  postCatchProfileLink: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMutedSoft,
+    borderColor: colors.borderDefault,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  pendingProfileLink: {
+    borderColor: 'rgba(251, 191, 36, 0.35)',
+  },
+  postCatchProfileLinkPressed: {
+    opacity: 0.9,
+  },
+  postCatchAvatar: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.md,
+  },
+  postCatchProfileText: {
+    flex: 1,
+    gap: 2,
+  },
+  postCatchProfileName: {
+    color: colors.foreground,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  postCatchProfileAction: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
   },
   photoCatchSpacing: {
     marginBottom: spacing.lg,
