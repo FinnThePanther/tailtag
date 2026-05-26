@@ -68,7 +68,6 @@ import {
   normalizeUsernameInput,
   USERNAME_MAX_LENGTH,
   uploadProfileAvatar,
-  updateProfileCatchMode,
   updateProfileAvatar,
   updateProfileSocialLinks,
   validateUsername,
@@ -286,6 +285,7 @@ export default function SettingsScreen() {
     refreshState: refreshPushState,
   } = usePushNotifications({ userId });
 
+  const [catchModeInput, setCatchModeInput] = useState<CatchMode>('AUTO_ACCEPT');
   const [usernameInput, setUsernameInput] = useState('');
   const [bioInput, setBioInput] = useState('');
 
@@ -306,9 +306,7 @@ export default function SettingsScreen() {
   const [socialLinksMessage, setSocialLinksMessage] = useState<string | null>(null);
   const [profileVisibilityInput, setProfileVisibilityInput] =
     useState<VisibilityAudience>('everyone');
-  const [isSavingCatchMode, setIsSavingCatchMode] = useState(false);
-  const [catchModeError, setCatchModeError] = useState<string | null>(null);
-  const [catchModeMessage, setCatchModeMessage] = useState<string | null>(null);
+
   const hasHydratedSocialLinksRef = useRef(false);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -392,12 +390,15 @@ export default function SettingsScreen() {
     const bioChanged = (profile?.bio ?? '') !== bioInput.trim();
     const profileVisibilityChanged =
       (profile?.visibility_audience ?? 'everyone') !== profileVisibilityInput;
-    return usernameChanged || bioChanged || profileVisibilityChanged;
+    const catchModeChanged = (profile?.default_catch_mode ?? 'AUTO_ACCEPT') !== catchModeInput;
+    return usernameChanged || bioChanged || profileVisibilityChanged || catchModeChanged;
   }, [
     bioInput,
+    catchModeInput,
     normalizedCurrentUsername,
     normalizedUsernameInput,
     profile?.bio,
+    profile?.default_catch_mode,
     profile?.visibility_audience,
     profileVisibilityInput,
   ]);
@@ -410,6 +411,7 @@ export default function SettingsScreen() {
       setUsernameInput(summaryUsername || normalizedSessionUsername);
       setBioInput(summary?.bio ?? '');
       setProfileVisibilityInput(summary?.visibility_audience ?? 'everyone');
+      setCatchModeInput(summary?.default_catch_mode ?? 'AUTO_ACCEPT');
 
       if (resetMessages) {
         setSaveMessage(null);
@@ -782,6 +784,7 @@ export default function SettingsScreen() {
     const normalizedBio = trimmedBio.length > 0 ? trimmedBio : null;
     const profileVisibilityChanged =
       (profile?.visibility_audience ?? 'everyone') !== profileVisibilityInput;
+    const catchModeChanged = (profile?.default_catch_mode ?? 'AUTO_ACCEPT') !== catchModeInput;
 
     if (normalizedUsername) {
       const validation = validateUsername(normalizedUsername);
@@ -822,10 +825,12 @@ export default function SettingsScreen() {
           username: normalizedUsername,
           bio: normalizedBio,
           visibility_audience: profileVisibilityInput,
+          default_catch_mode: catchModeInput,
+          catch_mode_preference_source: 'user_selected',
           updated_at: new Date().toISOString(),
         })
         .eq('id', userId)
-        .select('username,bio,visibility_audience')
+        .select('username,bio,visibility_audience,default_catch_mode,catch_mode_preference_source')
         .single();
 
       if (error) {
@@ -847,6 +852,8 @@ export default function SettingsScreen() {
       const persistedVisibilityAudience = normalizeVisibilityAudience(data?.visibility_audience);
       const persistedVisibilityChanged =
         (profile?.visibility_audience ?? 'everyone') !== persistedVisibilityAudience;
+      const persistedCatchMode: CatchMode =
+        data?.default_catch_mode === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
 
       queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
         current
@@ -855,6 +862,8 @@ export default function SettingsScreen() {
               username: persistedUsername,
               bio: persistedBio,
               visibility_audience: persistedVisibilityAudience,
+              default_catch_mode: persistedCatchMode,
+              catch_mode_preference_source: 'user_selected' as const,
             }
           : {
               username: persistedUsername,
@@ -866,8 +875,8 @@ export default function SettingsScreen() {
               age_confirmed_at: null,
               age_gate_version: CURRENT_AGE_GATE_VERSION,
               visibility_audience: persistedVisibilityAudience,
-              default_catch_mode: 'AUTO_ACCEPT',
-              catch_mode_preference_source: 'system_default',
+              default_catch_mode: persistedCatchMode,
+              catch_mode_preference_source: 'user_selected' as const,
               is_new: false,
               onboarding_completed: false,
             },
@@ -877,6 +886,7 @@ export default function SettingsScreen() {
       setProfileVisibilityInput(persistedVisibilityAudience);
       setHasEditedDraft(false);
 
+      setCatchModeInput(persistedCatchMode);
       if (profileVisibilityChanged || persistedVisibilityChanged) {
         await refreshAdultBoundaryCaches({ queryClient, userId });
       }
@@ -907,6 +917,24 @@ export default function SettingsScreen() {
         });
       });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      if (catchModeChanged) {
+        void emitGameplayEvent({
+          type: 'profile_catch_mode_changed',
+          payload: {
+            previous_catch_mode: profile?.default_catch_mode ?? 'AUTO_ACCEPT',
+            new_catch_mode: catchModeInput,
+            previous_preference_source: profile?.catch_mode_preference_source ?? 'system_default',
+            preference_source: 'user_selected',
+            source: 'settings',
+          },
+          idempotencyKey: `profile-catch-mode:${userId}:${Date.now()}`,
+        }).catch((error) => {
+          captureHandledException(error, {
+            scope: 'settings.handleSave.catchModeChanged',
+            userId,
+          });
+        });
+      }
     } catch (caught) {
       const fallbackMessage =
         caught instanceof Error
@@ -924,11 +952,14 @@ export default function SettingsScreen() {
     usernameLookupInput,
     currentUsernameLookup,
     bioInput,
+    catchModeInput,
     profile?.visibility_audience,
     profileVisibilityInput,
     canUseAdultsOnlyProfileVisibility,
     profile?.avatar_path,
     profile?.avatar_url,
+    profile?.default_catch_mode,
+    profile?.catch_mode_preference_source,
     profileQueryKey,
     queryClient,
     markUsernameReviewed,
@@ -999,80 +1030,6 @@ export default function SettingsScreen() {
       setIsUploadingAvatar(false);
     }
   }, [userId, isUploadingAvatar, profile?.bio, profile?.username, profileQueryKey, queryClient]);
-
-  const handleCatchModeChange = useCallback(
-    async (nextCatchMode: CatchMode) => {
-      if (!userId || isSavingCatchMode) {
-        return;
-      }
-
-      const previousCatchMode = profile?.default_catch_mode ?? 'AUTO_ACCEPT';
-      const previousPreferenceSource = profile?.catch_mode_preference_source ?? 'system_default';
-      if (previousCatchMode === nextCatchMode) {
-        return;
-      }
-
-      setIsSavingCatchMode(true);
-      setCatchModeError(null);
-      setCatchModeMessage(null);
-
-      try {
-        await updateProfileCatchMode(userId, nextCatchMode);
-
-        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
-          current
-            ? {
-                ...current,
-                default_catch_mode: nextCatchMode,
-                catch_mode_preference_source: 'user_selected',
-              }
-            : current,
-        );
-
-        setCatchModeMessage('Catch settings saved');
-
-        void emitGameplayEvent({
-          type: 'profile_catch_mode_changed',
-          payload: {
-            previous_catch_mode: previousCatchMode,
-            new_catch_mode: nextCatchMode,
-            previous_preference_source: profile?.catch_mode_preference_source ?? 'system_default',
-            preference_source: 'user_selected',
-            source: 'settings',
-          },
-          idempotencyKey: `profile-catch-mode:${userId}:${Date.now()}`,
-        }).catch((error) => {
-          captureHandledException(error, {
-            scope: 'settings.handleCatchModeChange.event',
-            userId,
-          });
-        });
-      } catch (caught) {
-        setCatchModeError(
-          caught instanceof Error ? caught.message : 'Could not save catch settings. Try again.',
-        );
-        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
-          current
-            ? {
-                ...current,
-                default_catch_mode: previousCatchMode,
-                catch_mode_preference_source: previousPreferenceSource,
-              }
-            : current,
-        );
-      } finally {
-        setIsSavingCatchMode(false);
-      }
-    },
-    [
-      userId,
-      isSavingCatchMode,
-      profile?.default_catch_mode,
-      profile?.catch_mode_preference_source,
-      profileQueryKey,
-      queryClient,
-    ],
-  );
 
   const socialLinksCanAddMore = socialLinks.length < SOCIAL_LINK_LIMIT;
 
@@ -1422,15 +1379,8 @@ export default function SettingsScreen() {
             },
           ]}
         >
-          <Pressable
-            style={styles.menuButton}
-            hitSlop={8}
-          >
-            <Ionicons
-              name="ellipsis-vertical"
-              size={20}
-              color={colors.textMuted}
-            />
+          <Pressable style={styles.menuButton} hitSlop={8}>
+            <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
           </Pressable>
         </MenuView>
       </View>
@@ -1439,11 +1389,7 @@ export default function SettingsScreen() {
         <View style={styles.updateNotice}>
           <View style={styles.updateNoticeHeader}>
             <View style={styles.updateNoticeIcon}>
-              <Ionicons
-                name="cloud-download-outline"
-                size={18}
-                color={colors.primary}
-              />
+              <Ionicons name="cloud-download-outline" size={18} color={colors.primary} />
             </View>
             <View style={styles.updateNoticeText}>
               <Text style={styles.updateNoticeTitle}>Update ready</Text>
@@ -1554,34 +1500,15 @@ export default function SettingsScreen() {
                       ) : null}
                     </View>
                     <View style={styles.recapStatsGrid}>
-                      <RecapStat
-                        label="Catches"
-                        value={recap.catchCount}
-                      />
-                      <RecapStat
-                        label="Fursuits found"
-                        value={fallbackUniqueFursuitsCaughtCount}
-                      />
-                      <RecapStat
-                        label="Your suits caught"
-                        value={fallbackOwnFursuitsCaughtCount}
-                      />
-                      <RecapStat
-                        label="Achievements"
-                        value={fallbackAchievementsUnlockedCount}
-                      />
-                      <RecapStat
-                        label="Daily tasks"
-                        value={fallbackDailyTasksCompletedCount}
-                      />
+                      <RecapStat label="Catches" value={recap.catchCount} />
+                      <RecapStat label="Fursuits found" value={fallbackUniqueFursuitsCaughtCount} />
+                      <RecapStat label="Your suits caught" value={fallbackOwnFursuitsCaughtCount} />
+                      <RecapStat label="Achievements" value={fallbackAchievementsUnlockedCount} />
+                      <RecapStat label="Daily tasks" value={fallbackDailyTasksCompletedCount} />
                     </View>
                     <View style={styles.recapCtaRow}>
                       <Text style={styles.recapCtaText}>View recap</Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={colors.primary}
-                      />
+                      <Ionicons name="chevron-forward" size={16} color={colors.primary} />
                     </View>
                   </Pressable>
                 );
@@ -1608,11 +1535,7 @@ export default function SettingsScreen() {
                 ]}
               >
                 {profile?.avatar_url ? (
-                  <AppAvatar
-                    url={profile.avatar_url}
-                    size="xl"
-                    fallback="user"
-                  />
+                  <AppAvatar url={profile.avatar_url} size="xl" fallback="user" />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
                     <Text style={styles.avatarPlaceholderText}>Add photo</Text>
@@ -1698,13 +1621,16 @@ export default function SettingsScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.sectionTitle}>Catch settings</Text>
               <CatchModeSwitch
-                value={profile?.default_catch_mode ?? 'AUTO_ACCEPT'}
-                onChange={handleCatchModeChange}
-                disabled={isProfileLoading || isSavingCatchMode}
+                value={catchModeInput}
+                onChange={(nextMode) => {
+                  setCatchModeInput(nextMode);
+                  setHasEditedDraft(true);
+                  setSaveMessage(null);
+                  setSaveError(null);
+                }}
+                disabled={isProfileLoading || isSaving}
                 scope="profile"
               />
-              {catchModeError ? <Text style={styles.error}>{catchModeError}</Text> : null}
-              {catchModeMessage ? <Text style={styles.success}>{catchModeMessage}</Text> : null}
             </View>
             <View style={styles.fieldGroup}>
               <Text style={styles.sectionTitle}>Profile visibility</Text>
@@ -1744,11 +1670,7 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                   {profileVisibilityAudience === 'everyone' ? (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={22}
-                      color={colors.primary}
-                    />
+                    <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
                   ) : null}
                 </Pressable>
                 <Pressable
@@ -1790,11 +1712,7 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                   {profileVisibilityAudience === 'adults_only' ? (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={22}
-                      color={colors.primary}
-                    />
+                    <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
                   ) : null}
                 </Pressable>
               </View>
@@ -1829,10 +1747,7 @@ export default function SettingsScreen() {
                 .map((e) => e.platformId);
               const isCustom = entry.platformId === CUSTOM_PLATFORM_ID;
               return (
-                <View
-                  key={entry.id}
-                  style={styles.socialRow}
-                >
+                <View key={entry.id} style={styles.socialRow}>
                   <View style={styles.socialPlatformChips}>
                     {ALLOWED_SOCIAL_PLATFORMS.map((platform) => {
                       const isSelected = entry.platformId === platform.id;
@@ -2147,10 +2062,7 @@ export default function SettingsScreen() {
           <Text style={styles.sectionDescription}>
             Join the TailTag beta chat for feedback, support, bug reports, and testing updates.
           </Text>
-          <TailTagButton
-            variant="outline"
-            onPress={handleOpenTestingGroup}
-          >
+          <TailTagButton variant="outline" onPress={handleOpenTestingGroup}>
             Join Telegram Chat
           </TailTagButton>
         </View>
@@ -2174,10 +2086,7 @@ export default function SettingsScreen() {
           >
             Delete Account Help
           </TailTagButton>
-          <TailTagButton
-            variant="outline"
-            onPress={() => void handleOpenExternalUrl(TERMS_URL)}
-          >
+          <TailTagButton variant="outline" onPress={() => void handleOpenExternalUrl(TERMS_URL)}>
             Terms of Service
           </TailTagButton>
           <TailTagButton
@@ -2196,18 +2105,12 @@ export default function SettingsScreen() {
             Log out of TailTag or delete your account entirely.
           </Text>
           {hasEmailAddress ? (
-            <TailTagButton
-              variant="outline"
-              onPress={() => router.push('/change-password')}
-            >
+            <TailTagButton variant="outline" onPress={() => router.push('/change-password')}>
               {passwordActionLabel}
             </TailTagButton>
           ) : (
             <>
-              <TailTagButton
-                variant="outline"
-                disabled
-              >
+              <TailTagButton variant="outline" disabled>
                 Set password
               </TailTagButton>
               <Text style={styles.sectionHint}>
@@ -2216,10 +2119,7 @@ export default function SettingsScreen() {
             </>
           )}
           {signOutError ? <Text style={styles.error}>{signOutError}</Text> : null}
-          <TailTagButton
-            onPress={handleSignOut}
-            loading={isSigningOut}
-          >
+          <TailTagButton onPress={handleSignOut} loading={isSigningOut}>
             Log out
           </TailTagButton>
           {deleteAccountError ? <Text style={styles.error}>{deleteAccountError}</Text> : null}
