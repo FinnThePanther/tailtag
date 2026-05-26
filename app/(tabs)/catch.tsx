@@ -64,7 +64,7 @@ import { resolveStorageMediaUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/(tabs)/catch.styles';
 
 type PostCatchFursuit = {
-  id: string;
+  id: string | null;
   name: string;
   avatar_url: string | null;
   owner_id: string;
@@ -148,7 +148,7 @@ function buildFallbackPostCatchFursuit(
   fallbackName: string,
 ): PostCatchFursuit {
   return {
-    id: catchResult.fursuitId ?? catchResult.catchId,
+    id: catchResult.fursuitId ?? null,
     name: catchResult.fursuitName?.trim() || fallbackName,
     avatar_url: resolveStorageMediaUrl({
       bucket: FURSUIT_BUCKET,
@@ -194,6 +194,22 @@ async function resolvePostCatchFursuit(
     });
     return fallback;
   }
+}
+
+function postCatchMessage(params: {
+  isPending: boolean;
+  fursuitName: string;
+  conversationPrompt: string | null;
+}) {
+  if (params.isPending) {
+    return params.conversationPrompt
+      ? 'In the meantime, use their prompt to start a conversation.'
+      : 'In the meantime, start a conversation while you wait for approval.';
+  }
+
+  return params.conversationPrompt
+    ? `You just tagged ${params.fursuitName}. Use their prompt to start a conversation.`
+    : `You just tagged ${params.fursuitName}. Start a conversation while the catch is fresh.`;
 }
 
 export default function CatchScreen() {
@@ -929,9 +945,11 @@ export default function CatchScreen() {
             </Text>
           ) : null}
           <Text style={styles.sectionBody}>
-            {isPending
-              ? 'In the meantime, use their prompt to start a conversation.'
-              : `You just tagged ${caughtFursuit.name}. Use their prompt to start a conversation.`}
+            {postCatchMessage({
+              isPending,
+              fursuitName: caughtFursuit.name,
+              conversationPrompt,
+            })}
           </Text>
           {catchRecord?.photo_upload_state === 'pending_upload' ? (
             <View style={styles.catchProgressNotice}>
@@ -984,44 +1002,67 @@ export default function CatchScreen() {
               <Text style={styles.promptBody}>{conversationPrompt}</Text>
             </View>
           ) : null}
-          <Pressable
-            onPress={() =>
-              router.push({
-                pathname: '/fursuits/[id]',
-                params: { id: caughtFursuit.id },
-              })
-            }
-            style={({ pressed }) => [
-              styles.postCatchProfileLink,
-              isPending && styles.pendingProfileLink,
-              pressed && styles.postCatchProfileLinkPressed,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={`View ${caughtFursuit.name}'s fursuit profile`}
-            accessibilityHint="Opens the fursuit profile with full details"
-          >
-            <AppImage
-              url={caughtFursuit.avatar_url}
-              width={56}
-              height={56}
-              style={styles.postCatchAvatar}
-              accessibilityLabel={`${caughtFursuit.name} profile photo`}
-            />
-            <View style={styles.postCatchProfileText}>
-              <Text
-                style={styles.postCatchProfileName}
-                numberOfLines={2}
-              >
-                {caughtFursuit.name}
-              </Text>
-              <Text style={styles.postCatchProfileAction}>View profile</Text>
+          {caughtFursuit.id ? (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/fursuits/[id]',
+                  params: { id: caughtFursuit.id },
+                })
+              }
+              style={({ pressed }) => [
+                styles.postCatchProfileLink,
+                isPending && styles.pendingProfileLink,
+                pressed && styles.postCatchProfileLinkPressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${caughtFursuit.name}'s fursuit profile`}
+              accessibilityHint="Opens the fursuit profile with full details"
+            >
+              <AppImage
+                url={caughtFursuit.avatar_url}
+                width={56}
+                height={56}
+                style={styles.postCatchAvatar}
+                accessibilityLabel={`${caughtFursuit.name} profile photo`}
+              />
+              <View style={styles.postCatchProfileText}>
+                <Text
+                  style={styles.postCatchProfileName}
+                  numberOfLines={2}
+                >
+                  {caughtFursuit.name}
+                </Text>
+                <Text style={styles.postCatchProfileAction}>View profile</Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.textSubtle}
+              />
+            </Pressable>
+          ) : (
+            <View
+              style={[styles.postCatchProfileLink, isPending && styles.pendingProfileLink]}
+              accessibilityRole="text"
+            >
+              <AppImage
+                url={caughtFursuit.avatar_url}
+                width={56}
+                height={56}
+                style={styles.postCatchAvatar}
+                accessibilityLabel={`${caughtFursuit.name} profile photo`}
+              />
+              <View style={styles.postCatchProfileText}>
+                <Text
+                  style={styles.postCatchProfileName}
+                  numberOfLines={2}
+                >
+                  {caughtFursuit.name}
+                </Text>
+              </View>
             </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.textSubtle}
-            />
-          </Pressable>
+          )}
           <View style={styles.buttonRow}>
             <TailTagButton
               variant="outline"
