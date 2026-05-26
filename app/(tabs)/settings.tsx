@@ -819,18 +819,26 @@ export default function SettingsScreen() {
         setUsernameCheckStatus('available');
       }
 
+      const updatePayload: Record<string, unknown> = {
+        username: normalizedUsername,
+        bio: normalizedBio,
+        visibility_audience: profileVisibilityInput,
+        updated_at: new Date().toISOString(),
+      };
+      if (catchModeChanged) {
+        updatePayload.default_catch_mode = catchModeInput;
+        updatePayload.catch_mode_preference_source = 'user_selected';
+      }
+
+      const selectColumns = catchModeChanged
+        ? 'username,bio,visibility_audience,default_catch_mode,catch_mode_preference_source'
+        : 'username,bio,visibility_audience';
+
       const { data, error } = await (supabase as any)
         .from('profiles')
-        .update({
-          username: normalizedUsername,
-          bio: normalizedBio,
-          visibility_audience: profileVisibilityInput,
-          default_catch_mode: catchModeInput,
-          catch_mode_preference_source: 'user_selected',
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', userId)
-        .select('username,bio,visibility_audience,default_catch_mode,catch_mode_preference_source')
+        .select(selectColumns)
         .single();
 
       if (error) {
@@ -852,8 +860,11 @@ export default function SettingsScreen() {
       const persistedVisibilityAudience = normalizeVisibilityAudience(data?.visibility_audience);
       const persistedVisibilityChanged =
         (profile?.visibility_audience ?? 'everyone') !== persistedVisibilityAudience;
-      const persistedCatchMode: CatchMode =
-        data?.default_catch_mode === 'MANUAL_APPROVAL' ? 'MANUAL_APPROVAL' : 'AUTO_ACCEPT';
+      const persistedCatchMode: CatchMode = catchModeChanged
+        ? data?.default_catch_mode === 'MANUAL_APPROVAL'
+          ? 'MANUAL_APPROVAL'
+          : 'AUTO_ACCEPT'
+        : (profile?.default_catch_mode ?? 'AUTO_ACCEPT');
 
       queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
         current
@@ -862,8 +873,12 @@ export default function SettingsScreen() {
               username: persistedUsername,
               bio: persistedBio,
               visibility_audience: persistedVisibilityAudience,
-              default_catch_mode: persistedCatchMode,
-              catch_mode_preference_source: 'user_selected' as const,
+              ...(catchModeChanged
+                ? {
+                    default_catch_mode: persistedCatchMode,
+                    catch_mode_preference_source: 'user_selected' as const,
+                  }
+                : {}),
             }
           : {
               username: persistedUsername,
@@ -876,7 +891,9 @@ export default function SettingsScreen() {
               age_gate_version: CURRENT_AGE_GATE_VERSION,
               visibility_audience: persistedVisibilityAudience,
               default_catch_mode: persistedCatchMode,
-              catch_mode_preference_source: 'user_selected' as const,
+              catch_mode_preference_source: catchModeChanged
+                ? ('user_selected' as const)
+                : (profile?.catch_mode_preference_source ?? ('system_default' as const)),
               is_new: false,
               onboarding_completed: false,
             },
@@ -1379,8 +1396,15 @@ export default function SettingsScreen() {
             },
           ]}
         >
-          <Pressable style={styles.menuButton} hitSlop={8}>
-            <Ionicons name="ellipsis-vertical" size={20} color={colors.textMuted} />
+          <Pressable
+            style={styles.menuButton}
+            hitSlop={8}
+          >
+            <Ionicons
+              name="ellipsis-vertical"
+              size={20}
+              color={colors.textMuted}
+            />
           </Pressable>
         </MenuView>
       </View>
@@ -1389,7 +1413,11 @@ export default function SettingsScreen() {
         <View style={styles.updateNotice}>
           <View style={styles.updateNoticeHeader}>
             <View style={styles.updateNoticeIcon}>
-              <Ionicons name="cloud-download-outline" size={18} color={colors.primary} />
+              <Ionicons
+                name="cloud-download-outline"
+                size={18}
+                color={colors.primary}
+              />
             </View>
             <View style={styles.updateNoticeText}>
               <Text style={styles.updateNoticeTitle}>Update ready</Text>
@@ -1500,15 +1528,34 @@ export default function SettingsScreen() {
                       ) : null}
                     </View>
                     <View style={styles.recapStatsGrid}>
-                      <RecapStat label="Catches" value={recap.catchCount} />
-                      <RecapStat label="Fursuits found" value={fallbackUniqueFursuitsCaughtCount} />
-                      <RecapStat label="Your suits caught" value={fallbackOwnFursuitsCaughtCount} />
-                      <RecapStat label="Achievements" value={fallbackAchievementsUnlockedCount} />
-                      <RecapStat label="Daily tasks" value={fallbackDailyTasksCompletedCount} />
+                      <RecapStat
+                        label="Catches"
+                        value={recap.catchCount}
+                      />
+                      <RecapStat
+                        label="Fursuits found"
+                        value={fallbackUniqueFursuitsCaughtCount}
+                      />
+                      <RecapStat
+                        label="Your suits caught"
+                        value={fallbackOwnFursuitsCaughtCount}
+                      />
+                      <RecapStat
+                        label="Achievements"
+                        value={fallbackAchievementsUnlockedCount}
+                      />
+                      <RecapStat
+                        label="Daily tasks"
+                        value={fallbackDailyTasksCompletedCount}
+                      />
                     </View>
                     <View style={styles.recapCtaRow}>
                       <Text style={styles.recapCtaText}>View recap</Text>
-                      <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={colors.primary}
+                      />
                     </View>
                   </Pressable>
                 );
@@ -1535,7 +1582,11 @@ export default function SettingsScreen() {
                 ]}
               >
                 {profile?.avatar_url ? (
-                  <AppAvatar url={profile.avatar_url} size="xl" fallback="user" />
+                  <AppAvatar
+                    url={profile.avatar_url}
+                    size="xl"
+                    fallback="user"
+                  />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
                     <Text style={styles.avatarPlaceholderText}>Add photo</Text>
@@ -1670,7 +1721,11 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                   {profileVisibilityAudience === 'everyone' ? (
-                    <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={22}
+                      color={colors.primary}
+                    />
                   ) : null}
                 </Pressable>
                 <Pressable
@@ -1712,7 +1767,11 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                   {profileVisibilityAudience === 'adults_only' ? (
-                    <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={22}
+                      color={colors.primary}
+                    />
                   ) : null}
                 </Pressable>
               </View>
@@ -1747,7 +1806,10 @@ export default function SettingsScreen() {
                 .map((e) => e.platformId);
               const isCustom = entry.platformId === CUSTOM_PLATFORM_ID;
               return (
-                <View key={entry.id} style={styles.socialRow}>
+                <View
+                  key={entry.id}
+                  style={styles.socialRow}
+                >
                   <View style={styles.socialPlatformChips}>
                     {ALLOWED_SOCIAL_PLATFORMS.map((platform) => {
                       const isSelected = entry.platformId === platform.id;
@@ -2062,7 +2124,10 @@ export default function SettingsScreen() {
           <Text style={styles.sectionDescription}>
             Join the TailTag beta chat for feedback, support, bug reports, and testing updates.
           </Text>
-          <TailTagButton variant="outline" onPress={handleOpenTestingGroup}>
+          <TailTagButton
+            variant="outline"
+            onPress={handleOpenTestingGroup}
+          >
             Join Telegram Chat
           </TailTagButton>
         </View>
@@ -2086,7 +2151,10 @@ export default function SettingsScreen() {
           >
             Delete Account Help
           </TailTagButton>
-          <TailTagButton variant="outline" onPress={() => void handleOpenExternalUrl(TERMS_URL)}>
+          <TailTagButton
+            variant="outline"
+            onPress={() => void handleOpenExternalUrl(TERMS_URL)}
+          >
             Terms of Service
           </TailTagButton>
           <TailTagButton
@@ -2105,12 +2173,18 @@ export default function SettingsScreen() {
             Log out of TailTag or delete your account entirely.
           </Text>
           {hasEmailAddress ? (
-            <TailTagButton variant="outline" onPress={() => router.push('/change-password')}>
+            <TailTagButton
+              variant="outline"
+              onPress={() => router.push('/change-password')}
+            >
               {passwordActionLabel}
             </TailTagButton>
           ) : (
             <>
-              <TailTagButton variant="outline" disabled>
+              <TailTagButton
+                variant="outline"
+                disabled
+              >
                 Set password
               </TailTagButton>
               <Text style={styles.sectionHint}>
@@ -2119,7 +2193,10 @@ export default function SettingsScreen() {
             </>
           )}
           {signOutError ? <Text style={styles.error}>{signOutError}</Text> : null}
-          <TailTagButton onPress={handleSignOut} loading={isSigningOut}>
+          <TailTagButton
+            onPress={handleSignOut}
+            loading={isSigningOut}
+          >
             Log out
           </TailTagButton>
           {deleteAccountError ? <Text style={styles.error}>{deleteAccountError}</Text> : null}

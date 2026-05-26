@@ -3,7 +3,7 @@ reviews:
   auto_review:
     enabled: true
     base_branches:
-      - "dev"
+      - 'dev'
   tools:
     eslint:
       enabled: false
