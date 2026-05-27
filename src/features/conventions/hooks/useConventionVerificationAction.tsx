@@ -6,7 +6,6 @@ import {
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   verifyAndOptInToConvention,
-  type ConventionVerificationErrorCode,
   type ConventionSummary,
   type VerifiedLocation,
 } from '@/features/conventions/api/conventions';
@@ -18,8 +17,8 @@ import {
 import { useLocationPermission } from '@/features/conventions/hooks/useLocationPermission';
 import { LocationPermissionModal } from '@/features/conventions/components/LocationPermissionModal';
 import { VerificationErrorModal } from '@/features/conventions/components/VerificationErrorModal';
+import { normalizeAccuracy, verificationErrorMessage } from '@/features/conventions/utils';
 import { captureHandledException, captureHandledMessage, captureSupabaseError } from '@/lib/sentry';
-
 type UseConventionVerificationActionOptions = {
   profileId: string | null | undefined;
   onVerified?: (
@@ -34,32 +33,6 @@ const isSupabaseError = (
   typeof error === 'object' &&
   error !== null &&
   ('code' in error || 'details' in error || 'hint' in error);
-
-const verificationErrorMessage = (
-  errorCode: ConventionVerificationErrorCode | null,
-  fallback: string | null,
-) => {
-  switch (errorCode) {
-    case 'outside_geofence':
-      return "TailTag couldn't confirm you're inside the convention area. Move closer to the venue and try again.";
-    case 'poor_accuracy':
-      return 'Your GPS signal is not accurate enough to verify you. Step outside or move closer to the venue, then try again.';
-    case 'rate_limited':
-      return "You've tried location verification several times. Wait a bit, then try again on-site.";
-    case 'geofence_not_configured':
-      return "This convention's location check is not ready yet. Please ask event staff to review the geofence.";
-    case 'registration_closed':
-      return 'This convention is not open for registration right now.';
-    case 'convention_not_found':
-      return 'This convention is no longer available.';
-    case 'profile_not_found':
-      return 'Unable to verify location without profile.';
-    case 'location_required':
-      return 'TailTag needs a fresh location check before catching unlocks.';
-    default:
-      return fallback ?? 'Location verification failed. Please try again.';
-  }
-};
 
 export function useConventionVerificationAction({
   profileId,
@@ -133,8 +106,7 @@ export function useConventionVerificationAction({
 
         if (cached) {
           const { latitude: clat, longitude: clng, accuracy: cacc } = cached.coords;
-          const ceffAcc = typeof cacc === 'number' ? cacc : 50;
-          const cRounded = Math.max(1, Math.round(ceffAcc));
+          const cRounded = normalizeAccuracy(cacc);
           const testLocation: VerifiedLocation = {
             latitude: clat,
             longitude: clng,
@@ -206,8 +178,7 @@ export function useConventionVerificationAction({
         }
 
         const { latitude, longitude, accuracy } = position.coords;
-        const effectiveAccuracy = typeof accuracy === 'number' ? accuracy : 50;
-        const roundedAccuracy = Math.max(1, Math.round(effectiveAccuracy));
+        const roundedAccuracy = normalizeAccuracy(accuracy);
         const verifiedLocation = { latitude, longitude, accuracy: roundedAccuracy };
 
         const result = await verifyAndOptInToConvention({

@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 
 import { verifyConventionLocation } from '../api/geoVerification';
 import { captureNonCriticalError, captureHandledMessage } from '@/lib/sentry';
+import { normalizeAccuracy, verificationErrorMessage } from '../utils';
 import type { ConventionVerificationErrorCode, VerifiedLocation } from '../api/conventions';
 
 export type VerificationResult =
@@ -17,24 +18,6 @@ export type VerificationResult =
 type UseGeoVerificationReturn = {
   verifyLocation: (conventionId: string, profileId: string) => Promise<VerificationResult>;
   isVerifying: boolean;
-};
-
-const verificationErrorMessage = (
-  errorCode: ConventionVerificationErrorCode | null | undefined,
-  fallback?: string,
-) => {
-  switch (errorCode) {
-    case 'outside_geofence':
-      return "TailTag couldn't confirm you're inside the convention area. Move closer to the venue and try again.";
-    case 'profile_not_found':
-      return 'Unable to verify location without profile.';
-    case 'poor_accuracy':
-      return 'Your GPS signal is not accurate enough to verify you. Step outside or move closer to the venue, then try again.';
-    case 'rate_limited':
-      return "You've tried location verification several times. Wait a bit, then try again on-site.";
-    default:
-      return fallback ?? 'Location verification failed. Please try again.';
-  }
 };
 
 export function useGeoVerification(): UseGeoVerificationReturn {
@@ -53,8 +36,7 @@ export function useGeoVerification(): UseGeoVerificationReturn {
       longitude: number,
       accuracy: number | null,
     ): Promise<VerificationResult> {
-      const effectiveAccuracy = typeof accuracy === 'number' ? accuracy : 50;
-      const roundedAccuracy = Math.max(1, Math.round(effectiveAccuracy));
+      const roundedAccuracy = normalizeAccuracy(accuracy);
 
       const result = await verifyConventionLocation({
         profileId,
