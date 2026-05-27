@@ -1482,95 +1482,6 @@ export default function SettingsScreen() {
         </View>
       </TailTagCard>
 
-      {pastConventionRecaps.length > 0 ? (
-        <TailTagCard>
-          <View style={styles.conventionSection}>
-            <Text style={styles.sectionTitle}>Past conventions</Text>
-            <Text style={styles.sectionDescription}>
-              Recaps from events you joined after they have been archived.
-            </Text>
-            <View style={styles.pastConventionList}>
-              {pastConventionRecaps.map((recap) => {
-                const summary = parsePastConventionRecapSummary(recap.summary);
-                const fallbackUniqueFursuitsCaughtCount =
-                  recap.uniqueFursuitsCaughtCount > 0
-                    ? recap.uniqueFursuitsCaughtCount
-                    : summary.fursuitsCaught.length;
-                const fallbackOwnFursuitsCaughtCount =
-                  recap.ownFursuitsCaughtCount > 0
-                    ? recap.ownFursuitsCaughtCount
-                    : summary.ownFursuits.reduce(
-                        (total, fursuit) => total + fursuit.timesCaught,
-                        0,
-                      );
-                const fallbackAchievementsUnlockedCount =
-                  recap.achievementsUnlockedCount > 0
-                    ? recap.achievementsUnlockedCount
-                    : summary.achievementIds.length;
-                const fallbackDailyTasksCompletedCount =
-                  recap.dailyTasksCompletedCount > 0 ? recap.dailyTasksCompletedCount : 0;
-
-                return (
-                  <Pressable
-                    key={recap.recapId}
-                    accessibilityRole="button"
-                    accessibilityLabel={`View recap for ${recap.conventionName}`}
-                    accessibilityHint="Opens convention recap details"
-                    onPress={() => handleOpenConventionRecap(recap.recapId)}
-                    style={({ pressed }) => [
-                      styles.pastConventionCard,
-                      pressed && styles.pastConventionCardPressed,
-                    ]}
-                  >
-                    <View style={styles.pastConventionHeader}>
-                      <View style={styles.pastConventionTitleBlock}>
-                        <Text style={styles.pastConventionName}>{recap.conventionName}</Text>
-                        <Text style={styles.pastConventionMeta}>{formatRecapDateRange(recap)}</Text>
-                      </View>
-                      {recap.finalRank ? (
-                        <View style={styles.rankBadge}>
-                          <Text style={styles.rankBadgeText}>#{recap.finalRank}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    <View style={styles.recapStatsGrid}>
-                      <RecapStat
-                        label="Catches"
-                        value={recap.catchCount}
-                      />
-                      <RecapStat
-                        label="Fursuits found"
-                        value={fallbackUniqueFursuitsCaughtCount}
-                      />
-                      <RecapStat
-                        label="Times caught"
-                        value={fallbackOwnFursuitsCaughtCount}
-                      />
-                      <RecapStat
-                        label="Achievements"
-                        value={fallbackAchievementsUnlockedCount}
-                      />
-                      <RecapStat
-                        label="Daily tasks"
-                        value={fallbackDailyTasksCompletedCount}
-                      />
-                    </View>
-                    <View style={styles.recapCtaRow}>
-                      <Text style={styles.recapCtaText}>View recap</Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={colors.primary}
-                      />
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        </TailTagCard>
-      ) : null}
-
       <TailTagCard>
         {isProfileLoading ? (
           <Text style={styles.message}>Loading profile…</Text>
@@ -2079,6 +1990,95 @@ export default function SettingsScreen() {
           {verificationModals}
         </View>
       </TailTagCard>
+
+      {pastConventionRecaps.length > 0 ? (
+        <TailTagCard>
+          <View style={styles.conventionSection}>
+            <Text style={styles.sectionTitle}>Past conventions</Text>
+            <Text style={styles.sectionDescription}>
+              Recaps from events you joined after they have been archived.
+            </Text>
+            <View style={styles.pastConventionList}>
+              {pastConventionRecaps.map((recap) => {
+                const summary = parsePastConventionRecapSummary(recap.summary);
+                const fallbackUniqueFursuitsCaughtCount =
+                  recap.uniqueFursuitsCaughtCount > 0
+                    ? recap.uniqueFursuitsCaughtCount
+                    : summary.fursuitsCaught.length;
+                const fallbackOwnFursuitsCaughtCount =
+                  recap.ownFursuitsCaughtCount > 0
+                    ? recap.ownFursuitsCaughtCount
+                    : summary.ownFursuits.reduce(
+                        (total, fursuit) => total + fursuit.timesCaught,
+                        0,
+                      );
+                const fallbackAchievementsUnlockedCount =
+                  recap.achievementsUnlockedCount > 0
+                    ? recap.achievementsUnlockedCount
+                    : summary.achievementIds.length;
+                const fallbackDailyTasksCompletedCount =
+                  recap.dailyTasksCompletedCount > 0 ? recap.dailyTasksCompletedCount : 0;
+
+                return (
+                  <Pressable
+                    key={recap.recapId}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View recap for ${recap.conventionName}`}
+                    accessibilityHint="Opens convention recap details"
+                    onPress={() => handleOpenConventionRecap(recap.recapId)}
+                    style={({ pressed }) => [
+                      styles.pastConventionCard,
+                      pressed && styles.pastConventionCardPressed,
+                    ]}
+                  >
+                    <View style={styles.pastConventionHeader}>
+                      <View style={styles.pastConventionTitleBlock}>
+                        <Text style={styles.pastConventionName}>{recap.conventionName}</Text>
+                        <Text style={styles.pastConventionMeta}>{formatRecapDateRange(recap)}</Text>
+                      </View>
+                      {recap.finalRank ? (
+                        <View style={styles.rankBadge}>
+                          <Text style={styles.rankBadgeText}>#{recap.finalRank}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.recapStatsGrid}>
+                      <RecapStat
+                        label="Catches"
+                        value={recap.catchCount}
+                      />
+                      <RecapStat
+                        label="Fursuits found"
+                        value={fallbackUniqueFursuitsCaughtCount}
+                      />
+                      <RecapStat
+                        label="Times caught"
+                        value={fallbackOwnFursuitsCaughtCount}
+                      />
+                      <RecapStat
+                        label="Achievements"
+                        value={fallbackAchievementsUnlockedCount}
+                      />
+                      <RecapStat
+                        label="Daily tasks"
+                        value={fallbackDailyTasksCompletedCount}
+                      />
+                    </View>
+                    <View style={styles.recapCtaRow}>
+                      <Text style={styles.recapCtaText}>View recap</Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </TailTagCard>
+      ) : null}
 
       <TailTagCard>
         <View style={styles.accountSection}>
