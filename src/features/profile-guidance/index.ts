@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { FursuitSummary } from '../suits';
 
-export type ProfileGuidanceTaskId = 'fursuit-profile' | 'username' | 'goals';
+export type ProfileGuidanceTaskId = 'fursuit-profile' | 'profile-bio' | 'username' | 'goals';
 
 export type ProfileGuidanceTask = {
   id: ProfileGuidanceTaskId;
@@ -64,20 +64,32 @@ export function getIncompleteFursuitProfiles(suits: FursuitSummary[]): FursuitSu
 
 export function createProfileGuidanceState(options: {
   suits: FursuitSummary[];
+  profileBio: string | null | undefined;
   usernameReviewed: boolean;
   goalsViewed: boolean;
 }): ProfileGuidanceState {
-  const { suits, usernameReviewed, goalsViewed } = options;
+  const { suits, profileBio, usernameReviewed, goalsViewed } = options;
   const incompleteFursuits = getIncompleteFursuitProfiles(suits);
   const fursuitProfileComplete = suits.length > 0 && incompleteFursuits.length === 0;
+  const profileBioComplete = Boolean(profileBio?.trim());
+  const contextualTask: ProfileGuidanceTask =
+    suits.length > 0
+      ? {
+          id: 'fursuit-profile',
+          title: 'Fill out "Ask Me About" section',
+          description:
+            'Add a conversation starter to each suit so players know what to ask after catching it.',
+          isComplete: fursuitProfileComplete,
+        }
+      : {
+          id: 'profile-bio',
+          title: 'Add a player bio',
+          description: 'Share a quick intro so other players know who they just met.',
+          isComplete: profileBioComplete,
+        };
 
   const tasks: ProfileGuidanceTask[] = [
-    {
-      id: 'fursuit-profile',
-      title: 'Update your fursuit profile',
-      description: 'Add "Ask Me About..." prompts and other profile details.',
-      isComplete: fursuitProfileComplete,
-    },
+    contextualTask,
     {
       id: 'username',
       title: 'Review your username',

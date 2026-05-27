@@ -288,7 +288,6 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         fursuit_id: params.fursuitId,
         fursuit_code: params.fursuitCode ?? null,
         convention_id: params.conventionId,
-        is_tutorial: params.isTutorial ?? false,
         force_pending: params.forcePending ?? false,
         has_photo:
           Boolean(params.hasPhoto) || Boolean(params.photoPath) || Boolean(params.photoUrl),

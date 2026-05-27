@@ -1,7 +1,8 @@
 import { supabase } from '../../../lib/supabase';
-import type { FursuitConvention, FursuitSummary } from '../types';
+import type { FursuitSummary } from '../types';
 import {
   applyProfileSocialLinksToBio,
+  mapFursuitConventionAppearances,
   mapFursuitColors,
   mapLatestFursuitBio,
   parseSocialLinks,
@@ -90,7 +91,6 @@ export async function fetchMySuits(
     `,
     )
     .eq('owner_id', userId)
-    .eq('is_tutorial', false)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -102,31 +102,7 @@ export async function fetchMySuits(
   );
 
   return (data ?? []).map((item: any) => {
-    const conventions: FursuitConvention[] = (item.fursuit_conventions ?? [])
-      .filter(
-        (entry: any) =>
-          Boolean(entry?.convention) &&
-          entry.roster_state === 'active' &&
-          entry.active_until === null,
-      )
-      .map((entry: any) => ({
-        id: entry.convention.id,
-        slug: entry.convention.slug,
-        name: entry.convention.name,
-        location: entry.convention.location ?? null,
-        start_date: entry.convention.start_date ?? null,
-        end_date: entry.convention.end_date ?? null,
-        timezone: entry.convention.timezone ?? 'UTC',
-        status: entry.convention.status ?? undefined,
-        finalizing_started_at: entry.convention.finalizing_started_at ?? null,
-        closeout_not_before: entry.convention.closeout_not_before ?? null,
-        latitude: entry.convention.latitude ?? null,
-        longitude: entry.convention.longitude ?? null,
-        geofence_radius_meters: entry.convention.geofence_radius_meters ?? null,
-        geofence_enabled: Boolean(entry.convention.geofence_enabled),
-        location_verification_required: Boolean(entry.convention.location_verification_required),
-        roster_visible: entry.roster_visible !== false,
-      }));
+    const conventions = mapFursuitConventionAppearances(item.fursuit_conventions ?? []);
 
     const bio = applyProfileSocialLinksToBio(
       mapLatestFursuitBio(item.fursuit_bios ?? null),
@@ -175,8 +151,7 @@ export async function fetchMySuitsCount(userId: string): Promise<number> {
   const { count, error } = await client
     .from('fursuits')
     .select('id', { count: 'exact', head: true })
-    .eq('owner_id', userId)
-    .eq('is_tutorial', false);
+    .eq('owner_id', userId);
 
   if (error) {
     throw new Error(`We couldn't count your suits: ${error.message}`);

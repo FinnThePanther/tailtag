@@ -26,7 +26,6 @@ export async function simulateCatchAction(input: {
     convention_id: input.conventionId,
     status: 'ACCEPTED',
     caught_at: new Date().toISOString(),
-    is_tutorial: false,
   });
 
   await logAudit({

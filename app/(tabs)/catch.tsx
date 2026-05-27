@@ -1,24 +1,17 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import {
-  FursuitCard,
-  FursuitBioDetails,
-  fursuitBioHasDisplayableContent,
   CAUGHT_COLLECTION_QUERY_KEY,
   CAUGHT_SUITS_QUERY_KEY,
-  applyProfileSocialLinksToBio,
-  mapLatestFursuitBio,
-  mapFursuitColors,
-  parseSocialLinks,
-  fetchFursuitMakersByFursuitIds,
+  fetchFursuitDetail,
   fursuitDetailQueryKey,
 } from '../../src/features/suits';
-import type { FursuitBio, FursuitMaker } from '../../src/features/suits';
+import type { FursuitBio } from '../../src/features/suits';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
   CONVENTION_SUIT_LEADERBOARD_QUERY_KEY,
@@ -46,6 +39,7 @@ import {
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
+import { AppImage } from '../../src/components/ui/AppImage';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { useAuth } from '../../src/features/auth';
 import {
@@ -55,10 +49,8 @@ import {
   useCatchConventionContext,
   useConventionVerificationAction,
 } from '../../src/features/conventions';
-import { emitGameplayEvent } from '../../src/features/events';
 import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import { achievementsStatusQueryKey } from '../../src/features/achievements';
-import { supabase } from '../../src/lib/supabase';
 import { captureHandledException, addMonitoringBreadcrumb } from '../../src/lib/sentry';
 import {
   createCatchPerformanceTrace,
@@ -66,32 +58,18 @@ import {
 } from '../../src/features/catch-confirmations/lib/catchPerformance';
 import { colors, spacing } from '../../src/theme';
 import { isValidUniqueCodeInput, normalizeUniqueCodeInput } from '../../src/utils/code';
-import { toDisplayDateTime } from '../../src/utils/dates';
 import { UNIQUE_CODE_LENGTH, UNIQUE_CODE_MIN_LENGTH } from '../../src/constants/codes';
 import { FURSUIT_BUCKET } from '../../src/constants/storage';
 import { resolveStorageMediaUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/(tabs)/catch.styles';
 
-import type { FursuitsRow } from '../../src/types/database';
-import type { FursuitColorOption } from '../../src/features/colors';
-
-type FursuitDetails = Pick<
-  FursuitsRow,
-  | 'id'
-  | 'name'
-  | 'species_id'
-  | 'avatar_url'
-  | 'unique_code'
-  | 'owner_id'
-  | 'is_tutorial'
-  | 'catch_count'
-> & {
-  avatar_path?: string | null;
-  created_at: string | null;
-  species: string | null;
+type PostCatchFursuit = {
+  id: string | null;
+  name: string;
+  avatar_url: string | null;
+  owner_id: string;
+  catch_count: number;
   bio: FursuitBio | null;
-  colors: FursuitColorOption[];
-  makers: FursuitMaker[];
 };
 
 type CatchRecord = {
@@ -155,6 +133,83 @@ function catchSubmissionErrorCode(error: unknown) {
   }
   if (message.includes('cannot catch')) return 'blocked_user';
   return 'server_rejected';
+}
+
+function selectConversationPrompt(bio: FursuitBio | null | undefined) {
+  return (
+    [bio?.askMeAbout, bio?.likesAndInterests]
+      .map((value) => value?.trim())
+      .find((value): value is string => Boolean(value)) ?? null
+  );
+}
+
+function buildFallbackPostCatchFursuit(
+  catchResult: CreateCatchResult,
+  fallbackName: string,
+): PostCatchFursuit {
+  return {
+    id: catchResult.fursuitId ?? null,
+    name: catchResult.fursuitName?.trim() || fallbackName,
+    avatar_url: resolveStorageMediaUrl({
+      bucket: FURSUIT_BUCKET,
+      path: catchResult.fursuitAvatarPath ?? null,
+      legacyUrl: catchResult.fursuitAvatarUrl ?? null,
+    }),
+    owner_id: catchResult.fursuitOwnerId,
+    catch_count: catchResult.requiresApproval ? 0 : (catchResult.catchNumber ?? 1),
+    bio: null,
+  };
+}
+
+async function resolvePostCatchFursuit(
+  catchResult: CreateCatchResult,
+  viewerId: string,
+  fallbackName: string,
+): Promise<PostCatchFursuit> {
+  const fallback = buildFallbackPostCatchFursuit(catchResult, fallbackName);
+
+  if (!catchResult.fursuitId) {
+    return fallback;
+  }
+
+  try {
+    const detail = await fetchFursuitDetail(catchResult.fursuitId, viewerId);
+    return {
+      id: detail.id,
+      name: detail.name,
+      avatar_url: detail.avatar_url,
+      owner_id: detail.owner_id,
+      catch_count:
+        catchResult.requiresApproval || catchResult.catchNumber === null
+          ? detail.catchCount
+          : Math.max(detail.catchCount, catchResult.catchNumber),
+      bio: detail.bio,
+    };
+  } catch (caught) {
+    captureHandledException(caught, {
+      scope: 'catch.resolvePostCatchFursuit',
+      userId: viewerId,
+      fursuitId: catchResult.fursuitId,
+      catchId: catchResult.catchId,
+    });
+    return fallback;
+  }
+}
+
+function postCatchMessage(params: {
+  isPending: boolean;
+  fursuitName: string;
+  conversationPrompt: string | null;
+}) {
+  if (params.isPending) {
+    return params.conversationPrompt
+      ? 'In the meantime, use their prompt to start a conversation.'
+      : 'In the meantime, start a conversation while you wait for approval.';
+  }
+
+  return params.conversationPrompt
+    ? `You just tagged ${params.fursuitName}. Use their prompt to start a conversation.`
+    : `You just tagged ${params.fursuitName}. Start a conversation while the catch is fresh.`;
 }
 
 export default function CatchScreen() {
@@ -248,7 +303,7 @@ export default function CatchScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
   const [photoSubmitError, setPhotoSubmitError] = useState<string | null>(null);
-  const [caughtFursuit, setCaughtFursuit] = useState<FursuitDetails | null>(null);
+  const [caughtFursuit, setCaughtFursuit] = useState<PostCatchFursuit | null>(null);
   const [catchRecord, setCatchRecord] = useState<CatchRecord | null>(null);
   const [catchNumber, setCatchNumber] = useState<number | null>(null);
   const [conversationPrompt, setConversationPrompt] = useState<string | null>(null);
@@ -311,37 +366,7 @@ export default function CatchScreen() {
     }, [resetCatchState, syncOutbox]),
   );
 
-  const lastCaughtFursuitId = caughtFursuit?.id ?? null;
-  const lastCatchRecordId = catchRecord?.id ?? null;
   const isPending = catchRecord?.status === 'PENDING';
-
-  const handleCatchCodeCopied = useCallback(() => {
-    if (!userId) {
-      return;
-    }
-    if (!lastCatchConventionId) {
-      console.warn(
-        'Skipping catch_shared event because no convention was recorded for the latest catch',
-      );
-      return;
-    }
-    void emitGameplayEvent({
-      type: 'catch_shared',
-      conventionId: lastCatchConventionId,
-      payload: {
-        convention_id: lastCatchConventionId,
-        convention_ids: lastCatchConventionIds,
-        fursuit_id: lastCaughtFursuitId,
-        catch_id: lastCatchRecordId,
-      },
-    });
-  }, [
-    userId,
-    lastCatchConventionId,
-    lastCatchConventionIds,
-    lastCaughtFursuitId,
-    lastCatchRecordId,
-  ]);
 
   const scheduleCatchSurfaceRefresh = useCallback(
     (params: { fursuitId: string; conventionIds: string[]; catchResult: CreateCatchResult }) => {
@@ -495,26 +520,11 @@ export default function CatchScreen() {
         status: catchResult.status,
         photo_upload_state: catchResult.photoUploadState,
       };
-      const normalizedFursuit: FursuitDetails = {
-        id: catchResult.fursuitId ?? catchResult.catchId,
-        name: catchResult.fursuitName ?? `Code ${normalizedCode}`,
-        species: catchResult.fursuitSpeciesName ?? null,
-        species_id: catchResult.fursuitSpeciesId ?? null,
-        avatar_path: catchResult.fursuitAvatarPath ?? null,
-        avatar_url: resolveStorageMediaUrl({
-          bucket: FURSUIT_BUCKET,
-          path: catchResult.fursuitAvatarPath ?? null,
-          legacyUrl: catchResult.fursuitAvatarUrl ?? null,
-        }),
-        unique_code: normalizedCode,
-        catch_count: catchResult.requiresApproval ? 0 : (catchResult.catchNumber ?? 1),
-        owner_id: catchResult.fursuitOwnerId,
-        created_at: null,
-        bio: null,
-        colors: [],
-        makers: [],
-        is_tutorial: false,
-      };
+      const normalizedFursuit = await resolvePostCatchFursuit(
+        catchResult,
+        userId,
+        `Code ${normalizedCode}`,
+      );
 
       await updateCatchOutboxItem(userId, clientAttemptId, (item) => ({
         ...item,
@@ -539,7 +549,7 @@ export default function CatchScreen() {
       setLastCatchConventionId(catchResult.conventionId);
       setLastCatchConventionIds(catchResult.conventionId ? [catchResult.conventionId] : []);
       setCatchNumber(normalizedCatchRecord.catch_number ?? normalizedFursuit.catch_count);
-      setConversationPrompt(null);
+      setConversationPrompt(selectConversationPrompt(normalizedFursuit.bio));
       setReciprocalFeedback(reciprocalOfferMessage(catchResult.reciprocalOffer));
       stopPostCreateRenderTiming();
       finishCatchTrace({
@@ -605,9 +615,6 @@ export default function CatchScreen() {
     }
   };
 
-  const caughtAtLabel = catchRecord
-    ? (toDisplayDateTime(catchRecord.caught_at) ?? 'Caught just now')
-    : null;
   const showConventionSettingsAction = Boolean(
     submitError &&
     (submitError === SHARED_CONVENTION_HELP ||
@@ -693,89 +700,6 @@ export default function CatchScreen() {
     resetCatchState();
 
     try {
-      const client = supabase as any;
-
-      // Fetch fursuit details for the result card
-      const { data: fursuit, error: fursuitError } = await client
-        .from('fursuits')
-        .select(
-          `
-          id,
-          name,
-          species_id,
-          avatar_path,
-          avatar_url,
-          is_tutorial,
-          unique_code,
-          catch_count,
-          owner_id,
-          created_at,
-          species_entry:fursuit_species (
-            id,
-            name,
-            normalized_name
-          ),
-          color_assignments:fursuit_color_assignments (
-            position,
-            color:fursuit_colors (
-              id,
-              name,
-              normalized_name
-            )
-          ),
-          fursuit_bios (
-            version,
-            owner_name,
-            photo_credit,
-            pronouns,
-            likes_and_interests,
-            ask_me_about,
-            social_links,
-            created_at,
-            updated_at
-          ),
-          owner_profile:profiles!fursuits_owner_id_fkey (
-            social_links
-          )
-        `,
-        )
-        .eq('id', params.fursuitId)
-        .eq('is_tutorial', false)
-        .maybeSingle();
-
-      if (fursuitError) throw fursuitError;
-      if (!fursuit) {
-        setPhotoSubmitError('Fursuit unavailable');
-        return;
-      }
-
-      const makersByFursuitId = await fetchFursuitMakersByFursuitIds([fursuit.id]);
-
-      const normalizedFursuit: FursuitDetails = {
-        id: fursuit.id,
-        name: fursuit.name,
-        species: (fursuit as any)?.species_entry?.name ?? null,
-        species_id: (fursuit as any)?.species_entry?.id ?? fursuit.species_id ?? null,
-        avatar_path: (fursuit as any)?.avatar_path ?? null,
-        avatar_url: resolveStorageMediaUrl({
-          bucket: FURSUIT_BUCKET,
-          path: (fursuit as any)?.avatar_path ?? null,
-          legacyUrl: fursuit.avatar_url ?? null,
-        }),
-        unique_code: fursuit.unique_code ?? null,
-        catch_count:
-          typeof (fursuit as any)?.catch_count === 'number' ? (fursuit as any).catch_count : 0,
-        owner_id: fursuit.owner_id,
-        created_at: fursuit.created_at ?? null,
-        bio: applyProfileSocialLinksToBio(
-          mapLatestFursuitBio((fursuit as any)?.fursuit_bios ?? null),
-          parseSocialLinks((fursuit as any)?.owner_profile?.social_links ?? null),
-        ),
-        colors: mapFursuitColors((fursuit as any)?.color_assignments ?? null),
-        makers: makersByFursuitId.get(fursuit.id) ?? [],
-        is_tutorial: false,
-      };
-
       addMonitoringBreadcrumb({
         category: 'catch',
         message: 'Photo catch completed',
@@ -788,20 +712,13 @@ export default function CatchScreen() {
 
       // catchResult already created by PhotoCatchCard before the upload
       const { catchResult } = params;
+      const normalizedFursuit = await resolvePostCatchFursuit(
+        catchResult,
+        userId,
+        catchResult.fursuitName ?? 'Caught fursuit',
+      );
 
-      const promptCandidate = normalizedFursuit.bio
-        ? [normalizedFursuit.bio.askMeAbout, normalizedFursuit.bio.likesAndInterests]
-            .map((v) => v?.trim())
-            .find((v) => v)
-        : null;
-      const displayedCatchCount = catchResult.requiresApproval
-        ? normalizedFursuit.catch_count
-        : normalizedFursuit.catch_count + 1;
-
-      setCaughtFursuit({
-        ...normalizedFursuit,
-        catch_count: displayedCatchCount,
-      });
+      setCaughtFursuit(normalizedFursuit);
       setCatchRecord({
         id: catchResult.catchId,
         caught_at: new Date().toISOString(),
@@ -812,7 +729,7 @@ export default function CatchScreen() {
       setLastCatchConventionId(params.conventionId);
       setLastCatchConventionIds(params.conventionId ? [params.conventionId] : []);
       setCatchNumber(catchResult.catchNumber);
-      setConversationPrompt(promptCandidate ?? null);
+      setConversationPrompt(selectConversationPrompt(normalizedFursuit.bio));
       setReciprocalFeedback(reciprocalOfferMessage(catchResult.reciprocalOffer));
       scheduleCatchSurfaceRefresh({
         fursuitId: params.fursuitId,
@@ -1028,9 +945,11 @@ export default function CatchScreen() {
             </Text>
           ) : null}
           <Text style={styles.sectionBody}>
-            {isPending
-              ? 'In the meantime, check out their bio below and start a conversation!'
-              : `You just tagged ${caughtFursuit.name}. Scroll through their bio below and start a conversation!`}
+            {postCatchMessage({
+              isPending,
+              fursuitName: caughtFursuit.name,
+              conversationPrompt,
+            })}
           </Text>
           {catchRecord?.photo_upload_state === 'pending_upload' ? (
             <View style={styles.catchProgressNotice}>
@@ -1076,40 +995,74 @@ export default function CatchScreen() {
             </View>
           ) : null}
           {conversationPrompt ? (
-            <TailTagCard style={isPending ? styles.pendingPromptCard : styles.promptCard}>
+            <View style={isPending ? styles.pendingPromptCard : styles.promptCard}>
               <Text style={isPending ? styles.pendingPromptLabel : styles.promptLabel}>
                 Ask them about…
               </Text>
               <Text style={styles.promptBody}>{conversationPrompt}</Text>
-            </TailTagCard>
+            </View>
           ) : null}
-          <View style={isPending ? styles.pendingCardBorder : undefined}>
-            <FursuitCard
-              name={caughtFursuit.name}
-              species={caughtFursuit.species}
-              colors={caughtFursuit.colors}
-              avatarUrl={caughtFursuit.avatar_url}
-              uniqueCode={caughtFursuit.unique_code}
-              timelineLabel={caughtAtLabel ?? undefined}
+          {caughtFursuit.id ? (
+            <Pressable
               onPress={() =>
                 router.push({
                   pathname: '/fursuits/[id]',
                   params: { id: caughtFursuit.id },
                 })
               }
-              onCodeCopied={handleCatchCodeCopied}
-            />
-          </View>
-          {fursuitBioHasDisplayableContent(caughtFursuit.bio, caughtFursuit.makers) ? (
-            <View style={styles.bioSpacing}>
-              <TailTagCard>
-                <FursuitBioDetails
-                  bio={caughtFursuit.bio}
-                  makers={caughtFursuit.makers}
-                />
-              </TailTagCard>
+              style={({ pressed }) => [
+                styles.postCatchProfileLink,
+                isPending && styles.pendingProfileLink,
+                pressed && styles.postCatchProfileLinkPressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${caughtFursuit.name}'s fursuit profile`}
+              accessibilityHint="Opens the fursuit profile with full details"
+            >
+              <AppImage
+                url={caughtFursuit.avatar_url}
+                width={56}
+                height={56}
+                style={styles.postCatchAvatar}
+                accessibilityLabel={`${caughtFursuit.name} profile photo`}
+              />
+              <View style={styles.postCatchProfileText}>
+                <Text
+                  style={styles.postCatchProfileName}
+                  numberOfLines={2}
+                >
+                  {caughtFursuit.name}
+                </Text>
+                <Text style={styles.postCatchProfileAction}>View profile</Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.textSubtle}
+              />
+            </Pressable>
+          ) : (
+            <View
+              style={[styles.postCatchProfileLink, isPending && styles.pendingProfileLink]}
+              accessibilityRole="text"
+            >
+              <AppImage
+                url={caughtFursuit.avatar_url}
+                width={56}
+                height={56}
+                style={styles.postCatchAvatar}
+                accessibilityLabel={`${caughtFursuit.name} profile photo`}
+              />
+              <View style={styles.postCatchProfileText}>
+                <Text
+                  style={styles.postCatchProfileName}
+                  numberOfLines={2}
+                >
+                  {caughtFursuit.name}
+                </Text>
+              </View>
             </View>
-          ) : null}
+          )}
           <View style={styles.buttonRow}>
             <TailTagButton
               variant="outline"

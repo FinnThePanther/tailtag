@@ -16,7 +16,6 @@ type DailyTaskMetadata = {
   eventType: string;
   metric: 'total' | 'unique';
   uniqueBy?: string;
-  includeTutorialCatches: boolean;
   filters: DailyTaskMetadataFilter[];
 };
 
@@ -218,7 +217,6 @@ function coerceTaskMetadata(raw: unknown): DailyTaskMetadata {
     return {
       eventType: 'catch_performed',
       metric: 'total',
-      includeTutorialCatches: false,
       filters: [],
     };
   }
@@ -231,7 +229,6 @@ function coerceTaskMetadata(raw: unknown): DailyTaskMetadata {
     eventType: typeof eventTypeRaw === 'string' ? eventTypeRaw : 'catch_performed',
     metric: metricRaw === 'unique' ? 'unique' : 'total',
     uniqueBy: typeof record.uniqueBy === 'string' ? record.uniqueBy : undefined,
-    includeTutorialCatches: record.includeTutorialCatches === true,
     filters: Array.isArray(record.filters) ? (record.filters as DailyTaskMetadataFilter[]) : [],
   };
 
@@ -320,16 +317,7 @@ function evaluateMetric(
   metadata: DailyTaskMetadata,
   userId: string,
 ): number {
-  // Filter out tutorial catches if not explicitly included
   let processedEvents = events;
-  if (!metadata.includeTutorialCatches) {
-    processedEvents = events.filter((event) => {
-      const tutorialValue = event.payload['is_tutorial'];
-      const isTutorial =
-        tutorialValue === true || (typeof tutorialValue === 'string' && tutorialValue === 'true');
-      return !isTutorial;
-    });
-  }
 
   if (metadata.eventType === 'catch_performed') {
     // Only accepted catches should contribute to catch-based daily tasks.

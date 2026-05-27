@@ -1,15 +1,31 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Dimensions, Modal, Pressable, StatusBar, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  Dimensions,
+  FlatList,
+  ViewToken,
+  Modal,
+  Pressable,
+  StatusBar,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
-import { AppImage } from '../../../components/ui/AppImage';
-import { TailTagButton } from '../../../components/ui/TailTagButton';
-import { useAuth } from '../../auth/providers/AuthProvider';
-import { inferImageExtension, inferImageMimeType } from '../../../utils/images';
-import { getStorageAuthHeaders, toExpoImageSource } from '../../../utils/supabase-image';
+import { AppImage } from '@/components/ui/AppImage';
+import { TailTagButton } from '@/components/ui/TailTagButton';
+import { useAuth } from '@/features/auth/providers/AuthProvider';
+import { inferImageExtension, inferImageMimeType } from '@/utils/images';
+import { getStorageAuthHeaders, toExpoImageSource } from '@/utils/supabase-image';
+import {
+  addMonitoringBreadcrumb,
+  captureHandledException,
+  captureSupabaseError,
+} from '@/lib/sentry';
 import type { CatchOfFursuitItem } from '../api/catchesByFursuit';
 import { styles } from './CatchPhotosList.styles';
 
@@ -20,11 +36,42 @@ type CatchPhotosListProps = {
   onAllLoaded?: () => void;
 };
 
+const isSupabaseError = (
+  error: unknown,
+): error is { code?: string; details?: string; hint?: string; message: string } =>
+  typeof error === 'object' &&
+  error !== null &&
+  typeof (error as Record<string, unknown>).message === 'string' &&
+  ('code' in error || 'details' in error || 'hint' in error);
+
+const clampGalleryIndex = (index: number, length: number): number | null => {
+  if (length === 0) return null;
+  if (!Number.isFinite(index)) return null;
+  return Math.max(0, Math.min(index, length - 1));
+};
+
 export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   const { session } = useAuth();
-  const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
+  const { width: windowWidth } = useWindowDimensions();
+  const flatListRef = useRef<FlatList<CatchOfFursuitItem & { catch_photo_url: string }>>(null);
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [settledCount, setSettledCount] = useState(0);
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+    waitForInteraction: false,
+  }).current;
+
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const firstVisible = viewableItems.find((v) => v.isViewable);
+      if (firstVisible?.index != null) {
+        setGalleryIndex(firstVisible.index);
+      }
+    },
+    [],
+  );
 
   const withPhoto = items.filter((item): item is CatchOfFursuitItem & { catch_photo_url: string } =>
     Boolean(item.catch_photo_url?.trim()),
@@ -40,13 +87,39 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
     }
   }, [settledCount, withPhoto.length, onAllLoaded]);
 
+  useEffect(() => {
+    if (galleryIndex !== null) {
+      setGalleryIndex(clampGalleryIndex(galleryIndex, withPhoto.length));
+    }
+  }, [galleryIndex, withPhoto.length]);
+
+  const clampedIndex =
+    galleryIndex !== null ? clampGalleryIndex(galleryIndex, withPhoto.length) : null;
+
+  useEffect(() => {
+    if (clampedIndex !== null) {
+      flatListRef.current?.scrollToIndex({ index: clampedIndex, animated: false });
+    }
+  }, [clampedIndex, windowWidth]);
+
   const handleDownloadPhoto = useCallback(
-    async (url: string) => {
+    async (url: string, context: { photoId: string; galleryIndex: number }) => {
+      addMonitoringBreadcrumb({
+        category: 'catch-photos',
+        message: 'save_photo_started',
+        data: context,
+      });
       setIsDownloading(true);
       try {
         const canShare = await Sharing.isAvailableAsync();
         if (!canShare) {
           Alert.alert('Not supported', 'Sharing is not available on this device.');
+          addMonitoringBreadcrumb({
+            category: 'catch-photos',
+            message: 'save_photo_failed',
+            level: 'warning',
+            data: { ...context, reason: 'sharing_unavailable' },
+          });
           return;
         }
         const extension = inferImageExtension({ uri: url }) || 'jpg';
@@ -59,7 +132,27 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
           mimeType,
           dialogTitle: 'Save catch photo',
         });
-      } catch {
+        addMonitoringBreadcrumb({
+          category: 'catch-photos',
+          message: 'save_photo_succeeded',
+          data: context,
+        });
+      } catch (error) {
+        if (isSupabaseError(error)) {
+          captureSupabaseError(error, {
+            scope: 'CatchPhotosList.download',
+          });
+        } else {
+          captureHandledException(error, {
+            scope: 'CatchPhotosList.download',
+          });
+        }
+        addMonitoringBreadcrumb({
+          category: 'catch-photos',
+          message: 'save_photo_failed',
+          level: 'error',
+          data: { ...context },
+        });
         Alert.alert('Download failed', 'Could not download the photo. Please try again.');
       } finally {
         setIsDownloading(false);
@@ -75,11 +168,11 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
   return (
     <>
       <View style={styles.grid}>
-        {withPhoto.map((item) => (
+        {withPhoto.map((item, index) => (
           <Pressable
             key={item.id}
             style={({ pressed }) => [styles.thumbnailWrap, pressed && styles.thumbnailPressed]}
-            onPress={() => setFullscreenUrl(item.catch_photo_url)}
+            onPress={() => setGalleryIndex(index)}
             accessibilityRole="button"
             accessibilityLabel="View catch photo fullscreen"
           >
@@ -96,21 +189,21 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
         ))}
       </View>
 
-      {fullscreenUrl ? (
+      {clampedIndex !== null ? (
         <Modal
-          visible={Boolean(fullscreenUrl)}
+          visible
           transparent
           animationType="fade"
-          onRequestClose={() => setFullscreenUrl(null)}
+          onRequestClose={() => setGalleryIndex(null)}
           statusBarTranslucent
         >
           <StatusBar hidden />
           <View style={styles.fullscreenBackdrop}>
             <Pressable
               style={styles.fullscreenClose}
-              onPress={() => setFullscreenUrl(null)}
+              onPress={() => setGalleryIndex(null)}
               accessibilityRole="button"
-              accessibilityLabel="Close fullscreen photo"
+              accessibilityLabel="Close gallery"
             >
               <Ionicons
                 name="close"
@@ -118,18 +211,54 @@ export function CatchPhotosList({ items, onAllLoaded }: CatchPhotosListProps) {
                 color="#fff"
               />
             </Pressable>
-            <Image
-              source={toExpoImageSource(fullscreenUrl, session?.access_token)}
-              style={styles.fullscreenImage}
-              contentFit="contain"
-              accessibilityLabel="Catch photo fullscreen"
+            <FlatList
+              ref={flatListRef}
+              data={withPhoto}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              viewabilityConfig={viewabilityConfig}
+              initialScrollIndex={clampedIndex}
+              onViewableItemsChanged={onViewableItemsChanged}
+              getItemLayout={(_, index) => ({
+                length: windowWidth,
+                offset: windowWidth * index,
+                index,
+              })}
+              onMomentumScrollEnd={(e) => {
+                const idx = Math.round(e.nativeEvent.contentOffset.x / windowWidth);
+                setGalleryIndex(clampGalleryIndex(idx, withPhoto.length));
+              }}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={[styles.gallerySlide, { width: windowWidth }]}>
+                  <Image
+                    source={toExpoImageSource(item.catch_photo_url, session?.access_token)}
+                    style={styles.fullscreenImage}
+                    contentFit="contain"
+                    accessibilityLabel="Catch photo fullscreen"
+                  />
+                </View>
+              )}
             />
+            {withPhoto.length > 1 ? (
+              <View style={styles.galleryCounter}>
+                <Text style={styles.galleryCounterText}>
+                  {clampedIndex + 1} / {withPhoto.length}
+                </Text>
+              </View>
+            ) : null}
             <View style={styles.fullscreenActions}>
               <TailTagButton
                 variant="outline"
                 size="sm"
                 loading={isDownloading}
-                onPress={() => void handleDownloadPhoto(fullscreenUrl)}
+                onPress={() =>
+                  void handleDownloadPhoto(withPhoto[clampedIndex].catch_photo_url, {
+                    photoId: withPhoto[clampedIndex].id,
+                    galleryIndex: clampedIndex,
+                  })
+                }
               >
                 Save photo
               </TailTagButton>

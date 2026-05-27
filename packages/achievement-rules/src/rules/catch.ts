@@ -45,7 +45,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['totalCatches'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       return context.stats.totalCatches === 1
         ? awardSingle(context, ACHIEVEMENT_RULE_IDS.FIRST_CATCH, 'FIRST_CATCH', context.catcherId)
         : [];
@@ -65,7 +64,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['totalCatches'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       return context.stats.totalCatches >= 10
         ? awardSingle(
             context,
@@ -93,7 +91,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['totalCatches'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       return context.stats.totalCatches >= 25
         ? awardSingle(
             context,
@@ -121,7 +118,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['totalFursuitCatches'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.fursuitOwnerId) return [];
       return context.stats.totalFursuitCatches === 1
         ? awardSingle(
@@ -150,7 +146,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: [],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.conventionId) return [];
       return context.timing.isConventionDayOne
         ? awardSingle(
@@ -176,7 +171,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: [],
     evaluate(context) {
-      if (context.isTutorial) return [];
       return context.timing.isLateNight
         ? awardSingle(context, ACHIEVEMENT_RULE_IDS.NIGHT_OWL, 'NIGHT_OWL', context.catcherId)
         : [];
@@ -196,7 +190,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['distinctSpeciesCaught'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       return context.stats.distinctSpeciesCaught >= 5
         ? awardSingle(
             context,
@@ -224,7 +217,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: [],
     evaluate(context) {
-      if (context.isTutorial) return [];
       return context.flags.hybridFursuit
         ? awardSingle(
             context,
@@ -249,7 +241,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: [],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.fursuitOwnerId) return [];
       return context.flags.hybridFursuit
         ? awardSingle(
@@ -278,7 +269,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: [],
     evaluate(context) {
-      if (context.isTutorial) return [];
       return context.flags.doubleCatchWithinMinute
         ? awardSingle(
             context,
@@ -303,7 +293,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['catchesAtConvention'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.fursuitOwnerId) return [];
       if (!context.conventionId) return [];
       return context.stats.catchesAtConvention >= 25
@@ -335,7 +324,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['uniqueCatchersAtConvention'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.conventionId) return [];
       return context.stats.uniqueCatchersAtConvention > 0 &&
         context.stats.uniqueCatchersAtConvention < 10
@@ -359,7 +347,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['distinctConventionsVisited'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       return context.stats.distinctConventionsVisited >= 3
         ? awardSingle(context, ACHIEVEMENT_RULE_IDS.WORLD_TOUR, 'WORLD_TOUR', context.catcherId, {
             conventions: context.stats.distinctConventionsVisited,
@@ -382,7 +369,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['uniqueCatchersForFursuitLifetime'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.fursuitOwnerId) return [];
       return context.stats.uniqueCatchersForFursuitLifetime >= 3
         ? awardSingle(
@@ -412,7 +398,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['isConventionDayOne'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.fursuitOwnerId) return [];
       if (!context.conventionId) return [];
       return context.timing.isConventionDayOne
@@ -443,7 +428,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['distinctLocalDaysForFursuitAtConvention'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.fursuitOwnerId) return [];
       if (!context.conventionId) return [];
       return context.stats.distinctLocalDaysForFursuitAtConvention >= 2
@@ -475,7 +459,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['distinctConventionsForFursuit'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.fursuitOwnerId) return [];
       return context.stats.distinctConventionsForFursuit >= 2
         ? awardSingle(
@@ -505,7 +488,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['catchHasPhoto'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.fursuitOwnerId) return [];
       return context.flags.catchHasPhoto
         ? awardSingle(context, ACHIEVEMENT_RULE_IDS.PHOTO_OP, 'PHOTO_OP', context.fursuitOwnerId, {
@@ -529,7 +511,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['isEarlyMorning'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.conventionId) return [];
       return context.timing.isEarlyMorning
         ? awardSingle(context, ACHIEVEMENT_RULE_IDS.EARLY_BIRD, 'EARLY_BIRD', context.catcherId)
@@ -550,7 +531,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['distinctSpeciesCaught'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       return context.stats.distinctSpeciesCaught >= 10
         ? awardSingle(
             context,
@@ -578,7 +558,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['catchesByCatcherToday'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.conventionId) return [];
       return context.stats.catchesByCatcherToday >= 5
         ? awardSingle(
@@ -607,7 +586,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['hasMakerMatchWithCatcherOwnedSuit'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       return context.flags.hasMakerMatchWithCatcherOwnedSuit
         ? awardSingle(context, ACHIEVEMENT_RULE_IDS.MAKER_MATCH, 'MAKER_MATCH', context.catcherId)
         : [];
@@ -627,7 +605,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['distinctMakersCaughtAtConvention'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       if (!context.conventionId) return [];
       return context.stats.distinctMakersCaughtAtConvention >= 5
         ? awardSingle(
@@ -656,7 +633,6 @@ export const catchRules: CatchRuleDefinition[] = [
     },
     requiredStats: ['distinctSelfMadeFursuitsCaught'],
     evaluate(context) {
-      if (context.isTutorial) return [];
       return context.stats.distinctSelfMadeFursuitsCaught >= 3
         ? awardSingle(
             context,
@@ -673,9 +649,6 @@ export const catchRules: CatchRuleDefinition[] = [
 ];
 
 export function evaluateCatchAchievements(context: CatchEventContext): AwardCandidate[] {
-  if (context.isTutorial) {
-    return [];
-  }
   const results: AwardCandidate[] = [];
   for (const rule of catchRules) {
     results.push(...rule.evaluate(context));

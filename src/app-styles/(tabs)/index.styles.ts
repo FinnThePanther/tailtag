@@ -70,8 +70,11 @@ export const styles = StyleSheet.create({
     gap: spacing.md,
   },
   recapBannerDismissAction: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.primaryBorder,
@@ -82,7 +85,7 @@ export const styles = StyleSheet.create({
   },
   recapBannerDismissText: {
     color: colors.primary,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   lifecycleCard: {

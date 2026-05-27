@@ -51,7 +51,6 @@ export interface CatchEventContext {
   fursuitOwnerId?: string | null;
   conventionId?: string | null;
   conventionInfo?: ConventionInfo | null;
-  isTutorial: boolean;
   timing: {
     isConventionDayOne: boolean;
     isLateNight: boolean;

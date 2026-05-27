@@ -1,5 +1,6 @@
-import type { FursuitBio, FursuitMaker } from '../types';
+import type { FursuitBio, FursuitConvention, FursuitMaker } from '../types';
 import type { FursuitColorOption } from '../../colors';
+import type { ConventionLifecycleStatus } from '../../conventions';
 import type { FursuitSocialLink } from '../../../types/database';
 
 type RawSocialLink = {
@@ -33,6 +34,28 @@ type RawFursuitMaker = {
   maker_name?: unknown;
   normalized_maker_name?: unknown;
   position?: unknown;
+};
+
+type RawFursuitConvention = {
+  roster_visible?: unknown;
+  roster_state?: unknown;
+  convention?: {
+    id?: unknown;
+    slug?: unknown;
+    name?: unknown;
+    location?: unknown;
+    start_date?: unknown;
+    end_date?: unknown;
+    timezone?: unknown;
+    status?: unknown;
+    finalizing_started_at?: unknown;
+    closeout_not_before?: unknown;
+    latitude?: unknown;
+    longitude?: unknown;
+    geofence_radius_meters?: unknown;
+    geofence_enabled?: unknown;
+    location_verification_required?: unknown;
+  } | null;
 };
 
 const coerceString = (value: unknown): string => {
@@ -252,4 +275,85 @@ export const mapFursuitMakers = (raw: unknown): FursuitMaker[] => {
       return a.option.name.localeCompare(b.option.name, undefined, { sensitivity: 'base' });
     })
     .map((entry) => entry.option);
+};
+
+const isDisplayableFursuitConventionState = (entry: RawFursuitConvention): boolean => {
+  return entry.roster_state === 'active' || entry.roster_state === 'finalized';
+};
+
+const compareNullableDatesDesc = (left: string | null, right: string | null): number => {
+  if (left && right) {
+    return right.localeCompare(left);
+  }
+
+  if (left) return -1;
+  if (right) return 1;
+  return 0;
+};
+
+const asConventionLifecycleStatus = (value: unknown): ConventionLifecycleStatus | undefined => {
+  return value === 'draft' ||
+    value === 'scheduled' ||
+    value === 'live' ||
+    value === 'finalizing' ||
+    value === 'closeout_running' ||
+    value === 'closeout_failed' ||
+    value === 'closed' ||
+    value === 'archived' ||
+    value === 'canceled'
+    ? value
+    : undefined;
+};
+
+export const mapFursuitConventionAppearances = (raw: unknown): FursuitConvention[] => {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw
+    .map((entry): FursuitConvention | null => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+
+      const source = entry as RawFursuitConvention;
+      const convention = source.convention ?? null;
+      if (!convention || !isDisplayableFursuitConventionState(source)) {
+        return null;
+      }
+
+      return {
+        id: coerceString(convention.id).trim(),
+        slug: coerceString(convention.slug).trim(),
+        name: coerceString(convention.name).trim(),
+        location: typeof convention.location === 'string' ? convention.location : null,
+        start_date: typeof convention.start_date === 'string' ? convention.start_date : null,
+        end_date: typeof convention.end_date === 'string' ? convention.end_date : null,
+        timezone: typeof convention.timezone === 'string' ? convention.timezone : 'UTC',
+        status: asConventionLifecycleStatus(convention.status),
+        finalizing_started_at:
+          typeof convention.finalizing_started_at === 'string'
+            ? convention.finalizing_started_at
+            : null,
+        closeout_not_before:
+          typeof convention.closeout_not_before === 'string'
+            ? convention.closeout_not_before
+            : null,
+        latitude: typeof convention.latitude === 'number' ? convention.latitude : null,
+        longitude: typeof convention.longitude === 'number' ? convention.longitude : null,
+        geofence_radius_meters:
+          typeof convention.geofence_radius_meters === 'number'
+            ? convention.geofence_radius_meters
+            : null,
+        geofence_enabled: convention.geofence_enabled === true,
+        location_verification_required: convention.location_verification_required === true,
+        roster_visible: source.roster_visible !== false,
+      } satisfies FursuitConvention;
+    })
+    .filter((entry): entry is FursuitConvention => Boolean(entry?.id && entry.name))
+    .sort((a, b) => {
+      const dateDelta = compareNullableDatesDesc(a.start_date, b.start_date);
+      if (dateDelta !== 0) return dateDelta;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
 };
