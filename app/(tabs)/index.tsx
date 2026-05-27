@@ -311,7 +311,7 @@ export default function HomeScreen() {
     [userId],
   );
 
-  useQuery({
+  const profileQuery = useQuery({
     queryKey: userId ? profileQueryKey(userId) : ['profile', 'guest'],
     enabled: Boolean(userId),
     queryFn: () => fetchProfile(userId!),
@@ -343,16 +343,19 @@ export default function HomeScreen() {
     hasReviewedUsername !== null &&
     hasViewedGoals !== null &&
     hasSeenReadyConfirmation !== null &&
+    !profileQuery.isLoading &&
+    !profileQuery.isError &&
     !mySuitsQuery.isLoading &&
     !mySuitsQuery.isError;
   const profileGuidance = useMemo(
     () =>
       createProfileGuidanceState({
         suits: mySuits ?? [],
+        profileBio: profileQuery.data?.bio,
         usernameReviewed: hasReviewedUsername === true,
         goalsViewed: hasViewedGoals === true,
       }),
-    [hasReviewedUsername, hasViewedGoals, mySuits],
+    [hasReviewedUsername, hasViewedGoals, mySuits, profileQuery.data?.bio],
   );
   const shouldShowProfileGuidance =
     Boolean(userId) && isProfileGuidanceReady && !profileGuidance.isComplete;
@@ -875,6 +878,14 @@ export default function HomeScreen() {
         return;
       }
 
+      if (taskId === 'profile-bio') {
+        router.push({
+          pathname: '/settings',
+          params: { focus: 'bio' },
+        });
+        return;
+      }
+
       void handleOpenDailyTasksFromGuidance();
     },
     [handleOpenDailyTasksFromGuidance, mySuits, profileGuidance.incompleteFursuits, router],
@@ -934,7 +945,7 @@ export default function HomeScreen() {
                 <Text style={styles.sectionEyebrow}>Next steps</Text>
                 <Text style={styles.sectionTitle}>Get ready to play!</Text>
                 <Text style={styles.guidanceBody}>
-                  Finish a few quick steps so people know who you are and what to ask you about.
+                  Finish a few quick steps so people know who you are and how to play with you.
                 </Text>
               </View>
               <View style={styles.guidanceProgressPill}>

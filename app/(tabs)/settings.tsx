@@ -695,6 +695,7 @@ export default function SettingsScreen() {
     hasReviewedUsername === false &&
     normalizedCurrentUsername.length > 0 &&
     validateUsername(normalizedCurrentUsername).isValid;
+  const showBioGuidance = params.focus === 'bio' && !profile?.bio?.trim();
   const canKeepCurrentUsername =
     showUsernameGuidance &&
     !isDirty &&
@@ -1657,6 +1658,17 @@ export default function SettingsScreen() {
               ) : null}
             </View>
             <View style={styles.fieldGroup}>
+              {showBioGuidance ? (
+                <View style={styles.usernameGuidance}>
+                  <View style={styles.usernameGuidanceTextBlock}>
+                    <Text style={styles.usernameGuidanceEyebrow}>Next step</Text>
+                    <Text style={styles.usernameGuidanceTitle}>Add a player bio</Text>
+                    <Text style={styles.usernameGuidanceBody}>
+                      Share a quick intro so other players know who they just met.
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
               <Text style={styles.sectionTitle}>Bio</Text>
               <TailTagInput
                 value={bioInput}
