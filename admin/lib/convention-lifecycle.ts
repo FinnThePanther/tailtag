@@ -525,9 +525,7 @@ function buildLifecycleHealthResult({
   const closeoutAutoRetryEligible =
     failedCloseoutStatus && !closeoutManualRetryRequired && !recentCronRetryAttempt;
   const automationEligibleForAutoClose =
-    ((convention.status === 'finalizing' && closeoutDue) ||
-      (convention.status === 'live' && dateState === 'after_window' && localClock.hour >= 6)) &&
-    !recentCronCloseAttempt;
+    convention.status === 'finalizing' && closeoutDue && !recentCronCloseAttempt;
 
   const diagnosticsWithAutomationFlags = {
     ...diagnostics,
@@ -572,25 +570,11 @@ function buildLifecycleHealthResult({
 
   if (convention.status === 'live') {
     if (dateState === 'after_window') {
-      if (automationEligibleForAutoClose) {
-        addWarning(
-          'The local convention date window has ended. Auto-close scheduled.',
-          'none',
-          'info',
-        );
-      } else if (localClock.hour < 6) {
-        addWarning(
-          'The local convention date window has ended. Auto-close pending.',
-          'none',
-          'info',
-        );
-      } else {
-        addWarning(
-          'The local convention date window has ended. Close and archive it manually if automation does not finish.',
-          'close_and_archive',
-          'warning',
-        );
-      }
+      addWarning(
+        'The local convention date window has ended. Finalizing transition is scheduled.',
+        'none',
+        'info',
+      );
     } else if (dateState === 'inside_window' && diagnostics.todayAssignments === 0) {
       addWarning("Today's daily tasks have not been rotated.", 'rotate_dailies', 'warning');
     }
