@@ -149,7 +149,6 @@ BEGIN
     EXCEPTION
       WHEN OTHERS THEN
         RAISE WARNING 'convention lifecycle closeout failed for convention %: %', convention.id, SQLERRM;
-        RAISE;
     END;
   END LOOP;
 
@@ -182,7 +181,6 @@ BEGIN
     EXCEPTION
       WHEN OTHERS THEN
         RAISE WARNING 'convention lifecycle retry failed for convention %: %', convention.id, SQLERRM;
-        RAISE;
     END;
   END LOOP;
 
@@ -224,7 +222,6 @@ BEGIN
     EXCEPTION
       WHEN OTHERS THEN
         RAISE WARNING 'legacy convention lifecycle retry failed for convention %: %', convention.id, SQLERRM;
-        RAISE;
     END;
   END LOOP;
 END;
