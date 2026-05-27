@@ -695,7 +695,7 @@ export default function SettingsScreen() {
     hasReviewedUsername === false &&
     normalizedCurrentUsername.length > 0 &&
     validateUsername(normalizedCurrentUsername).isValid;
-  const showBioGuidance = params.focus === 'bio' && !profile?.bio?.trim();
+  const showBioGuidance = params.focus === 'bio' && !bioInput.trim();
   const canKeepCurrentUsername =
     showUsernameGuidance &&
     !isDirty &&
