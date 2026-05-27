@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 
 import { verifyConventionLocation } from '../api/geoVerification';
 import { captureNonCriticalError, captureHandledMessage } from '@/lib/sentry';
+import { normalizeAccuracy, verificationErrorMessage } from '../utils';
 import type { ConventionVerificationErrorCode, VerifiedLocation } from '../api/conventions';
 
 export type VerificationResult =
@@ -19,24 +20,6 @@ type UseGeoVerificationReturn = {
   isVerifying: boolean;
 };
 
-const verificationErrorMessage = (
-  errorCode: ConventionVerificationErrorCode | null | undefined,
-  fallback?: string,
-) => {
-  switch (errorCode) {
-    case 'outside_geofence':
-      return "TailTag couldn't confirm you're inside the convention area. Move closer to the venue and try again.";
-    case 'profile_not_found':
-      return 'Unable to verify location without profile.';
-    case 'poor_accuracy':
-      return 'Your GPS signal is not accurate enough to verify you. Step outside or move closer to the venue, then try again.';
-    case 'rate_limited':
-      return "You've tried location verification several times. Wait a bit, then try again on-site.";
-    default:
-      return fallback ?? 'Location verification failed. Please try again.';
-  }
-};
-
 export function useGeoVerification(): UseGeoVerificationReturn {
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -45,16 +28,15 @@ export function useGeoVerification(): UseGeoVerificationReturn {
     profileId: string,
   ): Promise<VerificationResult> {
     setIsVerifying(true);
-    try {
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-        timeInterval: 5000,
-        distanceInterval: 0,
-      });
 
-      const { latitude, longitude, accuracy } = position.coords;
-      const effectiveAccuracy = typeof accuracy === 'number' ? accuracy : 50;
-      const roundedAccuracy = Math.max(1, Math.round(effectiveAccuracy));
+    async function verifyWithPosition(
+      conventionId: string,
+      profileId: string,
+      latitude: number,
+      longitude: number,
+      accuracy: number | null,
+    ): Promise<VerificationResult> {
+      const roundedAccuracy = normalizeAccuracy(accuracy);
 
       const result = await verifyConventionLocation({
         profileId,
@@ -92,6 +74,65 @@ export function useGeoVerification(): UseGeoVerificationReturn {
         ),
         error_code: result.error_code ?? null,
       };
+    }
+
+    try {
+      // Fast-path: try recently-cached GPS position first to avoid 3–15s cold fix.
+      const cached = await Location.getLastKnownPositionAsync({
+        maxAge: 30000,
+        requiredAccuracy: 100,
+      });
+
+      if (cached) {
+        const result = await verifyWithPosition(
+          conventionId,
+          profileId,
+          cached.coords.latitude,
+          cached.coords.longitude,
+          cached.coords.accuracy,
+        );
+        if (result.verified) {
+          return result;
+        }
+      }
+
+      // Fallback: live GPS acquisition with a hard timeout.
+      const GPS_TIMEOUT_MS = 15_000;
+      const positionPromise = Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        timeInterval: 3000,
+        distanceInterval: 0,
+      });
+      const position = await Promise.race([
+        positionPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), GPS_TIMEOUT_MS)),
+      ]);
+
+      if (!position) {
+        // GPS timed out — try a last-ditch cached position with relaxed criteria.
+        const lastDitch = await Location.getLastKnownPositionAsync({
+          maxAge: 120_000,
+          requiredAccuracy: 500,
+        });
+        if (lastDitch) {
+          return await verifyWithPosition(
+            conventionId,
+            profileId,
+            lastDitch.coords.latitude,
+            lastDitch.coords.longitude,
+            lastDitch.coords.accuracy,
+          );
+        }
+        return { verified: false, error: 'GPS took too long. Move to an open area and try again.' };
+      }
+
+      return await verifyWithPosition(
+        conventionId,
+        profileId,
+        position.coords.latitude,
+        position.coords.longitude,
+        position.coords.accuracy,
+      );
     } catch (error) {
       captureNonCriticalError(error, { scope: 'geo-verification' });
       return {

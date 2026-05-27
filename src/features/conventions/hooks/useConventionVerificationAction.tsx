@@ -6,7 +6,6 @@ import {
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
   verifyAndOptInToConvention,
-  type ConventionVerificationErrorCode,
   type ConventionSummary,
   type VerifiedLocation,
 } from '@/features/conventions/api/conventions';
@@ -18,8 +17,8 @@ import {
 import { useLocationPermission } from '@/features/conventions/hooks/useLocationPermission';
 import { LocationPermissionModal } from '@/features/conventions/components/LocationPermissionModal';
 import { VerificationErrorModal } from '@/features/conventions/components/VerificationErrorModal';
+import { normalizeAccuracy, verificationErrorMessage } from '@/features/conventions/utils';
 import { captureHandledException, captureHandledMessage, captureSupabaseError } from '@/lib/sentry';
-
 type UseConventionVerificationActionOptions = {
   profileId: string | null | undefined;
   onVerified?: (
@@ -34,32 +33,6 @@ const isSupabaseError = (
   typeof error === 'object' &&
   error !== null &&
   ('code' in error || 'details' in error || 'hint' in error);
-
-const verificationErrorMessage = (
-  errorCode: ConventionVerificationErrorCode | null,
-  fallback: string | null,
-) => {
-  switch (errorCode) {
-    case 'outside_geofence':
-      return "TailTag couldn't confirm you're inside the convention area. Move closer to the venue and try again.";
-    case 'poor_accuracy':
-      return 'Your GPS signal is not accurate enough to verify you. Step outside or move closer to the venue, then try again.';
-    case 'rate_limited':
-      return "You've tried location verification several times. Wait a bit, then try again on-site.";
-    case 'geofence_not_configured':
-      return "This convention's location check is not ready yet. Please ask event staff to review the geofence.";
-    case 'registration_closed':
-      return 'This convention is not open for registration right now.';
-    case 'convention_not_found':
-      return 'This convention is no longer available.';
-    case 'profile_not_found':
-      return 'Unable to verify location without profile.';
-    case 'location_required':
-      return 'TailTag needs a fresh location check before catching unlocks.';
-    default:
-      return fallback ?? 'Location verification failed. Please try again.';
-  }
-};
 
 export function useConventionVerificationAction({
   profileId,
@@ -79,12 +52,18 @@ export function useConventionVerificationAction({
 
   const refreshConventionAccess = useCallback(
     async (conventionId: string) => {
+      // Optimistically add to active conventions so the UI stays stable
+      // while background refetches populate fresh data.
+      const activeKey = [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, profileId];
+      queryClient.setQueryData<string[]>(activeKey, (prev) => {
+        if (!prev) return prev;
+        if (prev.includes(conventionId)) return prev;
+        return [...prev, conventionId];
+      });
+
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, profileId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, profileId],
         }),
         queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] }),
         queryClient.invalidateQueries({
@@ -119,15 +98,87 @@ export function useConventionVerificationAction({
       setIsVerifyingLocation(true);
       setIsUpdatingConventionAccess(true);
       try {
-        const position = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-          timeInterval: 5000,
-          distanceInterval: 0,
+        // Fast-path: try recently-cached GPS position first.
+        const cached = await Location.getLastKnownPositionAsync({
+          maxAge: 30000,
+          requiredAccuracy: 100,
         });
 
+        if (cached) {
+          const { latitude: clat, longitude: clng, accuracy: cacc } = cached.coords;
+          const cRounded = normalizeAccuracy(cacc);
+          const testLocation: VerifiedLocation = {
+            latitude: clat,
+            longitude: clng,
+            accuracy: cRounded,
+          };
+
+          const fastResult = await verifyAndOptInToConvention({
+            profileId,
+            conventionId: convention.id,
+            verifiedLocation: testLocation,
+          });
+
+          captureHandledMessage('geo_verification_result', {
+            conventionId: convention.id,
+            verified: fastResult.verified,
+            path: 'verify_and_opt_in_to_convention',
+            distance_meters: fastResult.distance_meters ?? null,
+            radius_meters: fastResult.geofence_radius_meters,
+            effective_radius_meters: fastResult.effective_radius_meters ?? null,
+            accuracy_meters: cRounded,
+            error_code: fastResult.error_code ?? null,
+            error: fastResult.error ?? null,
+          });
+
+          if (fastResult.verified) {
+            try {
+              await refreshConventionAccess(convention.id);
+              await onVerified?.(convention, { verifiedLocation: testLocation });
+            } catch (caught) {
+              if (isSupabaseError(caught)) {
+                captureSupabaseError(caught, {
+                  scope: 'useConventionVerificationAction',
+                  action: 'refreshConventionAccess',
+                  additionalContext: { profileId, conventionId: convention.id },
+                });
+              } else {
+                captureHandledException(caught, {
+                  scope: 'useConventionVerificationAction',
+                  additionalContext: { profileId, conventionId: convention.id },
+                });
+              }
+            }
+            return true;
+          }
+
+          // Cached position didn't verify — surface the failure directly
+          // instead of falling through to live GPS at the same location.
+          setVerificationError(verificationErrorMessage(fastResult.error_code, fastResult.error));
+          return false;
+        }
+
+        // Fallback: live GPS acquisition with a hard timeout.
+        const GPS_TIMEOUT_MS = 15_000;
+        const positionPromise = Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+          timeInterval: 3000,
+          distanceInterval: 0,
+        });
+        const position = await Promise.race([
+          positionPromise,
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), GPS_TIMEOUT_MS)),
+        ]);
+
+        if (!position) {
+          setVerificationError(
+            'GPS took too long to get your location. Move to an open area and try again.',
+          );
+          return false;
+        }
+
         const { latitude, longitude, accuracy } = position.coords;
-        const effectiveAccuracy = typeof accuracy === 'number' ? accuracy : 50;
-        const roundedAccuracy = Math.max(1, Math.round(effectiveAccuracy));
+        const roundedAccuracy = normalizeAccuracy(accuracy);
         const verifiedLocation = { latitude, longitude, accuracy: roundedAccuracy };
 
         const result = await verifyAndOptInToConvention({
