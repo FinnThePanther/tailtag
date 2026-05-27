@@ -154,6 +154,28 @@ export const styles = StyleSheet.create({
     color: colors.textSubtle,
     fontSize: 12,
   },
+  suitRankBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 64,
+    marginLeft: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySurface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  suitRankBadgeText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  suitRankBadgeLabel: {
+    color: colors.textSubtle,
+    fontSize: 10,
+    fontWeight: '600',
+  },
   followUpCard: {
     gap: spacing.xs,
     backgroundColor: colors.surfaceMutedSoft,

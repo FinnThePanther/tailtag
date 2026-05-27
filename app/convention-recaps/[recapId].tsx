@@ -14,6 +14,7 @@ import {
   type ConventionRecapCaughtFursuit,
   type ConventionRecapOwnedFursuit,
 } from '../../src/features/conventions';
+import { createConventionSuitLeaderboardQueryOptions } from '../../src/features/leaderboard';
 import { useBlockedIds } from '../../src/features/moderation';
 import { captureNonCriticalError } from '../../src/lib/sentry';
 import { toDisplayDate, toDisplayDateTime } from '../../src/utils/dates';
@@ -81,6 +82,16 @@ export default function ConventionRecapDetailScreen() {
     ...createConventionRecapDetailQueryOptions(userId ?? '', recapId ?? ''),
     enabled: Boolean(userId && recapId),
   });
+
+  const conventionId = recapDetail?.recap.conventionId ?? '';
+  const { data: suitLeaderboardEntries = [] } = useQuery({
+    ...createConventionSuitLeaderboardQueryOptions(userId ?? '', conventionId),
+    enabled: Boolean(userId && conventionId && recapDetail?.ownedFursuits.length),
+  });
+
+  const suitRankByFursuitId = useMemo(() => {
+    return new Map(suitLeaderboardEntries.map((entry, index) => [entry.fursuitId, index + 1]));
+  }, [suitLeaderboardEntries]);
 
   const followUpEntries = useMemo(() => {
     if (!recapDetail) {
@@ -408,6 +419,7 @@ export default function ConventionRecapDetailScreen() {
               <View style={styles.itemList}>
                 {ownedFursuits.map((entry) => {
                   const seenAt = formatSeenAt(entry);
+                  const suitRank = suitRankByFursuitId.get(entry.fursuitId);
 
                   return (
                     <Pressable
@@ -441,6 +453,12 @@ export default function ConventionRecapDetailScreen() {
                         </Text>
                         {seenAt ? <Text style={styles.rowSubtle}>{seenAt}</Text> : null}
                       </View>
+                      {suitRank ? (
+                        <View style={styles.suitRankBadge}>
+                          <Text style={styles.suitRankBadgeText}>#{formatCount(suitRank)}</Text>
+                          <Text style={styles.suitRankBadgeLabel}>Suit rank</Text>
+                        </View>
+                      ) : null}
                     </Pressable>
                   );
                 })}
