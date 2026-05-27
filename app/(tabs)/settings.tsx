@@ -1543,7 +1543,7 @@ export default function SettingsScreen() {
                         value={fallbackUniqueFursuitsCaughtCount}
                       />
                       <RecapStat
-                        label="Your suits caught"
+                        label="Times caught"
                         value={fallbackOwnFursuitsCaughtCount}
                       />
                       <RecapStat

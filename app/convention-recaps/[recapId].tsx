@@ -202,7 +202,7 @@ export default function ConventionRecapDetailScreen() {
 
   if (recap.ownFursuitsCaughtCount > 0) {
     snapshotStats.push({
-      label: 'Your suits caught',
+      label: 'Times caught',
       value: formatCount(recap.ownFursuitsCaughtCount),
     });
   }
