@@ -1,5 +1,5 @@
 import { parseDateOnlyAsLocal, toDisplayDate } from '../../utils/dates';
-import type { ConventionVerificationErrorCode } from './api/conventions';
+import type { ConventionVerificationErrorCode } from '@/features/conventions/api/conventions';
 
 export const formatConventionDateRange = (start: string | null, end: string | null) => {
   const startLabel = toDisplayDate(start);
@@ -37,8 +37,10 @@ export const isConventionEnded = (endDate: string | null): boolean => {
  * Falls back to 50m when the accuracy is not a number.
  */
 export const normalizeAccuracy = (accuracy: number | null): number => {
-  const effective = typeof accuracy === 'number' ? accuracy : 50;
-  return Math.max(1, Math.round(effective));
+  if (accuracy === null || !Number.isFinite(accuracy)) return 50;
+  const rounded = Math.round(accuracy);
+  if (!Number.isFinite(rounded)) return 50;
+  return Math.max(1, rounded);
 };
 
 /**
