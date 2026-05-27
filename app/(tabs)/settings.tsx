@@ -2175,7 +2175,7 @@ export default function SettingsScreen() {
             Terms of Service
           </TailTagButton>
           <TailTagButton
-            variant="ghost"
+            variant="outline"
             onPress={() => void handleOpenExternalUrl(SUPPORT_EMAIL_URL)}
           >
             Contact Support
