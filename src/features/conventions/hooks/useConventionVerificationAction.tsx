@@ -79,12 +79,18 @@ export function useConventionVerificationAction({
 
   const refreshConventionAccess = useCallback(
     async (conventionId: string) => {
+      // Optimistically add to active conventions so the UI stays stable
+      // while background refetches populate fresh data.
+      const activeKey = [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, profileId];
+      queryClient.setQueryData<string[]>(activeKey, (prev) => {
+        if (!prev) return prev;
+        if (prev.includes(conventionId)) return prev;
+        return [...prev, conventionId];
+      });
+
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, profileId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, profileId],
         }),
         queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] }),
         queryClient.invalidateQueries({
@@ -119,9 +125,66 @@ export function useConventionVerificationAction({
       setIsVerifyingLocation(true);
       setIsUpdatingConventionAccess(true);
       try {
+        // Fast-path: try recently-cached GPS position first.
+        const cached = await Location.getLastKnownPositionAsync({
+          maxAge: 30000,
+          requiredAccuracy: 100,
+        });
+
+        if (cached) {
+          const { latitude: clat, longitude: clng, accuracy: cacc } = cached.coords;
+          const ceffAcc = typeof cacc === 'number' ? cacc : 50;
+          const cRounded = Math.max(1, Math.round(ceffAcc));
+          const testLocation: VerifiedLocation = {
+            latitude: clat,
+            longitude: clng,
+            accuracy: cRounded,
+          };
+
+          const fastResult = await verifyAndOptInToConvention({
+            profileId,
+            conventionId: convention.id,
+            verifiedLocation: testLocation,
+          });
+
+          captureHandledMessage('geo_verification_result', {
+            conventionId: convention.id,
+            verified: fastResult.verified,
+            path: 'verify_and_opt_in_to_convention',
+            distance_meters: fastResult.distance_meters ?? null,
+            radius_meters: fastResult.geofence_radius_meters,
+            effective_radius_meters: fastResult.effective_radius_meters ?? null,
+            accuracy_meters: cRounded,
+            error_code: fastResult.error_code ?? null,
+            error: fastResult.error ?? null,
+          });
+
+          if (fastResult.verified) {
+            try {
+              await refreshConventionAccess(convention.id);
+              await onVerified?.(convention, { verifiedLocation: testLocation });
+            } catch (caught) {
+              if (isSupabaseError(caught)) {
+                captureSupabaseError(caught, {
+                  scope: 'useConventionVerificationAction',
+                  action: 'refreshConventionAccess',
+                  additionalContext: { profileId, conventionId: convention.id },
+                });
+              } else {
+                captureHandledException(caught, {
+                  scope: 'useConventionVerificationAction',
+                  additionalContext: { profileId, conventionId: convention.id },
+                });
+              }
+            }
+            return true;
+          }
+        }
+
+        // Fallback: live GPS acquisition with reduced timeout.
         const position = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
-          timeInterval: 5000,
+          timeInterval: 3000,
           distanceInterval: 0,
         });
 

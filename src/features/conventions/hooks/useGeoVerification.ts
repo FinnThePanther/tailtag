@@ -45,14 +45,14 @@ export function useGeoVerification(): UseGeoVerificationReturn {
     profileId: string,
   ): Promise<VerificationResult> {
     setIsVerifying(true);
-    try {
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-        timeInterval: 5000,
-        distanceInterval: 0,
-      });
 
-      const { latitude, longitude, accuracy } = position.coords;
+    async function verifyWithPosition(
+      conventionId: string,
+      profileId: string,
+      latitude: number,
+      longitude: number,
+      accuracy: number | null,
+    ): Promise<VerificationResult> {
       const effectiveAccuracy = typeof accuracy === 'number' ? accuracy : 50;
       const roundedAccuracy = Math.max(1, Math.round(effectiveAccuracy));
 
@@ -92,6 +92,42 @@ export function useGeoVerification(): UseGeoVerificationReturn {
         ),
         error_code: result.error_code ?? null,
       };
+    }
+
+    try {
+      // Fast-path: try recently-cached GPS position first to avoid 3–15s cold fix.
+      const cached = await Location.getLastKnownPositionAsync({
+        maxAge: 30000,
+        requiredAccuracy: 100,
+      });
+
+      if (cached) {
+        const result = await verifyWithPosition(
+          conventionId,
+          profileId,
+          cached.coords.latitude,
+          cached.coords.longitude,
+          cached.coords.accuracy,
+        );
+        if (result.verified) {
+          return result;
+        }
+      }
+
+      // Fallback: live GPS acquisition with reduced timeout.
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        timeInterval: 3000,
+        distanceInterval: 0,
+      });
+
+      return await verifyWithPosition(
+        conventionId,
+        profileId,
+        position.coords.latitude,
+        position.coords.longitude,
+        position.coords.accuracy,
+      );
     } catch (error) {
       captureNonCriticalError(error, { scope: 'geo-verification' });
       return {
