@@ -75,11 +75,11 @@ Unless explicitly stated, all changes, migrations, and Edge Function updates are
 - **Supabase Project Ref:** `rtxbvjicfxgcouufumce`
 - **Project URL:** `https://rtxbvjicfxgcouufumce.supabase.co`
 
-For any work that requires database changes, apply those changes to the dev environment using the Supabase CLI or the MCP (Model Context Protocol) tooling if it is already configured for database/migration access. Verify the Supabase CLI or MCP target before pushing migrations or schema changes. Never push database changes to staging or production unless explicitly instructed to do so.
+For any work that requires database changes, apply those changes to the dev environment using either the Supabase CLI or the Supabase MCP tooling (MCP is configured for dev only). Verify the target project before pushing migrations or schema changes. Never push database changes to staging or production unless explicitly instructed to do so.
 
 Database changes must leave generated types current before final validation or PR handoff. Prefer `npm run gen:types`, which preserves the manual aliases at the bottom of `src/types/database.ts`; otherwise run the explicit `supabase gen types` plus `scripts/check-types.py` verification command and note why no type update was needed. In Codex Desktop, do not repeatedly attempt these type-generation commands if they fail with `SUPABASE_ACCESS_TOKEN` missing; ask Nick to run `npm run gen:types` locally and continue once the resulting type files are available.
 
-Only apply changes to other environments (staging, production) if explicitly instructed or after approval.
+Only apply changes to other environments (staging, production) if explicitly instructed or after approval. When working in staging or production, the Supabase MCP tools are not configured for those environments — use the Supabase CLI instead by linking to the respective project (`supabase link --project-ref <staging-or-prod-ref>`) and applying changes there.
 
 ## Security & Configuration Tips
 Keep secrets out of source control. Mobile code expects `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`; `admin/` also needs `SUPABASE_SERVICE_ROLE_KEY` for server actions. Treat generated native folders (`ios/`, `android/`) and database types carefully, and update Supabase migrations instead of patching production schema by hand.
