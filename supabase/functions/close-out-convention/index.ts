@@ -61,6 +61,9 @@ type CloseoutRequest = {
 type ConventionRow = {
   id: string;
   name: string | null;
+  started_at: string | null;
+  geofence_enabled: boolean | null;
+  location_verification_required: boolean | null;
   status: string;
   closed_at: string | null;
   archived_at: string | null;
@@ -79,11 +82,20 @@ type ProfileConventionRow = {
   created_at: string | null;
   left_at: string | null;
   active_until: string | null;
+  attendance_state: string | null;
+  verification_method: string | null;
+  verified_at: string | null;
+  override_at: string | null;
 };
 
 type ExistingRecapRow = {
   profile_id: string;
   joined_at: string | null;
+};
+
+type ExistingRecapCleanupRow = {
+  id: string;
+  profile_id: string;
 };
 
 type AcceptedCatchRow = {
@@ -305,6 +317,34 @@ function addToSetMap(map: Map<string, Set<string>>, key: string, value: string) 
   map.set(key, new Set([value]));
 }
 
+function hasRecapEligibleAttendanceState(state: string | null) {
+  return state === 'active' || state === 'left' || state === 'finalized';
+}
+
+function isRecapEligibleMembership(membership: ProfileConventionRow, convention: ConventionRow) {
+  if (!hasRecapEligibleAttendanceState(membership.attendance_state)) {
+    return false;
+  }
+
+  if (!convention.location_verification_required) {
+    return true;
+  }
+
+  if (membership.verification_method === 'grandfathered') {
+    return true;
+  }
+
+  if (membership.verification_method === 'manual_override') {
+    return Boolean(membership.override_at);
+  }
+
+  if (membership.verification_method !== 'gps' || !membership.verified_at) {
+    return false;
+  }
+
+  return !convention.started_at || membership.verified_at >= convention.started_at;
+}
+
 async function loadProfiles(profileIds: string[]) {
   const profiles = new Map<string, ProfileRow>();
   const uniqueIds = [...new Set(profileIds)];
@@ -332,6 +372,9 @@ async function loadConvention(conventionId: string) {
       [
         'id',
         'name',
+        'started_at',
+        'geofence_enabled',
+        'location_verification_required',
         'status',
         'closed_at',
         'archived_at',
@@ -474,16 +517,30 @@ async function drainGameplayQueue() {
   return { attempts: totalAttempts, drained: true };
 }
 
-async function buildRecaps(conventionId: string, closedAt: string) {
+async function buildRecaps(convention: ConventionRow, closedAt: string) {
+  const conventionId = convention.id;
   const [memberships, existingRecaps, acceptedCatches, dailyProgress, achievementUnlocks] =
     await Promise.all([
-      fetchAll<ProfileConventionRow>((from, to) =>
-        supabaseAdmin
+      fetchAll<ProfileConventionRow>(async (from, to) => {
+        const { data, error } = await supabaseAdmin
           .from('profile_conventions')
-          .select('profile_id, created_at, left_at, active_until')
+          .select(
+            [
+              'profile_id',
+              'created_at',
+              'left_at',
+              'active_until',
+              'attendance_state',
+              'verification_method',
+              'verified_at',
+              'override_at',
+            ].join(', '),
+          )
           .eq('convention_id', conventionId)
-          .range(from, to),
-      ),
+          .range(from, to);
+
+        return { data: data as unknown as ProfileConventionRow[] | null, error };
+      }),
       fetchAll<ExistingRecapRow>((from, to) =>
         supabaseAdmin
           .from('convention_participant_recaps')
@@ -517,6 +574,7 @@ async function buildRecaps(conventionId: string, closedAt: string) {
     ]);
 
   const participants = new Set<string>();
+  const eligibleParticipants = new Set<string>();
   const joinedAtByProfile = new Map<string, string | null>();
   const catchCountByProfile = new Map<string, number>();
   const caughtFursuitsByProfile = new Map<
@@ -535,12 +593,16 @@ async function buildRecaps(conventionId: string, closedAt: string) {
   const achievementIdsByProfile = new Map<string, Set<string>>();
 
   for (const row of existingRecaps) {
-    participants.add(row.profile_id);
     if (row.joined_at) joinedAtByProfile.set(row.profile_id, row.joined_at);
   }
 
   for (const row of memberships) {
+    if (!isRecapEligibleMembership(row, convention)) {
+      continue;
+    }
+
     participants.add(row.profile_id);
+    eligibleParticipants.add(row.profile_id);
     joinedAtByProfile.set(
       row.profile_id,
       row.created_at ?? joinedAtByProfile.get(row.profile_id) ?? null,
@@ -550,22 +612,22 @@ async function buildRecaps(conventionId: string, closedAt: string) {
   for (const row of acceptedCatches) {
     const catcherId = row.catcher_id;
     const fursuit = normalizeFursuit(row);
-    participants.add(catcherId);
-    increment(catchCountByProfile, catcherId);
-    addToSetMap(uniqueCaughtFursuitsByProfile, catcherId, row.fursuit_id);
+    if (eligibleParticipants.has(catcherId)) {
+      increment(catchCountByProfile, catcherId);
+      addToSetMap(uniqueCaughtFursuitsByProfile, catcherId, row.fursuit_id);
 
-    const caughtMap = caughtFursuitsByProfile.get(catcherId) ?? new Map();
-    const currentCaught = caughtMap.get(row.fursuit_id) ?? {
-      name: fursuit?.name ?? null,
-      count: 0,
-    };
-    currentCaught.count += 1;
-    caughtMap.set(row.fursuit_id, currentCaught);
-    caughtFursuitsByProfile.set(catcherId, caughtMap);
+      const caughtMap = caughtFursuitsByProfile.get(catcherId) ?? new Map();
+      const currentCaught = caughtMap.get(row.fursuit_id) ?? {
+        name: fursuit?.name ?? null,
+        count: 0,
+      };
+      currentCaught.count += 1;
+      caughtMap.set(row.fursuit_id, currentCaught);
+      caughtFursuitsByProfile.set(catcherId, caughtMap);
+    }
 
     const ownerId = fursuit?.owner_id ?? null;
-    if (ownerId) {
-      participants.add(ownerId);
+    if (ownerId && eligibleParticipants.has(ownerId)) {
       increment(ownFursuitCatchesByProfile, ownerId);
       addToSetMap(uniqueCatchersForOwnFursuitsByProfile, ownerId, catcherId);
 
@@ -583,13 +645,19 @@ async function buildRecaps(conventionId: string, closedAt: string) {
   }
 
   for (const row of dailyProgress) {
-    participants.add(row.user_id);
+    if (!eligibleParticipants.has(row.user_id)) {
+      continue;
+    }
+
     increment(dailyCompletionsByProfile, row.user_id);
     addToSetMap(dailyDaysByProfile, row.user_id, row.day);
   }
 
   for (const row of achievementUnlocks) {
-    participants.add(row.user_id);
+    if (!eligibleParticipants.has(row.user_id)) {
+      continue;
+    }
+
     addToSetMap(achievementIdsByProfile, row.user_id, row.achievement_id);
   }
 
@@ -678,6 +746,45 @@ async function upsertRecaps(recaps: RecapInsert[]) {
 
     if (error) throw error;
   }
+}
+
+async function deleteStaleRecaps(conventionId: string, recaps: RecapInsert[]) {
+  const validProfileIds = new Set(recaps.map((recap) => recap.profile_id));
+  const existingRecaps = await fetchAll<ExistingRecapCleanupRow>((from, to) =>
+    supabaseAdmin
+      .from('convention_participant_recaps')
+      .select('id, profile_id')
+      .eq('convention_id', conventionId)
+      .range(from, to),
+  );
+  const staleRecaps = existingRecaps.filter((recap) => !validProfileIds.has(recap.profile_id));
+  const staleRecapIds = staleRecaps.map((recap) => recap.id);
+  const staleProfileIds = staleRecaps.map((recap) => recap.profile_id);
+
+  for (const recapIdChunk of chunk(staleRecapIds, UPSERT_CHUNK_SIZE)) {
+    const { error } = await supabaseAdmin
+      .from('notifications')
+      .delete()
+      .eq('type', 'convention_recap_ready')
+      .in('payload->>recap_id', recapIdChunk);
+
+    if (error) throw error;
+  }
+
+  for (const profileIdChunk of chunk(staleProfileIds, UPSERT_CHUNK_SIZE)) {
+    const { error } = await supabaseAdmin
+      .from('convention_participant_recaps')
+      .delete()
+      .eq('convention_id', conventionId)
+      .in('profile_id', profileIdChunk);
+
+    if (error) throw error;
+  }
+}
+
+async function replaceRecaps(conventionId: string, recaps: RecapInsert[]) {
+  await upsertRecaps(recaps);
+  await deleteStaleRecaps(conventionId, recaps);
 }
 
 async function loadRecapNotificationRows(conventionId: string) {
@@ -879,8 +986,8 @@ async function runCloseoutStep(
   }
 
   if (step === 'recaps_generated') {
-    const recapBuild = await buildRecaps(convention.id, closedAt);
-    await upsertRecaps(recapBuild.recaps);
+    const recapBuild = await buildRecaps(convention, closedAt);
+    await replaceRecaps(convention.id, recapBuild.recaps);
     await updateCloseoutSummary(convention.id, {
       participants_count: recapBuild.recaps.length,
       recaps_generated: recapBuild.recaps.length,
@@ -952,8 +1059,8 @@ async function regenerateArchivedRecaps(
   automation: boolean,
 ) {
   const closedAt = convention.closed_at ?? convention.archived_at ?? new Date().toISOString();
-  const recapBuild = await buildRecaps(convention.id, closedAt);
-  await upsertRecaps(recapBuild.recaps);
+  const recapBuild = await buildRecaps(convention, closedAt);
+  await replaceRecaps(convention.id, recapBuild.recaps);
   const archivedAt = convention.archived_at ?? new Date().toISOString();
   const summary = {
     ...toSummary(convention.closeout_summary),
