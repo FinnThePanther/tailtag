@@ -513,16 +513,12 @@ export default function ConventionRecapDetailScreen() {
           </View>
         </TailTagCard>
 
-        <TailTagCard>
-          <View style={styles.footerActions}>
-            <TailTagButton
-              variant="outline"
-              onPress={() => router.push('/caught')}
-            >
-              View caught fursuits
-            </TailTagButton>
-          </View>
-        </TailTagCard>
+        <TailTagButton
+          variant="outline"
+          onPress={() => router.push('/caught')}
+        >
+          View caught fursuits
+        </TailTagButton>
       </ScrollView>
     </View>
   );
