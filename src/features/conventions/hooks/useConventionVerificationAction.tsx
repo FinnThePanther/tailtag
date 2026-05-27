@@ -179,14 +179,31 @@ export function useConventionVerificationAction({
             }
             return true;
           }
+
+          // Cached position didn't verify — surface the failure directly
+          // instead of falling through to live GPS at the same location.
+          setVerificationError(verificationErrorMessage(fastResult.error_code, fastResult.error));
+          return false;
         }
 
-        // Fallback: live GPS acquisition with reduced timeout.
-        const position = await Location.getCurrentPositionAsync({
+        // Fallback: live GPS acquisition with a hard timeout.
+        const GPS_TIMEOUT_MS = 15_000;
+        const positionPromise = Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
           timeInterval: 3000,
           distanceInterval: 0,
         });
+        const position = await Promise.race([
+          positionPromise,
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), GPS_TIMEOUT_MS)),
+        ]);
+
+        if (!position) {
+          setVerificationError(
+            'GPS took too long to get your location. Move to an open area and try again.',
+          );
+          return false;
+        }
 
         const { latitude, longitude, accuracy } = position.coords;
         const effectiveAccuracy = typeof accuracy === 'number' ? accuracy : 50;

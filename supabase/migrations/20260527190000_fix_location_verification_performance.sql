@@ -106,7 +106,7 @@ BEGIN
     AND COALESCE(v_convention.location_verification_required, false);
 
   IF v_requires_live_verification THEN
-    IF NOT v_convention.geofence_enabled OR v_convention.latitude IS NULL OR v_convention.longitude IS NULL THEN
+    IF NOT v_convention.geofence_enabled OR v_convention.latitude IS NULL OR v_convention.longitude IS NULL OR v_convention.geofence_radius_meters IS NULL THEN
       RETURN jsonb_build_object(
         'verified', false,
         'requires_location_verification', true,

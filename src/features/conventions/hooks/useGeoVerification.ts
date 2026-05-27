@@ -114,12 +114,35 @@ export function useGeoVerification(): UseGeoVerificationReturn {
         }
       }
 
-      // Fallback: live GPS acquisition with reduced timeout.
-      const position = await Location.getCurrentPositionAsync({
+      // Fallback: live GPS acquisition with a hard timeout.
+      const GPS_TIMEOUT_MS = 15_000;
+      const positionPromise = Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
         timeInterval: 3000,
         distanceInterval: 0,
       });
+      const position = await Promise.race([
+        positionPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), GPS_TIMEOUT_MS)),
+      ]);
+
+      if (!position) {
+        // GPS timed out — try a last-ditch cached position with relaxed criteria.
+        const lastDitch = await Location.getLastKnownPositionAsync({
+          maxAge: 120_000,
+          requiredAccuracy: 500,
+        });
+        if (lastDitch) {
+          return await verifyWithPosition(
+            conventionId,
+            profileId,
+            lastDitch.coords.latitude,
+            lastDitch.coords.longitude,
+            lastDitch.coords.accuracy,
+          );
+        }
+        return { verified: false, error: 'GPS took too long. Move to an open area and try again.' };
+      }
 
       return await verifyWithPosition(
         conventionId,
