@@ -1,7 +1,4 @@
-import {
-  normalizeBlueskyProfileUrl,
-  normalizeSocialUrlForOpening,
-} from '../../../utils/socialLinks';
+import { normalizeBlueskyProfileUrl, normalizeSocialUrlForOpening } from '@/utils/socialLinks';
 
 export type HandleFormat = 'strip_at' | 'add_at' | 'as_is';
 
@@ -64,6 +61,14 @@ export type EditableSocialLink = {
 };
 
 export const SOCIAL_LINK_LIMIT = 5;
+
+function safelyDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
 
 function normalizeHandle(handle: string, format: HandleFormat): string {
   const trimmed = handle.trim();
@@ -139,9 +144,9 @@ export function matchPlatformFromUrl(url: string): { platformId: string; handle:
   for (const { platformId, regex, extractGroup } of PLATFORM_URL_PATTERNS) {
     const match = trimmed.match(regex);
     if (match) {
-      const handle = decodeURIComponent(
-        match[extractGroup] ?? match.find((group, index) => index > 0 && Boolean(group)) ?? '',
-      ).trim();
+      const extractedHandle =
+        match[extractGroup] ?? match.find((group, index) => index > 0 && Boolean(group)) ?? '';
+      const handle = safelyDecodeURIComponent(extractedHandle).trim();
       if (handle) return { platformId, handle };
     }
   }

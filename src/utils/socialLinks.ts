@@ -1,11 +1,19 @@
 const TIKTOK_PROFILE_URL_PREFIX = 'https://www.tiktok.com/@';
 const BLUESKY_PROFILE_URL_PREFIX = 'https://bsky.app/profile/';
 
+function safelyDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function normalizeBlueskyActor(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
 
-  const decoded = decodeURIComponent(trimmed)
+  const decoded = safelyDecodeURIComponent(trimmed)
     .trim()
     .replace(/^@+/, '')
     .replace(/@bsky\.social$/i, '.bsky.social')
@@ -33,7 +41,7 @@ export function normalizeBlueskyProfileUrl(
   );
   if (webProfileMatch) {
     const rawActor = webProfileMatch[1] ?? '';
-    const decodedActor = decodeURIComponent(rawActor).trim();
+    const decodedActor = safelyDecodeURIComponent(rawActor).trim();
     const nestedProfileUrl =
       decodedActor !== rawActor ? normalizeBlueskyProfileUrl(decodedActor, options) : null;
     if (nestedProfileUrl) {
@@ -69,7 +77,7 @@ export function normalizeBlueskyProfileUrl(
 }
 
 function normalizeTikTokHandle(value: string): string | null {
-  const decoded = decodeURIComponent(value).trim().replace(/^@+/, '');
+  const decoded = safelyDecodeURIComponent(value).trim().replace(/^@+/, '');
   const handle = decoded.split(/[/?#]/)[0]?.trim();
   return handle ? handle : null;
 }
