@@ -1,4 +1,4 @@
-import { normalizeSocialUrlForOpening } from '../../../utils/socialLinks';
+import { normalizeBlueskyProfileUrl, normalizeSocialUrlForOpening } from '@/utils/socialLinks';
 
 export type HandleFormat = 'strip_at' | 'add_at' | 'as_is';
 
@@ -7,6 +7,7 @@ export type SocialPlatform = {
   label: string;
   urlTemplate: string;
   handleFormat: HandleFormat;
+  handlePlaceholder: string;
 };
 
 export const ALLOWED_SOCIAL_PLATFORMS: SocialPlatform[] = [
@@ -15,30 +16,35 @@ export const ALLOWED_SOCIAL_PLATFORMS: SocialPlatform[] = [
     label: 'X (Twitter)',
     urlTemplate: 'https://x.com/{handle}',
     handleFormat: 'strip_at',
+    handlePlaceholder: 'Handle',
   },
   {
     id: 'bluesky',
     label: 'Bluesky',
     urlTemplate: 'https://bsky.app/profile/{handle}',
-    handleFormat: 'as_is',
+    handleFormat: 'strip_at',
+    handlePlaceholder: 'name.bsky.social or @name',
   },
   {
     id: 'instagram',
     label: 'Instagram',
     urlTemplate: 'https://instagram.com/{handle}',
     handleFormat: 'strip_at',
+    handlePlaceholder: 'Handle',
   },
   {
     id: 'tiktok',
     label: 'TikTok',
     urlTemplate: 'https://www.tiktok.com/@{handle}',
     handleFormat: 'strip_at',
+    handlePlaceholder: 'Handle',
   },
   {
     id: 'telegram',
     label: 'Telegram',
     urlTemplate: 'https://t.me/{handle}',
     handleFormat: 'strip_at',
+    handlePlaceholder: 'Handle',
   },
 ];
 
@@ -55,6 +61,14 @@ export type EditableSocialLink = {
 };
 
 export const SOCIAL_LINK_LIMIT = 5;
+
+function safelyDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
 
 function normalizeHandle(handle: string, format: HandleFormat): string {
   const trimmed = handle.trim();
@@ -81,6 +95,11 @@ export function buildSocialUrl(
   const normalized = normalizeHandle(handle, platform.handleFormat);
   if (!normalized) return null;
 
+  if (platform.id === 'bluesky') {
+    const url = normalizeBlueskyProfileUrl(normalized, { allowBareActor: true });
+    return url ? { label: platform.label, url } : null;
+  }
+
   const url = platform.urlTemplate.replace('{handle}', encodeURIComponent(normalized));
   return { label: platform.label, url };
 }
@@ -97,7 +116,8 @@ const PLATFORM_URL_PATTERNS: {
   },
   {
     platformId: 'bluesky',
-    regex: /^https?:\/\/(?:www\.)?bsky\.app\/profile\/([^/?#]+)/i,
+    regex:
+      /^https?:\/\/(?:www\.)?(?:bsky\.app\/profile\/([^/?#]+)|([^/?#]+\.bsky\.social)(?:[/?#]|$))/i,
     extractGroup: 1,
   },
   {
@@ -124,7 +144,9 @@ export function matchPlatformFromUrl(url: string): { platformId: string; handle:
   for (const { platformId, regex, extractGroup } of PLATFORM_URL_PATTERNS) {
     const match = trimmed.match(regex);
     if (match) {
-      const handle = decodeURIComponent(match[extractGroup] ?? '').trim();
+      const extractedHandle =
+        match[extractGroup] ?? match.find((group, index) => index > 0 && Boolean(group)) ?? '';
+      const handle = safelyDecodeURIComponent(extractedHandle).trim();
       if (handle) return { platformId, handle };
     }
   }

@@ -44,6 +44,7 @@ Use the surrounding file as the formatting source of truth and avoid unrelated r
 - `PascalCase` for React components and screen-level modules.
 - `camelCase` for hooks, utilities, and helper functions.
 - `kebab-case` for route folders, Supabase functions, and non-component filenames when already established.
+- `@/` path-alias imports for modules inside `src/` importing other `src/` modules.
 
 Linting is enforced with ESLint at the root and `next lint` in `admin/`. There is no repo-wide Prettier config, so keep diffs small and consistent with local style.
 

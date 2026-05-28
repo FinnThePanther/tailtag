@@ -1733,6 +1733,9 @@ export default function SettingsScreen() {
                 )
                 .map((e) => e.platformId);
               const isCustom = entry.platformId === CUSTOM_PLATFORM_ID;
+              const selectedPlatform = ALLOWED_SOCIAL_PLATFORMS.find(
+                (platform) => platform.id === entry.platformId,
+              );
               return (
                 <View
                   key={entry.id}
@@ -1825,7 +1828,7 @@ export default function SettingsScreen() {
                       <TailTagInput
                         value={entry.handle}
                         onChangeText={(value) => handleSocialLinkChange(entry.id, 'handle', value)}
-                        placeholder="Handle"
+                        placeholder={selectedPlatform?.handlePlaceholder ?? 'Handle'}
                         editable={!isSavingSocialLinks}
                         autoCapitalize="none"
                         autoComplete="off"
