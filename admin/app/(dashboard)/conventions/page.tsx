@@ -10,23 +10,27 @@ import {
 import { fetchConventions } from '@/lib/data';
 import { buildConventionLifecycleHealthList } from '@/lib/convention-lifecycle';
 import { requireAdminDataContext } from '@/lib/auth';
+import { canManageConventionConfig } from '@/lib/admin-permissions';
 
 export default async function ConventionsPage() {
-  const { supabase } = await requireAdminDataContext();
+  const { profile, supabase } = await requireAdminDataContext();
   const conventions = await fetchConventions(supabase);
   const healthByConvention = await buildConventionLifecycleHealthList(conventions, supabase);
+  const canCreateConvention = canManageConventionConfig(profile);
 
   return (
     <Card
       title="Conventions"
       subtitle="Event list"
       actions={
-        <Link
-          href="/conventions/new"
-          className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-primary"
-        >
-          <Plus size={14} /> Create convention
-        </Link>
+        canCreateConvention ? (
+          <Link
+            href="/conventions/new"
+            className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-primary"
+          >
+            <Plus size={14} /> Create convention
+          </Link>
+        ) : null
       }
     >
       <div className="divide-y divide-border/80">
