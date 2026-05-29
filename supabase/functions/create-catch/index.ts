@@ -256,7 +256,7 @@ function normalizeFursuitCode(value: unknown): string | null {
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '');
 
-  return /^[A-Z0-9]{4,8}$/.test(normalized) ? normalized : null;
+  return /^[A-Z0-9]{4,8}$/.test(normalized) || normalized === 'JAX' ? normalized : null;
 }
 
 function normalizeUuidLike(value: unknown): string | null {

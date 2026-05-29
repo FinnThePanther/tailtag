@@ -4,6 +4,7 @@ import {
   UNIQUE_CODE_ALPHABET,
   UNIQUE_CODE_LENGTH,
   UNIQUE_CODE_MIN_LENGTH,
+  UNIQUE_CODE_JAX_CARVEOUT,
 } from '../constants/codes';
 
 export const generateUniqueCodeCandidate = () => {
@@ -29,5 +30,8 @@ export const normalizeUniqueCodeInput = (value: string) =>
 export const isValidUniqueCodeInput = (value: string) => {
   const normalized = normalizeUniqueCodeInput(value);
 
-  return normalized.length >= UNIQUE_CODE_MIN_LENGTH && normalized.length <= UNIQUE_CODE_LENGTH;
+  return (
+    normalized === UNIQUE_CODE_JAX_CARVEOUT ||
+    (normalized.length >= UNIQUE_CODE_MIN_LENGTH && normalized.length <= UNIQUE_CODE_LENGTH)
+  );
 };
