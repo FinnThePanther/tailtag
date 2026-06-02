@@ -125,6 +125,7 @@ async function insertCatchNotification(
           adult_boundary_checked: true,
           catch_id: context.catchId,
           catcher_id: context.catcherId,
+          recipient_role: 'owner',
           ...(context.fursuitName ? { fursuit_name: context.fursuitName } : {}),
           ...(context.catcherUsername ? { catcher_username: context.catcherUsername } : {}),
         }
@@ -133,6 +134,7 @@ async function insertCatchNotification(
           catch_id: context.catchId,
           catcher_id: context.catcherId,
           fursuit_id: context.fursuitId,
+          recipient_role: 'owner',
           ...(context.fursuitName ? { fursuit_name: context.fursuitName } : {}),
           ...(context.catcherUsername ? { catcher_username: context.catcherUsername } : {}),
           convention_id: context.conventionId,

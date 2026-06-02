@@ -31,6 +31,36 @@ function isAdultBoundaryChecked(payload: Record<string, unknown> | null): boolea
   return payload?.adult_boundary_checked === true;
 }
 
+function readPayloadString(payload: Record<string, unknown> | null, key: string): string | null {
+  const value = payload?.[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function addBoundedSetValue(values: Set<string>, value: string, maxSize = 200) {
+  values.add(value);
+  if (values.size <= maxSize) {
+    return;
+  }
+
+  const iterator = values.values().next();
+  if (!iterator.done && iterator.value) {
+    values.delete(iterator.value);
+  }
+}
+
+function getCatchNotificationDedupeKey(
+  type: string,
+  payload: Record<string, unknown> | null,
+): string | null {
+  const catchId = readPayloadString(payload, 'catch_id');
+  if (!catchId) {
+    return null;
+  }
+
+  const recipientRole = readPayloadString(payload, 'recipient_role') ?? 'unknown';
+  return `${type}:${catchId}:${recipientRole}`;
+}
+
 type CatchNotificationRow = {
   id: string;
   created_at: string;
@@ -68,6 +98,7 @@ export function CatchConfirmationToastManager() {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const activeUserRef = useRef<string | null>(null);
   const processedNotificationIdsRef = useRef<Set<string>>(new Set());
+  const processedCatchNotificationKeysRef = useRef<Set<string>>(new Set());
   const notificationCatchupCursorRef = useRef<string>(
     new Date(Date.now() - CATCH_NOTIFICATION_CATCHUP_LOOKBACK_MS).toISOString(),
   );
@@ -112,6 +143,7 @@ export function CatchConfirmationToastManager() {
 
     teardown();
     processedNotificationIdsRef.current.clear();
+    processedCatchNotificationKeysRef.current.clear();
     notificationCatchupCursorRef.current = new Date(
       Date.now() - CATCH_NOTIFICATION_CATCHUP_LOOKBACK_MS,
     ).toISOString();
@@ -135,10 +167,8 @@ export function CatchConfirmationToastManager() {
         void refreshOwnerPendingCatches();
         return;
       }
-      const catcherUsername =
-        typeof payload?.catcher_username === 'string' ? payload.catcher_username : 'Someone';
-      const fursuitName =
-        typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'your fursuit';
+      const catcherUsername = readPayloadString(payload, 'catcher_username') ?? 'Someone';
+      const fursuitName = readPayloadString(payload, 'fursuit_name') ?? 'your fursuit';
 
       showToast(`${catcherUsername} wants to catch ${fursuitName}`);
 
@@ -189,11 +219,9 @@ export function CatchConfirmationToastManager() {
         });
         return;
       }
-      const catcherUsername =
-        typeof payload?.catcher_username === 'string' ? payload.catcher_username : 'Someone';
-      const fursuitName =
-        typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'your fursuit';
-      const fursuitId = typeof payload?.fursuit_id === 'string' ? payload.fursuit_id : null;
+      const catcherUsername = readPayloadString(payload, 'catcher_username') ?? 'Someone';
+      const fursuitName = readPayloadString(payload, 'fursuit_name') ?? 'your fursuit';
+      const fursuitId = readPayloadString(payload, 'fursuit_id');
 
       showToast(`${catcherUsername} caught ${fursuitName}`);
 
@@ -240,8 +268,7 @@ export function CatchConfirmationToastManager() {
         });
         return;
       }
-      const fursuitName =
-        typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'The fursuit';
+      const fursuitName = readPayloadString(payload, 'fursuit_name') ?? 'The fursuit';
 
       showToast(`${fursuitName} approved your catch!`);
 
@@ -280,8 +307,7 @@ export function CatchConfirmationToastManager() {
         });
         return;
       }
-      const fursuitName =
-        typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'The fursuit owner';
+      const fursuitName = readPayloadString(payload, 'fursuit_name') ?? 'The fursuit owner';
 
       showToast(`${fursuitName} declined your catch request`);
 
@@ -309,8 +335,23 @@ export function CatchConfirmationToastManager() {
         });
         return;
       }
-      const fursuitName =
-        typeof payload?.fursuit_name === 'string' ? payload.fursuit_name : 'A fursuit';
+      const recipientRole = readPayloadString(payload, 'recipient_role');
+      const fursuitName = readPayloadString(payload, 'fursuit_name') ?? 'a fursuit';
+
+      if (recipientRole === 'owner') {
+        const catcherUsername = readPayloadString(payload, 'catcher_username') ?? 'Someone';
+
+        showToast(`${catcherUsername}'s request for ${fursuitName} has expired`);
+
+        addMonitoringBreadcrumb({
+          category: 'catch-confirmations',
+          message: 'Owner catch expired notification received',
+          data: { userId, catcherUsername, fursuitName },
+        });
+
+        void refreshOwnerPendingCatches();
+        return;
+      }
 
       showToast(`Your catch request for ${fursuitName} has expired`);
 
@@ -336,17 +377,10 @@ export function CatchConfirmationToastManager() {
       const notificationId = typeof idRaw === 'string' ? idRaw : null;
 
       if (notificationId) {
-        const processedIds = processedNotificationIdsRef.current;
-        if (processedIds.has(notificationId)) {
+        if (processedNotificationIdsRef.current.has(notificationId)) {
           return;
         }
-        processedIds.add(notificationId);
-        if (processedIds.size > 200) {
-          const iterator = processedIds.values().next();
-          if (!iterator.done && iterator.value) {
-            processedIds.delete(iterator.value);
-          }
-        }
+        addBoundedSetValue(processedNotificationIdsRef.current, notificationId);
       }
 
       const typeRaw = (row as { type?: unknown }).type ?? null;
@@ -360,6 +394,14 @@ export function CatchConfirmationToastManager() {
         typeof payloadRaw === 'object' && payloadRaw !== null
           ? (payloadRaw as Record<string, unknown>)
           : null;
+
+      const dedupeKey = getCatchNotificationDedupeKey(type, notificationPayload);
+      if (dedupeKey) {
+        if (processedCatchNotificationKeysRef.current.has(dedupeKey)) {
+          return;
+        }
+        addBoundedSetValue(processedCatchNotificationKeysRef.current, dedupeKey);
+      }
 
       switch (type) {
         case 'fursuit_caught':
