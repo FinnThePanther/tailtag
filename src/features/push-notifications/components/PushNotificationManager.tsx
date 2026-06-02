@@ -29,6 +29,15 @@ function extractDataFromNotification(response: Notifications.NotificationRespons
   return response.notification.request.content.data as PushNotificationData | undefined;
 }
 
+function getHandledNotificationId(response: Notifications.NotificationResponse) {
+  const notificationData = extractDataFromNotification(response);
+  const databaseNotificationId = notificationData?.notification_id;
+
+  return typeof databaseNotificationId === 'string' && databaseNotificationId.trim().length > 0
+    ? databaseNotificationId.trim()
+    : response.notification.request.identifier;
+}
+
 export function PushNotificationManager() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
@@ -124,7 +133,7 @@ export function PushNotificationManager() {
 
   useEffect(() => {
     const handleResponse = (response: Notifications.NotificationResponse) => {
-      const notificationId = response.notification.request.identifier;
+      const notificationId = getHandledNotificationId(response);
 
       // Deduplicate: check if we've already handled this notification
       if (handledNotificationIdsRef.current.has(notificationId)) {
@@ -162,7 +171,7 @@ export function PushNotificationManager() {
           return;
         }
 
-        const notificationId = response.notification.request.identifier;
+        const notificationId = getHandledNotificationId(response);
 
         // Deduplicate: check if we've already handled this notification
         if (handledNotificationIdsRef.current.has(notificationId)) {
