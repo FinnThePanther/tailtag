@@ -87,6 +87,7 @@ const PRONOUN_OPTIONS = [
   'he/him',
   'she/her',
   'they/them',
+  'it/its',
   'he/they',
   'she/they',
   'any pronouns',
