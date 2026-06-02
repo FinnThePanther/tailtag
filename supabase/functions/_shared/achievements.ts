@@ -364,7 +364,7 @@ async function processCatchEvent(
     Boolean(localParts) &&
     conventionInfo?.startDate === localParts?.date;
   const isLateNight = localParts ? localParts.hour >= 22 : false;
-  const isEarlyMorning = localParts ? localParts.hour < 9 : false;
+  const isEarlyMorning = localParts ? isEarlyBirdLocalTime(localParts) : false;
   const catchHasPhoto = Boolean((catchRow as Record<string, unknown>).catch_photo_url);
 
   const conventionTimezone = conventionInfo?.timezone ?? 'UTC';
@@ -1553,4 +1553,8 @@ function toLocalParts(iso: string, timeZone: string | null | undefined) {
     hour: Number.parseInt(lookup.hour ?? '0', 10),
     minute: Number.parseInt(lookup.minute ?? '0', 10),
   };
+}
+
+function isEarlyBirdLocalTime(localParts: Record<'hour' | 'minute', number>) {
+  return localParts.hour >= 5 && localParts.hour < 9;
 }

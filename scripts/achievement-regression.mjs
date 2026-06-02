@@ -461,3 +461,35 @@ describe('Checked In achievement hardening', () => {
     assert.match(migration, /UPDATE public\.achievements\s+SET is_active = false/);
   });
 });
+
+describe('Early Bird achievement timing', () => {
+  it('only treats 5:00-8:59 AM local convention time as early morning', () => {
+    const source = read('supabase/functions/_shared/achievements.ts');
+    const isEarlyBirdLocalTime = new Function(
+      'localParts',
+      functionBody(source, 'isEarlyBirdLocalTime'),
+    );
+
+    assert.equal(isEarlyBirdLocalTime({ hour: 4, minute: 59 }), false);
+    assert.equal(isEarlyBirdLocalTime({ hour: 5, minute: 0 }), true);
+    assert.equal(isEarlyBirdLocalTime({ hour: 8, minute: 59 }), true);
+    assert.equal(isEarlyBirdLocalTime({ hour: 9, minute: 0 }), false);
+
+    assert.doesNotMatch(
+      source,
+      /const isEarlyMorning = localParts \? localParts\.hour < 9 : false/,
+    );
+    assert.match(
+      source,
+      /const isEarlyMorning = localParts \? isEarlyBirdLocalTime\(localParts\) : false/,
+    );
+  });
+
+  it('keeps Early Bird rule metadata aligned with the backend time window', () => {
+    const source = read('packages/achievement-rules/src/rules/catch.ts');
+
+    assert.match(source, /displayName: 'Early Bird'/);
+    assert.match(source, /description: 'Make a catch from 5:00-8:59 AM local convention time\.'/);
+    assert.match(source, /requiredStats: \['isEarlyMorning'\]/);
+  });
+});

@@ -503,7 +503,7 @@ export const catchRules: CatchRuleDefinition[] = [
     eventType: 'catch_performed',
     metadata: {
       displayName: 'Early Bird',
-      description: 'Make a catch before 9 AM local convention time.',
+      description: 'Make a catch from 5:00-8:59 AM local convention time.',
       category: 'dedication',
       recipientRole: 'catcher',
       canEvaluateClient: false,
