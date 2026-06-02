@@ -46,6 +46,13 @@ export const ALLOWED_SOCIAL_PLATFORMS: SocialPlatform[] = [
     handleFormat: 'strip_at',
     handlePlaceholder: 'Handle',
   },
+  {
+    id: 'discord',
+    label: 'Discord',
+    urlTemplate: 'https://discord.com/users/{handle}',
+    handleFormat: 'strip_at',
+    handlePlaceholder: 'User ID',
+  },
 ];
 
 export const CUSTOM_PLATFORM_ID = 'custom';
@@ -133,6 +140,11 @@ const PLATFORM_URL_PATTERNS: {
   {
     platformId: 'telegram',
     regex: /^https?:\/\/(?:t\.me|telegram\.me)\/([^/?#]+)/i,
+    extractGroup: 1,
+  },
+  {
+    platformId: 'discord',
+    regex: /^https?:\/\/(?:www\.)?(?:discord\.com|discordapp\.com)\/users\/([^/?#]+)/i,
     extractGroup: 1,
   },
 ];
