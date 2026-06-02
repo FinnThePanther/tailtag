@@ -1244,7 +1244,8 @@ export default function HomeScreen() {
                     Fursuit roster
                   </TailTagButton>
 
-                  <View>
+                  <View style={styles.leaderboardSection}>
+                    <Text style={styles.sectionSubheading}>Top catchers</Text>
                     {!tier3Ready ? (
                       <LeaderboardSectionSkeleton />
                     ) : leaderboardError ? (
@@ -1261,8 +1262,7 @@ export default function HomeScreen() {
                         </TailTagButton>
                       </View>
                     ) : displayEntries.length > 0 ? (
-                      <View style={styles.leaderboardSection}>
-                        <Text style={styles.sectionSubheading}>Top catchers</Text>
+                      <>
                         <View style={styles.leaderboardList}>
                           {displayEntries.map((entry) => {
                             const rank = rankByProfileId.get(entry.profileId) ?? 0;
@@ -1351,7 +1351,7 @@ export default function HomeScreen() {
                           <Text style={styles.seeAllText}>See all catchers</Text>
                           <Text style={styles.seeAllArrow}>→</Text>
                         </Pressable>
-                      </View>
+                      </>
                     ) : (
                       <Text style={styles.message}>
                         {isSelectedConventionLeaderboardOnly
