@@ -50,7 +50,7 @@ export const ALLOWED_SOCIAL_PLATFORMS: SocialPlatform[] = [
     id: 'discord',
     label: 'Discord',
     urlTemplate: 'https://discord.com/users/{handle}',
-    handleFormat: 'strip_at',
+    handleFormat: 'as_is',
     handlePlaceholder: 'User ID',
   },
 ];
