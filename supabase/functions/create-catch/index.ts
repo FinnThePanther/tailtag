@@ -28,6 +28,15 @@ if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
 const resolvedSupabaseUrl = supabaseUrl;
 const resolvedSupabaseAnonKey = supabaseAnonKey;
 const resolvedServiceRoleKey = serviceRoleKey;
+const CLOSED_CONVENTION_CATCH_ERROR = 'This convention has ended, so new catches are closed.';
+const CLOSED_CATCH_CONVENTION_STATUSES = new Set([
+  'finalizing',
+  'closeout_running',
+  'closeout_failed',
+  'closed',
+  'archived',
+  'canceled',
+]);
 
 const supabaseAdmin = createClient(resolvedSupabaseUrl, resolvedServiceRoleKey, {
   auth: {
@@ -220,6 +229,51 @@ function jsonResponse(status: number, payload: unknown, clientAttemptId?: string
       'Content-Type': 'application/json',
     },
   });
+}
+
+function localDateForTimezone(timezone: string | null | undefined) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone?.trim() || 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const year = parts.find((part) => part.type === 'year')?.value;
+    const month = parts.find((part) => part.type === 'month')?.value;
+    const day = parts.find((part) => part.type === 'day')?.value;
+
+    if (year && month && day) {
+      return `${year}-${month}-${day}`;
+    }
+  } catch {
+    // Fall through to UTC below.
+  }
+
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function isConventionClosedForCodeCatching(conventionId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from('conventions')
+    .select('status, end_date, timezone')
+    .eq('id', conventionId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return false;
+  }
+
+  if (CLOSED_CATCH_CONVENTION_STATUSES.has(String(data.status))) {
+    return true;
+  }
+
+  const endDate = typeof data.end_date === 'string' ? data.end_date : null;
+  return Boolean(endDate && localDateForTimezone(data.timezone) > endDate);
 }
 
 function normalizeCatchPhotoSource(value: unknown): 'camera' | 'gallery' | null {
@@ -565,7 +619,11 @@ async function handlePost(req: Request): Promise<Response> {
 
   const failureResponse = async (status: number, payload: unknown, errorCode: string) => {
     await finishTrace({ result: 'failed', errorCode });
-    return jsonResponse(status, payload, trace.clientAttemptId);
+    const payloadWithCode =
+      typeof payload === 'object' && payload !== null && !Array.isArray(payload)
+        ? { ...payload, error_code: errorCode }
+        : { error: payload, error_code: errorCode };
+    return jsonResponse(status, payloadWithCode, trace.clientAttemptId);
   };
 
   userId = await trace.measure('auth_ms', () => getUserIdFromRequest(req));
@@ -711,6 +769,20 @@ async function handlePost(req: Request): Promise<Response> {
         { error: 'This fursuit is not available to your account.' },
         'adult_boundary_restricted',
       );
+    }
+
+    if (body.convention_id && method === 'code') {
+      const isClosedForCatching = await trace.measure('metadata_ms', () =>
+        isConventionClosedForCodeCatching(body.convention_id!),
+      );
+
+      if (isClosedForCatching) {
+        return failureResponse(
+          400,
+          { error: CLOSED_CONVENTION_CATCH_ERROR },
+          'convention_catch_closed',
+        );
+      }
     }
 
     if (!body.convention_id && method === 'code') {

@@ -121,6 +121,16 @@ function isRetryableCatchSubmissionError(error: unknown) {
 }
 
 function catchSubmissionErrorCode(error: unknown) {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'errorCode' in error &&
+    typeof error.errorCode === 'string' &&
+    error.errorCode.trim()
+  ) {
+    return error.errorCode;
+  }
+
   if (!(error instanceof Error)) return 'unknown_error';
   const message = error.message.toLowerCase();
   if (message.includes('timed out')) return 'timeout';
@@ -131,6 +141,7 @@ function catchSubmissionErrorCode(error: unknown) {
   if (message.includes('share a playable convention') || message.includes('not catchable')) {
     return 'shared_convention_required';
   }
+  if (message.includes('new catches are closed')) return 'convention_catch_closed';
   if (message.includes('cannot catch')) return 'blocked_user';
   return 'server_rejected';
 }
@@ -572,11 +583,14 @@ export default function CatchScreen() {
       const caughtWithTiming = caught as {
         catchPerformanceResult?: 'failed' | 'timeout';
         edgeRequestMs?: number | null;
+        errorCode?: string | null;
       };
       catchTrace.recordTiming('edge_request_ms', caughtWithTiming.edgeRequestMs);
       finishCatchTrace({
         result: caughtWithTiming.catchPerformanceResult ?? 'failed',
-        errorCode: caughtWithTiming.catchPerformanceResult === 'timeout' ? 'edge_timeout' : 'error',
+        errorCode:
+          caughtWithTiming.errorCode ??
+          (caughtWithTiming.catchPerformanceResult === 'timeout' ? 'edge_timeout' : 'error'),
       });
       resetCatchState();
 
