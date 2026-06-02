@@ -41,3 +41,7 @@ BEGIN
   );
 END;
 $function$;
+
+REVOKE ALL ON FUNCTION public.notify_catch_decision(uuid, uuid, uuid, text, text, text) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.notify_catch_decision(uuid, uuid, uuid, text, text, text) TO service_role;
