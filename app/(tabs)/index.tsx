@@ -1262,6 +1262,7 @@ export default function HomeScreen() {
                       </View>
                     ) : displayEntries.length > 0 ? (
                       <View style={styles.leaderboardSection}>
+                        <Text style={styles.sectionSubheading}>Top catchers</Text>
                         <View style={styles.leaderboardList}>
                           {displayEntries.map((entry) => {
                             const rank = rankByProfileId.get(entry.profileId) ?? 0;
