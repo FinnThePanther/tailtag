@@ -29,6 +29,20 @@ function rawErrorMessage(error: unknown) {
   return null;
 }
 
+function rawErrorCode(error: unknown) {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'errorCode' in error &&
+    typeof error.errorCode === 'string' &&
+    error.errorCode.trim()
+  ) {
+    return error.errorCode;
+  }
+
+  return null;
+}
+
 function errorMessageFor(error: unknown) {
   const message = rawErrorMessage(error);
   if (message) {
@@ -43,6 +57,11 @@ function normalizedErrorMessage(error: unknown) {
 }
 
 function isRetryableCatchOutboxError(error: unknown) {
+  const errorCode = rawErrorCode(error);
+  if (errorCode === 'convention_catch_closed') {
+    return false;
+  }
+
   const message = normalizedErrorMessage(error);
   if (!message) {
     return true;
@@ -59,6 +78,7 @@ function isRetryableCatchOutboxError(error: unknown) {
     message.includes('own suits') ||
     message.includes('not catchable') ||
     message.includes('share a playable convention') ||
+    message.includes('new catches are closed') ||
     message.includes('cannot catch') ||
     message.includes('forbidden') ||
     message.includes('catch not found') ||
@@ -95,6 +115,9 @@ function isRetryableCatchOutboxError(error: unknown) {
 }
 
 function errorCodeFor(error: unknown) {
+  const explicitErrorCode = rawErrorCode(error);
+  if (explicitErrorCode) return explicitErrorCode;
+
   const message = normalizedErrorMessage(error);
 
   if (!message) return 'unknown_error';
@@ -114,6 +137,7 @@ function errorCodeFor(error: unknown) {
   if (message.includes('not catchable') || message.includes('share a playable convention')) {
     return 'shared_convention_required';
   }
+  if (message.includes('new catches are closed')) return 'convention_catch_closed';
   if (message.includes('cannot catch')) return 'blocked_user';
   if (
     message.includes('no such file') ||
