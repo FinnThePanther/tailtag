@@ -336,17 +336,6 @@ export default function AuthScreen() {
 
           <TailTagButton
             variant="outline"
-            onPress={handleDiscordSignIn}
-            loading={isDiscordLoading}
-            disabled={isSubmitting}
-            accessibilityLabel="Continue with Discord"
-            accessibilityHint="Opens Discord to continue signing in."
-          >
-            Continue with Discord
-          </TailTagButton>
-
-          <TailTagButton
-            variant="outline"
             onPress={handleGoogleSignIn}
             loading={isGoogleLoading}
             disabled={isSubmitting}
@@ -354,6 +343,17 @@ export default function AuthScreen() {
             accessibilityHint="Opens Google to continue signing in."
           >
             Continue with Google
+          </TailTagButton>
+
+          <TailTagButton
+            variant="outline"
+            onPress={handleDiscordSignIn}
+            loading={isDiscordLoading}
+            disabled={isSubmitting}
+            accessibilityLabel="Continue with Discord"
+            accessibilityHint="Opens Discord to continue signing in."
+          >
+            Continue with Discord
           </TailTagButton>
         </TailTagCard>
 
