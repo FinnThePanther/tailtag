@@ -999,6 +999,88 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_flag_profile_overrides: {
+        Row: {
+          created_at: string
+          created_by_user_id: string | null
+          enabled: boolean
+          feature_key: string
+          profile_id: string
+          reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id?: string | null
+          enabled: boolean
+          feature_key: string
+          profile_id: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: string | null
+          enabled?: boolean
+          feature_key?: string
+          profile_id?: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flag_profile_overrides_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feature_flag_profile_overrides_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "feature_flag_profile_overrides_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feature_flags: {
+        Row: {
+          config: Json
+          created_at: string
+          description: string | null
+          enabled: boolean
+          key: string
+          rollout_percentage: number
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          key: string
+          rollout_percentage?: number
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          key?: string
+          rollout_percentage?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fursuit_bios: {
         Row: {
           ask_me_about: string
@@ -1263,6 +1345,7 @@ export type Database = {
           id: string
           is_flagged: boolean
           name: string
+          owner_attribution_visibility: string
           owner_id: string
           species_id: string | null
           unique_code: string
@@ -1280,6 +1363,7 @@ export type Database = {
           id?: string
           is_flagged?: boolean
           name: string
+          owner_attribution_visibility?: string
           owner_id: string
           species_id?: string | null
           unique_code: string
@@ -1297,6 +1381,7 @@ export type Database = {
           id?: string
           is_flagged?: boolean
           name?: string
+          owner_attribution_visibility?: string
           owner_id?: string
           species_id?: string | null
           unique_code?: string
@@ -2206,6 +2291,10 @@ export type Database = {
         Args: { p_object_name: string; p_viewer_id: string }
         Returns: boolean
       }
+      can_view_fursuit_owner: {
+        Args: { p_fursuit_id: string; p_viewer_id: string }
+        Returns: boolean
+      }
       can_view_profile: {
         Args: { p_target_id: string; p_viewer_id: string }
         Returns: boolean
@@ -2434,6 +2523,7 @@ export type Database = {
           fursuit_description: string
           fursuit_id: string
           fursuit_name: string
+          fursuit_owner_attribution_visibility: string
           fursuit_owner_id: string
           fursuit_redacted: boolean
           fursuit_unique_code: string
@@ -2551,6 +2641,29 @@ export type Database = {
           unique_catchers: number
         }[]
       }
+      get_fursuit_detail: {
+        Args: { p_fursuit_id: string }
+        Returns: {
+          avatar_path: string
+          avatar_url: string
+          catch_count: number
+          color_assignments: Json
+          created_at: string
+          description: string
+          fursuit_bio: Json
+          fursuit_conventions: Json
+          id: string
+          makers: Json
+          name: string
+          owner_attribution_visibility: string
+          owner_id: string
+          owner_social_links: Json
+          species_entry: Json
+          species_id: string
+          unique_code: string
+          visibility_audience: string
+        }[]
+      }
       get_gallery_profile_convention_ids: {
         Args: { p_profile_id: string }
         Returns: {
@@ -2614,6 +2727,7 @@ export type Database = {
           fursuit_description: string
           fursuit_id: string
           fursuit_name: string
+          fursuit_owner_attribution_visibility: string
           fursuit_owner_id: string
           fursuit_redacted: boolean
           fursuit_unique_code: string
@@ -2724,6 +2838,28 @@ export type Database = {
           time_remaining: string
         }[]
       }
+      get_profile_fursuits: {
+        Args: { p_profile_id: string }
+        Returns: {
+          avatar_path: string
+          avatar_url: string
+          catch_count: number
+          color_assignments: Json
+          created_at: string
+          description: string
+          fursuit_bio: Json
+          fursuit_conventions: Json
+          id: string
+          makers: Json
+          name: string
+          owner_attribution_visibility: string
+          owner_id: string
+          owner_social_links: Json
+          species_entry: Json
+          species_id: string
+          visibility_audience: string
+        }[]
+      }
       get_user_moderation_summary: {
         Args: { p_user_id: string }
         Returns: Json
@@ -2799,6 +2935,10 @@ export type Database = {
       }
       is_event_staff: {
         Args: { convention_id: string; user_id: string }
+        Returns: boolean
+      }
+      is_feature_enabled_for_profile: {
+        Args: { p_feature_key: string; p_profile_id: string }
         Returns: boolean
       }
       is_moderator_or_higher: {
