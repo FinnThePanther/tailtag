@@ -129,6 +129,10 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(74,222,128,0.38)',
     backgroundColor: 'rgba(22,101,52,0.24)',
   },
+  badgeOwn: {
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySurface,
+  },
   badgeText: {
     color: colors.textMuted,
     fontSize: 11,
@@ -136,6 +140,9 @@ export const styles = StyleSheet.create({
   },
   badgeTextSuccess: {
     color: '#86efac',
+  },
+  badgeTextOwn: {
+    color: colors.primary,
   },
   message: {
     color: colors.textMuted,

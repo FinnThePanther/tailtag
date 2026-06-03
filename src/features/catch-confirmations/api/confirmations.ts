@@ -51,6 +51,7 @@ export const CODE_CATCH_OUTBOX_TIMEOUT_MS = 5 * 1000;
 type CreateCatchError = Error & {
   catchPerformanceResult?: CatchPerformanceResult;
   edgeRequestMs?: number | null;
+  errorCode?: string | null;
 };
 
 const isSupabaseError = (
@@ -72,12 +73,18 @@ function withCatchPerformanceError(
   options: {
     result: CatchPerformanceResult;
     edgeRequestMs?: number | null;
+    errorCode?: string | null;
   },
 ): CreateCatchError {
   const enrichedError = error as CreateCatchError;
   enrichedError.catchPerformanceResult = options.result;
   enrichedError.edgeRequestMs = options.edgeRequestMs ?? null;
+  enrichedError.errorCode = options.errorCode ?? null;
   return enrichedError;
+}
+
+function stringField(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
 }
 
 function normalizeCatchPhotoSource(raw: unknown): CatchPhotoSource | null {
@@ -86,10 +93,6 @@ function normalizeCatchPhotoSource(raw: unknown): CatchPhotoSource | null {
 
 export function normalizeCatchPhotoUploadState(raw: unknown): CatchPhotoUploadState {
   return raw === 'pending_upload' || raw === 'uploaded' || raw === 'failed' ? raw : 'not_required';
-}
-
-function stringField(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
 }
 
 function normalizeReciprocalOfferStatus(raw: unknown): ReciprocalCatchOfferStatus {
@@ -307,6 +310,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
 
     if (!response.ok) {
       const errorMessage = responseData?.error ?? 'Failed to create catch';
+      const errorCode = stringField(responseData?.error_code);
 
       captureFeatureError(new Error(errorMessage), {
         scope: 'catch-confirmations.createCatch',
@@ -322,6 +326,17 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
         throw withCatchPerformanceError(new Error(errorMessage), {
           result: 'failed',
           edgeRequestMs,
+          errorCode,
+        });
+      }
+      if (
+        errorCode === 'convention_catch_closed' ||
+        errorMessage.includes('new catches are closed')
+      ) {
+        throw withCatchPerformanceError(new Error(errorMessage), {
+          result: 'failed',
+          edgeRequestMs,
+          errorCode: 'convention_catch_closed',
         });
       }
       if (errorMessage.includes('Cannot catch your own')) {
@@ -329,13 +344,14 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
           new Error(
             'That tag belongs to one of your own suits. Trade codes with friends to grow your collection.',
           ),
-          { result: 'failed', edgeRequestMs },
+          { result: 'failed', edgeRequestMs, errorCode },
         );
       }
       if (errorMessage.includes('back-tag') || errorMessage.includes('Back-tag')) {
         throw withCatchPerformanceError(new Error(errorMessage), {
           result: 'failed',
           edgeRequestMs,
+          errorCode,
         });
       }
       if (errorMessage.includes('share a playable convention')) {
@@ -343,7 +359,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
           new Error(
             'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.',
           ),
-          { result: 'failed', edgeRequestMs },
+          { result: 'failed', edgeRequestMs, errorCode },
         );
       }
       if (errorMessage.includes('not accepting gallery catches')) {
@@ -351,7 +367,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
           new Error(
             'This convention is no longer accepting gallery catches. Gallery catches can be submitted during the event and for three local days after it ends.',
           ),
-          { result: 'failed', edgeRequestMs },
+          { result: 'failed', edgeRequestMs, errorCode },
         );
       }
       if (errorMessage.includes('already caught') || errorMessage.includes('pending')) {
@@ -359,7 +375,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
           new Error(
             'You already caught this suit at this convention. Try catching them at another con!',
           ),
-          { result: 'failed', edgeRequestMs },
+          { result: 'failed', edgeRequestMs, errorCode },
         );
       }
       if (errorMessage.includes('not found')) {
@@ -367,19 +383,21 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
           new Error(
             "We couldn't find a fursuit with that code. Double-check the letters and try again.",
           ),
-          { result: 'failed', edgeRequestMs },
+          { result: 'failed', edgeRequestMs, errorCode },
         );
       }
       if (response.status === 403) {
         throw withCatchPerformanceError(new Error('You cannot catch this fursuit.'), {
           result: 'failed',
           edgeRequestMs,
+          errorCode,
         });
       }
 
       throw withCatchPerformanceError(new Error("We couldn't save that catch. Please try again."), {
         result: 'failed',
         edgeRequestMs,
+        errorCode,
       });
     }
 
