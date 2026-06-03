@@ -29,12 +29,9 @@ import {
   type ReciprocalCatchOfferResult,
 } from '../../src/features/catch-confirmations';
 import {
-  CatchOutboxList,
   queueCodeCatchOutboxItem,
   updateCatchOutboxItem,
-  useCatchOutbox,
   useCatchOutboxSync,
-  type CatchOutboxItem,
 } from '../../src/features/catch-outbox';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
@@ -228,12 +225,7 @@ export default function CatchScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
-  const { visibleItems: outboxItems } = useCatchOutbox(userId);
-  const {
-    sync: syncOutbox,
-    retry: retryOutboxItem,
-    dismiss: dismissOutboxItem,
-  } = useCatchOutboxSync(userId, queryClient);
+  const { sync: syncOutbox } = useCatchOutboxSync(userId, queryClient);
   const {
     conventionMemberships,
     activeConventionIds,
@@ -348,19 +340,6 @@ export default function CatchScreen() {
         ? reciprocalPickerItems.filter((item) => item.conventionIds.includes(lastCatchConventionId))
         : [],
     [lastCatchConventionId, reciprocalPickerItems],
-  );
-
-  const handleEditOutboxCode = useCallback(
-    (item: CatchOutboxItem) => {
-      if (!item.fursuitCode) {
-        return;
-      }
-
-      setCodeInput(item.fursuitCode);
-      setSubmitError(null);
-      resetCatchState();
-    },
-    [resetCatchState],
   );
 
   // Clear caught fursuit state when user navigates away
@@ -775,14 +754,6 @@ export default function CatchScreen() {
           need to memorize or share their code to be caught.
         </Text>
       </View>
-
-      <CatchOutboxList
-        items={outboxItems}
-        compact
-        onRetry={retryOutboxItem}
-        onDismiss={dismissOutboxItem}
-        onEditCode={handleEditOutboxCode}
-      />
 
       {!caughtFursuit && userId ? (
         <View style={styles.photoCatchSpacing}>

@@ -40,14 +40,11 @@ const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => 
       );
     case 'catch':
       return (
-        <View>
-          <Ionicons
-            name={focused ? 'scan' : 'scan-outline'}
-            size={22}
-            color={color}
-          />
-          <TabBadge count={options?.outboxCount ?? 0} />
-        </View>
+        <Ionicons
+          name={focused ? 'scan' : 'scan-outline'}
+          size={22}
+          color={color}
+        />
       );
     case 'suits':
       return (
@@ -57,7 +54,7 @@ const iconForRoute = (name: string, focused: boolean, options?: IconOptions) => 
             size={22}
             color={color}
           />
-          <TabBadge count={options?.pendingCatchCount ?? 0} />
+          <TabBadge count={(options?.pendingCatchCount ?? 0) + (options?.outboxCount ?? 0)} />
         </View>
       );
     case 'settings':

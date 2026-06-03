@@ -21,11 +21,6 @@ import {
   PendingConfirmationsList,
   useMyPendingCatches,
 } from '../../src/features/catch-confirmations';
-import {
-  CatchOutboxList,
-  useCatchOutbox,
-  useCatchOutboxSync,
-} from '../../src/features/catch-outbox';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { PullToRefreshHint } from '../../src/components/ui/PullToRefreshHint';
@@ -96,13 +91,6 @@ export default function CaughtSuitsScreen() {
   const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
-  const { visibleItems: outboxItems } = useCatchOutbox(userId);
-  const {
-    sync: syncOutbox,
-    retry: retryOutboxItem,
-    dismiss: dismissOutboxItem,
-  } = useCatchOutboxSync(userId, queryClient);
-
   const { data: myPendingCatches = [], refetch: refetchMyPendingCatches } = useMyPendingCatches();
 
   const {
@@ -164,8 +152,6 @@ export default function CaughtSuitsScreen() {
         return;
       }
 
-      void syncOutbox();
-
       const state = queryClient.getQueryState<CaughtCollection>(caughtCollectionKey);
 
       if (
@@ -175,16 +161,12 @@ export default function CaughtSuitsScreen() {
       ) {
         void refetch({ throwOnError: false });
       }
-    }, [caughtCollectionKey, queryClient, refetch, syncOutbox, userId]),
+    }, [caughtCollectionKey, queryClient, refetch, userId]),
   );
 
   const handleRefresh = useCallback(async () => {
-    await Promise.all([
-      syncOutbox({ force: true }),
-      refetch({ throwOnError: false }),
-      refetchMyPendingCatches(),
-    ]);
-  }, [refetch, refetchMyPendingCatches, syncOutbox]);
+    await Promise.all([refetch({ throwOnError: false }), refetchMyPendingCatches()]);
+  }, [refetch, refetchMyPendingCatches]);
 
   const errorMessage = error?.message ?? null;
   const pullHint = usePullToRefreshHint({ isRefreshing: isRefetching });
@@ -438,11 +420,6 @@ export default function CaughtSuitsScreen() {
         <View>
           <PullToRefreshHint state={pullHint.state} />
           <ListHeader />
-          <CatchOutboxList
-            items={outboxItems}
-            onRetry={retryOutboxItem}
-            onDismiss={dismissOutboxItem}
-          />
           <PendingConfirmationsList pendingCatches={myPendingCatches} />
           {FilterControls}
         </View>

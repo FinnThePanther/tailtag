@@ -19,6 +19,11 @@ import {
   useConfirmCatch,
   usePendingCatches,
 } from '../../../src/features/catch-confirmations';
+import {
+  CatchOutboxList,
+  useCatchOutbox,
+  useCatchOutboxSync,
+} from '../../../src/features/catch-outbox';
 import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
 import type { FursuitSummary } from '../../../src/features/suits';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
@@ -46,6 +51,12 @@ export default function MySuitsScreen() {
   const scrollRef = useRef<ScrollView>(null);
 
   const queryClient = useQueryClient();
+  const { visibleItems: outboxItems } = useCatchOutbox(userId);
+  const {
+    sync: syncOutbox,
+    retry: retryOutboxItem,
+    dismiss: dismissOutboxItem,
+  } = useCatchOutboxSync(userId, queryClient);
   const {
     data: suits = [],
     error,
@@ -98,6 +109,8 @@ export default function MySuitsScreen() {
         return;
       }
 
+      void syncOutbox();
+
       const state = queryClient.getQueryState<FursuitSummary[]>(suitsQueryKey);
 
       if (
@@ -117,12 +130,24 @@ export default function MySuitsScreen() {
       ) {
         void refetchPendingCatches();
       }
-    }, [pendingCatchesKey, queryClient, refetch, refetchPendingCatches, suitsQueryKey, userId]),
+    }, [
+      pendingCatchesKey,
+      queryClient,
+      refetch,
+      refetchPendingCatches,
+      suitsQueryKey,
+      syncOutbox,
+      userId,
+    ]),
   );
 
   const handleRefresh = useCallback(async () => {
-    await Promise.all([refetch({ throwOnError: false }), refetchPendingCatches()]);
-  }, [refetch, refetchPendingCatches]);
+    await Promise.all([
+      syncOutbox({ force: true }),
+      refetch({ throwOnError: false }),
+      refetchPendingCatches(),
+    ]);
+  }, [refetch, refetchPendingCatches, syncOutbox]);
 
   const isRefreshing = isRefetching || isPendingCatchesRefetching;
   const pullHint = usePullToRefreshHint({ isRefreshing });
@@ -227,6 +252,12 @@ export default function MySuitsScreen() {
       }
     >
       <PullToRefreshHint state={pullHint.state} />
+
+      <CatchOutboxList
+        items={outboxItems}
+        onRetry={retryOutboxItem}
+        onDismiss={dismissOutboxItem}
+      />
 
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Your suits</Text>
