@@ -270,6 +270,7 @@ async function processCatchEvent(
     distinctConventions,
     uniqueCatchersForFursuitLifetime,
     distinctConventionsForFursuit,
+    distinctConventionsForCatcherFursuit,
     hasMakerMatchWithCatcherOwnedSuit,
     distinctSelfMadeFursuitsCaught,
     isNewMakerForCatcherAtConvention,
@@ -284,6 +285,7 @@ async function processCatchEvent(
     fursuitOwnerId
       ? countDistinctConventionsForFursuit(supabaseAdmin, fursuitId)
       : Promise.resolve(0),
+    countDistinctConventionsForCatcherFursuit(supabaseAdmin, catcherId, fursuitId),
     hasCatcherOwnedMakerMatch(supabaseAdmin, catcherId, makerMetadata.normalizedMakerNames),
     countDistinctSelfMadeFursuitsCaught(supabaseAdmin, catcherId),
     primaryConventionId && makerMetadata.normalizedMakerNames.length > 0
@@ -413,6 +415,7 @@ async function processCatchEvent(
       uniqueCatchersForFursuitLifetime,
       distinctLocalDaysForFursuitAtConvention,
       distinctConventionsForFursuit,
+      distinctConventionsForCatcherFursuit,
       catchesByCatcherToday,
       distinctMakersCaughtAtConvention,
       distinctSelfMadeFursuitsCaught,
@@ -1487,6 +1490,29 @@ async function countDistinctConventionsForFursuit(
   });
   if (error) {
     console.error('[events-ingress] Failed counting distinct conventions for fursuit', {
+      fursuitId,
+      error,
+    });
+    return 0;
+  }
+  return Number(data ?? 0);
+}
+
+async function countDistinctConventionsForCatcherFursuit(
+  supabaseAdmin: SupabaseClient<any, 'public', any>,
+  catcherId: string,
+  fursuitId: string,
+) {
+  const { data, error } = await supabaseAdmin.rpc(
+    'count_distinct_conventions_for_catcher_fursuit',
+    {
+      p_catcher_id: catcherId,
+      p_fursuit_id: fursuitId,
+    },
+  );
+  if (error) {
+    console.error('[events-ingress] Failed counting distinct conventions for catcher/fursuit', {
+      catcherId,
       fursuitId,
       error,
     });

@@ -573,6 +573,33 @@ export const catchRules: CatchRuleDefinition[] = [
     },
   },
   {
+    ruleId: ACHIEVEMENT_RULE_IDS.FAMILIAR_FACE,
+    achievementKey: 'FAMILIAR_FACE',
+    eventType: 'catch_performed',
+    metadata: {
+      displayName: 'Familiar Face',
+      description: 'Catch the same fursuit at 2 different conventions.',
+      category: 'dedication',
+      recipientRole: 'catcher',
+      canEvaluateClient: false,
+      resetMode: 'none',
+    },
+    requiredStats: ['distinctConventionsForCatcherFursuit'],
+    evaluate(context) {
+      return context.stats.distinctConventionsForCatcherFursuit >= 2
+        ? awardSingle(
+            context,
+            ACHIEVEMENT_RULE_IDS.FAMILIAR_FACE,
+            'FAMILIAR_FACE',
+            context.catcherId,
+            {
+              distinct_conventions: context.stats.distinctConventionsForCatcherFursuit,
+            },
+          )
+        : [];
+    },
+  },
+  {
     ruleId: ACHIEVEMENT_RULE_IDS.MAKER_MATCH,
     achievementKey: 'MAKER_MATCH',
     eventType: 'catch_performed',
