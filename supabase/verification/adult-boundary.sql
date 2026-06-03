@@ -275,7 +275,7 @@ BEGIN
       NULL,
       'https://example.supabase.co/storage/v1/object/authenticated/fursuit-avatars/adult-boundary/suit-restricted-suit.jpg',
       'adults_only',
-      false,
+      false
     ),
     (
       v_public_suit,
@@ -285,7 +285,7 @@ BEGIN
       'adult-boundary/public-suit.jpg',
       'https://example.supabase.co/storage/v1/object/authenticated/fursuit-avatars/adult-boundary/public-suit.jpg',
       'everyone',
-      false,
+      false
     );
 
   INSERT INTO public.fursuit_colors (id, name)
@@ -380,7 +380,7 @@ BEGIN
     catch_number,
     caught_at,
     catch_photo_path,
-    catch_photo_url,
+    catch_photo_url
   )
   VALUES
     (
@@ -391,7 +391,7 @@ BEGIN
       1,
       now(),
       NULL,
-      'https://example.supabase.co/storage/v1/object/authenticated/catch-photos/adult-boundary/restricted-catch.jpg',
+      'https://example.supabase.co/storage/v1/object/authenticated/catch-photos/adult-boundary/restricted-catch.jpg'
     ),
     (v_adult, v_profile_restricted_suit, v_convention, 'ACCEPTED', 2, now(), NULL, NULL),
     (
@@ -402,7 +402,7 @@ BEGIN
       3,
       now(),
       'adult-boundary/public-catch.jpg',
-      'https://example.supabase.co/storage/v1/object/authenticated/catch-photos/adult-boundary/public-catch.jpg',
+      'https://example.supabase.co/storage/v1/object/authenticated/catch-photos/adult-boundary/public-catch.jpg'
     );
 
   INSERT INTO storage.buckets (id, name, public)
