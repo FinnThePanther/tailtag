@@ -192,9 +192,9 @@ The 3-fursuit limit is enforced at multiple layers to prevent leaderboard manipu
 - Count check in onboarding (`/src/features/onboarding/api/onboarding.ts`)
 
 **Server-Side:**
-- RLS policy on `fursuits` table prevents INSERT if user has 3+ non-tutorial fursuits
+    - RLS policy on `fursuits` table prevents INSERT if user has 5+ non-tutorial fursuits
 - Helper function `count_user_fursuits(user_id)` used by RLS policy
-- Tutorial fursuits (`is_tutorial = true`) bypass the limit check
+    - Tutorial fursuits (tracked in `tutorial_fursuits` table) bypass the limit check via `is_tutorial_fursuit()` helper
 
 **API Layer:**
 - `fetchMySuitsCount(userId)` - Efficient count query in `/src/features/suits/api/mySuits.ts`
