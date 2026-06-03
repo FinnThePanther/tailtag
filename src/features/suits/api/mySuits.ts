@@ -25,6 +25,19 @@ export async function fetchMySuits(
   includeUniqueCodes = true,
 ): Promise<FursuitSummary[]> {
   const client = supabase as any;
+
+  if (!includeUniqueCodes) {
+    const { data, error } = await client.rpc('get_profile_fursuits', {
+      p_profile_id: userId,
+    });
+
+    if (error) {
+      throw new Error(`We couldn't load fursuits: ${error.message}`);
+    }
+
+    return mapFursuitRows(data ?? [], false);
+  }
+
   const { data, error } = await client
     .from('fursuits')
     .select(
@@ -37,6 +50,7 @@ export async function fetchMySuits(
       description,
       ${includeUniqueCodes ? 'unique_code,' : ''}
       visibility_audience,
+      owner_attribution_visibility,
       catch_count,
       created_at,
       species_entry:fursuit_species (
@@ -97,16 +111,18 @@ export async function fetchMySuits(
     throw new Error(`We couldn't load your suits: ${error.message}`);
   }
 
-  const makersByFursuitId = await fetchFursuitMakersByFursuitIds(
-    (data ?? []).map((item: any) => item.id),
-  );
+  return mapFursuitRows(data ?? [], includeUniqueCodes);
+}
 
-  return (data ?? []).map((item: any) => {
+async function mapFursuitRows(rows: any[], includeUniqueCodes: boolean): Promise<FursuitSummary[]> {
+  const makersByFursuitId = await fetchFursuitMakersByFursuitIds(rows.map((item: any) => item.id));
+
+  return rows.map((item: any) => {
     const conventions = mapFursuitConventionAppearances(item.fursuit_conventions ?? []);
 
     const bio = applyProfileSocialLinksToBio(
-      mapLatestFursuitBio(item.fursuit_bios ?? null),
-      parseSocialLinks(item.owner_profile?.social_links ?? null),
+      mapLatestFursuitBio(item.fursuit_bios ?? item.fursuit_bio ?? null),
+      parseSocialLinks(item.owner_profile?.social_links ?? item.owner_social_links ?? null),
     );
     const speciesEntry = item.species_entry ?? null;
     const speciesName = speciesEntry?.name ?? null;
@@ -129,6 +145,8 @@ export async function fetchMySuits(
       description: item.description ?? null,
       unique_code: includeUniqueCodes ? (item.unique_code ?? null) : null,
       visibility_audience: normalizeVisibilityAudience(item.visibility_audience),
+      ownerAttributionVisibility:
+        item.owner_attribution_visibility === 'hidden' ? 'hidden' : 'public',
       catchCount: typeof item.catch_count === 'number' ? item.catch_count : 0,
       created_at: item.created_at ?? null,
       conventions,

@@ -3,10 +3,10 @@ import {
   applyProfileSocialLinksToBio,
   mapFursuitConventionAppearances,
   mapFursuitColors,
+  mapFursuitMakers,
   mapLatestFursuitBio,
   parseSocialLinks,
 } from './utils';
-import { fetchFursuitMakersByFursuitIds } from './makers';
 import type { FursuitDetail } from '../types';
 import { captureHandledMessage } from '../../../lib/sentry';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
@@ -21,82 +21,20 @@ export const fursuitDetailQueryKey = (fursuitId: string, viewerId?: string | nul
 
 export async function fetchFursuitDetail(
   fursuitId: string,
-  viewerId?: string | null,
+  _viewerId?: string | null,
 ): Promise<FursuitDetail> {
   const client = supabase as any;
-  const { data, error } = await client
-    .from('fursuits')
-    .select(
-      `
-      id,
-      owner_id,
-      name,
-      species_id,
-      avatar_path,
-      avatar_url,
-      description,
-      visibility_audience,
-      catch_count,
-      created_at,
-      species_entry:fursuit_species (
-        id,
-        name,
-        normalized_name
-      ),
-      color_assignments:fursuit_color_assignments (
-        position,
-        color:fursuit_colors (
-          id,
-          name,
-          normalized_name
-        )
-      ),
-      fursuit_conventions:fursuit_conventions (
-        roster_visible,
-        roster_state,
-        active_until,
-        convention:conventions (
-          id,
-          slug,
-          name,
-          location,
-          start_date,
-          end_date,
-          timezone,
-          status,
-          finalizing_started_at,
-          closeout_not_before,
-          latitude,
-          longitude,
-          geofence_radius_meters,
-          geofence_enabled,
-          location_verification_required
-        )
-      ),
-      fursuit_bios (
-        version,
-        owner_name,
-        photo_credit,
-        pronouns,
-        likes_and_interests,
-        ask_me_about,
-        social_links,
-        created_at,
-        updated_at
-      ),
-      owner_profile:profiles!fursuits_owner_id_fkey (
-        social_links
-      )
-    `,
-    )
-    .eq('id', fursuitId)
-    .maybeSingle();
+  const { data, error } = await client.rpc('get_fursuit_detail', {
+    p_fursuit_id: fursuitId,
+  });
 
   if (error) {
     throw new Error("We couldn't load that fursuit right now. Please try again.");
   }
 
-  if (!data) {
+  const row = Array.isArray(data) ? data[0] : data;
+
+  if (!row) {
     captureHandledMessage(
       'Fursuit detail not found',
       {
@@ -108,43 +46,26 @@ export async function fetchFursuitDetail(
     throw new Error('Fursuit unavailable');
   }
 
-  const conventions = mapFursuitConventionAppearances(data.fursuit_conventions ?? []);
+  const conventions = mapFursuitConventionAppearances(row.fursuit_conventions ?? []);
 
-  const profileSocialLinks = parseSocialLinks(data.owner_profile?.social_links ?? null);
+  const profileSocialLinks = parseSocialLinks(row.owner_social_links ?? null);
   const bio = applyProfileSocialLinksToBio(
-    mapLatestFursuitBio(data.fursuit_bios ?? null),
+    mapLatestFursuitBio(row.fursuit_bio ?? null),
     profileSocialLinks,
   );
-  const speciesEntry = data.species_entry ?? null;
+  const speciesEntry = row.species_entry ?? null;
   const speciesName = speciesEntry?.name ?? null;
-  const speciesId = speciesEntry?.id ?? data.species_id ?? null;
-  const colors = mapFursuitColors(data.color_assignments ?? null);
-  const makersByFursuitId = await fetchFursuitMakersByFursuitIds([data.id]);
-  const makers = makersByFursuitId.get(data.id) ?? [];
-  let uniqueCode: string | null = null;
+  const speciesId = speciesEntry?.id ?? row.species_id ?? null;
+  const colors = mapFursuitColors(row.color_assignments ?? null);
+  const makers = mapFursuitMakers(row.makers ?? null);
 
-  if (viewerId && data.owner_id === viewerId) {
-    const { data: codeData, error: codeError } = await client
-      .from('fursuits')
-      .select('unique_code')
-      .eq('id', data.id)
-      .eq('owner_id', viewerId)
-      .maybeSingle();
-
-    if (codeError) {
-      throw new Error("We couldn't load that fursuit right now. Please try again.");
-    }
-
-    uniqueCode = codeData?.unique_code ?? null;
-  }
-
-  let resolvedCatchCount = typeof data.catch_count === 'number' ? data.catch_count : 0;
+  let resolvedCatchCount = typeof row.catch_count === 'number' ? row.catch_count : 0;
 
   if (resolvedCatchCount <= 0) {
     const { count: fallbackCount, error: fallbackError } = await client
       .from('catches')
       .select('id', { head: true, count: 'exact' })
-      .eq('fursuit_id', data.id)
+      .eq('fursuit_id', row.id)
       .eq('status', 'ACCEPTED');
 
     if (fallbackError) {
@@ -155,23 +76,24 @@ export async function fetchFursuitDetail(
   }
 
   return {
-    id: data.id,
-    owner_id: data.owner_id,
-    name: data.name,
+    id: row.id,
+    owner_id: row.owner_id,
+    name: row.name,
     species: speciesName,
     speciesId: speciesId,
     colors,
-    avatar_path: data.avatar_path ?? null,
+    avatar_path: row.avatar_path ?? null,
     avatar_url: resolveStorageMediaUrl({
       bucket: FURSUIT_BUCKET,
-      path: data.avatar_path ?? null,
-      legacyUrl: data.avatar_url ?? null,
+      path: row.avatar_path ?? null,
+      legacyUrl: row.avatar_url ?? null,
     }),
-    description: data.description ?? null,
-    unique_code: uniqueCode,
-    visibility_audience: normalizeVisibilityAudience(data.visibility_audience),
+    description: row.description ?? null,
+    unique_code: row.unique_code ?? null,
+    visibility_audience: normalizeVisibilityAudience(row.visibility_audience),
+    ownerAttributionVisibility: row.owner_attribution_visibility === 'hidden' ? 'hidden' : 'public',
     catchCount: resolvedCatchCount,
-    created_at: data.created_at ?? null,
+    created_at: row.created_at ?? null,
     conventions,
     makers,
     bio,

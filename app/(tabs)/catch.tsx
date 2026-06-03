@@ -64,7 +64,7 @@ type PostCatchFursuit = {
   id: string | null;
   name: string;
   avatar_url: string | null;
-  owner_id: string;
+  owner_id: string | null;
   catch_count: number;
   bio: FursuitBio | null;
 };

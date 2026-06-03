@@ -6,14 +6,16 @@ import { Table } from '@/components/table';
 import { fetchConventions, fetchPlayerProfile, fetchUserBlocks } from '@/lib/data';
 import { ModerationPanel } from '@/components/moderation-panel';
 import { requireAdminDataContext } from '@/lib/auth';
+import { setFeatureFlagProfileOverrideAction } from '../../feature-flags/actions';
 
 export default async function PlayerDetail({ params }: { params: { id: string } }) {
-  const { supabase } = await requireAdminDataContext();
-  const [{ profile, moderationSummary, actions }, conventions, blocks] = await Promise.all([
-    fetchPlayerProfile(supabase, params.id),
-    fetchConventions(supabase),
-    fetchUserBlocks(supabase, params.id),
-  ]);
+  const { supabase, profile: adminProfile } = await requireAdminDataContext();
+  const [{ profile, moderationSummary, actions, flagOverrides }, conventions, blocks] =
+    await Promise.all([
+      fetchPlayerProfile(supabase, params.id),
+      fetchConventions(supabase),
+      fetchUserBlocks(supabase, params.id),
+    ]);
 
   if (!profile) {
     notFound();
@@ -83,6 +85,19 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
           conventions={conventions}
         />
       </div>
+
+      <Card
+        title="Feature access"
+        subtitle="Per-player beta rollout overrides"
+      >
+        <FeatureFlagOverrideForm
+          profileId={profile.id}
+          canManage={adminProfile.role === 'owner' || adminProfile.role === 'organizer'}
+          override={(flagOverrides as any[]).find(
+            (entry) => entry.feature_key === 'anonymous_fursuits',
+          )}
+        />
+      </Card>
 
       <Card
         title="User blocks"
@@ -159,6 +174,92 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
           ) : null}
         </Table>
       </Card>
+    </div>
+  );
+}
+
+function FeatureFlagOverrideForm({
+  profileId,
+  canManage,
+  override,
+}: {
+  profileId: string;
+  canManage: boolean;
+  override?: {
+    feature_key: string;
+    enabled: boolean;
+    reason: string | null;
+    updated_at: string | null;
+  };
+}) {
+  const status = override
+    ? override.enabled
+      ? 'Force enabled'
+      : 'Force disabled'
+    : 'Default rollout';
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-3">
+        <Info
+          label="Anonymous fursuits"
+          value={status}
+        />
+        <Info
+          label="Reason"
+          value={override?.reason ?? '-'}
+        />
+        <Info
+          label="Updated"
+          value={override?.updated_at ? new Date(override.updated_at).toLocaleString() : '-'}
+        />
+      </div>
+      {canManage ? (
+        <form
+          action={setFeatureFlagProfileOverrideAction}
+          className="flex flex-wrap items-end gap-3"
+        >
+          <input
+            type="hidden"
+            name="feature_key"
+            value="anonymous_fursuits"
+          />
+          <input
+            type="hidden"
+            name="profile_id"
+            value={profileId}
+          />
+          <label className="grid gap-1 text-sm text-slate-200">
+            Override
+            <select
+              name="override_action"
+              defaultValue={override ? (override.enabled ? 'enable' : 'disable') : 'clear'}
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-white"
+            >
+              <option value="enable">Force enable</option>
+              <option value="disable">Force disable</option>
+              <option value="clear">Use default rollout</option>
+            </select>
+          </label>
+          <label className="grid min-w-64 flex-1 gap-1 text-sm text-slate-200">
+            Reason
+            <input
+              name="reason"
+              defaultValue={override?.reason ?? ''}
+              placeholder="Pilot cohort, support request, or rollout note"
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-white"
+            />
+          </label>
+          <button
+            type="submit"
+            className="rounded-md border border-primary/40 px-4 py-2 text-sm font-semibold text-primary"
+          >
+            Save override
+          </button>
+        </form>
+      ) : (
+        <p className="text-sm text-muted">Only owners and organizers can manage feature access.</p>
+      )}
     </div>
   );
 }

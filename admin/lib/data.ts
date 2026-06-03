@@ -106,7 +106,12 @@ export async function fetchPlayerSearch(
 }
 
 export async function fetchPlayerProfile(supabase: ServiceRoleClient, userId: string) {
-  const [{ data: profile }, { data: moderationSummary }, { data: actions }] = await Promise.all([
+  const [
+    { data: profile },
+    { data: moderationSummary },
+    { data: actions },
+    { data: flagOverrides },
+  ] = await Promise.all([
     supabase
       .from('profiles')
       .select(
@@ -123,6 +128,11 @@ export async function fetchPlayerProfile(supabase: ServiceRoleClient, userId: st
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(10),
+    (supabase as any)
+      .from('feature_flag_profile_overrides')
+      .select('feature_key, enabled, reason, created_at, updated_at')
+      .eq('profile_id', userId)
+      .order('feature_key', { ascending: true }),
   ]);
 
   return {
@@ -137,7 +147,21 @@ export async function fetchPlayerProfile(supabase: ServiceRoleClient, userId: st
       : null,
     moderationSummary,
     actions,
+    flagOverrides: flagOverrides ?? [],
   };
+}
+
+export async function fetchFeatureFlags(supabase: ServiceRoleClient) {
+  const { data, error } = await (supabase as any)
+    .from('feature_flags')
+    .select('key, description, enabled, rollout_percentage, config, created_at, updated_at')
+    .order('key', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
 }
 
 export async function fetchConventions(supabase: ServiceRoleClient): Promise<ConventionListRow[]> {

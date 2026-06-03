@@ -77,6 +77,20 @@ export const styles = StyleSheet.create({
   helperColumn: {
     gap: spacing.sm,
   },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderMuted,
+    backgroundColor: colors.surfaceInset,
+    padding: spacing.md,
+  },
+  switchText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
   colorSelectedList: {
     flexDirection: 'row',
     flexWrap: 'wrap',

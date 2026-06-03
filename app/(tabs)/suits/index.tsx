@@ -416,9 +416,13 @@ export default function MySuitsScreen() {
         ) : hasSuits ? (
           <View style={styles.list}>
             {suits.map((suit, index) => {
-              const timelineLabel = suit.created_at
+              const addedLabel = suit.created_at
                 ? `Added on ${toDisplayDate(suit.created_at)}`
                 : null;
+              const timelineLabel =
+                suit.ownerAttributionVisibility === 'hidden'
+                  ? [addedLabel, 'Owner hidden publicly'].filter(Boolean).join(' · ')
+                  : addedLabel;
 
               return (
                 <View
