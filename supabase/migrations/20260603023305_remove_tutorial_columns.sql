@@ -4,11 +4,80 @@ drop view if exists public.mv_fursuit_popularity;
 drop materialized view if exists public.mv_catches_hourly;
 drop materialized view if exists public.mv_convention_daily_stats;
 
+create table if not exists public.tutorial_fursuits (
+  fursuit_id uuid primary key references public.fursuits(id) on delete cascade,
+  created_at timestamp with time zone not null default now()
+);
+
+alter table public.tutorial_fursuits enable row level security;
+revoke all on public.tutorial_fursuits from anon, authenticated;
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'fursuits'
+      and column_name = 'is_tutorial'
+  ) then
+    execute '
+      insert into public.tutorial_fursuits (fursuit_id)
+      select id
+      from public.fursuits
+      where coalesce(is_tutorial, false) = true
+      on conflict (fursuit_id) do nothing
+    ';
+  end if;
+end $$;
+
+create or replace function public.is_tutorial_fursuit(p_fursuit_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path to 'public', 'pg_temp'
+as $$
+  select exists (
+    select 1
+    from public.tutorial_fursuits
+    where tutorial_fursuits.fursuit_id = p_fursuit_id
+  );
+$$;
+
+grant execute on function public.is_tutorial_fursuit(uuid) to authenticated, service_role;
+
+create or replace function public.count_user_fursuits(p_user_id uuid)
+returns integer
+language sql
+stable
+security definer
+set search_path to 'public', 'pg_temp'
+as $$
+  select count(*)::integer
+  from public.fursuits
+  where owner_id = p_user_id
+    and not public.is_tutorial_fursuit(id);
+$$;
+
+drop policy if exists "Users can insert their own fursuits with limit"
+  on public.fursuits;
+
 alter table public.catches
   drop column if exists is_tutorial;
 
 alter table public.fursuits
   drop column if exists is_tutorial;
+
+create policy "Users can insert their own fursuits with limit"
+on public.fursuits
+for insert
+to authenticated
+with check (
+  owner_id = auth.uid()
+  and not public.is_tutorial_fursuit(id)
+  and public.count_user_fursuits(auth.uid()) < 5
+);
 
 create materialized view public.mv_catches_hourly as
 select
