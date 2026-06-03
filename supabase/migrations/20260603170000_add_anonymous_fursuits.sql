@@ -111,7 +111,7 @@ AS $function$
           p_viewer_id = auth.uid()
           AND (
             p_viewer_id = f.owner_id
-            OR viewer_profile.role IN ('owner', 'moderator')
+            OR public.is_elevated_privacy_viewer(p_viewer_id)
             OR f.owner_attribution_visibility = 'public'
           )
         )

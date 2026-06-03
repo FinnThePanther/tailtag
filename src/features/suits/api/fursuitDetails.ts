@@ -8,7 +8,7 @@ import {
   parseSocialLinks,
 } from './utils';
 import type { FursuitDetail } from '../types';
-import { captureHandledMessage } from '../../../lib/sentry';
+import { captureHandledMessage, captureSupabaseError } from '../../../lib/sentry';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 import { normalizeVisibilityAudience } from '@/features/adult-boundary';
@@ -29,6 +29,10 @@ export async function fetchFursuitDetail(
   });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'suits.fetchFursuitDetail',
+      fursuitId,
+    });
     throw new Error("We couldn't load that fursuit right now. Please try again.");
   }
 

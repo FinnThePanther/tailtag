@@ -1045,6 +1045,7 @@ export default function EditFursuitScreen() {
             name: previousName,
             species_id: previousSpeciesId,
             visibility_audience: previousVisibilityAudience,
+            owner_attribution_visibility: detail.ownerAttributionVisibility,
             unique_code: previousUniqueCode,
             avatar_path: previousAvatarPath,
             avatar_url: previousAvatarUrl,

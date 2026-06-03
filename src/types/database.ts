@@ -2656,11 +2656,11 @@ export type Database = {
           makers: Json
           name: string
           owner_attribution_visibility: string
-          owner_id: string
+          owner_id: string | null
           owner_social_links: Json
           species_entry: Json
           species_id: string
-          unique_code: string
+          unique_code: string | null
           visibility_audience: string
         }[]
       }
