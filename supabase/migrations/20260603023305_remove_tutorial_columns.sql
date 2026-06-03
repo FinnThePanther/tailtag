@@ -108,6 +108,13 @@ select
   count(*) filter (where status = 'PENDING'::text) as pending_count,
   count(*) filter (where status = 'REJECTED'::text) as rejected_count
 from public.catches
+where not exists (
+  select 1
+  from public.audit_log
+  where audit_log.entity_type = 'catch'::text
+    and audit_log.entity_id = catches.id
+    and audit_log.action = 'simulate_catch'::text
+)
 group by convention_id, date_trunc('day'::text, caught_at);
 
 create index idx_catches_hourly_convention
