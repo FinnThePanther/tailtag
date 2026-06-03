@@ -66,6 +66,7 @@ export interface CatchEventContext {
     uniqueCatchersForFursuitLifetime: number;
     distinctLocalDaysForFursuitAtConvention: number;
     distinctConventionsForFursuit: number;
+    distinctConventionsForCatcherFursuit: number;
     catchesByCatcherToday: number;
     distinctMakersCaughtAtConvention: number;
     distinctSelfMadeFursuitsCaught: number;

@@ -2267,6 +2267,10 @@ export type Database = {
         Returns: number
       }
       count_distinct_conventions: { Args: { user_id: string }; Returns: number }
+      count_distinct_conventions_for_catcher_fursuit: {
+        Args: { p_catcher_id: string; p_fursuit_id: string }
+        Returns: number
+      }
       count_distinct_conventions_for_fursuit: {
         Args: { p_fursuit_id: string }
         Returns: number
