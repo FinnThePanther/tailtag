@@ -3024,10 +3024,6 @@ export type Database = {
         }[]
       }
       refresh_analytics_views: { Args: never; Returns: undefined }
-      refresh_fursuit_popularity: {
-        Args: { convention_uuid?: string }
-        Returns: undefined
-      }
       register_push_token: {
         Args: { p_expo_push_token: string; p_user_id: string }
         Returns: undefined
