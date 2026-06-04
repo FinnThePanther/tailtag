@@ -242,7 +242,6 @@ BEGIN
     avatar_path,
     avatar_url,
     visibility_audience,
-    is_tutorial,
     is_flagged
   )
   VALUES (
@@ -253,7 +252,6 @@ BEGIN
     'adult-boundary/profile-restricted-suit.jpg',
     'https://example.supabase.co/storage/v1/object/authenticated/fursuit-avatars/adult-boundary/profile-restricted-suit.jpg',
     'everyone',
-    false,
     false
   );
 
@@ -266,7 +264,6 @@ BEGIN
     avatar_path,
     avatar_url,
     visibility_audience,
-    is_tutorial,
     is_flagged
   )
   VALUES
@@ -278,7 +275,6 @@ BEGIN
       NULL,
       'https://example.supabase.co/storage/v1/object/authenticated/fursuit-avatars/adult-boundary/suit-restricted-suit.jpg',
       'adults_only',
-      false,
       false
     ),
     (
@@ -289,7 +285,6 @@ BEGIN
       'adult-boundary/public-suit.jpg',
       'https://example.supabase.co/storage/v1/object/authenticated/fursuit-avatars/adult-boundary/public-suit.jpg',
       'everyone',
-      false,
       false
     );
 
@@ -385,8 +380,7 @@ BEGIN
     catch_number,
     caught_at,
     catch_photo_path,
-    catch_photo_url,
-    is_tutorial
+    catch_photo_url
   )
   VALUES
     (
@@ -397,10 +391,9 @@ BEGIN
       1,
       now(),
       NULL,
-      'https://example.supabase.co/storage/v1/object/authenticated/catch-photos/adult-boundary/restricted-catch.jpg',
-      false
+      'https://example.supabase.co/storage/v1/object/authenticated/catch-photos/adult-boundary/restricted-catch.jpg'
     ),
-    (v_adult, v_profile_restricted_suit, v_convention, 'ACCEPTED', 2, now(), NULL, NULL, false),
+    (v_adult, v_profile_restricted_suit, v_convention, 'ACCEPTED', 2, now(), NULL, NULL),
     (
       v_minor,
       v_public_suit,
@@ -409,8 +402,7 @@ BEGIN
       3,
       now(),
       'adult-boundary/public-catch.jpg',
-      'https://example.supabase.co/storage/v1/object/authenticated/catch-photos/adult-boundary/public-catch.jpg',
-      false
+      'https://example.supabase.co/storage/v1/object/authenticated/catch-photos/adult-boundary/public-catch.jpg'
     );
 
   INSERT INTO storage.buckets (id, name, public)

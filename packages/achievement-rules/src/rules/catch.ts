@@ -503,7 +503,7 @@ export const catchRules: CatchRuleDefinition[] = [
     eventType: 'catch_performed',
     metadata: {
       displayName: 'Early Bird',
-      description: 'Make a catch before 9 AM local convention time.',
+      description: 'Make a catch from 5:00-8:59 AM local convention time.',
       category: 'dedication',
       recipientRole: 'catcher',
       canEvaluateClient: false,
@@ -567,6 +567,33 @@ export const catchRules: CatchRuleDefinition[] = [
             context.catcherId,
             {
               catches_today: context.stats.catchesByCatcherToday,
+            },
+          )
+        : [];
+    },
+  },
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.FAMILIAR_FACE,
+    achievementKey: 'FAMILIAR_FACE',
+    eventType: 'catch_performed',
+    metadata: {
+      displayName: 'Familiar Face',
+      description: 'Catch the same fursuit at 2 different conventions.',
+      category: 'dedication',
+      recipientRole: 'catcher',
+      canEvaluateClient: false,
+      resetMode: 'none',
+    },
+    requiredStats: ['distinctConventionsForCatcherFursuit'],
+    evaluate(context) {
+      return context.stats.distinctConventionsForCatcherFursuit >= 2
+        ? awardSingle(
+            context,
+            ACHIEVEMENT_RULE_IDS.FAMILIAR_FACE,
+            'FAMILIAR_FACE',
+            context.catcherId,
+            {
+              distinct_conventions: context.stats.distinctConventionsForCatcherFursuit,
             },
           )
         : [];

@@ -22,14 +22,16 @@ import { colors } from '../../../src/theme';
 import { styles } from '../../../src/app-styles/conventions/roster.styles';
 
 type RosterFilter = 'all' | 'not-caught' | 'caught';
+type RosterDisplayEntry = ConventionSuitRosterViewEntry & {
+  isOwnedByCurrentUser: boolean;
+};
 
 const formatCount = (count: number, singular: string, plural = `${singular}s`) =>
   count === 1 ? `1 ${singular}` : `${count} ${plural}`;
 
-const colorLine = (entry: ConventionSuitRosterViewEntry) =>
-  entry.colors.map((color) => color.name).join(', ');
+const colorLine = (entry: RosterDisplayEntry) => entry.colors.map((color) => color.name).join(', ');
 
-const buildSearchText = (entry: ConventionSuitRosterViewEntry) =>
+const buildSearchText = (entry: RosterDisplayEntry) =>
   [entry.name, entry.species, entry.ownerUsername, ...entry.colors.map((color) => color.name)]
     .filter((value): value is string => Boolean(value))
     .join(' ')
@@ -77,13 +79,14 @@ export default function ConventionSuitRosterScreen() {
         },
   );
 
-  const rosterEntries = useMemo<ConventionSuitRosterViewEntry[]>(
+  const rosterEntries = useMemo<RosterDisplayEntry[]>(
     () =>
       rosterMetadataEntries.map((entry) => ({
         ...entry,
         caughtByCurrentUser: caughtFursuitIds.has(entry.fursuitId),
+        isOwnedByCurrentUser: Boolean(userId) && entry.ownerProfileId === userId,
       })),
-    [caughtFursuitIds, rosterMetadataEntries],
+    [caughtFursuitIds, rosterMetadataEntries, userId],
   );
 
   useEffect(() => {
@@ -168,11 +171,12 @@ export default function ConventionSuitRosterScreen() {
   }, [conventionId, queryClient, userId]);
 
   const counts = useMemo(() => {
-    const caught = rosterEntries.filter((entry) => entry.caughtByCurrentUser).length;
+    const catchableEntries = rosterEntries.filter((entry) => !entry.isOwnedByCurrentUser);
+    const caught = catchableEntries.filter((entry) => entry.caughtByCurrentUser).length;
 
     return {
       all: rosterEntries.length,
-      notCaught: rosterEntries.length - caught,
+      notCaught: catchableEntries.length - caught,
       caught,
     };
   }, [rosterEntries]);
@@ -182,13 +186,19 @@ export default function ConventionSuitRosterScreen() {
 
     return rosterEntries
       .filter((entry) => {
-        if (activeFilter === 'not-caught' && entry.caughtByCurrentUser) return false;
-        if (activeFilter === 'caught' && !entry.caughtByCurrentUser) return false;
+        if (activeFilter === 'not-caught') {
+          if (entry.isOwnedByCurrentUser || entry.caughtByCurrentUser) return false;
+        }
+        if (activeFilter === 'caught') {
+          if (entry.isOwnedByCurrentUser || !entry.caughtByCurrentUser) return false;
+        }
         if (!normalizedSearch) return true;
         return buildSearchText(entry).includes(normalizedSearch);
       })
       .sort((a, b) => {
-        const notCaughtDiff = Number(!b.caughtByCurrentUser) - Number(!a.caughtByCurrentUser);
+        const notCaughtDiff =
+          Number(!b.isOwnedByCurrentUser && !b.caughtByCurrentUser) -
+          Number(!a.isOwnedByCurrentUser && !a.caughtByCurrentUser);
         if (notCaughtDiff !== 0) return notCaughtDiff;
 
         const nameDiff = a.name.localeCompare(b.name);
@@ -218,10 +228,23 @@ export default function ConventionSuitRosterScreen() {
   }, [refetchCaughtIds, refetchRoster]);
 
   const renderRosterEntry = useCallback(
-    ({ item: entry }: { item: ConventionSuitRosterViewEntry }) => {
+    ({ item: entry }: { item: RosterDisplayEntry }) => {
       const colorsText = colorLine(entry);
       const metaParts = [entry.species, colorsText].filter(Boolean);
       const ownerText = entry.ownerUsername ? `@${entry.ownerUsername}` : 'Unnamed player';
+      const statusBadge = entry.isOwnedByCurrentUser ? (
+        <View style={[styles.badge, styles.badgeOwn]}>
+          <Text style={[styles.badgeText, styles.badgeTextOwn]}>Your Suit</Text>
+        </View>
+      ) : entry.caughtByCurrentUser ? (
+        <View style={[styles.badge, styles.badgeSuccess]}>
+          <Text style={[styles.badgeText, styles.badgeTextSuccess]}>Caught</Text>
+        </View>
+      ) : (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>Not caught</Text>
+        </View>
+      );
 
       return (
         <Pressable
@@ -269,15 +292,7 @@ export default function ConventionSuitRosterScreen() {
               </Text>
             ) : null}
             <View style={styles.badgeRow}>
-              {entry.caughtByCurrentUser ? (
-                <View style={[styles.badge, styles.badgeSuccess]}>
-                  <Text style={[styles.badgeText, styles.badgeTextSuccess]}>Caught</Text>
-                </View>
-              ) : (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>Not caught</Text>
-                </View>
-              )}
+              {statusBadge}
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
                   {formatCount(entry.conventionCatchCount, 'catch', 'catches')}

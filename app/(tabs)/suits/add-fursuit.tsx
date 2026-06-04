@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, Switch, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
 import { useRouter } from 'expo-router';
@@ -75,6 +75,11 @@ import {
   type EditableFursuitMaker,
 } from '../../../src/features/suits/forms/makers';
 import { styles } from '../../../src/app-styles/(tabs)/suits/add-fursuit.styles';
+import {
+  ANONYMOUS_FURSUITS_FEATURE_KEY,
+  featureFlagQueryKey,
+  isFeatureEnabledForProfile,
+} from '../../../src/features/feature-flags';
 
 type UploadCandidate = {
   uri: string;
@@ -87,6 +92,7 @@ const PRONOUN_OPTIONS = [
   'he/him',
   'she/her',
   'they/them',
+  'it/its',
   'he/they',
   'she/they',
   'any pronouns',
@@ -145,6 +151,17 @@ export default function AddFursuitScreen() {
     enabled: Boolean(userId),
   });
 
+  const { data: anonymousFursuitsEnabled = false } = useQuery({
+    queryKey: userId
+      ? featureFlagQueryKey(ANONYMOUS_FURSUITS_FEATURE_KEY, userId)
+      : [ANONYMOUS_FURSUITS_FEATURE_KEY, 'guest'],
+    queryFn: () => isFeatureEnabledForProfile(ANONYMOUS_FURSUITS_FEATURE_KEY, userId!),
+    enabled: Boolean(userId),
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
   const isAtFursuitLimit = suitCount >= MAX_FURSUITS_PER_USER;
 
   const [nameInput, setNameInput] = useState('');
@@ -156,6 +173,7 @@ export default function AddFursuitScreen() {
   const [likesInput, setLikesInput] = useState('');
   const [askMeAboutInput, setAskMeAboutInput] = useState('');
   const [makers, setMakers] = useState<EditableFursuitMaker[]>(() => createInitialFursuitMakers());
+  const [hideOwnerPublicly, setHideOwnerPublicly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -625,13 +643,18 @@ export default function AddFursuitScreen() {
 
       for (let attempt = 0; attempt < UNIQUE_INSERT_ATTEMPTS; attempt += 1) {
         const uniqueCode = await ensureUniqueCode();
-        const payload: FursuitsInsert & { avatar_path?: string | null } = {
+        const payload: FursuitsInsert & {
+          avatar_path?: string | null;
+          owner_attribution_visibility?: 'public' | 'hidden';
+        } = {
           owner_id: userId,
           name: trimmedName,
           species_id: speciesRecord.id,
           avatar_path: avatarPath,
           avatar_url: avatarUrl,
           unique_code: uniqueCode,
+          owner_attribution_visibility:
+            anonymousFursuitsEnabled && hideOwnerPublicly ? 'hidden' : 'public',
         };
         const { data: inserted, error } = await (supabase as any)
           .from('fursuits')
@@ -726,6 +749,7 @@ export default function AddFursuitScreen() {
       setLikesInput('');
       setAskMeAboutInput('');
       setMakers(createInitialFursuitMakers());
+      setHideOwnerPublicly(false);
       setSelectedConventionIds(new Set());
       setConventionRosterSettingsById({});
       setHasHydratedConventions(true);
@@ -876,6 +900,29 @@ export default function AddFursuitScreen() {
             </View>
             {photoError ? <Text style={styles.errorText}>{photoError}</Text> : null}
           </View>
+
+          {anonymousFursuitsEnabled ? (
+            <View style={styles.fieldGroup}>
+              <View style={styles.switchRow}>
+                <View style={styles.switchText}>
+                  <Text style={styles.label}>Hide owner publicly</Text>
+                  <Text style={styles.helperLabel}>
+                    Players can still catch this suit, but they will not see that it belongs to you.
+                  </Text>
+                </View>
+                <Switch
+                  value={hideOwnerPublicly}
+                  onValueChange={setHideOwnerPublicly}
+                  disabled={isSubmitting}
+                  accessibilityRole="switch"
+                  accessibilityLabel="Hide owner publicly"
+                  accessibilityHint="Controls whether other players can see you own this fursuit."
+                  trackColor={{ false: colors.borderStrong, true: colors.primaryBorder }}
+                  thumbColor={hideOwnerPublicly ? colors.primary : colors.textMuted}
+                />
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Photo credit</Text>

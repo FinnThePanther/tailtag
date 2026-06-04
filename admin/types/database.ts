@@ -307,6 +307,101 @@ export type Database = {
           },
         ];
       };
+      catch_reciprocal_offers: {
+        Row: {
+          convention_id: string;
+          created_at: string;
+          failure_reason: string | null;
+          id: string;
+          offered_by_profile_id: string;
+          offered_fursuit_id: string;
+          primary_catch_id: string;
+          processed_at: string | null;
+          recipient_profile_id: string;
+          reciprocal_catch_id: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          convention_id: string;
+          created_at?: string;
+          failure_reason?: string | null;
+          id?: string;
+          offered_by_profile_id: string;
+          offered_fursuit_id: string;
+          primary_catch_id: string;
+          processed_at?: string | null;
+          recipient_profile_id: string;
+          reciprocal_catch_id?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          convention_id?: string;
+          created_at?: string;
+          failure_reason?: string | null;
+          id?: string;
+          offered_by_profile_id?: string;
+          offered_fursuit_id?: string;
+          primary_catch_id?: string;
+          processed_at?: string | null;
+          recipient_profile_id?: string;
+          reciprocal_catch_id?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'catch_reciprocal_offers_convention_id_fkey';
+            columns: ['convention_id'];
+            isOneToOne: false;
+            referencedRelation: 'conventions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_reciprocal_offers_offered_by_profile_id_fkey';
+            columns: ['offered_by_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_reciprocal_offers_offered_fursuit_id_fkey';
+            columns: ['offered_fursuit_id'];
+            isOneToOne: false;
+            referencedRelation: 'fursuits';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_reciprocal_offers_offered_fursuit_id_fkey';
+            columns: ['offered_fursuit_id'];
+            isOneToOne: false;
+            referencedRelation: 'fursuits_moderation';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_reciprocal_offers_primary_catch_id_fkey';
+            columns: ['primary_catch_id'];
+            isOneToOne: false;
+            referencedRelation: 'catches';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_reciprocal_offers_recipient_profile_id_fkey';
+            columns: ['recipient_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_reciprocal_offers_reciprocal_catch_id_fkey';
+            columns: ['reciprocal_catch_id'];
+            isOneToOne: false;
+            referencedRelation: 'catches';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       catches: {
         Row: {
           catch_number: number | null;
@@ -322,7 +417,6 @@ export type Database = {
           expires_at: string | null;
           fursuit_id: string;
           id: string;
-          is_tutorial: boolean;
           photo_upload_state: string;
           rejection_reason: string | null;
           status: string;
@@ -341,7 +435,6 @@ export type Database = {
           expires_at?: string | null;
           fursuit_id: string;
           id?: string;
-          is_tutorial?: boolean;
           photo_upload_state?: string;
           rejection_reason?: string | null;
           status?: string;
@@ -360,7 +453,6 @@ export type Database = {
           expires_at?: string | null;
           fursuit_id?: string;
           id?: string;
-          is_tutorial?: boolean;
           photo_upload_state?: string;
           rejection_reason?: string | null;
           status?: string;
@@ -1164,11 +1256,11 @@ export type Database = {
           flagged_reason: string | null;
           id: string;
           is_flagged: boolean;
-          is_tutorial: boolean;
           name: string;
           owner_id: string;
           species_id: string | null;
           unique_code: string;
+          visibility_audience: string;
         };
         Insert: {
           avatar_path?: string | null;
@@ -1181,11 +1273,11 @@ export type Database = {
           flagged_reason?: string | null;
           id?: string;
           is_flagged?: boolean;
-          is_tutorial?: boolean;
           name: string;
           owner_id: string;
           species_id?: string | null;
           unique_code: string;
+          visibility_audience?: string;
         };
         Update: {
           avatar_path?: string | null;
@@ -1198,11 +1290,11 @@ export type Database = {
           flagged_reason?: string | null;
           id?: string;
           is_flagged?: boolean;
-          is_tutorial?: boolean;
           name?: string;
           owner_id?: string;
           species_id?: string | null;
           unique_code?: string;
+          visibility_audience?: string;
         };
         Relationships: [
           {
@@ -1323,6 +1415,8 @@ export type Database = {
       };
       profiles: {
         Row: {
+          age_confirmed_at: string | null;
+          age_gate_version: number;
           avatar_path: string | null;
           avatar_url: string | null;
           bio: string | null;
@@ -1331,6 +1425,7 @@ export type Database = {
           default_catch_mode: string;
           expo_push_token: string | null;
           id: string;
+          is_adult: boolean | null;
           is_new: boolean;
           is_suspended: boolean;
           location_permission_granted_at: string | null;
@@ -1345,8 +1440,11 @@ export type Database = {
           suspension_reason: string | null;
           updated_at: string | null;
           username: string | null;
+          visibility_audience: string;
         };
         Insert: {
+          age_confirmed_at?: string | null;
+          age_gate_version?: number;
           avatar_path?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
@@ -1355,6 +1453,7 @@ export type Database = {
           default_catch_mode?: string;
           expo_push_token?: string | null;
           id: string;
+          is_adult?: boolean | null;
           is_new?: boolean;
           is_suspended?: boolean;
           location_permission_granted_at?: string | null;
@@ -1369,8 +1468,11 @@ export type Database = {
           suspension_reason?: string | null;
           updated_at?: string | null;
           username?: string | null;
+          visibility_audience?: string;
         };
         Update: {
+          age_confirmed_at?: string | null;
+          age_gate_version?: number;
           avatar_path?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
@@ -1379,6 +1481,7 @@ export type Database = {
           default_catch_mode?: string;
           expo_push_token?: string | null;
           id?: string;
+          is_adult?: boolean | null;
           is_new?: boolean;
           is_suspended?: boolean;
           location_permission_granted_at?: string | null;
@@ -1393,6 +1496,7 @@ export type Database = {
           suspension_reason?: string | null;
           updated_at?: string | null;
           username?: string | null;
+          visibility_audience?: string;
         };
         Relationships: [];
       };
@@ -1952,24 +2056,6 @@ export type Database = {
       };
     };
     Views: {
-      catch_mode_default_experiment_results: {
-        Row: {
-          accepted_catches_after_exposure: number | null;
-          assigned_profiles: number | null;
-          catches_after_exposure: number | null;
-          current_auto_profiles: number | null;
-          current_manual_profiles: number | null;
-          defaults_applied: number | null;
-          experiment_key: string | null;
-          exposed_profiles: number | null;
-          fursuits_created_after_exposure: number | null;
-          pending_catches_after_exposure: number | null;
-          switch_away_rate: number | null;
-          switched_away_profiles: number | null;
-          variant: string | null;
-        };
-        Relationships: [];
-      };
       fursuits_moderation: {
         Row: {
           created_at: string | null;
@@ -2066,77 +2152,6 @@ export type Database = {
           },
         ];
       };
-      mv_convention_leaderboard: {
-        Row: {
-          catch_count: number | null;
-          catcher_id: string | null;
-          convention_id: string | null;
-          first_catch_at: string | null;
-          last_catch_at: string | null;
-          unique_fursuits: number | null;
-          unique_species: number | null;
-          username: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'catches_catcher_id_fkey';
-            columns: ['catcher_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'catches_convention_id_fkey';
-            columns: ['convention_id'];
-            isOneToOne: false;
-            referencedRelation: 'conventions';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      mv_fursuit_popularity: {
-        Row: {
-          catch_count: number | null;
-          convention_id: string | null;
-          first_caught_at: string | null;
-          fursuit_avatar_url: string | null;
-          fursuit_id: string | null;
-          fursuit_name: string | null;
-          last_caught_at: string | null;
-          owner_id: string | null;
-          unique_catchers: number | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'catches_convention_id_fkey';
-            columns: ['convention_id'];
-            isOneToOne: false;
-            referencedRelation: 'conventions';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'catches_fursuit_id_fkey';
-            columns: ['fursuit_id'];
-            isOneToOne: false;
-            referencedRelation: 'fursuits';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'catches_fursuit_id_fkey';
-            columns: ['fursuit_id'];
-            isOneToOne: false;
-            referencedRelation: 'fursuits_moderation';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'fursuits_owner_id_fkey';
-            columns: ['owner_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
     };
     Functions: {
       archive_gameplay_event_queue_message: {
@@ -2160,6 +2175,42 @@ export type Database = {
       calculate_convention_closeout_not_before: {
         Args: { p_end_date: string; p_timezone: string };
         Returns: string;
+      };
+      can_catch_fursuit: {
+        Args: { p_catcher_id: string; p_fursuit_id: string };
+        Returns: boolean;
+      };
+      can_catch_fursuit_as_profile: {
+        Args: { p_catcher_id: string; p_fursuit_id: string };
+        Returns: boolean;
+      };
+      can_view_catch_photo_object: {
+        Args: { p_object_name: string; p_viewer_id: string };
+        Returns: boolean;
+      };
+      can_view_fursuit: {
+        Args: { p_fursuit_id: string; p_viewer_id: string };
+        Returns: boolean;
+      };
+      can_view_fursuit_as_profile: {
+        Args: { p_fursuit_id: string; p_viewer_id: string };
+        Returns: boolean;
+      };
+      can_view_fursuit_avatar_object: {
+        Args: { p_object_name: string; p_viewer_id: string };
+        Returns: boolean;
+      };
+      can_view_profile: {
+        Args: { p_target_id: string; p_viewer_id: string };
+        Returns: boolean;
+      };
+      can_view_profile_as_profile: {
+        Args: { p_target_id: string; p_viewer_id: string };
+        Returns: boolean;
+      };
+      can_view_profile_avatar_object: {
+        Args: { p_object_name: string; p_viewer_id: string };
+        Returns: boolean;
       };
       claim_unprocessed_events: {
         Args: { p_batch_size?: number; p_min_age_seconds?: number };
@@ -2210,6 +2261,10 @@ export type Database = {
         Returns: number;
       };
       count_distinct_conventions: { Args: { user_id: string }; Returns: number };
+      count_distinct_conventions_for_catcher_fursuit: {
+        Args: { p_catcher_id: string; p_fursuit_id: string };
+        Returns: number;
+      };
       count_distinct_conventions_for_fursuit: {
         Args: { p_fursuit_id: string };
         Returns: number;
@@ -2243,6 +2298,14 @@ export type Database = {
         Returns: number;
       };
       count_user_fursuits: { Args: { p_user_id: string }; Returns: number };
+      create_catch_reciprocal_offer: {
+        Args: {
+          p_offered_by_profile_id: string;
+          p_offered_fursuit_id: string;
+          p_primary_catch_id: string;
+        };
+        Returns: Json;
+      };
       create_catch_with_approval: {
         Args: {
           p_catch_photo_source?: string;
@@ -2250,7 +2313,6 @@ export type Database = {
           p_convention_id?: string;
           p_force_pending?: boolean;
           p_fursuit_id: string;
-          p_is_tutorial?: boolean;
         };
         Returns: Json;
       };
@@ -2264,7 +2326,6 @@ export type Database = {
           p_convention_id?: string;
           p_force_pending?: boolean;
           p_fursuit_id: string;
-          p_is_tutorial?: boolean;
           p_photo_upload_state?: string;
         };
         Returns: Json;
@@ -2290,6 +2351,10 @@ export type Database = {
           last_seen: string;
           scan_count: number;
         }[];
+      };
+      ensure_own_profile_exists: {
+        Args: { p_username?: string };
+        Returns: undefined;
       };
       execute_data_retention_cleanup: { Args: never; Returns: Json };
       expire_bans: { Args: never; Returns: Json };
@@ -2344,6 +2409,35 @@ export type Database = {
           id: string;
         }[];
       };
+      get_catch_detail: {
+        Args: { p_catch_id: string };
+        Returns: {
+          catch_id: string;
+          catch_number: number;
+          catch_photo_path: string;
+          catch_photo_url: string;
+          caught_at: string;
+          color_assignments: Json;
+          convention: Json;
+          convention_id: string;
+          fursuit_avatar_path: string;
+          fursuit_avatar_url: string;
+          fursuit_bio: Json;
+          fursuit_catch_count: number;
+          fursuit_created_at: string;
+          fursuit_description: string;
+          fursuit_id: string;
+          fursuit_name: string;
+          fursuit_owner_id: string;
+          fursuit_redacted: boolean;
+          fursuit_unique_code: string;
+          fursuit_visibility_audience: string;
+          makers: Json;
+          owner_social_links: Json;
+          species_id: string;
+          species_name: string;
+        }[];
+      };
       get_convention_leaderboard: {
         Args: { p_convention_id?: string };
         Returns: {
@@ -2352,6 +2446,7 @@ export type Database = {
           convention_id: string;
           first_catch_at: string;
           last_catch_at: string;
+          profile_redacted: boolean;
           unique_fursuits: number;
           unique_species: number;
           username: string;
@@ -2371,8 +2466,8 @@ export type Database = {
           automation_retry_attempts_last_7_days: number;
           convention_id: string;
           convention_tasks_count: number;
-          last_automation_attempt_at: string | null;
-          last_automation_source: string | null;
+          last_automation_attempt_at: string;
+          last_automation_source: string;
           participant_recaps_count: number;
           pending_convention_catches_count: number;
           recent_cron_close_attempt: boolean;
@@ -2390,6 +2485,7 @@ export type Database = {
           fursuit_avatar_url: string;
           fursuit_id: string;
           fursuit_name: string;
+          fursuit_redacted: boolean;
           last_caught_at: string;
           owner_id: string;
           species_id: string;
@@ -2430,6 +2526,16 @@ export type Database = {
           pending_approval: number;
           total_achievements: number;
           total_catches: number;
+        }[];
+      };
+      get_fursuit_catches: {
+        Args: { p_fursuit_id: string };
+        Returns: {
+          catch_id: string;
+          catch_photo_path: string;
+          catch_photo_url: string;
+          caught_at: string;
+          is_redacted: boolean;
         }[];
       };
       get_fursuit_convention_stats: {
@@ -2481,6 +2587,35 @@ export type Database = {
           start_date: string;
           status: string;
           timezone: string;
+        }[];
+      };
+      get_my_caught_suits: {
+        Args: never;
+        Returns: {
+          catch_id: string;
+          catch_number: number;
+          catch_photo_path: string;
+          catch_photo_url: string;
+          caught_at: string;
+          color_assignments: Json;
+          convention: Json;
+          convention_id: string;
+          fursuit_avatar_path: string;
+          fursuit_avatar_url: string;
+          fursuit_bio: Json;
+          fursuit_catch_count: number;
+          fursuit_created_at: string;
+          fursuit_description: string;
+          fursuit_id: string;
+          fursuit_name: string;
+          fursuit_owner_id: string;
+          fursuit_redacted: boolean;
+          fursuit_unique_code: string;
+          fursuit_visibility_audience: string;
+          makers: Json;
+          owner_social_links: Json;
+          species_id: string;
+          species_name: string;
         }[];
       };
       get_my_convention_memberships: {
@@ -2576,6 +2711,10 @@ export type Database = {
           fursuit_id: string;
           fursuit_name: string;
           photo_upload_state: string;
+          reciprocal_fursuit_avatar_url: string;
+          reciprocal_fursuit_id: string;
+          reciprocal_fursuit_name: string;
+          reciprocal_offer_id: string;
           time_remaining: string;
         }[];
       };
@@ -2627,6 +2766,7 @@ export type Database = {
       };
       is_admin: { Args: { user_id: string }; Returns: boolean };
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean };
+      is_adult_profile: { Args: { p_profile_id: string }; Returns: boolean };
       is_blocked: {
         Args: { p_user_a: string; p_user_b: string };
         Returns: boolean;
@@ -2645,6 +2785,10 @@ export type Database = {
       };
       is_convention_prejoinable: {
         Args: { p_convention_id: string };
+        Returns: boolean;
+      };
+      is_elevated_privacy_viewer: {
+        Args: { p_profile_id: string };
         Returns: boolean;
       };
       is_event_staff: {
@@ -2717,6 +2861,10 @@ export type Database = {
         Returns: undefined;
       };
       process_achievement_queue_if_active: { Args: never; Returns: undefined };
+      process_catch_reciprocal_offer: {
+        Args: { p_offer_id: string };
+        Returns: Json;
+      };
       process_gameplay_queue_if_active: { Args: never; Returns: undefined };
       purge_geo_verification_data: { Args: never; Returns: Json };
       read_gameplay_event_queue: {
@@ -2732,6 +2880,10 @@ export type Database = {
       refresh_analytics_views: { Args: never; Returns: undefined };
       refresh_fursuit_popularity: {
         Args: { convention_uuid?: string };
+        Returns: undefined;
+      };
+      register_push_token: {
+        Args: { p_expo_push_token: string; p_user_id: string };
         Returns: undefined;
       };
       remove_fursuit_from_convention: {
@@ -2792,6 +2944,27 @@ export type Database = {
           closeout_not_before: string;
           convention_id: string;
           finalizing_started_at: string;
+        }[];
+      };
+      transition_started_conventions_to_live: {
+        Args: { p_now?: string };
+        Returns: {
+          convention_id: string;
+          started_at: string;
+        }[];
+      };
+      validate_catch_reciprocal_offer: {
+        Args: {
+          p_offered_by_profile_id: string;
+          p_offered_fursuit_id: string;
+          p_primary_catch_id: string;
+        };
+        Returns: {
+          convention_id: string;
+          offered_fursuit_avatar_path: string;
+          offered_fursuit_avatar_url: string;
+          offered_fursuit_name: string;
+          recipient_profile_id: string;
         }[];
       };
       verify_and_opt_in_to_convention: {

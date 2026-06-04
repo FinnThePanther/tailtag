@@ -13,6 +13,8 @@ type StaticPushNotificationType = Exclude<PushNotificationType, 'convention_reca
 
 export type PushNotificationData = {
   type?: unknown;
+  notification_id?: unknown;
+  recipient_role?: unknown;
   recap_id?: unknown;
 };
 
@@ -46,6 +48,10 @@ export const getDeepLinkForNotificationData = (
   data: PushNotificationData | null | undefined,
 ): string | null => {
   const type = data?.type;
+
+  if (type === 'catch_expired') {
+    return data?.recipient_role === 'catcher' ? '/caught' : '/suits';
+  }
 
   if (type === 'convention_recap_ready') {
     const recapId = data?.recap_id;

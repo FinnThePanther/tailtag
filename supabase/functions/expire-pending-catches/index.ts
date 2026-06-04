@@ -59,29 +59,45 @@ function respondJson(data: unknown, status = 200) {
 }
 
 /**
- * Batch insert notifications for all expired catches
+ * Insert notifications for all expired catches through the catch-notification
+ * dedupe RPC so retries and overlapping cron runs stay idempotent.
  */
-async function batchInsertNotifications(
+async function insertCatchNotifications(
   notifications: { user_id: string; type: string; payload: Record<string, unknown> }[],
 ): Promise<number> {
   if (notifications.length === 0) {
     return 0;
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('notifications')
-    .insert(notifications)
-    .select('id');
+  const results = await Promise.allSettled(
+    notifications.map((notification) =>
+      supabaseAdmin.rpc('insert_catch_notification_once', {
+        p_user_id: notification.user_id,
+        p_type: notification.type,
+        p_payload: notification.payload,
+      }),
+    ),
+  );
 
-  if (error) {
-    console.error(
-      `[expire-pending-catches] Failed to batch insert ${notifications.length} notifications:`,
+  return results.reduce((count, result, index) => {
+    if (result.status === 'fulfilled' && !result.value.error) {
+      return count + 1;
+    }
+
+    const error =
+      result.status === 'fulfilled'
+        ? result.value.error
+        : result.reason instanceof Error
+          ? result.reason
+          : new Error(String(result.reason));
+
+    console.error('[expire-pending-catches] Failed inserting catch notification:', {
+      notification: notifications[index],
       error,
-    );
-    return 0;
-  }
+    });
 
-  return data?.length ?? notifications.length;
+    return count;
+  }, 0);
 }
 
 /**
@@ -154,11 +170,10 @@ async function handleRequest(): Promise<Response> {
     // Process expired catches: batch notifications and emit events
     const expiredCatches = result.expired_catches || [];
 
-    // Build all notifications for batch insert
+    // Build all notifications for idempotent insert
     const allNotifications = expiredCatches.flatMap(buildNotificationsForExpiredCatch);
 
-    // Batch insert all notifications at once
-    const notificationsSent = await batchInsertNotifications(allNotifications);
+    const notificationsSent = await insertCatchNotifications(allNotifications);
 
     const ingestResults = await Promise.allSettled(
       expiredCatches.map(async (catchData) => {

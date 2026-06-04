@@ -29,12 +29,9 @@ import {
   type ReciprocalCatchOfferResult,
 } from '../../src/features/catch-confirmations';
 import {
-  CatchOutboxList,
   queueCodeCatchOutboxItem,
   updateCatchOutboxItem,
-  useCatchOutbox,
   useCatchOutboxSync,
-  type CatchOutboxItem,
 } from '../../src/features/catch-outbox';
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
@@ -67,7 +64,7 @@ type PostCatchFursuit = {
   id: string | null;
   name: string;
   avatar_url: string | null;
-  owner_id: string;
+  owner_id: string | null;
   catch_count: number;
   bio: FursuitBio | null;
 };
@@ -121,6 +118,16 @@ function isRetryableCatchSubmissionError(error: unknown) {
 }
 
 function catchSubmissionErrorCode(error: unknown) {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'errorCode' in error &&
+    typeof error.errorCode === 'string' &&
+    error.errorCode.trim()
+  ) {
+    return error.errorCode;
+  }
+
   if (!(error instanceof Error)) return 'unknown_error';
   const message = error.message.toLowerCase();
   if (message.includes('timed out')) return 'timeout';
@@ -131,6 +138,7 @@ function catchSubmissionErrorCode(error: unknown) {
   if (message.includes('share a playable convention') || message.includes('not catchable')) {
     return 'shared_convention_required';
   }
+  if (message.includes('new catches are closed')) return 'convention_catch_closed';
   if (message.includes('cannot catch')) return 'blocked_user';
   return 'server_rejected';
 }
@@ -217,12 +225,7 @@ export default function CatchScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
-  const { visibleItems: outboxItems } = useCatchOutbox(userId);
-  const {
-    sync: syncOutbox,
-    retry: retryOutboxItem,
-    dismiss: dismissOutboxItem,
-  } = useCatchOutboxSync(userId, queryClient);
+  const { sync: syncOutbox } = useCatchOutboxSync(userId, queryClient);
   const {
     conventionMemberships,
     activeConventionIds,
@@ -337,19 +340,6 @@ export default function CatchScreen() {
         ? reciprocalPickerItems.filter((item) => item.conventionIds.includes(lastCatchConventionId))
         : [],
     [lastCatchConventionId, reciprocalPickerItems],
-  );
-
-  const handleEditOutboxCode = useCallback(
-    (item: CatchOutboxItem) => {
-      if (!item.fursuitCode) {
-        return;
-      }
-
-      setCodeInput(item.fursuitCode);
-      setSubmitError(null);
-      resetCatchState();
-    },
-    [resetCatchState],
   );
 
   // Clear caught fursuit state when user navigates away
@@ -572,11 +562,14 @@ export default function CatchScreen() {
       const caughtWithTiming = caught as {
         catchPerformanceResult?: 'failed' | 'timeout';
         edgeRequestMs?: number | null;
+        errorCode?: string | null;
       };
       catchTrace.recordTiming('edge_request_ms', caughtWithTiming.edgeRequestMs);
       finishCatchTrace({
         result: caughtWithTiming.catchPerformanceResult ?? 'failed',
-        errorCode: caughtWithTiming.catchPerformanceResult === 'timeout' ? 'edge_timeout' : 'error',
+        errorCode:
+          caughtWithTiming.errorCode ??
+          (caughtWithTiming.catchPerformanceResult === 'timeout' ? 'edge_timeout' : 'error'),
       });
       resetCatchState();
 
@@ -761,14 +754,6 @@ export default function CatchScreen() {
           need to memorize or share their code to be caught.
         </Text>
       </View>
-
-      <CatchOutboxList
-        items={outboxItems}
-        compact
-        onRetry={retryOutboxItem}
-        onDismiss={dismissOutboxItem}
-        onEditCode={handleEditOutboxCode}
-      />
 
       {!caughtFursuit && userId ? (
         <View style={styles.photoCatchSpacing}>

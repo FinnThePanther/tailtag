@@ -9,8 +9,14 @@ import { TailTagButton } from '../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { supabase } from '../../src/lib/supabase';
+import { SUPABASE_URL } from '../../src/lib/runtimeConfig';
 import { isValidEmail, mapAuthError } from '../../src/utils/authValidation';
 import { styles } from '../../src/app-styles/(auth)/forgot-password.styles';
+
+const supabaseProjectRef = new URL(SUPABASE_URL).hostname.split('.')[0];
+const resetPasswordRedirectUrl = `https://www.playtailtag.com/reset-password?project_ref=${encodeURIComponent(
+  supabaseProjectRef,
+)}`;
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -39,7 +45,7 @@ export default function ForgotPasswordScreen() {
 
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: 'https://playtailtag.com/reset-password',
+        redirectTo: resetPasswordRedirectUrl,
       });
 
       if (resetError) {

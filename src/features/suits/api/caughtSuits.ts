@@ -55,6 +55,8 @@ export async function fetchCaughtSuits(_userId: string): Promise<CaughtRecord[]>
 export function mapCaughtRecordFromRpcRow(record: HistoricalCatchRpcRow): CaughtRecord {
   const fursuitId = typeof record.fursuit_id === 'string' ? record.fursuit_id : '';
   const fursuitRedacted = record.fursuit_redacted === true;
+  const ownerAttributionVisibility =
+    (record as any).fursuit_owner_attribution_visibility === 'hidden' ? 'hidden' : 'public';
   const fursuit = fursuitId
     ? ({
         id: fursuitId,
@@ -75,6 +77,7 @@ export function mapCaughtRecordFromRpcRow(record: HistoricalCatchRpcRow): Caught
         description: fursuitRedacted ? null : (record.fursuit_description ?? null),
         unique_code: fursuitRedacted ? null : (record.fursuit_unique_code ?? null),
         visibility_audience: normalizeVisibilityAudience(record.fursuit_visibility_audience),
+        ownerAttributionVisibility,
         catchCount:
           !fursuitRedacted && typeof record.fursuit_catch_count === 'number'
             ? record.fursuit_catch_count

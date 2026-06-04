@@ -7,6 +7,21 @@ type RecoverySessionTokens = {
   refreshToken: string;
 };
 
+type RecoverySessionParams =
+  | {
+      type: 'code';
+      code: string;
+    }
+  | {
+      type: 'token_hash';
+      tokenHash: string;
+    }
+  | {
+      type: 'tokens';
+      accessToken: string;
+      refreshToken: string;
+    };
+
 export const RECOVERY_SESSION_READY_PARAM = 'recoverySession';
 export const RECOVERY_SESSION_ERROR_PARAM = 'recoveryError';
 export const RECOVERY_SESSION_ERROR_VALUE = 'invalid';
@@ -29,6 +44,21 @@ export function consumeCompletedRecoverySessionMarker(marker: string | null) {
 export function getRecoverySessionTokens(
   url: string | null | undefined,
 ): RecoverySessionTokens | null {
+  const params = getRecoverySessionParams(url);
+
+  if (params?.type !== 'tokens') {
+    return null;
+  }
+
+  return {
+    accessToken: params.accessToken,
+    refreshToken: params.refreshToken,
+  };
+}
+
+export function getRecoverySessionParams(
+  url: string | null | undefined,
+): RecoverySessionParams | null {
   if (!url) {
     return null;
   }
@@ -39,31 +69,56 @@ export function getRecoverySessionTokens(
     return null;
   }
 
+  const code = typeof params.code === 'string' ? params.code : null;
+  const tokenHash = typeof params.token_hash === 'string' ? params.token_hash : null;
   const accessToken = typeof params.access_token === 'string' ? params.access_token : null;
   const refreshToken = typeof params.refresh_token === 'string' ? params.refresh_token : null;
   const type = typeof params.type === 'string' ? params.type : null;
+
+  if (tokenHash && type === 'recovery') {
+    return {
+      type: 'token_hash',
+      tokenHash,
+    };
+  }
+
+  if (code) {
+    return {
+      type: 'code',
+      code,
+    };
+  }
 
   if (type !== 'recovery' || !accessToken || !refreshToken) {
     return null;
   }
 
   return {
+    type: 'tokens',
     accessToken,
     refreshToken,
   };
 }
 
 export async function completeRecoverySessionFromUrl(url: string | null | undefined) {
-  const tokens = getRecoverySessionTokens(url);
+  const params = getRecoverySessionParams(url);
 
-  if (!tokens) {
+  if (!params) {
     return false;
   }
 
-  const { error } = await supabase.auth.setSession({
-    access_token: tokens.accessToken,
-    refresh_token: tokens.refreshToken,
-  });
+  const { error } =
+    params.type === 'code'
+      ? await supabase.auth.exchangeCodeForSession(params.code)
+      : params.type === 'token_hash'
+        ? await supabase.auth.verifyOtp({
+            token_hash: params.tokenHash,
+            type: 'recovery',
+          })
+        : await supabase.auth.setSession({
+            access_token: params.accessToken,
+            refresh_token: params.refreshToken,
+          });
 
   if (error) {
     throw error;

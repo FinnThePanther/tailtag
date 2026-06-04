@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, Pressable, Switch, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -74,11 +74,17 @@ import {
   type VisibilityAudience,
 } from '../../../src/features/adult-boundary';
 import { normalizeUniqueCodeInput, isValidUniqueCodeInput } from '../../../src/utils/code';
+import {
+  ANONYMOUS_FURSUITS_FEATURE_KEY,
+  featureFlagQueryKey,
+  isFeatureEnabledForProfile,
+} from '../../../src/features/feature-flags';
 
 const PRONOUN_OPTIONS = [
   'he/him',
   'she/her',
   'they/them',
+  'it/its',
   'he/they',
   'she/they',
   'any pronouns',
@@ -172,6 +178,17 @@ export default function EditFursuitScreen() {
     enabled: Boolean(userId),
   });
 
+  const { data: anonymousFursuitsEnabled = false } = useQuery({
+    queryKey: userId
+      ? featureFlagQueryKey(ANONYMOUS_FURSUITS_FEATURE_KEY, userId)
+      : [ANONYMOUS_FURSUITS_FEATURE_KEY, 'guest'],
+    queryFn: () => isFeatureEnabledForProfile(ANONYMOUS_FURSUITS_FEATURE_KEY, userId!),
+    enabled: Boolean(userId),
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
   const {
     data: profileConventionMemberships = [],
     error: profileConventionsError,
@@ -224,6 +241,8 @@ export default function EditFursuitScreen() {
     useState<VisibilityAudience>('everyone');
   const [initialVisibilityAudience, setInitialVisibilityAudience] =
     useState<VisibilityAudience>('everyone');
+  const [hideOwnerPublicly, setHideOwnerPublicly] = useState(false);
+  const [initialHideOwnerPublicly, setInitialHideOwnerPublicly] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<UploadCandidate>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -375,6 +394,8 @@ export default function EditFursuitScreen() {
     setInitialColors(resolvedColors);
     setSelectedVisibilityAudience(detail.visibility_audience);
     setInitialVisibilityAudience(detail.visibility_audience);
+    setHideOwnerPublicly(detail.ownerAttributionVisibility === 'hidden');
+    setInitialHideOwnerPublicly(detail.ownerAttributionVisibility === 'hidden');
     const normalizedCode = normalizeUniqueCodeInput(detail.unique_code ?? '');
     setCodeInput(normalizedCode);
     setInitialCode(normalizedCode);
@@ -770,6 +791,11 @@ export default function EditFursuitScreen() {
           name: trimmedName,
           species_id: speciesRecord.id,
           visibility_audience: selectedVisibilityAudience,
+          owner_attribution_visibility: anonymousFursuitsEnabled
+            ? hideOwnerPublicly
+              ? 'hidden'
+              : 'public'
+            : detail.ownerAttributionVisibility,
           ...(newAvatarPath !== undefined
             ? { avatar_path: newAvatarPath, avatar_url: newAvatarUrl }
             : {}),
@@ -921,6 +947,11 @@ export default function EditFursuitScreen() {
       setInitialColors(selectedColors);
       setInitialMakers(makers);
       setInitialVisibilityAudience(selectedVisibilityAudience);
+      setInitialHideOwnerPublicly(
+        anonymousFursuitsEnabled
+          ? hideOwnerPublicly
+          : detail.ownerAttributionVisibility === 'hidden',
+      );
 
       router.back();
     } catch (caught) {
@@ -1014,6 +1045,7 @@ export default function EditFursuitScreen() {
             name: previousName,
             species_id: previousSpeciesId,
             visibility_audience: previousVisibilityAudience,
+            owner_attribution_visibility: detail.ownerAttributionVisibility,
             unique_code: previousUniqueCode,
             avatar_path: previousAvatarPath,
             avatar_url: previousAvatarUrl,
@@ -1385,6 +1417,37 @@ export default function EditFursuitScreen() {
                   </Text>
                 ) : null}
               </View>
+
+              {anonymousFursuitsEnabled ? (
+                <View style={styles.fieldGroup}>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchText}>
+                      <Text style={styles.label}>Hide owner publicly</Text>
+                      <Text style={styles.helperLabel}>
+                        Players can still catch this suit, but they will not see that it belongs to
+                        you.
+                      </Text>
+                    </View>
+                    <Switch
+                      value={hideOwnerPublicly}
+                      onValueChange={setHideOwnerPublicly}
+                      disabled={disableForm}
+                      accessibilityRole="switch"
+                      accessibilityLabel="Hide owner publicly"
+                      accessibilityHint="Controls whether other players can see you own this fursuit."
+                      trackColor={{ false: colors.borderStrong, true: colors.primaryBorder }}
+                      thumbColor={hideOwnerPublicly ? colors.primary : colors.textMuted}
+                    />
+                  </View>
+                </View>
+              ) : initialHideOwnerPublicly ? (
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>Owner hidden publicly</Text>
+                  <Text style={styles.helperLabel}>
+                    This suit is currently hidden from public owner attribution.
+                  </Text>
+                </View>
+              ) : null}
 
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Colors</Text>

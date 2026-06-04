@@ -461,3 +461,73 @@ describe('Checked In achievement hardening', () => {
     assert.match(migration, /UPDATE public\.achievements\s+SET is_active = false/);
   });
 });
+
+describe('Early Bird achievement timing', () => {
+  it('only treats 5:00-8:59 AM local convention time as early morning', () => {
+    const source = read('supabase/functions/_shared/achievements.ts');
+    const isEarlyBirdLocalTime = new Function(
+      'localParts',
+      functionBody(source, 'isEarlyBirdLocalTime'),
+    );
+
+    assert.equal(isEarlyBirdLocalTime({ hour: 4, minute: 59 }), false);
+    assert.equal(isEarlyBirdLocalTime({ hour: 5, minute: 0 }), true);
+    assert.equal(isEarlyBirdLocalTime({ hour: 8, minute: 59 }), true);
+    assert.equal(isEarlyBirdLocalTime({ hour: 9, minute: 0 }), false);
+
+    assert.doesNotMatch(
+      source,
+      /const isEarlyMorning = localParts \? localParts\.hour < 9 : false/,
+    );
+    assert.match(
+      source,
+      /const isEarlyMorning = localParts \? isEarlyBirdLocalTime\(localParts\) : false/,
+    );
+  });
+
+  it('keeps Early Bird rule metadata aligned with the backend time window', () => {
+    const source = read('packages/achievement-rules/src/rules/catch.ts');
+
+    assert.match(source, /displayName: 'Early Bird'/);
+    assert.match(source, /description: 'Make a catch from 5:00-8:59 AM local convention time\.'/);
+    assert.match(source, /requiredStats: \['isEarlyMorning'\]/);
+  });
+});
+
+describe('Familiar Face achievement', () => {
+  it('defines the catcher-side repeat convention fursuit rule', () => {
+    const source = read('packages/achievement-rules/src/rules/catch.ts');
+
+    assert.match(source, /achievementKey: 'FAMILIAR_FACE'/);
+    assert.match(source, /displayName: 'Familiar Face'/);
+    assert.match(source, /description: 'Catch the same fursuit at 2 different conventions\.'/);
+    assert.match(source, /requiredStats: \['distinctConventionsForCatcherFursuit'\]/);
+    assert.match(
+      source,
+      /context\.stats\.distinctConventionsForCatcherFursuit >= 2[\s\S]*context\.catcherId/,
+    );
+    assert.doesNotMatch(source, /FAMILIAR_FACE[\s\S]{0,600}context\.fursuitOwnerId/);
+  });
+
+  it('collects the catcher/fursuit convention stat in the Edge Function', () => {
+    const source = read('supabase/functions/_shared/achievements.ts');
+
+    assert.match(source, /distinctConventionsForCatcherFursuit/);
+    assert.match(source, /countDistinctConventionsForCatcherFursuit/);
+    assert.match(source, /count_distinct_conventions_for_catcher_fursuit/);
+  });
+
+  it('seeds and silently backfills the achievement in the database migration', () => {
+    const migration = read('supabase/migrations/20260603022216_add_familiar_face_achievement.sql');
+
+    assert.match(
+      migration,
+      /create or replace function public\.count_distinct_conventions_for_catcher_fursuit/,
+    );
+    assert.match(migration, /'FAMILIAR_FACE'/);
+    assert.match(migration, /'Familiar Face'/);
+    assert.match(migration, /insert into public\.user_achievements/);
+    assert.match(migration, /on conflict \(user_id, achievement_id\) do nothing/);
+    assert.doesNotMatch(migration, /insert into public\.notifications/);
+  });
+});

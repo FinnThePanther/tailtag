@@ -13,7 +13,7 @@ import { PasswordStrengthIndicator } from '../src/features/auth/components/Passw
 import {
   completeRecoverySessionFromUrl,
   consumeCompletedRecoverySessionMarker,
-  getRecoverySessionTokens,
+  getRecoverySessionParams,
   RECOVERY_SESSION_ERROR_PARAM,
   RECOVERY_SESSION_ERROR_VALUE,
   RECOVERY_SESSION_READY_PARAM,
@@ -90,9 +90,9 @@ export default function ResetPasswordScreen() {
           return;
         }
 
-        const hasRecoveryTokens = Boolean(getRecoverySessionTokens(incomingUrl));
+        const hasRecoverySession = Boolean(getRecoverySessionParams(incomingUrl));
 
-        if (hasRecoveryTokens) {
+        if (hasRecoverySession) {
           await completeRecoverySessionFromUrl(incomingUrl);
 
           if (isMounted) {
