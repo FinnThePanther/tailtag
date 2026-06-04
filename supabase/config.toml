@@ -139,6 +139,9 @@ additional_redirect_urls = [
   "tailtag:///reset-password",
   "https://playtailtag.com/reset-password",
   "https://www.playtailtag.com/reset-password",
+  "https://www.playtailtag.com/reset-password?project_ref=rtxbvjicfxgcouufumce",
+  "https://www.playtailtag.com/reset-password?project_ref=yjsadmswobafychfpoxe",
+  "https://www.playtailtag.com/reset-password?project_ref=dowtlhkzbxxmiflpswvd",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
