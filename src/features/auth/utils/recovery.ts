@@ -13,6 +13,10 @@ type RecoverySessionParams =
       code: string;
     }
   | {
+      type: 'token_hash';
+      tokenHash: string;
+    }
+  | {
       type: 'tokens';
       accessToken: string;
       refreshToken: string;
@@ -66,9 +70,17 @@ export function getRecoverySessionParams(
   }
 
   const code = typeof params.code === 'string' ? params.code : null;
+  const tokenHash = typeof params.token_hash === 'string' ? params.token_hash : null;
   const accessToken = typeof params.access_token === 'string' ? params.access_token : null;
   const refreshToken = typeof params.refresh_token === 'string' ? params.refresh_token : null;
   const type = typeof params.type === 'string' ? params.type : null;
+
+  if (tokenHash && type === 'recovery') {
+    return {
+      type: 'token_hash',
+      tokenHash,
+    };
+  }
 
   if (code) {
     return {
@@ -98,10 +110,15 @@ export async function completeRecoverySessionFromUrl(url: string | null | undefi
   const { error } =
     params.type === 'code'
       ? await supabase.auth.exchangeCodeForSession(params.code)
-      : await supabase.auth.setSession({
-          access_token: params.accessToken,
-          refresh_token: params.refreshToken,
-        });
+      : params.type === 'token_hash'
+        ? await supabase.auth.verifyOtp({
+            token_hash: params.tokenHash,
+            type: 'recovery',
+          })
+        : await supabase.auth.setSession({
+            access_token: params.accessToken,
+            refresh_token: params.refreshToken,
+          });
 
   if (error) {
     throw error;

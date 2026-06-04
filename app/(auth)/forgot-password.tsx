@@ -39,7 +39,7 @@ export default function ForgotPasswordScreen() {
 
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: 'https://playtailtag.com/reset-password',
+        redirectTo: 'https://www.playtailtag.com/reset-password',
       });
 
       if (resetError) {
