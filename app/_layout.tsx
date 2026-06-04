@@ -41,7 +41,7 @@ import { TailTagButton } from '../src/components/ui/TailTagButton';
 import {
   completeRecoverySessionFromUrl,
   getCompletedRecoverySessionMarker,
-  getRecoverySessionTokens,
+  getRecoverySessionParams,
   RECOVERY_SESSION_ERROR_PARAM,
   RECOVERY_SESSION_ERROR_VALUE,
   RECOVERY_SESSION_READY_PARAM,
@@ -315,9 +315,9 @@ function RootLayoutNav() {
       }
 
       try {
-        const hasRecoveryTokens = Boolean(getRecoverySessionTokens(incomingUrl));
+        const hasRecoverySession = Boolean(getRecoverySessionParams(incomingUrl));
 
-        if (!hasRecoveryTokens) {
+        if (!hasRecoverySession) {
           return;
         }
 
