@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import type { Database, FursuitsRow, Json } from '@/types/database';
 import type { FursuitSummary } from '../types';
 import {
   applyProfileSocialLinksToBio,
@@ -11,6 +12,88 @@ import { fetchFursuitMakersByFursuitIds } from './makers';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 import { normalizeVisibilityAudience } from '@/features/adult-boundary';
+import { captureSupabaseError } from '@/lib/sentry';
+
+type ProfileFursuitsRpcRow =
+  Database['public']['Functions']['get_profile_fursuits']['Returns'][number];
+type FursuitSpeciesRow = Pick<
+  Database['public']['Tables']['fursuit_species']['Row'],
+  'id' | 'name' | 'normalized_name'
+>;
+type FursuitColorRow = Pick<
+  Database['public']['Tables']['fursuit_colors']['Row'],
+  'id' | 'name' | 'normalized_name'
+>;
+type ConventionRow = Pick<
+  Database['public']['Tables']['conventions']['Row'],
+  | 'id'
+  | 'slug'
+  | 'name'
+  | 'location'
+  | 'start_date'
+  | 'end_date'
+  | 'timezone'
+  | 'status'
+  | 'finalizing_started_at'
+  | 'closeout_not_before'
+  | 'latitude'
+  | 'longitude'
+  | 'geofence_radius_meters'
+  | 'geofence_enabled'
+  | 'location_verification_required'
+>;
+type FursuitBioRow = Pick<
+  Database['public']['Tables']['fursuit_bios']['Row'],
+  | 'version'
+  | 'owner_name'
+  | 'photo_credit'
+  | 'pronouns'
+  | 'likes_and_interests'
+  | 'ask_me_about'
+  | 'social_links'
+  | 'created_at'
+  | 'updated_at'
+>;
+type TableFursuitRow = Pick<
+  FursuitsRow,
+  | 'id'
+  | 'name'
+  | 'species_id'
+  | 'avatar_path'
+  | 'avatar_url'
+  | 'description'
+  | 'unique_code'
+  | 'visibility_audience'
+  | 'owner_attribution_visibility'
+  | 'catch_count'
+  | 'created_at'
+> & {
+  species_entry: FursuitSpeciesRow | null;
+  color_assignments:
+    | {
+        position: number;
+        color: FursuitColorRow | null;
+      }[]
+    | null;
+  fursuit_conventions:
+    | {
+        roster_visible: boolean;
+        roster_state: string;
+        active_until: string | null;
+        convention: ConventionRow | null;
+      }[]
+    | null;
+  fursuit_bios: FursuitBioRow[] | null;
+  owner_profile: { social_links: Json | null } | null;
+};
+
+const isSpeciesEntry = (value: unknown): value is Pick<FursuitSpeciesRow, 'id' | 'name'> =>
+  typeof value === 'object' &&
+  value !== null &&
+  'id' in value &&
+  typeof value.id === 'string' &&
+  'name' in value &&
+  typeof value.name === 'string';
 
 export const MY_SUITS_QUERY_KEY = 'my-suits';
 export const MY_SUITS_COUNT_QUERY_KEY = 'my-suits-count';
@@ -25,6 +108,23 @@ export async function fetchMySuits(
   includeUniqueCodes = true,
 ): Promise<FursuitSummary[]> {
   const client = supabase as any;
+
+  if (!includeUniqueCodes) {
+    const { data, error } = await client.rpc('get_profile_fursuits', {
+      p_profile_id: userId,
+    });
+
+    if (error) {
+      captureSupabaseError(error, {
+        scope: 'suits.fetchMySuits.getProfileFursuits',
+        userId,
+      });
+      throw new Error(`We couldn't load fursuits: ${error.message}`);
+    }
+
+    return mapFursuitRows(data ?? [], false);
+  }
+
   const { data, error } = await client
     .from('fursuits')
     .select(
@@ -37,6 +137,7 @@ export async function fetchMySuits(
       description,
       ${includeUniqueCodes ? 'unique_code,' : ''}
       visibility_audience,
+      owner_attribution_visibility,
       catch_count,
       created_at,
       species_entry:fursuit_species (
@@ -97,18 +198,27 @@ export async function fetchMySuits(
     throw new Error(`We couldn't load your suits: ${error.message}`);
   }
 
-  const makersByFursuitId = await fetchFursuitMakersByFursuitIds(
-    (data ?? []).map((item: any) => item.id),
-  );
+  return mapFursuitRows(data ?? [], includeUniqueCodes);
+}
 
-  return (data ?? []).map((item: any) => {
+async function mapFursuitRows(
+  rows: ProfileFursuitsRpcRow[] | TableFursuitRow[],
+  includeUniqueCodes: boolean,
+): Promise<FursuitSummary[]> {
+  const makersByFursuitId = await fetchFursuitMakersByFursuitIds(rows.map((item) => item.id));
+
+  return rows.map((item) => {
     const conventions = mapFursuitConventionAppearances(item.fursuit_conventions ?? []);
+    const fursuitBio = 'fursuit_bios' in item ? item.fursuit_bios : item.fursuit_bio;
+    const ownerSocialLinks =
+      'owner_profile' in item ? item.owner_profile?.social_links : item.owner_social_links;
+    const uniqueCode = 'unique_code' in item ? item.unique_code : null;
 
     const bio = applyProfileSocialLinksToBio(
-      mapLatestFursuitBio(item.fursuit_bios ?? null),
-      parseSocialLinks(item.owner_profile?.social_links ?? null),
+      mapLatestFursuitBio(fursuitBio ?? null),
+      parseSocialLinks(ownerSocialLinks ?? null),
     );
-    const speciesEntry = item.species_entry ?? null;
+    const speciesEntry = isSpeciesEntry(item.species_entry) ? item.species_entry : null;
     const speciesName = speciesEntry?.name ?? null;
     const speciesId = speciesEntry?.id ?? item.species_id ?? null;
     const colors = mapFursuitColors(item.color_assignments ?? null);
@@ -127,8 +237,10 @@ export async function fetchMySuits(
         legacyUrl: item.avatar_url ?? null,
       }),
       description: item.description ?? null,
-      unique_code: includeUniqueCodes ? (item.unique_code ?? null) : null,
+      unique_code: includeUniqueCodes ? (uniqueCode ?? null) : null,
       visibility_audience: normalizeVisibilityAudience(item.visibility_audience),
+      ownerAttributionVisibility:
+        item.owner_attribution_visibility === 'hidden' ? 'hidden' : 'public',
       catchCount: typeof item.catch_count === 'number' ? item.catch_count : 0,
       created_at: item.created_at ?? null,
       conventions,

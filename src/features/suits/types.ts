@@ -39,6 +39,7 @@ export type FursuitSummary = {
   description: string | null;
   unique_code: string | null;
   visibility_audience: VisibilityAudience;
+  ownerAttributionVisibility: 'public' | 'hidden';
   catchCount: number;
   created_at: string | null;
   conventions: FursuitConvention[];
@@ -47,5 +48,5 @@ export type FursuitSummary = {
 };
 
 export type FursuitDetail = FursuitSummary & {
-  owner_id: string;
+  owner_id: string | null;
 };
