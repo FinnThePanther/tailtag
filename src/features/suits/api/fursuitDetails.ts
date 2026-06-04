@@ -7,6 +7,7 @@ import {
   mapLatestFursuitBio,
   parseSocialLinks,
 } from './utils';
+import type { Database } from '@/types/database';
 import type { FursuitDetail } from '../types';
 import { captureHandledMessage, captureSupabaseError } from '../../../lib/sentry';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
@@ -19,12 +20,25 @@ export const fursuitDetailQueryKey = (fursuitId: string, viewerId?: string | nul
     ? ([FURSUIT_DETAIL_QUERY_KEY, fursuitId, viewerId] as const)
     : ([FURSUIT_DETAIL_QUERY_KEY, fursuitId] as const);
 
+type FursuitDetailRpcRow =
+  Database['public']['Functions']['get_fursuit_detail']['Returns'][number] & {
+    owner_id: string | null;
+    unique_code: string | null;
+  };
+
+const isSpeciesEntry = (value: unknown): value is { id: string; name: string } =>
+  typeof value === 'object' &&
+  value !== null &&
+  'id' in value &&
+  typeof value.id === 'string' &&
+  'name' in value &&
+  typeof value.name === 'string';
+
 export async function fetchFursuitDetail(
   fursuitId: string,
   _viewerId?: string | null,
 ): Promise<FursuitDetail> {
-  const client = supabase as any;
-  const { data, error } = await client.rpc('get_fursuit_detail', {
+  const { data, error } = await supabase.rpc('get_fursuit_detail', {
     p_fursuit_id: fursuitId,
   });
 
@@ -36,7 +50,7 @@ export async function fetchFursuitDetail(
     throw new Error("We couldn't load that fursuit right now. Please try again.");
   }
 
-  const row = Array.isArray(data) ? data[0] : data;
+  const row = (Array.isArray(data) ? data[0] : data) as FursuitDetailRpcRow | null;
 
   if (!row) {
     captureHandledMessage(
@@ -57,7 +71,7 @@ export async function fetchFursuitDetail(
     mapLatestFursuitBio(row.fursuit_bio ?? null),
     profileSocialLinks,
   );
-  const speciesEntry = row.species_entry ?? null;
+  const speciesEntry = isSpeciesEntry(row.species_entry) ? row.species_entry : null;
   const speciesName = speciesEntry?.name ?? null;
   const speciesId = speciesEntry?.id ?? row.species_id ?? null;
   const colors = mapFursuitColors(row.color_assignments ?? null);
@@ -66,7 +80,7 @@ export async function fetchFursuitDetail(
   let resolvedCatchCount = typeof row.catch_count === 'number' ? row.catch_count : 0;
 
   if (resolvedCatchCount <= 0) {
-    const { count: fallbackCount, error: fallbackError } = await client
+    const { count: fallbackCount, error: fallbackError } = await supabase
       .from('catches')
       .select('id', { head: true, count: 'exact' })
       .eq('fursuit_id', row.id)
