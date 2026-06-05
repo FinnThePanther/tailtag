@@ -452,6 +452,21 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Prepare Google Play service account
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64 }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64}" ]]; then
+            echo "::error::GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64 is required for Android production auto-submit."
+            echo "Base64-encode the Play Console service account JSON and add it as a production environment secret."
+            exit 1
+          fi
+
+          printf '%s' "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64}" \
+            | base64 --decode > service-account-google-play-production.json
+
       - name: Build production app (iOS + Android)
         # Production waits for EAS to finish before release tags are created.
         # --auto-submit sends successful store builds to App Store Connect / Play Console.

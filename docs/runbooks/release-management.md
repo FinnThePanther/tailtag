@@ -55,6 +55,28 @@ JS-only OTA changes usually include:
 - `package.json` / `package-lock.json` changes that do not add or change native
   modules
 
+## Store submission prerequisites
+
+Production native builds use `eas build --auto-submit` from the Delivery
+workflow. Before merging a native release to `main`, confirm the production
+GitHub environment has these secrets:
+
+- `EXPO_TOKEN`
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64`
+
+`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64` must be the base64-encoded Google Play
+Console service account JSON for TailTag. The workflow decodes it into
+`service-account-google-play-production.json`, which is ignored by git and used
+by `submit.production.android.serviceAccountKeyPath` in `eas.json`.
+
+Android auto-submit targets the Play Console `internal` track first. Promote to
+closed, open, or production testing from Play Console after the internal submit
+has passed the release smoke check.
+
+Do not patch or commit local `ios/` or `android/` folders to fix production
+identity. The repo runs EAS in managed/prebuild mode, those folders are ignored,
+and the EAS-generated native projects are the release source of truth.
+
 ## Tag policy
 
 The Delivery workflow automatically tags production mobile releases on `main`
@@ -120,6 +142,7 @@ Automation rules:
 
 ```bash
 npm run ci:validate
+npm run verify:production-release
 ./scripts/verify-environment.sh staging
 ```
 
@@ -149,7 +172,48 @@ gh pr create --base main --head dev --title "Release: <date>" --body "..."
 4. Wait for the production Delivery workflow to pass. On `main`, the workflow
    creates the release tag automatically for native and JS-only mobile releases.
 
-5. Verify the tag if needed.
+5. For native releases, download the EAS artifacts and verify production native
+   identity before moving the release past internal testing.
+
+Android checks:
+
+```bash
+bundletool dump manifest --bundle <tailtag.aab> \
+  | grep -E 'package="com.finnthepanther.tailtag"|android:label="TailTag"'
+```
+
+Confirm the AAB has:
+
+- Package `com.finnthepanther.tailtag`
+- App label `TailTag`
+- Production EAS update channel
+- Version code at or above the current remote EAS Android version
+
+iOS checks:
+
+```bash
+unzip -q <tailtag.ipa> -d /tmp/tailtag-ipa
+plutil -p /tmp/tailtag-ipa/Payload/*.app/Info.plist \
+  | grep -E 'CFBundleIdentifier|CFBundleDisplayName|CFBundleShortVersionString'
+codesign -d --entitlements :- /tmp/tailtag-ipa/Payload/*.app
+find /tmp/tailtag-ipa/Payload/*.app -name 'PrivacyInfo.xcprivacy' -print
+```
+
+Confirm the IPA has:
+
+- Bundle ID `com.finnthepanther.tailtag`
+- Display name `TailTag`
+- The expected app version
+- Production APNs entitlement
+- Apple Sign In entitlement
+- NFC entitlement
+- Expected privacy manifest output
+
+If the IPA does not have the production APNs entitlement, repair the EAS Apple
+credentials before resubmitting. If required privacy manifest output is missing,
+add explicit Expo iOS privacy manifest config before resubmitting.
+
+6. Verify the tag if needed.
 
 For a native release:
 
@@ -165,7 +229,7 @@ git fetch origin
 git tag --list 'v<app-version>-ota.*' --sort=-version:refname
 ```
 
-6. Fast-forward `dev` to `main`.
+7. Fast-forward `dev` to `main`.
 
 ```bash
 git switch dev
