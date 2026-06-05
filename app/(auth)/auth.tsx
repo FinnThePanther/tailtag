@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, Text, View } from 'react-native';
 
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
@@ -11,6 +12,7 @@ import { PasswordInput } from '../../src/components/ui/PasswordInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { PasswordStrengthIndicator } from '../../src/features/auth/components/PasswordStrengthIndicator';
 import { useOAuthSignIn } from '../../src/features/auth/hooks/useOAuthSignIn';
+import { CURRENT_LEGAL_TERMS_VERSION } from '../../src/features/legal-consent';
 import { buildGeneratedUsername } from '../../src/features/profile';
 import { supabase } from '../../src/lib/supabase';
 import { isValidEmail, mapAuthError, validatePassword } from '../../src/utils/authValidation';
@@ -18,12 +20,19 @@ import { styles } from '../../src/app-styles/(auth)/auth.styles';
 
 type AuthMode = 'sign_in' | 'sign_up';
 
+const TERMS_URL = 'https://playtailtag.com/terms';
+const PRIVACY_URL = 'https://playtailtag.com/privacy';
+const CHILD_SAFETY_URL = 'https://playtailtag.com/child-safety';
+const POLICY_ACCEPTANCE_ERROR =
+  "Please confirm that you're at least 13 and accept TailTag's policies before signing up.";
+
 export default function AuthScreen() {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>('sign_up');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [hasAcceptedSignUpPolicies, setHasAcceptedSignUpPolicies] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
@@ -73,6 +82,7 @@ export default function AuthScreen() {
     setError(null);
     setConfirmPassword('');
     setEmailSent(false);
+    setHasAcceptedSignUpPolicies(false);
   };
 
   useEffect(() => {
@@ -81,11 +91,27 @@ export default function AuthScreen() {
     }
   }, [oauthError]);
 
+  const openPolicyUrl = useCallback(async (url: string) => {
+    await Linking.openURL(url);
+  }, []);
+
+  const canStartSignUpAuth = useCallback(() => {
+    if (mode === 'sign_up' && !hasAcceptedSignUpPolicies) {
+      setError(POLICY_ACCEPTANCE_ERROR);
+      return false;
+    }
+
+    return true;
+  }, [hasAcceptedSignUpPolicies, mode]);
+
   const handleDiscordSignIn = async () => {
     if (isSubmitting) return;
+    if (!canStartSignUpAuth()) return;
     setError(null);
     try {
-      await signInWithProvider('discord');
+      await signInWithProvider('discord', {
+        recordLegalAcceptance: mode === 'sign_up' && hasAcceptedSignUpPolicies,
+      });
     } catch {
       // Error state handled inside useOAuthSignIn
     }
@@ -97,9 +123,12 @@ export default function AuthScreen() {
 
   const handleGoogleSignIn = async () => {
     if (isSubmitting) return;
+    if (!canStartSignUpAuth()) return;
     setError(null);
     try {
-      await signInWithProvider('google');
+      await signInWithProvider('google', {
+        recordLegalAcceptance: mode === 'sign_up' && hasAcceptedSignUpPolicies,
+      });
     } catch {
       // Error state is surfaced by the hook
     }
@@ -107,9 +136,12 @@ export default function AuthScreen() {
 
   const handleAppleSignIn = async () => {
     if (isSubmitting) return;
+    if (!canStartSignUpAuth()) return;
     setError(null);
     try {
-      await signInWithProvider('apple');
+      await signInWithProvider('apple', {
+        recordLegalAcceptance: mode === 'sign_up' && hasAcceptedSignUpPolicies,
+      });
     } catch {
       // Error state is surfaced by the hook
     }
@@ -131,6 +163,11 @@ export default function AuthScreen() {
     }
 
     if (mode === 'sign_up') {
+      if (!hasAcceptedSignUpPolicies) {
+        setError(POLICY_ACCEPTANCE_ERROR);
+        return;
+      }
+
       const validation = validatePassword(password);
       if (!validation.isAcceptable) {
         setError("Your password doesn't meet all the requirements shown below.");
@@ -148,6 +185,7 @@ export default function AuthScreen() {
 
     try {
       if (mode === 'sign_up') {
+        const legalTermsAcceptedAt = new Date().toISOString();
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: trimmedEmail,
           password,
@@ -156,6 +194,8 @@ export default function AuthScreen() {
               username: buildGeneratedUsername(trimmedEmail.split('@')[0], {
                 forceSuffix: true,
               }),
+              legal_terms_accepted_at: legalTermsAcceptedAt,
+              legal_terms_version: CURRENT_LEGAL_TERMS_VERSION,
             },
           },
         });
@@ -298,11 +338,70 @@ export default function AuthScreen() {
             </View>
           )}
 
+          {mode === 'sign_up' && (
+            <View style={styles.policyAcceptance}>
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: hasAcceptedSignUpPolicies }}
+                onPress={() => setHasAcceptedSignUpPolicies((current) => !current)}
+                disabled={isSubmitting}
+                style={({ pressed }) => [
+                  styles.checkboxRow,
+                  pressed && !isSubmitting && styles.checkboxRowPressed,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    hasAcceptedSignUpPolicies && styles.checkboxChecked,
+                    isSubmitting && styles.checkboxDisabled,
+                  ]}
+                >
+                  {hasAcceptedSignUpPolicies ? (
+                    <Ionicons
+                      name="checkmark"
+                      size={18}
+                      color="#0f172a"
+                    />
+                  ) : null}
+                </View>
+                <Text style={styles.checkboxLabel}>
+                  I confirm I am at least 13 years old and agree to TailTag's Terms, Privacy Policy,
+                  and Child Safety Standards.
+                </Text>
+              </Pressable>
+
+              <View style={styles.policyLinks}>
+                <Text
+                  style={styles.link}
+                  onPress={() => void openPolicyUrl(TERMS_URL)}
+                >
+                  Terms
+                </Text>
+                <Text style={styles.policyLinkSeparator}>/</Text>
+                <Text
+                  style={styles.link}
+                  onPress={() => void openPolicyUrl(PRIVACY_URL)}
+                >
+                  Privacy
+                </Text>
+                <Text style={styles.policyLinkSeparator}>/</Text>
+                <Text
+                  style={styles.link}
+                  onPress={() => void openPolicyUrl(CHILD_SAFETY_URL)}
+                >
+                  Child Safety
+                </Text>
+              </View>
+            </View>
+          )}
+
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <TailTagButton
             onPress={handleSubmit}
             loading={isSubmitting}
+            disabled={isSubmitting || (mode === 'sign_up' && !hasAcceptedSignUpPolicies)}
           >
             {mode === 'sign_in' ? 'Log in' : 'Sign up'}
           </TailTagButton>
