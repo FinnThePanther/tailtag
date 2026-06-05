@@ -39,6 +39,38 @@ export const styles = StyleSheet.create({
   formCard: {
     gap: spacing.lg,
   },
+  modeSwitcher: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceInset,
+  },
+  modeOption: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: 6,
+  },
+  modeOptionActive: {
+    backgroundColor: colors.primarySurfaceStrong,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+  },
+  modeOptionPressed: {
+    backgroundColor: colors.primarySurface,
+  },
+  modeOptionText: {
+    color: colors.textSubtle,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modeOptionTextActive: {
+    color: colors.primary,
+  },
   fieldGroup: {
     gap: spacing.sm,
   },

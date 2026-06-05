@@ -238,15 +238,47 @@ function mapProfileData(data: any, overrides: Partial<ProfileSummary> = {}): Pro
   };
 }
 
+function legalTermsAcceptanceFromUserMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+): Pick<ProfileSummary, 'legal_terms_accepted_at' | 'legal_terms_version'> | null {
+  const acceptedAt = metadata?.legal_terms_accepted_at;
+  const version = metadata?.legal_terms_version;
+
+  if (
+    typeof acceptedAt === 'string' &&
+    typeof version === 'number' &&
+    version === CURRENT_LEGAL_TERMS_VERSION
+  ) {
+    return {
+      legal_terms_accepted_at: acceptedAt,
+      legal_terms_version: version,
+    };
+  }
+
+  return null;
+}
+
+async function backfillOwnProfileLegalAcceptance(
+  userId: string,
+  acceptance: Pick<ProfileSummary, 'legal_terms_accepted_at' | 'legal_terms_version'>,
+): Promise<void> {
+  const client = supabase as any;
+  await client.from('profiles').upsert({
+    id: userId,
+    legal_terms_accepted_at: acceptance.legal_terms_accepted_at,
+    legal_terms_version: acceptance.legal_terms_version,
+    updated_at: new Date().toISOString(),
+  });
+}
+
 export async function fetchProfile(userId: string): Promise<ProfileSummary | null> {
   let result = await selectProfileWithColumnFallback(userId);
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const isCurrentUser = session?.user.id === userId;
 
   if (!result.data) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const isCurrentUser = session?.user.id === userId;
-
     if (isCurrentUser) {
       for (const delayMs of NEW_USER_PROFILE_RETRY_DELAYS_MS) {
         await sleep(delayMs);
@@ -268,16 +300,36 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
     return null;
   }
 
+  const signUpLegalAcceptance = isCurrentUser
+    ? legalTermsAcceptanceFromUserMetadata(session?.user.user_metadata)
+    : null;
+
   if (result.usedFallbackColumns) {
     return mapProfileData(result.data, {
       avatar_url: null,
       social_links: [],
-      legal_terms_accepted_at: new Date(0).toISOString(),
-      legal_terms_version: CURRENT_LEGAL_TERMS_VERSION,
+      ...(signUpLegalAcceptance ?? {
+        legal_terms_accepted_at: new Date(0).toISOString(),
+        legal_terms_version: CURRENT_LEGAL_TERMS_VERSION,
+      }),
     });
   }
 
-  return mapProfileData(result.data);
+  const profile = mapProfileData(result.data);
+
+  if (
+    signUpLegalAcceptance &&
+    (profile.legal_terms_accepted_at !== signUpLegalAcceptance.legal_terms_accepted_at ||
+      profile.legal_terms_version !== signUpLegalAcceptance.legal_terms_version)
+  ) {
+    void backfillOwnProfileLegalAcceptance(userId, signUpLegalAcceptance);
+    return {
+      ...profile,
+      ...signUpLegalAcceptance,
+    };
+  }
+
+  return profile;
 }
 
 export async function uploadProfileAvatar(

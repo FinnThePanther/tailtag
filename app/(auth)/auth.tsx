@@ -3,6 +3,7 @@ import { Linking, Platform, Pressable, Text, View } from 'react-native';
 
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TailTagButton } from '../../src/components/ui/TailTagButton';
@@ -12,8 +13,12 @@ import { PasswordInput } from '../../src/components/ui/PasswordInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { PasswordStrengthIndicator } from '../../src/features/auth/components/PasswordStrengthIndicator';
 import { useOAuthSignIn } from '../../src/features/auth/hooks/useOAuthSignIn';
-import { CURRENT_LEGAL_TERMS_VERSION } from '../../src/features/legal-consent';
-import { buildGeneratedUsername } from '../../src/features/profile';
+import {
+  CURRENT_LEGAL_TERMS_VERSION,
+  updateLegalTermsAcceptance,
+} from '../../src/features/legal-consent';
+import { buildGeneratedUsername, createProfileQueryOptions } from '../../src/features/profile';
+import type { ProfileSummary } from '../../src/features/profile';
 import { supabase } from '../../src/lib/supabase';
 import { isValidEmail, mapAuthError, validatePassword } from '../../src/utils/authValidation';
 import { styles } from '../../src/app-styles/(auth)/auth.styles';
@@ -28,7 +33,8 @@ const POLICY_ACCEPTANCE_ERROR =
 
 export default function AuthScreen() {
   const router = useRouter();
-  const [mode, setMode] = useState<AuthMode>('sign_up');
+  const queryClient = useQueryClient();
+  const [mode, setMode] = useState<AuthMode>('sign_in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -94,6 +100,25 @@ export default function AuthScreen() {
   const openPolicyUrl = useCallback(async (url: string) => {
     await Linking.openURL(url);
   }, []);
+
+  const recordAcceptedSignUpPolicies = useCallback(
+    async (userId: string) => {
+      const result = await updateLegalTermsAcceptance(userId);
+      const profileQueryKey = createProfileQueryOptions(userId).queryKey;
+
+      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+        current
+          ? {
+              ...current,
+              legal_terms_accepted_at: result.acceptedAt,
+              legal_terms_version: result.version,
+            }
+          : current,
+      );
+      await queryClient.invalidateQueries({ queryKey: profileQueryKey });
+    },
+    [queryClient],
+  );
 
   const canStartSignUpAuth = useCallback(() => {
     if (mode === 'sign_up' && !hasAcceptedSignUpPolicies) {
@@ -211,6 +236,8 @@ export default function AuthScreen() {
           return;
         }
 
+        await recordAcceptedSignUpPolicies(data.session.user.id);
+
         return;
       }
 
@@ -293,6 +320,52 @@ export default function AuthScreen() {
         </View>
 
         <TailTagCard style={styles.formCard}>
+          <View style={styles.modeSwitcher}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: mode === 'sign_in' }}
+              onPress={() => {
+                setMode('sign_in');
+                setError(null);
+                setConfirmPassword('');
+                setHasAcceptedSignUpPolicies(false);
+              }}
+              disabled={isSubmitting}
+              style={({ pressed }) => [
+                styles.modeOption,
+                mode === 'sign_in' && styles.modeOptionActive,
+                pressed && !isSubmitting && styles.modeOptionPressed,
+              ]}
+            >
+              <Text
+                style={[styles.modeOptionText, mode === 'sign_in' && styles.modeOptionTextActive]}
+              >
+                Log in
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: mode === 'sign_up' }}
+              onPress={() => {
+                setMode('sign_up');
+                setError(null);
+                setConfirmPassword('');
+              }}
+              disabled={isSubmitting}
+              style={({ pressed }) => [
+                styles.modeOption,
+                mode === 'sign_up' && styles.modeOptionActive,
+                pressed && !isSubmitting && styles.modeOptionPressed,
+              ]}
+            >
+              <Text
+                style={[styles.modeOptionText, mode === 'sign_up' && styles.modeOptionTextActive]}
+              >
+                Sign up
+              </Text>
+            </Pressable>
+          </View>
+
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Email</Text>
             <TailTagInput
@@ -416,7 +489,9 @@ export default function AuthScreen() {
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerLabel}>or continue with</Text>
+            <Text style={styles.dividerLabel}>
+              {mode === 'sign_in' ? 'or log in with' : 'or sign up with'}
+            </Text>
             <View style={styles.dividerLine} />
           </View>
 
@@ -426,10 +501,14 @@ export default function AuthScreen() {
               onPress={handleAppleSignIn}
               loading={isAppleLoading}
               disabled={isSubmitting}
-              accessibilityLabel="Continue with Apple"
-              accessibilityHint="Signs in with your Apple ID."
+              accessibilityLabel={mode === 'sign_in' ? 'Log in with Apple' : 'Sign up with Apple'}
+              accessibilityHint={
+                mode === 'sign_in'
+                  ? 'Signs in with your Apple ID.'
+                  : 'Creates a TailTag account with your Apple ID.'
+              }
             >
-              Continue with Apple
+              {mode === 'sign_in' ? 'Log in with Apple' : 'Sign up with Apple'}
             </TailTagButton>
           )}
 
@@ -438,10 +517,14 @@ export default function AuthScreen() {
             onPress={handleGoogleSignIn}
             loading={isGoogleLoading}
             disabled={isSubmitting}
-            accessibilityLabel="Continue with Google"
-            accessibilityHint="Opens Google to continue signing in."
+            accessibilityLabel={mode === 'sign_in' ? 'Log in with Google' : 'Sign up with Google'}
+            accessibilityHint={
+              mode === 'sign_in'
+                ? 'Opens Google to log in.'
+                : 'Opens Google to create a TailTag account.'
+            }
           >
-            Continue with Google
+            {mode === 'sign_in' ? 'Log in with Google' : 'Sign up with Google'}
           </TailTagButton>
 
           <TailTagButton
@@ -449,10 +532,14 @@ export default function AuthScreen() {
             onPress={handleDiscordSignIn}
             loading={isDiscordLoading}
             disabled={isSubmitting}
-            accessibilityLabel="Continue with Discord"
-            accessibilityHint="Opens Discord to continue signing in."
+            accessibilityLabel={mode === 'sign_in' ? 'Log in with Discord' : 'Sign up with Discord'}
+            accessibilityHint={
+              mode === 'sign_in'
+                ? 'Opens Discord to log in.'
+                : 'Opens Discord to create a TailTag account.'
+            }
           >
-            Continue with Discord
+            {mode === 'sign_in' ? 'Log in with Discord' : 'Sign up with Discord'}
           </TailTagButton>
         </TailTagCard>
 
