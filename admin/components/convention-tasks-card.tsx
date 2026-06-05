@@ -75,7 +75,6 @@ function buildMetadata(form: TaskFormState) {
     return {
       eventType: 'leaderboard_refreshed',
       metric: 'total',
-      includeTutorialCatches: false,
       filters: [],
     };
   }
@@ -84,7 +83,6 @@ function buildMetadata(form: TaskFormState) {
     const metadata: Record<string, unknown> = {
       eventType: 'fursuit_bio_viewed',
       metric: form.metric,
-      includeTutorialCatches: false,
       filters: [{ path: 'payload.owner_id', notEqualsUserId: true }],
     };
 
@@ -112,7 +110,6 @@ function buildMetadata(form: TaskFormState) {
   const metadata: Record<string, unknown> = {
     eventType: 'catch_performed',
     metric: form.metric,
-    includeTutorialCatches: false,
     filters,
   };
 
