@@ -72,7 +72,14 @@ if start == -1 or end == -1:
     raise SystemExit
 
 parsed = json.loads(raw[start : end + 1])
-rows = parsed.get("rows") or []
+if isinstance(parsed, list):
+    rows = parsed
+elif isinstance(parsed, dict):
+    rows = parsed.get("rows") or parsed.get("data") or []
+    if not rows and parsed:
+        rows = [parsed]
+else:
+    rows = []
 if not rows:
     print("")
     raise SystemExit
