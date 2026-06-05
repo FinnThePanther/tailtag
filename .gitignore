@@ -66,6 +66,8 @@ GoogleService-Info*.plist
 !GoogleService-Info.production.plist
 *firebase-adminsdk*.json
 service-account*.json
+service-account-google-play-production.json
+tailtag*.json
 credentials.json
 .npmrc
 .vercel

@@ -24,6 +24,8 @@ const publicEnvConfig = {
   },
 };
 const publicEnv = publicEnvConfig[APP_ENV];
+const staffModeEnabled =
+  APP_ENV !== 'production' && process.env.EXPO_PUBLIC_STAFF_MODE_ENABLED === 'true';
 const CAMERA_PERMISSION =
   'TailTag needs camera access so you can take fursuit, profile, and catch photos.';
 const PHOTO_LIBRARY_PERMISSION =
@@ -171,7 +173,7 @@ module.exports = ({ config }) => ({
     supabaseAnonKey: publicEnv.supabaseAnonKey,
     supabaseImageTransformsEnabled:
       process.env.EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORMS_ENABLED === 'true',
-    staffModeEnabled: process.env.EXPO_PUBLIC_STAFF_MODE_ENABLED === 'true',
+    staffModeEnabled,
     eas: {
       projectId: '3ae47a1a-6584-423d-b52d-90b5acd11048',
     },
