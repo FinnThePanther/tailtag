@@ -1519,6 +1519,8 @@ export type Database = {
           is_adult: boolean | null
           is_new: boolean
           is_suspended: boolean
+          legal_terms_accepted_at: string | null
+          legal_terms_version: number
           location_permission_granted_at: string | null
           location_permission_requested_at: string | null
           location_permission_status: string | null
@@ -1547,6 +1549,8 @@ export type Database = {
           is_adult?: boolean | null
           is_new?: boolean
           is_suspended?: boolean
+          legal_terms_accepted_at?: string | null
+          legal_terms_version?: number
           location_permission_granted_at?: string | null
           location_permission_requested_at?: string | null
           location_permission_status?: string | null
@@ -1575,6 +1579,8 @@ export type Database = {
           is_adult?: boolean | null
           is_new?: boolean
           is_suspended?: boolean
+          legal_terms_accepted_at?: string | null
+          legal_terms_version?: number
           location_permission_granted_at?: string | null
           location_permission_requested_at?: string | null
           location_permission_status?: string | null

@@ -666,7 +666,7 @@ export default function EditFursuitScreen() {
     }
 
     if (selectedVisibilityAudience === 'adults_only' && !canUseAdultsOnlyFursuitVisibility) {
-      setSubmitError('Adult confirmation is required for adults-only fursuits.');
+      setSubmitError('Confirm you are 18 or older to use 18+ visibility.');
       return;
     }
     const normalizedCode = normalizeUniqueCodeInput(codeInput);
@@ -1321,12 +1321,12 @@ export default function EditFursuitScreen() {
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Fursuit visibility</Text>
                 <Text style={styles.helperLabel}>
-                  Adults-only fursuits are hidden from players who have not confirmed they are 18 or
-                  older.
+                  18+ visibility limits this fursuit to players who have confirmed they are 18 or
+                  older. It does not allow adult or sexual content.
                 </Text>
                 {profileAlreadyAdultsOnly ? (
                   <Text style={styles.helperLabel}>
-                    Your profile is adults-only, so this fursuit is already restricted by your
+                    Your profile uses 18+ visibility, so this fursuit is already restricted by your
                     profile setting.
                   </Text>
                 ) : null}
@@ -1390,7 +1390,7 @@ export default function EditFursuitScreen() {
                             styles.visibilityOptionTitleDisabled,
                         ]}
                       >
-                        Adults only
+                        18+ visibility
                       </Text>
                       <Text
                         style={[
@@ -1413,7 +1413,7 @@ export default function EditFursuitScreen() {
                 </View>
                 {hasLoadedProfile && !canUseAdultsOnlyFursuitVisibility ? (
                   <Text style={styles.helperLabel}>
-                    Adult confirmation is required for adults-only fursuits.
+                    Confirm you are 18 or older to use 18+ visibility.
                   </Text>
                 ) : null}
               </View>

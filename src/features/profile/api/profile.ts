@@ -20,6 +20,7 @@ import {
   normalizeVisibilityAudience,
   type VisibilityAudience,
 } from '@/features/adult-boundary/api/ageAttestation';
+import { CURRENT_LEGAL_TERMS_VERSION } from '@/features/legal-consent';
 
 type UserRole = 'player' | 'staff' | 'moderator' | 'organizer' | 'owner';
 export type CatchMode = Database['public']['Enums']['catch_mode'];
@@ -51,6 +52,8 @@ export type ProfileSummary = {
   is_adult: boolean | null;
   age_confirmed_at: string | null;
   age_gate_version: number;
+  legal_terms_accepted_at: string | null;
+  legal_terms_version: number;
   visibility_audience: VisibilityAudience;
   default_catch_mode: CatchMode;
   catch_mode_preference_source: CatchModePreferenceSource;
@@ -72,7 +75,7 @@ export const profileQueryKey = (userId: string) => [PROFILE_QUERY_KEY, userId] a
 // Stable columns that have always existed — used as fallback when new columns aren't migrated yet.
 const STABLE_COLUMNS =
   'username, bio, is_new, onboarding_completed, role, push_notifications_enabled, push_notifications_prompted';
-const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, avatar_path, social_links, is_adult, age_confirmed_at, age_gate_version, visibility_audience, default_catch_mode, catch_mode_preference_source, is_suspended, suspended_until, suspension_reason`;
+const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, avatar_path, social_links, is_adult, age_confirmed_at, age_gate_version, legal_terms_accepted_at, legal_terms_version, visibility_audience, default_catch_mode, catch_mode_preference_source, is_suspended, suspended_until, suspension_reason`;
 const NEW_USER_PROFILE_RETRY_DELAYS_MS = [150, 500] as const;
 
 const normalizeCatchMode = (value: unknown): CatchMode =>
@@ -212,6 +215,12 @@ function mapProfileData(data: any, overrides: Partial<ProfileSummary> = {}): Pro
       typeof data.age_gate_version === 'number' && Number.isFinite(data.age_gate_version)
         ? data.age_gate_version
         : CURRENT_AGE_GATE_VERSION,
+    legal_terms_accepted_at:
+      typeof data.legal_terms_accepted_at === 'string' ? data.legal_terms_accepted_at : null,
+    legal_terms_version:
+      typeof data.legal_terms_version === 'number' && Number.isFinite(data.legal_terms_version)
+        ? data.legal_terms_version
+        : CURRENT_LEGAL_TERMS_VERSION,
     visibility_audience: normalizeVisibilityAudience(data.visibility_audience),
     default_catch_mode: normalizeCatchMode(data.default_catch_mode),
     catch_mode_preference_source: normalizeCatchModePreferenceSource(
@@ -260,7 +269,12 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
   }
 
   if (result.usedFallbackColumns) {
-    return mapProfileData(result.data, { avatar_url: null, social_links: [] });
+    return mapProfileData(result.data, {
+      avatar_url: null,
+      social_links: [],
+      legal_terms_accepted_at: new Date(0).toISOString(),
+      legal_terms_version: CURRENT_LEGAL_TERMS_VERSION,
+    });
   }
 
   return mapProfileData(result.data);

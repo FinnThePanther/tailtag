@@ -521,7 +521,7 @@ export function FursuitStep({
     }
 
     if (visibilityAudience === 'adults_only' && !canUseAdultsOnlyFursuitVisibility) {
-      setSubmitError('Adult confirmation is required for adults-only fursuits.');
+      setSubmitError('Confirm you are 18 or older to use 18+ visibility.');
       return;
     }
 
@@ -639,13 +639,13 @@ export function FursuitStep({
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Fursuit visibility</Text>
               <Text style={styles.helperLabel}>
-                Adults-only fursuits are hidden from players who have not confirmed they are 18 or
-                older.
+                18+ visibility limits this fursuit to players who have confirmed they are 18 or
+                older. It does not allow adult or sexual content.
               </Text>
               {profileAlreadyAdultsOnly ? (
                 <Text style={styles.helperLabel}>
-                  Your profile is adults-only, so this fursuit is already restricted by your profile
-                  setting.
+                  Your profile uses 18+ visibility, so this fursuit is already restricted by your
+                  profile setting.
                 </Text>
               ) : null}
               <View style={styles.visibilityOptions}>
@@ -705,7 +705,7 @@ export function FursuitStep({
                         !canUseAdultsOnlyFursuitVisibility && styles.visibilityOptionTitleDisabled,
                       ]}
                     >
-                      Adults only
+                      18+ visibility
                     </Text>
                     <Text
                       style={[
@@ -728,7 +728,7 @@ export function FursuitStep({
               </View>
               {hasLoadedProfile && !canUseAdultsOnlyFursuitVisibility ? (
                 <Text style={styles.helperLabel}>
-                  Adult confirmation is required for adults-only fursuits.
+                  Confirm you are 18 or older to use 18+ visibility.
                 </Text>
               ) : null}
             </View>

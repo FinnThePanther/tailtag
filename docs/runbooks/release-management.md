@@ -77,6 +77,26 @@ Do not patch or commit local `ios/` or `android/` folders to fix production
 identity. The repo runs EAS in managed/prebuild mode, those folders are ignored,
 and the EAS-generated native projects are the release source of truth.
 
+## Store review notes
+
+Use this posture in App Store Connect and Play Console review notes:
+
+- TailTag is a 13+ convention game with user-generated profiles, fursuit
+  listings, photos, catch submissions, report text, and support text.
+- TailTag is not a dating, matchmaking, hookup, random chat, adult-content, or
+  monetized UGC service.
+- Adult, sexual, pornographic, grooming, CSAM, CSAE, harassment, bullying, and
+  illegal content or conduct are prohibited by the Terms and Child Safety
+  Standards.
+- Users must accept TailTag's Terms, Privacy Policy, and Child Safety Standards
+  before creating or uploading UGC.
+- Users can report profiles, fursuits, and catch content in-app, and can block
+  other users.
+- TailTag staff can review reports, remove violating content, restrict
+  features, suspend accounts, and respond to child safety reports.
+- 18+ visibility only limits profile/fursuit visibility to declared 18+ users;
+  it does not permit adult or sexual content.
+
 ## Tag policy
 
 The Delivery workflow automatically tags production mobile releases on `main`
