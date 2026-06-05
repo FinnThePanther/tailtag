@@ -15,7 +15,17 @@ import { canManageConventionConfig } from '@/lib/admin-permissions';
 export default async function ConventionsPage() {
   const { profile, supabase } = await requireAdminDataContext();
   const conventions = await fetchConventions(supabase);
-  const healthByConvention = await buildConventionLifecycleHealthList(conventions, supabase);
+  let healthByConvention: Awaited<ReturnType<typeof buildConventionLifecycleHealthList>>;
+  let healthCountsUnavailable = false;
+
+  try {
+    healthByConvention = await buildConventionLifecycleHealthList(conventions, supabase);
+  } catch (error) {
+    console.error('[admin] Failed to load convention lifecycle health counts', error);
+    healthByConvention = new Map();
+    healthCountsUnavailable = true;
+  }
+
   const canCreateConvention = canManageConventionConfig(profile);
 
   return (
@@ -33,6 +43,13 @@ export default async function ConventionsPage() {
         ) : null
       }
     >
+      {healthCountsUnavailable ? (
+        <div className="mb-4 rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+          Lifecycle health checks are temporarily unavailable. Convention records are still shown,
+          but status warnings may be incomplete.
+        </div>
+      ) : null}
+
       <div className="divide-y divide-border/80">
         {conventions.map((convention) => {
           const health = healthByConvention.get(convention.id);

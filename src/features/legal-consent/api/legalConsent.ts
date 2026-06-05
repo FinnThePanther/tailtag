@@ -28,14 +28,12 @@ export async function updateLegalTermsAcceptance(userId: string): Promise<{
   const acceptedAt = new Date().toISOString();
   const client = supabase as SupabaseClient<Database>;
 
-  const { error } = await client
-    .from('profiles')
-    .update({
-      legal_terms_accepted_at: acceptedAt,
-      legal_terms_version: CURRENT_LEGAL_TERMS_VERSION,
-      updated_at: acceptedAt,
-    })
-    .eq('id', userId);
+  const { error } = await client.from('profiles').upsert({
+    id: userId,
+    legal_terms_accepted_at: acceptedAt,
+    legal_terms_version: CURRENT_LEGAL_TERMS_VERSION,
+    updated_at: acceptedAt,
+  });
 
   if (error) {
     captureSupabaseError(error, {

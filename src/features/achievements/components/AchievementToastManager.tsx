@@ -58,7 +58,6 @@ type DailyTaskMetadata = {
   eventType: string;
   metric: 'total' | 'unique';
   uniqueBy?: string;
-  includeTutorialCatches: boolean;
   filters: DailyTaskMetadataFilter[];
 };
 
@@ -143,8 +142,6 @@ function normalizeDailyTaskMetadata(raw: unknown): DailyTaskMetadata | null {
         : typeof raw.unique_by === 'string'
           ? raw.unique_by
           : undefined,
-    includeTutorialCatches:
-      raw.includeTutorialCatches === true || raw.include_tutorial_catches === true,
     filters: Array.isArray(raw.filters)
       ? raw.filters.filter(
           (entry): entry is DailyTaskMetadataFilter =>
