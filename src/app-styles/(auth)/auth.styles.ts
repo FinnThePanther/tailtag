@@ -51,6 +51,57 @@ export const styles = StyleSheet.create({
     color: '#fca5a5',
     fontSize: 14,
   },
+  policyAcceptance: {
+    gap: spacing.sm,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceInset,
+  },
+  checkboxRowPressed: {
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySurface,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  checkboxDisabled: {
+    opacity: 0.6,
+  },
+  checkboxLabel: {
+    flex: 1,
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  policyLinks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  policyLinkSeparator: {
+    color: colors.textFaint,
+    fontSize: 13,
+  },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',

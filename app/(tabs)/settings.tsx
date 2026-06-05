@@ -21,6 +21,7 @@ import {
   refreshAdultBoundaryCaches,
   type VisibilityAudience,
 } from '../../src/features/adult-boundary';
+import { CURRENT_LEGAL_TERMS_VERSION } from '../../src/features/legal-consent';
 import { STAFF_MODE_ENABLED } from '../../src/constants/features';
 import {
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
@@ -800,7 +801,7 @@ export default function SettingsScreen() {
     }
 
     if (profileVisibilityInput === 'adults_only' && !canUseAdultsOnlyProfileVisibility) {
-      setSaveError('Adult confirmation is required for adults-only visibility.');
+      setSaveError('Confirm you are 18 or older to use 18+ visibility.');
       return;
     }
 
@@ -853,7 +854,7 @@ export default function SettingsScreen() {
         }
 
         if (error.code === '42501') {
-          throw new Error('Adult confirmation is required for adults-only visibility.');
+          throw new Error('Confirm you are 18 or older to use 18+ visibility.');
         }
 
         throw error;
@@ -897,6 +898,8 @@ export default function SettingsScreen() {
               is_adult: null,
               age_confirmed_at: null,
               age_gate_version: CURRENT_AGE_GATE_VERSION,
+              legal_terms_accepted_at: new Date(0).toISOString(),
+              legal_terms_version: CURRENT_LEGAL_TERMS_VERSION,
               visibility_audience: persistedVisibilityAudience,
               default_catch_mode: persistedCatchMode,
               catch_mode_preference_source: persistedCatchModePreferenceSource,
@@ -915,7 +918,7 @@ export default function SettingsScreen() {
       }
 
       if (persistedVisibilityAudience !== profileVisibilityInput) {
-        setSaveError('Adult confirmation is required for adults-only visibility.');
+        setSaveError('Confirm you are 18 or older to use 18+ visibility.');
         return;
       }
 
@@ -1107,7 +1110,7 @@ export default function SettingsScreen() {
   const handleProfileVisibilityChange = useCallback(
     (nextAudience: VisibilityAudience) => {
       if (nextAudience === 'adults_only' && !canUseAdultsOnlyProfileVisibility) {
-        setSaveError('Adult confirmation is required for adults-only visibility.');
+        setSaveError('Confirm you are 18 or older to use 18+ visibility.');
         return;
       }
 
@@ -1614,8 +1617,8 @@ export default function SettingsScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.sectionTitle}>Profile visibility</Text>
               <Text style={styles.sectionDescription}>
-                Adults-only profiles are hidden from players who have not confirmed they are 18 or
-                older.
+                18+ visibility limits your profile to players who have confirmed they are 18 or
+                older. It does not allow adult or sexual content.
               </Text>
               <View style={styles.visibilityOptions}>
                 <Pressable
@@ -1682,7 +1685,7 @@ export default function SettingsScreen() {
                         !canUseAdultsOnlyProfileVisibility && styles.visibilityOptionTitleDisabled,
                       ]}
                     >
-                      Adults only
+                      18+ visibility
                     </Text>
                     <Text
                       style={[
@@ -1705,7 +1708,7 @@ export default function SettingsScreen() {
               </View>
               {!canUseAdultsOnlyProfileVisibility ? (
                 <Text style={styles.sectionHint}>
-                  Adult confirmation is required for adults-only visibility.
+                  Confirm you are 18 or older to use 18+ visibility.
                 </Text>
               ) : null}
             </View>

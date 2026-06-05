@@ -20,6 +20,7 @@ import { NavigationReadyProvider, useSetNavigationReady } from '../src/hooks/use
 import { OtaUpdateProvider } from '../src/hooks/useOtaUpdateCheck';
 import { createProfileQueryOptions } from '../src/features/profile';
 import { profileNeedsAgeAttestation } from '../src/features/adult-boundary';
+import { profileNeedsLegalConsent } from '../src/features/legal-consent';
 import { colors } from '../src/theme';
 import { ToastProvider } from '../src/hooks/useToast';
 import { DailyTaskToastManager } from '../src/features/daily-tasks/components/DailyTaskToastManager';
@@ -131,6 +132,7 @@ function RootLayoutNav() {
   const inAuthCallbackFlow = firstSegment === 'auth' && secondSegment === 'callback';
   const inOnboardingFlow = firstSegment === 'onboarding';
   const inAgeGateFlow = firstSegment === 'age-gate';
+  const inLegalConsentFlow = firstSegment === 'legal-consent';
   const inResetPasswordFlow = firstSegment === 'reset-password';
   const inPublicAuthFlow = inAuthGroup || inAuthCallbackFlow || inResetPasswordFlow;
   const userId = session?.user.id ?? null;
@@ -154,15 +156,22 @@ function RootLayoutNav() {
 
   const hasCompletedOnboarding = profile?.onboarding_completed === true;
   const hasProfileBlockingError = Boolean(session) && Boolean(profileError);
+  const shouldGateLegalConsent =
+    Boolean(session) &&
+    !hasProfileBlockingError &&
+    profile !== null &&
+    profileNeedsLegalConsent(profile);
   const shouldGateAgeAttestation =
     Boolean(session) &&
     !hasProfileBlockingError &&
     profile !== null &&
+    !shouldGateLegalConsent &&
     profileNeedsAgeAttestation(profile);
   const shouldGateOnboarding =
     Boolean(session) &&
     !hasProfileBlockingError &&
     profile !== null && // Explicit null check - don't gate while loading
+    !shouldGateLegalConsent &&
     !shouldGateAgeAttestation &&
     (profile?.is_new === true || !hasCompletedOnboarding);
 
@@ -190,10 +199,18 @@ function RootLayoutNav() {
     !profile &&
     (isProfileLoading || isProfileFetching);
 
-  let redirectHref: '/' | '/auth' | '/onboarding' | '/age-gate' | null = null;
+  let redirectHref: '/' | '/auth' | '/onboarding' | '/age-gate' | '/legal-consent' | null = null;
 
   if (!session && !inPublicAuthFlow) {
     redirectHref = '/auth';
+  } else if (
+    !inResetPasswordFlow &&
+    session &&
+    shouldGateLegalConsent &&
+    !inLegalConsentFlow &&
+    !inAuthGroup
+  ) {
+    redirectHref = '/legal-consent';
   } else if (
     !inResetPasswordFlow &&
     session &&
@@ -208,11 +225,13 @@ function RootLayoutNav() {
     !hasProfileBlockingError &&
     !shouldResolvePostAuthDestination
   ) {
-    redirectHref = shouldGateAgeAttestation
-      ? '/age-gate'
-      : shouldGateOnboarding
-        ? '/onboarding'
-        : '/';
+    redirectHref = shouldGateLegalConsent
+      ? '/legal-consent'
+      : shouldGateAgeAttestation
+        ? '/age-gate'
+        : shouldGateOnboarding
+          ? '/onboarding'
+          : '/';
   } else if (
     !inResetPasswordFlow &&
     session &&
@@ -271,7 +290,13 @@ function RootLayoutNav() {
     }
 
     router.replace(
-      shouldGateAgeAttestation ? '/age-gate' : shouldGateOnboarding ? '/onboarding' : '/',
+      shouldGateLegalConsent
+        ? '/legal-consent'
+        : shouldGateAgeAttestation
+          ? '/age-gate'
+          : shouldGateOnboarding
+            ? '/onboarding'
+            : '/',
     );
   }, [
     inAuthGroup,
@@ -279,6 +304,7 @@ function RootLayoutNav() {
     session,
     hasProfileBlockingError,
     inResetPasswordFlow,
+    shouldGateLegalConsent,
     shouldGateAgeAttestation,
     shouldGateOnboarding,
     shouldResolvePostAuthDestination,
@@ -403,6 +429,20 @@ function RootLayoutNav() {
   // makes the user appear authenticated, but they need to stay on this screen.
   if (inResetPasswordFlow) {
     // Fall through to normal Stack rendering below
+  } else if (session && shouldGateLegalConsent && !inLegalConsentFlow && !inAuthGroup) {
+    addMonitoringBreadcrumb({
+      category: 'routing',
+      message: 'Redirecting to legal consent',
+      data: {
+        userId,
+        profileLegalTermsVersion: profile?.legal_terms_version,
+        profileLegalTermsAcceptedAt: profile?.legal_terms_accepted_at,
+        isProfileLoading,
+        isProfileFetching,
+      },
+    });
+
+    return <Redirect href="/legal-consent" />;
   } else if (session && shouldGateAgeAttestation && !inAgeGateFlow && !inAuthGroup) {
     if (shouldShowAgeGateRedirectLoading) {
       return <LoadingScreen />;
@@ -440,6 +480,20 @@ function RootLayoutNav() {
     });
 
     return <Redirect href="/onboarding" />;
+  }
+
+  if (
+    session &&
+    inLegalConsentFlow &&
+    !shouldGateLegalConsent &&
+    !isProfileLoading &&
+    !isProfileFetching
+  ) {
+    return (
+      <Redirect
+        href={shouldGateAgeAttestation ? '/age-gate' : shouldGateOnboarding ? '/onboarding' : '/'}
+      />
+    );
   }
 
   if (
@@ -510,6 +564,12 @@ function RootLayoutNav() {
       {/* Age attestation gate - no header */}
       <Stack.Screen
         name="age-gate"
+        options={{ headerShown: false }}
+      />
+
+      {/* Legal/user policy acceptance gate - no header */}
+      <Stack.Screen
+        name="legal-consent"
         options={{ headerShown: false }}
       />
 

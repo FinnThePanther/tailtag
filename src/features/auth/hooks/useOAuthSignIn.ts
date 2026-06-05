@@ -6,6 +6,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../../../lib/supabase';
 import {
@@ -13,12 +14,17 @@ import {
   getOAuthRedirectUri,
   setPendingOAuthProvider,
 } from '../utils/oauth';
+import { updateLegalTermsAcceptance } from '../../legal-consent';
+import { createProfileQueryOptions, type ProfileSummary } from '../../profile';
 
 WebBrowser.maybeCompleteAuthSession();
 
 type SupportedProvider = Extract<Provider, 'apple' | 'discord' | 'google'>;
 
 type OAuthErrorState = string | null;
+type OAuthSignInOptions = {
+  recordLegalAcceptance?: boolean;
+};
 
 const formatErrorMessage = (input: unknown) =>
   input instanceof Error ? input.message : 'Unable to complete sign-in. Please try again.';
@@ -40,6 +46,7 @@ const PROVIDER_OPTIONS: Partial<Record<SupportedProvider, { scopes?: string }>> 
 };
 
 export function useOAuthSignIn() {
+  const queryClient = useQueryClient();
   const [activeProvider, setActiveProvider] = useState<SupportedProvider | null>(null);
   const [error, setError] = useState<OAuthErrorState>(null);
 
@@ -59,6 +66,40 @@ export function useOAuthSignIn() {
       return false;
     }
   }, []);
+
+  const recordLegalAcceptanceForCurrentSession = useCallback(
+    async (userId?: string | null) => {
+      let resolvedUserId = userId ?? null;
+
+      if (!resolvedUserId) {
+        const { data } = await supabase.auth.getSession();
+        resolvedUserId = data.session?.user.id ?? null;
+      }
+
+      if (!resolvedUserId) {
+        return;
+      }
+
+      try {
+        const result = await updateLegalTermsAcceptance(resolvedUserId);
+        const profileQueryKey = createProfileQueryOptions(resolvedUserId).queryKey;
+
+        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+          current
+            ? {
+                ...current,
+                legal_terms_accepted_at: result.acceptedAt,
+                legal_terms_version: result.version,
+              }
+            : current,
+        );
+        await queryClient.invalidateQueries({ queryKey: profileQueryKey });
+      } catch {
+        // The post-auth legal consent gate remains the durable fallback.
+      }
+    },
+    [queryClient],
+  );
 
   useEffect(() => {
     const subscription = Linking.addEventListener('url', (event) => {
@@ -90,84 +131,91 @@ export function useOAuthSignIn() {
     };
   }, [resolveSessionFromUrl]);
 
-  const signInWithAppleNative = useCallback(async () => {
-    // Check if Apple Authentication is available
-    const isAvailable = await AppleAuthentication.isAvailableAsync();
-    if (!isAvailable) {
-      throw new Error('Sign in with Apple is not available on this device.');
-    }
-
-    try {
-      const rawNonce = generateAppleNonce();
-      const hashedNonce = await hashAppleNonce(rawNonce);
-
-      // Request Apple credential
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-        nonce: hashedNonce,
-      });
-
-      if (!credential.identityToken) {
-        throw new Error('Apple sign-in did not return an identity token.');
+  const signInWithAppleNative = useCallback(
+    async (options: OAuthSignInOptions = {}) => {
+      // Check if Apple Authentication is available
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAvailable) {
+        throw new Error('Sign in with Apple is not available on this device.');
       }
 
-      // Exchange credential with Supabase
-      const { data, error: authError } = await supabase.auth.signInWithIdToken({
-        provider: 'apple',
-        token: credential.identityToken,
-        access_token: credential.authorizationCode ?? undefined,
-        nonce: rawNonce,
-      });
+      try {
+        const rawNonce = generateAppleNonce();
+        const hashedNonce = await hashAppleNonce(rawNonce);
 
-      if (authError) {
-        throw authError;
-      }
-
-      if (!data.session) {
-        throw new Error('Sign-in did not return a valid session.');
-      }
-
-      // Apple only provides fullName on the first sign-in attempt
-      // Capture and save it immediately if available
-      if (credential.fullName) {
-        const fullName = [credential.fullName.givenName, credential.fullName.familyName]
-          .filter(Boolean)
-          .join(' ');
-
-        const { error: updateError } = await supabase.auth.updateUser({
-          data: {
-            full_name: fullName || undefined,
-            given_name: credential.fullName.givenName || undefined,
-            family_name: credential.fullName.familyName || undefined,
-          },
+        // Request Apple credential
+        const credential = await AppleAuthentication.signInAsync({
+          requestedScopes: [
+            AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+            AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          ],
+          nonce: hashedNonce,
         });
 
-        if (updateError) {
-          // Name update is optional; silently ignore failure
+        if (!credential.identityToken) {
+          throw new Error('Apple sign-in did not return an identity token.');
         }
-      }
 
-      return;
-    } catch (caught) {
-      // Handle user cancellation gracefully
-      if (
-        caught instanceof Error &&
-        (caught.message.includes('cancel') ||
-          caught.message.includes('dismiss') ||
-          caught.message.includes('1001'))
-      ) {
-        throw new Error('Sign-in was canceled.');
-      }
+        // Exchange credential with Supabase
+        const { data, error: authError } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+          access_token: credential.authorizationCode ?? undefined,
+          nonce: rawNonce,
+        });
 
-      throw caught;
-    }
-  }, []);
+        if (authError) {
+          throw authError;
+        }
+
+        if (!data.session) {
+          throw new Error('Sign-in did not return a valid session.');
+        }
+
+        // Apple only provides fullName on the first sign-in attempt
+        // Capture and save it immediately if available
+        if (credential.fullName) {
+          const fullName = [credential.fullName.givenName, credential.fullName.familyName]
+            .filter(Boolean)
+            .join(' ');
+
+          const { error: updateError } = await supabase.auth.updateUser({
+            data: {
+              full_name: fullName || undefined,
+              given_name: credential.fullName.givenName || undefined,
+              family_name: credential.fullName.familyName || undefined,
+            },
+          });
+
+          if (updateError) {
+            // Name update is optional; silently ignore failure
+          }
+        }
+
+        if (options.recordLegalAcceptance) {
+          await recordLegalAcceptanceForCurrentSession(data.session.user.id);
+        }
+
+        return;
+      } catch (caught) {
+        // Handle user cancellation gracefully
+        if (
+          caught instanceof Error &&
+          (caught.message.includes('cancel') ||
+            caught.message.includes('dismiss') ||
+            caught.message.includes('1001'))
+        ) {
+          throw new Error('Sign-in was canceled.');
+        }
+
+        throw caught;
+      }
+    },
+    [recordLegalAcceptanceForCurrentSession],
+  );
 
   const signInWithProvider = useCallback(
-    async (provider: SupportedProvider) => {
+    async (provider: SupportedProvider, options: OAuthSignInOptions = {}) => {
       if (activeProvider) {
         return;
       }
@@ -184,7 +232,7 @@ export function useOAuthSignIn() {
             throw new Error('Sign in with Apple is only available on iOS devices.');
           }
 
-          await signInWithAppleNative();
+          await signInWithAppleNative(options);
           setPendingOAuthProvider(null);
           setActiveProvider(null);
           return;
@@ -219,6 +267,10 @@ export function useOAuthSignIn() {
             throw new Error('Sign-in did not return a valid session.');
           }
 
+          if (options.recordLegalAcceptance) {
+            await recordLegalAcceptanceForCurrentSession();
+          }
+
           return;
         }
 
@@ -236,7 +288,13 @@ export function useOAuthSignIn() {
         setActiveProvider(null);
       }
     },
-    [activeProvider, redirectUri, resolveSessionFromUrl, signInWithAppleNative],
+    [
+      activeProvider,
+      redirectUri,
+      recordLegalAcceptanceForCurrentSession,
+      resolveSessionFromUrl,
+      signInWithAppleNative,
+    ],
   );
 
   return {

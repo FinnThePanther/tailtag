@@ -129,9 +129,13 @@ export default function AgeGateScreen() {
           <Text style={styles.eyebrow}>Visibility settings</Text>
           <Text style={styles.title}>Confirm your age range</Text>
           <Text style={styles.body}>
-            TailTag is open to players under 18. Everyone can catch, join conventions, and play the
-            game; some profiles and fursuits are only available to players who confirm they are 18
-            or older.
+            TailTag is for players 13 and older. Everyone can catch, join conventions, and play the
+            game; 18+ visibility only limits who can view a profile or fursuit.
+          </Text>
+          <Text style={styles.body}>
+            Adult, sexual, pornographic, dating, matchmaking, hookup, harassment, bullying,
+            grooming, CSAM, CSAE, and illegal content or conduct are not allowed anywhere in
+            TailTag.
           </Text>
           <Text style={styles.body}>
             Choose carefully. After you confirm, this setting can only be changed by contacting

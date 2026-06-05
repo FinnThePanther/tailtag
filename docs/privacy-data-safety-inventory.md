@@ -11,6 +11,9 @@ Use this inventory as the source of truth for TailTag's privacy policy, Apple Ap
 - Account deletion URL: `https://playtailtag.com/delete-account`
 - Support email: `finn@finnthepanther.com`
 - Intended audience: users 13 and older; TailTag is not directed to children under 13.
+- UGC posture: user-generated profiles, fursuit listings, photos, catch submissions, report text, and support text are allowed only under TailTag's user policies.
+- Adult/sexual content posture: adult, sexual, pornographic, dating, matchmaking, hookup, grooming, CSAM, CSAE, harassment, bullying, and illegal content or conduct are not allowed.
+- 18+ visibility posture: 18+ visibility is an age-based privacy boundary for profiles and fursuits; it is not permission to upload adult or sexual content.
 - Ads: no ads.
 - Sale of personal information: no sale.
 - Cross-app or cross-site advertising tracking: no.
@@ -30,6 +33,7 @@ Use this inventory as the source of truth for TailTag's privacy policy, Apple Ap
 | Push notifications | Expo push token, push permission status, notification preferences, notification records, delivery retry data | Device notification APIs, Expo, backend notification pipeline | App functionality, developer communications, catch/achievement/task notifications | User can disable notifications |
 | Diagnostics and telemetry | Crash logs, error logs, performance traces, profiling data, device/app metadata, navigation breadcrumbs, signed-in user ID/email/username context | Sentry SDK and app instrumentation | Diagnostics, analytics, app reliability, support, security | Collected for beta reliability; not used for ads |
 | Moderation and safety | Reports, blocks, moderation actions, report descriptions, resolution notes, staff actions | User reports, staff review, admin dashboard | Safety, fraud prevention, compliance, support | Reports may be retained for safety and audit needs |
+| Legal and policy acceptance | Terms/user-policy acceptance version and timestamp | User acceptance in app | App functionality, Account management, Fraud prevention/security/compliance | Required before creating or uploading UGC |
 | Support and deletion requests | Support emails, deletion request details, verification notes, completion timestamps | User contact with support | Support, account deletion, legal/audit tracking | User initiates; limited retention for support records |
 
 ## Processors and Providers
@@ -112,6 +116,7 @@ Google notes:
 - Mark service-provider processing as not shared by default when the processor acts on TailTag's behalf.
 - Review the latest provider SDK guidance for Sentry, Expo, Supabase, Apple, Google, and Discord before final submission. If a provider classifies a transfer as sharing under Google Play's current definitions, update this inventory and the Play Console answers together.
 - If Android release permissions still include both `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION`, include both precise and approximate location.
+- Content rating answers should disclose UGC/social features and reporting/blocking, while reflecting that adult, sexual, pornographic, dating, matchmaking, hookup, CSAM, CSAE, harassment, bullying, and illegal content or conduct are prohibited by policy.
 
 ## Account Deletion and Retention
 
