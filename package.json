@@ -40,6 +40,7 @@
     "prebuild:production": "APP_ENV=production npm run prebuild",
     "gen:types": "npx supabase gen types typescript --project-id rtxbvjicfxgcouufumce > /tmp/fresh-types.ts && python3 scripts/update-types.py /tmp/fresh-types.ts",
     "test:achievements": "node --test scripts/achievement-regression.mjs",
+    "test:lifecycle": "node --test scripts/lifecycle-regression.mjs",
     "verify:production-release": "node scripts/verify-production-release-config.cjs",
     "format": "prettier . --write --ignore-unknown",
     "format:check": "prettier . --check --ignore-unknown",

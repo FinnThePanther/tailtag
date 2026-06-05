@@ -56,12 +56,35 @@ else
   SUPABASE_CLI="npx supabase"
 fi
 
-# Run a SQL query and return the first data value (strips CSV header).
+# Run a SQL query and return the first data value.
 sql() {
-  $SUPABASE_CLI db query --linked --output csv "$1" 2>/dev/null \
-    | tail -n +2 \
-    | head -1 \
-    | tr -d '[:space:]'
+  local raw
+  raw="$($SUPABASE_CLI db query --linked --output json "$1" 2>/dev/null)"
+  RAW_SQL_RESULT="$raw" python3 - <<'PY'
+import json
+import os
+
+raw = os.environ.get("RAW_SQL_RESULT", "")
+start = raw.find("{")
+end = raw.rfind("}")
+if start == -1 or end == -1:
+    print("")
+    raise SystemExit
+
+parsed = json.loads(raw[start : end + 1])
+rows = parsed.get("rows") or []
+if not rows:
+    print("")
+    raise SystemExit
+
+row = rows[0]
+if not row:
+    print("")
+    raise SystemExit
+
+value = next(iter(row.values()))
+print("" if value is None else str(value).strip())
+PY
 }
 
 # Check that a SQL count query returns "1" (row present / active).
@@ -145,6 +168,11 @@ check "app_private.ingest_gameplay_event" \
 
 check "app_private.edge_function_config_value" \
   "SELECT count(*)::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname='app_private' AND p.proname='edge_function_config_value'"
+
+section "Convention lifecycle automation"
+
+check "app_private.invoke_convention_closeout is async" \
+  "SELECT CASE WHEN pg_get_functiondef('app_private.invoke_convention_closeout(text,jsonb,uuid,text,text)'::regprocedure) NOT ILIKE '%http_collect_response%' THEN 1 ELSE 0 END::text"
 
 # ── 4. Vault secrets ─────────────────────────────────────────────────────────
 
