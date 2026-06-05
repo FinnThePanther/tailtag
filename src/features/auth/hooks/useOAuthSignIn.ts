@@ -6,6 +6,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../../../lib/supabase';
 import {
@@ -14,6 +15,7 @@ import {
   setPendingOAuthProvider,
 } from '../utils/oauth';
 import { updateLegalTermsAcceptance } from '../../legal-consent';
+import { createProfileQueryOptions, type ProfileSummary } from '../../profile';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -44,6 +46,7 @@ const PROVIDER_OPTIONS: Partial<Record<SupportedProvider, { scopes?: string }>> 
 };
 
 export function useOAuthSignIn() {
+  const queryClient = useQueryClient();
   const [activeProvider, setActiveProvider] = useState<SupportedProvider | null>(null);
   const [error, setError] = useState<OAuthErrorState>(null);
 
@@ -64,24 +67,39 @@ export function useOAuthSignIn() {
     }
   }, []);
 
-  const recordLegalAcceptanceForCurrentSession = useCallback(async (userId?: string | null) => {
-    let resolvedUserId = userId ?? null;
+  const recordLegalAcceptanceForCurrentSession = useCallback(
+    async (userId?: string | null) => {
+      let resolvedUserId = userId ?? null;
 
-    if (!resolvedUserId) {
-      const { data } = await supabase.auth.getSession();
-      resolvedUserId = data.session?.user.id ?? null;
-    }
+      if (!resolvedUserId) {
+        const { data } = await supabase.auth.getSession();
+        resolvedUserId = data.session?.user.id ?? null;
+      }
 
-    if (!resolvedUserId) {
-      return;
-    }
+      if (!resolvedUserId) {
+        return;
+      }
 
-    try {
-      await updateLegalTermsAcceptance(resolvedUserId);
-    } catch {
-      // The post-auth legal consent gate remains the durable fallback.
-    }
-  }, []);
+      try {
+        const result = await updateLegalTermsAcceptance(resolvedUserId);
+        const profileQueryKey = createProfileQueryOptions(resolvedUserId).queryKey;
+
+        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+          current
+            ? {
+                ...current,
+                legal_terms_accepted_at: result.acceptedAt,
+                legal_terms_version: result.version,
+              }
+            : current,
+        );
+        await queryClient.invalidateQueries({ queryKey: profileQueryKey });
+      } catch {
+        // The post-auth legal consent gate remains the durable fallback.
+      }
+    },
+    [queryClient],
+  );
 
   useEffect(() => {
     const subscription = Linking.addEventListener('url', (event) => {
