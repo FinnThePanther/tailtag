@@ -928,6 +928,9 @@ async function claimCloseout(conventionId: string, source: CloseoutSource, curre
       [
         'id',
         'name',
+        'started_at',
+        'geofence_enabled',
+        'location_verification_required',
         'status',
         'closed_at',
         'archived_at',
