@@ -16,7 +16,7 @@ export async function resolveReportAction(input: {
   const { profile } = await assertAdminAction([...REPORT_ROLES]);
   const supabase = createServiceRoleClient();
 
-  await supabase
+  const { error } = await supabase
     .from('user_reports')
     .update({
       status: input.status,
@@ -25,6 +25,10 @@ export async function resolveReportAction(input: {
       resolution_notes: input.resolutionNotes ?? null,
     })
     .eq('id', input.reportId);
+
+  if (error) {
+    throw new Error(`Failed to update report: ${error.message}`);
+  }
 
   await logAudit({
     actorId: profile.id,

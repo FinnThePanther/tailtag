@@ -77,6 +77,12 @@ Do not patch or commit local `ios/` or `android/` folders to fix production
 identity. The repo runs EAS in managed/prebuild mode, those folders are ignored,
 and the EAS-generated native projects are the release source of truth.
 
+Before submitting the app for review, complete the moderation operations check in
+`docs/runbooks/moderation-response.md`: confirm the launch-week reviewer is
+assigned, at least one staff/admin user can access the reports queue, and store
+review notes do not promise moderation capabilities that are not supported by the
+app or admin dashboard.
+
 ## Store review notes
 
 Use this posture in App Store Connect and Play Console review notes:
