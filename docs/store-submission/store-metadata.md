@@ -120,7 +120,8 @@ TailTag is intended for users 13 and older.
 
 Use the paste-ready review notes in
 `docs/store-submission/compliance-package.md`, then add the current reviewer demo
-account credentials before submission.
+account credentials from `docs/store-submission/reviewer-demo-account.md` before
+submission.
 
 Recommended contact values:
 
@@ -180,7 +181,7 @@ TailTag is intended for users 13 and older.
 | External marketing | Enabled by default unless Finn wants to restrict promotion across Google-owned properties. | Google Play may use listing assets for promotional surfaces. |
 | Target audience | 13+ | Do not include children under 13 unless product/legal posture changes. |
 | Ads declaration | No ads | Keep aligned with compliance package. |
-| App access | Login required | Use reviewer demo credentials from `docs/store-submission/compliance-package.md` before submission. |
+| App access | Login required | Use reviewer demo credentials from `docs/store-submission/reviewer-demo-account.md` before submission. |
 | Data Safety | Use `docs/store-submission/compliance-package.md` | Do not duplicate answers here. |
 
 ## Screenshot Copy Direction
@@ -224,5 +225,6 @@ Screenshot safety checklist:
 - Confirm final App Store Review contact phone number.
 - Confirm final Play Console contact phone number, or leave it blank if Finn does
   not want a phone number published.
-- Confirm reviewer demo account credentials and add them to the review notes
-  before submission.
+- Confirm reviewer demo account credentials in
+  `docs/store-submission/reviewer-demo-account.md` and add them to the review
+  notes before submission.

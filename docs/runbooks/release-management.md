@@ -90,6 +90,10 @@ App Privacy answers, Google Play Data safety answers, content rating guidance,
 and paste-ready review notes, use
 `docs/store-submission/compliance-package.md`.
 
+For reviewer login credentials, seeded demo data, and the suggested reviewer
+flow, use `docs/store-submission/reviewer-demo-account.md`. Keep the current
+password in the release credential store rather than committing it to git.
+
 Use this posture in App Store Connect and Play Console review notes:
 
 - TailTag is a 13+ convention game with user-generated profiles, fursuit

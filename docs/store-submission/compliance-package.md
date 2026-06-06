@@ -175,8 +175,9 @@ Camera and photo library access are used so users can add profile, fursuit, and 
 18+ visibility is a privacy boundary only. It limits profile/fursuit visibility to users who have declared they are 18 or older and does not permit adult or sexual content.
 
 Demo account:
-Email: [ADD BEFORE SUBMISSION]
-Password: [ADD BEFORE SUBMISSION]
+Use docs/store-submission/reviewer-demo-account.md for the current reviewer
+account email, seeded demo data, suggested review flow, and credential handling.
+Paste the current password from the release credential store before submission.
 Suggested review flow: sign in, complete or inspect the profile, open Settings to see legal/account deletion controls, open a fursuit/profile/catch detail to see report/block controls, and use the Catch tab to review catch entry/photo flows.
 ```
 
@@ -187,7 +188,8 @@ Suggested review flow: sign in, complete or inspect the profile, open Settings t
   - `https://playtailtag.com/terms`
   - `https://playtailtag.com/delete-account`
   - `https://playtailtag.com/child-safety`
-- Add current demo account credentials to the review notes.
+- Add current demo account credentials from
+  `docs/store-submission/reviewer-demo-account.md` to the review notes.
 - Confirm at least one production staff/admin user can access the reports queue
   and player moderation panel.
 - Confirm Finn is still the launch-week moderation owner, or replace the owner in
