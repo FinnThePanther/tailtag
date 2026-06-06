@@ -85,6 +85,11 @@ app or admin dashboard.
 
 ## Store review notes
 
+For the full App Store Connect and Play Console compliance package, including
+App Privacy answers, Google Play Data safety answers, content rating guidance,
+and paste-ready review notes, use
+`docs/store-submission/compliance-package.md`.
+
 Use this posture in App Store Connect and Play Console review notes:
 
 - TailTag is a 13+ convention game with user-generated profiles, fursuit
