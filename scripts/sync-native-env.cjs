@@ -9,6 +9,8 @@ const repoRoot = path.resolve(__dirname, '..');
 const requestedEnv = process.env.APP_ENV ?? process.argv[2] ?? 'development';
 const appEnv = resolveAppEnv(requestedEnv);
 const config = envConfigs[appEnv];
+const packageJson = require('../package.json');
+const appVersion = packageJson.version;
 
 function readFileIfExists(relativePath) {
   const filePath = path.join(repoRoot, relativePath);
@@ -118,6 +120,11 @@ if (
       pattern: /applicationId\s+'[^']+'/,
       value: `applicationId '${config.androidApplicationId}'`,
     },
+    {
+      label: 'Android versionName',
+      pattern: /versionName\s+"[^"]+"/,
+      value: `versionName "${appVersion}"`,
+    },
   ])
 ) {
   changedFiles.push('android/app/build.gradle');
@@ -129,6 +136,11 @@ if (
       label: 'Android app name',
       pattern: /<string name="app_name">[^<]+<\/string>/,
       value: `<string name="app_name">${config.appDisplayName}</string>`,
+    },
+    {
+      label: 'Android runtime version',
+      pattern: /<string name="expo_runtime_version">[^<]+<\/string>/,
+      value: `<string name="expo_runtime_version">${appVersion}</string>`,
     },
   ])
 ) {
@@ -145,6 +157,18 @@ if (
   ])
 ) {
   changedFiles.push('android/settings.gradle');
+}
+
+if (
+  syncTextFile('android/app/src/main/java/com/finnthepanther/tailtag/MainActivity.kt', [
+    {
+      label: 'Android MainActivity package',
+      pattern: /^package\s+com\.finnthepanther\.tailtag(?:\.dev|\.staging)?$/m,
+      value: `package ${config.androidApplicationId}`,
+    },
+  ])
+) {
+  changedFiles.push('android/app/src/main/java/com/finnthepanther/tailtag/MainActivity.kt');
 }
 
 if (
@@ -169,6 +193,18 @@ if (
   ])
 ) {
   changedFiles.push('android/app/src/main/java/com/finnthepanther/tailtag/dev/MainActivity.kt');
+}
+
+if (
+  syncTextFile('android/app/src/main/java/com/finnthepanther/tailtag/MainApplication.kt', [
+    {
+      label: 'Android MainApplication package',
+      pattern: /^package\s+com\.finnthepanther\.tailtag(?:\.dev|\.staging)?$/m,
+      value: `package ${config.androidApplicationId}`,
+    },
+  ])
+) {
+  changedFiles.push('android/app/src/main/java/com/finnthepanther/tailtag/MainApplication.kt');
 }
 
 if (
@@ -198,11 +234,16 @@ if (
 }
 
 if (
-  syncTextFile('ios/TailTagStaging/Info.plist', [
+  syncTextFile('ios/TailTagDev/Info.plist', [
     {
       label: 'iOS display name',
       pattern: /(<key>CFBundleDisplayName<\/key>\s*<string>)[^<]+(<\/string>)/,
       value: `$1${config.appDisplayName}$2`,
+    },
+    {
+      label: 'iOS short version',
+      pattern: /(<key>CFBundleShortVersionString<\/key>\s*<string>)[^<]+(<\/string>)/,
+      value: `$1${appVersion}$2`,
     },
     {
       label: 'iOS URL scheme bundle identifier',
@@ -211,19 +252,24 @@ if (
     },
   ])
 ) {
-  changedFiles.push('ios/TailTagStaging/Info.plist');
+  changedFiles.push('ios/TailTagDev/Info.plist');
 }
 
 if (
-  syncTextFile('ios/TailTagStaging.xcodeproj/project.pbxproj', [
+  syncTextFile('ios/TailTagDev.xcodeproj/project.pbxproj', [
     {
       label: 'iOS PRODUCT_BUNDLE_IDENTIFIER',
       pattern: /PRODUCT_BUNDLE_IDENTIFIER = com\.finnthepanther\.tailtag(?:\.dev|\.staging)?;/g,
       value: `PRODUCT_BUNDLE_IDENTIFIER = ${config.iosBundleId};`,
     },
+    {
+      label: 'iOS MARKETING_VERSION',
+      pattern: /MARKETING_VERSION = [^;]+;/g,
+      value: `MARKETING_VERSION = ${appVersion};`,
+    },
   ])
 ) {
-  changedFiles.push('ios/TailTagStaging.xcodeproj/project.pbxproj');
+  changedFiles.push('ios/TailTagDev.xcodeproj/project.pbxproj');
 }
 
 const syncedGoogleServicesTargets = [];

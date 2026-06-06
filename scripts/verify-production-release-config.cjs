@@ -55,6 +55,32 @@ function assertGitIgnored(relativePath) {
   }
 }
 
+function assertFileIncludes(relativePath, expectedText, label) {
+  const absolutePath = path.join(projectRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    return;
+  }
+
+  const content = fs.readFileSync(absolutePath, 'utf8');
+  if (!content.includes(expectedText)) {
+    failures.push(`${label}: expected ${relativePath} to include ${JSON.stringify(expectedText)}`);
+  }
+}
+
+function assertFileExcludes(relativePath, unexpectedText, label) {
+  const absolutePath = path.join(projectRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    return;
+  }
+
+  const content = fs.readFileSync(absolutePath, 'utf8');
+  if (content.includes(unexpectedText)) {
+    failures.push(
+      `${label}: expected ${relativePath} not to include ${JSON.stringify(unexpectedText)}`,
+    );
+  }
+}
+
 const { exp } = getConfig(projectRoot, { skipSDKVersionRequirement: true });
 
 assertEqual('Expo app name', exp.name, expected.appName);
@@ -111,6 +137,47 @@ if (!fs.existsSync(path.join(projectRoot, 'google-services.production.json'))) {
     'google-services.production.json: expected production Android Firebase config file to exist',
   );
 }
+
+assertFileIncludes(
+  'ios/TailTagDev.xcodeproj/project.pbxproj',
+  `PRODUCT_BUNDLE_IDENTIFIER = ${expected.iosBundleIdentifier};`,
+  'Native iOS bundle identifier',
+);
+assertFileExcludes(
+  'ios/TailTagDev.xcodeproj/project.pbxproj',
+  `${expected.iosBundleIdentifier}.dev`,
+  'Native iOS bundle identifier',
+);
+assertFileExcludes(
+  'ios/TailTagDev/Info.plist',
+  `${expected.iosBundleIdentifier}.dev`,
+  'Native iOS URL scheme',
+);
+assertFileIncludes(
+  'ios/TailTagDev/Info.plist',
+  `<string>${packageJson.version}</string>`,
+  'Native iOS short version',
+);
+assertFileIncludes(
+  'android/app/build.gradle',
+  `versionName "${packageJson.version}"`,
+  'Native Android version name',
+);
+assertFileIncludes(
+  'android/app/src/main/res/values/strings.xml',
+  `<string name="expo_runtime_version">${packageJson.version}</string>`,
+  'Native Android runtime version',
+);
+assertFileIncludes(
+  'android/app/src/main/java/com/finnthepanther/tailtag/MainActivity.kt',
+  `package ${expected.androidPackage}`,
+  'Native Android MainActivity package',
+);
+assertFileIncludes(
+  'android/app/src/main/java/com/finnthepanther/tailtag/MainApplication.kt',
+  `package ${expected.androidPackage}`,
+  'Native Android MainApplication package',
+);
 
 if (failures.length > 0) {
   console.error('Production release config verification failed:');
