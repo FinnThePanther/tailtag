@@ -7,13 +7,23 @@ import { resolveReportAction } from '@/app/(dashboard)/reports/actions';
 export function ReportActions({ reportId }: { reportId: string }) {
   const [notes, setNotes] = useState('');
   const [isPending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{
+    tone: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   const act = (status: 'resolved' | 'dismissed') => {
     setMessage(null);
     startTransition(async () => {
-      await resolveReportAction({ reportId, status, resolutionNotes: notes || null });
-      setMessage(status === 'resolved' ? 'Resolved' : 'Dismissed');
+      try {
+        await resolveReportAction({ reportId, status, resolutionNotes: notes || null });
+        setMessage({ tone: 'success', text: status === 'resolved' ? 'Resolved' : 'Dismissed' });
+      } catch (error) {
+        setMessage({
+          tone: 'error',
+          text: error instanceof Error ? error.message : 'Could not update report. Try again.',
+        });
+      }
     });
   };
 
@@ -44,7 +54,9 @@ export function ReportActions({ reportId }: { reportId: string }) {
           Dismiss
         </button>
       </div>
-      {message ? <p className="text-primary">{message}</p> : null}
+      {message ? (
+        <p className={message.tone === 'error' ? 'text-red-200' : 'text-primary'}>{message.text}</p>
+      ) : null}
     </div>
   );
 }

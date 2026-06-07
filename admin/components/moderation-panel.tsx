@@ -50,7 +50,7 @@ export function ModerationPanel({
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-white">Moderation actions</p>
-          <p className="text-xs text-muted">Ban or mute users; writes to audit log.</p>
+          <p className="text-xs text-muted">Ban or lift bans; writes to audit log.</p>
         </div>
         {status ? <p className="text-xs text-primary">{status}</p> : null}
       </div>

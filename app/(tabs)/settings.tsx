@@ -116,7 +116,7 @@ import { usePushNotifications } from '../../src/features/push-notifications';
 import { useOtaUpdateCheck } from '../../src/hooks/useOtaUpdateCheck';
 import { styles } from '../../src/app-styles/(tabs)/settings.styles';
 
-const TESTING_GROUP_URL = 'https://t.me/+x2C_t-_kgI40ZDlh';
+const COMMUNITY_CHAT_URL = 'https://t.me/+x2C_t-_kgI40ZDlh';
 const PRIVACY_POLICY_URL = 'https://playtailtag.com/privacy';
 const TERMS_URL = 'https://playtailtag.com/terms';
 const DELETE_ACCOUNT_URL = 'https://playtailtag.com/delete-account';
@@ -743,8 +743,8 @@ export default function SettingsScreen() {
     [disablePushNotifications, isPushDenied, requestPermissionAndRegister],
   );
 
-  const handleOpenTestingGroup = useCallback(async () => {
-    await WebBrowser.openBrowserAsync(TESTING_GROUP_URL);
+  const handleOpenCommunityChat = useCallback(async () => {
+    await WebBrowser.openBrowserAsync(COMMUNITY_CHAT_URL);
   }, []);
 
   const handleOpenExternalUrl = useCallback(async (url: string) => {
@@ -2143,15 +2143,15 @@ export default function SettingsScreen() {
 
       <TailTagCard>
         <View style={styles.accountSection}>
-          <Text style={styles.sectionTitle}>Testing Group</Text>
+          <Text style={styles.sectionTitle}>Support & feedback</Text>
           <Text style={styles.sectionDescription}>
-            Join the TailTag beta chat for feedback, support, bug reports, and testing updates.
+            Join the TailTag community for support, release updates, bug reports, and feedback.
           </Text>
           <TailTagButton
             variant="outline"
-            onPress={handleOpenTestingGroup}
+            onPress={handleOpenCommunityChat}
           >
-            Join Telegram Chat
+            Join Community Chat
           </TailTagButton>
         </View>
       </TailTagCard>
@@ -2160,7 +2160,7 @@ export default function SettingsScreen() {
         <View style={styles.accountSection}>
           <Text style={styles.sectionTitle}>Legal & privacy</Text>
           <Text style={styles.sectionDescription}>
-            Review how TailTag handles your data, account deletion requests, and beta terms.
+            Review how TailTag handles your data, account deletion requests, and terms.
           </Text>
           <TailTagButton
             variant="outline"

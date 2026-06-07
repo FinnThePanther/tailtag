@@ -77,7 +77,22 @@ Do not patch or commit local `ios/` or `android/` folders to fix production
 identity. The repo runs EAS in managed/prebuild mode, those folders are ignored,
 and the EAS-generated native projects are the release source of truth.
 
+Before submitting the app for review, complete the moderation operations check in
+`docs/runbooks/moderation-response.md`: confirm the launch-week reviewer is
+assigned, at least one staff/admin user can access the reports queue, and store
+review notes do not promise moderation capabilities that are not supported by the
+app or admin dashboard.
+
 ## Store review notes
+
+For the full App Store Connect and Play Console compliance package, including
+App Privacy answers, Google Play Data safety answers, content rating guidance,
+and paste-ready review notes, use
+`docs/store-submission/compliance-package.md`.
+
+For reviewer login credentials, seeded demo data, and the suggested reviewer
+flow, use `docs/store-submission/reviewer-demo-account.md`. Keep the current
+password in the release credential store rather than committing it to git.
 
 Use this posture in App Store Connect and Play Console review notes:
 

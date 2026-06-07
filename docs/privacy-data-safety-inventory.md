@@ -2,7 +2,8 @@
 
 Last updated: April 13, 2026
 
-Use this inventory as the source of truth for TailTag's privacy policy, Apple App Privacy labels, and Google Play Data safety answers for the first TestFlight and Google Play testing submission.
+Use this inventory as the source of truth for TailTag's privacy policy and the
+store compliance package in `docs/store-submission/compliance-package.md`.
 
 ## Public Policy Values
 
@@ -31,7 +32,7 @@ Use this inventory as the source of truth for TailTag's privacy policy, Apple Ap
 | Photos | Profile avatars, fursuit photos, catch photos | Camera, media picker, user upload | App functionality, profile/fursuit display, catch review, moderation | Optional per upload; removed where stored under account by deletion flow |
 | Location verification | Foreground latitude, longitude, location accuracy, verification result, distance to convention geofence, convention ID, timestamp | User-initiated foreground location check | Convention verification, anti-abuse, safety, diagnostics | Optional unless joining a geofence-required convention |
 | Push notifications | Expo push token, push permission status, notification preferences, notification records, delivery retry data | Device notification APIs, Expo, backend notification pipeline | App functionality, developer communications, catch/achievement/task notifications | User can disable notifications |
-| Diagnostics and telemetry | Crash logs, error logs, performance traces, profiling data, device/app metadata, navigation breadcrumbs, signed-in user ID/email/username context | Sentry SDK and app instrumentation | Diagnostics, analytics, app reliability, support, security | Collected for beta reliability; not used for ads |
+| Diagnostics and telemetry | Crash logs, error logs, performance traces, profiling data, device/app metadata, navigation breadcrumbs, signed-in user ID/email/username context | Sentry SDK and app instrumentation | Diagnostics, analytics, app reliability, support, security | Collected for reliability; not used for ads |
 | Moderation and safety | Reports, blocks, moderation actions, report descriptions, resolution notes, staff actions | User reports, staff review, admin dashboard | Safety, fraud prevention, compliance, support | Reports may be retained for safety and audit needs |
 | Legal and policy acceptance | Terms/user-policy acceptance version and timestamp | User acceptance in app | App functionality, Account management, Fraud prevention/security/compliance | Required before creating or uploading UGC |
 | Support and deletion requests | Support emails, deletion request details, verification notes, completion timestamps | User contact with support | Support, account deletion, legal/audit tracking | User initiates; limited retention for support records |
@@ -77,10 +78,10 @@ Recommended Apple data types:
 
 Apple notes:
 
-- Do not mark data as used for Third-Party Advertising or Developer's Advertising or Marketing for this beta submission.
+- Do not mark data as used for Third-Party Advertising or Developer's Advertising or Marketing.
 - Do not mark tracking as yes unless a later SDK review finds cross-company advertising tracking.
 - Location is collected because precise coordinates are transmitted to TailTag backend verification, even though TailTag does not continuously track background location.
-- Sentry replay is disabled for production beta builds. If replay is enabled later, update the public policy, this inventory, and store declarations before shipping that build.
+- Sentry replay is disabled for production builds. If replay is enabled later, update the public policy, this inventory, the store compliance package, and store declarations before shipping that build.
 
 ## Google Play Data Safety Draft
 
@@ -105,14 +106,14 @@ Recommended Google data types:
 | App activity - App interactions | Collected | Required for app functionality/diagnostics | App functionality, Analytics, Fraud prevention/security/compliance |
 | App activity - Other user-generated content | Collected | Optional for user-entered bios, social links, report text, support details | App functionality, Account management, Fraud prevention/security/compliance |
 | App activity - Other actions | Collected | Required for gameplay features | App functionality, Analytics, Fraud prevention/security/compliance |
-| App info and performance - Crash logs | Collected | Required for beta diagnostics | Analytics, App functionality |
-| App info and performance - Diagnostics | Collected | Required for beta diagnostics | Analytics, App functionality, Fraud prevention/security/compliance |
-| App info and performance - Other app performance data | Collected | Required for beta diagnostics | Analytics, App functionality |
+| App info and performance - Crash logs | Collected | Required for diagnostics | Analytics, App functionality |
+| App info and performance - Diagnostics | Collected | Required for diagnostics | Analytics, App functionality, Fraud prevention/security/compliance |
+| App info and performance - Other app performance data | Collected | Required for diagnostics | Analytics, App functionality |
 | Device or other IDs | Collected | Required for push, auth/session, and diagnostics where applicable | App functionality, Analytics, Fraud prevention/security/compliance, Developer communications |
 
 Google notes:
 
-- Avoid Advertising or marketing and Personalization purposes for this beta submission.
+- Avoid Advertising or marketing and Personalization purposes.
 - Mark service-provider processing as not shared by default when the processor acts on TailTag's behalf.
 - Review the latest provider SDK guidance for Sentry, Expo, Supabase, Apple, Google, and Discord before final submission. If a provider classifies a transfer as sharing under Google Play's current definitions, update this inventory and the Play Console answers together.
 - If Android release permissions still include both `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION`, include both precise and approximate location.

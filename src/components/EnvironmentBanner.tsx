@@ -16,6 +16,10 @@ function isKnownEnv(env: string | undefined): env is KnownEnv {
 export function EnvironmentBanner() {
   const insets = useSafeAreaInsets();
 
+  if (process.env.EXPO_PUBLIC_SCREENSHOT_MODE === 'true') {
+    return null;
+  }
+
   if (!isKnownEnv(APP_ENV)) {
     return null;
   }
