@@ -19,7 +19,37 @@ export const env = {
 
 function getSupabaseProjectRef() {
   try {
-    return new URL(env.supabaseUrl).hostname.split('.')[0] ?? null;
+    const hostname = new URL(env.supabaseUrl).hostname;
+    if (hostname.endsWith('.supabase.co')) {
+      return hostname.split('.')[0] ?? null;
+    }
+  } catch {
+    // Fall back to the anon key payload below.
+  }
+
+  return getSupabaseProjectRefFromAnonKey();
+}
+
+function decodeBase64Url(value: string) {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+
+  if (typeof globalThis.atob === 'function') {
+    return globalThis.atob(padded);
+  }
+
+  return Buffer.from(padded, 'base64').toString('utf8');
+}
+
+function getSupabaseProjectRefFromAnonKey() {
+  try {
+    const [, payload] = env.supabaseAnonKey.split('.');
+    if (!payload) {
+      return null;
+    }
+
+    const decoded = JSON.parse(decodeBase64Url(payload)) as { ref?: unknown };
+    return typeof decoded.ref === 'string' ? decoded.ref : null;
   } catch {
     return null;
   }
