@@ -150,6 +150,24 @@ export const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
+  appleButtonWrapper: {
+    minHeight: 44,
+    alignSelf: 'stretch',
+  },
+  appleButton: {
+    height: 44,
+    alignSelf: 'stretch',
+  },
+  appleLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  disabled: {
+    opacity: 0.6,
+  },
   footerHelper: {
     marginTop: spacing.lg,
     alignItems: 'center',

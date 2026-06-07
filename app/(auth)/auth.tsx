@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, Text, View } from 'react-native';
 
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
@@ -11,6 +12,7 @@ import { TailTagCard } from '../../src/components/ui/TailTagCard';
 import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { PasswordInput } from '../../src/components/ui/PasswordInput';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
+import { OAuthProviderButton } from '../../src/features/auth/components/OAuthProviderButton';
 import { PasswordStrengthIndicator } from '../../src/features/auth/components/PasswordStrengthIndicator';
 import { useOAuthSignIn } from '../../src/features/auth/hooks/useOAuthSignIn';
 import {
@@ -30,6 +32,7 @@ const PRIVACY_URL = 'https://playtailtag.com/privacy';
 const CHILD_SAFETY_URL = 'https://playtailtag.com/child-safety';
 const POLICY_ACCEPTANCE_ERROR =
   "Please confirm that you're at least 13 and accept TailTag's policies before signing up.";
+const APPLE_BUTTON_CORNER_RADIUS = 18;
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -496,51 +499,66 @@ export default function AuthScreen() {
           </View>
 
           {Platform.OS === 'ios' && (
-            <TailTagButton
-              variant="outline"
-              onPress={handleAppleSignIn}
-              loading={isAppleLoading}
-              disabled={isSubmitting}
-              accessibilityLabel={mode === 'sign_in' ? 'Log in with Apple' : 'Sign up with Apple'}
-              accessibilityHint={
-                mode === 'sign_in'
-                  ? 'Signs in with your Apple ID.'
-                  : 'Creates a TailTag account with your Apple ID.'
-              }
+            <View
+              pointerEvents={isSubmitting || isAppleLoading ? 'none' : 'auto'}
+              style={[
+                styles.appleButtonWrapper,
+                (isSubmitting || isAppleLoading) && styles.disabled,
+              ]}
             >
-              {mode === 'sign_in' ? 'Log in with Apple' : 'Sign up with Apple'}
-            </TailTagButton>
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={
+                  mode === 'sign_in'
+                    ? AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+                    : AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP
+                }
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={APPLE_BUTTON_CORNER_RADIUS}
+                onPress={handleAppleSignIn}
+                style={styles.appleButton}
+                accessibilityLabel={mode === 'sign_in' ? 'Log in with Apple' : 'Sign up with Apple'}
+                accessibilityHint={
+                  mode === 'sign_in'
+                    ? 'Signs in with your Apple ID.'
+                    : 'Creates a TailTag account with your Apple ID.'
+                }
+                accessibilityState={{ disabled: isSubmitting || isAppleLoading }}
+              />
+              {isAppleLoading ? (
+                <View style={styles.appleLoadingOverlay}>
+                  <ActivityIndicator color="#ffffff" />
+                </View>
+              ) : null}
+            </View>
           )}
 
-          <TailTagButton
-            variant="outline"
+          <OAuthProviderButton
+            provider="google"
             onPress={handleGoogleSignIn}
             loading={isGoogleLoading}
             disabled={isSubmitting}
+            label={mode === 'sign_in' ? 'Sign in with Google' : 'Sign up with Google'}
             accessibilityLabel={mode === 'sign_in' ? 'Log in with Google' : 'Sign up with Google'}
             accessibilityHint={
               mode === 'sign_in'
                 ? 'Opens Google to log in.'
                 : 'Opens Google to create a TailTag account.'
             }
-          >
-            {mode === 'sign_in' ? 'Log in with Google' : 'Sign up with Google'}
-          </TailTagButton>
+          />
 
-          <TailTagButton
-            variant="outline"
+          <OAuthProviderButton
+            provider="discord"
             onPress={handleDiscordSignIn}
             loading={isDiscordLoading}
             disabled={isSubmitting}
+            label={mode === 'sign_in' ? 'Sign in with' : 'Sign up with'}
             accessibilityLabel={mode === 'sign_in' ? 'Log in with Discord' : 'Sign up with Discord'}
             accessibilityHint={
               mode === 'sign_in'
                 ? 'Opens Discord to log in.'
                 : 'Opens Discord to create a TailTag account.'
             }
-          >
-            {mode === 'sign_in' ? 'Log in with Discord' : 'Sign up with Discord'}
-          </TailTagButton>
+          />
         </TailTagCard>
 
         <View style={styles.footerHelper}>
