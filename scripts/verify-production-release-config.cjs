@@ -18,7 +18,7 @@ const expected = {
   androidPackage: 'com.finnthepanther.tailtag',
   updateChannel: 'production',
   environment: 'production',
-  supabaseUrl: 'https://api.tailtag.com',
+  supabaseUrl: 'https://api.playtailtag.com',
   androidServiceAccountKeyPath: './service-account-google-play-production.json',
   androidSubmitTrack: 'internal',
   iosAscAppId: '6757874759',
