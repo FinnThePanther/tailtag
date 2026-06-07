@@ -18,7 +18,7 @@ const publicEnvConfig = {
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlqc2FkbXN3b2JhZnljaGZwb3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMzczMjMsImV4cCI6MjA5MDgxMzMyM30.MDrOcAvO3fg1AOVZym-xXl3txtlkDnm4O8YNjTZihuI',
   },
   production: {
-    supabaseUrl: 'https://dowtlhkzbxxmiflpswvd.supabase.co',
+    supabaseUrl: 'https://api.tailtag.com',
     supabaseAnonKey:
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvd3RsaGt6Ynh4bWlmbHBzd3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMzc2MjIsImV4cCI6MjA5MDgxMzYyMn0.KIw5TF-tBq3NIKjpzkNGagLR0jwiYKP_s7RqchEhXHo',
   },

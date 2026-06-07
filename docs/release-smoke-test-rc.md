@@ -56,7 +56,7 @@ Tester: Codex
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| Production Supabase reachable from app config | Pass | Production Expo config resolves `https://dowtlhkzbxxmiflpswvd.supabase.co`. |
+| Production Supabase reachable from app config | Pass | Production Expo config resolves `https://api.tailtag.com`. |
 | Production auth accepts temporary test user | Pass | Temporary user `tailtagrc1351780786209@example.com` was created through the Android production UI and returned a session. |
 | Storage upload/read works | Partial | Fursuit edit opened Android system photo picker, but no media was available in the emulator gallery to complete upload/read. |
 | Edge Functions used by tested flows work | Pass | `delete-account` production Edge Function returned `200` for app-created disposable users, including the Android Settings account deletion flow. |
