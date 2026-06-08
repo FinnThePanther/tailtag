@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, Pressable, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MenuView } from '@react-native-menu/menu';
+import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -123,6 +124,32 @@ const DELETE_ACCOUNT_URL = 'https://playtailtag.com/delete-account';
 const SUPPORT_EMAIL_URL = 'mailto:finn@finnthepanther.com';
 const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
 
+function getAppVersionLabel() {
+  const appVersion = Constants.expoConfig?.version ?? null;
+  const iosBuildNumber = Constants.platform?.ios?.buildNumber;
+  const androidVersionCode = Constants.platform?.android?.versionCode;
+  const buildNumber =
+    typeof iosBuildNumber === 'string' && iosBuildNumber.trim().length > 0
+      ? iosBuildNumber.trim()
+      : typeof androidVersionCode === 'number' && Number.isFinite(androidVersionCode)
+        ? String(androidVersionCode)
+        : null;
+
+  if (appVersion && buildNumber) {
+    return `Version ${appVersion} (${buildNumber})`;
+  }
+
+  if (appVersion) {
+    return `Version ${appVersion}`;
+  }
+
+  if (buildNumber) {
+    return `Build ${buildNumber}`;
+  }
+
+  return null;
+}
+
 function ageAttestationLabel(profile: ProfileSummary | null) {
   if (!profile || profileNeedsAgeAttestation(profile)) {
     return 'Not confirmed';
@@ -167,6 +194,7 @@ function conventionBadgeText(
 export default function SettingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ focus?: string }>();
+  const appVersionLabel = getAppVersionLabel();
   const { isUpdateReady, isRestarting, restartError, restartToApplyUpdate } = useOtaUpdateCheck();
   const { session, forceSignOut } = useAuth();
   const userId = session?.user.id ?? null;
@@ -2238,6 +2266,8 @@ export default function SettingsScreen() {
           <Text style={styles.warning}>This action cannot be undone.</Text>
         </View>
       </TailTagCard>
+
+      {appVersionLabel ? <Text style={styles.appVersionFooter}>{appVersionLabel}</Text> : null}
     </KeyboardAwareFormWrapper>
   );
 }

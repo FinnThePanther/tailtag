@@ -497,4 +497,9 @@ export const styles = StyleSheet.create({
     color: colors.textPlaceholder,
     fontSize: 13,
   },
+  appVersionFooter: {
+    color: colors.textPlaceholder,
+    fontSize: 12,
+    textAlign: 'center',
+  },
 });
