@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,6 +49,7 @@ type PhotoCatchCardProps = {
   activeConventionIds?: string[];
   preloadedFursuits?: FursuitPickerItem[];
   isRosterRefreshing?: boolean;
+  catchUnavailableReason?: string | null;
 };
 
 type Step = 'idle' | 'photo_taken' | 'fursuit_selected';
@@ -90,6 +91,7 @@ export function PhotoCatchCard({
   activeConventionIds = [],
   preloadedFursuits = [],
   isRosterRefreshing = false,
+  catchUnavailableReason = null,
 }: PhotoCatchCardProps) {
   const [step, setStep] = useState<Step>('idle');
   const [photo, setPhoto] = useState<PhotoCandidate | null>(null);
@@ -99,6 +101,8 @@ export function PhotoCatchCard({
   const [conventionIds, setConventionIds] = useState<string[]>([]);
   const [isLoadingFursuits, setIsLoadingFursuits] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [permissionRecoveryLabel, setPermissionRecoveryLabel] = useState<string | null>(null);
+  const [pickerAction, setPickerAction] = useState<CatchPhotoSource | null>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [photoProcessingMs, setPhotoProcessingMs] = useState<number | null>(null);
@@ -125,23 +129,60 @@ export function PhotoCatchCard({
       .finally(() => setIsLoadingFursuits(false));
   }, [step, conventionIds, photoSource, preloadedFursuits, userId]);
 
-  const handleTakePhoto = async () => {
-    if (disabled) return;
+  const areEntryActionsDisabled = disabled || isSubmitting || isUploadingPhoto;
 
+  const resetPickerFeedback = () => {
     setLocalError(null);
+    setPermissionRecoveryLabel(null);
+  };
 
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      setLocalError('Camera permission is required to take a photo. Please enable it in Settings.');
-      return;
+  const showCatchUnavailableReason = () => {
+    if (!catchUnavailableReason) {
+      return false;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: 'images',
-      allowsEditing: false,
-      cameraType: ImagePicker.CameraType.front,
-      quality: 1.0,
-    });
+    setLocalError(catchUnavailableReason);
+    setPermissionRecoveryLabel(null);
+    return true;
+  };
+
+  const handleTakePhoto = async () => {
+    if (areEntryActionsDisabled || pickerAction || isProcessingPhoto) return;
+    if (showCatchUnavailableReason()) return;
+
+    resetPickerFeedback();
+
+    let result: ImagePicker.ImagePickerResult;
+    setPickerAction('camera');
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setLocalError(
+          permission.canAskAgain
+            ? 'Camera permission is required to take a catch photo. Please allow camera access when prompted.'
+            : 'Camera access is disabled. Enable camera access in Settings to take a catch photo.',
+        );
+        setPermissionRecoveryLabel(permission.canAskAgain ? null : 'Open Settings');
+        return;
+      }
+
+      result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        cameraType: ImagePicker.CameraType.front,
+        quality: 1.0,
+        presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+      });
+    } catch (error) {
+      captureHandledException(error, {
+        scope: 'catch-confirmations.PhotoCatchCard.handleTakePhoto',
+        userId,
+      });
+      setLocalError("We couldn't open the camera. Please try again.");
+      return;
+    } finally {
+      setPickerAction(null);
+    }
 
     if (result.canceled || !result.assets[0]) {
       return;
@@ -150,7 +191,7 @@ export function PhotoCatchCard({
     const asset = result.assets[0];
 
     setIsProcessingPhoto(true);
-    setLocalError(null);
+    resetPickerFeedback();
     setFursuits([]);
     try {
       const processingStartedAt = Date.now();
@@ -176,30 +217,64 @@ export function PhotoCatchCard({
   };
 
   const handleChooseGalleryPhoto = async () => {
-    if (disabled) return;
+    if (areEntryActionsDisabled || pickerAction || isProcessingPhoto) return;
+    if (showCatchUnavailableReason()) return;
 
-    setLocalError(null);
+    resetPickerFeedback();
 
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      setLocalError('Photo library permission is required to choose a catch photo.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
-      allowsEditing: false,
-      quality: 1.0,
+    const permission = await ImagePicker.getMediaLibraryPermissionsAsync().catch((error) => {
+      captureHandledException(error, {
+        scope: 'catch-confirmations.PhotoCatchCard.getMediaLibraryPermissions',
+        userId,
+      });
+      return null;
     });
 
+    let result: ImagePicker.ImagePickerResult;
+    setPickerAction('gallery');
+    try {
+      result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 1.0,
+        presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+      });
+    } catch (error) {
+      captureHandledException(error, {
+        scope: 'catch-confirmations.PhotoCatchCard.handleChooseGalleryPhoto',
+        userId,
+        additionalContext: {
+          mediaLibraryStatus: permission?.status ?? null,
+          mediaLibraryAccessPrivileges: permission?.accessPrivileges ?? null,
+        },
+      });
+      setLocalError(
+        permission?.status === 'denied' && !permission.canAskAgain
+          ? 'Photo library access is disabled. Enable photo access in Settings or try again from the system picker.'
+          : "We couldn't open your photo library. Please try again.",
+      );
+      setPermissionRecoveryLabel(
+        permission?.status === 'denied' && !permission.canAskAgain ? 'Open Settings' : null,
+      );
+      return;
+    } finally {
+      setPickerAction(null);
+    }
+
     if (result.canceled || !result.assets[0]) {
+      if (permission?.accessPrivileges === 'limited') {
+        setLocalError(
+          'Only selected photos are available. Use Settings to allow more photos if the one you need is missing.',
+        );
+        setPermissionRecoveryLabel('Open Settings');
+      }
       return;
     }
 
     const asset = result.assets[0];
 
     setIsProcessingPhoto(true);
-    setLocalError(null);
+    resetPickerFeedback();
     setFursuits([]);
     try {
       const processingStartedAt = Date.now();
@@ -234,7 +309,7 @@ export function PhotoCatchCard({
     setSelectedFursuit(null);
     setFursuits([]);
     setStep('idle');
-    setLocalError(null);
+    resetPickerFeedback();
   };
 
   const handleSelectFursuit = (item: FursuitPickerItem) => {
@@ -487,6 +562,8 @@ export function PhotoCatchCard({
   const canSubmit =
     Boolean(photo) && Boolean(selectedFursuit) && !disabled && !isSubmitting && !isUploadingPhoto;
   const isBusy = isSubmitting || isUploadingPhoto;
+  const isOpeningCamera = pickerAction === 'camera';
+  const isOpeningGallery = pickerAction === 'gallery';
 
   return (
     <TailTagCard style={styles.card}>
@@ -504,18 +581,26 @@ export function PhotoCatchCard({
       </Text>
 
       {step === 'idle' ? (
-        isProcessingPhoto ? (
+        isProcessingPhoto || pickerAction ? (
           <View style={styles.processingContainer}>
             <ActivityIndicator color={colors.primary} />
-            <Text style={styles.processingText}>Processing photo…</Text>
+            <Text style={styles.processingText}>
+              {isProcessingPhoto
+                ? 'Processing photo...'
+                : isOpeningCamera
+                  ? 'Opening camera...'
+                  : 'Opening gallery...'}
+            </Text>
           </View>
         ) : (
           <View style={styles.entryActions}>
             <TailTagButton
               variant="outline"
               onPress={handleTakePhoto}
-              disabled={disabled}
+              disabled={areEntryActionsDisabled}
+              loading={isOpeningCamera}
               style={styles.cameraButton}
+              accessibilityLabel="Open camera"
             >
               <View style={styles.buttonContent}>
                 <Ionicons
@@ -529,8 +614,10 @@ export function PhotoCatchCard({
             <TailTagButton
               variant="outline"
               onPress={handleChooseGalleryPhoto}
-              disabled={disabled}
+              disabled={areEntryActionsDisabled}
+              loading={isOpeningGallery}
               style={styles.cameraButton}
+              accessibilityLabel="Choose from Gallery"
             >
               <View style={styles.buttonContent}>
                 <Ionicons
@@ -604,7 +691,20 @@ export function PhotoCatchCard({
             size={18}
             color="#f87171"
           />
-          <Text style={styles.errorText}>{localError ?? submitError}</Text>
+          <View style={styles.errorContent}>
+            <Text style={styles.errorText}>{localError ?? submitError}</Text>
+            {permissionRecoveryLabel ? (
+              <Pressable
+                onPress={() => {
+                  void Linking.openSettings();
+                }}
+                style={styles.errorAction}
+                accessibilityRole="button"
+              >
+                <Text style={styles.errorActionText}>{permissionRecoveryLabel}</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       ) : null}
 
