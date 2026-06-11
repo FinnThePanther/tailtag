@@ -1,6 +1,6 @@
 {
   "name": "tailtag",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "main": "index.ts",
   "engines": {
     "node": ">=22 <23",
@@ -38,7 +38,7 @@
     "prebuild:development": "APP_ENV=development npm run prebuild",
     "prebuild:staging": "APP_ENV=staging npm run prebuild",
     "prebuild:production": "APP_ENV=production npm run prebuild",
-    "gen:types": "npx supabase gen types typescript --project-id rtxbvjicfxgcouufumce > /tmp/fresh-types.ts && python3 scripts/update-types.py /tmp/fresh-types.ts",
+    "gen:types": "npx supabase@2.90.0 gen types typescript --project-id rtxbvjicfxgcouufumce > /tmp/fresh-types.ts && python3 scripts/update-types.py /tmp/fresh-types.ts",
     "test:achievements": "node --test scripts/achievement-regression.mjs",
     "test:lifecycle": "node --test scripts/lifecycle-regression.mjs",
     "verify:production-release": "node scripts/verify-production-release-config.cjs",
@@ -96,7 +96,6 @@
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-keyboard-controller": "1.18.5",
-    "react-native-nfc-manager": "^3.17.1",
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
@@ -119,14 +118,5 @@
     "prettier-plugin-astro": "0.14.1",
     "typescript": "~5.9.2"
   },
-  "private": true,
-  "expo": {
-    "doctor": {
-      "reactNativeDirectoryCheck": {
-        "exclude": [
-          "react-native-nfc-manager"
-        ]
-      }
-    }
-  }
+  "private": true
 }

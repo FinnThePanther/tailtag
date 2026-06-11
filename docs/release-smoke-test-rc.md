@@ -8,7 +8,6 @@ Tester: Codex
 ## Scope Notes
 
 - Testing is performed with emulator-compatible production-environment builds.
-- NFC is out of scope for V1 and is recorded as not applicable.
 - Store-profile build configuration is verified separately because iOS store archives and Android AABs are not directly installable on emulators.
 - Temporary production test data must be removed through app/account cleanup flows where possible.
 
@@ -49,7 +48,6 @@ Tester: Codex
 | Foreground location verification | Pending | Blocked | Android Settings convention card shows `Location check when catching opens` and `STARTS 6/19/2026`; verification cannot run before active event window. |
 | Push opt-in/out UI | Pending | Pass | Android Settings Push Notifications card shows disabled emulator state: `Push notifications require a physical device` and system settings disabled. |
 | Push delivery | Pending | Blocked | Requires physical device push token and delivery path; emulator only verifies unavailable UI state. |
-| NFC behavior | N/A | N/A | Disabled/out of scope for V1. |
 | OTA channel alignment | Pass | Pass | Expo config, native strings, and EAS builds show production channel/runtime `0.1.11`; emulator builds install production app IDs. |
 
 ## Backend And Admin

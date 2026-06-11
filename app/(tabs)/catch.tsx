@@ -248,6 +248,21 @@ export default function CatchScreen() {
           ) ?? null),
     [conventionMemberships, hasActiveConvention],
   );
+  const photoCatchUnavailableReason = useMemo(() => {
+    if (hasActiveConvention) {
+      return null;
+    }
+
+    if (verificationRequiredConvention) {
+      return `Verify your location for ${verificationRequiredConvention.name} before logging photo catches.`;
+    }
+
+    if (isMembershipLoading) {
+      return 'Loading your convention status. Please try again in a moment.';
+    }
+
+    return 'Photo catches open when you are ready to catch at a live convention. Join or verify a convention before using camera or gallery catches.';
+  }, [hasActiveConvention, isMembershipLoading, verificationRequiredConvention]);
   const leaderboardOpenConvention = useMemo(
     () =>
       hasActiveConvention
@@ -818,11 +833,11 @@ export default function CatchScreen() {
               userId={userId}
               onCatchSubmit={handlePhotoCatch}
               isSubmitting={isPhotoSubmitting}
-              disabled={!hasActiveConvention || Boolean(verificationRequiredConvention)}
               submitError={photoSubmitError}
               activeConventionIds={activeConventionIds}
               preloadedFursuits={pickerItems}
               isRosterRefreshing={isRosterRefreshing || (isUsingRosterSnapshot && isRosterLoading)}
+              catchUnavailableReason={photoCatchUnavailableReason}
             />
           ) : null}
         </View>

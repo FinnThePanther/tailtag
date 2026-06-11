@@ -5,7 +5,7 @@ Last updated: June 6, 2026
 Use this package when completing App Store Connect and Play Console compliance
 forms for the first full TailTag app-store release. Re-check it before
 submission if the app adds SDKs, changes permissions, enables new telemetry, or
-changes account deletion, moderation, location, push, NFC, photo, or UGC
+changes account deletion, moderation, location, push, photo, or UGC
 behavior.
 
 Primary references:
@@ -170,7 +170,7 @@ Account deletion is available in-app at Settings -> Profile & account -> Delete 
 
 Foreground location is requested only when a user chooses to verify that they are at a convention. TailTag sends the user's current latitude, longitude, and accuracy to the backend for geofence verification and does not continuously track background location.
 
-Camera and photo library access are used so users can add profile, fursuit, and catch photos. NFC is used to scan fursuit tags. Push notifications are used for catch, achievement, daily task, and account/activity notifications.
+Camera and photo library access are used so users can add profile, fursuit, and catch photos. Push notifications are used for catch, achievement, daily task, and account/activity notifications.
 
 18+ visibility is a privacy boundary only. It limits profile/fursuit visibility to users who have declared they are 18 or older and does not permit adult or sexual content.
 

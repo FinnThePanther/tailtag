@@ -95,7 +95,7 @@ export const styles = StyleSheet.create({
   },
   errorContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.xs,
     backgroundColor: 'rgba(248,113,113,0.15)',
     borderWidth: 1,
@@ -103,11 +103,27 @@ export const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.md,
   },
+  errorContent: {
+    flex: 1,
+    gap: spacing.sm,
+  },
   errorText: {
     color: colors.destructive,
     fontSize: 14,
-    flex: 1,
     lineHeight: 20,
+  },
+  errorAction: {
+    alignSelf: 'flex-start',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.5)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  errorActionText: {
+    color: colors.destructive,
+    fontSize: 13,
+    fontWeight: '700',
   },
   submitButton: {
     width: '100%',

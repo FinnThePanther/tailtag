@@ -93,6 +93,7 @@ export function TailTagButton({
   const sizeStyles = SIZE_STYLES[size];
   const variantStyles = VARIANT_STYLES[variant];
   const isDisabled = disabled || loading;
+  const isPlainTextChild = typeof children === 'string' || typeof children === 'number';
 
   return (
     <Pressable
@@ -115,7 +116,7 @@ export function TailTagButton({
     >
       {loading ? (
         <ActivityIndicator color={variantStyles.text.color ?? colors.foreground} />
-      ) : (
+      ) : isPlainTextChild ? (
         <Text
           numberOfLines={1}
           style={[
@@ -128,6 +129,8 @@ export function TailTagButton({
         >
           {children}
         </Text>
+      ) : (
+        children
       )}
     </Pressable>
   );
