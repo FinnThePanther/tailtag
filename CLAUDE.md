@@ -44,8 +44,8 @@ eas build --profile production --platform all
 # Deploy edge functions (deploy individually by name)
 npx supabase functions deploy <function-name>
 # Function names: events-ingress, process-achievements, create-catch,
-#   rotate-dailys, expire-pending-catches, register-tag, lookup-tag,
-#   send-push, delete-account
+#   rotate-dailys, expire-pending-catches, send-push, delete-account
+# Deprecated NFC tag endpoints were removed for V1; create-catch handles catches.
 
 # View logs
 npx supabase functions logs <function-name>
@@ -148,7 +148,7 @@ features/
 - `/src/theme/` - Theme configuration and styling
 - `/src/types/` - Shared TypeScript types
 - `/src/utils/` - Utility functions
-- `/supabase/functions/` - Supabase Edge Functions (9 functions, see below)
+- `/supabase/functions/` - Supabase Edge Functions (7 functions, see below)
 - `/packages/achievement-rules/` - Shared achievement evaluation logic
 - `/assets/` - Static assets (images, fonts)
 
@@ -330,7 +330,7 @@ void emitGameplayEvent({
 
 ## Supabase Edge Functions
 
-### Edge Functions (9 total)
+### Edge Functions (7 total)
 
 **Event & Achievement Pipeline:**
 1. **events-ingress** - Accepts authenticated event requests, inserts to `events` table, returns immediately (< 100ms)
@@ -345,7 +345,7 @@ void emitGameplayEvent({
 6. **send-push** - Push notification delivery using Expo Push API
 
 **Account:**
-9. **delete-account** - Authenticated account deletion with cascading data removal
+7. **delete-account** - Authenticated account deletion with cascading data removal
 
 **Design principle:** Edge Functions are **stateless** and **fast**. They validate requests, perform database operations, and return quickly. Achievement evaluation is handled by the background queue worker (`process-achievements`).
 
@@ -402,7 +402,7 @@ Non-critical operations (like event emission) should return `null` on error, not
 - **Auth:** JWT-based authentication
 - **Storage:** Image uploads for avatars/fursuits
 - **Realtime:** Postgres changes for live notifications
-- **Edge Functions:** 9 functions (see Supabase Edge Functions section)
+- **Edge Functions:** 7 functions (see Supabase Edge Functions section)
 - **Cron:** Daily task rotation and pending catch expiration via scheduled functions
 
 **Key tables:** `profiles`, `fursuits`, `catches`, `events`, `achievements`, `user_achievements`, `user_awards`, `awards_log`, `notifications`, `daily_tasks`, `conventions`, `tags`, `pending_catches`
