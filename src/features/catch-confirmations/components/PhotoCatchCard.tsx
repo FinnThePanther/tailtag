@@ -641,7 +641,7 @@ export function PhotoCatchCard({
             />
             <View style={styles.previewActions}>
               <Text style={styles.previewLabel}>
-                {photoSource === 'gallery' ? 'Gallery photo selected' : 'Selfie taken'}
+                {photoSource === 'gallery' ? 'Gallery photo selected' : 'Photo taken'}
               </Text>
               {photoSource === 'gallery' ? (
                 <Text style={styles.previewHint}>Sent for approval before it counts.</Text>

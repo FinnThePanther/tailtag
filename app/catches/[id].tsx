@@ -193,7 +193,7 @@ export default function CatchDetailScreen() {
                     width={SCREEN_WIDTH}
                     height={SCREEN_WIDTH * 0.75}
                     style={styles.catchPhoto}
-                    accessibilityLabel="Catch selfie photo"
+                    accessibilityLabel="Catch photo"
                   />
                 </Pressable>
                 <TailTagButton
@@ -242,7 +242,7 @@ export default function CatchDetailScreen() {
               source={toExpoImageSource(record.catchPhotoUrl, session?.access_token)}
               style={styles.fullscreenImage}
               contentFit="contain"
-              accessibilityLabel="Catch selfie photo fullscreen"
+              accessibilityLabel="Catch photo fullscreen"
             />
           </View>
         </Modal>

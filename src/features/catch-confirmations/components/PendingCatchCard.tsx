@@ -193,7 +193,7 @@ export function PendingCatchCard({
               height={screenWidth}
               style={styles.catchPhoto}
               accessibilityLabel={
-                isGalleryCatch ? 'Photo uploaded from gallery' : 'Selfie taken by catcher'
+                isGalleryCatch ? 'Photo uploaded from gallery' : 'Photo taken by catcher'
               }
             />
           </Pressable>
