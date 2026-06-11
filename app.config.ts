@@ -32,7 +32,6 @@ const PHOTO_LIBRARY_PERMISSION =
   'TailTag needs photo library access so you can add profile, fursuit, and catch photos.';
 const LOCATION_WHEN_IN_USE_PERMISSION =
   'TailTag uses your location only when you choose to verify that you are at a convention. TailTag does not continuously track your location.';
-const NFC_PERMISSION = 'TailTag needs NFC access to scan fursuit tags.';
 const maybeResolveExistingFile = (relativePath) => {
   const absolutePath = path.resolve(__dirname, relativePath);
   return fs.existsSync(absolutePath) ? relativePath : undefined;
@@ -122,13 +121,6 @@ module.exports = ({ config }) => ({
       },
     ],
     'expo-font',
-    [
-      'react-native-nfc-manager',
-      {
-        includeNdefEntitlement: false,
-        nfcPermission: NFC_PERMISSION,
-      },
-    ],
     [
       'expo-camera',
       {

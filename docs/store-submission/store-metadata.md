@@ -87,7 +87,7 @@ questionnaire.
 | --- | --- | --- |
 | Promotional text | `Turn real convention moments into catches, achievements, and friendly leaderboard progress.` | 91 characters; Apple limit: 170 characters. |
 | Description | Use the paste-ready App Store description below. | Apple limit: 4000 characters. |
-| Keywords | `fursuit,furry,convention,catch,game,achievements,leaderboard,photos,meetups,events,nfc` | 85 bytes; Apple limit: 100 bytes. Do not duplicate `TailTag` or developer name. |
+| Keywords | `fursuit,furry,convention,catch,game,achievements,leaderboard,photos,meetups,events` | 81 bytes; Apple limit: 100 bytes. Do not duplicate `TailTag` or developer name. |
 | Support URL | `https://playtailtag.com/privacy` | Current public page includes contact email. Prefer replacing with `https://playtailtag.com/support` if a dedicated support page is added before submission. |
 | Marketing URL | `https://playtailtag.com` | Optional but recommended. |
 | Version release setting | Manual release after approval | Recommended for first full release so approval and public launch can be coordinated. |
@@ -102,7 +102,7 @@ Create your convention profile
 Set up your TailTag profile, add your fursuit details, and choose how your profile appears to other players at events.
 
 Log catches at events
-Use the in-app catch flow to record the fursuiters you meet. TailTag supports catch photos, NFC tag scanning, and convention-specific catch history.
+Use the in-app catch flow to record the fursuiters you meet. TailTag supports catch photos, catch codes, and convention-specific catch history.
 
 Track progress
 Follow your catches, complete daily tasks, earn achievements, and see how your convention activity changes over time.
@@ -161,7 +161,7 @@ What you can do in TailTag:
 - Register fursuits with photos and details
 - Log catches when you meet other players at events
 - Add catch photos where supported by the catch flow
-- Scan fursuit NFC tags where available
+- Log catches with photos or catch codes
 - Complete daily tasks and earn achievements
 - Follow convention leaderboards and catch history
 - Report content, block users, and manage account settings
@@ -193,7 +193,7 @@ could become stale.
 Recommended screenshot sequence:
 
 1. Home / convention overview: show the active convention context and progress.
-2. Catch flow: show catch entry, photo, or NFC scanning.
+2. Catch flow: show catch entry, photo, or catch code entry.
 3. Fursuit profile: show registered fursuit details and convention roster value.
 4. Achievements / daily tasks: show progress and repeat gameplay.
 5. Leaderboard or caught collection: show event progress.

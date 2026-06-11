@@ -241,7 +241,6 @@ Confirm the IPA has:
 - The expected app version
 - Production APNs entitlement
 - Apple Sign In entitlement
-- NFC entitlement
 - Expected privacy manifest output
 
 If the IPA does not have the production APNs entitlement, repair the EAS Apple

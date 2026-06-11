@@ -1,6 +1,6 @@
 # Mobile Overview
 
-The TailTag mobile app is an Expo React Native app using Expo Router, Supabase, React Query, and native capabilities for camera, NFC, notifications, and media handling.
+The TailTag mobile app is an Expo React Native app using Expo Router, Supabase, React Query, and native capabilities for camera, notifications, and media handling.
 
 ## App structure
 
@@ -42,7 +42,6 @@ The app uses Expo and React Native libraries for:
 
 - Camera and image picker flows.
 - Media upload and image manipulation.
-- NFC tag scanning.
 - QR code rendering and scanning-related catch flows.
 - Push notifications.
 - Apple authentication and OAuth flows.
