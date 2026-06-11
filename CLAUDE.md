@@ -131,7 +131,6 @@ features/
 - `leaderboard/` - Leaderboard views
 - `catches/` - Catch history
 - `catch-confirmations/` - Pending catch approval system with toast manager
-- `nfc/` - NFC tag scanning, registration, and QR code generation
 - `push-notifications/` - Push notification management with PushNotificationManager
 - `staff-mode/` - Staff mode functionality (feature-flag controlled via `STAFF_MODE_ENABLED`)
 - `onboarding/` - User onboarding flow
@@ -342,12 +341,8 @@ void emitGameplayEvent({
 4. **rotate-dailys** - Cron-triggered daily task rotation per convention timezone
 5. **expire-pending-catches** - Cleanup/expiration of pending catch confirmations
 
-**NFC & Tags:**
-6. **register-tag** - NFC tag registration, linking to fursuits, and QR code generation
-7. **lookup-tag** - Tag lookup for scanning
-
 **Notifications:**
-8. **send-push** - Push notification delivery using Expo Push API
+6. **send-push** - Push notification delivery using Expo Push API
 
 **Account:**
 9. **delete-account** - Authenticated account deletion with cascading data removal

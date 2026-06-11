@@ -330,7 +330,6 @@ export async function fetchStaffAssignments(supabase: ServiceRoleClient) {
 
 type TagWithMeta = {
   id: string;
-  nfc_uid: string | null;
   qr_token: string | null;
   qr_token_created_at: string | null;
   qr_asset_path: string | null;
@@ -355,7 +354,6 @@ export async function fetchTags(supabase: ServiceRoleClient, limit = 50): Promis
     .select(
       [
         'id',
-        'nfc_uid',
         'qr_token',
         'qr_token_created_at',
         'qr_asset_path',
@@ -431,7 +429,7 @@ export async function fetchTagScanLogs(
   supabase: ServiceRoleClient,
   params: {
     tagId?: string | null;
-    method?: 'nfc' | 'qr' | null;
+    method?: 'qr' | null;
     result?: string | null;
     identifier?: string | null;
     limit?: number;
@@ -450,7 +448,7 @@ export async function fetchTagScanLogs(
         'result',
         'created_at',
         'metadata',
-        'tags:tag_id(id, nfc_uid, qr_token, fursuit_id, fursuits(name))',
+        'tags:tag_id(id, qr_token, fursuit_id, fursuits(name))',
         'profiles:scanner_user_id(username)',
       ].join(', '),
     )
