@@ -71,7 +71,7 @@ INSERT INTO fursuit_species (id, name) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
--- 3. Allowed Event Types (23 rows)
+-- 3. Allowed Event Types (22 rows)
 -- -----------------------------------------------------------------------------
 INSERT INTO allowed_event_types (event_type, description, is_active) VALUES
   ('achievement_unlocked',       'User unlocked an achievement (internal event)',           true),
@@ -93,7 +93,6 @@ INSERT INTO allowed_event_types (event_type, description, is_active) VALUES
   ('fursuit_deleted',            'User deleted a fursuit',                                  true),
   ('fursuit_updated',            'User updated fursuit details',                            true),
   ('leaderboard_refreshed',     'Leaderboard refresh event for daily task tracking',        true),
-  ('nfc_scan',                   'NFC scan event audit record',                             true),
   ('onboarding_completed',       'User completed onboarding',                               true),
   ('profile_created',            'User profile was created',                                true),
   ('profile_updated',            'User updated their profile',                              true)
@@ -187,7 +186,7 @@ INSERT INTO daily_tasks (id, name, description, kind, requirement, metadata, is_
 ON CONFLICT (id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
--- 7. Edge Function Config (18 rows — excludes deprecated: lookup-nfc-tag, register-nfc-tag)
+-- 7. Edge Function Config (16 rows)
 -- -----------------------------------------------------------------------------
 INSERT INTO edge_function_config (function_name, description, rate_limit_enabled, rate_limit_requests_per_minute, rate_limit_requests_per_hour, max_payload_size_bytes, validate_event_types, require_jwt, allowed_roles, is_deprecated, deprecation_date, replacement_function, config) VALUES
   ('create-catch',                                'Create catch with approval workflow',                            true,  30,   300,  10240, false, true,  '{"authenticated"}', false, null, null, '{}'),
@@ -203,8 +202,6 @@ INSERT INTO edge_function_config (function_name, description, rate_limit_enabled
   ('gameplay_queue_wakeup_max_duration_ms',       'Maximum wall-clock time in milliseconds for a producer wake-up drain before it yields to cron recovery.', false, null, null, 10240, true, false, '{"service_role"}', false, null, null, '{"value":2500}'),
   ('gameplay_queue_wakeup_max_messages',          'Maximum number of gameplay queue messages a producer wake-up should attempt in one low-latency drain.',    false, null, null, 10240, true, false, '{"service_role"}', false, null, null, '{"value":6}'),
   ('legacy_event_processor_enabled',              'Feature flag for the dormant legacy process-achievements worker. Keep false unless performing a controlled rollback.', false, null, null, 10240, true, false, '{"service_role"}', false, null, null, '{"value":false}'),
-  ('lookup-tag',                                  'Tag lookup for catches',                                         true,  30,   300,  2048,  false, true,  '{"authenticated"}', false, null, null, '{}'),
-  ('register-tag',                                'NFC/QR tag registration',                                        true,  10,   100,  5120,  false, true,  '{"authenticated"}', false, null, null, '{}'),
   ('rotate-dailys',                               'Daily task rotation (cron)',                                      false, null, null, 1024,  false, true,  '{"authenticated"}', false, null, null, '{}'),
   ('send-push',                                   'Push notification handler',                                       true,  100,  1000, 5120,  false, true,  '{"authenticated"}', false, null, null, '{}'),
   ('sync-provider-avatar',                        'OAuth avatar sync',                                               true,  10,   50,   2048,  false, true,  '{"authenticated"}', false, null, null, '{}')

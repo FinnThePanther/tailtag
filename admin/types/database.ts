@@ -1619,7 +1619,6 @@ export type Database = {
           fursuit_id: string | null;
           id: string;
           linked_at: string | null;
-          nfc_uid: string | null;
           qr_asset_path: string | null;
           qr_token: string | null;
           qr_token_created_at: string | null;
@@ -1632,7 +1631,6 @@ export type Database = {
           fursuit_id?: string | null;
           id?: string;
           linked_at?: string | null;
-          nfc_uid?: string | null;
           qr_asset_path?: string | null;
           qr_token?: string | null;
           qr_token_created_at?: string | null;
@@ -1645,7 +1643,6 @@ export type Database = {
           fursuit_id?: string | null;
           id?: string;
           linked_at?: string | null;
-          nfc_uid?: string | null;
           qr_asset_path?: string | null;
           qr_token?: string | null;
           qr_token_created_at?: string | null;
@@ -1656,14 +1653,14 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: 'nfc_tags_fursuit_id_fkey';
+            foreignKeyName: 'tags_fursuit_id_fkey';
             columns: ['fursuit_id'];
             isOneToOne: false;
             referencedRelation: 'fursuits';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'nfc_tags_fursuit_id_fkey';
+            foreignKeyName: 'tags_fursuit_id_fkey';
             columns: ['fursuit_id'];
             isOneToOne: false;
             referencedRelation: 'fursuits_moderation';

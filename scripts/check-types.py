@@ -10,6 +10,8 @@ Usage:
   python3 scripts/check-types.py <generated-types-file>
 """
 import sys
+import os
+import subprocess
 
 if len(sys.argv) != 2:
     print("Usage: check-types.py <generated-types-file>")
@@ -30,13 +32,52 @@ def replace_required(source, anchor, replacement):
     return updated
 
 
-generated = replace_required(
+def replace_first_available(source, replacements):
+    for anchor, replacement in replacements:
+        if anchor in source:
+            return replace_required(source, anchor, replacement)
+    print(
+        "ERROR: expected generated type anchor not found; tried: "
+        + ", ".join(repr(anchor) for anchor, _ in replacements)
+    )
+    sys.exit(1)
+
+
+def format_typescript(source):
+    prettier = os.path.join("node_modules", ".bin", "prettier")
+    if not os.path.exists(prettier):
+        return source
+    result = subprocess.run(
+        [prettier, "--stdin-filepath", "src/types/database.ts"],
+        input=source,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        print(result.stderr)
+        sys.exit(result.returncode)
+    return result.stdout
+
+
+generated = replace_first_available(
     generated,
-    '  | Json[]\n\nexport type Database = {',
-    '  | Json[]\n\n'
-    'export type AttendanceState = "active" | "left" | "removed" | "finalized"\n'
-    'export type RosterState = "active" | "removed" | "finalized"\n\n'
-    'export type Database = {',
+    [
+        (
+            '  | Json[]\n\nexport type Database = {',
+            '  | Json[]\n\n'
+            'export type AttendanceState = "active" | "left" | "removed" | "finalized"\n'
+            'export type RosterState = "active" | "removed" | "finalized"\n\n'
+            'export type Database = {',
+        ),
+        (
+            '  | Json[]\nexport type Database = {',
+            '  | Json[]\n\n'
+            'export type AttendanceState = "active" | "left" | "removed" | "finalized"\n'
+            'export type RosterState = "active" | "removed" | "finalized"\n\n'
+            'export type Database = {',
+        ),
+    ],
 )
 generated = replace_required(generated, "roster_state: string", "roster_state: RosterState")
 generated = replace_required(generated, "roster_state?: string", "roster_state?: RosterState")
@@ -46,6 +87,7 @@ generated = replace_required(
 generated = replace_required(
     generated, "attendance_state?: string", "attendance_state?: AttendanceState"
 )
+generated = format_typescript(generated)
 
 boundary = "// Type aliases for application use"
 idx = committed.find(boundary)
