@@ -32,6 +32,7 @@ import { PullToRefreshHint } from '../../../src/components/ui/PullToRefreshHint'
 import { useAuth } from '../../../src/features/auth';
 import { getIncompleteFursuitProfiles } from '../../../src/features/profile-guidance';
 import { usePullToRefreshHint } from '../../../src/hooks/usePullToRefreshHint';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../../src/theme';
 import { toDisplayDate } from '../../../src/utils/dates';
 import { styles } from '../../../src/app-styles/(tabs)/suits/index.styles';
@@ -169,7 +170,9 @@ export default function MySuitsScreen() {
   );
   const suitCount = suits.length;
   const isAtFursuitLimit = suitCount >= MAX_FURSUITS_PER_USER;
-  const combinedError = error?.message ?? null;
+  const combinedError = error
+    ? getUserVisibleErrorMessage(error, "We couldn't load your fursuits.")
+    : null;
   const incompleteGuidanceSuits = useMemo(() => getIncompleteFursuitProfiles(suits), [suits]);
   const showFursuitGuidance =
     params.guidance === 'fursuit-profile' && incompleteGuidanceSuits.length > 0;

@@ -16,6 +16,7 @@ import {
 } from '../src/features/adult-boundary';
 import { useAuth } from '../src/features/auth';
 import { createProfileQueryOptions, type ProfileSummary } from '../src/features/profile';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../src/theme';
 import { styles } from '../src/app-styles/age-gate.styles';
 
@@ -77,9 +78,10 @@ export default function AgeGateScreen() {
         router.replace(destinationForProfile(profile));
       } catch (caught) {
         setError(
-          caught instanceof Error
-            ? caught.message
-            : 'We could not save your age attestation right now. Please try again.',
+          getUserVisibleErrorMessage(
+            caught,
+            'We could not save your age attestation right now. Please try again.',
+          ),
         );
       } finally {
         setSavingChoice(null);

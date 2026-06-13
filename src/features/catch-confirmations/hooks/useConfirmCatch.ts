@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth';
 import { useToast } from '../../../hooks/useToast';
 import { captureHandledException } from '../../../lib/sentry';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { achievementsStatusQueryKey } from '../../achievements';
 import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks/hooks';
 import { confirmCatch, pendingCatchesQueryKey } from '../api/confirmations';
@@ -95,11 +96,9 @@ export function useConfirmCatch(options?: UseConfirmCatchOptions) {
         );
       }
 
-      const message =
-        error instanceof Error
-          ? error.message
-          : "We couldn't process that request. Please try again.";
-      showToast(message);
+      showToast(
+        getUserVisibleErrorMessage(error, "We couldn't process that request. Please try again."),
+      );
 
       captureHandledException(error, {
         scope: 'catch-confirmations.useConfirmCatch',

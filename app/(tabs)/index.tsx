@@ -68,6 +68,7 @@ import {
 } from '../../src/features/suits';
 import { useAllDataReady } from '../../src/hooks/useAllDataReady';
 import { useToast } from '../../src/hooks/useToast';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors, spacing } from '../../src/theme';
 import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/(tabs)/index.styles';
@@ -447,7 +448,9 @@ export default function HomeScreen() {
     })[0];
   }, [unlockedAchievements]);
 
-  const achievementsErrorMessage = achievementsError?.message ?? null;
+  const achievementsErrorMessage = achievementsError
+    ? getUserVisibleErrorMessage(achievementsError, "We couldn't load achievements.")
+    : null;
 
   const activeConventions = useMemo(() => {
     return conventionMemberships.filter((membership) => membership.membership_state === 'active');
@@ -545,7 +548,9 @@ export default function HomeScreen() {
   const dailyProgressValue =
     dailyTotalTasks > 0 ? Math.min(dailyCompletedTasks / dailyTotalTasks, 1) : 0;
   const dailyRemainingTasks = Math.max(dailyTotalTasks - dailyCompletedTasks, 0);
-  const dailyTasksErrorMessage = dailyTasksError?.message ?? null;
+  const dailyTasksErrorMessage = dailyTasksError
+    ? getUserVisibleErrorMessage(dailyTasksError, "We couldn't load today's tasks.")
+    : null;
   const hasDailyAssignments = dailyTotalTasks > 0;
   const showDailyError = !dailyTasksData && Boolean(dailyTasksErrorMessage);
   const dailyAllComplete = hasDailyAssignments && dailyRemainingTasks === 0;
@@ -673,7 +678,9 @@ export default function HomeScreen() {
     };
   }, [selectedConventionId, queryClient, userId]);
 
-  const membershipErrorMessage = conventionMembershipsError?.message ?? null;
+  const membershipErrorMessage = conventionMembershipsError
+    ? getUserVisibleErrorMessage(conventionMembershipsError, 'We could not load your conventions.')
+    : null;
   const hasConventionAccess = Boolean(selectedConventionId);
 
   const rankByProfileId = useMemo(() => {
@@ -694,7 +701,9 @@ export default function HomeScreen() {
   const displayEntries = isSelfOutsideTop && selfEntry ? [...topEntries, selfEntry] : topEntries;
 
   const topSuitEntries = suitLeaderboardEntries.slice(0, MAX_LEADERBOARD_ENTRIES);
-  const suitErrorMessage = suitLeaderboardError?.message ?? null;
+  const suitErrorMessage = suitLeaderboardError
+    ? getUserVisibleErrorMessage(suitLeaderboardError, "We couldn't load the suit leaderboard.")
+    : null;
   const hasSuitEntries = topSuitEntries.length > 0;
   const seenRecapIdSet = useMemo(() => new Set(recapBannerState.seenRecapIds), [recapBannerState]);
   const dismissedRecapIdSet = useMemo(
@@ -1249,7 +1258,12 @@ export default function HomeScreen() {
                       <LeaderboardSectionSkeleton />
                     ) : leaderboardError ? (
                       <View style={styles.helper}>
-                        <Text style={styles.error}>{leaderboardError.message}</Text>
+                        <Text style={styles.error}>
+                          {getUserVisibleErrorMessage(
+                            leaderboardError,
+                            "We couldn't load the leaderboard.",
+                          )}
+                        </Text>
                         <TailTagButton
                           variant="outline"
                           size="sm"

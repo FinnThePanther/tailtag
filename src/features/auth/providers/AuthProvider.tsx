@@ -10,6 +10,7 @@ import {
   setUser,
 } from '../../../lib/sentry';
 import { registerForceSignOut, unregisterForceSignOut } from '../../../lib/authErrorHandler';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 
 type AuthStatus = 'loading' | 'signed_in' | 'signed_out';
 
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             },
             'critical',
           );
-          setError(sessionError.message);
+          setError(getUserVisibleErrorMessage(sessionError, 'Unable to resolve auth session.'));
           setSession(null);
           setStatus('signed_out');
           setUser(null);
@@ -94,9 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           action: 'unexpected',
         });
 
-        const fallbackMessage =
-          caughtError instanceof Error ? caughtError.message : 'Unable to resolve auth session.';
-        setError(fallbackMessage);
+        setError(getUserVisibleErrorMessage(caughtError, 'Unable to resolve auth session.'));
         setSession(null);
         setStatus('signed_out');
         setUser(null);
@@ -183,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
         'critical',
       );
-      setError(refreshError.message);
+      setError(getUserVisibleErrorMessage(refreshError, 'Unable to refresh auth session.'));
       setSession(null);
       setStatus('signed_out');
       setUser(null);

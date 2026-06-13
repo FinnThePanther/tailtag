@@ -49,6 +49,7 @@ import {
 import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import { achievementsStatusQueryKey } from '../../src/features/achievements';
 import { captureHandledException, addMonitoringBreadcrumb } from '../../src/lib/sentry';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import {
   createCatchPerformanceTrace,
   createClientAttemptId,
@@ -588,8 +589,10 @@ export default function CatchScreen() {
       });
       resetCatchState();
 
-      const fallbackMessage =
-        caught instanceof Error ? caught.message : "We couldn't save that catch. Please try again.";
+      const fallbackMessage = getUserVisibleErrorMessage(
+        caught,
+        "We couldn't save that catch. Please try again.",
+      );
       if (isRetryableCatchSubmissionError(caught)) {
         await updateCatchOutboxItem(userId, clientAttemptId, (item) => ({
           ...item,
@@ -682,9 +685,7 @@ export default function CatchScreen() {
       });
     } catch (caught) {
       setReciprocalFeedback(
-        caught instanceof Error
-          ? caught.message
-          : "We couldn't offer that back-tag. Please try again.",
+        getUserVisibleErrorMessage(caught, "We couldn't offer that back-tag. Please try again."),
       );
       captureHandledException(caught, {
         scope: 'catch.offerReciprocalCatch',
@@ -745,8 +746,10 @@ export default function CatchScreen() {
         catchResult,
       });
     } catch (caught) {
-      const fallbackMessage =
-        caught instanceof Error ? caught.message : "We couldn't save that catch. Please try again.";
+      const fallbackMessage = getUserVisibleErrorMessage(
+        caught,
+        "We couldn't save that catch. Please try again.",
+      );
       setPhotoSubmitError(fallbackMessage);
       resetCatchState();
 

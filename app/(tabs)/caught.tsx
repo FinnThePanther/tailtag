@@ -27,6 +27,7 @@ import { PullToRefreshHint } from '../../src/components/ui/PullToRefreshHint';
 import { useAuth } from '../../src/features/auth';
 import { formatConventionDateRange } from '../../src/features/conventions';
 import { usePullToRefreshHint } from '../../src/hooks/usePullToRefreshHint';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/(tabs)/caught.styles';
 
@@ -168,7 +169,9 @@ export default function CaughtSuitsScreen() {
     await Promise.all([refetch({ throwOnError: false }), refetchMyPendingCatches()]);
   }, [refetch, refetchMyPendingCatches]);
 
-  const errorMessage = error?.message ?? null;
+  const errorMessage = error
+    ? getUserVisibleErrorMessage(error, "We couldn't load your catches.")
+    : null;
   const pullHint = usePullToRefreshHint({ isRefreshing: isRefetching });
 
   const handleOpenCatch = useCallback(
