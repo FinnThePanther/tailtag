@@ -46,6 +46,24 @@ export function rawErrorMessage(error: unknown): string | null {
   return null;
 }
 
+function technicalErrorPatternTarget(error: unknown, message: string) {
+  if (error instanceof Error && error.name.trim()) {
+    return `${error.name}: ${message}`;
+  }
+
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    typeof error.name === 'string' &&
+    error.name.trim()
+  ) {
+    return `${error.name}: ${message}`;
+  }
+
+  return message;
+}
+
 export function isNetworkError(error: unknown): boolean {
   const message = rawErrorMessage(error);
   return Boolean(message && NETWORK_ERROR_PATTERNS.some((pattern) => pattern.test(message)));
@@ -65,7 +83,8 @@ export function getUserVisibleErrorMessage(
     return NETWORK_UNAVAILABLE_MESSAGE;
   }
 
-  if (TECHNICAL_ERROR_PATTERNS.some((pattern) => pattern.test(message))) {
+  const technicalTarget = technicalErrorPatternTarget(error, message);
+  if (TECHNICAL_ERROR_PATTERNS.some((pattern) => pattern.test(technicalTarget))) {
     return fallbackMessage;
   }
 
