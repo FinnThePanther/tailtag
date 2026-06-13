@@ -28,6 +28,7 @@ import {
   fetchActiveProfileConventionIds,
 } from '../../../src/features/conventions';
 import { emitGameplayEvent } from '../../../src/features/events';
+import { getUserVisibleErrorMessage } from '../../../src/lib/userVisibleErrors';
 import { colors } from '../../../src/theme';
 import { styles } from '../../../src/app-styles/fursuits/[id]/index.styles';
 
@@ -215,7 +216,7 @@ export default function FursuitDetailScreen() {
           {error ? (
             <View style={styles.errorBlock}>
               <Text style={styles.errorText}>
-                {error instanceof Error ? error.message : 'We could not load that fursuit.'}
+                {getUserVisibleErrorMessage(error, 'We could not load that fursuit.')}
               </Text>
               <TailTagButton
                 variant="outline"

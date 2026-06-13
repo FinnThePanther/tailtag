@@ -15,6 +15,7 @@ import { UNIQUE_CODE_ATTEMPTS, UNIQUE_INSERT_ATTEMPTS } from '../../../src/const
 import { useAuth } from '../../../src/features/auth';
 import { supabase } from '../../../src/lib/supabase';
 import { captureNonCriticalError } from '../../../src/lib/sentry';
+import { getUserVisibleErrorMessage } from '../../../src/lib/userVisibleErrors';
 import { generateUniqueCodeCandidate } from '../../../src/utils/code';
 import { loadUriAsUint8Array } from '../../../src/utils/files';
 import { launchFursuitPhotoPickerAsync } from '../../../src/utils/imagePicker';
@@ -182,9 +183,13 @@ export default function AddFursuitScreen() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
 
-  const speciesLoadError = speciesError?.message ?? null;
+  const speciesLoadError = speciesError
+    ? getUserVisibleErrorMessage(speciesError, 'We could not load species.')
+    : null;
   const isSpeciesBusy = isSpeciesLoading;
-  const colorLoadError = colorError?.message ?? null;
+  const colorLoadError = colorError
+    ? getUserVisibleErrorMessage(colorError, 'We could not load colors.')
+    : null;
   const isColorBusy = isColorLoading;
 
   const normalizedSpeciesInput = useMemo(() => normalizeSpeciesName(speciesInput), [speciesInput]);
@@ -391,8 +396,11 @@ export default function AddFursuitScreen() {
   );
 
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
-  const conventionsLoadError =
-    conventionsError?.message ?? profileConventionsError?.message ?? null;
+  const conventionsLoadError = conventionsError
+    ? getUserVisibleErrorMessage(conventionsError, 'We could not load conventions.')
+    : profileConventionsError
+      ? getUserVisibleErrorMessage(profileConventionsError, 'We could not load your conventions.')
+      : null;
 
   useEffect(() => {
     if (!userId) {
@@ -517,11 +525,12 @@ export default function AddFursuitScreen() {
         setIsProcessingPhoto(false);
       }
     } catch (caught) {
-      const fallbackMessage =
-        caught instanceof Error
-          ? caught.message
-          : 'We could not open your photo library. Please try again.';
-      setPhotoError(fallbackMessage);
+      setPhotoError(
+        getUserVisibleErrorMessage(
+          caught,
+          'We could not open your photo library. Please try again.',
+        ),
+      );
     }
   }, []);
 
@@ -788,11 +797,12 @@ export default function AddFursuitScreen() {
         });
       });
     } catch (caught) {
-      const fallbackMessage =
-        caught instanceof Error
-          ? caught.message
-          : "We couldn't save your fursuit right now. Please try again.";
-      setSubmitError(fallbackMessage);
+      setSubmitError(
+        getUserVisibleErrorMessage(
+          caught,
+          "We couldn't save your fursuit right now. Please try again.",
+        ),
+      );
 
       if (createdFursuitId) {
         const { error: cleanupSuitError } = await (supabase as any)

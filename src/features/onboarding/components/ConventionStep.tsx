@@ -22,6 +22,7 @@ import {
 import { ConventionToggle } from '../../../components/conventions/ConventionToggle';
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../leaderboard/api/leaderboard';
 import { formatConventionDateRange } from '../../conventions/utils';
+import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
 import { styles } from './ConventionStep.styles';
 
 type ConventionStepProps = {
@@ -269,11 +270,12 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
         });
       });
 
-      const message =
-        caught instanceof Error
-          ? caught.message
-          : 'We could not save your convention selection. Please try again.';
-      setSubmitError(message);
+      setSubmitError(
+        getUserVisibleErrorMessage(
+          caught,
+          'We could not save your convention selection. Please try again.',
+        ),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -318,7 +320,9 @@ export function ConventionStep({ userId, onComplete, onSkip }: ConventionStepPro
           {isLoading || isLoadingExisting ? (
             <Text style={styles.message}>Loading conventions…</Text>
           ) : error ? (
-            <Text style={styles.error}>{error.message}</Text>
+            <Text style={styles.error}>
+              {getUserVisibleErrorMessage(error, 'We could not load conventions.')}
+            </Text>
           ) : filteredConventions.length === 0 ? (
             <Text style={styles.message}>
               {conventions.length === 0

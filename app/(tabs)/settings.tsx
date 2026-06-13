@@ -56,6 +56,7 @@ import { ConventionToggle } from '../../src/components/conventions/ConventionTog
 import { supabase } from '../../src/lib/supabase';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../src/lib/runtimeConfig';
 import { captureHandledException } from '../../src/lib/sentry';
+import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { buildImageUploadCandidate, extractStoragePath } from '../../src/utils/images';
 import { buildAuthenticatedStorageObjectUrl } from '../../src/utils/supabase-image';
@@ -681,15 +682,23 @@ export default function SettingsScreen() {
     usernameValidation.isValid,
   ]);
 
-  const conventionsLoadError =
-    conventionsError?.message ?? profileConventionsError?.message ?? null;
+  const conventionsLoadError = conventionsError
+    ? getUserVisibleErrorMessage(conventionsError, 'We could not load conventions.')
+    : profileConventionsError
+      ? getUserVisibleErrorMessage(profileConventionsError, 'We could not load your conventions.')
+      : null;
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
 
-  const statsError =
-    caughtSuitsError?.message ??
-    profileConventionsError?.message ??
-    pastConventionRecapsError?.message ??
-    null;
+  const statsError = caughtSuitsError
+    ? getUserVisibleErrorMessage(caughtSuitsError, 'We could not load your stats.')
+    : profileConventionsError
+      ? getUserVisibleErrorMessage(profileConventionsError, 'We could not load your conventions.')
+      : pastConventionRecapsError
+        ? getUserVisibleErrorMessage(
+            pastConventionRecapsError,
+            'We could not load your past conventions.',
+          )
+        : null;
   const isStatsLoading =
     isCaughtSuitsLoading || isProfileConventionsLoading || isPastConventionRecapsLoading;
   const caughtSuitCount = caughtSuits.length;
@@ -990,11 +999,12 @@ export default function SettingsScreen() {
         });
       }
     } catch (caught) {
-      const fallbackMessage =
-        caught instanceof Error
-          ? caught.message
-          : 'We could not update your profile right now. Please try again.';
-      setSaveError(fallbackMessage);
+      setSaveError(
+        getUserVisibleErrorMessage(
+          caught,
+          'We could not update your profile right now. Please try again.',
+        ),
+      );
     } finally {
       setIsSaving(false);
     }
@@ -1075,11 +1085,9 @@ export default function SettingsScreen() {
           .catch(() => {});
       }
     } catch (caught) {
-      const msg =
-        caught instanceof Error
-          ? caught.message
-          : "We couldn't upload your photo. Please try again.";
-      setAvatarError(msg);
+      setAvatarError(
+        getUserVisibleErrorMessage(caught, "We couldn't upload your photo. Please try again."),
+      );
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -1128,7 +1136,7 @@ export default function SettingsScreen() {
       setSocialLinksMessage('Social links saved');
     } catch (caught) {
       setSocialLinksError(
-        caught instanceof Error ? caught.message : 'Could not save social links. Try again.',
+        getUserVisibleErrorMessage(caught, 'Could not save social links. Try again.'),
       );
     } finally {
       setIsSavingSocialLinks(false);
@@ -1251,11 +1259,12 @@ export default function SettingsScreen() {
           ),
         ]);
       } catch (caught) {
-        const fallbackMessage =
-          caught instanceof Error
-            ? caught.message
-            : 'We could not update your conventions right now. Please try again.';
-        setConventionError(fallbackMessage);
+        setConventionError(
+          getUserVisibleErrorMessage(
+            caught,
+            'We could not update your conventions right now. Please try again.',
+          ),
+        );
       } finally {
         setPendingMemberships((current) => {
           const next = new Set(current);
@@ -1313,7 +1322,7 @@ export default function SettingsScreen() {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      setSignOutError(error.message);
+      setSignOutError(getUserVisibleErrorMessage(error, 'We could not sign you out right now.'));
       setIsSigningOut(false);
     }
   }, [isSigningOut]);
@@ -1374,7 +1383,7 @@ export default function SettingsScreen() {
       // Stay on this screen - user will be redirected by auth guard
       Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
     } catch (caught) {
-      setDeleteAccountError(caught instanceof Error ? caught.message : 'Deletion failed');
+      setDeleteAccountError(getUserVisibleErrorMessage(caught, 'Deletion failed'));
     } finally {
       setIsDeletingAccount(false);
       isDeletingAccountRef.current = false;
@@ -1517,7 +1526,9 @@ export default function SettingsScreen() {
         {isProfileLoading ? (
           <Text style={styles.message}>Loading profile…</Text>
         ) : profileError ? (
-          <Text style={styles.error}>{profileError.message}</Text>
+          <Text style={styles.error}>
+            {getUserVisibleErrorMessage(profileError, 'We could not load your profile.')}
+          </Text>
         ) : (
           <View style={styles.fieldGroup}>
             <View style={styles.avatarSection}>

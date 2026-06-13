@@ -12,6 +12,7 @@ import {
   fetchAchievementStatus,
   type AchievementWithStatus,
 } from '../../src/features/achievements';
+import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/achievements/index.styles';
 
@@ -191,7 +192,9 @@ export default function AchievementsScreen() {
             <Text style={styles.message}>Loading achievements…</Text>
           ) : error ? (
             <View style={styles.errorBlock}>
-              <Text style={styles.errorText}>{error.message}</Text>
+              <Text style={styles.errorText}>
+                {getUserVisibleErrorMessage(error, "We couldn't load achievements.")}
+              </Text>
               <TailTagButton
                 variant="outline"
                 size="sm"

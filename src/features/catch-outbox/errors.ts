@@ -1,3 +1,5 @@
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
+
 const MAX_BACKOFF_MS = 5 * 60 * 1000;
 const SHARED_FALLBACK_ERROR_MESSAGE = "We couldn't finish that catch. Please try again.";
 
@@ -44,12 +46,7 @@ function rawErrorCode(error: unknown) {
 }
 
 function errorMessageFor(error: unknown) {
-  const message = rawErrorMessage(error);
-  if (message) {
-    return message;
-  }
-
-  return SHARED_FALLBACK_ERROR_MESSAGE;
+  return getUserVisibleErrorMessage(error, SHARED_FALLBACK_ERROR_MESSAGE);
 }
 
 function normalizedErrorMessage(error: unknown) {

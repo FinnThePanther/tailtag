@@ -16,6 +16,7 @@ import {
   useConventionVerificationAction,
 } from '../../src/features/conventions';
 import { useDailyTasks } from '../../src/features/daily-tasks';
+import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/daily-tasks/index.styles';
 
@@ -164,7 +165,9 @@ export default function DailyTasksScreen() {
     ]);
   }, [refetch, refetchConventionMemberships]);
 
-  const conventionErrorMessage = conventionMembershipsError?.message ?? null;
+  const conventionErrorMessage = conventionMembershipsError
+    ? getUserVisibleErrorMessage(conventionMembershipsError, 'We could not load your conventions.')
+    : null;
 
   return (
     <View style={styles.screen}>
@@ -358,7 +361,9 @@ export default function DailyTasksScreen() {
             <Text style={styles.message}>Loading daily tasks...</Text>
           ) : error ? (
             <View style={styles.errorBlock}>
-              <Text style={styles.errorText}>{error.message}</Text>
+              <Text style={styles.errorText}>
+                {getUserVisibleErrorMessage(error, "We couldn't load today's tasks.")}
+              </Text>
               <TailTagButton
                 variant="outline"
                 size="sm"

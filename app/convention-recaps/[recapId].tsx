@@ -17,6 +17,7 @@ import {
 import { createConventionSuitLeaderboardQueryOptions } from '../../src/features/leaderboard';
 import { useBlockedIds } from '../../src/features/moderation';
 import { captureNonCriticalError } from '../../src/lib/sentry';
+import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
 import { toDisplayDate, toDisplayDateTime } from '../../src/utils/dates';
 import { normalizeSocialUrlForOpening } from '../../src/utils/socialLinks';
 import { styles } from '../../src/app-styles/convention-recaps/[recapId].styles';
@@ -153,7 +154,9 @@ export default function ConventionRecapDetailScreen() {
         <View style={styles.centeredContent}>
           <TailTagCard>
             <View style={styles.helperColumn}>
-              <Text style={styles.errorText}>{error.message}</Text>
+              <Text style={styles.errorText}>
+                {getUserVisibleErrorMessage(error, 'We could not load that recap.')}
+              </Text>
               <TailTagButton
                 variant="outline"
                 size="sm"

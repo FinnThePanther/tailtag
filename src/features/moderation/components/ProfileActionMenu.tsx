@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActionSheetIOS, Alert, Platform, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../theme';
+import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
 import { useBlockUser } from '../hooks/useBlockUser';
 import { ReportModal } from './ReportModal';
 
@@ -30,7 +31,13 @@ export function ProfileActionMenu({ profileId, profileUsername }: ProfileActionM
                 Alert.alert('Blocked', `${displayName} has been blocked.`);
               },
               onError: (error: Error) => {
-                Alert.alert('Could not block user', error.message);
+                Alert.alert(
+                  'Could not block user',
+                  getUserVisibleErrorMessage(
+                    error,
+                    'We could not block that user. Please try again.',
+                  ),
+                );
               },
             });
           },

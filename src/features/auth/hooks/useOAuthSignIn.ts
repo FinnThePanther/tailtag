@@ -16,6 +16,7 @@ import {
 } from '../utils/oauth';
 import { updateLegalTermsAcceptance } from '../../legal-consent';
 import { createProfileQueryOptions, type ProfileSummary } from '../../profile';
+import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -27,7 +28,7 @@ type OAuthSignInOptions = {
 };
 
 const formatErrorMessage = (input: unknown) =>
-  input instanceof Error ? input.message : 'Unable to complete sign-in. Please try again.';
+  getUserVisibleErrorMessage(input, 'Unable to complete sign-in. Please try again.');
 
 const generateAppleNonce = () => {
   const bytes = new Uint8Array(16);

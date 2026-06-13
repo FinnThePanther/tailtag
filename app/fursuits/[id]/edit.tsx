@@ -68,6 +68,7 @@ import { buildAuthenticatedStorageObjectUrl } from '../../../src/utils/supabase-
 import { colors } from '../../../src/theme';
 import { styles } from '../../../src/app-styles/fursuits/[id]/edit.styles';
 import { captureHandledException } from '../../../src/lib/sentry';
+import { getUserVisibleErrorMessage } from '../../../src/lib/userVisibleErrors';
 import {
   profileNeedsAgeAttestation,
   refreshAdultBoundaryCaches,
@@ -218,8 +219,11 @@ export default function EditFursuitScreen() {
   );
 
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
-  const conventionsLoadError =
-    conventionsError?.message ?? profileConventionsError?.message ?? null;
+  const conventionsLoadError = conventionsError
+    ? getUserVisibleErrorMessage(conventionsError, 'We could not load conventions.')
+    : profileConventionsError
+      ? getUserVisibleErrorMessage(profileConventionsError, 'We could not load your conventions.')
+      : null;
 
   const hasHydratedFormRef = useRef(false);
   const hasTouchedConventionRosterRef = useRef(false);
@@ -252,9 +256,13 @@ export default function EditFursuitScreen() {
   const [codeError, setCodeError] = useState<string | null>(null);
   const codeCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const speciesLoadError = speciesError?.message ?? null;
+  const speciesLoadError = speciesError
+    ? getUserVisibleErrorMessage(speciesError, 'We could not load species.')
+    : null;
   const isSpeciesBusy = isSpeciesLoading;
-  const colorLoadError = colorError?.message ?? null;
+  const colorLoadError = colorError
+    ? getUserVisibleErrorMessage(colorError, 'We could not load colors.')
+    : null;
   const isColorBusy = isColorLoading;
   const hasLoadedProfile = profile !== undefined;
   const canUseAdultsOnlyFursuitVisibility =
@@ -538,9 +546,10 @@ export default function EditFursuitScreen() {
       }
     } catch (caught) {
       setPhotoError(
-        caught instanceof Error
-          ? caught.message
-          : 'We could not open your photo library. Please try again.',
+        getUserVisibleErrorMessage(
+          caught,
+          'We could not open your photo library. Please try again.',
+        ),
       );
     }
   }, []);
@@ -608,11 +617,12 @@ export default function EditFursuitScreen() {
 
               router.replace('/suits');
             } catch (caught) {
-              const message =
-                caught instanceof Error
-                  ? caught.message
-                  : "We couldn't delete that fursuit. Please try again.";
-              setSubmitError(message);
+              setSubmitError(
+                getUserVisibleErrorMessage(
+                  caught,
+                  "We couldn't delete that fursuit. Please try again.",
+                ),
+              );
             } finally {
               setIsDeleting(false);
             }
@@ -966,11 +976,12 @@ export default function EditFursuitScreen() {
         return;
       }
 
-      const fallbackMessage =
-        caught instanceof Error
-          ? caught.message
-          : "We couldn't update that fursuit right now. Please try again.";
-      setSubmitError(fallbackMessage);
+      setSubmitError(
+        getUserVisibleErrorMessage(
+          caught,
+          "We couldn't update that fursuit right now. Please try again.",
+        ),
+      );
 
       if (addedConventionIds.length > 0) {
         await Promise.all(
@@ -1143,7 +1154,7 @@ export default function EditFursuitScreen() {
           ) : error ? (
             <View style={styles.errorBlock}>
               <Text style={styles.errorText}>
-                {error instanceof Error ? error.message : 'We could not load that fursuit.'}
+                {getUserVisibleErrorMessage(error, 'We could not load that fursuit.')}
               </Text>
               <TailTagButton
                 variant="outline"

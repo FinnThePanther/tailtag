@@ -18,6 +18,7 @@ import {
   type ConventionSuitRosterViewEntry,
 } from '../../../src/features/conventions';
 import { supabase } from '../../../src/lib/supabase';
+import { getUserVisibleErrorMessage } from '../../../src/lib/userVisibleErrors';
 import { colors } from '../../../src/theme';
 import { styles } from '../../../src/app-styles/conventions/roster.styles';
 
@@ -363,7 +364,9 @@ export default function ConventionSuitRosterScreen() {
     <Text style={styles.message}>Loading roster…</Text>
   ) : error ? (
     <View style={styles.errorBlock}>
-      <Text style={styles.error}>{error.message}</Text>
+      <Text style={styles.error}>
+        {getUserVisibleErrorMessage(error, "We couldn't load the fursuit roster.")}
+      </Text>
       <TailTagButton
         variant="outline"
         size="sm"

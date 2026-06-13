@@ -8,6 +8,7 @@ import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { completeOnboarding, emitOnboardingCompletedEvent } from '../../onboarding';
 import { achievementsStatusQueryKey } from '../../achievements';
 import { profileQueryKey, type ProfileSummary } from '../../profile';
+import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
 import { styles } from './AchievementStep.styles';
 
 type AchievementStepProps = {
@@ -64,11 +65,12 @@ export function AchievementStep({
       // Toast will appear on home screen a few seconds later
       emitOnboardingCompletedEvent(userId);
     } catch (caught) {
-      const message =
-        caught instanceof Error
-          ? caught.message
-          : 'We could not finish onboarding right now. Please try again.';
-      setSubmitError(message);
+      setSubmitError(
+        getUserVisibleErrorMessage(
+          caught,
+          'We could not finish onboarding right now. Please try again.',
+        ),
+      );
     } finally {
       setIsSubmitting(false);
     }

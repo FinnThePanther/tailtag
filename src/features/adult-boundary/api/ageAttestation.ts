@@ -34,6 +34,20 @@ export async function updateAgeAttestation(userId: string, isAdult: boolean): Pr
     payload.visibility_audience = 'everyone';
   }
 
+  const { error: rpcError } = await client.rpc('set_own_age_attestation', {
+    p_age_gate_version: CURRENT_AGE_GATE_VERSION,
+    p_is_adult: isAdult,
+  });
+
+  if (!rpcError) {
+    return;
+  }
+
+  captureSupabaseError(rpcError, {
+    scope: 'adultBoundary.updateAgeAttestation.rpc',
+    userId,
+  });
+
   const { error } = await client.from('profiles').update(payload).eq('id', userId);
 
   if (error) {
@@ -41,6 +55,6 @@ export async function updateAgeAttestation(userId: string, isAdult: boolean): Pr
       scope: 'adultBoundary.updateAgeAttestation',
       userId,
     });
-    throw new Error(`Could not save age attestation: ${error.message}`);
+    throw new Error('We could not save your age attestation right now. Please try again.');
   }
 }

@@ -28,6 +28,7 @@ import {
   type ConventionSummary,
 } from '@/features/conventions';
 import { captureHandledException } from '@/lib/sentry';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { emitGameplayEvent } from '@/features/events';
 import { launchFursuitPhotoPickerAsync } from '@/utils/imagePicker';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '@/utils/images';
@@ -159,7 +160,9 @@ export function FursuitStep({
   );
   const isMountedRef = useRef(true);
   const hasAppliedDefaultConventionsRef = useRef(draft.selectedConventionIds.length > 0);
-  const colorLoadError = colorError?.message ?? null;
+  const colorLoadError = colorError
+    ? getUserVisibleErrorMessage(colorError, 'We could not load colors.')
+    : null;
   const isColorBusy = isColorLoading;
   const hasLoadedProfile = profile !== undefined;
   const canUseAdultsOnlyFursuitVisibility =
@@ -196,8 +199,11 @@ export function FursuitStep({
   );
 
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
-  const conventionsLoadError =
-    conventionsError?.message ?? profileConventionsError?.message ?? null;
+  const conventionsLoadError = conventionsError
+    ? getUserVisibleErrorMessage(conventionsError, 'We could not load conventions.')
+    : profileConventionsError
+      ? getUserVisibleErrorMessage(profileConventionsError, 'We could not load your conventions.')
+      : null;
 
   const selectedColors = useMemo(
     () =>
@@ -442,11 +448,12 @@ export function FursuitStep({
         scope: 'onboarding.fursuitStep.pickPhoto',
         userId,
       });
-      const message =
-        caught instanceof Error
-          ? caught.message
-          : 'We could not open your photo library. Please try again.';
-      setPhotoError(message);
+      setPhotoError(
+        getUserVisibleErrorMessage(
+          caught,
+          'We could not open your photo library. Please try again.',
+        ),
+      );
     }
   };
 
@@ -572,11 +579,12 @@ export function FursuitStep({
         scope: 'onboarding.fursuitStep.submitPhoto',
         userId,
       });
-      const message =
-        caught instanceof Error
-          ? caught.message
-          : 'We could not save that suit right now. Please try again.';
-      setSubmitError(message);
+      setSubmitError(
+        getUserVisibleErrorMessage(
+          caught,
+          'We could not save that suit right now. Please try again.',
+        ),
+      );
     } finally {
       setIsSubmitting(false);
     }

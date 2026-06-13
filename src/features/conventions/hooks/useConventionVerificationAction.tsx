@@ -19,6 +19,7 @@ import { LocationPermissionModal } from '@/features/conventions/components/Locat
 import { VerificationErrorModal } from '@/features/conventions/components/VerificationErrorModal';
 import { normalizeAccuracy, verificationErrorMessage } from '@/features/conventions/utils';
 import { captureHandledException, captureHandledMessage, captureSupabaseError } from '@/lib/sentry';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 type UseConventionVerificationActionOptions = {
   profileId: string | null | undefined;
   onVerified?: (
@@ -236,9 +237,10 @@ export function useConventionVerificationAction({
           });
         }
         setVerificationError(
-          caught instanceof Error
-            ? caught.message
-            : 'Location verified, but we could not update your convention access.',
+          getUserVisibleErrorMessage(
+            caught,
+            'Location verified, but we could not update your convention access.',
+          ),
         );
         return false;
       } finally {
