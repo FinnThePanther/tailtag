@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ActionSheetIOS, Alert, Platform, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../theme';
-import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { useBlockUser } from '../hooks/useBlockUser';
 import { ReportModal } from './ReportModal';
 

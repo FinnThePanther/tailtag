@@ -16,7 +16,7 @@ import {
   useConventionVerificationAction,
 } from '../../src/features/conventions';
 import { useDailyTasks } from '../../src/features/daily-tasks';
-import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/daily-tasks/index.styles';
 

@@ -21,7 +21,7 @@ import {
 import { useBlockedIds } from '../../src/features/moderation';
 import { emitGameplayEvent } from '../../src/features/events';
 import { captureNonCriticalError } from '../../src/lib/sentry';
-import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/leaderboard/[conventionId].styles';

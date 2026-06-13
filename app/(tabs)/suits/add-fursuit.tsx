@@ -15,7 +15,7 @@ import { UNIQUE_CODE_ATTEMPTS, UNIQUE_INSERT_ATTEMPTS } from '../../../src/const
 import { useAuth } from '../../../src/features/auth';
 import { supabase } from '../../../src/lib/supabase';
 import { captureNonCriticalError } from '../../../src/lib/sentry';
-import { getUserVisibleErrorMessage } from '../../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { generateUniqueCodeCandidate } from '../../../src/utils/code';
 import { loadUriAsUint8Array } from '../../../src/utils/files';
 import { launchFursuitPhotoPickerAsync } from '../../../src/utils/imagePicker';

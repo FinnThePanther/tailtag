@@ -68,7 +68,7 @@ import {
 } from '../../src/features/suits';
 import { useAllDataReady } from '../../src/hooks/useAllDataReady';
 import { useToast } from '../../src/hooks/useToast';
-import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors, spacing } from '../../src/theme';
 import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/(tabs)/index.styles';

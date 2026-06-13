@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { captureHandledException, captureSupabaseError } from '../../../lib/sentry';
-import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../../theme';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { updateCatchOutboxItem, upsertCatchOutboxItem } from '@/features/catch-outbox/storage';

@@ -18,7 +18,7 @@ import {
   type ConventionSuitRosterViewEntry,
 } from '../../../src/features/conventions';
 import { supabase } from '../../../src/lib/supabase';
-import { getUserVisibleErrorMessage } from '../../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../../src/theme';
 import { styles } from '../../../src/app-styles/conventions/roster.styles';
 

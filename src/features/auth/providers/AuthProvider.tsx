@@ -10,7 +10,7 @@ import {
   setUser,
 } from '../../../lib/sentry';
 import { registerForceSignOut, unregisterForceSignOut } from '../../../lib/authErrorHandler';
-import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 
 type AuthStatus = 'loading' | 'signed_in' | 'signed_out';
 

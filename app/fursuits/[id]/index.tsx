@@ -28,7 +28,7 @@ import {
   fetchActiveProfileConventionIds,
 } from '../../../src/features/conventions';
 import { emitGameplayEvent } from '../../../src/features/events';
-import { getUserVisibleErrorMessage } from '../../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../../src/theme';
 import { styles } from '../../../src/app-styles/fursuits/[id]/index.styles';
 

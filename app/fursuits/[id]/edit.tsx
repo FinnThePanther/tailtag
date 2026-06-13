@@ -68,7 +68,7 @@ import { buildAuthenticatedStorageObjectUrl } from '../../../src/utils/supabase-
 import { colors } from '../../../src/theme';
 import { styles } from '../../../src/app-styles/fursuits/[id]/edit.styles';
 import { captureHandledException } from '../../../src/lib/sentry';
-import { getUserVisibleErrorMessage } from '../../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import {
   profileNeedsAgeAttestation,
   refreshAdultBoundaryCaches,

@@ -32,7 +32,7 @@ import { PullToRefreshHint } from '../../../src/components/ui/PullToRefreshHint'
 import { useAuth } from '../../../src/features/auth';
 import { getIncompleteFursuitProfiles } from '../../../src/features/profile-guidance';
 import { usePullToRefreshHint } from '../../../src/hooks/usePullToRefreshHint';
-import { getUserVisibleErrorMessage } from '../../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../../src/theme';
 import { toDisplayDate } from '../../../src/utils/dates';
 import { styles } from '../../../src/app-styles/(tabs)/suits/index.styles';

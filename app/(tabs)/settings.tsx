@@ -56,7 +56,7 @@ import { ConventionToggle } from '../../src/components/conventions/ConventionTog
 import { supabase } from '../../src/lib/supabase';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../src/lib/runtimeConfig';
 import { captureHandledException } from '../../src/lib/sentry';
-import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { buildImageUploadCandidate, extractStoragePath } from '../../src/utils/images';
 import { buildAuthenticatedStorageObjectUrl } from '../../src/utils/supabase-image';

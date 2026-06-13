@@ -28,7 +28,7 @@ import {
 import { canUseStaffMode } from '../../src/features/staff-mode/constants';
 import { StaffModerationModal } from '../../src/features/staff-mode/components/StaffModerationModal';
 import { captureHandledException } from '../../src/lib/sentry';
-import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/staff-mode/index.styles';
 

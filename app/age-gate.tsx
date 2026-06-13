@@ -16,7 +16,7 @@ import {
 } from '../src/features/adult-boundary';
 import { useAuth } from '../src/features/auth';
 import { createProfileQueryOptions, type ProfileSummary } from '../src/features/profile';
-import { getUserVisibleErrorMessage } from '../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../src/theme';
 import { styles } from '../src/app-styles/age-gate.styles';
 

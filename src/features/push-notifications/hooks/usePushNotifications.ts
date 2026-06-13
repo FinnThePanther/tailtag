@@ -5,7 +5,7 @@ import * as Device from 'expo-device';
 
 import { useAuth } from '../../auth';
 import { captureNonCriticalError } from '../../../lib/sentry';
-import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import {
   fetchPushSettings,
   registerPushToken,

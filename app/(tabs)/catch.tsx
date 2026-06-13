@@ -49,7 +49,7 @@ import {
 import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import { achievementsStatusQueryKey } from '../../src/features/achievements';
 import { captureHandledException, addMonitoringBreadcrumb } from '../../src/lib/sentry';
-import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import {
   createCatchPerformanceTrace,
   createClientAttemptId,

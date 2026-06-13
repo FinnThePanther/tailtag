@@ -8,7 +8,7 @@ import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { completeOnboarding, emitOnboardingCompletedEvent } from '../../onboarding';
 import { achievementsStatusQueryKey } from '../../achievements';
 import { profileQueryKey, type ProfileSummary } from '../../profile';
-import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { styles } from './AchievementStep.styles';
 
 type AchievementStepProps = {

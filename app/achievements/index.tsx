@@ -12,7 +12,7 @@ import {
   fetchAchievementStatus,
   type AchievementWithStatus,
 } from '../../src/features/achievements';
-import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/achievements/index.styles';
 

@@ -17,7 +17,7 @@ import {
 import { createConventionSuitLeaderboardQueryOptions } from '../../src/features/leaderboard';
 import { useBlockedIds } from '../../src/features/moderation';
 import { captureNonCriticalError } from '../../src/lib/sentry';
-import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { toDisplayDate, toDisplayDateTime } from '../../src/utils/dates';
 import { normalizeSocialUrlForOpening } from '../../src/utils/socialLinks';
 import { styles } from '../../src/app-styles/convention-recaps/[recapId].styles';

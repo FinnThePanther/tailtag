@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { colors } from '../../../theme';
-import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { useBlockUser } from '../hooks/useBlockUser';
 import { ReportModal } from './ReportModal';
 

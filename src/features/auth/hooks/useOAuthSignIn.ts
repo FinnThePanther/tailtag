@@ -16,7 +16,7 @@ import {
 } from '../utils/oauth';
 import { updateLegalTermsAcceptance } from '../../legal-consent';
 import { createProfileQueryOptions, type ProfileSummary } from '../../profile';
-import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 
 WebBrowser.maybeCompleteAuthSession();
 

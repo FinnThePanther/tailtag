@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Alert } from 'react-native';
 import { submitReport } from '../api/reports';
 import type { ReportInput } from '../types';
-import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 
 export function useReportUser() {
   return useMutation({

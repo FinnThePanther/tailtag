@@ -22,7 +22,7 @@ import {
 import { ConventionToggle } from '../../../components/conventions/ConventionToggle';
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../leaderboard/api/leaderboard';
 import { formatConventionDateRange } from '../../conventions/utils';
-import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { styles } from './ConventionStep.styles';
 
 type ConventionStepProps = {

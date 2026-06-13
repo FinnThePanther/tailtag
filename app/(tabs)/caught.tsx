@@ -27,7 +27,7 @@ import { PullToRefreshHint } from '../../src/components/ui/PullToRefreshHint';
 import { useAuth } from '../../src/features/auth';
 import { formatConventionDateRange } from '../../src/features/conventions';
 import { usePullToRefreshHint } from '../../src/hooks/usePullToRefreshHint';
-import { getUserVisibleErrorMessage } from '../../src/lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/(tabs)/caught.styles';
 

@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth';
 import { useToast } from '../../../hooks/useToast';
 import { captureHandledException } from '../../../lib/sentry';
-import { getUserVisibleErrorMessage } from '../../../lib/userVisibleErrors';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { achievementsStatusQueryKey } from '../../achievements';
 import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks/hooks';
 import { confirmCatch, pendingCatchesQueryKey } from '../api/confirmations';
