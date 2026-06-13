@@ -28,6 +28,7 @@ import {
 import { canUseStaffMode } from '../../src/features/staff-mode/constants';
 import { StaffModerationModal } from '../../src/features/staff-mode/components/StaffModerationModal';
 import { captureHandledException } from '../../src/lib/sentry';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/staff-mode/index.styles';
 
@@ -141,7 +142,7 @@ export default function StaffModeScreen() {
       Alert.alert('Done', successMessage);
     } catch (error) {
       const typedError = error instanceof Error ? error : new Error('Moderation action failed');
-      setModalError(typedError.message);
+      setModalError(getUserVisibleErrorMessage(typedError, 'Moderation action failed'));
       captureHandledException(typedError, {
         scope: pendingAction === 'ban' ? 'staffMode.ban' : 'staffMode.unban',
         moderatedUserId: selectedPlayer.id,
@@ -176,7 +177,11 @@ export default function StaffModeScreen() {
           </View>
 
           {statusMessage ? <Text style={styles.message}>{statusMessage}</Text> : null}
-          {profileError ? <Text style={styles.error}>{profileError.message}</Text> : null}
+          {profileError ? (
+            <Text style={styles.error}>
+              {getUserVisibleErrorMessage(profileError, 'We could not load your profile.')}
+            </Text>
+          ) : null}
 
           {staffAllowed ? (
             <View style={styles.searchSection}>
@@ -197,7 +202,11 @@ export default function StaffModeScreen() {
                   Refresh
                 </TailTagButton>
               </View>
-              {searchError ? <Text style={styles.error}>{searchError.message}</Text> : null}
+              {searchError ? (
+                <Text style={styles.error}>
+                  {getUserVisibleErrorMessage(searchError, 'We could not search players.')}
+                </Text>
+              ) : null}
             </View>
           ) : null}
 

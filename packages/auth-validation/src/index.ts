@@ -61,6 +61,18 @@ const SUPABASE_ERROR_MAP: Record<string, string> = {
   over_email_send_rate_limit: 'Too many attempts. Please wait a few minutes and try again.',
 };
 
+const AUTH_NETWORK_ERROR_PATTERNS = [
+  /network request failed/i,
+  /failed to fetch/i,
+  /fetch failed/i,
+  /load failed/i,
+  /internet connection appears to be offline/i,
+  /server with the specified hostname could not be found/i,
+  /network connection was lost/i,
+  /\btimed out\b/i,
+  /NSURLErrorDomain/i,
+];
+
 export function mapAuthError(error: unknown): string {
   if (error && typeof error === 'object') {
     const err = error as { message?: string; status?: number; code?: string };
@@ -75,6 +87,10 @@ export function mapAuthError(error: unknown): string {
 
       if (err.message.toLowerCase().includes('rate limit')) {
         return 'Too many attempts. Please wait a few minutes and try again.';
+      }
+
+      if (AUTH_NETWORK_ERROR_PATTERNS.some((pattern) => pattern.test(err.message ?? ''))) {
+        return "We couldn't reach TailTag. Check your connection and try again.";
       }
 
       return err.message;

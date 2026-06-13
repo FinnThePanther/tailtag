@@ -5,6 +5,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ProfileSummary } from '@/features/profile';
 
 export const CURRENT_AGE_GATE_VERSION = 1;
+const AGE_ATTESTATION_SAVE_ERROR =
+  'We could not save your age attestation right now. Please try again.';
 
 export type VisibilityAudience = 'everyone' | 'adults_only';
 
@@ -22,6 +24,26 @@ export function profileNeedsAgeAttestation(profile: ProfileSummary | null | unde
   );
 }
 
+function isMissingAgeAttestationRpcError(error: {
+  code?: string;
+  details?: string;
+  hint?: string;
+  message?: string;
+}) {
+  const normalized = [error.code, error.message, error.details, error.hint]
+    .filter((value): value is string => typeof value === 'string')
+    .join(' ')
+    .toLowerCase();
+
+  return (
+    error.code === 'PGRST202' ||
+    error.code === '42883' ||
+    normalized.includes('could not find the function') ||
+    normalized.includes('function not found') ||
+    (normalized.includes('function') && normalized.includes('does not exist'))
+  );
+}
+
 export async function updateAgeAttestation(userId: string, isAdult: boolean): Promise<void> {
   const client = supabase as SupabaseClient<Database>;
   const payload: Database['public']['Tables']['profiles']['Update'] = {
@@ -34,13 +56,44 @@ export async function updateAgeAttestation(userId: string, isAdult: boolean): Pr
     payload.visibility_audience = 'everyone';
   }
 
-  const { error } = await client.from('profiles').update(payload).eq('id', userId);
+  const { error: rpcError } = await client.rpc('set_own_age_attestation', {
+    p_age_gate_version: CURRENT_AGE_GATE_VERSION,
+    p_is_adult: isAdult,
+  });
+
+  if (!rpcError) {
+    return;
+  }
+
+  captureSupabaseError(rpcError, {
+    scope: 'adultBoundary.updateAgeAttestation.rpc',
+    userId,
+  });
+
+  if (!isMissingAgeAttestationRpcError(rpcError)) {
+    throw new Error(AGE_ATTESTATION_SAVE_ERROR);
+  }
+
+  const { data, error } = await client
+    .from('profiles')
+    .update(payload)
+    .eq('id', userId)
+    .select('id')
+    .maybeSingle();
 
   if (error) {
     captureSupabaseError(error, {
       scope: 'adultBoundary.updateAgeAttestation',
       userId,
     });
-    throw new Error(`Could not save age attestation: ${error.message}`);
+    throw new Error(AGE_ATTESTATION_SAVE_ERROR);
+  }
+
+  if (!data?.id) {
+    captureSupabaseError(new Error('Age attestation fallback updated zero profile rows'), {
+      scope: 'adultBoundary.updateAgeAttestation.noRows',
+      userId,
+    });
+    throw new Error(AGE_ATTESTATION_SAVE_ERROR);
   }
 }

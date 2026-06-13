@@ -21,6 +21,7 @@ import {
 import { useBlockedIds } from '../../src/features/moderation';
 import { emitGameplayEvent } from '../../src/features/events';
 import { captureNonCriticalError } from '../../src/lib/sentry';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/leaderboard/[conventionId].styles';
@@ -149,7 +150,12 @@ export default function FullLeaderboardScreen() {
               <Text style={styles.message}>Loading…</Text>
             ) : leaderboardError ? (
               <View style={styles.errorRow}>
-                <Text style={styles.error}>{leaderboardError.message}</Text>
+                <Text style={styles.error}>
+                  {getUserVisibleErrorMessage(
+                    leaderboardError,
+                    "We couldn't load the leaderboard.",
+                  )}
+                </Text>
                 <TailTagButton
                   variant="outline"
                   size="sm"
@@ -241,7 +247,9 @@ export default function FullLeaderboardScreen() {
               <Text style={styles.message}>Loading…</Text>
             ) : suitError ? (
               <View style={styles.errorRow}>
-                <Text style={styles.error}>{suitError.message}</Text>
+                <Text style={styles.error}>
+                  {getUserVisibleErrorMessage(suitError, "We couldn't load the suit leaderboard.")}
+                </Text>
                 <TailTagButton
                   variant="outline"
                   size="sm"

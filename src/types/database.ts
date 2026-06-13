@@ -3062,6 +3062,10 @@ export type Database = {
           username: string
         }[]
       }
+      set_own_age_attestation: {
+        Args: { p_age_gate_version?: number; p_is_adult: boolean }
+        Returns: undefined
+      }
       silent_repair_historical_convention: {
         Args: { p_actor_id: string; p_convention_id: string; p_reason: string }
         Returns: {

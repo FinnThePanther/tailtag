@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { TailTagButton } from '../../../components/ui/TailTagButton';
 import { TailTagCard } from '../../../components/ui/TailTagCard';
 import { captureHandledException, captureSupabaseError } from '../../../lib/sentry';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../../theme';
 import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
 import { updateCatchOutboxItem, upsertCatchOutboxItem } from '@/features/catch-outbox/storage';
@@ -404,9 +405,7 @@ export function PhotoCatchCard({
         edgeRequestMs?: number | null;
       };
       catchTrace.recordTiming('edge_request_ms', caughtWithTiming.edgeRequestMs);
-      setLocalError(
-        error instanceof Error ? error.message : "Couldn't create catch. Please try again.",
-      );
+      setLocalError(getUserVisibleErrorMessage(error, "Couldn't create catch. Please try again."));
       setIsUploadingPhoto(false);
       finishCatchTrace({
         result: caughtWithTiming.catchPerformanceResult ?? 'failed',

@@ -15,6 +15,7 @@ import {
   profileNeedsLegalConsent,
   updateLegalTermsAcceptance,
 } from '../src/features/legal-consent';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../src/theme';
 import { styles } from '../src/app-styles/legal-consent.styles';
 
@@ -86,9 +87,10 @@ export default function LegalConsentScreen() {
       router.replace(destinationForProfile(profile));
     } catch (caught) {
       setError(
-        caught instanceof Error
-          ? caught.message
-          : 'We could not save your acceptance right now. Please try again.',
+        getUserVisibleErrorMessage(
+          caught,
+          'We could not save your acceptance right now. Please try again.',
+        ),
       );
     } finally {
       setIsSaving(false);

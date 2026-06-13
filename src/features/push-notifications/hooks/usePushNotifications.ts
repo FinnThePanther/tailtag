@@ -5,6 +5,7 @@ import * as Device from 'expo-device';
 
 import { useAuth } from '../../auth';
 import { captureNonCriticalError } from '../../../lib/sentry';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import {
   fetchPushSettings,
   registerPushToken,
@@ -202,9 +203,9 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       setIsEnabled(true);
       return true;
     } catch (caught) {
-      const fallbackMessage =
-        caught instanceof Error ? caught.message : 'Unable to enable push notifications right now.';
-      setError(fallbackMessage);
+      setError(
+        getUserVisibleErrorMessage(caught, 'Unable to enable push notifications right now.'),
+      );
       captureNonCriticalError(caught, {
         scope: 'push-notifications.requestPermission',
         userId: resolvedUserId,
@@ -228,11 +229,9 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       setToken(null);
       setIsEnabled(false);
     } catch (caught) {
-      const fallbackMessage =
-        caught instanceof Error
-          ? caught.message
-          : 'Unable to disable push notifications right now.';
-      setError(fallbackMessage);
+      setError(
+        getUserVisibleErrorMessage(caught, 'Unable to disable push notifications right now.'),
+      );
       captureNonCriticalError(caught, {
         scope: 'push-notifications.disable',
         userId: resolvedUserId,
