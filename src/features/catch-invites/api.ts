@@ -72,6 +72,15 @@ function normalizeInvite(raw: unknown): CatchInvite {
   };
 }
 
+async function readJsonResponse(response: Response): Promise<Record<string, unknown> | null> {
+  try {
+    const data = await response.json();
+    return data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function callCatchInvitesFunction(body: Record<string, unknown>) {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -102,13 +111,18 @@ async function callCatchInvitesFunction(body: Record<string, unknown>) {
       signal: controller.signal,
     });
 
-    const responseData = await response.json();
     if (!response.ok) {
+      const responseData = await readJsonResponse(response);
       throw new Error(
         typeof responseData?.error === 'string'
           ? responseData.error
           : "We couldn't process that invite.",
       );
+    }
+
+    const responseData = await readJsonResponse(response);
+    if (!responseData) {
+      throw new Error("We couldn't process that invite.");
     }
 
     return responseData as Record<string, unknown>;
