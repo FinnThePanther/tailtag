@@ -409,7 +409,7 @@ BEGIN
     RAISE EXCEPTION 'Selected fursuit not found';
   END IF;
 
-  IF coalesce(v_fursuit.is_tutorial, false) OR coalesce(v_fursuit.is_flagged, false) THEN
+  IF coalesce(v_fursuit.is_flagged, false) THEN
     RAISE EXCEPTION 'Selected fursuit cannot be used for this invite';
   END IF;
 
