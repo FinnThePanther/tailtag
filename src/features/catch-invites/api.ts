@@ -4,7 +4,11 @@ import { supabase } from '@/lib/supabase';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/runtimeConfig';
 import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET } from '@/constants/storage';
 import { resolveStorageMediaUrl } from '@/utils/supabase-image';
-import type { CatchInvite, CatchInviteStatus, CreateCatchInviteResult } from './types';
+import type {
+  CatchInvite,
+  CatchInviteStatus,
+  CreateCatchInviteResult,
+} from '@/features/catch-invites/types';
 
 const EDGE_FUNCTION_TIMEOUT_MS = 15 * 1000;
 
