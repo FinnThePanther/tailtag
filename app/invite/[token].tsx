@@ -214,6 +214,11 @@ export default function CatchInviteScreen() {
     }
   };
 
+  const handleDismissInvite = async () => {
+    await clearPendingCatchInviteToken();
+    router.replace('/');
+  };
+
   if (!userId || isClaiming) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -243,7 +248,7 @@ export default function CatchInviteScreen() {
           <TailTagCard style={styles.card}>
             <Text style={styles.errorTitle}>Invite unavailable</Text>
             <Text style={styles.body}>{claimError}</Text>
-            <TailTagButton onPress={() => router.replace('/')}>Go home</TailTagButton>
+            <TailTagButton onPress={handleDismissInvite}>Go home</TailTagButton>
           </TailTagCard>
         ) : invite ? (
           <>
@@ -297,7 +302,7 @@ export default function CatchInviteScreen() {
                     ? 'This invite catch has been processed.'
                     : 'No further action is needed for this invite.'}
                 </Text>
-                <TailTagButton onPress={() => router.replace('/')}>Done</TailTagButton>
+                <TailTagButton onPress={handleDismissInvite}>Done</TailTagButton>
               </TailTagCard>
             ) : (
               <TailTagCard style={styles.card}>
