@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Share, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -20,6 +20,7 @@ import {
   createCatch,
   createReciprocalCatchOffer,
   CODE_CATCH_OUTBOX_TIMEOUT_MS,
+  uploadCatchPhotoFromUri,
   myPendingCatchesQueryKey,
   pendingCatchesQueryKey,
   PhotoCatchCard,
@@ -39,6 +40,7 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { AppImage } from '../../src/components/ui/AppImage';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { useAuth } from '../../src/features/auth';
+import { createCatchInvite } from '../../src/features/catch-invites';
 import {
   formatConventionCloseoutDeadline,
   getConventionPlayerLifecycleState,
@@ -55,6 +57,7 @@ import {
   createClientAttemptId,
 } from '../../src/features/catch-confirmations/lib/catchPerformance';
 import { colors, spacing } from '../../src/theme';
+import { useToast } from '../../src/hooks/useToast';
 import { isValidUniqueCodeInput, normalizeUniqueCodeInput } from '../../src/utils/code';
 import { UNIQUE_CODE_LENGTH, UNIQUE_CODE_MIN_LENGTH } from '../../src/constants/codes';
 import { FURSUIT_BUCKET } from '../../src/constants/storage';
@@ -226,6 +229,7 @@ export default function CatchScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const { sync: syncOutbox } = useCatchOutboxSync(userId, queryClient);
   const {
     conventionMemberships,
@@ -762,6 +766,42 @@ export default function CatchScreen() {
     }
   };
 
+  const handleInviteCatch = async (params: {
+    localPhotoUri: string;
+    photoSource: 'camera' | 'gallery';
+    conventionId: string | null;
+  }) => {
+    if (!userId) return;
+
+    const uploadedPhoto = await uploadCatchPhotoFromUri({
+      userId,
+      localPhotoUri: params.localPhotoUri,
+    });
+    const result = await createCatchInvite({
+      catchPhotoPath: uploadedPhoto.photoPath,
+      catchPhotoUrl: uploadedPhoto.photoUrl,
+      catchPhotoSource: params.photoSource,
+      conventionId: params.conventionId,
+      caughtAt: new Date().toISOString(),
+    });
+
+    const message = `I tagged you on TailTag. Join and approve the catch here: ${result.shareUrl}`;
+    try {
+      await Share.share({
+        message,
+        url: result.shareUrl,
+        title: 'TailTag invite catch',
+      });
+      showToast('Invite created. This catch will count if they join and approve it.');
+    } catch (caught) {
+      captureHandledException(caught, {
+        scope: 'catch.inviteCatch.share',
+        userId,
+      });
+      showToast("Invite created, but TailTag couldn't open sharing. Try sharing again later.");
+    }
+  };
+
   return (
     <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -835,9 +875,11 @@ export default function CatchScreen() {
             <PhotoCatchCard
               userId={userId}
               onCatchSubmit={handlePhotoCatch}
+              onInviteSubmit={handleInviteCatch}
               isSubmitting={isPhotoSubmitting}
               submitError={photoSubmitError}
               activeConventionIds={activeConventionIds}
+              activeConventionId={singleActiveConventionId}
               preloadedFursuits={pickerItems}
               isRosterRefreshing={isRosterRefreshing || (isUsingRosterSnapshot && isRosterLoading)}
               catchUnavailableReason={photoCatchUnavailableReason}
