@@ -39,7 +39,11 @@ import { siteConfig } from '../../config/site';
   const token = inviteMatch?.[1];
 
   if (openLink instanceof HTMLAnchorElement && token) {
-    openLink.href = `tailtag://invite/${encodeURIComponent(decodeURIComponent(token))}`;
+    try {
+      openLink.href = `tailtag://invite/${encodeURIComponent(decodeURIComponent(token))}`;
+    } catch {
+      openLink.href = 'tailtag://';
+    }
   }
 </script>
 
