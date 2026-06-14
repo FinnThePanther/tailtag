@@ -1835,7 +1835,7 @@ export type Database = {
           id: string
           linked_at: string | null
           qr_asset_path: string | null
-          qr_token: string | null
+          qr_token: string
           qr_token_created_at: string | null
           registered_at: string
           registered_by_user_id: string | null
@@ -1847,7 +1847,7 @@ export type Database = {
           id?: string
           linked_at?: string | null
           qr_asset_path?: string | null
-          qr_token?: string | null
+          qr_token: string
           qr_token_created_at?: string | null
           registered_at?: string
           registered_by_user_id?: string | null
@@ -1859,7 +1859,7 @@ export type Database = {
           id?: string
           linked_at?: string | null
           qr_asset_path?: string | null
-          qr_token?: string | null
+          qr_token?: string
           qr_token_created_at?: string | null
           registered_at?: string
           registered_by_user_id?: string | null
