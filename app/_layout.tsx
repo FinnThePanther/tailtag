@@ -30,6 +30,7 @@ import { CatchConfirmationToastManager } from '../src/features/catch-confirmatio
 import {
   loadPendingCatchInviteToken,
   savePendingCatchInviteToken,
+  subscribePendingCatchInviteToken,
 } from '../src/features/catch-invites';
 import { CatchOutboxSyncManager } from '../src/features/catch-outbox';
 import { PushNotificationManager } from '../src/features/push-notifications';
@@ -371,6 +372,12 @@ function RootLayoutNav() {
       }
     });
 
+    const unsubscribePendingInviteToken = subscribePendingCatchInviteToken((token) => {
+      if (isMounted) {
+        setPendingInviteToken(token);
+      }
+    });
+
     const subscription = Linking.addEventListener('url', (event) => {
       void rememberInviteToken(event.url);
     });
@@ -390,6 +397,7 @@ function RootLayoutNav() {
 
     return () => {
       isMounted = false;
+      unsubscribePendingInviteToken();
       subscription.remove();
     };
   }, [session]);

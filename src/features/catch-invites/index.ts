@@ -9,5 +9,6 @@ export {
   clearPendingCatchInviteToken,
   loadPendingCatchInviteToken,
   savePendingCatchInviteToken,
+  subscribePendingCatchInviteToken,
 } from './storage';
 export type { CatchInvite, CatchInviteStatus, CreateCatchInviteResult } from './types';
