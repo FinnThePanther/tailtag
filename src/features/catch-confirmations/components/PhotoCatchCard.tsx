@@ -763,7 +763,7 @@ export function PhotoCatchCard({
             <TailTagButton
               variant="outline"
               onPress={handleInviteSubmit}
-              disabled={disabled || isSubmitting || isUploadingPhoto || !photo}
+              disabled={disabled || isSubmitting || isUploadingPhoto || isCreatingInvite || !photo}
               loading={isCreatingInvite}
               style={styles.submitButton}
             >
