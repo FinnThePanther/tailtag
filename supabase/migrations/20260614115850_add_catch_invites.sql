@@ -564,9 +564,9 @@ BEGIN
    RETURNING * INTO v_invite;
 
   PERFORM public.insert_catch_notification_once(
-    v_invite.inviter_profile_id,
-    'catch_invite_approved',
-    jsonb_build_object(
+    p_user_id := v_invite.inviter_profile_id,
+    p_type := 'catch_invite_approved',
+    p_payload := jsonb_build_object(
       'catch_invite_id', v_invite.id,
       'catch_id', v_catch_id,
       'fursuit_id', p_fursuit_id,
