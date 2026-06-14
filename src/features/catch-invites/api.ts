@@ -141,10 +141,17 @@ export async function createCatchInvite(params: {
     caught_at: params.caughtAt ?? null,
   });
 
+  const token = stringField(response.token);
+  const shareUrl = stringField(response.share_url);
+
+  if (!token || !shareUrl) {
+    throw new Error("We couldn't create a shareable invite link. Please try again.");
+  }
+
   return {
     invite: normalizeInvite(response.invite),
-    token: stringField(response.token) ?? '',
-    shareUrl: stringField(response.share_url) ?? '',
+    token,
+    shareUrl,
   };
 }
 
