@@ -879,6 +879,7 @@ export default function CatchScreen() {
               isSubmitting={isPhotoSubmitting}
               submitError={photoSubmitError}
               activeConventionIds={activeConventionIds}
+              activeConventionId={singleActiveConventionId}
               preloadedFursuits={pickerItems}
               isRosterRefreshing={isRosterRefreshing || (isUsingRosterSnapshot && isRosterLoading)}
               catchUnavailableReason={photoCatchUnavailableReason}

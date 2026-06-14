@@ -53,6 +53,7 @@ type PhotoCatchCardProps = {
   disabled?: boolean;
   submitError?: string | null;
   activeConventionIds?: string[];
+  activeConventionId?: string | null;
   preloadedFursuits?: FursuitPickerItem[];
   isRosterRefreshing?: boolean;
   catchUnavailableReason?: string | null;
@@ -96,6 +97,7 @@ export function PhotoCatchCard({
   disabled = false,
   submitError,
   activeConventionIds = [],
+  activeConventionId = null,
   preloadedFursuits = [],
   isRosterRefreshing = false,
   catchUnavailableReason = null,
@@ -570,9 +572,8 @@ export function PhotoCatchCard({
       return;
     }
 
-    const conventionId = conventionIds[0] ?? null;
-    if (!conventionId) {
-      setLocalError('TailTag needs an active convention before creating an invite catch.');
+    if (!activeConventionId || !conventionIds.includes(activeConventionId)) {
+      setLocalError('TailTag needs one active convention before creating an invite catch.');
       return;
     }
 
@@ -582,7 +583,7 @@ export function PhotoCatchCard({
       await onInviteSubmit({
         localPhotoUri: photo.uri,
         photoSource,
-        conventionId,
+        conventionId: activeConventionId,
       });
 
       setPhoto(null);
