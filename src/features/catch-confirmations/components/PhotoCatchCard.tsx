@@ -573,7 +573,7 @@ export function PhotoCatchCard({
     }
 
     if (!activeConventionId || !conventionIds.includes(activeConventionId)) {
-      setLocalError('TailTag needs one active convention before creating an invite catch.');
+      setLocalError('Select one active convention before creating an invite catch.');
       return;
     }
 
