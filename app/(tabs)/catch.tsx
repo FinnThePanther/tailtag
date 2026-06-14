@@ -786,13 +786,20 @@ export default function CatchScreen() {
     });
 
     const message = `I tagged you on TailTag. Join and approve the catch here: ${result.shareUrl}`;
-    await Share.share({
-      message,
-      url: result.shareUrl,
-      title: 'TailTag invite catch',
-    });
-
-    showToast('Invite created. This catch will count if they join and approve it.');
+    try {
+      await Share.share({
+        message,
+        url: result.shareUrl,
+        title: 'TailTag invite catch',
+      });
+      showToast('Invite created. This catch will count if they join and approve it.');
+    } catch (caught) {
+      captureHandledException(caught, {
+        scope: 'catch.inviteCatch.share',
+        userId,
+      });
+      showToast("Invite created, but TailTag couldn't open sharing. Try sharing again later.");
+    }
   };
 
   return (
