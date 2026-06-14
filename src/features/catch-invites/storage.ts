@@ -10,7 +10,13 @@ const pendingCatchInviteTokenListeners = new Set<PendingCatchInviteTokenListener
 
 function notifyPendingCatchInviteTokenListeners(token: string | null) {
   pendingCatchInviteTokenListeners.forEach((listener) => {
-    listener(token);
+    try {
+      listener(token);
+    } catch (error) {
+      captureHandledException(error, {
+        scope: 'catch-invites.notifyPendingTokenListener',
+      });
+    }
   });
 }
 
