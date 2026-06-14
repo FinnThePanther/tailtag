@@ -81,6 +81,7 @@ module.exports = ({ config }) => ({
     bundleIdentifier: env.iosBundleId,
     googleServicesFile: maybeResolveExistingFile(env.iosGoogleServicesFile),
     usesAppleSignIn: true,
+    associatedDomains: ['applinks:playtailtag.com'],
     infoPlist: {
       NSPhotoLibraryUsageDescription: PHOTO_LIBRARY_PERMISSION,
       NSCameraUsageDescription: CAMERA_PERMISSION,
@@ -98,6 +99,20 @@ module.exports = ({ config }) => ({
     predictiveBackGestureEnabled: false,
     package: env.androidApplicationId,
     googleServicesFile: resolveAndroidGoogleServicesFile(),
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [
+          {
+            scheme: 'https',
+            host: 'playtailtag.com',
+            pathPrefix: '/invite',
+          },
+        ],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
     blockedPermissions: [
       'android.permission.RECORD_AUDIO',
       'android.permission.READ_EXTERNAL_STORAGE',

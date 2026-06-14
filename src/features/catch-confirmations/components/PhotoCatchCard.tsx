@@ -44,6 +44,11 @@ type PhotoCatchCardProps = {
     conventionId: string | null;
     catchResult: CreateCatchResult;
   }) => Promise<void>;
+  onInviteSubmit?: (params: {
+    localPhotoUri: string;
+    photoSource: CatchPhotoSource;
+    conventionId: string | null;
+  }) => Promise<void>;
   isSubmitting?: boolean;
   disabled?: boolean;
   submitError?: string | null;
@@ -86,6 +91,7 @@ async function safeUpdateCatchOutboxItem(
 export function PhotoCatchCard({
   userId,
   onCatchSubmit,
+  onInviteSubmit,
   isSubmitting = false,
   disabled = false,
   submitError,
@@ -106,6 +112,7 @@ export function PhotoCatchCard({
   const [pickerAction, setPickerAction] = useState<CatchPhotoSource | null>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isCreatingInvite, setIsCreatingInvite] = useState(false);
   const [photoProcessingMs, setPhotoProcessingMs] = useState<number | null>(null);
 
   // Load convention fursuits when photo is taken
@@ -130,7 +137,7 @@ export function PhotoCatchCard({
       .finally(() => setIsLoadingFursuits(false));
   }, [step, conventionIds, photoSource, preloadedFursuits, userId]);
 
-  const areEntryActionsDisabled = disabled || isSubmitting || isUploadingPhoto;
+  const areEntryActionsDisabled = disabled || isSubmitting || isUploadingPhoto || isCreatingInvite;
 
   const resetPickerFeedback = () => {
     setLocalError(null);
@@ -558,9 +565,43 @@ export function PhotoCatchCard({
     }
   };
 
+  const handleInviteSubmit = async () => {
+    if (disabled || !photo || !photoSource || !onInviteSubmit || isCreatingInvite) {
+      return;
+    }
+
+    const conventionId = conventionIds[0] ?? null;
+    if (!conventionId) {
+      setLocalError('TailTag needs an active convention before creating an invite catch.');
+      return;
+    }
+
+    setLocalError(null);
+    setIsCreatingInvite(true);
+    try {
+      await onInviteSubmit({
+        localPhotoUri: photo.uri,
+        photoSource,
+        conventionId,
+      });
+
+      setPhoto(null);
+      setPhotoSource(null);
+      setPhotoProcessingMs(null);
+      setSelectedFursuit(null);
+      setFursuits([]);
+      setStep('idle');
+    } catch (error) {
+      setLocalError(
+        getUserVisibleErrorMessage(error, "We couldn't create that invite. Please try again."),
+      );
+    } finally {
+      setIsCreatingInvite(false);
+    }
+  };
+
   const canSubmit =
     Boolean(photo) && Boolean(selectedFursuit) && !disabled && !isSubmitting && !isUploadingPhoto;
-  const isBusy = isSubmitting || isUploadingPhoto;
   const isOpeningCamera = pickerAction === 'camera';
   const isOpeningGallery = pickerAction === 'gallery';
 
@@ -708,14 +749,27 @@ export function PhotoCatchCard({
       ) : null}
 
       {step !== 'idle' && (
-        <TailTagButton
-          onPress={handleSubmit}
-          disabled={!canSubmit}
-          loading={isBusy}
-          style={styles.submitButton}
-        >
-          {isUploadingPhoto ? 'Saving catch…' : 'Submit Catch'}
-        </TailTagButton>
+        <View style={styles.submitActions}>
+          <TailTagButton
+            onPress={handleSubmit}
+            disabled={!canSubmit || isCreatingInvite}
+            loading={isUploadingPhoto}
+            style={styles.submitButton}
+          >
+            {isUploadingPhoto ? 'Saving catch…' : 'Submit Catch'}
+          </TailTagButton>
+          {onInviteSubmit ? (
+            <TailTagButton
+              variant="outline"
+              onPress={handleInviteSubmit}
+              disabled={disabled || isSubmitting || isUploadingPhoto || !photo}
+              loading={isCreatingInvite}
+              style={styles.submitButton}
+            >
+              {isCreatingInvite ? 'Creating invite…' : 'Invite this fursuit'}
+            </TailTagButton>
+          ) : null}
+        </View>
       )}
 
       <View style={styles.infoRow}>

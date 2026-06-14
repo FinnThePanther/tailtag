@@ -1,6 +1,6 @@
 {
   "name": "tailtag",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "main": "index.ts",
   "engines": {
     "node": ">=22 <23",

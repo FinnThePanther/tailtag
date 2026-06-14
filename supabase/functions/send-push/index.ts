@@ -37,6 +37,10 @@ const SUPPORTED_TYPES = new Set([
   'catch_confirmed',
   'catch_rejected',
   'catch_expired',
+  'catch_invite_claimed',
+  'catch_invite_approved',
+  'catch_invite_declined',
+  'catch_invite_reported',
   'daily_all_complete',
   'convention_recap_ready',
 ]);
@@ -250,6 +254,28 @@ async function buildMessage(
         body: `Your request for ${fursuitName} expired`,
       };
     }
+    case 'catch_invite_claimed':
+      return {
+        title: 'Invite Claimed',
+        body: 'Your TailTag invite was claimed. They can approve the catch after choosing their suit.',
+      };
+    case 'catch_invite_approved': {
+      const fursuitName = extractString(payload.fursuit_name) ?? 'their fursuit';
+      return {
+        title: 'Invite Catch Approved',
+        body: `Your catch of ${fursuitName} now counts.`,
+      };
+    }
+    case 'catch_invite_declined':
+      return {
+        title: 'Invite Declined',
+        body: 'Your TailTag invite catch was declined.',
+      };
+    case 'catch_invite_reported':
+      return {
+        title: 'Invite Reported',
+        body: 'Your TailTag invite was reported and is under review.',
+      };
     case 'daily_all_complete':
       return {
         title: 'All Tasks Complete!',

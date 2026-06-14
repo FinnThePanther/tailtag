@@ -128,6 +128,9 @@ export const styles = StyleSheet.create({
   submitButton: {
     width: '100%',
   },
+  submitActions: {
+    gap: spacing.sm,
+  },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',

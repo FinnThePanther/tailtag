@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../src/features/auth';
+import { loadPendingCatchInviteToken } from '../../src/features/catch-invites';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { createProfileQueryOptions, type ProfileSummary } from '../../src/features/profile';
 import {
@@ -47,6 +49,16 @@ const LoadingView = () => (
     />
   </View>
 );
+
+async function resolvePostOnboardingHref(): Promise<Href> {
+  const token = await loadPendingCatchInviteToken();
+  return token
+    ? {
+        pathname: '/invite/[token]',
+        params: { token },
+      }
+    : '/';
+}
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -131,7 +143,7 @@ export default function OnboardingScreen() {
 
     if (profile?.onboarding_completed) {
       void clearOnboardingProgress(userId);
-      router.replace('/');
+      void resolvePostOnboardingHref().then((href) => router.replace(href));
     }
   }, [profile?.onboarding_completed, router, userId]);
 
@@ -188,7 +200,7 @@ export default function OnboardingScreen() {
     if (userId) {
       void clearOnboardingProgress(userId);
     }
-    router.replace('/');
+    void resolvePostOnboardingHref().then((href) => router.replace(href));
   }, [router, userId]);
 
   const currentIndex = stepIndex(currentStep);
