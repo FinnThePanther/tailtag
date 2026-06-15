@@ -1,6 +1,21 @@
+---
+import { Icon } from 'astro-icon/components';
+import { siteConfig } from '../config/site';
+---
+
 <footer class="px-6 py-8 border-t border-card-border mt-auto">
-  <div class="max-w-md mx-auto text-center">
-    <div class="flex items-center justify-center gap-4 text-sm text-foreground/50">
+  <div class="max-w-md mx-auto flex flex-col items-center gap-5 text-center">
+    <a
+      href={siteConfig.links.telegramGroup}
+      class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-card-border px-4 py-2 text-sm font-semibold text-foreground/80 transition-colors hover:bg-card hover:text-foreground"
+    >
+      <Icon
+        name="simple-icons:telegram"
+        class="h-4 w-4 text-primary"
+      />
+      <span>Join the Telegram chat</span>
+    </a>
+    <div class="flex flex-wrap items-center justify-center gap-4 text-sm text-foreground/50">
       <a
         href="/privacy"
         class="hover:text-foreground/70"

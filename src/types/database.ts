@@ -240,6 +240,127 @@ export type Database = {
           },
         ]
       }
+      catch_invites: {
+        Row: {
+          approved_at: string | null
+          canceled_at: string | null
+          catch_photo_path: string
+          catch_photo_source: string
+          catch_photo_url: string
+          caught_at: string
+          claimed_at: string | null
+          claimed_by_profile_id: string | null
+          convention_id: string | null
+          converted_catch_id: string | null
+          created_at: string
+          credit_scope: string
+          declined_at: string | null
+          expires_at: string
+          id: string
+          invitee_display_name: string | null
+          inviter_profile_id: string
+          report_reason: string | null
+          reported_at: string | null
+          selected_fursuit_id: string | null
+          status: string
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          canceled_at?: string | null
+          catch_photo_path: string
+          catch_photo_source?: string
+          catch_photo_url: string
+          caught_at?: string
+          claimed_at?: string | null
+          claimed_by_profile_id?: string | null
+          convention_id?: string | null
+          converted_catch_id?: string | null
+          created_at?: string
+          credit_scope?: string
+          declined_at?: string | null
+          expires_at: string
+          id?: string
+          invitee_display_name?: string | null
+          inviter_profile_id: string
+          report_reason?: string | null
+          reported_at?: string | null
+          selected_fursuit_id?: string | null
+          status?: string
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          canceled_at?: string | null
+          catch_photo_path?: string
+          catch_photo_source?: string
+          catch_photo_url?: string
+          caught_at?: string
+          claimed_at?: string | null
+          claimed_by_profile_id?: string | null
+          convention_id?: string | null
+          converted_catch_id?: string | null
+          created_at?: string
+          credit_scope?: string
+          declined_at?: string | null
+          expires_at?: string
+          id?: string
+          invitee_display_name?: string | null
+          inviter_profile_id?: string
+          report_reason?: string | null
+          reported_at?: string | null
+          selected_fursuit_id?: string | null
+          status?: string
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catch_invites_claimed_by_profile_id_fkey"
+            columns: ["claimed_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_invites_convention_id_fkey"
+            columns: ["convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_invites_converted_catch_id_fkey"
+            columns: ["converted_catch_id"]
+            isOneToOne: false
+            referencedRelation: "catches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_invites_inviter_profile_id_fkey"
+            columns: ["inviter_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_invites_selected_fursuit_id_fkey"
+            columns: ["selected_fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catch_invites_selected_fursuit_id_fkey"
+            columns: ["selected_fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catch_performance_events: {
         Row: {
           app_version: string | null
@@ -410,6 +531,7 @@ export type Database = {
       }
       catches: {
         Row: {
+          catch_credit_scope: string
           catch_number: number | null
           catch_photo_path: string | null
           catch_photo_source: string | null
@@ -428,6 +550,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          catch_credit_scope?: string
           catch_number?: number | null
           catch_photo_path?: string | null
           catch_photo_source?: string | null
@@ -446,6 +569,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          catch_credit_scope?: string
           catch_number?: number | null
           catch_photo_path?: string | null
           catch_photo_source?: string | null
@@ -1711,7 +1835,7 @@ export type Database = {
           id: string
           linked_at: string | null
           qr_asset_path: string | null
-          qr_token: string | null
+          qr_token: string
           qr_token_created_at: string | null
           registered_at: string
           registered_by_user_id: string | null
@@ -1723,7 +1847,7 @@ export type Database = {
           id?: string
           linked_at?: string | null
           qr_asset_path?: string | null
-          qr_token?: string | null
+          qr_token: string
           qr_token_created_at?: string | null
           registered_at?: string
           registered_by_user_id?: string | null
@@ -1735,7 +1859,7 @@ export type Database = {
           id?: string
           linked_at?: string | null
           qr_asset_path?: string | null
-          qr_token?: string | null
+          qr_token?: string
           qr_token_created_at?: string | null
           registered_at?: string
           registered_by_user_id?: string | null
@@ -2248,6 +2372,14 @@ export type Database = {
       }
     }
     Functions: {
+      approve_catch_invite: {
+        Args: {
+          p_claimant_profile_id: string
+          p_fursuit_id: string
+          p_invite_id: string
+        }
+        Returns: Json
+      }
       archive_gameplay_event_queue_message: {
         Args: { p_message_id: number }
         Returns: boolean
@@ -2309,6 +2441,14 @@ export type Database = {
       can_view_profile_avatar_object: {
         Args: { p_object_name: string; p_viewer_id: string }
         Returns: boolean
+      }
+      catch_invite_expiration: {
+        Args: { p_convention_id: string }
+        Returns: string
+      }
+      claim_catch_invite: {
+        Args: { p_claimant_profile_id: string; p_token_hash: string }
+        Returns: Json
       }
       claim_unprocessed_events: {
         Args: { p_batch_size?: number; p_min_age_seconds?: number }
@@ -2396,6 +2536,19 @@ export type Database = {
         Returns: number
       }
       count_user_fursuits: { Args: { p_user_id: string }; Returns: number }
+      create_catch_invite: {
+        Args: {
+          p_catch_photo_path: string
+          p_catch_photo_source?: string
+          p_catch_photo_url: string
+          p_caught_at?: string
+          p_convention_id?: string
+          p_invitee_display_name?: string
+          p_inviter_profile_id: string
+          p_token_hash: string
+        }
+        Returns: Json
+      }
       create_catch_reciprocal_offer: {
         Args: {
           p_offered_by_profile_id: string
@@ -2429,6 +2582,10 @@ export type Database = {
         Returns: Json
       }
       current_user_has_password_credential: { Args: never; Returns: boolean }
+      decline_catch_invite: {
+        Args: { p_claimant_profile_id: string; p_invite_id: string }
+        Returns: Json
+      }
       delete_archived_convention_in_dev: {
         Args: { p_actor_id: string; p_convention_id: string }
         Returns: {
@@ -2462,6 +2619,7 @@ export type Database = {
         Args: { p_convention_id: string }
         Returns: Json
       }
+      expire_stale_catch_invites: { Args: never; Returns: Json }
       fetch_unprocessed_events: {
         Args: { batch_size?: number; min_age_seconds?: number }
         Returns: {
@@ -2916,6 +3074,10 @@ export type Database = {
         Args: { p_user_a: string; p_user_b: string }
         Returns: boolean
       }
+      is_convention_closeout_started: {
+        Args: { p_convention_id: string }
+        Returns: boolean
+      }
       is_convention_gallery_catchable: {
         Args: { p_convention_id: string }
         Returns: boolean
@@ -3016,6 +3178,10 @@ export type Database = {
       }
       process_gameplay_queue_if_active: { Args: never; Returns: undefined }
       purge_geo_verification_data: { Args: never; Returns: Json }
+      read_catch_invite_payload: {
+        Args: { p_invite: Database["public"]["Tables"]["catch_invites"]["Row"] }
+        Returns: Json
+      }
       read_gameplay_event_queue: {
         Args: { p_batch_size?: number; p_visibility_timeout_seconds?: number }
         Returns: {
@@ -3038,6 +3204,14 @@ export type Database = {
       replace_fursuit_makers: {
         Args: { fursuit_id: string; makers?: Json }
         Returns: undefined
+      }
+      report_catch_invite: {
+        Args: {
+          p_claimant_profile_id: string
+          p_invite_id: string
+          p_reason?: string
+        }
+        Returns: Json
       }
       search_players: {
         Args: {

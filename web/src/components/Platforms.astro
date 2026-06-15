@@ -2,18 +2,31 @@
 import { Icon } from 'astro-icon/components';
 import { siteConfig } from '../config/site';
 
-const { prereleaseSignup } = siteConfig.links;
+const { appStore, playStore } = siteConfig.links;
 ---
 
-<div class="flex w-full max-w-sm">
+<div
+  id="download"
+  class="flex w-full max-w-md flex-col gap-3 sm:flex-row"
+>
   <a
-    href={prereleaseSignup}
-    class="inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-4 font-semibold text-background transition-colors hover:bg-primary-dark"
+    href={appStore}
+    class="inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-4 font-semibold text-background transition-colors hover:bg-primary-dark"
   >
     <Icon
-      name="simple-icons:googleforms"
+      name="simple-icons:appstore"
       class="h-5 w-5"
     />
-    <span>Sign Up for Prerelease Testing</span>
+    <span>Download on the App Store</span>
+  </a>
+  <a
+    href={playStore}
+    class="inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl border border-card-border bg-card px-5 py-4 font-semibold text-foreground transition-colors hover:bg-card-hover"
+  >
+    <Icon
+      name="simple-icons:googleplay"
+      class="h-5 w-5"
+    />
+    <span>Get it on Google Play</span>
   </a>
 </div>
