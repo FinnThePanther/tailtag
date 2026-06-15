@@ -1,6 +1,8 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { siteConfig } from '../../config/site';
+
+const { appStore, playStore } = siteConfig.links;
 ---
 
 <Base
@@ -23,8 +25,9 @@ import { siteConfig } from '../../config/site';
           Open TailTag
         </a>
         <a
+          id="get-app-link"
           class="secondary"
-          href={siteConfig.links.prereleaseSignup}
+          href="/#download"
         >
           Get the app
         </a>
@@ -33,8 +36,9 @@ import { siteConfig } from '../../config/site';
   </main>
 </Base>
 
-<script>
+<script define:vars={{ appStore, playStore }}>
   const openLink = document.getElementById('open-tailtag-link');
+  const getAppLink = document.getElementById('get-app-link');
   const inviteMatch = window.location.pathname.match(/\/invite\/([^/?#]+)/);
   const token = inviteMatch?.[1];
 
@@ -43,6 +47,20 @@ import { siteConfig } from '../../config/site';
       openLink.href = `tailtag://invite/${encodeURIComponent(decodeURIComponent(token))}`;
     } catch {
       openLink.href = 'tailtag://';
+    }
+  }
+
+  if (getAppLink instanceof HTMLAnchorElement) {
+    const userAgent = navigator.userAgent;
+    const isIOS =
+      /iPad|iPhone|iPod/.test(userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/.test(userAgent);
+
+    if (isIOS) {
+      getAppLink.href = appStore;
+    } else if (isAndroid) {
+      getAppLink.href = playStore;
     }
   }
 </script>
