@@ -7,6 +7,7 @@ export const siteConfig = {
   links: {
     appStore: 'https://apps.apple.com/us/app/tailtag-fursuit-catching-game/id6757874759?uo=4',
     playStore: 'https://play.google.com/store/apps/details?id=com.finnthepanther.tailtag&hl=en_US',
+    telegramGroup: 'https://t.me/+x2C_t-_kgI40ZDlh',
     supportEmail: 'finn@finnthepanther.com',
     deleteAccountMailto: 'mailto:finn@finnthepanther.com?subject=TailTag%20Account%20Deletion',
   },
