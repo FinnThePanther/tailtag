@@ -989,9 +989,7 @@ export default function CatchScreen() {
 
   const renderPhotoBatchResult = (batchResult: PhotoCatchBatchResult) => {
     const summary = summarizePhotoBatch(batchResult);
-    const hasRetryableFailures = batchResult.results.some(
-      (result) => result.status === 'failed' || result.status === 'not_eligible',
-    );
+    const hasRetryableFailures = batchResult.results.some((result) => result.status === 'failed');
 
     return (
       <TailTagCard style={styles.cardSpacing}>
