@@ -69,6 +69,8 @@ function parseItem(value: unknown): CatchOutboxItem | null {
         : undefined,
     fursuitSpeciesName:
       typeof value.fursuitSpeciesName === 'string' ? value.fursuitSpeciesName : undefined,
+    batchId: typeof value.batchId === 'string' ? value.batchId : undefined,
+    batchLabel: typeof value.batchLabel === 'string' ? value.batchLabel : undefined,
     localPhotoUri: typeof value.localPhotoUri === 'string' ? value.localPhotoUri : undefined,
     photoSource:
       value.photoSource === 'camera' || value.photoSource === 'gallery'

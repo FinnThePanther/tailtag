@@ -773,11 +773,18 @@ type ConventionRosterFursuitRow =
 
 async function fetchConventionFursuitsForConvention(
   conventionId: string,
+  signal?: AbortSignal,
 ): Promise<ConventionRosterFursuitRow[]> {
   const client = supabase as SupabaseClient<Database>;
-  const { data, error } = await client.rpc('get_convention_suit_roster', {
+  let query = client.rpc('get_convention_suit_roster', {
     p_convention_id: conventionId,
   });
+
+  if (signal) {
+    query = query.abortSignal(signal);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw error;
@@ -793,6 +800,7 @@ async function fetchConventionFursuitsForConvention(
 export async function fetchConventionFursuits(
   conventionIds: string[],
   excludeOwnerId: string,
+  signal?: AbortSignal,
 ): Promise<FursuitPickerItem[]> {
   if (conventionIds.length === 0) {
     return [];
@@ -802,7 +810,9 @@ export async function fetchConventionFursuits(
   try {
     rows = (
       await Promise.all(
-        conventionIds.map((conventionId) => fetchConventionFursuitsForConvention(conventionId)),
+        conventionIds.map((conventionId) =>
+          fetchConventionFursuitsForConvention(conventionId, signal),
+        ),
       )
     ).flat();
   } catch {
