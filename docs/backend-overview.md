@@ -27,7 +27,10 @@ TailTag uses Supabase for the application backend. Backend code and configuratio
 
 Deployable functions currently include:
 
+- `catch-invites`
+- `close-out-convention`
 - `create-catch`
+- `create-reciprocal-catch-offer`
 - `delete-account`
 - `events-ingress`
 - `expire-bans`
@@ -38,12 +41,12 @@ Deployable functions currently include:
 - `send-push`
 - `staff-moderate`
 
-JWT verification settings are defined in `supabase/config.toml` for local development.
-`create-catch`, `delete-account`, and `events-ingress` intentionally deploy with
-Supabase platform JWT verification disabled because they verify bearer tokens or
-service-role authorization inside the function code. They are not unauthenticated
-public endpoints. Keep every deployment path's `--no-verify-jwt` list aligned with
-`supabase/config.toml`.
+JWT verification settings are defined in `supabase/config.toml`, and both CI and
+`scripts/setup-environment.sh` deploy functions with `supabase functions deploy`
+so that file is the source of truth. `create-catch`, `delete-account`, and
+`events-ingress` intentionally deploy with Supabase platform JWT verification
+disabled because they verify bearer tokens or service-role authorization inside
+the function code. They are not unauthenticated public endpoints.
 
 ## Data and processing flow
 

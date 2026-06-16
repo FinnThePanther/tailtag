@@ -17,6 +17,32 @@ if len(sys.argv) != 2:
 generated = open(sys.argv[1]).read().rstrip()
 
 
+def strip_supabase_cli_notices(source):
+    return "\n".join(
+        line
+        for line in source.splitlines()
+        if not line.startswith("A new version of Supabase CLI is available:")
+        and not line.startswith("We recommend updating regularly for new features")
+    ).rstrip()
+
+
+def normalize_supabase_helper_spacing(source):
+    helpers = [
+        "type DatabaseWithoutInternals",
+        "type DefaultSchema",
+        "export type Tables<",
+        "export type TablesInsert<",
+        "export type TablesUpdate<",
+        "export type Enums<",
+        "export type CompositeTypes<",
+        "export const Constants",
+        "// Type aliases for application use",
+    ]
+    for helper in helpers:
+        source = source.replace(f"\n\n{helper}", f"\n{helper}")
+    return source
+
+
 def replace_required(source, anchor, replacement):
     if anchor not in source:
         raise RuntimeError(f"Expected generated type anchor not found: {anchor!r}")
@@ -52,6 +78,8 @@ def format_typescript(source):
 
 attendance_state_type = 'export type AttendanceState = "active" | "left" | "removed" | "finalized"'
 roster_state_type = 'export type RosterState = "active" | "removed" | "finalized"'
+
+generated = strip_supabase_cli_notices(generated)
 
 generated = replace_first_available(
     generated,
@@ -89,6 +117,7 @@ if roster_state_type not in generated:
     raise RuntimeError(f"Generated output is missing final type declaration: {roster_state_type}")
 
 generated = format_typescript(generated)
+generated = normalize_supabase_helper_spacing(generated)
 
 committed = open("src/types/database.ts").read()
 boundary = "// Type aliases for application use"

@@ -140,10 +140,10 @@ The following secrets must be set in each environment's Supabase Vault. Set them
 | `send_push_service_role_jwt` | Service role JWT for push notifications | Same as SERVICE_ROLE_KEY |
 | `rotate_dailys_service_role_key` | Service role JWT for daily rotation | Same as SERVICE_ROLE_KEY |
 | `achievements_processor_secret` | Shared secret for achievement webhook auth | Generate a unique value per environment |
-| `ACHIEVEMENTS_PROCESSOR_URL` | URL of the achievement processor function | `https://<project-ref>.supabase.co/functions/v1/process-gameplay-queue` |
+| `ACHIEVEMENTS_PROCESSOR_URL` | Compatibility URL alias for the active gameplay queue processor | `https://<project-ref>.supabase.co/functions/v1/process-gameplay-queue` |
 | `ACHIEVEMENTS_WEBHOOK_SECRET` | Webhook verification secret | Should match `achievements_processor_secret` |
 
-> **Tip:** For `SERVICE_ROLE_KEY`, `SUPABASE_URL`, and `project_url`, use the values from the project's API settings page. The achievement secrets should be generated fresh for each environment.
+> **Tip:** For `SERVICE_ROLE_KEY`, `SUPABASE_URL`, and `project_url`, use the values from the project's API settings page. The achievement secrets should be generated fresh for each environment. `ACHIEVEMENTS_PROCESSOR_URL` is retained as a compatibility alias and should point to `process-gameplay-queue`; the legacy `process-achievements` worker is gated by `legacy_event_processor_enabled`.
 
 ---
 
@@ -212,6 +212,6 @@ When provisioning a new environment, complete these in order:
 7. [ ] Create cron jobs (Section 3)
 8. [ ] Set edge function secrets in Vault (Section 4)
 9. [ ] Configure auth providers (Section 5)
-10. [ ] Deploy edge functions (`supabase functions deploy <name>`)
+10. [ ] Deploy edge functions (`supabase functions deploy`, using `supabase/config.toml`)
 11. [ ] Verify cron jobs are running
 12. [ ] Test a login + basic app flow
