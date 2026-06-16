@@ -10,6 +10,7 @@
 
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+import { beginBackendWorkerRun, completeBackendWorkerRun } from '../_shared/backendWorkerRuns.ts';
 import { ingestGameplayEvent } from '../_shared/gameplayQueue.ts';
 
 const corsHeaders: Record<string, string> = {
@@ -150,13 +151,35 @@ async function recordExpiredEvent(catchData: ExpiredCatch): Promise<void> {
   });
 }
 
-async function handleRequest(): Promise<Response> {
+function parseSource(req: Request): string {
+  const url = new URL(req.url);
+  return url.searchParams.get('source')?.trim() || 'cron';
+}
+
+async function handleRequest(req: Request): Promise<Response> {
+  const source = parseSource(req);
+  const workerRun = await beginBackendWorkerRun(supabaseAdmin, {
+    workerName: 'pending_catch_expiration',
+    source,
+  });
+
   try {
     // Call the expire_pending_catches RPC to expire catches and get details
     const { data, error } = await supabaseAdmin.rpc('expire_pending_catches');
 
     if (error) {
       console.error('[expire-pending-catches] RPC error:', error);
+      await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+        status: 'failed',
+        counts: {
+          expired_catches: 0,
+          notifications_sent: 0,
+          notifications_failed: 0,
+          events_recorded: 0,
+          events_failed: 0,
+        },
+        error,
+      });
       return respondJson({ error: 'Failed to expire catches' }, 500);
     }
 
@@ -164,6 +187,17 @@ async function handleRequest(): Promise<Response> {
 
     if (!result.success) {
       console.error('[expire-pending-catches] RPC returned failure:', result);
+      await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+        status: 'failed',
+        counts: {
+          expired_catches: result.expired_count ?? 0,
+          notifications_sent: 0,
+          notifications_failed: 0,
+          events_recorded: 0,
+          events_failed: 0,
+        },
+        error: result,
+      });
       return respondJson({ error: 'Expire operation failed' }, 500);
     }
 
@@ -184,19 +218,38 @@ async function handleRequest(): Promise<Response> {
       }),
     );
 
-    ingestResults.forEach((result, index) => {
-      if (result.status === 'rejected') {
+    const eventFailures = ingestResults.reduce((count, ingestResult, index) => {
+      if (ingestResult.status === 'rejected') {
         const catchData = expiredCatches[index];
         console.error(
           `[expire-pending-catches] Failed to record event for catch ${catchData?.id}:`,
-          result.reason,
+          ingestResult.reason,
         );
+        return count + 1;
       }
-    });
+      return count;
+    }, 0);
+    const eventSuccesses = ingestResults.length - eventFailures;
+    const notificationFailures = allNotifications.length - notificationsSent;
 
     console.log(
       `[expire-pending-catches] Completed: ${result.expired_count} catches expired, ${notificationsSent} notifications sent`,
     );
+
+    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+      status: notificationFailures > 0 || eventFailures > 0 ? 'partial' : 'succeeded',
+      counts: {
+        expired_catches: result.expired_count,
+        notifications_sent: notificationsSent,
+        notifications_failed: notificationFailures,
+        events_recorded: eventSuccesses,
+        events_failed: eventFailures,
+      },
+      error:
+        notificationFailures > 0 || eventFailures > 0
+          ? `${notificationFailures} notification inserts and ${eventFailures} event writes failed`
+          : null,
+    });
 
     return respondJson({
       success: true,
@@ -206,6 +259,17 @@ async function handleRequest(): Promise<Response> {
     });
   } catch (error) {
     console.error('[expire-pending-catches] Unexpected error:', error);
+    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+      status: 'failed',
+      counts: {
+        expired_catches: 0,
+        notifications_sent: 0,
+        notifications_failed: 0,
+        events_recorded: 0,
+        events_failed: 0,
+      },
+      error,
+    });
     return respondJson({ error: (error as Error).message ?? 'Unknown error' }, 500);
   }
 }
@@ -221,5 +285,5 @@ Deno.serve(async (req) => {
     return respondJson({ error: 'Method not allowed' }, 405);
   }
 
-  return handleRequest();
+  return handleRequest(req);
 });

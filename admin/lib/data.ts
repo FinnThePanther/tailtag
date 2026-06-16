@@ -69,6 +69,35 @@ export async function fetchDashboardSummary(supabase: ServiceRoleClient) {
   };
 }
 
+export type BackendWorkerHealthRow = {
+  worker_name: string;
+  display_name: string;
+  latest_run_id: string | null;
+  latest_status: string | null;
+  latest_source: string | null;
+  latest_started_at: string | null;
+  latest_completed_at: string | null;
+  latest_duration_ms: number | null;
+  latest_counts: Record<string, unknown>;
+  latest_error_message: string | null;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  running_started_at: string | null;
+  recent_failure_count: number;
+};
+
+export async function fetchBackendWorkerHealth(
+  supabase: ServiceRoleClient,
+): Promise<BackendWorkerHealthRow[]> {
+  const { data, error } = await (supabase as any).rpc('get_backend_worker_run_health');
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as BackendWorkerHealthRow[];
+}
+
 export async function fetchPlayerSearch(
   supabase: ServiceRoleClient,
   params: {
