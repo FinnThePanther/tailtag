@@ -4,19 +4,19 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 
-import { TailTagButton } from '../../../components/ui/TailTagButton';
-import { TailTagCard } from '../../../components/ui/TailTagCard';
-import { captureHandledException } from '../../../lib/sentry';
+import { TailTagButton } from '@/components/ui/TailTagButton';
+import { TailTagCard } from '@/components/ui/TailTagCard';
+import { captureHandledException } from '@/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
-import { colors } from '../../../theme';
-import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '../../../utils/images';
+import { colors } from '@/theme';
+import { processImageForUpload, IMAGE_UPLOAD_PRESETS } from '@/utils/images';
 import { fetchConventionFursuits } from '@/features/catch-confirmations/api/confirmations';
 import { submitPhotoCatchBatch } from '@/features/catch-confirmations/lib/photoCatchBatch';
-import { fetchGalleryProfileConventionIds } from '../../conventions';
-import { FursuitPicker } from './FursuitPicker';
-import type { FursuitPickerItem } from '../api';
-import type { CatchPhotoSource, PhotoCatchBatchResult } from '../types';
-import { styles } from './PhotoCatchCard.styles';
+import { fetchGalleryProfileConventionIds } from '@/features/conventions';
+import { FursuitPicker } from '@/features/catch-confirmations/components/FursuitPicker';
+import type { FursuitPickerItem } from '@/features/catch-confirmations/api';
+import type { CatchPhotoSource, PhotoCatchBatchResult } from '@/features/catch-confirmations/types';
+import { styles } from '@/features/catch-confirmations/components/PhotoCatchCard.styles';
 
 const PHOTO_CATCH_SELECTION_LIMIT = 10;
 
@@ -134,11 +134,29 @@ export function PhotoCatchCard({
       return;
     }
 
+    const controller = new AbortController();
+
     setIsLoadingFursuits(true);
-    fetchConventionFursuits(fursuitConventionIds, userId)
-      .then(setFursuits)
-      .catch(() => setLocalError("Couldn't load fursuits. Please try again."))
-      .finally(() => setIsLoadingFursuits(false));
+    fetchConventionFursuits(fursuitConventionIds, userId, controller.signal)
+      .then((nextFursuits) => {
+        if (!controller.signal.aborted) {
+          setFursuits(nextFursuits);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setLocalError("Couldn't load fursuits. Please try again.");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setIsLoadingFursuits(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
   }, [
     activeConventionIds.length,
     availableConventionOptions,
