@@ -21,6 +21,32 @@ committed = open("src/types/database.ts").read()
 generated = open(sys.argv[1]).read()
 
 
+def strip_supabase_cli_notices(source):
+    return "\n".join(
+        line
+        for line in source.splitlines()
+        if not line.startswith("A new version of Supabase CLI is available:")
+        and not line.startswith("We recommend updating regularly for new features")
+    )
+
+
+def normalize_supabase_helper_spacing(source):
+    helpers = [
+        "type DatabaseWithoutInternals",
+        "type DefaultSchema",
+        "export type Tables<",
+        "export type TablesInsert<",
+        "export type TablesUpdate<",
+        "export type Enums<",
+        "export type CompositeTypes<",
+        "export const Constants",
+        "// Type aliases for application use",
+    ]
+    for helper in helpers:
+        source = source.replace(f"\n\n{helper}", f"\n{helper}")
+    return source
+
+
 def replace_required(source, anchor, replacement):
     if anchor not in source:
         print(f"ERROR: expected generated type anchor not found: {anchor!r}")
@@ -60,6 +86,8 @@ def format_typescript(source):
     return result.stdout
 
 
+generated = strip_supabase_cli_notices(generated)
+
 generated = replace_first_available(
     generated,
     [
@@ -92,7 +120,8 @@ generated = format_typescript(generated)
 boundary = "// Type aliases for application use"
 idx = committed.find(boundary)
 committed_gen = committed[:idx].rstrip() if idx != -1 else committed.rstrip()
-fresh_gen = generated.rstrip()
+committed_gen = normalize_supabase_helper_spacing(committed_gen)
+fresh_gen = normalize_supabase_helper_spacing(generated.rstrip())
 
 if committed_gen == fresh_gen:
     print("Generated types match committed file.")
