@@ -99,8 +99,7 @@ async function cleanupBatchPhotoIfResolved(userId: string, item: CatchOutboxItem
       candidate.localPhotoUri === item.localPhotoUri &&
       (candidate.status === 'queued' ||
         candidate.status === 'uploading' ||
-        candidate.status === 'syncing' ||
-        candidate.status === 'failed'),
+        candidate.status === 'syncing'),
   );
 
   if (!hasUnresolvedBatchItem) {
