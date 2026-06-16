@@ -92,6 +92,11 @@ WITH private_defaults(config_name, description, fallback_value) AS (
       'legacy_event_processor_enabled',
       'Allow the legacy achievement processor rollback worker to claim unprocessed events',
       'false'::jsonb
+    ),
+    (
+      'legacy_event_processor_max_retries',
+      'Maximum retry attempts for legacy event processor rollback claims',
+      '5'::jsonb
     )
 ),
 resolved_values AS (
@@ -219,7 +224,8 @@ WHERE function_name IN (
   'gameplay_queue_max_attempts',
   'gameplay_queue_wakeup_max_messages',
   'gameplay_queue_wakeup_max_duration_ms',
-  'legacy_event_processor_enabled'
+  'legacy_event_processor_enabled',
+  'legacy_event_processor_max_retries'
 );
 
 DROP POLICY IF EXISTS "edge_function_config_public_read"
@@ -385,6 +391,13 @@ DECLARE
     (app_private.backend_runtime_config_value('legacy_event_processor_enabled', 'false'::jsonb))::text::boolean,
     false
   );
+  v_max_retries integer := greatest(
+    1,
+    COALESCE(
+      (app_private.backend_runtime_config_value('legacy_event_processor_max_retries', '5'::jsonb))::text::integer,
+      5
+    )
+  );
 BEGIN
   IF NOT v_enabled THEN
     RAISE WARNING 'public.claim_unprocessed_events() is disabled because legacy_event_processor_enabled=false';
@@ -443,7 +456,7 @@ BEGIN
     FROM public.events e
     WHERE e.processed_at IS NULL
       AND e.received_at < now() - make_interval(secs => greatest(coalesce(min_age_seconds, 0), 0))
-      AND e.retry_count < 5
+      AND e.retry_count < v_max_retries
     ORDER BY e.received_at ASC
     LIMIT greatest(coalesce(batch_size, 50), 1)
     FOR UPDATE SKIP LOCKED
