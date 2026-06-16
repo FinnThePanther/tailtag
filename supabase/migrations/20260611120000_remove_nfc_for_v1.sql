@@ -27,6 +27,9 @@ ALTER TABLE public.tags
   VALIDATE CONSTRAINT tags_identifier_present;
 
 ALTER TABLE public.tags
+  ALTER COLUMN qr_token SET NOT NULL;
+
+ALTER TABLE public.tags
   DROP CONSTRAINT IF EXISTS tags_nfc_uid_key;
 
 DROP INDEX IF EXISTS public.tags_nfc_uid_key;

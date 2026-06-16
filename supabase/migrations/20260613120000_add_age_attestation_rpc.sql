@@ -9,6 +9,8 @@ SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
   v_profile_id uuid := auth.uid();
+  v_current_age_gate_version constant integer := 1;
+  v_supported_age_gate_versions constant integer[] := ARRAY[1];
 BEGIN
   IF v_profile_id IS NULL THEN
     RAISE EXCEPTION 'Authentication is required to save age attestation'
@@ -25,10 +27,15 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  IF NOT p_age_gate_version = ANY (v_supported_age_gate_versions) THEN
+    RAISE EXCEPTION 'Unsupported age gate version'
+      USING ERRCODE = '22023';
+  END IF;
+
   UPDATE public.profiles
   SET
     is_adult = p_is_adult,
-    age_gate_version = p_age_gate_version,
+    age_gate_version = v_current_age_gate_version,
     visibility_audience = CASE
       WHEN p_is_adult THEN visibility_audience
       ELSE 'everyone'

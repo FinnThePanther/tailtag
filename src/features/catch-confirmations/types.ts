@@ -104,6 +104,37 @@ export type CreateCatchParams = {
   reciprocalFursuitId?: string | null;
 };
 
+export type PhotoCatchBatchFursuit = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  species: string | null;
+};
+
+export type PhotoCatchBatchItemStatus =
+  | 'confirmed'
+  | 'pending_approval'
+  | 'already_caught'
+  | 'not_eligible'
+  | 'failed'
+  | 'photo_pending';
+
+export type PhotoCatchBatchItemResult = {
+  fursuit: PhotoCatchBatchFursuit;
+  status: PhotoCatchBatchItemStatus;
+  catchId?: string;
+  catchResult?: CreateCatchResult;
+  message?: string;
+};
+
+export type PhotoCatchBatchResult = {
+  batchId: string;
+  photoSource: CatchPhotoSource;
+  conventionId: string | null;
+  localPhotoUri: string;
+  results: PhotoCatchBatchItemResult[];
+};
+
 export type UpdateCatchPhotoResult = {
   photoUploadState: Extract<CatchPhotoUploadState, 'uploaded' | 'failed'>;
   alreadyUploaded: boolean;

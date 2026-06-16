@@ -165,6 +165,8 @@ export async function queuePhotoUploadOutboxItem(params: {
   fursuitId: string;
   fursuitOwnerId?: string;
   fursuitName?: string;
+  batchId?: string;
+  batchLabel?: string;
   conventionId: string | null;
   localPhotoUri: string;
   photoSource: CatchPhotoSource;
@@ -178,6 +180,8 @@ export async function queuePhotoUploadOutboxItem(params: {
     fursuitId: params.fursuitId,
     fursuitOwnerId: params.fursuitOwnerId,
     fursuitName: params.fursuitName,
+    batchId: params.batchId,
+    batchLabel: params.batchLabel,
     conventionId: params.conventionId,
     localPhotoUri: params.localPhotoUri,
     photoSource: params.photoSource,

@@ -11,6 +11,9 @@ import { styles } from './FursuitPicker.styles';
 type FursuitPickerProps = {
   items: FursuitPickerItem[];
   selectedId: string | null;
+  selectedIds?: string[];
+  selectionMode?: 'single' | 'multiple';
+  selectionLimit?: number;
   onSelect: (item: FursuitPickerItem) => void;
   isLoading?: boolean;
   disabled?: boolean;
@@ -19,11 +22,21 @@ type FursuitPickerProps = {
 export function FursuitPicker({
   items,
   selectedId,
+  selectedIds = [],
+  selectionMode = 'single',
+  selectionLimit,
   onSelect,
   isLoading = false,
   disabled = false,
 }: FursuitPickerProps) {
   const [search, setSearch] = useState('');
+  const selectedIdSet = new Set(
+    selectionMode === 'multiple' ? selectedIds : selectedId ? [selectedId] : [],
+  );
+  const hasReachedSelectionLimit =
+    selectionMode === 'multiple' &&
+    typeof selectionLimit === 'number' &&
+    selectedIdSet.size >= selectionLimit;
 
   const filtered = search.trim()
     ? items.filter((item) => item.name.toLowerCase().includes(search.toLowerCase()))
@@ -76,9 +89,10 @@ export function FursuitPicker({
           renderItem={({ item }) => (
             <FursuitPickerRow
               item={item}
-              isSelected={item.id === selectedId}
+              isSelected={selectedIdSet.has(item.id)}
               onPress={() => onSelect(item)}
-              disabled={disabled}
+              disabled={disabled || (hasReachedSelectionLimit && !selectedIdSet.has(item.id))}
+              selectionMode={selectionMode}
             />
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -94,15 +108,22 @@ type RowProps = {
   isSelected: boolean;
   onPress: () => void;
   disabled?: boolean;
+  selectionMode?: 'single' | 'multiple';
 };
 
-function FursuitPickerRow({ item, isSelected, onPress, disabled = false }: RowProps) {
+function FursuitPickerRow({
+  item,
+  isSelected,
+  onPress,
+  disabled = false,
+  selectionMode = 'single',
+}: RowProps) {
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={[styles.row, isSelected && styles.rowSelected]}
-      accessibilityRole="radio"
+      style={[styles.row, isSelected && styles.rowSelected, disabled && styles.rowDisabled]}
+      accessibilityRole={selectionMode === 'multiple' ? 'checkbox' : 'radio'}
       accessibilityState={{ checked: isSelected, disabled }}
       accessibilityLabel={`${item.name}${item.species ? `, ${item.species}` : ''}`}
     >
@@ -128,13 +149,19 @@ function FursuitPickerRow({ item, isSelected, onPress, disabled = false }: RowPr
           </Text>
         ) : null}
       </View>
-      {isSelected && (
-        <Ionicons
-          name="checkmark-circle"
-          size={22}
-          color={colors.primary}
-        />
-      )}
+      <Ionicons
+        name={
+          selectionMode === 'multiple'
+            ? isSelected
+              ? 'checkbox'
+              : 'square-outline'
+            : isSelected
+              ? 'checkmark-circle'
+              : 'ellipse-outline'
+        }
+        size={22}
+        color={isSelected ? colors.primary : colors.textFaint}
+      />
     </Pressable>
   );
 }
