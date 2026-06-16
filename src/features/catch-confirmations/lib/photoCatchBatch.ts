@@ -32,6 +32,11 @@ type CreatedCatch = {
   clientAttemptId: string;
 };
 
+type PhotoUploadFailureOutcome =
+  | { type: 'failed'; message: string }
+  | { type: 'queued_retry'; message: string }
+  | { type: 'uploaded' };
+
 function classifyCreateCatchFailure(error: unknown): PhotoCatchBatchItemStatus {
   if (!(error instanceof Error)) {
     return 'failed';
@@ -64,14 +69,41 @@ function uploadedOutboxStatus(catchResult: CreateCatchResult) {
   return catchResult.requiresApproval ? 'pending_approval' : 'confirmed';
 }
 
+function applyPhotoUploadFailureOutcome(
+  result: PhotoCatchBatchItemResult | undefined,
+  catchResult: CreateCatchResult,
+  outcome: PhotoUploadFailureOutcome,
+) {
+  if (!result) {
+    return;
+  }
+
+  if (outcome.type === 'queued_retry') {
+    result.status = 'photo_pending';
+    result.message = outcome.message;
+    return;
+  }
+
+  if (outcome.type === 'uploaded') {
+    result.status = successStatus(catchResult);
+    result.message = undefined;
+    return;
+  }
+
+  result.status = 'failed';
+  result.message = outcome.message;
+}
+
 async function markPhotoUploadFailure(params: {
   userId: string;
   item: CreatedCatch;
   uploadError: unknown;
   uploadResult: { photoPath: string; photoUrl: string } | null;
-}) {
+}): Promise<PhotoUploadFailureOutcome> {
   const errorDetails = classifyCatchOutboxError(params.uploadError);
   const failedAt = new Date().toISOString();
+  const retryMessage =
+    "We couldn't upload this catch photo yet. We'll retry when your connection improves.";
 
   await updateCatchOutboxItem(params.userId, params.item.clientAttemptId, (outboxItem) => {
     const retryCount = outboxItem.retryCount + 1;
@@ -86,8 +118,7 @@ async function markPhotoUploadFailure(params: {
         nextAttemptAt: new Date(Date.now() + catchOutboxBackoffMs(retryCount)).toISOString(),
         retryCount,
         errorCode: errorDetails.errorCode,
-        errorMessage:
-          "We couldn't upload this catch photo yet. We'll retry when your connection improves.",
+        errorMessage: retryMessage,
       };
     }
 
@@ -130,11 +161,15 @@ async function markPhotoUploadFailure(params: {
         errorMessage: undefined,
       }));
 
-      return false;
+      return { type: 'uploaded' };
     }
   }
 
-  return true;
+  if (errorDetails.retryable) {
+    return { type: 'queued_retry', message: retryMessage };
+  }
+
+  return { type: 'failed', message: errorDetails.errorMessage };
 }
 
 export async function submitPhotoCatchBatch(params: {
@@ -282,20 +317,17 @@ export async function submitPhotoCatchBatch(params: {
           errorMessage: undefined,
         }));
       } catch (error) {
+        const photoFailureOutcome = await markPhotoUploadFailure({
+          userId: params.userId,
+          item,
+          uploadError: error,
+          uploadResult,
+        });
         shouldKeepDurablePhoto =
-          (await markPhotoUploadFailure({
-            userId: params.userId,
-            item,
-            uploadError: error,
-            uploadResult,
-          })) || shouldKeepDurablePhoto;
+          photoFailureOutcome.type === 'queued_retry' || shouldKeepDurablePhoto;
 
         const result = results.find((entry) => entry.catchId === item.catchResult.catchId);
-        if (result) {
-          result.status = 'photo_pending';
-          result.message =
-            "Catch saved. We'll retry the photo upload when your connection improves.";
-        }
+        applyPhotoUploadFailureOutcome(result, item.catchResult, photoFailureOutcome);
       }
     }
   } catch (error) {
@@ -321,19 +353,17 @@ export async function submitPhotoCatchBatch(params: {
     }
 
     for (const item of createdCatches) {
+      const photoFailureOutcome = await markPhotoUploadFailure({
+        userId: params.userId,
+        item,
+        uploadError: error,
+        uploadResult,
+      });
       shouldKeepDurablePhoto =
-        (await markPhotoUploadFailure({
-          userId: params.userId,
-          item,
-          uploadError: error,
-          uploadResult,
-        })) || shouldKeepDurablePhoto;
+        photoFailureOutcome.type === 'queued_retry' || shouldKeepDurablePhoto;
 
       const result = results.find((entry) => entry.catchId === item.catchResult.catchId);
-      if (result) {
-        result.status = 'photo_pending';
-        result.message = "Catch saved. We'll retry the photo upload when your connection improves.";
-      }
+      applyPhotoUploadFailureOutcome(result, item.catchResult, photoFailureOutcome);
     }
   }
 
