@@ -43,7 +43,8 @@ eas build --profile production --platform all
 ```bash
 # Deploy edge functions (deploy individually by name)
 npx supabase functions deploy <function-name>
-# Function names: events-ingress, process-achievements, create-catch,
+# Function names: events-ingress, process-gameplay-queue, process-achievements,
+#   create-catch,
 #   rotate-dailys, expire-pending-catches, send-push, delete-account
 # Deprecated NFC tag endpoints were removed for V1; create-catch handles catches.
 
@@ -87,7 +88,7 @@ The app uses Supabase Edge Functions for all event and achievement processing. T
 ```
 Mobile App → events-ingress Edge Function
   → Event inserted to DB (returns immediately to client)
-  → process-achievements worker picks up event (background queue)
+  → process-gameplay-queue worker picks up event (background queue)
   → Achievement evaluation + notifications written to DB
   → Realtime → Mobile App (toasts)
 ```
@@ -98,7 +99,7 @@ Mobile App → events-ingress Edge Function
 - **Realtime delivery**: Users receive achievement notifications via Supabase Realtime
 - **Graceful degradation**: Event failures don't block core functionality
 
-**Current state:** Achievement processing uses a two-stage pipeline: `events-ingress` inserts events and returns immediately, then `process-achievements` processes them asynchronously in batches. Event emission is fire-and-forget on the client. The `AchievementToastManager` subscribes to the `notifications` table for real-time delivery.
+**Current state:** Achievement processing uses a two-stage pipeline: `events-ingress` inserts events and returns immediately, then `process-gameplay-queue` processes them asynchronously in batches. Event emission is fire-and-forget on the client. The `AchievementToastManager` subscribes to the `notifications` table for real-time delivery. `process-achievements` remains as a legacy rollback worker gated by `legacy_event_processor_enabled`.
 
 ---
 
@@ -330,24 +331,25 @@ void emitGameplayEvent({
 
 ## Supabase Edge Functions
 
-### Edge Functions (7 total)
+### Core Edge Functions
 
 **Event & Achievement Pipeline:**
 1. **events-ingress** - Accepts authenticated event requests, inserts to `events` table, returns immediately (< 100ms)
-2. **process-achievements** - Background queue worker that processes unprocessed events in batches (batch size 50, with retry logic). Uses shared rules from `/packages/achievement-rules/`
-3. **create-catch** - Handles catch creation with support for catch confirmation/approval mode
+2. **process-gameplay-queue** - Active background queue worker that processes gameplay events, catch notifications, and achievements from `gameplay_event_processing`. Uses shared rules from `/packages/achievement-rules/`
+3. **process-achievements** - Legacy rollback worker gated by `legacy_event_processor_enabled`
+4. **create-catch** - Handles catch creation with support for catch confirmation/approval mode
 
 **Scheduled:**
-4. **rotate-dailys** - Cron-triggered daily task rotation per convention timezone
-5. **expire-pending-catches** - Cleanup/expiration of pending catch confirmations
+5. **rotate-dailys** - Cron-triggered daily task rotation per convention timezone
+6. **expire-pending-catches** - Cleanup/expiration of pending catch confirmations
 
 **Notifications:**
-6. **send-push** - Push notification delivery using Expo Push API
+7. **send-push** - Push notification delivery using Expo Push API
 
 **Account:**
-7. **delete-account** - Authenticated account deletion with cascading data removal
+8. **delete-account** - Authenticated account deletion with cascading data removal
 
-**Design principle:** Edge Functions are **stateless** and **fast**. They validate requests, perform database operations, and return quickly. Achievement evaluation is handled by the background queue worker (`process-achievements`).
+**Design principle:** Edge Functions are **stateless** and **fast**. They validate requests, perform database operations, and return quickly. Achievement evaluation is handled by the background queue worker (`process-gameplay-queue`).
 
 ---
 

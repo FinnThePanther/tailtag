@@ -202,6 +202,27 @@ for secret in "${SECRETS[@]}"; do
     "SELECT count(*)::text FROM vault.secrets WHERE name='$secret'"
 done
 
+check "ACHIEVEMENTS_PROCESSOR_URL targets process-gameplay-queue" \
+  "WITH project_url AS (
+     SELECT decrypted_secret
+       FROM vault.decrypted_secrets
+      WHERE name='SUPABASE_URL'
+      ORDER BY created_at DESC
+      LIMIT 1
+   ),
+   processor_url AS (
+     SELECT decrypted_secret
+       FROM vault.decrypted_secrets
+      WHERE name='ACHIEVEMENTS_PROCESSOR_URL'
+      ORDER BY created_at DESC
+      LIMIT 1
+   )
+   SELECT CASE
+     WHEN (SELECT decrypted_secret FROM processor_url) =
+       rtrim((SELECT decrypted_secret FROM project_url), '/') || '/functions/v1/process-gameplay-queue'
+     THEN 1 ELSE 0
+   END::text"
+
 section "Edge Function secrets"
 
 EDGE_SECRETS_JSON="$($SUPABASE_CLI secrets list --project-ref "$PROJECT_REF" --output json 2>/dev/null || true)"
