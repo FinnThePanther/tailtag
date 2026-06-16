@@ -844,7 +844,15 @@ export default function CatchScreen() {
         },
       });
 
-      if (createdResults.length === 1 && batchResult.results.length === 1) {
+      if (batchResult.results.length === 1) {
+        if (createdResults.length === 0) {
+          const singleResult = batchResult.results[0];
+          setPhotoSubmitError(
+            singleResult.message ?? "We couldn't save that catch. Please try again.",
+          );
+          return;
+        }
+
         const singleResult = createdResults[0];
         const catchResult = singleResult.catchResult!;
         const normalizedFursuit = await resolvePostCatchFursuit(
@@ -899,7 +907,7 @@ export default function CatchScreen() {
     }
 
     const retryableResults = photoBatchResult.results.filter(
-      (result) => result.status === 'failed' || result.status === 'not_eligible',
+      (result) => result.status === 'failed',
     );
 
     if (retryableResults.length === 0) {
