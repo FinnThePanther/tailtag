@@ -61,7 +61,7 @@ function classifyCreateCatchFailure(error: unknown): PhotoCatchBatchItemStatus {
   return 'failed';
 }
 
-function successStatus(catchResult: CreateCatchResult): PhotoCatchBatchItemStatus {
+function successStatus(catchResult: CreateCatchResult): 'confirmed' | 'pending_approval' {
   return catchResult.requiresApproval ? 'pending_approval' : 'confirmed';
 }
 
