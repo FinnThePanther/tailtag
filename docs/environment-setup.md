@@ -212,6 +212,6 @@ When provisioning a new environment, complete these in order:
 7. [ ] Create cron jobs (Section 3)
 8. [ ] Set edge function secrets in Vault (Section 4)
 9. [ ] Configure auth providers (Section 5)
-10. [ ] Deploy edge functions (`supabase functions deploy <name>`)
+10. [ ] Deploy edge functions (`supabase functions deploy`, using `supabase/config.toml`)
 11. [ ] Verify cron jobs are running
 12. [ ] Test a login + basic app flow
