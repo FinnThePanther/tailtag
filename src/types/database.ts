@@ -3212,6 +3212,16 @@ export type Database = {
         Args: { fursuit_id: string; makers?: Json }
         Returns: undefined
       }
+      replay_gameplay_dead_letter_events: {
+        Args: { p_actor_id: string; p_event_ids: string[]; p_reason: string }
+        Returns: {
+          event_id: string
+          message: string
+          queue_message_id: number
+          replayed: boolean
+          status: string
+        }[]
+      }
       report_catch_invite: {
         Args: {
           p_claimant_profile_id: string
@@ -3477,6 +3487,7 @@ export const Constants = {
     },
   },
 } as const
+
 // Type aliases for application use
 export type FursuitSocialLink = {
   label: string;
