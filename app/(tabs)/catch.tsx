@@ -20,12 +20,15 @@ import {
   createCatch,
   createReciprocalCatchOffer,
   CODE_CATCH_OUTBOX_TIMEOUT_MS,
+  submitPhotoCatchBatch,
   myPendingCatchesQueryKey,
   pendingCatchesQueryKey,
   PhotoCatchCard,
   ReciprocalCatchSelector,
   type CatchStatus,
   type CreateCatchResult,
+  type PhotoCatchBatchResult,
+  type PhotoCatchBatchItemResult,
   type ReciprocalCatchOfferResult,
 } from '../../src/features/catch-confirmations';
 import {
@@ -76,6 +79,12 @@ type CatchRecord = {
   catch_number: number | null;
   status: CatchStatus;
   photo_upload_state?: CreateCatchResult['photoUploadState'];
+};
+
+type PhotoBatchSummary = {
+  saved: number;
+  pending: number;
+  failed: number;
 };
 
 type CatchLifecycleConvention = {
@@ -221,6 +230,39 @@ function postCatchMessage(params: {
     : `You just tagged ${params.fursuitName}. Start a conversation while the catch is fresh.`;
 }
 
+function photoBatchStatusLabel(result: PhotoCatchBatchItemResult) {
+  switch (result.status) {
+    case 'confirmed':
+      return 'Saved';
+    case 'pending_approval':
+      return 'Pending approval';
+    case 'photo_pending':
+      return 'Photo pending';
+    case 'already_caught':
+      return 'Already caught';
+    case 'not_eligible':
+      return 'Not eligible';
+    case 'failed':
+      return 'Failed';
+  }
+}
+
+function summarizePhotoBatch(result: PhotoCatchBatchResult): PhotoBatchSummary {
+  return result.results.reduce(
+    (summary, item) => {
+      if (item.status === 'confirmed' || item.status === 'photo_pending') {
+        summary.saved += 1;
+      } else if (item.status === 'pending_approval') {
+        summary.pending += 1;
+      } else {
+        summary.failed += 1;
+      }
+      return summary;
+    },
+    { saved: 0, pending: 0, failed: 0 },
+  );
+}
+
 export default function CatchScreen() {
   const router = useRouter();
   const { session } = useAuth();
@@ -240,6 +282,14 @@ export default function CatchScreen() {
     refresh: refreshCatchConventionContext,
   } = useCatchConventionContext(userId);
   const hasActiveConvention = useMemo(() => activeConventionIds.length > 0, [activeConventionIds]);
+  const photoCatchConventionOptions = useMemo(
+    () =>
+      conventionMemberships.map((membership) => ({
+        id: membership.convention_id,
+        name: membership.name,
+      })),
+    [conventionMemberships],
+  );
   const verificationRequiredConvention = useMemo(
     () =>
       hasActiveConvention
@@ -323,6 +373,8 @@ export default function CatchScreen() {
   const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
   const [photoSubmitError, setPhotoSubmitError] = useState<string | null>(null);
   const [caughtFursuit, setCaughtFursuit] = useState<PostCatchFursuit | null>(null);
+  const [photoBatchResult, setPhotoBatchResult] = useState<PhotoCatchBatchResult | null>(null);
+  const [isRetryingPhotoBatch, setIsRetryingPhotoBatch] = useState(false);
   const [catchRecord, setCatchRecord] = useState<CatchRecord | null>(null);
   const [catchNumber, setCatchNumber] = useState<number | null>(null);
   const [conversationPrompt, setConversationPrompt] = useState<string | null>(null);
@@ -339,6 +391,8 @@ export default function CatchScreen() {
 
   const resetCatchState = useCallback(() => {
     setCaughtFursuit(null);
+    setPhotoBatchResult(null);
+    setIsRetryingPhotoBatch(false);
     setCatchRecord(null);
     setCatchNumber(null);
     setConversationPrompt(null);
@@ -419,6 +473,74 @@ export default function CatchScreen() {
         }
 
         if (params.catchResult.status === 'PENDING') {
+          void queryClient.invalidateQueries({
+            queryKey: myPendingCatchesQueryKey(currentUserId),
+          });
+        }
+      }, 0);
+    },
+    [queryClient, refreshCatchConventionContext, userId],
+  );
+
+  const schedulePhotoBatchSurfaceRefresh = useCallback(
+    (batchResult: PhotoCatchBatchResult) => {
+      if (!userId) {
+        return;
+      }
+
+      const currentUserId = userId;
+      const fursuitIds = new Set<string>();
+      const conventionIds = new Set<string>();
+      const ownerIds = new Set<string>();
+      let hasPendingCatch = false;
+
+      batchResult.results.forEach((result) => {
+        if (!result.catchResult) return;
+        if (result.catchResult.fursuitId) {
+          fursuitIds.add(result.catchResult.fursuitId);
+        }
+        if (result.catchResult.conventionId) {
+          conventionIds.add(result.catchResult.conventionId);
+        }
+        if (result.catchResult.requiresApproval && result.catchResult.fursuitOwnerId) {
+          ownerIds.add(result.catchResult.fursuitOwnerId);
+        }
+        if (result.catchResult.status === 'PENDING') {
+          hasPendingCatch = true;
+        }
+      });
+
+      setTimeout(() => {
+        void refreshCatchConventionContext();
+        void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+        fursuitIds.forEach((fursuitId) => {
+          void queryClient.invalidateQueries({
+            queryKey: fursuitDetailQueryKey(fursuitId),
+          });
+        });
+        conventionIds.forEach((conventionId) => {
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_LEADERBOARD_QUERY_KEY, conventionId],
+          });
+          void queryClient.invalidateQueries({
+            queryKey: [CONVENTION_SUIT_LEADERBOARD_QUERY_KEY, conventionId],
+          });
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [CAUGHT_SUITS_QUERY_KEY, currentUserId],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [CAUGHT_COLLECTION_QUERY_KEY, currentUserId],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: achievementsStatusQueryKey(currentUserId),
+        });
+        ownerIds.forEach((ownerId) => {
+          void queryClient.invalidateQueries({
+            queryKey: pendingCatchesQueryKey(ownerId),
+          });
+        });
+        if (hasPendingCatch) {
           void queryClient.invalidateQueries({
             queryKey: myPendingCatchesQueryKey(currentUserId),
           });
@@ -697,11 +819,7 @@ export default function CatchScreen() {
     }
   };
 
-  const handlePhotoCatch = async (params: {
-    fursuitId: string;
-    conventionId: string | null;
-    catchResult: CreateCatchResult;
-  }) => {
+  const handlePhotoCatch = async (batchResult: PhotoCatchBatchResult) => {
     if (!userId) return;
 
     setIsPhotoSubmitting(true);
@@ -709,42 +827,59 @@ export default function CatchScreen() {
     resetCatchState();
 
     try {
+      const createdResults = batchResult.results.filter((result) => result.catchResult);
       addMonitoringBreadcrumb({
         category: 'catch',
         message: 'Photo catch completed',
         data: {
-          fursuitId: params.fursuitId,
-          conventionId: params.conventionId,
+          batchId: batchResult.batchId,
+          conventionId: batchResult.conventionId,
+          resultCount: batchResult.results.length,
+          createdCount: createdResults.length,
           method: 'photo',
         },
       });
 
-      // catchResult already created by PhotoCatchCard before the upload
-      const { catchResult } = params;
-      const normalizedFursuit = await resolvePostCatchFursuit(
-        catchResult,
-        userId,
-        catchResult.fursuitName ?? 'Caught fursuit',
-      );
+      if (batchResult.results.length === 1) {
+        if (createdResults.length === 0) {
+          const singleResult = batchResult.results[0];
+          setPhotoSubmitError(
+            singleResult.message ?? "We couldn't save that catch. Please try again.",
+          );
+          return;
+        }
 
-      setCaughtFursuit(normalizedFursuit);
-      setCatchRecord({
-        id: catchResult.catchId,
-        caught_at: new Date().toISOString(),
-        catch_number: catchResult.catchNumber,
-        status: catchResult.status,
-        photo_upload_state: catchResult.photoUploadState,
-      });
-      setLastCatchConventionId(params.conventionId);
-      setLastCatchConventionIds(params.conventionId ? [params.conventionId] : []);
-      setCatchNumber(catchResult.catchNumber);
-      setConversationPrompt(selectConversationPrompt(normalizedFursuit.bio));
-      setReciprocalFeedback(reciprocalOfferMessage(catchResult.reciprocalOffer));
-      scheduleCatchSurfaceRefresh({
-        fursuitId: params.fursuitId,
-        conventionIds: params.conventionId ? [params.conventionId] : [],
-        catchResult,
-      });
+        const singleResult = createdResults[0];
+        const catchResult = singleResult.catchResult!;
+        const normalizedFursuit = await resolvePostCatchFursuit(
+          catchResult,
+          userId,
+          catchResult.fursuitName ?? singleResult.fursuit.name,
+        );
+
+        setCaughtFursuit(normalizedFursuit);
+        setCatchRecord({
+          id: catchResult.catchId,
+          caught_at: new Date().toISOString(),
+          catch_number: catchResult.catchNumber,
+          status: catchResult.status,
+          photo_upload_state: catchResult.photoUploadState,
+        });
+        setLastCatchConventionId(batchResult.conventionId);
+        setLastCatchConventionIds(batchResult.conventionId ? [batchResult.conventionId] : []);
+        setCatchNumber(catchResult.catchNumber);
+        setConversationPrompt(selectConversationPrompt(normalizedFursuit.bio));
+        setReciprocalFeedback(reciprocalOfferMessage(catchResult.reciprocalOffer));
+        scheduleCatchSurfaceRefresh({
+          fursuitId: catchResult.fursuitId ?? singleResult.fursuit.id,
+          conventionIds: batchResult.conventionId ? [batchResult.conventionId] : [],
+          catchResult,
+        });
+        return;
+      }
+
+      setPhotoBatchResult(batchResult);
+      schedulePhotoBatchSurfaceRefresh(batchResult);
     } catch (caught) {
       const fallbackMessage = getUserVisibleErrorMessage(
         caught,
@@ -762,6 +897,142 @@ export default function CatchScreen() {
     }
   };
 
+  const handleRetryPhotoBatchFailures = async () => {
+    if (!userId || !photoBatchResult || isRetryingPhotoBatch) {
+      return;
+    }
+
+    const retryableResults = photoBatchResult.results.filter(
+      (result) => result.status === 'failed',
+    );
+
+    if (retryableResults.length === 0) {
+      return;
+    }
+
+    setIsRetryingPhotoBatch(true);
+    setPhotoSubmitError(null);
+
+    try {
+      const retryResult = await submitPhotoCatchBatch({
+        userId,
+        localPhotoUri: photoBatchResult.localPhotoUri,
+        photoSource: photoBatchResult.photoSource,
+        conventionId: photoBatchResult.conventionId,
+        fursuits: retryableResults.map((result) => result.fursuit),
+      });
+      const retriedByFursuitId = new Map(
+        retryResult.results.map((result) => [result.fursuit.id, result]),
+      );
+      const mergedResult: PhotoCatchBatchResult = {
+        ...photoBatchResult,
+        results: photoBatchResult.results.map(
+          (result) => retriedByFursuitId.get(result.fursuit.id) ?? result,
+        ),
+      };
+
+      setPhotoBatchResult(mergedResult);
+      schedulePhotoBatchSurfaceRefresh(mergedResult);
+    } catch (caught) {
+      setPhotoSubmitError(
+        getUserVisibleErrorMessage(caught, "We couldn't retry those catches. Please try again."),
+      );
+      captureHandledException(caught, {
+        scope: 'catch.retryPhotoBatchFailures',
+        userId,
+        batchId: photoBatchResult.batchId,
+      });
+    } finally {
+      setIsRetryingPhotoBatch(false);
+    }
+  };
+
+  const renderPhotoBatchResult = (batchResult: PhotoCatchBatchResult) => {
+    const summary = summarizePhotoBatch(batchResult);
+    const hasRetryableFailures = batchResult.results.some((result) => result.status === 'failed');
+
+    return (
+      <TailTagCard style={styles.cardSpacing}>
+        <Text style={styles.sectionTitle}>Group photo catch saved</Text>
+        <View style={styles.batchSummaryRow}>
+          <View style={styles.batchSummaryPill}>
+            <Text style={styles.batchSummaryValue}>{summary.saved}</Text>
+            <Text style={styles.batchSummaryLabel}>Saved</Text>
+          </View>
+          <View style={styles.batchSummaryPill}>
+            <Text style={styles.batchSummaryValue}>{summary.pending}</Text>
+            <Text style={styles.batchSummaryLabel}>Pending</Text>
+          </View>
+          <View style={styles.batchSummaryPill}>
+            <Text style={styles.batchSummaryValue}>{summary.failed}</Text>
+            <Text style={styles.batchSummaryLabel}>Needs attention</Text>
+          </View>
+        </View>
+        <View style={styles.batchResultList}>
+          {batchResult.results.map((result) => (
+            <View
+              key={result.fursuit.id}
+              style={styles.batchResultRow}
+            >
+              <AppImage
+                url={result.fursuit.avatarUrl}
+                width={44}
+                height={44}
+                style={styles.batchResultAvatar}
+                accessibilityLabel={`${result.fursuit.name} profile photo`}
+              />
+              <View style={styles.batchResultText}>
+                <Text
+                  style={styles.batchResultName}
+                  numberOfLines={1}
+                >
+                  {result.fursuit.name}
+                </Text>
+                <Text
+                  style={styles.batchResultStatus}
+                  numberOfLines={3}
+                >
+                  {photoBatchStatusLabel(result)}
+                  {result.message ? ` • ${result.message}` : ''}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+        {photoSubmitError ? (
+          <Text style={[styles.sectionBody, styles.pendingHighlight]}>{photoSubmitError}</Text>
+        ) : null}
+        <View style={styles.buttonRow}>
+          {hasRetryableFailures ? (
+            <TailTagButton
+              variant="outline"
+              onPress={handleRetryPhotoBatchFailures}
+              loading={isRetryingPhotoBatch}
+              disabled={isRetryingPhotoBatch}
+              style={[styles.fullWidthButton, styles.stackedButtonSpacing]}
+            >
+              Retry failed
+            </TailTagButton>
+          ) : null}
+          <TailTagButton
+            variant="outline"
+            onPress={() => router.push('/caught')}
+            style={[styles.fullWidthButton, styles.stackedButtonSpacing]}
+          >
+            View catches
+          </TailTagButton>
+          <TailTagButton
+            variant="ghost"
+            onPress={handleCatchAnother}
+            style={styles.fullWidthButton}
+          >
+            Catch another suit
+          </TailTagButton>
+        </View>
+      </TailTagCard>
+    );
+  };
+
   return (
     <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -773,7 +1044,7 @@ export default function CatchScreen() {
         </Text>
       </View>
 
-      {!caughtFursuit && userId ? (
+      {!caughtFursuit && !photoBatchResult && userId ? (
         <View style={styles.photoCatchSpacing}>
           {catchLifecycleConvention ? (
             <TailTagCard style={styles.lifecycleCard}>
@@ -838,6 +1109,8 @@ export default function CatchScreen() {
               isSubmitting={isPhotoSubmitting}
               submitError={photoSubmitError}
               activeConventionIds={activeConventionIds}
+              activeConventionId={singleActiveConventionId}
+              conventionOptions={photoCatchConventionOptions}
               preloadedFursuits={pickerItems}
               isRosterRefreshing={isRosterRefreshing || (isUsingRosterSnapshot && isRosterLoading)}
               catchUnavailableReason={photoCatchUnavailableReason}
@@ -846,7 +1119,7 @@ export default function CatchScreen() {
         </View>
       ) : null}
 
-      {!caughtFursuit ? (
+      {!caughtFursuit && !photoBatchResult ? (
         <TailTagCard style={styles.cardSpacing}>
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Catch code</Text>
@@ -925,6 +1198,8 @@ export default function CatchScreen() {
           </TailTagButton>
         </TailTagCard>
       ) : null}
+
+      {photoBatchResult ? renderPhotoBatchResult(photoBatchResult) : null}
 
       {caughtFursuit ? (
         <TailTagCard

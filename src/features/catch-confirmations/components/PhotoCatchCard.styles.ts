@@ -85,6 +85,31 @@ export const styles = StyleSheet.create({
   pickerSection: {
     gap: spacing.sm,
   },
+  conventionSection: {
+    gap: spacing.sm,
+  },
+  conventionOptions: {
+    gap: spacing.xs,
+  },
+  conventionOption: {
+    borderColor: colors.borderMuted,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  conventionOptionSelected: {
+    backgroundColor: colors.primarySurface,
+    borderColor: colors.primaryBorder,
+  },
+  conventionOptionText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  conventionOptionTextSelected: {
+    color: colors.primary,
+  },
   pickerLabel: {
     color: colors.foreground,
     fontSize: 14,
@@ -127,6 +152,9 @@ export const styles = StyleSheet.create({
   },
   submitButton: {
     width: '100%',
+  },
+  submitActions: {
+    gap: spacing.sm,
   },
   infoRow: {
     flexDirection: 'row',

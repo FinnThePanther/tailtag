@@ -118,6 +118,62 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
+  batchSummaryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  batchSummaryPill: {
+    flex: 1,
+    backgroundColor: colors.surfaceMutedSoft,
+    borderColor: colors.borderMuted,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.sm,
+  },
+  batchSummaryValue: {
+    color: colors.foreground,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  batchSummaryLabel: {
+    color: colors.textDim,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  batchResultList: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  batchResultRow: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMutedSoft,
+    borderColor: colors.borderMuted,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.sm,
+  },
+  batchResultAvatar: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.md,
+  },
+  batchResultText: {
+    flex: 1,
+    gap: 2,
+  },
+  batchResultName: {
+    color: colors.foreground,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  batchResultStatus: {
+    color: colors.textDim,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   lifecycleCard: {
     marginBottom: spacing.lg,
     gap: spacing.md,

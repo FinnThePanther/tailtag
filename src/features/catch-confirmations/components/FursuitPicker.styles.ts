@@ -43,6 +43,9 @@ export const styles = StyleSheet.create({
   rowSelected: {
     backgroundColor: 'rgba(99,102,241,0.12)',
   },
+  rowDisabled: {
+    opacity: 0.45,
+  },
   avatarFlexShrink: {
     flexShrink: 0,
   },
