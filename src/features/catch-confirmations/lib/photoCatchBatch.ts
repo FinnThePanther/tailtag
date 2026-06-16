@@ -237,14 +237,12 @@ export async function submitPhotoCatchBatch(params: {
   }
 
   if (createdCatches.length === 0) {
-    if (!results.some((result) => result.status === 'failed' || result.status === 'not_eligible')) {
-      await deleteDurableCatchPhoto(durablePhotoUri);
-    }
+    await deleteDurableCatchPhoto(durablePhotoUri);
     return {
       batchId,
       photoSource: params.photoSource,
       conventionId: params.conventionId,
-      localPhotoUri: durablePhotoUri,
+      localPhotoUri: params.localPhotoUri,
       results,
     };
   }
@@ -334,10 +332,6 @@ export async function submitPhotoCatchBatch(params: {
       }
     }
   }
-
-  shouldKeepDurablePhoto =
-    results.some((result) => result.status === 'failed' || result.status === 'not_eligible') ||
-    shouldKeepDurablePhoto;
 
   if (!shouldKeepDurablePhoto) {
     await deleteDurableCatchPhoto(durablePhotoUri);
