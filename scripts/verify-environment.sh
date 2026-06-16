@@ -2,7 +2,8 @@
 # scripts/verify-environment.sh
 #
 # Verifies a TailTag Supabase environment against required configuration.
-# Checks realtime tables, cron jobs, vault secrets, and storage buckets.
+# Checks realtime tables, cron jobs, vault secrets, storage buckets, and backend
+# event-processing canaries.
 #
 # Usage:
 #   ./scripts/verify-environment.sh development
@@ -291,6 +292,16 @@ check_edge_secret_any \
   "LIFECYCLE_AUTOMATION_ACTOR_ID or SYSTEM_EVENT_USER_ID" \
   "LIFECYCLE_AUTOMATION_ACTOR_ID" \
   "SYSTEM_EVENT_USER_ID"
+
+section "Backend event-processing canary"
+
+if SUPABASE_CLI="$SUPABASE_CLI" python3 -S scripts/run-event-processing-canary.py \
+  --environment "$ENV" \
+  --project-ref "$PROJECT_REF"; then
+  pass "events-ingress -> gameplay queue -> worker success"
+else
+  fail "events-ingress -> gameplay queue -> worker success"
+fi
 
 # ── 5. Storage buckets ───────────────────────────────────────────────────────
 
