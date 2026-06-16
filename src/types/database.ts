@@ -3178,6 +3178,13 @@ export type Database = {
       }
       process_gameplay_queue_if_active: { Args: never; Returns: undefined }
       purge_geo_verification_data: { Args: never; Returns: Json }
+      read_backend_runtime_config: {
+        Args: { p_config_names: string[] }
+        Returns: {
+          config: Json
+          config_name: string
+        }[]
+      }
       read_catch_invite_payload: {
         Args: { p_invite: Database["public"]["Tables"]["catch_invites"]["Row"] }
         Returns: Json

@@ -3010,6 +3010,13 @@ export type Database = {
       };
       process_gameplay_queue_if_active: { Args: never; Returns: undefined };
       purge_geo_verification_data: { Args: never; Returns: Json };
+      read_backend_runtime_config: {
+        Args: { p_config_names: string[] };
+        Returns: {
+          config: Json;
+          config_name: string;
+        }[];
+      };
       read_gameplay_event_queue: {
         Args: { p_batch_size?: number; p_visibility_timeout_seconds?: number };
         Returns: {
