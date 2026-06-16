@@ -18,8 +18,11 @@ import { catchOutboxBackoffMs, classifyCatchOutboxError } from '@/features/catch
 import { upsertCatchOutboxItem, updateCatchOutboxItem } from '@/features/catch-outbox/storage';
 import { captureHandledException, captureSupabaseError } from '@/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
-import { createCatchPerformanceTrace } from './catchPerformance';
-import { copyDurableCatchPhoto, deleteDurableCatchPhoto } from './catchPhotoFiles';
+import { createCatchPerformanceTrace } from '@/features/catch-confirmations/lib/catchPerformance';
+import {
+  copyDurableCatchPhoto,
+  deleteDurableCatchPhoto,
+} from '@/features/catch-confirmations/lib/catchPhotoFiles';
 
 const PHOTO_CATCH_BATCH_SELECTION_LIMIT = 10;
 
