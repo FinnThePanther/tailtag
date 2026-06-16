@@ -24,11 +24,16 @@ export async function copyDurableCatchPhoto(params: {
   }
 
   const destinationUri = `${directory}${params.batchId}.jpg`;
-  await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
-  await FileSystem.copyAsync({
-    from: params.sourceUri,
-    to: destinationUri,
-  });
+  try {
+    await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
+    await FileSystem.copyAsync({
+      from: params.sourceUri,
+      to: destinationUri,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to copy catch photo for retry storage: ${message}`);
+  }
 
   return destinationUri;
 }
