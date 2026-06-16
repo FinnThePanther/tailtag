@@ -149,7 +149,7 @@ features/
 - `/src/theme/` - Theme configuration and styling
 - `/src/types/` - Shared TypeScript types
 - `/src/utils/` - Utility functions
-- `/supabase/functions/` - Supabase Edge Functions (7 functions, see below)
+- `/supabase/functions/` - Supabase Edge Functions (8 functions, see below)
 - `/packages/achievement-rules/` - Shared achievement evaluation logic
 - `/assets/` - Static assets (images, fonts)
 
@@ -404,7 +404,7 @@ Non-critical operations (like event emission) should return `null` on error, not
 - **Auth:** JWT-based authentication
 - **Storage:** Image uploads for avatars/fursuits
 - **Realtime:** Postgres changes for live notifications
-- **Edge Functions:** 7 functions (see Supabase Edge Functions section)
+- **Edge Functions:** 8 functions (see Supabase Edge Functions section)
 - **Cron:** Daily task rotation and pending catch expiration via scheduled functions
 
 **Key tables:** `profiles`, `fursuits`, `catches`, `events`, `achievements`, `user_achievements`, `user_awards`, `awards_log`, `notifications`, `daily_tasks`, `conventions`, `tags`, `pending_catches`
