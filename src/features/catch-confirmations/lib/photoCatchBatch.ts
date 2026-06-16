@@ -60,6 +60,10 @@ function successStatus(catchResult: CreateCatchResult): PhotoCatchBatchItemStatu
   return catchResult.requiresApproval ? 'pending_approval' : 'confirmed';
 }
 
+function uploadedOutboxStatus(catchResult: CreateCatchResult) {
+  return catchResult.requiresApproval ? 'pending_approval' : 'confirmed';
+}
+
 async function markPhotoUploadFailure(params: {
   userId: string;
   item: CreatedCatch;
@@ -118,7 +122,7 @@ async function markPhotoUploadFailure(params: {
     if (markResult?.photoUploadState === 'uploaded') {
       await updateCatchOutboxItem(params.userId, params.item.clientAttemptId, (outboxItem) => ({
         ...outboxItem,
-        status: 'confirmed',
+        status: uploadedOutboxStatus(params.item.catchResult),
         photoPath: markResult.photoPath ?? outboxItem.photoPath,
         photoUrl: markResult.photoUrl ?? outboxItem.photoUrl,
         resolvedAt: new Date().toISOString(),
@@ -270,7 +274,7 @@ export async function submitPhotoCatchBatch(params: {
 
         await updateCatchOutboxItem(params.userId, item.clientAttemptId, (outboxItem) => ({
           ...outboxItem,
-          status: 'confirmed',
+          status: uploadedOutboxStatus(item.catchResult),
           photoPath: photoUpdateResult.photoPath ?? uploadResult?.photoPath,
           photoUrl: photoUpdateResult.photoUrl ?? uploadResult?.photoUrl,
           resolvedAt: new Date().toISOString(),
