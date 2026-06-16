@@ -311,7 +311,18 @@ BEGIN
       FROM pgmq.list_queues()
       WHERE queue_name = 'gameplay_event_processing'
     ) THEN
-      PERFORM pgmq.create('gameplay_event_processing');
+      BEGIN
+        PERFORM pgmq.create('gameplay_event_processing');
+      EXCEPTION
+        WHEN duplicate_table OR unique_violation THEN
+          NULL;
+        WHEN raise_exception THEN
+          IF SQLERRM ILIKE '%already exists%' THEN
+            NULL;
+          ELSE
+            RAISE;
+          END IF;
+      END;
     END IF;
 
     SELECT *
