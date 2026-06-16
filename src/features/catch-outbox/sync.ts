@@ -14,6 +14,7 @@ import {
   conventionSuitRosterQueryKey,
 } from '../conventions';
 import { CAUGHT_COLLECTION_QUERY_KEY, CAUGHT_SUITS_QUERY_KEY } from '../suits';
+import { deleteDurableCatchPhoto } from '../catch-confirmations/lib/catchPhotoFiles';
 import { captureHandledException } from '../../lib/sentry';
 import {
   loadCatchOutbox,
@@ -83,6 +84,27 @@ function notifyPhotoCatchResolved(options: {
     void queryClient.invalidateQueries({
       queryKey: pendingCatchesQueryKey(item.fursuitOwnerId),
     });
+  }
+}
+
+async function cleanupBatchPhotoIfResolved(userId: string, item: CatchOutboxItem) {
+  if (!item.batchId || !item.localPhotoUri) {
+    return;
+  }
+
+  const items = await loadCatchOutbox(userId);
+  const hasUnresolvedBatchItem = items.some(
+    (candidate) =>
+      candidate.batchId === item.batchId &&
+      candidate.localPhotoUri === item.localPhotoUri &&
+      (candidate.status === 'queued' ||
+        candidate.status === 'uploading' ||
+        candidate.status === 'syncing' ||
+        candidate.status === 'failed'),
+  );
+
+  if (!hasUnresolvedBatchItem) {
+    await deleteDurableCatchPhoto(item.localPhotoUri);
   }
 }
 
@@ -169,6 +191,7 @@ export async function syncCatchOutbox(options: {
           await updateCatchOutboxItem(userId, item.clientAttemptId, () => resolvedItem);
           resolutions.push({ item: resolvedItem, previousStatus: item.status });
           notifyPhotoCatchResolved({ item: resolvedItem, userId, queryClient, showToast });
+          await cleanupBatchPhotoIfResolved(userId, resolvedItem);
 
           continue;
         }
@@ -280,6 +303,7 @@ export async function syncCatchOutbox(options: {
             await updateCatchOutboxItem(userId, item.clientAttemptId, () => confirmedItem);
             resolutions.push({ item: confirmedItem, previousStatus: item.status });
             notifyPhotoCatchResolved({ item: confirmedItem, userId, queryClient, showToast });
+            await cleanupBatchPhotoIfResolved(userId, confirmedItem);
             continue;
           }
         }

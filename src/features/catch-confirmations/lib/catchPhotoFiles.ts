@@ -1,0 +1,48 @@
+import * as FileSystem from 'expo-file-system/legacy';
+
+import { captureHandledException } from '@/lib/sentry';
+
+const CATCH_PHOTO_DIRECTORY = 'catch-photos';
+
+function userCatchPhotoDirectory(userId: string) {
+  if (!FileSystem.documentDirectory) {
+    return null;
+  }
+
+  return `${FileSystem.documentDirectory}${CATCH_PHOTO_DIRECTORY}/${userId}/`;
+}
+
+export async function copyDurableCatchPhoto(params: {
+  userId: string;
+  batchId: string;
+  sourceUri: string;
+}): Promise<string> {
+  const directory = userCatchPhotoDirectory(params.userId);
+  if (!directory) {
+    return params.sourceUri;
+  }
+
+  const destinationUri = `${directory}${params.batchId}.jpg`;
+  await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
+  await FileSystem.copyAsync({
+    from: params.sourceUri,
+    to: destinationUri,
+  });
+
+  return destinationUri;
+}
+
+export async function deleteDurableCatchPhoto(uri: string | null | undefined) {
+  if (!uri || !uri.startsWith(FileSystem.documentDirectory ?? '')) {
+    return;
+  }
+
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch (error) {
+    captureHandledException(error, {
+      scope: 'catch-confirmations.deleteDurableCatchPhoto',
+      additionalContext: { uri },
+    });
+  }
+}

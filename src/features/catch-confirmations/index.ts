@@ -9,6 +9,10 @@ export type {
   ConfirmCatchResult,
   CreateCatchResult,
   CreateCatchParams,
+  PhotoCatchBatchFursuit,
+  PhotoCatchBatchItemResult,
+  PhotoCatchBatchItemStatus,
+  PhotoCatchBatchResult,
   ReciprocalCatchOfferResult,
   ReciprocalCatchOfferStatus,
 } from '@/features/catch-confirmations/types';
@@ -56,3 +60,4 @@ export type {
   FursuitPickerItem,
   ReciprocalFursuitPickerItem,
 } from '@/features/catch-confirmations/api';
+export { submitPhotoCatchBatch } from '@/features/catch-confirmations/lib/photoCatchBatch';

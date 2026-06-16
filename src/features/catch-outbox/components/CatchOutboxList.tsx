@@ -82,7 +82,13 @@ type CatchOutboxRowProps = Pick<CatchOutboxListProps, 'onRetry' | 'onDismiss' | 
 
 function CatchOutboxRow({ item, onRetry, onDismiss, onEditCode }: CatchOutboxRowProps) {
   const displayName =
-    item.fursuitName ?? (item.fursuitCode ? `Code ${item.fursuitCode}` : 'Photo catch');
+    item.batchLabel ??
+    item.fursuitName ??
+    (item.fursuitCode ? `Code ${item.fursuitCode}` : 'Photo catch');
+  const subtitle =
+    item.batchLabel && item.fursuitName
+      ? `${item.fursuitName} • ${subtitleFor(item)}`
+      : subtitleFor(item);
   const canAct = item.status === 'failed';
   const canEditCode = item.method === 'code' && Boolean(onEditCode);
 
@@ -119,7 +125,7 @@ function CatchOutboxRow({ item, onRetry, onDismiss, onEditCode }: CatchOutboxRow
           style={styles.subtitle}
           numberOfLines={2}
         >
-          {subtitleFor(item)}
+          {subtitle}
         </Text>
         {canAct ? (
           <View style={styles.actions}>
