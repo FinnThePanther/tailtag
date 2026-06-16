@@ -273,6 +273,8 @@ export async function submitPhotoCatchBatch(params: {
 
   if (createdCatches.length === 0) {
     await deleteDurableCatchPhoto(durablePhotoUri);
+    // Create failures do not write outbox items, so retry only lives in this result.
+    // If the user leaves, they must resubmit; the durable copy is gone and the original photo remains available.
     return {
       batchId,
       photoSource: params.photoSource,
@@ -367,6 +369,8 @@ export async function submitPhotoCatchBatch(params: {
     await deleteDurableCatchPhoto(durablePhotoUri);
   }
 
+  // Mixed create failures also have no outbox owner. They are retryable only from this result
+  // until navigation; after that, the user can start over with the original photo.
   return {
     batchId,
     photoSource: params.photoSource,
