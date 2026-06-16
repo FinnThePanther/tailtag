@@ -15,7 +15,7 @@ import {
 } from '../conventions';
 import { CAUGHT_COLLECTION_QUERY_KEY, CAUGHT_SUITS_QUERY_KEY } from '../suits';
 import { deleteDurableCatchPhoto } from '@/features/catch-confirmations/lib/catchPhotoFiles';
-import { captureHandledException } from '../../lib/sentry';
+import { captureHandledException } from '@/lib/sentry';
 import {
   loadCatchOutbox,
   mutateCatchOutbox,
