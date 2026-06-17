@@ -8,7 +8,7 @@ import {
 import { requireAdminDataContext } from '@/lib/auth';
 import { replayGameplayDeadLettersAction } from './actions';
 
-type ReplayAuditContext = {
+interface ReplayAuditContext {
   reason?: unknown;
   replay_result?: {
     status?: unknown;
@@ -20,7 +20,7 @@ type ReplayAuditContext = {
     last_error?: unknown;
     dead_letter_reason?: unknown;
   };
-};
+}
 
 function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString() : '—';
