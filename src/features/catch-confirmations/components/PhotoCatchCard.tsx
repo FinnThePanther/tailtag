@@ -329,14 +329,29 @@ export function PhotoCatchCard({
     setIsProcessingPhoto(true);
     resetPickerFeedback();
     setFursuits([]);
+
+    let galleryConventionIds: string[];
     try {
-      const galleryConventionIds = await fetchGalleryProfileConventionIds(userId);
-      if (galleryConventionIds.length === 0) {
-        setLocalError(
-          'Gallery catches open when you are attending a live convention or a convention is finalizing catches.',
-        );
-        return;
-      }
+      galleryConventionIds = await fetchGalleryProfileConventionIds(userId);
+    } catch (error) {
+      captureHandledException(error, {
+        scope: 'catch-confirmations.PhotoCatchCard.fetchGalleryProfileConventionIds',
+        userId,
+      });
+      setLocalError("We couldn't verify gallery catch eligibility. Please try again.");
+      setIsProcessingPhoto(false);
+      return;
+    }
+
+    if (galleryConventionIds.length === 0) {
+      setLocalError(
+        'Gallery catches open when you are attending a live convention or a convention is finalizing catches.',
+      );
+      setIsProcessingPhoto(false);
+      return;
+    }
+
+    try {
       const processingStartedAt = Date.now();
       const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.catchPhoto);
       setPhotoProcessingMs(Math.max(0, Date.now() - processingStartedAt));
