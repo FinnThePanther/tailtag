@@ -37,6 +37,7 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const SUPPORTED_TYPES = new Set([
   'achievement_awarded',
   'convention_started',
+  'convention_finalizing_started',
   'fursuit_caught',
   'catch_pending',
   'catch_confirmed',
@@ -191,6 +192,13 @@ async function buildMessage(
         body: requiresLocationVerification
           ? `TailTag is live at ${conventionName}. Verify on-site to start catching.`
           : `TailTag is live at ${conventionName}. You can start catching now.`,
+      };
+    }
+    case 'convention_finalizing_started': {
+      const conventionName = extractString(payload.convention_name) ?? 'your convention';
+      return {
+        title: `Finish your ${conventionName} catches`,
+        body: `${conventionName} has ended. Review pending catches and add any final gallery catches before your recap is prepared.`,
       };
     }
     case 'catch_pending': {

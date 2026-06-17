@@ -314,21 +314,28 @@ export default function CatchScreen() {
           ) ?? null),
     [conventionMemberships, hasActiveConvention],
   );
-  const photoCatchUnavailableReason = useMemo(() => {
+  const cameraCatchUnavailableReason = useMemo(() => {
     if (hasActiveConvention) {
       return null;
     }
 
     if (verificationRequiredConvention) {
-      return `Verify your location for ${verificationRequiredConvention.name} before logging photo catches.`;
+      return `Verify your location for ${verificationRequiredConvention.name} before taking photo catches.`;
     }
 
     if (isMembershipLoading) {
       return 'Loading your convention status. Please try again in a moment.';
     }
 
-    return 'Photo catches open when you are ready to catch at a live convention. Join or verify a convention before using camera or gallery catches.';
+    return 'Camera catches open when you are ready to catch at a live convention. Join or verify a convention before using camera catches.';
   }, [hasActiveConvention, isMembershipLoading, verificationRequiredConvention]);
+  const galleryCatchUnavailableReason = useMemo(() => {
+    if (isMembershipLoading) {
+      return 'Loading your convention status. Please try again in a moment.';
+    }
+
+    return null;
+  }, [isMembershipLoading]);
   const leaderboardOpenConvention = useMemo(
     () =>
       hasActiveConvention
@@ -402,7 +409,9 @@ export default function CatchScreen() {
   const [lastCatchConventionId, setLastCatchConventionId] = useState<string | null>(null);
   const [lastCatchConventionIds, setLastCatchConventionIds] = useState<string[]>([]);
   const isCodeCatchConventionContextReady = Boolean(singleActiveConventionId);
-  const isLifecycleCatchBlocked = Boolean(catchLifecycleConvention);
+  const isConventionFinalizing = catchLifecycleConvention?.state === 'finalizing';
+  const isLifecycleCatchBlocked = catchLifecycleConvention?.state === 'recap_delayed';
+  const isCodeCatchBlocked = Boolean(catchLifecycleConvention);
 
   const resetCatchState = useCallback(() => {
     setCaughtFursuit(null);
@@ -589,7 +598,7 @@ export default function CatchScreen() {
       return;
     }
 
-    if (isLifecycleCatchBlocked) {
+    if (isCodeCatchBlocked) {
       setSubmitError('Catching has ended for this convention. Review your catches instead.');
       return;
     }
@@ -1109,8 +1118,8 @@ export default function CatchScreen() {
                 <Text style={styles.sectionBody}>
                   {catchLifecycleConvention.state === 'finalizing'
                     ? catchLifecycleDeadlineLabel
-                      ? `${catchLifecycleConvention.membership.name} has ended. We're finalizing catches until ${catchLifecycleDeadlineLabel}.`
-                      : `${catchLifecycleConvention.membership.name} has ended. We're finalizing catches now.`
+                      ? `${catchLifecycleConvention.membership.name} has ended. Review pending catches and add final gallery catches before ${catchLifecycleDeadlineLabel}.`
+                      : `${catchLifecycleConvention.membership.name} has ended. Review pending catches and add final gallery catches while we finalize.`
                     : `Your ${catchLifecycleConvention.membership.name} recap is delayed while we finish finalizing this convention.`}
                 </Text>
               </View>
@@ -1165,7 +1174,12 @@ export default function CatchScreen() {
               conventionOptions={photoCatchConventionOptions}
               preloadedFursuits={pickerItems}
               isRosterRefreshing={isRosterRefreshing || (isUsingRosterSnapshot && isRosterLoading)}
-              catchUnavailableReason={photoCatchUnavailableReason}
+              cameraCatchUnavailableReason={
+                isConventionFinalizing
+                  ? 'Camera catches are closed because this convention has ended. Choose from Gallery for final catches.'
+                  : cameraCatchUnavailableReason
+              }
+              galleryCatchUnavailableReason={galleryCatchUnavailableReason}
             />
           ) : null}
         </View>
@@ -1184,7 +1198,7 @@ export default function CatchScreen() {
               placeholder="PH17719"
               autoCapitalize="characters"
               maxLength={UNIQUE_CODE_LENGTH}
-              editable={!isSubmitting && !isLifecycleCatchBlocked}
+              editable={!isSubmitting && !isCodeCatchBlocked}
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
               style={styles.codeInput}
@@ -1240,7 +1254,7 @@ export default function CatchScreen() {
             disabled={
               !userId ||
               isSubmitting ||
-              isLifecycleCatchBlocked ||
+              isCodeCatchBlocked ||
               Boolean(leaderboardOpenConvention) ||
               !isCodeCatchConventionContextReady
             }

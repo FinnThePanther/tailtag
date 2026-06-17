@@ -34,6 +34,7 @@ const CATCH_RECONCILE_DEBOUNCE_MS = 800;
 const CATCH_RECONCILE_FOLLOW_UP_MS = 6_000;
 const CONVENTION_RECAP_READY_TOAST_STORAGE_PREFIX = '@convention-recap-ready-toasts:';
 const CONVENTION_STARTED_TOAST_STORAGE_PREFIX = '@convention-started-toasts:';
+const CONVENTION_FINALIZING_TOAST_STORAGE_PREFIX = '@convention-finalizing-toasts:';
 const MAX_STORED_CONVENTION_RECAP_READY_TOAST_KEYS = 200;
 
 type NotificationRow = {
@@ -71,6 +72,10 @@ function conventionRecapReadyToastStorageKey(userId: string) {
 
 function conventionStartedToastStorageKey(userId: string, conventionId: string | null) {
   return `${CONVENTION_STARTED_TOAST_STORAGE_PREFIX}${userId}:${conventionId ?? 'unknown'}`;
+}
+
+function conventionFinalizingToastStorageKey(userId: string, conventionId: string | null) {
+  return `${CONVENTION_FINALIZING_TOAST_STORAGE_PREFIX}${userId}:${conventionId ?? 'unknown'}`;
 }
 
 function parseConventionRecapReadyToastKeys(raw: string | null): Set<string> {
@@ -1475,6 +1480,62 @@ export function AchievementToastManager() {
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
     };
 
+    const handleConventionFinalizingStarted = (payload: Record<string, unknown> | null) => {
+      const conventionNameRaw = payload?.convention_name ?? payload?.conventionName ?? null;
+      const conventionName =
+        typeof conventionNameRaw === 'string' && conventionNameRaw.trim().length > 0
+          ? conventionNameRaw.trim()
+          : 'Your convention';
+      const conventionId =
+        typeof payload?.convention_id === 'string' ? payload.convention_id : null;
+
+      void (async () => {
+        const storageKey = conventionFinalizingToastStorageKey(userId, conventionId);
+
+        try {
+          const alreadyShown = await AsyncStorage.getItem(storageKey);
+          if (alreadyShown === 'true') {
+            return;
+          }
+        } catch (error) {
+          captureHandledException(error, {
+            scope: 'notifications.realtime',
+            action: 'load-convention-finalizing-toast-dedupe',
+            userId,
+            conventionId,
+          });
+        }
+
+        showToast(`${conventionName} has ended. Final gallery catches are open for a short time.`);
+        addMonitoringBreadcrumb({
+          category: 'conventions',
+          message: 'Convention finalizing notification received',
+          data: {
+            userId,
+            conventionId,
+          },
+        });
+
+        try {
+          await AsyncStorage.setItem(storageKey, 'true');
+        } catch (error) {
+          captureHandledException(error, {
+            scope: 'notifications.realtime',
+            action: 'persist-convention-finalizing-toast-dedupe',
+            userId,
+            conventionId,
+          });
+        }
+      })();
+
+      void queryClient.invalidateQueries({
+        queryKey: [PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY, userId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+      });
+    };
+
     const handleDailyTaskCompleted = (payload: Record<string, unknown> | null) => {
       const taskNameRaw = payload?.task_name ?? payload?.taskName ?? null;
       const taskName =
@@ -1691,6 +1752,9 @@ export function AchievementToastManager() {
             break;
           case 'convention_started':
             handleConventionStarted(notificationPayload);
+            break;
+          case 'convention_finalizing_started':
+            handleConventionFinalizingStarted(notificationPayload);
             break;
           default:
             break;
