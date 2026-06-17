@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { colors } from '@/theme';
 import {
@@ -16,6 +16,7 @@ type InteractionPreferencesSummaryProps = {
   badges: InteractionBadgeKey[];
   title?: string;
   body?: string;
+  style?: StyleProp<ViewStyle>;
 };
 
 const SIGNAL_DOT_COLORS: Record<string, string> = {
@@ -29,6 +30,7 @@ export function InteractionPreferencesSummary({
   badges,
   title = 'Interaction preferences',
   body,
+  style,
 }: InteractionPreferencesSummaryProps) {
   const signalDefinition = getSocialSignalDefinition(socialSignal);
   const sortedBadges = sortInteractionBadges(badges);
@@ -38,7 +40,7 @@ export function InteractionPreferencesSummary({
   }
 
   return (
-    <View style={styles.summary}>
+    <View style={[styles.summary, style]}>
       <Text style={styles.summaryTitle}>{title}</Text>
       {body ? <Text style={styles.summaryBody}>{body}</Text> : null}
       {signalDefinition ? (
