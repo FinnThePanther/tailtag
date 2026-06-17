@@ -71,11 +71,12 @@ INSERT INTO fursuit_species (id, name) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
--- 3. Allowed Event Types (22 rows)
+-- 3. Allowed Event Types (23 rows)
 -- -----------------------------------------------------------------------------
 INSERT INTO allowed_event_types (event_type, description, is_active) VALUES
   ('achievement_unlocked',       'User unlocked an achievement (internal event)',           true),
   ('all_daily_tasks_completed',  'User completed all daily tasks for the day',              true),
+  ('backend_canary',             'Service-only backend event-processing canary',             true),
   ('catch_confirmed',            'Fursuit owner confirmed a pending catch',                 true),
   ('catch_expired',              'Pending catch request expired',                           true),
   ('catch_pending',              'Catch created and awaiting owner approval',               true),
