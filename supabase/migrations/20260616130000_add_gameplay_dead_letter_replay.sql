@@ -98,14 +98,6 @@ begin
       elsif not v_queue_enabled then
         v_replay_status := 'skipped_queue_disabled';
         v_replay_message := 'Gameplay queue processing is disabled.';
-      elsif exists (
-        select 1
-        from pgmq.q_gameplay_event_processing q
-        where q.message->>'event_id' = v_event_id::text
-        limit 1
-      ) then
-        v_replay_status := 'skipped_already_queued';
-        v_replay_message := 'Event already has an active queue message.';
       else
         if not exists (
           select 1
@@ -122,36 +114,46 @@ begin
                 null;
               else
                 raise;
-              end if;
+            end if;
           end;
         end if;
 
-        select *
-        into v_queue_message_id
-        from pgmq.send(
-          'gameplay_event_processing',
-          jsonb_build_object(
-            'event_id', v_event_id,
-            'replayed_at', v_now,
-            'replayed_by', p_actor_id
-          )
-        );
+        if exists (
+          select 1
+          from pgmq.q_gameplay_event_processing q
+          where q.message->>'event_id' = v_event_id::text
+          limit 1
+        ) then
+          v_replay_status := 'skipped_already_queued';
+          v_replay_message := 'Event already has an active queue message.';
+        else
+          select *
+          into v_queue_message_id
+          from pgmq.send(
+            'gameplay_event_processing',
+            jsonb_build_object(
+              'event_id', v_event_id,
+              'replayed_at', v_now,
+              'replayed_by', p_actor_id
+            )
+          );
 
-        update public.events
-        set
-          queue_name = 'gameplay_event_processing',
-          queue_message_id = v_queue_message_id,
-          enqueued_at = v_now,
-          retry_count = 0,
-          last_attempted_at = null,
-          last_error = null,
-          dead_lettered_at = null,
-          dead_letter_reason = null
-        where events.event_id = v_event_id;
+          update public.events
+          set
+            queue_name = 'gameplay_event_processing',
+            queue_message_id = v_queue_message_id,
+            enqueued_at = v_now,
+            retry_count = 0,
+            last_attempted_at = null,
+            last_error = null,
+            dead_lettered_at = null,
+            dead_letter_reason = null
+          where events.event_id = v_event_id;
 
-        v_replay_status := 'replayed';
-        v_replay_message := 'Event was requeued for gameplay processing.';
-        v_replayed := true;
+          v_replay_status := 'replayed';
+          v_replay_message := 'Event was requeued for gameplay processing.';
+          v_replayed := true;
+        end if;
       end if;
     end if;
 
