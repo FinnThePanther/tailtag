@@ -195,7 +195,7 @@ async function buildMessage(
       };
     }
     case 'convention_finalizing_started': {
-      const conventionName = extractString(payload.convention_name) ?? 'your convention';
+      const conventionName = extractString(payload.convention_name) ?? 'convention';
       return {
         title: `Finish your ${conventionName} catches`,
         body: `${conventionName} has ended. Review pending catches and add any final gallery catches before your recap is prepared.`,
