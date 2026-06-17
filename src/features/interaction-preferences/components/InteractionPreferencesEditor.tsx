@@ -11,8 +11,8 @@ import {
   toggleInteractionBadge,
   type InteractionBadgeKey,
   type SocialSignalKey,
-} from '../definitions';
-import { styles } from './InteractionPreferences.styles';
+} from '@/features/interaction-preferences/definitions';
+import { styles } from '@/features/interaction-preferences/components/InteractionPreferences.styles';
 
 type InteractionPreferencesEditorProps = {
   socialSignal: SocialSignalKey | null;
