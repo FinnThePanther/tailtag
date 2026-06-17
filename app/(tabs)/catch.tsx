@@ -72,7 +72,7 @@ import { FURSUIT_BUCKET } from '../../src/constants/storage';
 import { resolveStorageMediaUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/(tabs)/catch.styles';
 
-type PostCatchFursuit = {
+interface PostCatchFursuit {
   id: string | null;
   name: string;
   avatar_url: string | null;
@@ -81,7 +81,7 @@ type PostCatchFursuit = {
   bio: FursuitBio | null;
   socialSignal: SocialSignalKey | null;
   interactionBadges: InteractionBadgeKey[];
-};
+}
 
 type CatchRecord = {
   id: string;
