@@ -20,19 +20,19 @@ import { styles } from '@/features/catch-confirmations/components/PhotoCatchCard
 
 const PHOTO_CATCH_SELECTION_LIMIT = 10;
 
-type PhotoCandidate = {
+interface PhotoCandidate {
   uri: string;
   mimeType: string;
   fileName: string;
   fileSize: number;
-};
+}
 
-type ConventionOption = {
+interface ConventionOption {
   id: string;
   name: string;
-};
+}
 
-type PhotoCatchCardProps = {
+interface PhotoCatchCardProps {
   userId: string;
   onCatchSubmit: (result: PhotoCatchBatchResult) => Promise<void>;
   onInviteSubmit?: (params: {
@@ -48,8 +48,9 @@ type PhotoCatchCardProps = {
   conventionOptions?: ConventionOption[];
   preloadedFursuits?: FursuitPickerItem[];
   isRosterRefreshing?: boolean;
-  catchUnavailableReason?: string | null;
-};
+  cameraCatchUnavailableReason?: string | null;
+  galleryCatchUnavailableReason?: string | null;
+}
 
 type Step = 'idle' | 'photo_taken';
 
@@ -65,7 +66,8 @@ export function PhotoCatchCard({
   conventionOptions = [],
   preloadedFursuits = [],
   isRosterRefreshing = false,
-  catchUnavailableReason = null,
+  cameraCatchUnavailableReason = null,
+  galleryCatchUnavailableReason = null,
 }: PhotoCatchCardProps) {
   const [step, setStep] = useState<Step>('idle');
   const [photo, setPhoto] = useState<PhotoCandidate | null>(null);
@@ -175,12 +177,12 @@ export function PhotoCatchCard({
     setPermissionRecoveryLabel(null);
   };
 
-  const showCatchUnavailableReason = () => {
-    if (!catchUnavailableReason) {
+  const showCatchUnavailableReason = (reason: string | null) => {
+    if (!reason) {
       return false;
     }
 
-    setLocalError(catchUnavailableReason);
+    setLocalError(reason);
     setPermissionRecoveryLabel(null);
     return true;
   };
@@ -198,7 +200,7 @@ export function PhotoCatchCard({
 
   const handleTakePhoto = async () => {
     if (areEntryActionsDisabled || pickerAction || isProcessingPhoto) return;
-    if (showCatchUnavailableReason()) return;
+    if (showCatchUnavailableReason(cameraCatchUnavailableReason)) return;
 
     resetPickerFeedback();
 
@@ -269,7 +271,7 @@ export function PhotoCatchCard({
 
   const handleChooseGalleryPhoto = async () => {
     if (areEntryActionsDisabled || pickerAction || isProcessingPhoto) return;
-    if (showCatchUnavailableReason()) return;
+    if (showCatchUnavailableReason(galleryCatchUnavailableReason)) return;
 
     resetPickerFeedback();
 
@@ -327,11 +329,32 @@ export function PhotoCatchCard({
     setIsProcessingPhoto(true);
     resetPickerFeedback();
     setFursuits([]);
+
+    let galleryConventionIds: string[];
+    try {
+      galleryConventionIds = await fetchGalleryProfileConventionIds(userId);
+    } catch (error) {
+      captureHandledException(error, {
+        scope: 'catch-confirmations.PhotoCatchCard.fetchGalleryProfileConventionIds',
+        userId,
+      });
+      setLocalError("We couldn't verify gallery catch eligibility. Please try again.");
+      setIsProcessingPhoto(false);
+      return;
+    }
+
+    if (galleryConventionIds.length === 0) {
+      setLocalError(
+        'Gallery catches open when you are attending a live convention or a convention is finalizing catches.',
+      );
+      setIsProcessingPhoto(false);
+      return;
+    }
+
     try {
       const processingStartedAt = Date.now();
       const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.catchPhoto);
       setPhotoProcessingMs(Math.max(0, Date.now() - processingStartedAt));
-      const galleryConventionIds = await fetchGalleryProfileConventionIds(userId);
       setPhoto({
         uri: processed.uri,
         mimeType: 'image/jpeg',
