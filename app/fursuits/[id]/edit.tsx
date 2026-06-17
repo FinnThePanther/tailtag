@@ -1485,17 +1485,6 @@ export default function EditFursuitScreen() {
               ) : null}
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Interaction preferences</Text>
-                <InteractionPreferencesEditor
-                  socialSignal={selectedSocialSignal}
-                  selectedBadges={selectedInteractionBadges}
-                  onSocialSignalChange={setSelectedSocialSignal}
-                  onBadgesChange={setSelectedInteractionBadges}
-                  disabled={disableForm}
-                />
-              </View>
-
-              <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Colors</Text>
                 <Text style={styles.helperLabel}>Optional. Pick up to three colors.</Text>
                 {isColorBusy ? (
@@ -1690,6 +1679,17 @@ export default function EditFursuitScreen() {
                   numberOfLines={3}
                   textAlignVertical="top"
                   style={styles.textArea}
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Interaction preferences</Text>
+                <InteractionPreferencesEditor
+                  socialSignal={selectedSocialSignal}
+                  selectedBadges={selectedInteractionBadges}
+                  onSocialSignalChange={setSelectedSocialSignal}
+                  onBadgesChange={setSelectedInteractionBadges}
+                  disabled={disableForm}
                 />
               </View>
 

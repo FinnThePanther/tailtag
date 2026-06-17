@@ -955,17 +955,6 @@ export default function AddFursuitScreen() {
           ) : null}
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Interaction preferences</Text>
-            <InteractionPreferencesEditor
-              socialSignal={selectedSocialSignal}
-              selectedBadges={selectedInteractionBadges}
-              onSocialSignalChange={setSelectedSocialSignal}
-              onBadgesChange={setSelectedInteractionBadges}
-              disabled={isSubmitting}
-            />
-          </View>
-
-          <View style={styles.fieldGroup}>
             <Text style={styles.label}>Photo credit</Text>
             <Text style={styles.helperLabel}>
               Credit the photographer for your fursuit photo, if you want to share one.
@@ -1226,6 +1215,17 @@ export default function AddFursuitScreen() {
               numberOfLines={3}
               textAlignVertical="top"
               style={styles.textArea}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Interaction preferences</Text>
+            <InteractionPreferencesEditor
+              socialSignal={selectedSocialSignal}
+              selectedBadges={selectedInteractionBadges}
+              onSocialSignalChange={setSelectedSocialSignal}
+              onBadgesChange={setSelectedInteractionBadges}
+              disabled={isSubmitting}
             />
           </View>
 
