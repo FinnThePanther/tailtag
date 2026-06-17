@@ -35,6 +35,7 @@ type NotificationInsert = {
   user_id: string;
   type: string;
   payload: Json;
+  dedupe_key: string;
 };
 
 type AchievementNotificationInfo = {
@@ -103,6 +104,46 @@ function isCheckedInAchievementIdentity(
     matchesCheckedInToken(name) ||
     triggerEvent === 'convention.checkin'
   );
+}
+
+function normalizeNotificationDedupeValue(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function getAchievementSourceSurfaceKey(summary: RpcAwardResult): string | null {
+  const context = summary.context;
+  if (context && typeof context === 'object' && !Array.isArray(context)) {
+    return normalizeNotificationDedupeValue(context['source_achievement_key']);
+  }
+
+  return null;
+}
+
+function buildAchievementNotificationDedupeKey(
+  summary: RpcAwardResult & { achievement_id: string },
+  achievementInfo: AchievementNotificationInfo | null,
+): string {
+  const achievementName = achievementInfo?.name ?? null;
+  const achievementKey = achievementInfo?.key ?? summary.achievement_key;
+  const surfaceKey = isCheckedInAchievementIdentity(
+    achievementKey,
+    achievementName,
+    achievementInfo?.trigger_event ?? null,
+  )
+    ? 'checked-in'
+    : (getAchievementSourceSurfaceKey(summary) ??
+      normalizeNotificationDedupeValue(achievementKey) ??
+      normalizeNotificationDedupeValue(summary.achievement_key) ??
+      summary.achievement_id);
+  const eventKey =
+    normalizeNotificationDedupeValue(summary.source_event_id) ?? summary.achievement_id;
+
+  return `achievement:${eventKey}:${surfaceKey}`;
 }
 
 function hasUploadedProfileAvatar(avatarUrl: unknown, avatarPath: unknown): boolean {
@@ -997,15 +1038,8 @@ async function insertNotificationsForAwards(
   for (const summary of awardedSummaries) {
     const achievementInfo = achievementInfoById.get(summary.achievement_id) ?? null;
     const achievementName = achievementInfo?.name ?? null;
-    const achievementKey = achievementInfo?.key ?? summary.achievement_key;
-    const notificationSurfaceKey = isCheckedInAchievementIdentity(
-      achievementKey,
-      achievementName,
-      achievementInfo?.trigger_event ?? null,
-    )
-      ? 'achievement:checked-in'
-      : `achievement:${summary.achievement_id}`;
-    const userNotificationKey = `${summary.user_id}:${notificationSurfaceKey}`;
+    const dedupeKey = buildAchievementNotificationDedupeKey(summary, achievementInfo);
+    const userNotificationKey = `${summary.user_id}:${dedupeKey}`;
     if (surfacedNotificationKeys.has(userNotificationKey)) {
       continue;
     }
@@ -1022,6 +1056,7 @@ async function insertNotificationsForAwards(
         context: summary.context ?? {},
         source_event_id: summary.source_event_id ?? null,
       },
+      dedupe_key: dedupeKey,
     });
   }
 
@@ -1029,10 +1064,29 @@ async function insertNotificationsForAwards(
     return;
   }
 
-  const { error } = await supabaseAdmin.from('notifications').insert(notifications);
+  const insertResults = await Promise.all(
+    notifications.map(async (notification) => {
+      const { error } = await supabaseAdmin.rpc('insert_notification_once', {
+        p_user_id: notification.user_id,
+        p_type: notification.type,
+        p_payload: notification.payload,
+        p_dedupe_key: notification.dedupe_key,
+      });
 
-  if (error) {
-    console.error('[events-ingress] Failed inserting notifications', { error });
+      return { notification, error };
+    }),
+  );
+
+  const failures = insertResults.filter((result) => result.error);
+  if (failures.length > 0) {
+    console.error('[events-ingress] Failed inserting achievement notifications', {
+      failures: failures.map(({ notification, error }) => ({
+        user_id: notification.user_id,
+        type: notification.type,
+        dedupe_key: notification.dedupe_key,
+        error,
+      })),
+    });
   }
 }
 

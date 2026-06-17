@@ -67,6 +67,13 @@ type NormalizedEvent = {
   payload: Record<string, unknown>;
 };
 
+type NotificationInsert = {
+  user_id: string;
+  type: string;
+  payload: Record<string, unknown>;
+  dedupe_key: string;
+};
+
 export type ProcessDailyTaskEventOptions = {
   event: InsertableEventRow;
   userId: string;
@@ -513,21 +520,36 @@ async function upsertStreak(payload: {
   });
 }
 
-async function insertNotifications(
-  notifications: {
-    user_id: string;
-    type: string;
-    payload: Record<string, unknown>;
-  }[],
-): Promise<void> {
+async function insertNotifications(notifications: NotificationInsert[]): Promise<void> {
   if (notifications.length === 0) {
     return;
   }
 
-  await supabaseRestFetch('/rest/v1/notifications', {
-    method: 'POST',
-    body: JSON.stringify(notifications),
-  });
+  await Promise.all(
+    notifications.map((notification) =>
+      supabaseRestFetch('/rest/v1/rpc/insert_notification_once', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_user_id: notification.user_id,
+          p_type: notification.type,
+          p_payload: notification.payload,
+          p_dedupe_key: notification.dedupe_key,
+        }),
+      }),
+    ),
+  );
+}
+
+function buildDailyTaskCompletedNotificationDedupeKey(
+  conventionId: string,
+  day: string,
+  taskId: string,
+): string {
+  return `daily-task:${conventionId}:${day}:${taskId}`;
+}
+
+function buildDailyAllCompleteNotificationDedupeKey(conventionId: string, day: string): string {
+  return `daily-all-complete:${conventionId}:${day}`;
 }
 
 function computePreviousDayKey(dayKey: string, timezone: string): string {
@@ -603,6 +625,7 @@ export async function processDailyTasksForEvent(
     user_id: string;
     type: string;
     payload: Record<string, unknown>;
+    dedupe_key: string;
   }[] = [];
   const completions: DailyTaskCompletion[] = [];
 
@@ -644,6 +667,11 @@ export async function processDailyTasksForEvent(
       newlyCompletedNotifications.push({
         user_id: userId,
         type: 'daily_task_completed',
+        dedupe_key: buildDailyTaskCompletedNotificationDedupeKey(
+          conventionId,
+          localDayKey,
+          assignment.taskId,
+        ),
         payload: {
           event_id: event.event_id,
           task_id: assignment.taskId,
@@ -715,6 +743,7 @@ export async function processDailyTasksForEvent(
     {
       user_id: userId,
       type: 'daily_all_complete',
+      dedupe_key: buildDailyAllCompleteNotificationDedupeKey(conventionId, localDayKey),
       payload: {
         event_id: event.event_id,
         day: localDayKey,
