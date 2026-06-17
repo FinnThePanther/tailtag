@@ -2,6 +2,7 @@
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote esm.sh imports.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
 import { processAchievementsForEvent } from '../_shared/achievements.ts';
+import { beginBackendWorkerRun, completeBackendWorkerRun } from '../_shared/backendWorkerRuns.ts';
 import { processCatchNotificationForEvent } from '../_shared/catchNotifications.ts';
 import { loadGameplayQueueConfig } from '../_shared/gameplayQueue.ts';
 import type { InsertableEventRow } from '../_shared/types.ts';
@@ -42,6 +43,7 @@ type GameplayEventRow = InsertableEventRow & {
 type WorkerRequestBody = {
   maxMessages?: unknown;
   maxDurationMs?: unknown;
+  source?: unknown;
   canaryEventId?: unknown;
 };
 
@@ -320,7 +322,7 @@ async function processQueueMessage(
   }
 }
 
-async function processQueue(req: Request): Promise<WorkerResult> {
+async function processQueue(body: WorkerRequestBody): Promise<WorkerResult> {
   const config = await loadGameplayQueueConfig(supabaseAdmin);
 
   if (!config.queueEnabled) {
@@ -332,13 +334,6 @@ async function processQueue(req: Request): Promise<WorkerResult> {
       archived: 0,
       disabled: true,
     };
-  }
-
-  let body: WorkerRequestBody = {};
-  try {
-    body = (await req.json()) as WorkerRequestBody;
-  } catch {
-    body = {};
   }
 
   const maxMessages = parsePositiveInteger(body.maxMessages) ?? config.batchSize;
@@ -401,6 +396,23 @@ async function processQueue(req: Request): Promise<WorkerResult> {
   return result;
 }
 
+async function parseWorkerBody(req: Request): Promise<WorkerRequestBody> {
+  try {
+    return (await req.json()) as WorkerRequestBody;
+  } catch {
+    return {};
+  }
+}
+
+function parseSource(req: Request, body: WorkerRequestBody): string {
+  if (typeof body.source === 'string' && body.source.trim().length > 0) {
+    return body.source.trim();
+  }
+
+  const url = new URL(req.url);
+  return url.searchParams.get('source')?.trim() || 'cron';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -414,12 +426,57 @@ Deno.serve(async (req) => {
     return jsonResponse(401, { error: 'Unauthorized' });
   }
 
+  const body = await parseWorkerBody(req);
+  const source = parseSource(req, body);
+  const workerRun = await beginBackendWorkerRun(supabaseAdmin, {
+    workerName: 'gameplay_queue_drain',
+    source,
+    metadata: {
+      max_messages: parsePositiveInteger(body.maxMessages),
+      max_duration_ms: parsePositiveInteger(body.maxDurationMs),
+    },
+  });
+
   try {
-    const result = await processQueue(req);
+    const result = await processQueue(body);
+    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+      status: result.failed > 0 || result.archived > 0 ? 'partial' : 'succeeded',
+      counts: {
+        fetched: result.fetched,
+        processed: result.processed,
+        failed: result.failed,
+        deleted: result.deleted,
+        archived: result.archived,
+        disabled: result.disabled === true ? 1 : 0,
+      },
+      error:
+        result.failed > 0 || result.archived > 0
+          ? `${result.failed} queue messages failed; ${result.archived} archived`
+          : null,
+      metadata: {
+        max_messages: parsePositiveInteger(body.maxMessages),
+        max_duration_ms: parsePositiveInteger(body.maxDurationMs),
+      },
+    });
     return jsonResponse(200, result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('[process-gameplay-queue] Queue processing failed', { error });
+    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+      status: 'failed',
+      counts: {
+        fetched: 0,
+        processed: 0,
+        failed: 0,
+        deleted: 0,
+        archived: 0,
+      },
+      error,
+      metadata: {
+        max_messages: parsePositiveInteger(body.maxMessages),
+        max_duration_ms: parsePositiveInteger(body.maxDurationMs),
+      },
+    });
     return jsonResponse(500, { error: message });
   }
 });

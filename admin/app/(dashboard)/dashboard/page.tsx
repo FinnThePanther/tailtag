@@ -1,16 +1,27 @@
 import Link from 'next/link';
-import { ArrowUpRight, Users, ShieldBan, CalendarDays, AlertCircle } from 'lucide-react';
+import { ArrowUpRight, Users, ShieldBan, CalendarDays, AlertCircle, Activity } from 'lucide-react';
 
 import { Card } from '@/components/card';
 import { Metric } from '@/components/metric';
-import { fetchConventions, fetchDashboardSummary } from '@/lib/data';
+import {
+  fetchBackendWorkerHealth,
+  fetchConventions,
+  fetchDashboardSummary,
+  type BackendWorkerHealthRow,
+} from '@/lib/data';
 import { requireAdminDataContext } from '@/lib/auth';
 
 export default async function DashboardPage() {
   const { supabase } = await requireAdminDataContext();
-  const [summary, conventions] = await Promise.all([
+  let workerHealthUnavailable = false;
+  const [summary, conventions, workerHealth] = await Promise.all([
     fetchDashboardSummary(supabase),
     fetchConventions(supabase),
+    fetchBackendWorkerHealth(supabase).catch((error) => {
+      console.error('[admin] Failed to load backend worker health', error);
+      workerHealthUnavailable = true;
+      return [] as BackendWorkerHealthRow[];
+    }),
   ]);
 
   return (
@@ -94,6 +105,56 @@ export default async function DashboardPage() {
       </Card>
 
       <Card
+        title="Backend workers"
+        subtitle="Latest durable run records for scheduled and async jobs"
+      >
+        {workerHealthUnavailable ? (
+          <p className="text-sm text-muted">
+            Backend worker health is temporarily unavailable. Worker records may still be written.
+          </p>
+        ) : (
+          <div className="divide-y divide-border/80">
+            {workerHealth.map((worker) => (
+              <div
+                key={worker.worker_name}
+                className="grid gap-3 py-3 text-sm text-slate-200 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.2fr)] lg:items-center"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Activity
+                      size={15}
+                      className="text-primary"
+                    />
+                    <p className="font-semibold text-white">{worker.display_name}</p>
+                    <StatusBadge status={worker.latest_status} />
+                  </div>
+                  <p className="mt-1 text-xs text-muted">
+                    Source {worker.latest_source ?? '—'} · failures in 24h{' '}
+                    {worker.recent_failure_count}
+                  </p>
+                </div>
+                <div className="text-xs text-muted">
+                  <p>Last run {formatDateTime(worker.latest_started_at)}</p>
+                  <p>Last success {formatDateTime(worker.last_success_at)}</p>
+                  <p>Last failure {formatDateTime(worker.last_failure_at)}</p>
+                </div>
+                <div className="min-w-0 text-xs text-muted">
+                  <p>Duration {formatDuration(worker.latest_duration_ms)}</p>
+                  <p className="truncate">Counts {formatCounts(worker.latest_counts)}</p>
+                  {worker.latest_error_message ? (
+                    <p className="truncate text-red-200">Error {worker.latest_error_message}</p>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+            {!workerHealth.length ? (
+              <p className="py-3 text-sm text-muted">No backend worker run records yet.</p>
+            ) : null}
+          </div>
+        )}
+      </Card>
+
+      <Card
         title="Quick actions"
         subtitle="Get to common flows fast"
       >
@@ -116,6 +177,56 @@ export default async function DashboardPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function formatDateTime(value: string | null): string {
+  return value ? new Date(value).toLocaleString() : '—';
+}
+
+function formatDuration(value: number | null): string {
+  if (value === null) {
+    return '—';
+  }
+
+  if (value < 1000) {
+    return `${value}ms`;
+  }
+
+  return `${(value / 1000).toFixed(1)}s`;
+}
+
+function formatCounts(counts: Record<string, unknown>): string {
+  const entries = Object.entries(counts)
+    .filter(([, value]) => typeof value === 'number' && value !== 0)
+    .slice(0, 4);
+
+  if (entries.length === 0) {
+    return 'none';
+  }
+
+  return entries.map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join(', ');
+}
+
+function StatusBadge({ status }: { status: string | null }) {
+  const label = status ?? 'no runs';
+  const className =
+    status === 'succeeded'
+      ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100'
+      : status === 'failed'
+        ? 'border-red-400/40 bg-red-500/10 text-red-100'
+        : status === 'partial'
+          ? 'border-amber-400/40 bg-amber-500/10 text-amber-100'
+          : status === 'running'
+            ? 'border-sky-400/40 bg-sky-500/10 text-sky-100'
+            : 'border-border bg-background text-muted';
+
+  return (
+    <span
+      className={`rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${className}`}
+    >
+      {label}
+    </span>
   );
 }
 
