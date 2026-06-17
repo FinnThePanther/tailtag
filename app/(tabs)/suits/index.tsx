@@ -453,7 +453,10 @@ export default function MySuitsScreen() {
               onPress={() =>
                 router.push({
                   pathname: '/fursuits/[id]/edit',
-                  params: { id: firstSuitMissingInteractionPreferences.id },
+                  params: {
+                    id: firstSuitMissingInteractionPreferences.id,
+                    focus: 'interactionPreferences',
+                  },
                 })
               }
             >

@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, Pressable, Switch, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  Pressable,
+  Switch,
+  Text,
+  View,
+  type LayoutChangeEvent,
+  type ScrollView,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -128,8 +138,14 @@ export default function EditFursuitScreen() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; focus?: string }>();
   const fursuitId = typeof params.id === 'string' ? params.id : null;
+  const shouldFocusInteractionPreferences = params.focus === 'interactionPreferences';
+  const formScrollRef = useRef<ScrollView>(null);
+  const hasFocusedInteractionPreferencesRef = useRef(false);
+  const [interactionPreferencesOffset, setInteractionPreferencesOffset] = useState<number | null>(
+    null,
+  );
 
   const {
     data: speciesOptions = [],
@@ -443,6 +459,34 @@ export default function EditFursuitScreen() {
 
     return detail.owner_id === userId;
   }, [detail, userId]);
+
+  useEffect(() => {
+    hasFocusedInteractionPreferencesRef.current = false;
+  }, [fursuitId, shouldFocusInteractionPreferences]);
+
+  const handleInteractionPreferencesLayout = useCallback((event: LayoutChangeEvent) => {
+    setInteractionPreferencesOffset(event.nativeEvent.layout.y);
+  }, []);
+
+  useEffect(() => {
+    if (
+      !shouldFocusInteractionPreferences ||
+      isLoading ||
+      !isOwner ||
+      interactionPreferencesOffset === null ||
+      hasFocusedInteractionPreferencesRef.current
+    ) {
+      return;
+    }
+
+    hasFocusedInteractionPreferencesRef.current = true;
+    requestAnimationFrame(() => {
+      formScrollRef.current?.scrollTo({
+        y: Math.max(interactionPreferencesOffset - 16, 0),
+        animated: true,
+      });
+    });
+  }, [interactionPreferencesOffset, isLoading, isOwner, shouldFocusInteractionPreferences]);
 
   useEffect(() => {
     if (
@@ -1171,7 +1215,10 @@ export default function EditFursuitScreen() {
         title="Edit Fursuit"
         onBack={() => router.back()}
       />
-      <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+      <KeyboardAwareFormWrapper
+        ref={formScrollRef}
+        contentContainerStyle={styles.container}
+      >
         <View style={styles.formCard}>
           {isLoading ? (
             <Text style={styles.message}>Loading your fursuit details…</Text>
@@ -1682,7 +1729,10 @@ export default function EditFursuitScreen() {
                 />
               </View>
 
-              <View style={styles.fieldGroup}>
+              <View
+                style={styles.fieldGroup}
+                onLayout={handleInteractionPreferencesLayout}
+              >
                 <Text style={styles.label}>Interaction preferences</Text>
                 <InteractionPreferencesEditor
                   socialSignal={selectedSocialSignal}
