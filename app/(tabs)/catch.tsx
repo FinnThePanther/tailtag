@@ -48,7 +48,7 @@ import {
   InteractionPreferencesSummary,
   type InteractionBadgeKey,
   type SocialSignalKey,
-} from '../../src/features/interaction-preferences';
+} from '@/features/interaction-preferences';
 import {
   formatConventionCloseoutDeadline,
   getConventionPlayerLifecycleState,
