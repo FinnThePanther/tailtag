@@ -26,7 +26,7 @@ export const SOCIAL_SIGNAL_OPTIONS: SocialSignalDefinition[] = [
   },
   {
     key: 'ask_first',
-    label: 'Ask first',
+    label: 'Ask before chatting',
     description: 'Good for friends-first, low-energy, or situational interaction.',
     iconName: 'hand-left-outline',
     tone: 'ask',
