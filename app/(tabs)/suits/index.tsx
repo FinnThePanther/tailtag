@@ -30,7 +30,7 @@ import {
   hasDismissedInteractionPreferencesNudge,
   hasInteractionPreferences,
   markInteractionPreferencesNudgeDismissed,
-} from '../../../src/features/interaction-preferences';
+} from '@/features/interaction-preferences';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { PullToRefreshHint } from '../../../src/components/ui/PullToRefreshHint';
