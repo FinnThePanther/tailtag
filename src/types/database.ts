@@ -240,6 +240,54 @@ export type Database = {
           },
         ]
       }
+      backend_worker_runs: {
+        Row: {
+          completed_at: string | null
+          counts: Json
+          created_at: string
+          duration_ms: number | null
+          error_details: Json | null
+          error_message: string | null
+          id: string
+          metadata: Json
+          source: string
+          started_at: string
+          status: string
+          updated_at: string
+          worker_name: string
+        }
+        Insert: {
+          completed_at?: string | null
+          counts?: Json
+          created_at?: string
+          duration_ms?: number | null
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          source: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+          worker_name: string
+        }
+        Update: {
+          completed_at?: string | null
+          counts?: Json
+          created_at?: string
+          duration_ms?: number | null
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          source?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+          worker_name?: string
+        }
+        Relationships: []
+      }
       catch_invites: {
         Row: {
           approved_at: string | null
@@ -2654,6 +2702,25 @@ export type Database = {
           convention_id: string
         }[]
       }
+      get_backend_worker_run_health: {
+        Args: never
+        Returns: {
+          display_name: string
+          last_failure_at: string
+          last_success_at: string
+          latest_completed_at: string
+          latest_counts: Json
+          latest_duration_ms: number
+          latest_error_message: string
+          latest_run_id: string
+          latest_source: string
+          latest_started_at: string
+          latest_status: string
+          recent_failure_count: number
+          running_started_at: string
+          worker_name: string
+        }[]
+      }
       get_blocked_users: {
         Args: { p_user_id: string }
         Returns: {
@@ -3212,6 +3279,16 @@ export type Database = {
         Args: { fursuit_id: string; makers?: Json }
         Returns: undefined
       }
+      replay_gameplay_dead_letter_events: {
+        Args: { p_actor_id: string; p_event_ids: string[]; p_reason: string }
+        Returns: {
+          event_id: string
+          message: string
+          queue_message_id: number
+          replayed: boolean
+          status: string
+        }[]
+      }
       report_catch_invite: {
         Args: {
           p_claimant_profile_id: string
@@ -3477,6 +3554,7 @@ export const Constants = {
     },
   },
 } as const
+
 // Type aliases for application use
 export type FursuitSocialLink = {
   label: string;
