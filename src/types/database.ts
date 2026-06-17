@@ -1515,10 +1515,12 @@ export type Database = {
           flagged_at: string | null
           flagged_reason: string | null
           id: string
+          interaction_badges: string[]
           is_flagged: boolean
           name: string
           owner_attribution_visibility: string
           owner_id: string
+          social_signal: string | null
           species_id: string | null
           unique_code: string
           visibility_audience: string
@@ -1533,10 +1535,12 @@ export type Database = {
           flagged_at?: string | null
           flagged_reason?: string | null
           id?: string
+          interaction_badges?: string[]
           is_flagged?: boolean
           name: string
           owner_attribution_visibility?: string
           owner_id: string
+          social_signal?: string | null
           species_id?: string | null
           unique_code: string
           visibility_audience?: string
@@ -1551,10 +1555,12 @@ export type Database = {
           flagged_at?: string | null
           flagged_reason?: string | null
           id?: string
+          interaction_badges?: string[]
           is_flagged?: boolean
           name?: string
           owner_attribution_visibility?: string
           owner_id?: string
+          social_signal?: string | null
           species_id?: string | null
           unique_code?: string
           visibility_audience?: string
@@ -2881,11 +2887,13 @@ export type Database = {
           fursuit_bio: Json
           fursuit_conventions: Json
           id: string
+          interaction_badges: string[]
           makers: Json
           name: string
           owner_attribution_visibility: string
           owner_id: string
           owner_social_links: Json
+          social_signal: string
           species_entry: Json
           species_id: string
           unique_code: string
@@ -3078,11 +3086,13 @@ export type Database = {
           fursuit_bio: Json
           fursuit_conventions: Json
           id: string
+          interaction_badges: string[]
           makers: Json
           name: string
           owner_attribution_visibility: string
           owner_id: string
           owner_social_links: Json
+          social_signal: string
           species_entry: Json
           species_id: string
           visibility_audience: string
@@ -3344,6 +3354,10 @@ export type Database = {
           p_severity?: string
         }
         Returns: string
+      }
+      text_array_has_no_duplicates: {
+        Args: { input_values: string[] }
+        Returns: boolean
       }
       transition_ended_conventions_to_finalizing: {
         Args: { p_now?: string }

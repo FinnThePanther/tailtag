@@ -68,6 +68,12 @@ import type {
   FursuitsInsert,
 } from '../../../src/types/database';
 import {
+  InteractionPreferencesEditor,
+  getInteractionPreferencesError,
+  type InteractionBadgeKey,
+  type SocialSignalKey,
+} from '../../../src/features/interaction-preferences';
+import {
   createEmptyFursuitMaker,
   createInitialFursuitMakers,
   FURSUIT_MAKER_LIMIT,
@@ -175,6 +181,10 @@ export default function AddFursuitScreen() {
   const [askMeAboutInput, setAskMeAboutInput] = useState('');
   const [makers, setMakers] = useState<EditableFursuitMaker[]>(() => createInitialFursuitMakers());
   const [hideOwnerPublicly, setHideOwnerPublicly] = useState(false);
+  const [selectedSocialSignal, setSelectedSocialSignal] = useState<SocialSignalKey | null>(null);
+  const [selectedInteractionBadges, setSelectedInteractionBadges] = useState<InteractionBadgeKey[]>(
+    [],
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -589,6 +599,12 @@ export default function AddFursuitScreen() {
       return;
     }
 
+    const interactionPreferencesError = getInteractionPreferencesError(selectedInteractionBadges);
+    if (interactionPreferencesError) {
+      setSubmitError(interactionPreferencesError);
+      return;
+    }
+
     const allowedConventionIds = Array.from(selectedConventionIds).filter((id) =>
       profileAssignableConventionIdSet.has(id),
     );
@@ -664,6 +680,8 @@ export default function AddFursuitScreen() {
           unique_code: uniqueCode,
           owner_attribution_visibility:
             anonymousFursuitsEnabled && hideOwnerPublicly ? 'hidden' : 'public',
+          social_signal: selectedSocialSignal,
+          interaction_badges: selectedInteractionBadges,
         };
         const { data: inserted, error } = await (supabase as any)
           .from('fursuits')
@@ -759,6 +777,8 @@ export default function AddFursuitScreen() {
       setAskMeAboutInput('');
       setMakers(createInitialFursuitMakers());
       setHideOwnerPublicly(false);
+      setSelectedSocialSignal(null);
+      setSelectedInteractionBadges([]);
       setSelectedConventionIds(new Set());
       setConventionRosterSettingsById({});
       setHasHydratedConventions(true);
@@ -933,6 +953,17 @@ export default function AddFursuitScreen() {
               </View>
             </View>
           ) : null}
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Interaction preferences</Text>
+            <InteractionPreferencesEditor
+              socialSignal={selectedSocialSignal}
+              selectedBadges={selectedInteractionBadges}
+              onSocialSignalChange={setSelectedSocialSignal}
+              onBadgesChange={setSelectedInteractionBadges}
+              disabled={isSubmitting}
+            />
+          </View>
 
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Photo credit</Text>

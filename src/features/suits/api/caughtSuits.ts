@@ -11,6 +11,10 @@ import {
 import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 import type { Database } from '../../../types/database';
+import {
+  normalizeInteractionBadges,
+  normalizeSocialSignal,
+} from '@/features/interaction-preferences';
 
 type CaughtSuitRpcRow = Database['public']['Functions']['get_my_caught_suits']['Returns'][number];
 type CatchDetailRpcRow = Database['public']['Functions']['get_catch_detail']['Returns'][number];
@@ -78,6 +82,12 @@ export function mapCaughtRecordFromRpcRow(record: HistoricalCatchRpcRow): Caught
         unique_code: fursuitRedacted ? null : (record.fursuit_unique_code ?? null),
         visibility_audience: normalizeVisibilityAudience(record.fursuit_visibility_audience),
         ownerAttributionVisibility,
+        socialSignal: fursuitRedacted
+          ? null
+          : normalizeSocialSignal((record as any).fursuit_social_signal),
+        interactionBadges: fursuitRedacted
+          ? []
+          : normalizeInteractionBadges((record as any).fursuit_interaction_badges),
         catchCount:
           !fursuitRedacted && typeof record.fursuit_catch_count === 'number'
             ? record.fursuit_catch_count

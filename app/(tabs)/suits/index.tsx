@@ -26,6 +26,11 @@ import {
 } from '../../../src/features/catch-outbox';
 import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
 import type { FursuitSummary } from '../../../src/features/suits';
+import {
+  hasDismissedInteractionPreferencesNudge,
+  hasInteractionPreferences,
+  markInteractionPreferencesNudgeDismissed,
+} from '../../../src/features/interaction-preferences';
 import { TailTagButton } from '../../../src/components/ui/TailTagButton';
 import { TailTagCard } from '../../../src/components/ui/TailTagCard';
 import { PullToRefreshHint } from '../../../src/components/ui/PullToRefreshHint';
@@ -74,6 +79,7 @@ export default function MySuitsScreen() {
   });
 
   const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
+  const [interactionNudgeDismissed, setInteractionNudgeDismissed] = useState(true);
 
   const {
     data: pendingCatches = [],
@@ -81,6 +87,24 @@ export default function MySuitsScreen() {
     refetch: refetchPendingCatches,
   } = usePendingCatches();
   const confirmCatchMutation = useConfirmCatch();
+
+  useEffect(() => {
+    if (!userId) {
+      setInteractionNudgeDismissed(true);
+      return;
+    }
+
+    let cancelled = false;
+    void hasDismissedInteractionPreferencesNudge(userId).then((dismissed) => {
+      if (!cancelled) {
+        setInteractionNudgeDismissed(dismissed);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   const handleAcceptCatch = useCallback(
     (catchId: string, conventionId?: string) => {
@@ -103,6 +127,22 @@ export default function MySuitsScreen() {
     },
     [confirmCatchMutation],
   );
+
+  const firstSuitMissingInteractionPreferences = useMemo(
+    () =>
+      suits.find((suit) => !hasInteractionPreferences(suit.socialSignal, suit.interactionBadges)) ??
+      null,
+    [suits],
+  );
+  const showInteractionPreferencesNudge =
+    Boolean(firstSuitMissingInteractionPreferences) && !interactionNudgeDismissed;
+
+  const dismissInteractionPreferencesNudge = useCallback(() => {
+    setInteractionNudgeDismissed(true);
+    if (userId) {
+      void markInteractionPreferencesNudgeDismissed(userId);
+    }
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -384,6 +424,36 @@ export default function MySuitsScreen() {
               </TailTagButton>
             </View>
           ) : null}
+        </TailTagCard>
+      ) : null}
+
+      {showInteractionPreferencesNudge && firstSuitMissingInteractionPreferences ? (
+        <TailTagCard style={styles.guidanceCard}>
+          <Text style={styles.guidanceEyebrow}>Interaction preferences</Text>
+          <Text style={styles.guidanceTitle}>Add interaction preferences</Text>
+          <Text style={styles.guidanceBody}>
+            Let players know how to approach this suit when they catch you.
+          </Text>
+          <View style={styles.guidanceActions}>
+            <TailTagButton
+              size="sm"
+              onPress={() =>
+                router.push({
+                  pathname: '/fursuits/[id]/edit',
+                  params: { id: firstSuitMissingInteractionPreferences.id },
+                })
+              }
+            >
+              Add badges
+            </TailTagButton>
+            <TailTagButton
+              variant="ghost"
+              size="sm"
+              onPress={dismissInteractionPreferencesNudge}
+            >
+              Not now
+            </TailTagButton>
+          </View>
         </TailTagCard>
       ) : null}
 

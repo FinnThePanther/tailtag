@@ -45,6 +45,11 @@ import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareF
 import { useAuth } from '../../src/features/auth';
 import { createCatchInvite } from '../../src/features/catch-invites';
 import {
+  InteractionPreferencesSummary,
+  type InteractionBadgeKey,
+  type SocialSignalKey,
+} from '../../src/features/interaction-preferences';
+import {
   formatConventionCloseoutDeadline,
   getConventionPlayerLifecycleState,
   type ConventionMembership,
@@ -74,6 +79,8 @@ type PostCatchFursuit = {
   owner_id: string | null;
   catch_count: number;
   bio: FursuitBio | null;
+  socialSignal: SocialSignalKey | null;
+  interactionBadges: InteractionBadgeKey[];
 };
 
 type CatchRecord = {
@@ -179,6 +186,8 @@ function buildFallbackPostCatchFursuit(
     owner_id: catchResult.fursuitOwnerId,
     catch_count: catchResult.requiresApproval ? 0 : (catchResult.catchNumber ?? 1),
     bio: null,
+    socialSignal: null,
+    interactionBadges: [],
   };
 }
 
@@ -205,6 +214,8 @@ async function resolvePostCatchFursuit(
           ? detail.catchCount
           : Math.max(detail.catchCount, catchResult.catchNumber),
       bio: detail.bio,
+      socialSignal: detail.socialSignal,
+      interactionBadges: detail.interactionBadges,
     };
   } catch (caught) {
     captureHandledException(caught, {
@@ -1270,6 +1281,12 @@ export default function CatchScreen() {
               conversationPrompt,
             })}
           </Text>
+          <InteractionPreferencesSummary
+            socialSignal={caughtFursuit.socialSignal}
+            badges={caughtFursuit.interactionBadges}
+            title="Before you interact"
+            body="These are quick signals, not blanket permission. Ask when unsure."
+          />
           {catchRecord?.photo_upload_state === 'pending_upload' ? (
             <View style={styles.catchProgressNotice}>
               <Ionicons

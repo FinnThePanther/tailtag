@@ -13,6 +13,10 @@ import { captureHandledMessage, captureSupabaseError } from '../../../lib/sentry
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 import { normalizeVisibilityAudience } from '@/features/adult-boundary';
+import {
+  normalizeInteractionBadges,
+  normalizeSocialSignal,
+} from '@/features/interaction-preferences';
 
 export const FURSUIT_DETAIL_QUERY_KEY = 'fursuit-detail';
 export const fursuitDetailQueryKey = (fursuitId: string, viewerId?: string | null) =>
@@ -110,6 +114,8 @@ export async function fetchFursuitDetail(
     unique_code: row.unique_code ?? null,
     visibility_audience: normalizeVisibilityAudience(row.visibility_audience),
     ownerAttributionVisibility: row.owner_attribution_visibility === 'hidden' ? 'hidden' : 'public',
+    socialSignal: normalizeSocialSignal(row.social_signal),
+    interactionBadges: normalizeInteractionBadges(row.interaction_badges),
     catchCount: resolvedCatchCount,
     created_at: row.created_at ?? null,
     conventions,

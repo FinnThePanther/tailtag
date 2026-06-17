@@ -27,6 +27,7 @@ import {
   CONVENTIONS_STALE_TIME,
   fetchActiveProfileConventionIds,
 } from '../../../src/features/conventions';
+import { InteractionPreferencesSummary } from '../../../src/features/interaction-preferences';
 import { emitGameplayEvent } from '../../../src/features/events';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../../src/theme';
@@ -270,6 +271,11 @@ export default function FursuitDetailScreen() {
                       <Text style={styles.leadTimeline}>Added on {addedDate}</Text>
                     ) : null}
                   </View>
+                  <InteractionPreferencesSummary
+                    socialSignal={detail.socialSignal}
+                    badges={detail.interactionBadges}
+                    body="These are quick signals, not blanket permission. Ask when unsure."
+                  />
                   {isOwner && detail.unique_code?.trim() ? (
                     <View style={styles.section}>
                       <Text style={styles.sectionTitle}>Catch code</Text>

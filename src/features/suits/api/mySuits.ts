@@ -13,6 +13,10 @@ import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 import { normalizeVisibilityAudience } from '@/features/adult-boundary';
 import { captureSupabaseError } from '@/lib/sentry';
+import {
+  normalizeInteractionBadges,
+  normalizeSocialSignal,
+} from '@/features/interaction-preferences';
 
 type ProfileFursuitsRpcRow =
   Database['public']['Functions']['get_profile_fursuits']['Returns'][number];
@@ -65,6 +69,8 @@ type TableFursuitRow = Pick<
   | 'unique_code'
   | 'visibility_audience'
   | 'owner_attribution_visibility'
+  | 'social_signal'
+  | 'interaction_badges'
   | 'catch_count'
   | 'created_at'
 > & {
@@ -138,6 +144,8 @@ export async function fetchMySuits(
       ${includeUniqueCodes ? 'unique_code,' : ''}
       visibility_audience,
       owner_attribution_visibility,
+      social_signal,
+      interaction_badges,
       catch_count,
       created_at,
       species_entry:fursuit_species (
@@ -241,6 +249,8 @@ async function mapFursuitRows(
       visibility_audience: normalizeVisibilityAudience(item.visibility_audience),
       ownerAttributionVisibility:
         item.owner_attribution_visibility === 'hidden' ? 'hidden' : 'public',
+      socialSignal: normalizeSocialSignal(item.social_signal),
+      interactionBadges: normalizeInteractionBadges(item.interaction_badges),
       catchCount: typeof item.catch_count === 'number' ? item.catch_count : 0,
       created_at: item.created_at ?? null,
       conventions,
