@@ -27,7 +27,7 @@ import {
   CONVENTIONS_STALE_TIME,
   fetchActiveProfileConventionIds,
 } from '../../../src/features/conventions';
-import { InteractionPreferencesSummary } from '../../../src/features/interaction-preferences';
+import { InteractionPreferencesSummary } from '@/features/interaction-preferences';
 import { emitGameplayEvent } from '../../../src/features/events';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../../src/theme';
