@@ -84,6 +84,10 @@ def normalize_gameplay_dead_letter_replay_result(source):
         "        }[]\n"
         "      }"
     )
+    nullable_anchor = anchor.replace("queue_message_id: number", "queue_message_id: number | null")
+    if nullable_anchor in source:
+        return source
+
     replacement = anchor.replace("queue_message_id: number", "queue_message_id: number | null")
     return replace_required(source, anchor, replacement)
 
