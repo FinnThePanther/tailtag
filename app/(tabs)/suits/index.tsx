@@ -37,6 +37,7 @@ import { PullToRefreshHint } from '../../../src/components/ui/PullToRefreshHint'
 import { useAuth } from '../../../src/features/auth';
 import { getIncompleteFursuitProfiles } from '../../../src/features/profile-guidance';
 import { usePullToRefreshHint } from '../../../src/hooks/usePullToRefreshHint';
+import { captureHandledException } from '@/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../../src/theme';
 import { toDisplayDate } from '../../../src/utils/dates';
@@ -95,11 +96,18 @@ export default function MySuitsScreen() {
     }
 
     let cancelled = false;
-    void hasDismissedInteractionPreferencesNudge(userId).then((dismissed) => {
-      if (!cancelled) {
-        setInteractionNudgeDismissed(dismissed);
-      }
-    });
+    void hasDismissedInteractionPreferencesNudge(userId)
+      .then((dismissed) => {
+        if (!cancelled) {
+          setInteractionNudgeDismissed(dismissed);
+        }
+      })
+      .catch((error) => {
+        captureHandledException(error, {
+          scope: 'interaction-preferences.nudge.read',
+          additionalContext: { userId },
+        });
+      });
 
     return () => {
       cancelled = true;
@@ -140,7 +148,12 @@ export default function MySuitsScreen() {
   const dismissInteractionPreferencesNudge = useCallback(() => {
     setInteractionNudgeDismissed(true);
     if (userId) {
-      void markInteractionPreferencesNudgeDismissed(userId);
+      void markInteractionPreferencesNudgeDismissed(userId).catch((error) => {
+        captureHandledException(error, {
+          scope: 'interaction-preferences.nudge.dismiss',
+          additionalContext: { userId },
+        });
+      });
     }
   }, [userId]);
 
