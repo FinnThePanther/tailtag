@@ -2,6 +2,11 @@
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote imports.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
 import { jwtVerify } from 'https://esm.sh/jose@5.6.3';
+import {
+  beginBackendWorkerRun,
+  completeBackendWorkerRun,
+  type BackendWorkerRunStatus,
+} from '../_shared/backendWorkerRuns.ts';
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -80,6 +85,15 @@ type PushFailureContext = {
   responseStatus?: number;
   responseBody?: ExpoPushResponse | null;
   errorMessage: string;
+};
+
+type PushRunPayload = {
+  success?: boolean;
+  skipped?: string;
+  error?: string;
+  retry_enqueued?: boolean;
+  expo_ticket_errors?: number;
+  token_cleared?: boolean;
 };
 
 function respondJson(payload: unknown, status = 200) {
@@ -312,6 +326,46 @@ function formatErrorMessage(error: unknown): string {
   }
 }
 
+function parseSource(req: Request): string {
+  const userAgent = req.headers.get('User-Agent') ?? '';
+  if (userAgent.startsWith('pg_net/')) {
+    return 'pg_net_webhook';
+  }
+
+  const url = new URL(req.url);
+  return url.searchParams.get('source')?.trim() || 'webhook';
+}
+
+async function readPushRunPayload(response: Response): Promise<PushRunPayload> {
+  try {
+    const payload = await response.clone().json();
+    return toRecord(payload) as PushRunPayload;
+  } catch {
+    return {};
+  }
+}
+
+function pushRunStatus(response: Response, payload: PushRunPayload): BackendWorkerRunStatus {
+  if (response.status >= 500) {
+    return 'failed';
+  }
+  if (payload.error || (payload.expo_ticket_errors ?? 0) > 0) {
+    return 'partial';
+  }
+  return 'succeeded';
+}
+
+function pushRunCounts(payload: PushRunPayload): Record<string, number> {
+  return {
+    notifications_sent: payload.success ? 1 : 0,
+    notifications_skipped: payload.skipped ? 1 : 0,
+    errors: payload.error ? 1 : 0,
+    retries_enqueued: payload.retry_enqueued ? 1 : 0,
+    expo_ticket_errors: payload.expo_ticket_errors ?? 0,
+    tokens_cleared: payload.token_cleared ? 1 : 0,
+  };
+}
+
 async function recordPushFailure(context: PushFailureContext) {
   const occurredAt = new Date().toISOString();
   const queuePayload = {
@@ -472,9 +526,9 @@ async function handleRequest(req: Request): Promise<Response> {
       });
       // Only return a retryable status for transient Expo failures (5xx/429).
       if (response.status >= 500 || response.status === 429) {
-        return respondJson({ error: 'Expo request failed' }, 503);
+        return respondJson({ error: 'Expo request failed', retry_enqueued: true }, 503);
       }
-      return respondJson({ error: 'Expo request failed' }, 200);
+      return respondJson({ error: 'Expo request failed', retry_enqueued: true }, 200);
     }
   } catch (error) {
     const errorMessage = formatErrorMessage(error);
@@ -487,12 +541,17 @@ async function handleRequest(req: Request): Promise<Response> {
       requestBody,
       errorMessage,
     });
-    return respondJson({ error: 'Expo request failed' }, 503);
+    return respondJson({ error: 'Expo request failed', retry_enqueued: true }, 503);
   }
+
+  let retryEnqueued = false;
+  let expoTicketErrors = 0;
+  let tokenCleared = false;
 
   if (responseJson) {
     const expoErrors = extractExpoErrors(responseJson);
     if (expoErrors.length > 0) {
+      expoTicketErrors = expoErrors.length;
       console.error('[send-push] Expo errors', { expoErrors, response: responseJson });
       await recordPushFailure({
         notificationId: record.id,
@@ -504,14 +563,24 @@ async function handleRequest(req: Request): Promise<Response> {
         responseBody: responseJson,
         errorMessage: `Expo ticket errors: ${expoErrors.join(', ')}`,
       });
+      retryEnqueued = true;
     }
 
     if (expoErrors.includes('DeviceNotRegistered')) {
       await clearPushToken(userId);
+      tokenCleared = true;
     }
   }
 
-  return respondJson({ success: true }, 200);
+  return respondJson(
+    {
+      success: true,
+      retry_enqueued: retryEnqueued,
+      expo_ticket_errors: expoTicketErrors,
+      token_cleared: tokenCleared,
+    },
+    200,
+  );
 }
 
 Deno.serve(async (req) => {
@@ -577,5 +646,39 @@ Deno.serve(async (req) => {
     return respondJson({ error: 'Server misconfigured' }, 500);
   }
 
-  return handleRequest(req);
+  const workerRun = await beginBackendWorkerRun(supabaseAdmin, {
+    workerName: 'push_retry_processing',
+    source: parseSource(req),
+  });
+
+  try {
+    const response = await handleRequest(req);
+    const payload = await readPushRunPayload(response);
+    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+      status: pushRunStatus(response, payload),
+      counts: pushRunCounts(payload),
+      error: payload.error ?? null,
+      metadata: {
+        skipped: payload.skipped ?? null,
+      },
+    });
+    return response;
+  } catch (error) {
+    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+      status: 'failed',
+      counts: {
+        notifications_sent: 0,
+        notifications_skipped: 0,
+        errors: 1,
+        retries_enqueued: 0,
+        expo_ticket_errors: 0,
+        tokens_cleared: 0,
+      },
+      error,
+      metadata: {
+        skipped: null,
+      },
+    });
+    return respondJson({ error: formatErrorMessage(error) }, 500);
+  }
 });
