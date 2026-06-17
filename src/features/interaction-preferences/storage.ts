@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { captureHandledException } from '@/lib/sentry';
+
 const NOTICE_VERSION = 'v1';
 
 const interactionPreferencesNudgeKey = (userId: string) =>
@@ -9,7 +11,13 @@ export async function hasDismissedInteractionPreferencesNudge(userId: string): P
   try {
     return (await AsyncStorage.getItem(interactionPreferencesNudgeKey(userId))) === 'true';
   } catch (error) {
-    console.warn('Failed to read interaction preferences nudge state', error);
+    captureHandledException(error, {
+      scope: 'interaction-preferences.storage',
+      additionalContext: {
+        operation: 'reading interaction preferences nudge state',
+        userId,
+      },
+    });
     return true;
   }
 }
@@ -18,6 +26,12 @@ export async function markInteractionPreferencesNudgeDismissed(userId: string): 
   try {
     await AsyncStorage.setItem(interactionPreferencesNudgeKey(userId), 'true');
   } catch (error) {
-    console.warn('Failed to dismiss interaction preferences nudge', error);
+    captureHandledException(error, {
+      scope: 'interaction-preferences.storage',
+      additionalContext: {
+        operation: 'dismissing interaction preferences nudge',
+        userId,
+      },
+    });
   }
 }
