@@ -2756,10 +2756,12 @@ export type Database = {
           fursuit_created_at: string
           fursuit_description: string
           fursuit_id: string
+          fursuit_interaction_badges: string[]
           fursuit_name: string
           fursuit_owner_attribution_visibility: string
           fursuit_owner_id: string
           fursuit_redacted: boolean
+          fursuit_social_signal: string
           fursuit_unique_code: string
           fursuit_visibility_audience: string
           makers: Json
@@ -2962,10 +2964,12 @@ export type Database = {
           fursuit_created_at: string
           fursuit_description: string
           fursuit_id: string
+          fursuit_interaction_badges: string[]
           fursuit_name: string
           fursuit_owner_attribution_visibility: string
           fursuit_owner_id: string
           fursuit_redacted: boolean
+          fursuit_social_signal: string
           fursuit_unique_code: string
           fursuit_visibility_audience: string
           makers: Json
