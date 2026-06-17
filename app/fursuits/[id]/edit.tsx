@@ -80,6 +80,12 @@ import {
   featureFlagQueryKey,
   isFeatureEnabledForProfile,
 } from '../../../src/features/feature-flags';
+import {
+  InteractionPreferencesEditor,
+  getInteractionPreferencesError,
+  type InteractionBadgeKey,
+  type SocialSignalKey,
+} from '@/features/interaction-preferences';
 
 const PRONOUN_OPTIONS = [
   'he/him',
@@ -247,6 +253,10 @@ export default function EditFursuitScreen() {
     useState<VisibilityAudience>('everyone');
   const [hideOwnerPublicly, setHideOwnerPublicly] = useState(false);
   const [initialHideOwnerPublicly, setInitialHideOwnerPublicly] = useState(false);
+  const [selectedSocialSignal, setSelectedSocialSignal] = useState<SocialSignalKey | null>(null);
+  const [selectedInteractionBadges, setSelectedInteractionBadges] = useState<InteractionBadgeKey[]>(
+    [],
+  );
   const [selectedPhoto, setSelectedPhoto] = useState<UploadCandidate>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -404,6 +414,8 @@ export default function EditFursuitScreen() {
     setInitialVisibilityAudience(detail.visibility_audience);
     setHideOwnerPublicly(detail.ownerAttributionVisibility === 'hidden');
     setInitialHideOwnerPublicly(detail.ownerAttributionVisibility === 'hidden');
+    setSelectedSocialSignal(detail.socialSignal);
+    setSelectedInteractionBadges(detail.interactionBadges);
     const normalizedCode = normalizeUniqueCodeInput(detail.unique_code ?? '');
     setCodeInput(normalizedCode);
     setInitialCode(normalizedCode);
@@ -675,6 +687,12 @@ export default function EditFursuitScreen() {
       return;
     }
 
+    const interactionPreferencesError = getInteractionPreferencesError(selectedInteractionBadges);
+    if (interactionPreferencesError) {
+      setSubmitError(interactionPreferencesError);
+      return;
+    }
+
     if (selectedVisibilityAudience === 'adults_only' && !canUseAdultsOnlyFursuitVisibility) {
       setSubmitError('Confirm you are 18 or older to use 18+ visibility.');
       return;
@@ -738,6 +756,8 @@ export default function EditFursuitScreen() {
     const previousAvatarUrl = detail.avatar_url;
     const previousVisibilityAudience = detail.visibility_audience;
     const previousUniqueCode = detail.unique_code ?? null;
+    const previousSocialSignal = detail.socialSignal;
+    const previousInteractionBadges = detail.interactionBadges;
     const initialNormalizedMakers = fursuitMakersToSave(initialMakers);
     let updatedCoreRecord = false;
     let replacedColors = false;
@@ -806,6 +826,8 @@ export default function EditFursuitScreen() {
               ? 'hidden'
               : 'public'
             : detail.ownerAttributionVisibility,
+          social_signal: selectedSocialSignal,
+          interaction_badges: selectedInteractionBadges,
           ...(newAvatarPath !== undefined
             ? { avatar_path: newAvatarPath, avatar_url: newAvatarUrl }
             : {}),
@@ -1057,6 +1079,8 @@ export default function EditFursuitScreen() {
             species_id: previousSpeciesId,
             visibility_audience: previousVisibilityAudience,
             owner_attribution_visibility: detail.ownerAttributionVisibility,
+            social_signal: previousSocialSignal,
+            interaction_badges: previousInteractionBadges,
             unique_code: previousUniqueCode,
             avatar_path: previousAvatarPath,
             avatar_url: previousAvatarUrl,
@@ -1459,6 +1483,17 @@ export default function EditFursuitScreen() {
                   </Text>
                 </View>
               ) : null}
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Interaction preferences</Text>
+                <InteractionPreferencesEditor
+                  socialSignal={selectedSocialSignal}
+                  selectedBadges={selectedInteractionBadges}
+                  onSocialSignalChange={setSelectedSocialSignal}
+                  onBadgesChange={setSelectedInteractionBadges}
+                  disabled={disableForm}
+                />
+              </View>
 
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Colors</Text>
