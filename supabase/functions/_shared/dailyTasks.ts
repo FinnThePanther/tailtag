@@ -67,11 +67,29 @@ type NormalizedEvent = {
   payload: Record<string, unknown>;
 };
 
-type NotificationInsert = {
+interface NotificationInsert {
   user_id: string;
   type: string;
   payload: Record<string, unknown>;
   dedupe_key: string;
+}
+
+type DailyProgressUpsert = {
+  user_id: string;
+  convention_id: string;
+  day: string;
+  task_id: string;
+  current_count: number;
+  is_completed: boolean;
+  completed_at: string | null;
+};
+
+type DailyStreakUpsert = {
+  user_id: string;
+  convention_id: string;
+  current_streak: number;
+  best_streak: number;
+  last_completed_day: string;
 };
 
 export type ProcessDailyTaskEventOptions = {
@@ -481,63 +499,24 @@ async function fetchStreak(userId: string, conventionId: string): Promise<Streak
   return rows?.[0] ?? null;
 }
 
-async function upsertUserProgress(
-  rows: {
-    user_id: string;
-    convention_id: string;
-    day: string;
-    task_id: string;
-    current_count: number;
-    is_completed: boolean;
-    completed_at: string | null;
-  }[],
-): Promise<void> {
-  if (rows.length === 0) {
-    return;
-  }
-  await supabaseRestFetch('/rest/v1/user_daily_progress', {
-    method: 'POST',
-    headers: {
-      Prefer: 'resolution=merge-duplicates',
-    },
-    body: JSON.stringify(rows),
-  });
-}
-
-async function upsertStreak(payload: {
-  user_id: string;
-  convention_id: string;
-  current_streak: number;
-  best_streak: number;
-  last_completed_day: string;
+async function persistDailyTaskStateAndNotifications(options: {
+  progressRows: DailyProgressUpsert[];
+  streak: DailyStreakUpsert | null;
+  notifications: NotificationInsert[];
 }): Promise<void> {
-  await supabaseRestFetch('/rest/v1/user_daily_streaks', {
-    method: 'POST',
-    headers: {
-      Prefer: 'resolution=merge-duplicates',
-    },
-    body: JSON.stringify([payload]),
-  });
-}
-
-async function insertNotifications(notifications: NotificationInsert[]): Promise<void> {
-  if (notifications.length === 0) {
+  const { progressRows, streak, notifications } = options;
+  if (progressRows.length === 0 && !streak && notifications.length === 0) {
     return;
   }
 
-  await Promise.all(
-    notifications.map((notification) =>
-      supabaseRestFetch('/rest/v1/rpc/insert_notification_once', {
-        method: 'POST',
-        body: JSON.stringify({
-          p_user_id: notification.user_id,
-          p_type: notification.type,
-          p_payload: notification.payload,
-          p_dedupe_key: notification.dedupe_key,
-        }),
-      }),
-    ),
-  );
+  await supabaseRestFetch('/rest/v1/rpc/persist_daily_task_state_and_notifications', {
+    method: 'POST',
+    body: JSON.stringify({
+      p_progress_rows: progressRows,
+      p_streak: streak,
+      p_notifications: notifications,
+    }),
+  });
 }
 
 function buildDailyTaskCompletedNotificationDedupeKey(
@@ -612,21 +591,8 @@ export async function processDailyTasksForEvent(
   }
 
   const progressMap = await fetchUserProgress(userId, conventionId, localDayKey);
-  const upsertRows: {
-    user_id: string;
-    convention_id: string;
-    day: string;
-    task_id: string;
-    current_count: number;
-    is_completed: boolean;
-    completed_at: string | null;
-  }[] = [];
-  const newlyCompletedNotifications: {
-    user_id: string;
-    type: string;
-    payload: Record<string, unknown>;
-    dedupe_key: string;
-  }[] = [];
+  const upsertRows: DailyProgressUpsert[] = [];
+  const newlyCompletedNotifications: NotificationInsert[] = [];
   const completions: DailyTaskCompletion[] = [];
 
   let previouslyAllComplete = assignments.every((assignment) => {
@@ -696,19 +662,21 @@ export async function processDailyTasksForEvent(
     }
   }
 
-  if (upsertRows.length > 0) {
-    await upsertUserProgress(upsertRows);
-  }
-
-  if (newlyCompletedNotifications.length > 0) {
-    await insertNotifications(newlyCompletedNotifications);
-  }
-
   if (!nowAllComplete) {
+    await persistDailyTaskStateAndNotifications({
+      progressRows: upsertRows,
+      streak: null,
+      notifications: newlyCompletedNotifications,
+    });
     return { completions, allTasksCompleted: false };
   }
 
   if (previouslyAllComplete) {
+    await persistDailyTaskStateAndNotifications({
+      progressRows: upsertRows,
+      streak: null,
+      notifications: newlyCompletedNotifications,
+    });
     return { completions, allTasksCompleted: false };
   }
 
@@ -731,28 +699,33 @@ export async function processDailyTasksForEvent(
     }
   }
 
-  await upsertStreak({
+  const streak: DailyStreakUpsert = {
     user_id: userId,
     convention_id: conventionId,
     current_streak: currentStreak,
     best_streak: bestStreak,
     last_completed_day: localDayKey,
-  });
+  };
 
-  await insertNotifications([
-    {
-      user_id: userId,
-      type: 'daily_all_complete',
-      dedupe_key: buildDailyAllCompleteNotificationDedupeKey(conventionId, localDayKey),
-      payload: {
-        event_id: event.event_id,
-        day: localDayKey,
-        convention_id: conventionId,
-        current_streak: currentStreak,
-        best_streak: bestStreak,
+  await persistDailyTaskStateAndNotifications({
+    progressRows: upsertRows,
+    streak,
+    notifications: [
+      ...newlyCompletedNotifications,
+      {
+        user_id: userId,
+        type: 'daily_all_complete',
+        dedupe_key: buildDailyAllCompleteNotificationDedupeKey(conventionId, localDayKey),
+        payload: {
+          event_id: event.event_id,
+          day: localDayKey,
+          convention_id: conventionId,
+          current_streak: currentStreak,
+          best_streak: bestStreak,
+        },
       },
-    },
-  ]);
+    ],
+  });
 
   return {
     completions,

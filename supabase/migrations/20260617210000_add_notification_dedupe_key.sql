@@ -144,6 +144,9 @@ SECURITY DEFINER
 SET search_path = 'public'
 AS $$
 DECLARE
+  -- NULL or blank keys intentionally bypass the partial unique index. Current
+  -- callers pass non-empty keys; this keeps the helper usable for future
+  -- notification paths that need ordinary non-deduplicated inserts.
   v_dedupe_key text := nullif(btrim(p_dedupe_key), '');
   v_inserted_id uuid;
 BEGIN

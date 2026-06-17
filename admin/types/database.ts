@@ -3018,6 +3018,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      persist_daily_task_state_and_notifications: {
+        Args: { p_notifications: Json; p_progress_rows: Json; p_streak: Json };
+        Returns: undefined;
+      };
       process_achievement_queue_if_active: { Args: never; Returns: undefined };
       process_catch_reciprocal_offer: {
         Args: { p_offer_id: string };
