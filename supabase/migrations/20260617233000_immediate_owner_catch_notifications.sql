@@ -114,7 +114,7 @@ CREATE OR REPLACE FUNCTION public.create_catch_with_event(
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'public', 'pg_temp'
 AS $$
 DECLARE
   v_owner_catch_mode text;
@@ -491,7 +491,7 @@ CREATE OR REPLACE FUNCTION public.attach_catch_photo_after_upload(
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'public', 'pg_temp'
 AS $$
 DECLARE
   v_catch record;
