@@ -16,10 +16,10 @@ export {
   toggleInteractionBadge,
   type InteractionBadgeKey,
   type SocialSignalKey,
-} from './definitions';
-export { InteractionPreferencesEditor } from './components/InteractionPreferencesEditor';
-export { InteractionPreferencesSummary } from './components/InteractionPreferencesSummary';
+} from '@/features/interaction-preferences/definitions';
+export { InteractionPreferencesEditor } from '@/features/interaction-preferences/components/InteractionPreferencesEditor';
+export { InteractionPreferencesSummary } from '@/features/interaction-preferences/components/InteractionPreferencesSummary';
 export {
   hasDismissedInteractionPreferencesNudge,
   markInteractionPreferencesNudgeDismissed,
-} from './storage';
+} from '@/features/interaction-preferences/storage';
