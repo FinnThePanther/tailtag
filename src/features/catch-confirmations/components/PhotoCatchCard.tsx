@@ -330,9 +330,6 @@ export function PhotoCatchCard({
     resetPickerFeedback();
     setFursuits([]);
     try {
-      const processingStartedAt = Date.now();
-      const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.catchPhoto);
-      setPhotoProcessingMs(Math.max(0, Date.now() - processingStartedAt));
       const galleryConventionIds = await fetchGalleryProfileConventionIds(userId);
       if (galleryConventionIds.length === 0) {
         setLocalError(
@@ -340,6 +337,9 @@ export function PhotoCatchCard({
         );
         return;
       }
+      const processingStartedAt = Date.now();
+      const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.catchPhoto);
+      setPhotoProcessingMs(Math.max(0, Date.now() - processingStartedAt));
       setPhoto({
         uri: processed.uri,
         mimeType: 'image/jpeg',
