@@ -8,13 +8,13 @@ export const SOCIAL_SIGNAL_KEYS = [
 
 export type SocialSignalKey = (typeof SOCIAL_SIGNAL_KEYS)[number];
 
-export type SocialSignalDefinition = {
+export interface SocialSignalDefinition {
   key: SocialSignalKey;
   label: string;
   description: string;
   iconName: 'chatbubble-ellipses-outline' | 'hand-left-outline' | 'moon-outline';
   tone: 'open' | 'ask' | 'closed';
-};
+}
 
 export const SOCIAL_SIGNAL_OPTIONS: SocialSignalDefinition[] = [
   {
@@ -63,13 +63,13 @@ export type InteractionBadgeKey = (typeof INTERACTION_BADGE_KEYS)[number];
 
 export type InteractionBadgeCategory = 'contact' | 'photos' | 'communication' | 'space' | 'social';
 
-export type InteractionBadgeDefinition = {
+export interface InteractionBadgeDefinition {
   key: InteractionBadgeKey;
   label: string;
   description: string;
   category: InteractionBadgeCategory;
   priority: number;
-};
+}
 
 export const INTERACTION_BADGE_DEFINITIONS: InteractionBadgeDefinition[] = [
   {
@@ -186,11 +186,13 @@ export const INTERACTION_BADGE_DEFINITIONS: InteractionBadgeDefinition[] = [
   },
 ];
 
-export const INTERACTION_BADGE_GROUPS: {
+export interface InteractionBadgeGroup {
   category: InteractionBadgeCategory;
   label: string;
   badgeKeys: InteractionBadgeKey[];
-}[] = [
+}
+
+export const INTERACTION_BADGE_GROUPS: InteractionBadgeGroup[] = [
   {
     category: 'contact',
     label: 'Contact',
