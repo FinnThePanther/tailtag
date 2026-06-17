@@ -58,6 +58,7 @@ jobs:
               - 'packages/achievement-rules/**'
               - 'scripts/bootstrap-vault-secrets.sql'
               - 'scripts/setup-environment.sh'
+              - 'scripts/run-event-processing-canary.py'
               - 'scripts/verify-environment.sh'
               - '.github/workflows/branch-delivery.yml'
             # package.json / package-lock.json live under `js`, not `native`.

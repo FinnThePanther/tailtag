@@ -115,6 +115,9 @@ SECURITY DEFINER
 SET search_path TO 'public', 'pg_temp'
 AS $$
   WITH known_workers(worker_name, display_name) AS (
+    -- Keep this list in sync with BackendWorkerName in
+    -- supabase/functions/_shared/backendWorkerRuns.ts whenever a new durable
+    -- backend worker run source is introduced.
     VALUES
       ('daily_task_rotation'::text, 'Daily task rotation'::text),
       ('pending_catch_expiration'::text, 'Pending catch expiration'::text),

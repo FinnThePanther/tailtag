@@ -37,12 +37,14 @@ type QueueMessage = {
 
 type GameplayEventRow = InsertableEventRow & {
   processed_at: string | null;
+  queue_message_id: number | null;
 };
 
 type WorkerRequestBody = {
   maxMessages?: unknown;
   maxDurationMs?: unknown;
   source?: unknown;
+  canaryEventId?: unknown;
 };
 
 type WorkerResult = {
@@ -51,8 +53,12 @@ type WorkerResult = {
   failed: number;
   deleted: number;
   archived: number;
+  canary?: boolean;
+  alreadyProcessed?: boolean;
   disabled?: boolean;
 };
+
+const BACKEND_CANARY_EVENT_TYPE = 'backend_canary';
 
 function jsonResponse(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), {
@@ -136,7 +142,9 @@ async function archiveQueueMessage(messageId: number): Promise<void> {
 async function loadEventRow(eventId: string): Promise<GameplayEventRow | null> {
   const { data, error } = await supabaseAdmin
     .from('events')
-    .select('event_id, user_id, convention_id, type, payload, occurred_at, processed_at')
+    .select(
+      'event_id, user_id, convention_id, type, payload, occurred_at, processed_at, queue_message_id',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -204,6 +212,38 @@ async function markEventFailure(
   }
 }
 
+async function processBackendCanaryEvent(
+  eventId: string,
+): Promise<
+  Pick<WorkerResult, 'processed' | 'failed' | 'deleted' | 'archived' | 'alreadyProcessed'>
+> {
+  const eventRow = await loadEventRow(eventId);
+
+  if (!eventRow) {
+    throw new Error(`Canary event ${eventId} was not found`);
+  }
+
+  if (eventRow.type !== BACKEND_CANARY_EVENT_TYPE) {
+    throw new Error(`Event ${eventId} is not a backend canary event`);
+  }
+
+  if (eventRow.processed_at) {
+    return { processed: 0, failed: 0, deleted: 0, archived: 0, alreadyProcessed: true };
+  }
+
+  const queueMessageId = eventRow.queue_message_id;
+
+  if (!queueMessageId) {
+    throw new Error(`Canary event ${eventId} has no queue message id`);
+  }
+
+  await updateEventAttempt(eventId, 1);
+  await markEventSuccess(eventId, 1);
+  await deleteQueueMessage(queueMessageId);
+
+  return { processed: 1, failed: 0, deleted: 1, archived: 0 };
+}
+
 async function processQueueMessage(
   queueMessage: QueueMessage,
   maxAttempts: number,
@@ -239,6 +279,12 @@ async function processQueueMessage(
   await updateEventAttempt(eventId, queueMessage.read_ct);
 
   try {
+    if (eventRow.type === BACKEND_CANARY_EVENT_TYPE) {
+      await markEventSuccess(eventId, queueMessage.read_ct);
+      await deleteQueueMessage(queueMessage.msg_id);
+      return { processed: 1, failed: 0, deleted: 1, archived: 0 };
+    }
+
     await processCatchNotificationForEvent(supabaseAdmin, eventRow);
     await processAchievementsForEvent(supabaseAdmin, eventRow);
     await markEventSuccess(eventId, queueMessage.read_ct);
@@ -292,6 +338,10 @@ async function processQueue(body: WorkerRequestBody): Promise<WorkerResult> {
 
   const maxMessages = parsePositiveInteger(body.maxMessages) ?? config.batchSize;
   const maxDurationMs = parsePositiveInteger(body.maxDurationMs);
+  const canaryEventId =
+    typeof body.canaryEventId === 'string' && body.canaryEventId.trim().length > 0
+      ? body.canaryEventId.trim()
+      : null;
   const startedAt = Date.now();
 
   const result: WorkerResult = {
@@ -301,6 +351,19 @@ async function processQueue(body: WorkerRequestBody): Promise<WorkerResult> {
     deleted: 0,
     archived: 0,
   };
+
+  if (canaryEventId) {
+    const canaryResult = await processBackendCanaryEvent(canaryEventId);
+    return {
+      fetched: canaryResult.alreadyProcessed ? 0 : 1,
+      processed: canaryResult.processed,
+      failed: canaryResult.failed,
+      deleted: canaryResult.deleted,
+      archived: canaryResult.archived,
+      canary: true,
+      alreadyProcessed: canaryResult.alreadyProcessed,
+    };
+  }
 
   while (result.fetched < maxMessages) {
     if (maxDurationMs !== null && Date.now() - startedAt >= maxDurationMs) {

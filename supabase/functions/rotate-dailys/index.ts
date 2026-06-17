@@ -671,6 +671,9 @@ Deno.serve(async (req) => {
       status: 'failed',
       counts: {
         conventions_processed: 0,
+        conventions_refreshed: 0,
+        conventions_skipped: 0,
+        assignments_returned: 0,
       },
       error,
       metadata: {

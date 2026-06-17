@@ -65,7 +65,13 @@ function formatErrorDetails(error: unknown): Json | null {
   }
 
   if (isRecord(error)) {
-    return error;
+    try {
+      return JSON.parse(JSON.stringify(error)) as Json;
+    } catch {
+      return {
+        value: String(error),
+      };
+    }
   }
 
   return {

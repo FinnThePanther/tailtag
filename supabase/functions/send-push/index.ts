@@ -701,7 +701,10 @@ Deno.serve(async (req) => {
         tokens_cleared: 0,
       },
       error,
+      metadata: {
+        skipped: null,
+      },
     });
-    throw error;
+    return respondJson({ error: formatErrorMessage(error) }, 500);
   }
 });
