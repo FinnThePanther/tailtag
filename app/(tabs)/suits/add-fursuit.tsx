@@ -72,7 +72,7 @@ import {
   getInteractionPreferencesError,
   type InteractionBadgeKey,
   type SocialSignalKey,
-} from '../../../src/features/interaction-preferences';
+} from '@/features/interaction-preferences';
 import {
   createEmptyFursuitMaker,
   createInitialFursuitMakers,
