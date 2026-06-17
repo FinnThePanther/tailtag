@@ -20,19 +20,19 @@ import { styles } from '@/features/catch-confirmations/components/PhotoCatchCard
 
 const PHOTO_CATCH_SELECTION_LIMIT = 10;
 
-type PhotoCandidate = {
+interface PhotoCandidate {
   uri: string;
   mimeType: string;
   fileName: string;
   fileSize: number;
-};
+}
 
-type ConventionOption = {
+interface ConventionOption {
   id: string;
   name: string;
-};
+}
 
-type PhotoCatchCardProps = {
+interface PhotoCatchCardProps {
   userId: string;
   onCatchSubmit: (result: PhotoCatchBatchResult) => Promise<void>;
   onInviteSubmit?: (params: {
@@ -50,7 +50,7 @@ type PhotoCatchCardProps = {
   isRosterRefreshing?: boolean;
   cameraCatchUnavailableReason?: string | null;
   galleryCatchUnavailableReason?: string | null;
-};
+}
 
 type Step = 'idle' | 'photo_taken';
 
