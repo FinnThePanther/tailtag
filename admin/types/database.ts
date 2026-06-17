@@ -3045,7 +3045,7 @@ export type Database = {
         Returns: {
           event_id: string;
           message: string;
-          queue_message_id: number;
+          queue_message_id: number | null;
           replayed: boolean;
           status: string;
         }[];
