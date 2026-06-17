@@ -3040,6 +3040,16 @@ export type Database = {
         Args: { fursuit_id: string; makers?: Json };
         Returns: undefined;
       };
+      replay_gameplay_dead_letter_events: {
+        Args: { p_actor_id: string; p_event_ids: string[]; p_reason: string };
+        Returns: {
+          event_id: string;
+          message: string;
+          queue_message_id: number | null;
+          replayed: boolean;
+          status: string;
+        }[];
+      };
       search_players: {
         Args: {
           convention_filter?: string;
