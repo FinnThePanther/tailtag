@@ -4,7 +4,7 @@ import type { Json } from './types.ts';
 
 export const GAMEPLAY_QUEUE_NAME = 'gameplay_event_processing';
 
-const CONFIG_NAMES = [
+const RUNTIME_CONFIG_NAMES = [
   'gameplay_queue_enabled',
   'gameplay_queue_wakeup_enabled',
   'gameplay_inline_processing_enabled',
@@ -35,8 +35,8 @@ export type IngestGameplayEventParams = {
   idempotencyKey?: string | null;
 };
 
-type EdgeFunctionConfigRow = {
-  function_name: string;
+type BackendRuntimeConfigRow = {
+  config_name: string;
   config: unknown;
 };
 
@@ -68,7 +68,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function readConfigValue(row: EdgeFunctionConfigRow | undefined): unknown {
+function readConfigValue(row: BackendRuntimeConfigRow | undefined): unknown {
   if (!row || !isRecord(row.config)) {
     return undefined;
   }
@@ -102,18 +102,17 @@ function toInteger(value: unknown, fallback: number): number {
 export async function loadGameplayQueueConfig(
   supabaseAdmin: SupabaseClient<any, 'public', any>,
 ): Promise<GameplayQueueConfig> {
-  const { data, error } = await supabaseAdmin
-    .from('edge_function_config')
-    .select('function_name, config')
-    .in('function_name', [...CONFIG_NAMES]);
+  const { data, error } = await supabaseAdmin.rpc('read_backend_runtime_config', {
+    p_config_names: [...RUNTIME_CONFIG_NAMES],
+  });
 
   if (error) {
-    console.error('[gameplayQueue] Failed to load edge_function_config', { error });
+    console.error('[gameplayQueue] Failed to load backend runtime config', { error });
     return DEFAULT_GAMEPLAY_QUEUE_CONFIG;
   }
 
   const rowMap = new Map(
-    ((data ?? []) as EdgeFunctionConfigRow[]).map((row) => [row.function_name, row]),
+    ((data ?? []) as BackendRuntimeConfigRow[]).map((row) => [row.config_name, row]),
   );
 
   return {

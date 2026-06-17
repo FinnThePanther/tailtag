@@ -103,20 +103,20 @@ BEGIN
   END IF;
 
   -- ── ACHIEVEMENTS_PROCESSOR_URL ────────────────────────────────────────────
-  -- Reserved for legacy achievement processor. Derived from SUPABASE_URL so
-  -- it points to the right project.
+  -- Compatibility alias for the active gameplay queue processor. Derived from
+  -- SUPABASE_URL so it points to the right project.
   SELECT id INTO v_existing_id
     FROM vault.secrets WHERE name = 'ACHIEVEMENTS_PROCESSOR_URL';
   IF v_existing_id IS NOT NULL THEN
     PERFORM vault.update_secret(
       v_existing_id,
-      rtrim(v_supabase_url, '/') || '/functions/v1/process-achievements'
+      rtrim(v_supabase_url, '/') || '/functions/v1/process-gameplay-queue'
     );
   ELSE
     PERFORM vault.create_secret(
-      rtrim(v_supabase_url, '/') || '/functions/v1/process-achievements',
+      rtrim(v_supabase_url, '/') || '/functions/v1/process-gameplay-queue',
       'ACHIEVEMENTS_PROCESSOR_URL',
-      'Reserved for legacy achievement processor'
+      'Compatibility alias for active gameplay queue processor'
     );
   END IF;
 

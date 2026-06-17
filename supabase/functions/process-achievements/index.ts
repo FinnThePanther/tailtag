@@ -39,6 +39,11 @@ type UnprocessedEvent = {
   retry_count: number;
 };
 
+type BackendRuntimeConfigRow = {
+  config_name: string;
+  config: unknown;
+};
+
 function jsonResponse(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -66,11 +71,9 @@ function isServiceRoleAuth(req: Request): boolean {
 }
 
 async function isLegacyProcessorEnabled(): Promise<boolean> {
-  const { data, error } = await supabaseAdmin
-    .from('edge_function_config')
-    .select('config')
-    .eq('function_name', LEGACY_PROCESSOR_CONFIG_NAME)
-    .maybeSingle();
+  const { data, error } = await supabaseAdmin.rpc('read_backend_runtime_config', {
+    p_config_names: [LEGACY_PROCESSOR_CONFIG_NAME],
+  });
 
   if (error) {
     console.error('[process-achievements] Failed to load legacy processor config', {
@@ -79,7 +82,8 @@ async function isLegacyProcessorEnabled(): Promise<boolean> {
     return false;
   }
 
-  const value = data?.config;
+  const [row] = (data ?? []) as BackendRuntimeConfigRow[];
+  const value = row?.config;
   if (typeof value === 'object' && value !== null && 'value' in value) {
     const configuredValue = (value as { value?: unknown }).value;
     return configuredValue === true || configuredValue === 'true';

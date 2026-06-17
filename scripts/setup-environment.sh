@@ -163,35 +163,11 @@ ok "Reference seed applied."
 
 # ── 3. Edge functions ─────────────────────────────────────────────────────────
 
-# All deployable functions (directories directly under supabase/functions/, excluding _shared)
-FUNCTIONS=()
-while IFS= read -r -d '' dir; do
-  name="$(basename "$dir")"
-  if [[ "$name" != _* ]]; then
-    FUNCTIONS+=("$name")
-  fi
-done < <(find supabase/functions -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
-
-step "Deploying ${#FUNCTIONS[@]} edge functions → $ENV"
-DEPLOYED=0
-SKIPPED=()
-for fn in "${FUNCTIONS[@]}"; do
-  if [[ ! -f "supabase/functions/$fn/index.ts" ]]; then
-    SKIPPED+=("$fn")
-    continue
-  fi
-  echo "  Deploying: $fn"
-  if [[ "$fn" == "create-catch" || "$fn" == "delete-account" || "$fn" == "events-ingress" ]]; then
-    npx supabase functions deploy "$fn" --project-ref "$PROJECT_REF" --no-verify-jwt
-  else
-    npx supabase functions deploy "$fn" --project-ref "$PROJECT_REF"
-  fi
-  DEPLOYED=$((DEPLOYED + 1))
-done
-ok "$DEPLOYED edge functions deployed."
-if [[ ${#SKIPPED[@]} -gt 0 ]]; then
-  warn "Skipped (no index.ts): ${SKIPPED[*]}"
-fi
+step "Deploying edge functions → $ENV"
+# Match CI: deploy all functions from the linked project and let
+# supabase/config.toml define per-function behavior such as verify_jwt.
+npx supabase functions deploy
+ok "Edge functions deployed."
 
 # ── 4. Manual checklist ──────────────────────────────────────────────────────
 

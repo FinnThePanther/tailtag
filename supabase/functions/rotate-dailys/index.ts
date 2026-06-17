@@ -1,6 +1,7 @@
 /// <reference lib="deno.unstable" />
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+import { beginBackendWorkerRun, completeBackendWorkerRun } from '../_shared/backendWorkerRuns.ts';
 import { ingestGameplayEvent } from '../_shared/gameplayQueue.ts';
 
 const corsHeaders = {
@@ -594,6 +595,15 @@ Deno.serve(async (req) => {
   const force = forceParam === 'true';
   const source = parseSource(url.searchParams.get('source'), Boolean(conventionParam));
   const auditEnabled = shouldAudit(source);
+  const workerRun = await beginBackendWorkerRun(supabaseAdmin, {
+    workerName: 'daily_task_rotation',
+    source,
+    metadata: {
+      convention_id: conventionParam,
+      requested_count: requestedCount ?? null,
+      force,
+    },
+  });
   const actorId = auditEnabled ? await resolveActorId(req, url) : null;
 
   try {
@@ -619,6 +629,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+      status: 'succeeded',
+      counts: {
+        conventions_processed: results.length,
+        conventions_refreshed: results.filter((result) => result.refreshed).length,
+        conventions_skipped: results.filter((result) => result.skipped === true).length,
+        assignments_returned: results.reduce(
+          (total, result) => total + result.assignments.length,
+          0,
+        ),
+      },
+      metadata: {
+        convention_id: conventionParam,
+        requested_count: requestedCount ?? null,
+        force,
+      },
+    });
+
     return respondJson({ results });
   } catch (error) {
     console.error('Failed rotating daily tasks', error);
@@ -638,6 +666,22 @@ Deno.serve(async (req) => {
         error: message,
       });
     }
+
+    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+      status: 'failed',
+      counts: {
+        conventions_processed: 0,
+        conventions_refreshed: 0,
+        conventions_skipped: 0,
+        assignments_returned: 0,
+      },
+      error,
+      metadata: {
+        convention_id: conventionParam,
+        requested_count: requestedCount ?? null,
+        force,
+      },
+    });
 
     return respondJson({ error: message }, status);
   }

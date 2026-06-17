@@ -240,6 +240,54 @@ export type Database = {
           },
         ]
       }
+      backend_worker_runs: {
+        Row: {
+          completed_at: string | null
+          counts: Json
+          created_at: string
+          duration_ms: number | null
+          error_details: Json | null
+          error_message: string | null
+          id: string
+          metadata: Json
+          source: string
+          started_at: string
+          status: string
+          updated_at: string
+          worker_name: string
+        }
+        Insert: {
+          completed_at?: string | null
+          counts?: Json
+          created_at?: string
+          duration_ms?: number | null
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          source: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+          worker_name: string
+        }
+        Update: {
+          completed_at?: string | null
+          counts?: Json
+          created_at?: string
+          duration_ms?: number | null
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          source?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+          worker_name?: string
+        }
+        Relationships: []
+      }
       catch_invites: {
         Row: {
           approved_at: string | null
@@ -2654,6 +2702,25 @@ export type Database = {
           convention_id: string
         }[]
       }
+      get_backend_worker_run_health: {
+        Args: never
+        Returns: {
+          display_name: string
+          last_failure_at: string
+          last_success_at: string
+          latest_completed_at: string
+          latest_counts: Json
+          latest_duration_ms: number
+          latest_error_message: string
+          latest_run_id: string
+          latest_source: string
+          latest_started_at: string
+          latest_status: string
+          recent_failure_count: number
+          running_started_at: string
+          worker_name: string
+        }[]
+      }
       get_blocked_users: {
         Args: { p_user_id: string }
         Returns: {
@@ -3178,6 +3245,13 @@ export type Database = {
       }
       process_gameplay_queue_if_active: { Args: never; Returns: undefined }
       purge_geo_verification_data: { Args: never; Returns: Json }
+      read_backend_runtime_config: {
+        Args: { p_config_names: string[] }
+        Returns: {
+          config: Json
+          config_name: string
+        }[]
+      }
       read_catch_invite_payload: {
         Args: { p_invite: Database["public"]["Tables"]["catch_invites"]["Row"] }
         Returns: Json
@@ -3204,6 +3278,16 @@ export type Database = {
       replace_fursuit_makers: {
         Args: { fursuit_id: string; makers?: Json }
         Returns: undefined
+      }
+      replay_gameplay_dead_letter_events: {
+        Args: { p_actor_id: string; p_event_ids: string[]; p_reason: string }
+        Returns: {
+          event_id: string
+          message: string
+          queue_message_id: number | null
+          replayed: boolean
+          status: string
+        }[]
       }
       report_catch_invite: {
         Args: {
@@ -3334,11 +3418,8 @@ export type Database = {
     }
   }
 }
-
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
-
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
@@ -3367,7 +3448,6 @@ export type Tables<
       ? R
       : never
     : never
-
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
@@ -3392,7 +3472,6 @@ export type TablesInsert<
       ? I
       : never
     : never
-
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
@@ -3417,7 +3496,6 @@ export type TablesUpdate<
       ? U
       : never
     : never
-
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
@@ -3434,7 +3512,6 @@ export type Enums<
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
-
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
@@ -3451,7 +3528,6 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
-
 export const Constants = {
   public: {
     Enums: {

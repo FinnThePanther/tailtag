@@ -2,6 +2,7 @@
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote esm.sh imports.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
 import { processAchievementsForEvent } from '../_shared/achievements.ts';
+import { beginBackendWorkerRun, completeBackendWorkerRun } from '../_shared/backendWorkerRuns.ts';
 import { processCatchNotificationForEvent } from '../_shared/catchNotifications.ts';
 import { loadGameplayQueueConfig } from '../_shared/gameplayQueue.ts';
 import type { InsertableEventRow } from '../_shared/types.ts';
@@ -36,11 +37,14 @@ type QueueMessage = {
 
 type GameplayEventRow = InsertableEventRow & {
   processed_at: string | null;
+  queue_message_id: number | null;
 };
 
 type WorkerRequestBody = {
   maxMessages?: unknown;
   maxDurationMs?: unknown;
+  source?: unknown;
+  canaryEventId?: unknown;
 };
 
 type WorkerResult = {
@@ -49,8 +53,12 @@ type WorkerResult = {
   failed: number;
   deleted: number;
   archived: number;
+  canary?: boolean;
+  alreadyProcessed?: boolean;
   disabled?: boolean;
 };
+
+const BACKEND_CANARY_EVENT_TYPE = 'backend_canary';
 
 function jsonResponse(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), {
@@ -134,7 +142,9 @@ async function archiveQueueMessage(messageId: number): Promise<void> {
 async function loadEventRow(eventId: string): Promise<GameplayEventRow | null> {
   const { data, error } = await supabaseAdmin
     .from('events')
-    .select('event_id, user_id, convention_id, type, payload, occurred_at, processed_at')
+    .select(
+      'event_id, user_id, convention_id, type, payload, occurred_at, processed_at, queue_message_id',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -202,6 +212,38 @@ async function markEventFailure(
   }
 }
 
+async function processBackendCanaryEvent(
+  eventId: string,
+): Promise<
+  Pick<WorkerResult, 'processed' | 'failed' | 'deleted' | 'archived' | 'alreadyProcessed'>
+> {
+  const eventRow = await loadEventRow(eventId);
+
+  if (!eventRow) {
+    throw new Error(`Canary event ${eventId} was not found`);
+  }
+
+  if (eventRow.type !== BACKEND_CANARY_EVENT_TYPE) {
+    throw new Error(`Event ${eventId} is not a backend canary event`);
+  }
+
+  if (eventRow.processed_at) {
+    return { processed: 0, failed: 0, deleted: 0, archived: 0, alreadyProcessed: true };
+  }
+
+  const queueMessageId = eventRow.queue_message_id;
+
+  if (!queueMessageId) {
+    throw new Error(`Canary event ${eventId} has no queue message id`);
+  }
+
+  await updateEventAttempt(eventId, 1);
+  await markEventSuccess(eventId, 1);
+  await deleteQueueMessage(queueMessageId);
+
+  return { processed: 1, failed: 0, deleted: 1, archived: 0 };
+}
+
 async function processQueueMessage(
   queueMessage: QueueMessage,
   maxAttempts: number,
@@ -237,6 +279,12 @@ async function processQueueMessage(
   await updateEventAttempt(eventId, queueMessage.read_ct);
 
   try {
+    if (eventRow.type === BACKEND_CANARY_EVENT_TYPE) {
+      await markEventSuccess(eventId, queueMessage.read_ct);
+      await deleteQueueMessage(queueMessage.msg_id);
+      return { processed: 1, failed: 0, deleted: 1, archived: 0 };
+    }
+
     await processCatchNotificationForEvent(supabaseAdmin, eventRow);
     await processAchievementsForEvent(supabaseAdmin, eventRow);
     await markEventSuccess(eventId, queueMessage.read_ct);
@@ -274,7 +322,7 @@ async function processQueueMessage(
   }
 }
 
-async function processQueue(req: Request): Promise<WorkerResult> {
+async function processQueue(body: WorkerRequestBody): Promise<WorkerResult> {
   const config = await loadGameplayQueueConfig(supabaseAdmin);
 
   if (!config.queueEnabled) {
@@ -288,15 +336,12 @@ async function processQueue(req: Request): Promise<WorkerResult> {
     };
   }
 
-  let body: WorkerRequestBody = {};
-  try {
-    body = (await req.json()) as WorkerRequestBody;
-  } catch {
-    body = {};
-  }
-
   const maxMessages = parsePositiveInteger(body.maxMessages) ?? config.batchSize;
   const maxDurationMs = parsePositiveInteger(body.maxDurationMs);
+  const canaryEventId =
+    typeof body.canaryEventId === 'string' && body.canaryEventId.trim().length > 0
+      ? body.canaryEventId.trim()
+      : null;
   const startedAt = Date.now();
 
   const result: WorkerResult = {
@@ -306,6 +351,19 @@ async function processQueue(req: Request): Promise<WorkerResult> {
     deleted: 0,
     archived: 0,
   };
+
+  if (canaryEventId) {
+    const canaryResult = await processBackendCanaryEvent(canaryEventId);
+    return {
+      fetched: canaryResult.alreadyProcessed ? 0 : 1,
+      processed: canaryResult.processed,
+      failed: canaryResult.failed,
+      deleted: canaryResult.deleted,
+      archived: canaryResult.archived,
+      canary: true,
+      alreadyProcessed: canaryResult.alreadyProcessed,
+    };
+  }
 
   while (result.fetched < maxMessages) {
     if (maxDurationMs !== null && Date.now() - startedAt >= maxDurationMs) {
@@ -338,6 +396,23 @@ async function processQueue(req: Request): Promise<WorkerResult> {
   return result;
 }
 
+async function parseWorkerBody(req: Request): Promise<WorkerRequestBody> {
+  try {
+    return (await req.json()) as WorkerRequestBody;
+  } catch {
+    return {};
+  }
+}
+
+function parseSource(req: Request, body: WorkerRequestBody): string {
+  if (typeof body.source === 'string' && body.source.trim().length > 0) {
+    return body.source.trim();
+  }
+
+  const url = new URL(req.url);
+  return url.searchParams.get('source')?.trim() || 'cron';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -351,12 +426,57 @@ Deno.serve(async (req) => {
     return jsonResponse(401, { error: 'Unauthorized' });
   }
 
+  const body = await parseWorkerBody(req);
+  const source = parseSource(req, body);
+  const workerRun = await beginBackendWorkerRun(supabaseAdmin, {
+    workerName: 'gameplay_queue_drain',
+    source,
+    metadata: {
+      max_messages: parsePositiveInteger(body.maxMessages),
+      max_duration_ms: parsePositiveInteger(body.maxDurationMs),
+    },
+  });
+
   try {
-    const result = await processQueue(req);
+    const result = await processQueue(body);
+    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+      status: result.failed > 0 || result.archived > 0 ? 'partial' : 'succeeded',
+      counts: {
+        fetched: result.fetched,
+        processed: result.processed,
+        failed: result.failed,
+        deleted: result.deleted,
+        archived: result.archived,
+        disabled: result.disabled === true ? 1 : 0,
+      },
+      error:
+        result.failed > 0 || result.archived > 0
+          ? `${result.failed} queue messages failed; ${result.archived} archived`
+          : null,
+      metadata: {
+        max_messages: parsePositiveInteger(body.maxMessages),
+        max_duration_ms: parsePositiveInteger(body.maxDurationMs),
+      },
+    });
     return jsonResponse(200, result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('[process-gameplay-queue] Queue processing failed', { error });
+    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+      status: 'failed',
+      counts: {
+        fetched: 0,
+        processed: 0,
+        failed: 0,
+        deleted: 0,
+        archived: 0,
+      },
+      error,
+      metadata: {
+        max_messages: parsePositiveInteger(body.maxMessages),
+        max_duration_ms: parsePositiveInteger(body.maxDurationMs),
+      },
+    });
     return jsonResponse(500, { error: message });
   }
 });

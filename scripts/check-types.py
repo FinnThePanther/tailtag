@@ -21,6 +21,32 @@ committed = open("src/types/database.ts").read()
 generated = open(sys.argv[1]).read()
 
 
+def strip_supabase_cli_notices(source):
+    return "\n".join(
+        line
+        for line in source.splitlines()
+        if not line.startswith("A new version of Supabase CLI is available:")
+        and not line.startswith("We recommend updating regularly for new features")
+    )
+
+
+def normalize_supabase_helper_spacing(source):
+    helpers = [
+        "type DatabaseWithoutInternals",
+        "type DefaultSchema",
+        "export type Tables<",
+        "export type TablesInsert<",
+        "export type TablesUpdate<",
+        "export type Enums<",
+        "export type CompositeTypes<",
+        "export const Constants",
+        "// Type aliases for application use",
+    ]
+    for helper in helpers:
+        source = source.replace(f"\n\n{helper}", f"\n{helper}")
+    return source
+
+
 def replace_required(source, anchor, replacement):
     if anchor not in source:
         print(f"ERROR: expected generated type anchor not found: {anchor!r}")
@@ -43,6 +69,29 @@ def replace_first_available(source, replacements):
     sys.exit(1)
 
 
+def normalize_gameplay_dead_letter_replay_result(source):
+    # Supabase CLI currently emits scalar RETURNS TABLE columns as non-nullable.
+    # replay_gameplay_dead_letter_events returns null queue_message_id for skipped rows.
+    anchor = (
+        "      replay_gameplay_dead_letter_events: {\n"
+        "        Args: { p_actor_id: string; p_event_ids: string[]; p_reason: string }\n"
+        "        Returns: {\n"
+        "          event_id: string\n"
+        "          message: string\n"
+        "          queue_message_id: number\n"
+        "          replayed: boolean\n"
+        "          status: string\n"
+        "        }[]\n"
+        "      }"
+    )
+    nullable_anchor = anchor.replace("queue_message_id: number", "queue_message_id: number | null")
+    if nullable_anchor in source:
+        return source
+
+    replacement = anchor.replace("queue_message_id: number", "queue_message_id: number | null")
+    return replace_required(source, anchor, replacement)
+
+
 def format_typescript(source):
     prettier = os.path.join("node_modules", ".bin", "prettier")
     if not os.path.exists(prettier):
@@ -59,6 +108,8 @@ def format_typescript(source):
         sys.exit(result.returncode)
     return result.stdout
 
+
+generated = strip_supabase_cli_notices(generated)
 
 generated = replace_first_available(
     generated,
@@ -87,12 +138,14 @@ generated = replace_required(
 generated = replace_required(
     generated, "attendance_state?: string", "attendance_state?: AttendanceState"
 )
+generated = normalize_gameplay_dead_letter_replay_result(generated)
 generated = format_typescript(generated)
 
 boundary = "// Type aliases for application use"
 idx = committed.find(boundary)
 committed_gen = committed[:idx].rstrip() if idx != -1 else committed.rstrip()
-fresh_gen = generated.rstrip()
+committed_gen = normalize_supabase_helper_spacing(committed_gen)
+fresh_gen = normalize_supabase_helper_spacing(generated.rstrip())
 
 if committed_gen == fresh_gen:
     print("Generated types match committed file.")

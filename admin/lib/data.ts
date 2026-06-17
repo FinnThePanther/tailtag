@@ -18,6 +18,8 @@ type PlayerSearchResult = {
 };
 
 type ConventionRow = Database['public']['Tables']['conventions']['Row'];
+type EventRow = Database['public']['Tables']['events']['Row'];
+type AuditLogRow = Database['public']['Tables']['audit_log']['Row'];
 const CONVENTION_LIST_COLUMNS = [
   'id',
   'name',
@@ -67,6 +69,35 @@ export async function fetchDashboardSummary(supabase: ServiceRoleClient) {
     activeConventions: conventions.count ?? 0,
     pendingReports: pendingReports.count ?? 0,
   };
+}
+
+export type BackendWorkerHealthRow = {
+  worker_name: string;
+  display_name: string;
+  latest_run_id: string | null;
+  latest_status: string | null;
+  latest_source: string | null;
+  latest_started_at: string | null;
+  latest_completed_at: string | null;
+  latest_duration_ms: number | null;
+  latest_counts: Record<string, unknown>;
+  latest_error_message: string | null;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  running_started_at: string | null;
+  recent_failure_count: number;
+};
+
+export async function fetchBackendWorkerHealth(
+  supabase: ServiceRoleClient,
+): Promise<BackendWorkerHealthRow[]> {
+  const { data, error } = await (supabase as any).rpc('get_backend_worker_run_health');
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as BackendWorkerHealthRow[];
 }
 
 export async function fetchPlayerSearch(
@@ -681,4 +712,81 @@ export async function fetchAdminErrors(supabase: ServiceRoleClient, limit = 50) 
     throw error;
   }
   return data ?? [];
+}
+
+export type DeadLetteredGameplayEvent = Pick<
+  EventRow,
+  | 'event_id'
+  | 'user_id'
+  | 'convention_id'
+  | 'type'
+  | 'occurred_at'
+  | 'received_at'
+  | 'retry_count'
+  | 'last_error'
+  | 'queue_name'
+  | 'queue_message_id'
+  | 'enqueued_at'
+  | 'last_attempted_at'
+  | 'dead_lettered_at'
+  | 'dead_letter_reason'
+>;
+
+export async function fetchDeadLetteredGameplayEvents(
+  supabase: ServiceRoleClient,
+  limit = 25,
+): Promise<DeadLetteredGameplayEvent[]> {
+  const { data, error } = await supabase
+    .from('events')
+    .select(
+      [
+        'event_id',
+        'user_id',
+        'convention_id',
+        'type',
+        'occurred_at',
+        'received_at',
+        'retry_count',
+        'last_error',
+        'queue_name',
+        'queue_message_id',
+        'enqueued_at',
+        'last_attempted_at',
+        'dead_lettered_at',
+        'dead_letter_reason',
+      ].join(', '),
+    )
+    .not('dead_lettered_at', 'is', null)
+    .is('processed_at', null)
+    .order('dead_lettered_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as unknown as DeadLetteredGameplayEvent[];
+}
+
+export type GameplayDeadLetterReplayAudit = Pick<
+  AuditLogRow,
+  'id' | 'actor_id' | 'entity_id' | 'diff' | 'context' | 'created_at'
+>;
+
+export async function fetchGameplayDeadLetterReplayAudits(
+  supabase: ServiceRoleClient,
+  limit = 25,
+): Promise<GameplayDeadLetterReplayAudit[]> {
+  const { data, error } = await supabase
+    .from('audit_log')
+    .select('id, actor_id, entity_id, diff, context, created_at')
+    .eq('action', 'replay_gameplay_dead_letter_event')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as unknown as GameplayDeadLetterReplayAudit[];
 }

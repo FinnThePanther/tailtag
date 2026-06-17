@@ -2,7 +2,8 @@
 # scripts/verify-environment.sh
 #
 # Verifies a TailTag Supabase environment against required configuration.
-# Checks realtime tables, cron jobs, vault secrets, and storage buckets.
+# Checks realtime tables, cron jobs, vault secrets, storage buckets, and backend
+# event-processing canaries.
 #
 # Usage:
 #   ./scripts/verify-environment.sh development
@@ -202,6 +203,27 @@ for secret in "${SECRETS[@]}"; do
     "SELECT count(*)::text FROM vault.secrets WHERE name='$secret'"
 done
 
+check "ACHIEVEMENTS_PROCESSOR_URL targets process-gameplay-queue" \
+  "WITH project_url AS (
+     SELECT decrypted_secret
+       FROM vault.decrypted_secrets
+      WHERE name='SUPABASE_URL'
+      ORDER BY created_at DESC
+      LIMIT 1
+   ),
+   processor_url AS (
+     SELECT decrypted_secret
+       FROM vault.decrypted_secrets
+      WHERE name='ACHIEVEMENTS_PROCESSOR_URL'
+      ORDER BY created_at DESC
+      LIMIT 1
+   )
+   SELECT CASE
+     WHEN (SELECT decrypted_secret FROM processor_url) =
+       rtrim((SELECT decrypted_secret FROM project_url), '/') || '/functions/v1/process-gameplay-queue'
+     THEN 1 ELSE 0
+   END::text"
+
 section "Edge Function secrets"
 
 EDGE_SECRETS_JSON="$($SUPABASE_CLI secrets list --project-ref "$PROJECT_REF" --output json 2>/dev/null || true)"
@@ -270,6 +292,16 @@ check_edge_secret_any \
   "LIFECYCLE_AUTOMATION_ACTOR_ID or SYSTEM_EVENT_USER_ID" \
   "LIFECYCLE_AUTOMATION_ACTOR_ID" \
   "SYSTEM_EVENT_USER_ID"
+
+section "Backend event-processing canary"
+
+if SUPABASE_CLI="$SUPABASE_CLI" python3 -S scripts/run-event-processing-canary.py \
+  --environment "$ENV" \
+  --project-ref "$PROJECT_REF"; then
+  pass "events-ingress -> gameplay queue -> worker success"
+else
+  fail "events-ingress -> gameplay queue -> worker success"
+fi
 
 # ── 5. Storage buckets ───────────────────────────────────────────────────────
 
