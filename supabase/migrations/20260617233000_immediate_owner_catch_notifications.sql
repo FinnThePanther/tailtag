@@ -548,14 +548,12 @@ BEGIN
     v_photo_source := coalesce(v_catch.catch_photo_source, 'camera');
   END IF;
 
-  IF v_catch.photo_upload_state <> 'uploaded' THEN
-    UPDATE public.catches
-       SET catch_photo_path = p_catch_photo_path,
-           catch_photo_url = p_catch_photo_url,
-           catch_photo_source = v_photo_source,
-           photo_upload_state = 'uploaded'
-     WHERE id = p_catch_id;
-  END IF;
+  UPDATE public.catches
+     SET catch_photo_path = p_catch_photo_path,
+         catch_photo_url = p_catch_photo_url,
+         catch_photo_source = v_photo_source,
+         photo_upload_state = 'uploaded'
+   WHERE id = p_catch_id;
 
   IF v_catch.status = 'PENDING' THEN
     SELECT event_id, duplicate, enqueued
