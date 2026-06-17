@@ -166,10 +166,6 @@ BEGIN
     LIMIT 1;
 
     IF FOUND THEN
-      IF v_existing.catcher_id <> p_catcher_id THEN
-        RAISE EXCEPTION 'Client attempt id belongs to another catcher';
-      END IF;
-
       RETURN json_build_object(
         'catch_id', v_existing.id,
         'status', v_existing.status,
