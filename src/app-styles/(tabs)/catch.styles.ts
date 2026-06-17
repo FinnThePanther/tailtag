@@ -118,6 +118,9 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
+  postCatchInteractionPreferences: {
+    marginBottom: spacing.md,
+  },
   batchSummaryRow: {
     flexDirection: 'row',
     gap: spacing.sm,

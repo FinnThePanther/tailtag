@@ -1300,6 +1300,7 @@ export default function CatchScreen() {
             badges={caughtFursuit.interactionBadges}
             title="Before you interact"
             body="These are quick signals, not blanket permission. Ask when unsure."
+            style={styles.postCatchInteractionPreferences}
           />
           {catchRecord?.photo_upload_state === 'pending_upload' ? (
             <View style={styles.catchProgressNotice}>

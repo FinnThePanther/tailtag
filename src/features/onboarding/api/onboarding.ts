@@ -16,6 +16,13 @@ import { MAX_FURSUIT_COLORS } from '../../colors';
 import { MAX_FURSUITS_PER_USER } from '../../../constants/fursuits';
 import { ensureSpeciesEntry } from '../../species';
 import { normalizeVisibilityAudience, type VisibilityAudience } from '@/features/adult-boundary';
+import {
+  getInteractionPreferencesError,
+  normalizeInteractionBadges,
+  normalizeSocialSignal,
+  type InteractionBadgeKey,
+  type SocialSignalKey,
+} from '@/features/interaction-preferences';
 
 export const GETTING_STARTED_ACHIEVEMENT_KEY = 'getting_started';
 
@@ -82,6 +89,8 @@ export async function createQuickFursuit(options: {
   photo: FursuitPhotoCandidate | null;
   colorIds: string[];
   visibilityAudience?: VisibilityAudience;
+  socialSignal?: SocialSignalKey | null;
+  interactionBadges?: InteractionBadgeKey[];
 }): Promise<string> {
   const { userId, name, species, description, photo, colorIds } = options;
   const client = supabase as any;
@@ -114,6 +123,8 @@ export async function createQuickFursuit(options: {
     const normalizedSpecies = species.trim();
     const normalizedDescription = description?.trim() ?? null;
     const visibilityAudience = normalizeVisibilityAudience(options.visibilityAudience);
+    const socialSignal = normalizeSocialSignal(options.socialSignal);
+    const interactionBadges = normalizeInteractionBadges(options.interactionBadges);
     const normalizedColorIds = Array.from(
       new Set(
         (Array.isArray(colorIds) ? colorIds : [])
@@ -134,6 +145,11 @@ export async function createQuickFursuit(options: {
       throw new Error('You can choose up to three colors.');
     }
 
+    const interactionPreferencesError = getInteractionPreferencesError(interactionBadges);
+    if (interactionPreferencesError) {
+      throw new Error(interactionPreferencesError);
+    }
+
     for (let attempt = 0; attempt < UNIQUE_INSERT_ATTEMPTS; attempt += 1) {
       const uniqueCode = await generateAvailableFursuitCode();
 
@@ -152,6 +168,8 @@ export async function createQuickFursuit(options: {
         unique_code: uniqueCode,
         description: normalizedDescription,
         visibility_audience: visibilityAudience,
+        social_signal: socialSignal,
+        interaction_badges: interactionBadges,
       };
 
       const { data: inserted, error } = await client
