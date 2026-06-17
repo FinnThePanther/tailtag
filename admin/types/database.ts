@@ -1401,6 +1401,7 @@ export type Database = {
       notifications: {
         Row: {
           created_at: string;
+          dedupe_key: string | null;
           id: string;
           payload: Json;
           type: string;
@@ -1408,6 +1409,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          dedupe_key?: string | null;
           id?: string;
           payload?: Json;
           type: string;
@@ -1415,6 +1417,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          dedupe_key?: string | null;
           id?: string;
           payload?: Json;
           type?: string;
@@ -2903,6 +2906,18 @@ export type Database = {
         Args: { p_payload: Json; p_user_id: string };
         Returns: boolean;
       };
+      insert_notification_once: {
+        Args: {
+          p_dedupe_key: string;
+          p_payload: Json;
+          p_type: string;
+          p_user_id: string;
+        };
+        Returns: {
+          inserted: boolean;
+          notification_id: string;
+        }[];
+      };
       is_admin: { Args: { user_id: string }; Returns: boolean };
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean };
       is_adult_profile: { Args: { p_profile_id: string }; Returns: boolean };
@@ -3001,6 +3016,10 @@ export type Database = {
           p_verification_method?: string;
           p_verified_location?: Json;
         };
+        Returns: undefined;
+      };
+      persist_daily_task_state_and_notifications: {
+        Args: { p_notifications: Json; p_progress_rows: Json; p_streak: Json };
         Returns: undefined;
       };
       process_achievement_queue_if_active: { Args: never; Returns: undefined };
