@@ -85,7 +85,7 @@ import {
   getInteractionPreferencesError,
   type InteractionBadgeKey,
   type SocialSignalKey,
-} from '../../../src/features/interaction-preferences';
+} from '@/features/interaction-preferences';
 
 const PRONOUN_OPTIONS = [
   'he/him',
