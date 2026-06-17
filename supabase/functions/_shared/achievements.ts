@@ -141,7 +141,9 @@ function buildAchievementNotificationDedupeKey(
       normalizeNotificationDedupeValue(summary.achievement_key) ??
       summary.achievement_id);
   const eventKey =
-    normalizeNotificationDedupeValue(summary.source_event_id) ?? summary.achievement_id;
+    normalizeNotificationDedupeValue(summary.source_event_id) ??
+    normalizeNotificationDedupeValue(summary.awarded_at) ??
+    summary.achievement_id;
 
   return `achievement:${eventKey}:${surfaceKey}`;
 }
