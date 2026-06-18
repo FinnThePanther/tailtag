@@ -98,6 +98,14 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  summaryHelpBlock: {
+    gap: spacing.xs,
+  },
+  summaryHelpText: {
+    color: colors.slate200,
+    fontSize: 13,
+    lineHeight: 18,
+  },
   tasksCard: {
     gap: spacing.md,
   },
@@ -124,6 +132,12 @@ export const styles = StyleSheet.create({
     color: colors.destructive,
     fontSize: 14,
     fontWeight: '500',
+  },
+  taskContent: {
+    gap: spacing.md,
+  },
+  taskActions: {
+    alignItems: 'flex-start',
   },
   tasksList: {
     gap: spacing.md,
@@ -160,22 +174,6 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
     flexShrink: 0,
   },
-  conventionBadgeRow: {
-    flexDirection: 'row',
-  },
-  conventionBadge: {
-    color: '#f59e0b',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.35)',
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    backgroundColor: 'rgba(245,158,11,0.08)',
-  },
   taskDescription: {
     color: colors.slate200,
     fontSize: 14,
@@ -186,6 +184,7 @@ export const styles = StyleSheet.create({
   },
   taskFooter: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: spacing.sm,

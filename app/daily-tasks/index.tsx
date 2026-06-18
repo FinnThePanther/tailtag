@@ -15,7 +15,7 @@ import {
   fetchProfileConventionMemberships,
   useConventionVerificationAction,
 } from '../../src/features/conventions';
-import { useDailyTasks } from '../../src/features/daily-tasks';
+import { type DailyTasksAvailability, useDailyTasks } from '../../src/features/daily-tasks';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/daily-tasks/index.styles';
@@ -66,6 +66,16 @@ function getTaskStatusCopy(
   }
 
   return `${remaining} to go`;
+}
+
+function getDailyTasksUnavailableMessage(
+  reason: Exclude<DailyTasksAvailability, 'available'>,
+): string {
+  if (reason === 'outside_date_window') {
+    return "Daily tasks are only available during this convention's scheduled dates.";
+  }
+
+  return 'Daily tasks are only available while this convention is live.';
 }
 
 export default function DailyTasksScreen() {
@@ -145,7 +155,13 @@ export default function DailyTasksScreen() {
   const progressValue = totalCount > 0 ? Math.min(completedCount / totalCount, 1) : 0;
   const remainingCount = Math.max(totalCount - completedCount, 0);
   const timezone = data?.timezone ?? selectedConvention?.timezone ?? 'UTC';
-  const isDailyTasksUnavailable = data?.availability && data.availability !== 'available';
+  const isDailyTasksAvailable = data?.availability === 'available';
+  const dailyTasksUnavailableReason: Exclude<DailyTasksAvailability, 'available'> | null =
+    data?.availability === 'not_live' || data?.availability === 'outside_date_window'
+      ? data.availability
+      : null;
+  const canStartCatching =
+    Boolean(selectedConventionId) && isDailyTasksAvailable && tasks.length > 0 && !allComplete;
 
   const isRefreshing =
     (isFetching && !isLoading) || (isConventionsFetching && !isConventionsLoading);
@@ -304,22 +320,30 @@ export default function DailyTasksScreen() {
                   ? verificationRequiredMembership
                     ? 'Verify your location to begin.'
                     : 'Join or verify a playable convention to begin.'
-                  : isDailyTasksUnavailable
-                    ? 'Daily tasks are only available while this convention is live.'
+                  : dailyTasksUnavailableReason
+                    ? getDailyTasksUnavailableMessage(dailyTasksUnavailableReason)
                     : totalCount === 0
-                      ? "Today's lineup is being prepared."
+                      ? "Today's task lineup is still being prepared."
                       : allComplete
                         ? 'All tasks complete - great job!'
                         : `${remainingCount} task${remainingCount === 1 ? '' : 's'} remaining`}
               </Text>
               <Text style={styles.countdownLabel}>
-                {!selectedConventionId
+                {!selectedConventionId || !data
                   ? 'No reset scheduled'
-                  : isDailyTasksUnavailable
+                  : dailyTasksUnavailableReason
                     ? 'No reset scheduled'
                     : `Resets in ${countdown}`}
               </Text>
             </View>
+            {selectedConventionId && isDailyTasksAvailable ? (
+              <View style={styles.summaryHelpBlock}>
+                <Text style={styles.summaryHelpText}>Resets at midnight in convention time.</Text>
+                <Text style={styles.summaryHelpText}>
+                  Complete every task before reset to grow your streak.
+                </Text>
+              </View>
+            ) : null}
           </View>
         </TailTagCard>
 
@@ -372,58 +396,67 @@ export default function DailyTasksScreen() {
                 Try again
               </TailTagButton>
             </View>
-          ) : isDailyTasksUnavailable ? (
+          ) : dailyTasksUnavailableReason ? (
             <Text style={styles.message}>
-              Daily tasks are only available while this convention is live.
+              {getDailyTasksUnavailableMessage(dailyTasksUnavailableReason)}
             </Text>
           ) : tasks.length === 0 ? (
-            <Text style={styles.message}>No tasks available right now. Check back shortly.</Text>
+            <Text style={styles.message}>
+              Today's task lineup is still being prepared. Pull to refresh or check back shortly.
+            </Text>
           ) : (
-            <View style={styles.tasksList}>
-              {tasks.map((task) => {
-                const progressFraction =
-                  task.requirement > 0 ? Math.min(task.currentCount / task.requirement, 1) : 0;
-                const clampedCount = Math.min(task.currentCount, task.requirement);
-                const progressLabel = `${clampedCount} / ${task.requirement}`;
-                const completionTime = task.isCompleted
-                  ? formatCompletionTime(task.completedAt, timezone)
-                  : '';
-
-                return (
-                  <View
-                    key={task.id}
-                    style={styles.taskRow}
+            <View style={styles.taskContent}>
+              {canStartCatching ? (
+                <View style={styles.taskActions}>
+                  <TailTagButton
+                    size="sm"
+                    onPress={() => router.push('/catch')}
                   >
-                    <View style={styles.taskHeader}>
-                      <Text style={styles.taskTitle}>{task.name}</Text>
-                      <Text
-                        numberOfLines={1}
-                        style={task.isCompleted ? styles.taskBadgeDone : styles.taskBadgePending}
-                      >
-                        {getTaskStatusCopy(task.requirement, task.currentCount, task.isCompleted)}
-                      </Text>
-                    </View>
-                    {task.conventionId !== null ? (
-                      <View style={styles.conventionBadgeRow}>
-                        <Text style={styles.conventionBadge}>Con exclusive</Text>
-                      </View>
-                    ) : null}
-                    <Text style={styles.taskDescription}>{task.description}</Text>
-                    <TailTagProgressBar
-                      value={progressFraction}
-                      style={styles.taskProgress}
-                    />
-                    <View style={styles.taskFooter}>
-                      <Text style={styles.taskProgressLabel}>{progressLabel}</Text>
-                      {completionTime ? (
-                        <Text style={styles.taskCompletionLabel}>
-                          Completed at {completionTime}
+                    Start catching
+                  </TailTagButton>
+                </View>
+              ) : null}
+              <View style={styles.tasksList}>
+                {tasks.map((task) => {
+                  const progressFraction =
+                    task.requirement > 0 ? Math.min(task.currentCount / task.requirement, 1) : 0;
+                  const clampedCount = Math.min(task.currentCount, task.requirement);
+                  const progressLabel = `${clampedCount} / ${task.requirement}`;
+                  const completionTime = task.isCompleted
+                    ? formatCompletionTime(task.completedAt, timezone)
+                    : '';
+
+                  return (
+                    <View
+                      key={task.id}
+                      style={styles.taskRow}
+                    >
+                      <View style={styles.taskHeader}>
+                        <Text style={styles.taskTitle}>{task.name}</Text>
+                        <Text
+                          numberOfLines={1}
+                          style={task.isCompleted ? styles.taskBadgeDone : styles.taskBadgePending}
+                        >
+                          {getTaskStatusCopy(task.requirement, task.currentCount, task.isCompleted)}
                         </Text>
-                      ) : null}
+                      </View>
+                      <Text style={styles.taskDescription}>{task.description}</Text>
+                      <TailTagProgressBar
+                        value={progressFraction}
+                        style={styles.taskProgress}
+                      />
+                      <View style={styles.taskFooter}>
+                        <Text style={styles.taskProgressLabel}>{progressLabel}</Text>
+                        {completionTime ? (
+                          <Text style={styles.taskCompletionLabel}>
+                            Completed at {completionTime}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
-                  </View>
-                );
-              })}
+                  );
+                })}
+              </View>
             </View>
           )}
         </TailTagCard>
