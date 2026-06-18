@@ -38,6 +38,16 @@ npm run format src/features/auth/api/auth.ts src/components/Button.tsx
 ```
 Run `npm run format` with all edited file paths before running `npm run ci:validate` or `npm run lint`. This ensures code follows the project's style conventions.
 
+### Agent Command Troubleshooting
+Codex Desktop runs with workspace sandboxing and `zsh`, so a few repo commands need care:
+
+- Quote Expo route paths that contain parentheses or brackets. For example, use `npm run format 'app/(tabs)/suits/add-fursuit.tsx' 'app/fursuits/[id]/edit.tsx'`; unquoted paths can fail with `zsh: no matches found`.
+- `npm run ci:validate` runs Expo Doctor, which contacts Expo APIs. If it fails with `fetch failed`, `getaddrinfo ENOTFOUND exp.host`, or React Native Directory network errors, rerun the same command with network escalation instead of debugging project config.
+- Supabase CLI commands may try to write telemetry/config under `~/.supabase`, which is outside the workspace sandbox. If `supabase migration list`, `supabase migration up`, or similar commands fail with `EPERM ... ~/.supabase/telemetry.json`, rerun the same Supabase CLI command with escalation.
+- `supabase db query` for the dev project should use the linked project flag, not `--project-ref`: `supabase db query --linked "<sql>"`. The CLI rejects `--project-ref` for this subcommand.
+- `npm run gen:types` may need network access because it invokes `npx supabase@...`; if it fails with `getaddrinfo ENOTFOUND registry.npmjs.org`, rerun with network escalation. If it instead fails because `SUPABASE_ACCESS_TOKEN` is missing, stop retrying in Codex Desktop and ask Nick to run `npm run gen:types` locally.
+- After schema changes, the reliable sequence is: apply the migration to dev with `supabase migration up --linked`, run `npm run gen:types`, format `src/types/database.ts`, then rerun `npm run ci:validate`.
+
 ## Coding Style & Naming Conventions
 Use the surrounding file as the formatting source of truth and avoid unrelated reformatting. Prefer:
 

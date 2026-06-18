@@ -11,6 +11,7 @@ import {
 import { CATCH_PHOTO_BUCKET, FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
 import type { Database } from '../../../types/database';
+import { normalizeSpeciesName, type FursuitSpeciesOption } from '@/features/species';
 import {
   normalizeInteractionBadges,
   normalizeSocialSignal,
@@ -59,6 +60,16 @@ export async function fetchCaughtSuits(_userId: string): Promise<CaughtRecord[]>
 export function mapCaughtRecordFromRpcRow(record: HistoricalCatchRpcRow): CaughtRecord {
   const fursuitId = typeof record.fursuit_id === 'string' ? record.fursuit_id : '';
   const fursuitRedacted = record.fursuit_redacted === true;
+  const legacySpecies =
+    !fursuitRedacted && record.species_id && record.species_name
+      ? ([
+          {
+            id: record.species_id,
+            name: record.species_name,
+            normalizedName: normalizeSpeciesName(record.species_name),
+          },
+        ] satisfies FursuitSpeciesOption[])
+      : [];
   const ownerAttributionVisibility =
     (record as any).fursuit_owner_attribution_visibility === 'hidden' ? 'hidden' : 'public';
   const fursuit = fursuitId
@@ -69,6 +80,7 @@ export function mapCaughtRecordFromRpcRow(record: HistoricalCatchRpcRow): Caught
         name: fursuitRedacted ? 'Unavailable fursuit' : (record.fursuit_name ?? 'Unknown'),
         species: fursuitRedacted ? null : (record.species_name ?? null),
         speciesId: fursuitRedacted ? null : (record.species_id ?? null),
+        speciesTags: legacySpecies,
         colors: fursuitRedacted ? [] : mapFursuitColors(record.color_assignments ?? null),
         avatar_path: fursuitRedacted ? null : (record.fursuit_avatar_path ?? null),
         avatar_url: fursuitRedacted

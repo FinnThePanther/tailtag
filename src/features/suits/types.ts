@@ -1,5 +1,6 @@
 import type { ConventionSummary } from '../conventions';
 import type { FursuitColorOption } from '../colors';
+import type { FursuitSpeciesOption } from '../species';
 import type { FursuitSocialLink } from '../../types/database';
 import type { VisibilityAudience } from '@/features/adult-boundary';
 import type { InteractionBadgeKey, SocialSignalKey } from '@/features/interaction-preferences';
@@ -34,6 +35,7 @@ export type FursuitSummary = {
   name: string;
   species: string | null;
   speciesId: string | null;
+  speciesTags: FursuitSpeciesOption[];
   colors: FursuitColorOption[];
   avatar_path?: string | null;
   avatar_url: string | null;

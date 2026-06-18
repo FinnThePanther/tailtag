@@ -263,9 +263,7 @@ async function processCatchEvent(
   }
 
   const catchFursuit = Array.isArray(catchRow.fursuit) ? catchRow.fursuit[0] : catchRow.fursuit;
-  const speciesEntry = Array.isArray(catchFursuit?.species)
-    ? catchFursuit?.species[0]
-    : catchFursuit?.species;
+  const speciesMetadata = extractFursuitSpeciesMetadata(catchFursuit);
   const colorNames = ((catchFursuit?.color_assignments ?? []) as Array<{ color?: unknown }>)
     .map((assignment) => {
       const color = Array.isArray(assignment.color) ? assignment.color[0] : assignment.color;
@@ -350,7 +348,13 @@ async function processCatchEvent(
     fursuit_owner_id: rawOwnerId ?? null,
     convention_id: primaryConventionId,
     status: catchRow.status,
-    species: speciesEntry?.name ?? null,
+    species: speciesMetadata.primaryName,
+    species_id: speciesMetadata.primaryId,
+    species_ids: speciesMetadata.ids,
+    species_names: speciesMetadata.names,
+    primary_species_id: speciesMetadata.primaryId,
+    primary_species_name: speciesMetadata.primaryName,
+    is_hybrid_species: speciesMetadata.isHybrid,
     colors: colorNames,
     maker_names: makerMetadata.makerNames,
     normalized_maker_names: makerMetadata.normalizedMakerNames,
@@ -382,7 +386,7 @@ async function processCatchEvent(
   }
 
   const [isHybrid, hasDoubleCatch] = await Promise.all([
-    hasHybridOrMultiSpecies(supabaseAdmin, fursuitId),
+    Promise.resolve(speciesMetadata.isHybrid || speciesMetadata.count > 1),
     hasSecondCatchWithinMinute(supabaseAdmin, catcherId, occurredAt),
   ]);
 
@@ -607,9 +611,7 @@ async function processCatchConfirmedEvent(
   });
 
   const catchFursuit = Array.isArray(catchRow.fursuit) ? catchRow.fursuit[0] : catchRow.fursuit;
-  const speciesEntry = Array.isArray(catchFursuit?.species)
-    ? catchFursuit?.species[0]
-    : catchFursuit?.species;
+  const speciesMetadata = extractFursuitSpeciesMetadata(catchFursuit);
   const colorNames = ((catchFursuit?.color_assignments ?? []) as Array<{ color?: unknown }>)
     .map((assignment) => {
       const color = Array.isArray(assignment.color) ? assignment.color[0] : assignment.color;
@@ -651,7 +653,13 @@ async function processCatchConfirmedEvent(
       convention_id: resolvedConventionId,
       status: 'ACCEPTED',
       source: 'catch_confirmed',
-      species: speciesEntry?.name ?? null,
+      species: speciesMetadata.primaryName,
+      species_id: speciesMetadata.primaryId,
+      species_ids: speciesMetadata.ids,
+      species_names: speciesMetadata.names,
+      primary_species_id: speciesMetadata.primaryId,
+      primary_species_name: speciesMetadata.primaryName,
+      is_hybrid_species: speciesMetadata.isHybrid,
       colors: colorNames,
       maker_names: makerMetadata.makerNames,
       normalized_maker_names: makerMetadata.normalizedMakerNames,
@@ -1133,7 +1141,7 @@ async function fetchCatchWithRelations(
   const { data, error } = await supabaseAdmin
     .from('catches')
     .select(
-      'id,catcher_id,fursuit_id,convention_id,status,caught_at,catch_photo_url,fursuit:fursuits(id,owner_id,species_id,species:fursuit_species(name),color_assignments:fursuit_color_assignments(color:fursuit_colors(name)))',
+      'id,catcher_id,fursuit_id,convention_id,status,caught_at,catch_photo_url,fursuit:fursuits(id,owner_id,species_id,species:fursuit_species(id,name,normalized_name),species_assignments:fursuit_species_assignments(position,species:fursuit_species(id,name,normalized_name)),color_assignments:fursuit_color_assignments(color:fursuit_colors(name)))',
     )
     .eq('id', catchId)
     .limit(1)
@@ -1345,27 +1353,62 @@ async function hasNewMakerForCatcherAtConvention(
   return data === true;
 }
 
-async function hasHybridOrMultiSpecies(
-  supabaseAdmin: SupabaseClient<any, 'public', any>,
-  fursuitId: string,
-) {
-  const { data, error } = await supabaseAdmin
-    .from('fursuits')
-    .select('species:fursuit_species(name,normalized_name)')
-    .eq('id', fursuitId)
-    .limit(1)
-    .maybeSingle();
+function extractFursuitSpeciesMetadata(fursuit: any) {
+  const assignments = Array.isArray(fursuit?.species_assignments)
+    ? fursuit.species_assignments
+    : [];
+  const speciesFromAssignments = assignments
+    .map((assignment: any) => {
+      const species = Array.isArray(assignment?.species)
+        ? assignment.species[0]
+        : assignment?.species;
+      if (!species?.id || !species?.name) return null;
+      return {
+        id: String(species.id),
+        name: String(species.name),
+        normalizedName: String(species.normalized_name ?? species.name)
+          .trim()
+          .toLowerCase(),
+        position: Number(assignment?.position),
+      };
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => {
+      const left = Number.isFinite(a.position) ? a.position : Number.MAX_SAFE_INTEGER;
+      const right = Number.isFinite(b.position) ? b.position : Number.MAX_SAFE_INTEGER;
+      if (left !== right) return left - right;
+      return a.name.localeCompare(b.name);
+    });
 
-  if (error || !data) {
-    if (error) {
-      console.error('[events-ingress] Failed fetching fursuit metadata', { fursuitId, error });
-    }
-    return false;
-  }
+  const legacySpecies = Array.isArray(fursuit?.species) ? fursuit.species[0] : fursuit?.species;
+  const species =
+    speciesFromAssignments.length > 0
+      ? speciesFromAssignments
+      : legacySpecies?.id || legacySpecies?.name
+        ? [
+            {
+              id: legacySpecies?.id ? String(legacySpecies.id) : String(fursuit?.species_id ?? ''),
+              name: String(legacySpecies?.name ?? ''),
+              normalizedName: String(legacySpecies?.normalized_name ?? legacySpecies?.name ?? '')
+                .trim()
+                .toLowerCase(),
+              position: 1,
+            },
+          ].filter((entry) => entry.id && entry.name)
+        : [];
 
-  const species = Array.isArray(data.species) ? data.species[0] : data.species;
-  const name = (species?.normalized_name ?? species?.name ?? '').toString().toLowerCase();
-  return name.includes('hybrid');
+  const ids = species.map((entry: any) => entry.id);
+  const names = species.map((entry: any) => entry.name);
+  const isExplicitHybrid = species.some((entry: any) => entry.normalizedName.includes('hybrid'));
+
+  return {
+    ids,
+    names,
+    count: species.length,
+    primaryId: ids[0] ?? null,
+    primaryName: names[0] ?? null,
+    isHybrid: species.length > 1 || isExplicitHybrid,
+  };
 }
 
 async function hasSecondCatchWithinMinute(
