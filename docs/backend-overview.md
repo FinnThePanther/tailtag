@@ -37,6 +37,7 @@ Deployable functions currently include:
 - `expire-pending-catches`
 - `process-achievements`
 - `process-gameplay-queue`
+- `process-push-receipts`
 - `rotate-dailys`
 - `send-push`
 - `staff-moderate`
@@ -54,7 +55,7 @@ Gameplay writes are stored in Postgres and may trigger downstream processing thr
 
 Achievement and daily-task behavior is split between database state, Edge Function processing, and shared TypeScript rule definitions in `packages/achievement-rules/`. Keep shared rule changes and backend migrations in sync when changing achievement behavior.
 
-Push notifications use stored device tokens, notification tables, and the `send-push` function. Realtime subscriptions support immediate in-app updates for notifications, catch confirmations, achievements, daily tasks, and related gameplay state.
+Push notifications use stored device tokens, notification tables, the `send-push` ticket delivery worker, and the `process-push-receipts` provider outcome poller. Realtime subscriptions support immediate in-app updates for notifications, catch confirmations, achievements, daily tasks, and related gameplay state.
 
 ## Migrations and seeds
 

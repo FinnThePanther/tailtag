@@ -73,11 +73,13 @@ interface ExpoPushResponse {
   data?:
     | {
         status?: string;
+        id?: string;
         message?: string;
         details?: { error?: string };
       }
     | Array<{
         status?: string;
+        id?: string;
         message?: string;
         details?: { error?: string };
       }>;
@@ -104,6 +106,8 @@ interface DeliveryResult {
   responseBody?: ExpoPushResponse | null;
   requestSnapshot?: Record<string, unknown> | null;
   retryAfterSeconds?: number | null;
+  expoTicketId?: string | null;
+  expoPushToken?: string | null;
   expoTicketErrors?: number;
   tokenCleared?: boolean;
 }
@@ -407,6 +411,20 @@ function extractExpoErrors(responseJson: ExpoPushResponse): string[] {
   return errors;
 }
 
+function extractExpoTicketId(responseJson: ExpoPushResponse): string | null {
+  const results = responseJson?.data;
+  const entries = Array.isArray(results) ? results : results ? [results] : [];
+
+  for (const entry of entries) {
+    const ticketId = extractString(entry?.id);
+    if (entry?.status === 'ok' && ticketId) {
+      return ticketId;
+    }
+  }
+
+  return null;
+}
+
 function parseRetryAfterSeconds(value: string | null): number | null {
   if (!value) {
     return null;
@@ -481,6 +499,8 @@ async function completePushJob(
     p_request_snapshot: result.requestSnapshot ?? null,
     p_skip_reason: result.skipReason ?? null,
     p_retry_after_seconds: result.retryAfterSeconds ?? null,
+    p_expo_ticket_id: result.expoTicketId ?? null,
+    p_expo_push_token: result.expoPushToken ?? null,
   });
 
   if (error) {
@@ -644,10 +664,31 @@ async function deliverPushJob(job: PushJobRow, fetchDeadlineAt: number): Promise
         expoTicketErrors: expoErrors.length,
       };
     }
+
+    const expoTicketId = extractExpoTicketId(responseJson);
+    if (!expoTicketId) {
+      return {
+        status: 'failed',
+        errorMessage: 'Expo response missing ticket id',
+        responseStatus: 200,
+        responseBody: responseJson,
+        requestSnapshot,
+      };
+    }
+
+    return {
+      status: 'sent',
+      responseStatus: 200,
+      responseBody: responseJson,
+      requestSnapshot,
+      expoTicketId,
+      expoPushToken: profile.expo_push_token,
+    };
   }
 
   return {
-    status: 'sent',
+    status: 'failed',
+    errorMessage: 'Expo response missing body',
     responseStatus: 200,
     responseBody: responseJson,
     requestSnapshot,
