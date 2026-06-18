@@ -2890,18 +2890,18 @@ export type Database = {
         Args: never;
         Returns: {
           display_name: string;
-          last_failure_at: string;
-          last_success_at: string;
-          latest_completed_at: string;
+          last_failure_at: string | null;
+          last_success_at: string | null;
+          latest_completed_at: string | null;
           latest_counts: Json;
-          latest_duration_ms: number;
-          latest_error_message: string;
-          latest_run_id: string;
-          latest_source: string;
-          latest_started_at: string;
-          latest_status: string;
+          latest_duration_ms: number | null;
+          latest_error_message: string | null;
+          latest_run_id: string | null;
+          latest_source: string | null;
+          latest_started_at: string | null;
+          latest_status: string | null;
           recent_failure_count: number;
-          running_started_at: string;
+          running_started_at: string | null;
           worker_name: string;
         }[];
       };
