@@ -77,7 +77,7 @@ async function emitDailyResetEvent(
   }
 }
 
-type DailyTaskRow = {
+interface DailyTaskRow {
   id: string;
   name: string;
   description: string;
@@ -85,7 +85,7 @@ type DailyTaskRow = {
   requirement: number;
   metadata?: Record<string, unknown> | null;
   is_active?: boolean | null;
-};
+}
 
 type AssignmentWithTask = {
   position: number;
