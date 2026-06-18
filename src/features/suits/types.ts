@@ -1,6 +1,6 @@
 import type { ConventionSummary } from '../conventions';
 import type { FursuitColorOption } from '../colors';
-import type { FursuitSpeciesOption } from '../species';
+import type { FursuitSpeciesOption } from '@/features/species';
 import type { FursuitSocialLink } from '../../types/database';
 import type { VisibilityAudience } from '@/features/adult-boundary';
 import type { InteractionBadgeKey, SocialSignalKey } from '@/features/interaction-preferences';

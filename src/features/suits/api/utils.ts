@@ -1,6 +1,6 @@
 import type { FursuitBio, FursuitConvention, FursuitMaker } from '../types';
 import type { FursuitColorOption } from '../../colors';
-import { normalizeSpeciesName, type FursuitSpeciesOption } from '../../species';
+import { normalizeSpeciesName, type FursuitSpeciesOption } from '@/features/species';
 import type { ConventionLifecycleStatus } from '../../conventions';
 import type { FursuitSocialLink } from '../../../types/database';
 

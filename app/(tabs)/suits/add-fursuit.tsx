@@ -212,10 +212,6 @@ export default function AddFursuitScreen() {
       return [] as FursuitSpeciesOption[];
     }
 
-    if (!normalizedSpeciesInput) {
-      return speciesOptions.slice(0, 12);
-    }
-
     const selectedSpeciesIds = new Set(selectedSpecies.map((option) => option.id));
 
     return speciesOptions

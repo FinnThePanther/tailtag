@@ -3704,6 +3704,10 @@ export type Database = {
         Args: { fursuit_id: string; makers?: Json }
         Returns: undefined
       }
+      replace_fursuit_species_assignments: {
+        Args: { p_fursuit_id: string; p_species_ids: string[] }
+        Returns: undefined
+      }
       replay_gameplay_dead_letter_events: {
         Args: { p_actor_id: string; p_event_ids: string[]; p_reason: string }
         Returns: {

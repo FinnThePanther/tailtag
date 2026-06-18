@@ -230,9 +230,12 @@ async function mapFursuitRows(
   includeUniqueCodes: boolean,
 ): Promise<FursuitSummary[]> {
   const fursuitIds = rows.map((item) => item.id);
+  const assignmentFallbackFursuitIds = rows
+    .filter((item) => !('species_assignments' in item))
+    .map((item) => item.id);
   const [makersByFursuitId, speciesAssignmentsByFursuitId] = await Promise.all([
     fetchFursuitMakersByFursuitIds(fursuitIds),
-    fetchSpeciesAssignmentsByFursuitIds(fursuitIds),
+    fetchSpeciesAssignmentsByFursuitIds(assignmentFallbackFursuitIds),
   ]);
 
   return rows.map((item) => {
@@ -303,7 +306,7 @@ async function fetchSpeciesAssignmentsByFursuitIds(fursuitIds: string[]) {
     return result;
   }
 
-  const { data } = await (supabase as any)
+  const { data, error } = await (supabase as any)
     .from('fursuit_species_assignments')
     .select(
       `
@@ -318,6 +321,14 @@ async function fetchSpeciesAssignmentsByFursuitIds(fursuitIds: string[]) {
     )
     .in('fursuit_id', fursuitIds)
     .order('position', { ascending: true });
+
+  if (error) {
+    captureSupabaseError(error, {
+      scope: 'suits.fetchSpeciesAssignmentsByFursuitIds',
+      fursuitIds,
+    });
+    return result;
+  }
 
   for (const row of data ?? []) {
     const fursuitId = typeof row.fursuit_id === 'string' ? row.fursuit_id : null;

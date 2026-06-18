@@ -78,7 +78,7 @@ export async function fetchFursuitDetail(
     profileSocialLinks,
   );
   const speciesEntry = isSpeciesEntry(row.species_entry) ? row.species_entry : null;
-  const { data: speciesAssignments } = await (supabase as any)
+  const { data: speciesAssignments, error: speciesAssignmentsError } = await (supabase as any)
     .from('fursuit_species_assignments')
     .select(
       `
@@ -92,6 +92,14 @@ export async function fetchFursuitDetail(
     )
     .eq('fursuit_id', row.id)
     .order('position', { ascending: true });
+
+  if (speciesAssignmentsError) {
+    captureSupabaseError(speciesAssignmentsError, {
+      scope: 'suits.fetchFursuitDetail.speciesAssignments',
+      fursuitId: row.id,
+    });
+  }
+
   const speciesTags = mapFursuitSpecies(speciesAssignments ?? null, {
     id: speciesEntry?.id ?? row.species_id ?? null,
     name: speciesEntry?.name ?? null,

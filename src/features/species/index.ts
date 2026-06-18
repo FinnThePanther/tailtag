@@ -1,5 +1,5 @@
-import { supabase } from '../../lib/supabase';
-import { captureHandledMessage } from '../../lib/sentry';
+import { supabase } from '@/lib/supabase';
+import { captureHandledMessage, captureSupabaseError } from '@/lib/sentry';
 
 export type FursuitSpeciesOption = {
   id: string;
@@ -89,27 +89,18 @@ export async function replaceFursuitSpeciesAssignments(
   const deduped = validateFursuitSpeciesSelection(species);
   const client = supabase as any;
 
-  const { error: clearError } = await client
-    .from('fursuit_species_assignments')
-    .delete()
-    .eq('fursuit_id', fursuitId);
+  const { error } = await client.rpc('replace_fursuit_species_assignments', {
+    p_fursuit_id: fursuitId,
+    p_species_ids: deduped.map((option) => option.id),
+  });
 
-  if (clearError) {
-    throw new Error(`Failed to clear species assignments: ${clearError.message}`);
-  }
-
-  const assignments = deduped.map((option, index) => ({
-    fursuit_id: fursuitId,
-    species_id: option.id,
-    position: index + 1,
-  }));
-
-  const { error: insertError } = await client
-    .from('fursuit_species_assignments')
-    .insert(assignments);
-
-  if (insertError) {
-    throw new Error(`Failed to save species assignments: ${insertError.message}`);
+  if (error) {
+    captureSupabaseError(error, {
+      scope: 'species.replaceFursuitSpeciesAssignments',
+      fursuitId,
+      speciesIds: deduped.map((option) => option.id),
+    });
+    throw new Error(`Failed to save species assignments: ${error.message}`);
   }
 
   return deduped;
