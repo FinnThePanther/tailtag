@@ -16,8 +16,6 @@ const corsHeaders: Record<string, string> = {
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const serviceRoleKey =
   Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-// JWT secret for verifying tokens. Required for token verification.
-// Set via: supabase secrets set SUPABASE_JWT_SECRET=your-jwt-secret
 const supabaseJwtSecret = Deno.env.get('SUPABASE_JWT_SECRET') ?? Deno.env.get('JWT_SECRET') ?? null;
 const expoAccessToken = Deno.env.get('EXPO_ACCESS_TOKEN') ?? null;
 
@@ -33,6 +31,10 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
 });
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+const DEFAULT_BATCH_SIZE = 25;
+const MAX_BATCH_SIZE = 100;
+const DEFAULT_MAX_DURATION_MS = 10_000;
+const TARGETED_MAX_DURATION_MS = 2_500;
 
 const SUPPORTED_TYPES = new Set([
   'achievement_awarded',
@@ -52,18 +54,19 @@ const SUPPORTED_TYPES = new Set([
 ]);
 
 type NotificationRecord = {
-  id: string;
-  user_id: string;
-  type: string;
-  payload: Record<string, unknown> | null;
-  created_at: string;
+  id?: unknown;
+  user_id?: unknown;
+  type?: unknown;
+  payload?: unknown;
 };
 
-type WebhookPayload = {
-  type: string;
-  table: string;
-  schema: string;
-  record: NotificationRecord;
+type WorkerRequestBody = {
+  notification_id?: unknown;
+  notificationId?: unknown;
+  maxJobs?: unknown;
+  maxDurationMs?: unknown;
+  source?: unknown;
+  record?: NotificationRecord;
 };
 
 type ExpoPushResponse = {
@@ -81,24 +84,43 @@ type ExpoPushResponse = {
   errors?: Array<{ code?: string; message?: string }>;
 };
 
-type PushFailureContext = {
-  notificationId: string;
-  userId: string;
-  notificationType: string;
-  payload: Record<string, unknown>;
-  requestBody: Record<string, unknown>;
-  responseStatus?: number;
+type PushJobRow = {
+  id: string;
+  notification_id: string;
+  user_id: string;
+  notification_type: string;
+  payload: Record<string, unknown> | null;
+  attempt_number: number;
+  max_attempts: number;
+};
+
+type DeliveryStatus = 'sent' | 'skipped' | 'retry_pending' | 'failed';
+
+type DeliveryResult = {
+  status: DeliveryStatus;
+  errorMessage?: string | null;
+  skipReason?: string | null;
+  responseStatus?: number | null;
   responseBody?: ExpoPushResponse | null;
-  errorMessage: string;
+  requestSnapshot?: Record<string, unknown> | null;
+  retryAfterSeconds?: number | null;
+  expoTicketErrors?: number;
+  tokenCleared?: boolean;
 };
 
 type PushRunPayload = {
   success?: boolean;
-  skipped?: string;
   error?: string;
-  retry_enqueued?: boolean;
+  jobs_claimed?: number;
+  jobs_sent?: number;
+  jobs_skipped?: number;
+  jobs_retry_pending?: number;
+  jobs_failed?: number;
+  notifications_sent?: number;
+  notifications_skipped?: number;
+  errors?: number;
   expo_ticket_errors?: number;
-  token_cleared?: boolean;
+  tokens_cleared?: number;
 };
 
 function respondJson(payload: unknown, status = 200) {
@@ -124,6 +146,41 @@ function extractString(value: unknown): string | null {
     return trimmed.length > 0 ? trimmed : null;
   }
   return null;
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function parsePositiveInteger(value: unknown, fallback: number, max: number): number {
+  let parsed: number | null = null;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    parsed = Math.trunc(value);
+  } else if (typeof value === 'string') {
+    const candidate = Number.parseInt(value, 10);
+    if (Number.isFinite(candidate)) {
+      parsed = candidate;
+    }
+  }
+
+  if (!parsed || parsed <= 0) {
+    return fallback;
+  }
+  return Math.min(parsed, max);
+}
+
+function formatErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return 'Unknown error';
+  }
 }
 
 function isAdultBoundaryChecked(payload: Record<string, unknown>): boolean {
@@ -315,7 +372,7 @@ async function buildMessage(
   }
 }
 
-async function clearPushToken(userId: string) {
+async function clearPushToken(userId: string): Promise<boolean> {
   const { error } = await supabaseAdmin
     .from('profiles')
     .update({
@@ -326,7 +383,9 @@ async function clearPushToken(userId: string) {
 
   if (error) {
     console.error('[send-push] Failed clearing invalid token', { userId, error });
+    return false;
   }
+  return true;
 }
 
 function extractExpoErrors(responseJson: ExpoPushResponse): string[] {
@@ -336,175 +395,140 @@ function extractExpoErrors(responseJson: ExpoPushResponse): string[] {
 
   for (const entry of entries) {
     if (entry?.status === 'error') {
-      const code = entry?.details?.error;
-      if (code) {
-        errors.push(code);
-      }
+      errors.push(entry?.details?.error ?? entry?.message ?? 'ExpoTicketError');
     }
+  }
+
+  for (const error of responseJson.errors ?? []) {
+    errors.push(error.code ?? error.message ?? 'ExpoRequestError');
   }
 
   return errors;
 }
 
-function formatErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
+function parseRetryAfterSeconds(value: string | null): number | null {
+  if (!value) {
+    return null;
   }
-  if (typeof error === 'string') {
-    return error;
+  const seconds = Number.parseInt(value, 10);
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return Math.min(seconds, 3600);
   }
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return 'Unknown error';
-  }
+  return null;
 }
 
-function parseSource(req: Request): string {
-  const userAgent = req.headers.get('User-Agent') ?? '';
-  if (userAgent.startsWith('pg_net/')) {
-    return 'pg_net_webhook';
+function retryDelaySeconds(attemptNumber: number, retryAfterHeader: string | null = null): number {
+  const headerDelay = parseRetryAfterSeconds(retryAfterHeader);
+  if (headerDelay) {
+    return headerDelay;
   }
-
-  const url = new URL(req.url);
-  return url.searchParams.get('source')?.trim() || 'webhook';
+  return Math.min(60 * 2 ** Math.max(attemptNumber - 1, 0), 3600);
 }
 
-async function readPushRunPayload(response: Response): Promise<PushRunPayload> {
-  try {
-    const payload = await response.clone().json();
-    return toRecord(payload) as PushRunPayload;
-  } catch {
-    return {};
-  }
-}
-
-function pushRunStatus(response: Response, payload: PushRunPayload): BackendWorkerRunStatus {
-  if (response.status >= 500) {
-    return 'failed';
-  }
-  if (payload.error || (payload.expo_ticket_errors ?? 0) > 0) {
-    return 'partial';
-  }
-  return 'succeeded';
-}
-
-function pushRunCounts(payload: PushRunPayload): Record<string, number> {
+function redactedRequestSnapshot(requestBody: Record<string, unknown>): Record<string, unknown> {
+  const { to: _to, ...rest } = requestBody;
   return {
-    notifications_sent: payload.success ? 1 : 0,
-    notifications_skipped: payload.skipped ? 1 : 0,
-    errors: payload.error ? 1 : 0,
-    retries_enqueued: payload.retry_enqueued ? 1 : 0,
-    expo_ticket_errors: payload.expo_ticket_errors ?? 0,
-    tokens_cleared: payload.token_cleared ? 1 : 0,
+    ...rest,
+    token_present: typeof requestBody.to === 'string' && requestBody.to.length > 0,
   };
 }
 
-async function recordPushFailure(context: PushFailureContext) {
-  const occurredAt = new Date().toISOString();
-  const queuePayload = {
-    notification_id: context.notificationId,
-    user_id: context.userId,
-    notification_type: context.notificationType,
-    payload: context.payload,
-    request_body: context.requestBody,
-    response_status: context.responseStatus ?? null,
-    response_body: context.responseBody ?? null,
-    last_error: context.errorMessage,
-  };
+async function ensureNotificationPushJob(notificationId: string): Promise<void> {
+  const { error } = await supabaseAdmin.rpc('enqueue_notification_push_job', {
+    p_notification_id: notificationId,
+  });
 
-  try {
-    const { error: queueError } = await supabaseAdmin
-      .from('push_notification_retry_queue')
-      .insert(queuePayload);
-
-    if (queueError) {
-      console.error('[send-push] Failed enqueueing push retry', {
-        error: queueError,
-        notificationId: context.notificationId,
-      });
-    }
-  } catch (error) {
-    console.error('[send-push] Failed enqueueing push retry', { error });
-  }
-
-  try {
-    const { error: logError } = await supabaseAdmin.from('admin_error_log').insert({
-      error_type: 'push_notification_failed',
-      error_message: context.errorMessage,
-      severity: 'error',
-      occurred_at: occurredAt,
-      context: {
-        notification_id: context.notificationId,
-        user_id: context.userId,
-        notification_type: context.notificationType,
-        response_status: context.responseStatus ?? null,
-        response_body: context.responseBody ?? null,
-      },
-    });
-
-    if (logError) {
-      console.error('[send-push] Failed logging push error', {
-        error: logError,
-        notificationId: context.notificationId,
-      });
-    }
-  } catch (error) {
-    console.error('[send-push] Failed logging push error', { error });
+  if (error) {
+    throw new Error(`Failed to enqueue push job: ${error.message}`);
   }
 }
 
-async function handleRequest(req: Request): Promise<Response> {
-  let parsed: WebhookPayload;
-  try {
-    parsed = (await req.json()) as WebhookPayload;
-  } catch {
-    return respondJson({ error: 'Invalid JSON payload' }, 400);
+async function claimNextJob(
+  workerId: string,
+  notificationId: string | null,
+): Promise<PushJobRow | null> {
+  const { data, error } = await supabaseAdmin.rpc('claim_notification_push_jobs', {
+    p_worker_id: workerId,
+    p_limit: 1,
+    p_notification_id: notificationId,
+  });
+
+  if (error) {
+    throw new Error(`Failed to claim push job: ${error.message}`);
   }
 
-  const record = parsed?.record;
-  if (!record || typeof record !== 'object') {
-    return respondJson({ skipped: 'Missing record' }, 200);
+  const rows = (data ?? []) as PushJobRow[];
+  return rows[0] ?? null;
+}
+
+async function completePushJob(
+  job: PushJobRow,
+  workerId: string,
+  result: DeliveryResult,
+): Promise<DeliveryStatus> {
+  const { data, error } = await supabaseAdmin.rpc('complete_notification_push_job', {
+    p_job_id: job.id,
+    p_worker_id: workerId,
+    p_result_status: result.status,
+    p_error_message: result.errorMessage ?? null,
+    p_response_status: result.responseStatus ?? null,
+    p_response_body: result.responseBody ?? null,
+    p_request_snapshot: result.requestSnapshot ?? null,
+    p_skip_reason: result.skipReason ?? null,
+    p_retry_after_seconds: result.retryAfterSeconds ?? null,
+  });
+
+  if (error) {
+    throw new Error(`Failed to complete push job ${job.id}: ${error.message}`);
   }
 
-  const notificationType = extractString(record.type);
+  return (extractString(data) as DeliveryStatus | null) ?? result.status;
+}
+
+async function deliverPushJob(job: PushJobRow): Promise<DeliveryResult> {
+  const notificationType = extractString(job.notification_type);
   if (!notificationType) {
-    return respondJson({ skipped: 'Missing notification type' }, 200);
+    return { status: 'skipped', skipReason: 'Missing notification type' };
   }
 
   if (notificationType === 'daily_task_completed' || notificationType === 'daily_reset') {
-    return respondJson({ skipped: 'Unsupported type' }, 200);
+    return { status: 'skipped', skipReason: 'Unsupported type' };
   }
 
   if (!SUPPORTED_TYPES.has(notificationType)) {
-    return respondJson({ skipped: 'Unhandled type' }, 200);
+    return { status: 'skipped', skipReason: 'Unhandled type' };
   }
 
-  const userId = extractString(record.user_id);
-  if (!userId) {
-    return respondJson({ skipped: 'Missing user_id' }, 200);
-  }
-
-  const payload = toRecord(record.payload);
-
+  const payload = toRecord(job.payload);
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('expo_push_token, push_notifications_enabled')
-    .eq('id', userId)
+    .eq('id', job.user_id)
     .maybeSingle();
 
   if (profileError) {
-    console.error('[send-push] Failed fetching profile', { userId, error: profileError });
-    return respondJson({ skipped: 'Profile fetch failed' }, 200);
+    console.error('[send-push] Failed fetching profile', {
+      userId: job.user_id,
+      error: profileError,
+    });
+    return {
+      status: 'retry_pending',
+      errorMessage: `Profile fetch failed: ${profileError.message}`,
+      retryAfterSeconds: retryDelaySeconds(job.attempt_number),
+    };
   }
 
-  if (!profile?.push_notifications_enabled || !profile?.expo_push_token) {
-    return respondJson({ skipped: 'Push disabled or missing token' }, 200);
+  if (!profile) {
+    return { status: 'skipped', skipReason: 'Profile not found' };
+  }
+
+  if (!profile.push_notifications_enabled || !profile.expo_push_token) {
+    return { status: 'skipped', skipReason: 'Push disabled or missing token' };
   }
 
   const message = await buildMessage(notificationType, payload);
   if (!message) {
-    return respondJson({ skipped: 'No message template' }, 200);
+    return { status: 'skipped', skipReason: 'No message template' };
   }
 
   const requestBody = {
@@ -514,12 +538,13 @@ async function handleRequest(req: Request): Promise<Response> {
     data: {
       ...payload,
       type: notificationType,
-      notification_id: record.id,
+      notification_id: job.notification_id,
     },
     sound: 'default',
     priority: 'default',
     channelId: 'default',
   };
+  const requestSnapshot = redactedRequestSnapshot(requestBody);
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -544,103 +569,268 @@ async function handleRequest(req: Request): Promise<Response> {
     }
 
     if (!response.ok) {
+      const errorMessage = `Expo responded with status ${response.status}`;
       console.error('[send-push] Expo push failed', {
         status: response.status,
         response: responseJson,
+        notificationId: job.notification_id,
       });
-      await recordPushFailure({
-        notificationId: record.id,
-        userId,
-        notificationType,
-        payload,
-        requestBody,
+
+      const retryable = response.status === 429 || response.status >= 500;
+      return {
+        status: retryable ? 'retry_pending' : 'failed',
+        errorMessage,
         responseStatus: response.status,
         responseBody: responseJson,
-        errorMessage: `Expo responded with status ${response.status}`,
-      });
-      // Only return a retryable status for transient Expo failures (5xx/429).
-      if (response.status >= 500 || response.status === 429) {
-        return respondJson({ error: 'Expo request failed', retry_enqueued: true }, 503);
-      }
-      return respondJson({ error: 'Expo request failed', retry_enqueued: true }, 200);
+        requestSnapshot,
+        retryAfterSeconds: retryable
+          ? retryDelaySeconds(job.attempt_number, response.headers.get('Retry-After'))
+          : null,
+      };
     }
   } catch (error) {
     const errorMessage = formatErrorMessage(error);
-    console.error('[send-push] Expo push request failed', { error });
-    await recordPushFailure({
-      notificationId: record.id,
-      userId,
-      notificationType,
-      payload,
-      requestBody,
-      errorMessage,
+    console.error('[send-push] Expo push request failed', {
+      error,
+      notificationId: job.notification_id,
     });
-    return respondJson({ error: 'Expo request failed', retry_enqueued: true }, 503);
+    return {
+      status: 'retry_pending',
+      errorMessage,
+      requestSnapshot,
+      retryAfterSeconds: retryDelaySeconds(job.attempt_number),
+    };
   }
-
-  let retryEnqueued = false;
-  let expoTicketErrors = 0;
-  let tokenCleared = false;
 
   if (responseJson) {
     const expoErrors = extractExpoErrors(responseJson);
     if (expoErrors.length > 0) {
-      expoTicketErrors = expoErrors.length;
-      console.error('[send-push] Expo errors', { expoErrors, response: responseJson });
-      await recordPushFailure({
-        notificationId: record.id,
-        userId,
-        notificationType,
-        payload,
-        requestBody,
+      console.error('[send-push] Expo ticket errors', {
+        expoErrors,
+        response: responseJson,
+        notificationId: job.notification_id,
+      });
+
+      if (expoErrors.includes('DeviceNotRegistered')) {
+        const tokenCleared = await clearPushToken(job.user_id);
+        return {
+          status: 'skipped',
+          skipReason: 'DeviceNotRegistered',
+          responseStatus: 200,
+          responseBody: responseJson,
+          requestSnapshot,
+          expoTicketErrors: expoErrors.length,
+          tokenCleared,
+        };
+      }
+
+      return {
+        status: 'failed',
+        errorMessage: `Expo ticket errors: ${expoErrors.join(', ')}`,
         responseStatus: 200,
         responseBody: responseJson,
-        errorMessage: `Expo ticket errors: ${expoErrors.join(', ')}`,
-      });
-      retryEnqueued = true;
-    }
-
-    if (expoErrors.includes('DeviceNotRegistered')) {
-      await clearPushToken(userId);
-      tokenCleared = true;
+        requestSnapshot,
+        expoTicketErrors: expoErrors.length,
+      };
     }
   }
 
-  return respondJson(
-    {
-      success: true,
-      retry_enqueued: retryEnqueued,
-      expo_ticket_errors: expoTicketErrors,
-      token_cleared: tokenCleared,
-    },
-    200,
-  );
+  return {
+    status: 'sent',
+    responseStatus: 200,
+    responseBody: responseJson,
+    requestSnapshot,
+  };
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+async function parseBody(req: Request): Promise<WorkerRequestBody> {
+  const bodyText = await req.text();
+  if (bodyText.trim().length === 0) {
+    return {};
+  }
+  return JSON.parse(bodyText) as WorkerRequestBody;
+}
+
+function notificationIdFromBody(body: WorkerRequestBody): string | null {
+  const directId = extractString(body.notification_id) ?? extractString(body.notificationId);
+  if (directId) {
+    return directId;
   }
 
-  if (req.method !== 'POST') {
-    return respondJson({ error: 'Method not allowed' }, 405);
+  return extractString(toRecord(body.record).id);
+}
+
+function parseSource(req: Request, body: WorkerRequestBody): string {
+  const bodySource = extractString(body.source);
+  if (bodySource) {
+    return bodySource;
   }
 
-  // Verify the request is authenticated with service role
+  const url = new URL(req.url);
+  const querySource = extractString(url.searchParams.get('source'));
+  if (querySource) {
+    return querySource;
+  }
+
+  const userAgent = req.headers.get('User-Agent') ?? '';
+  if (userAgent.startsWith('pg_net/')) {
+    return 'pg_net_webhook';
+  }
+
+  return 'manual';
+}
+
+async function handleRequest(body: WorkerRequestBody): Promise<Response> {
+  const notificationId = notificationIdFromBody(body);
+  if (notificationId && !isUuid(notificationId)) {
+    return respondJson({ error: 'Invalid notification_id' }, 400);
+  }
+
+  const targeted = Boolean(notificationId);
+  if (notificationId) {
+    await ensureNotificationPushJob(notificationId);
+  }
+
+  const maxJobs = targeted
+    ? 1
+    : parsePositiveInteger(body.maxJobs, DEFAULT_BATCH_SIZE, MAX_BATCH_SIZE);
+  const maxDurationMs = parsePositiveInteger(
+    body.maxDurationMs,
+    targeted ? TARGETED_MAX_DURATION_MS : DEFAULT_MAX_DURATION_MS,
+    30_000,
+  );
+  const workerId = crypto.randomUUID();
+  const startedAt = Date.now();
+
+  const counts: Required<
+    Pick<
+      PushRunPayload,
+      | 'jobs_claimed'
+      | 'jobs_sent'
+      | 'jobs_skipped'
+      | 'jobs_retry_pending'
+      | 'jobs_failed'
+      | 'notifications_sent'
+      | 'notifications_skipped'
+      | 'errors'
+      | 'expo_ticket_errors'
+      | 'tokens_cleared'
+    >
+  > = {
+    jobs_claimed: 0,
+    jobs_sent: 0,
+    jobs_skipped: 0,
+    jobs_retry_pending: 0,
+    jobs_failed: 0,
+    notifications_sent: 0,
+    notifications_skipped: 0,
+    errors: 0,
+    expo_ticket_errors: 0,
+    tokens_cleared: 0,
+  };
+
+  while (counts.jobs_claimed < maxJobs && Date.now() - startedAt < maxDurationMs) {
+    const job = await claimNextJob(workerId, notificationId);
+    if (!job) {
+      break;
+    }
+
+    counts.jobs_claimed += 1;
+
+    let result: DeliveryResult;
+    try {
+      result = await deliverPushJob(job);
+    } catch (error) {
+      result = {
+        status: 'retry_pending',
+        errorMessage: formatErrorMessage(error),
+        retryAfterSeconds: retryDelaySeconds(job.attempt_number),
+      };
+    }
+
+    const finalStatus = await completePushJob(job, workerId, result);
+    counts.expo_ticket_errors += result.expoTicketErrors ?? 0;
+    counts.tokens_cleared += result.tokenCleared ? 1 : 0;
+
+    switch (finalStatus) {
+      case 'sent':
+        counts.jobs_sent += 1;
+        counts.notifications_sent += 1;
+        break;
+      case 'skipped':
+        counts.jobs_skipped += 1;
+        counts.notifications_skipped += 1;
+        break;
+      case 'retry_pending':
+        counts.jobs_retry_pending += 1;
+        break;
+      case 'failed':
+        counts.jobs_failed += 1;
+        counts.errors += 1;
+        break;
+    }
+
+    if (targeted) {
+      break;
+    }
+  }
+
+  return respondJson({
+    success: true,
+    ...counts,
+  });
+}
+
+async function readPushRunPayload(response: Response): Promise<PushRunPayload> {
+  try {
+    const payload = await response.clone().json();
+    return toRecord(payload) as PushRunPayload;
+  } catch {
+    return {};
+  }
+}
+
+function pushRunStatus(response: Response, payload: PushRunPayload): BackendWorkerRunStatus {
+  if (response.status >= 500) {
+    return 'failed';
+  }
+  if (
+    payload.error ||
+    (payload.errors ?? 0) > 0 ||
+    (payload.jobs_failed ?? 0) > 0 ||
+    (payload.jobs_retry_pending ?? 0) > 0 ||
+    (payload.expo_ticket_errors ?? 0) > 0
+  ) {
+    return 'partial';
+  }
+  return 'succeeded';
+}
+
+function pushRunCounts(payload: PushRunPayload): Record<string, number> {
+  return {
+    jobs_claimed: payload.jobs_claimed ?? 0,
+    jobs_sent: payload.jobs_sent ?? 0,
+    jobs_skipped: payload.jobs_skipped ?? 0,
+    jobs_retry_pending: payload.jobs_retry_pending ?? 0,
+    jobs_failed: payload.jobs_failed ?? 0,
+    notifications_sent: payload.notifications_sent ?? 0,
+    notifications_skipped: payload.notifications_skipped ?? 0,
+    errors: payload.errors ?? (payload.error ? 1 : 0),
+    expo_ticket_errors: payload.expo_ticket_errors ?? 0,
+    tokens_cleared: payload.tokens_cleared ?? 0,
+  };
+}
+
+async function verifyServiceRoleRequest(req: Request): Promise<Response | null> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
     return respondJson({ error: 'Missing authorization' }, 401);
   }
 
   const token = authHeader.substring(7);
-
-  // Database webhooks from pg_net include the user-agent header
   const userAgent = req.headers.get('User-Agent') ?? '';
   const isFromPgNet = userAgent.startsWith('pg_net/');
 
-  // If JWT secret is configured, verify the token cryptographically
-  // Otherwise, for pg_net webhooks, decode and check the role claim without verification
-  // This is safe because pg_net requests originate from within Supabase's infrastructure
   if (supabaseJwtSecret) {
     try {
       const { payload } = await jwtVerify(token, new TextEncoder().encode(supabaseJwtSecret), {
@@ -656,8 +846,6 @@ Deno.serve(async (req) => {
       return respondJson({ error: 'Invalid or expired token' }, 401);
     }
   } else if (isFromPgNet) {
-    // For pg_net requests without JWT secret, decode token without verification
-    // pg_net requests come from Supabase's internal infrastructure
     try {
       const [, payloadB64] = token.split('.');
       if (!payloadB64) {
@@ -675,25 +863,48 @@ Deno.serve(async (req) => {
       return respondJson({ error: 'Invalid token' }, 401);
     }
   } else {
-    // No JWT secret and not from pg_net - require proper configuration
     console.error('[send-push] SUPABASE_JWT_SECRET not configured and request is not from pg_net');
     return respondJson({ error: 'Server misconfigured' }, 500);
   }
 
+  return null;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  if (req.method !== 'POST') {
+    return respondJson({ error: 'Method not allowed' }, 405);
+  }
+
+  const authError = await verifyServiceRoleRequest(req);
+  if (authError) {
+    return authError;
+  }
+
+  let body: WorkerRequestBody;
+  try {
+    body = await parseBody(req);
+  } catch {
+    return respondJson({ error: 'Invalid JSON payload' }, 400);
+  }
+
   const workerRun = await beginBackendWorkerRun(supabaseAdmin, {
-    workerName: 'push_retry_processing',
-    source: parseSource(req),
+    workerName: 'push_delivery',
+    source: parseSource(req, body),
   });
 
   try {
-    const response = await handleRequest(req);
+    const response = await handleRequest(body);
     const payload = await readPushRunPayload(response);
     await completeBackendWorkerRun(supabaseAdmin, workerRun, {
       status: pushRunStatus(response, payload),
       counts: pushRunCounts(payload),
       error: payload.error ?? null,
       metadata: {
-        skipped: payload.skipped ?? null,
+        notification_id: notificationIdFromBody(body),
       },
     });
     return response;
@@ -701,16 +912,20 @@ Deno.serve(async (req) => {
     await completeBackendWorkerRun(supabaseAdmin, workerRun, {
       status: 'failed',
       counts: {
+        jobs_claimed: 0,
+        jobs_sent: 0,
+        jobs_skipped: 0,
+        jobs_retry_pending: 0,
+        jobs_failed: 0,
         notifications_sent: 0,
         notifications_skipped: 0,
         errors: 1,
-        retries_enqueued: 0,
         expo_ticket_errors: 0,
         tokens_cleared: 0,
       },
       error,
       metadata: {
-        skipped: null,
+        notification_id: notificationIdFromBody(body),
       },
     });
     return respondJson({ error: formatErrorMessage(error) }, 500);

@@ -1582,6 +1582,153 @@ export type Database = {
           },
         ]
       }
+      notification_push_attempts: {
+        Row: {
+          attempt_number: number
+          completed_at: string
+          created_at: string
+          error_message: string | null
+          expo_response_body: Json | null
+          expo_response_status: number | null
+          id: string
+          job_id: string
+          notification_id: string
+          request_snapshot: Json | null
+          result_status: string
+          skip_reason: string | null
+          started_at: string
+        }
+        Insert: {
+          attempt_number: number
+          completed_at?: string
+          created_at?: string
+          error_message?: string | null
+          expo_response_body?: Json | null
+          expo_response_status?: number | null
+          id?: string
+          job_id: string
+          notification_id: string
+          request_snapshot?: Json | null
+          result_status: string
+          skip_reason?: string | null
+          started_at?: string
+        }
+        Update: {
+          attempt_number?: number
+          completed_at?: string
+          created_at?: string
+          error_message?: string | null
+          expo_response_body?: Json | null
+          expo_response_status?: number | null
+          id?: string
+          job_id?: string
+          notification_id?: string
+          request_snapshot?: Json | null
+          result_status?: string
+          skip_reason?: string | null
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_push_attempts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "notification_push_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_push_attempts_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_push_jobs: {
+        Row: {
+          attempt_count: number
+          created_at: string
+          failed_at: string | null
+          id: string
+          last_attempted_at: string | null
+          last_error: string | null
+          last_response_body: Json | null
+          last_response_status: number | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          next_attempt_at: string | null
+          notification_id: string
+          notification_type: string
+          payload: Json
+          sent_at: string | null
+          skipped_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          created_at?: string
+          failed_at?: string | null
+          id?: string
+          last_attempted_at?: string | null
+          last_error?: string | null
+          last_response_body?: Json | null
+          last_response_status?: number | null
+          locked_at?: string | null
+          locked_by?: string | null
+          max_attempts?: number
+          next_attempt_at?: string | null
+          notification_id: string
+          notification_type: string
+          payload?: Json
+          sent_at?: string | null
+          skipped_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempt_count?: number
+          created_at?: string
+          failed_at?: string | null
+          id?: string
+          last_attempted_at?: string | null
+          last_error?: string | null
+          last_response_body?: Json | null
+          last_response_status?: number | null
+          locked_at?: string | null
+          locked_by?: string | null
+          max_attempts?: number
+          next_attempt_at?: string | null
+          notification_id?: string
+          notification_type?: string
+          payload?: Json
+          sent_at?: string | null
+          skipped_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_push_jobs_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: true
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_push_jobs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -2507,6 +2654,22 @@ export type Database = {
         Args: { p_claimant_profile_id: string; p_token_hash: string }
         Returns: Json
       }
+      claim_notification_push_jobs: {
+        Args: {
+          p_limit?: number
+          p_notification_id?: string
+          p_worker_id: string
+        }
+        Returns: {
+          attempt_number: number
+          id: string
+          max_attempts: number
+          notification_id: string
+          notification_type: string
+          payload: Json
+          user_id: string
+        }[]
+      }
       claim_unprocessed_events: {
         Args: { p_batch_size?: number; p_min_age_seconds?: number }
         Returns: {
@@ -2537,6 +2700,20 @@ export type Database = {
       }
       cleanup_old_audit_logs: { Args: never; Returns: undefined }
       cleanup_old_notifications: { Args: never; Returns: undefined }
+      complete_notification_push_job: {
+        Args: {
+          p_error_message?: string
+          p_job_id: string
+          p_request_snapshot?: Json
+          p_response_body?: Json
+          p_response_status?: number
+          p_result_status: string
+          p_retry_after_seconds?: number
+          p_skip_reason?: string
+          p_worker_id: string
+        }
+        Returns: string
+      }
       confirm_catch: {
         Args: {
           p_catch_id: string
@@ -2663,6 +2840,10 @@ export type Database = {
           last_seen: string
           scan_count: number
         }[]
+      }
+      enqueue_notification_push_job: {
+        Args: { p_notification_id: string }
+        Returns: string
       }
       ensure_own_profile_exists: {
         Args: { p_username?: string }
@@ -3162,6 +3343,10 @@ export type Database = {
           inserted: boolean
           notification_id: string
         }[]
+      }
+      invoke_edge_function: {
+        Args: { p_body?: Json; p_function_name: string }
+        Returns: undefined
       }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean }
