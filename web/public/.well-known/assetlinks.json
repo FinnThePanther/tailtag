@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.finnthepanther.tailtag",
+      "sha256_cert_fingerprints": [
+        "32:20:3C:2D:9F:9D:54:1B:85:87:F7:7F:2E:EB:58:CA:36:DF:07:D3:8A:00:12:44:23:CB:9F:30:4E:E1:C6:60"
+      ]
+    }
+  }
+]

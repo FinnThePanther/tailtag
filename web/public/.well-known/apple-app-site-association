@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["Z8A8ZWCZ45.com.finnthepanther.tailtag"],
+        "components": [
+          {
+            "/": "/invite/*",
+            "comment": "Open TailTag invite links in the production iOS app."
+          }
+        ]
+      }
+    ]
+  }
+}
