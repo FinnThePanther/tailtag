@@ -6,7 +6,8 @@ export type BackendWorkerName =
   | 'daily_task_rotation'
   | 'pending_catch_expiration'
   | 'gameplay_queue_drain'
-  | 'push_delivery';
+  | 'push_delivery'
+  | 'push_receipt_polling';
 
 export type BackendWorkerRunStatus = 'succeeded' | 'failed' | 'partial';
 
