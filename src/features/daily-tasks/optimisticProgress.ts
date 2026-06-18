@@ -1,4 +1,4 @@
-export type DailyTaskMetadataFilter = {
+export interface DailyTaskMetadataFilter {
   path: string;
   equals?: unknown;
   notEquals?: unknown;
@@ -7,21 +7,21 @@ export type DailyTaskMetadataFilter = {
   exists?: boolean;
   notEqualsUserId?: boolean;
   equalsUserId?: boolean;
-};
+}
 
-export type DailyTaskMetadata = {
+export interface DailyTaskMetadata {
   eventType: string;
   metric: 'total' | 'unique';
   uniqueBy?: string;
   filters: DailyTaskMetadataFilter[];
-};
+}
 
-type OptimisticDailyTaskProgressInput = {
+interface OptimisticDailyTaskProgressInput {
   metadata: unknown;
   eventType: string;
   eventPayload: Record<string, unknown>;
   userId: string;
-};
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

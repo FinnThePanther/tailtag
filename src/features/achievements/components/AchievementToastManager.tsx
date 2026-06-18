@@ -25,7 +25,7 @@ import {
   PAST_CONVENTION_RECAPS_QUERY_KEY,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
 } from '../../conventions';
-import { canOptimisticallyIncrementDailyTask } from '../../daily-tasks/optimisticProgress';
+import { canOptimisticallyIncrementDailyTask } from '@/features/daily-tasks/optimisticProgress';
 import type { AchievementWithStatus } from '../api/achievements';
 import { caughtSuitsQueryKey, type CaughtRecord } from '../../suits';
 import { hasUploadedProfileAvatar, profileQueryKey, type ProfileSummary } from '../../profile';
