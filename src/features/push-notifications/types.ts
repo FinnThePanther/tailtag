@@ -7,13 +7,13 @@ export type { PushNotificationType };
 
 type StaticPushNotificationType = Exclude<PushNotificationType, 'convention_recap_ready'>;
 
-export type PushNotificationData = {
+export interface PushNotificationData {
   type?: unknown;
   notification_id?: unknown;
   recipient_role?: unknown;
   recap_id?: unknown;
   catch_id?: unknown;
-};
+}
 
 export const NOTIFICATION_DEEP_LINKS: Record<StaticPushNotificationType, string> = {
   achievement_awarded: '/achievements',
