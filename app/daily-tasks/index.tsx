@@ -15,7 +15,7 @@ import {
   fetchProfileConventionMemberships,
   useConventionVerificationAction,
 } from '../../src/features/conventions';
-import { useDailyTasks } from '../../src/features/daily-tasks';
+import { type DailyTasksAvailability, useDailyTasks } from '../../src/features/daily-tasks';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/daily-tasks/index.styles';
@@ -66,6 +66,16 @@ function getTaskStatusCopy(
   }
 
   return `${remaining} to go`;
+}
+
+function getDailyTasksUnavailableMessage(
+  reason: Exclude<DailyTasksAvailability, 'available'>,
+): string {
+  if (reason === 'outside_date_window') {
+    return "Daily tasks are only available during this convention's scheduled dates.";
+  }
+
+  return 'Daily tasks are only available while this convention is live.';
 }
 
 export default function DailyTasksScreen() {
@@ -146,7 +156,10 @@ export default function DailyTasksScreen() {
   const remainingCount = Math.max(totalCount - completedCount, 0);
   const timezone = data?.timezone ?? selectedConvention?.timezone ?? 'UTC';
   const isDailyTasksAvailable = data?.availability === 'available';
-  const isDailyTasksUnavailable = Boolean(data?.availability && !isDailyTasksAvailable);
+  const dailyTasksUnavailableReason: Exclude<DailyTasksAvailability, 'available'> | null =
+    data?.availability === 'not_live' || data?.availability === 'outside_date_window'
+      ? data.availability
+      : null;
   const canStartCatching =
     Boolean(selectedConventionId) && isDailyTasksAvailable && tasks.length > 0 && !allComplete;
 
@@ -307,8 +320,8 @@ export default function DailyTasksScreen() {
                   ? verificationRequiredMembership
                     ? 'Verify your location to begin.'
                     : 'Join or verify a playable convention to begin.'
-                  : isDailyTasksUnavailable
-                    ? 'Daily tasks are only available while this convention is live.'
+                  : dailyTasksUnavailableReason
+                    ? getDailyTasksUnavailableMessage(dailyTasksUnavailableReason)
                     : totalCount === 0
                       ? "Today's task lineup is still being prepared."
                       : allComplete
@@ -318,7 +331,7 @@ export default function DailyTasksScreen() {
               <Text style={styles.countdownLabel}>
                 {!selectedConventionId || !data
                   ? 'No reset scheduled'
-                  : isDailyTasksUnavailable
+                  : dailyTasksUnavailableReason
                     ? 'No reset scheduled'
                     : `Resets in ${countdown}`}
               </Text>
@@ -383,9 +396,9 @@ export default function DailyTasksScreen() {
                 Try again
               </TailTagButton>
             </View>
-          ) : isDailyTasksUnavailable ? (
+          ) : dailyTasksUnavailableReason ? (
             <Text style={styles.message}>
-              Daily tasks are only available while this convention is live.
+              {getDailyTasksUnavailableMessage(dailyTasksUnavailableReason)}
             </Text>
           ) : tasks.length === 0 ? (
             <Text style={styles.message}>
