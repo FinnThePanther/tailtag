@@ -340,7 +340,6 @@ BEGIN
          OR (
            r.status = 'processing'
            AND r.locked_at < now() - interval '5 minutes'
-           AND (r.expires_at <= now() OR r.attempt_count < r.max_attempts)
          )
        )
      ORDER BY r.expires_at, r.next_attempt_at NULLS FIRST, r.created_at
