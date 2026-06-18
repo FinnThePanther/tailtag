@@ -52,51 +52,25 @@ const formatUnlockedAt = (iso: string | null) => {
 type AchievementGroup = {
   key: string;
   label: string;
-  isConvention: boolean;
-  byCategory: Record<string, AchievementWithStatus[]>;
+  items: AchievementWithStatus[];
 };
 
-function groupByConventionAndCategory(achievements: AchievementWithStatus[]): AchievementGroup[] {
-  const globalGroup: AchievementGroup = {
-    key: 'global',
-    label: 'Global',
-    isConvention: false,
-    byCategory: {},
-  };
-  const conventionGroups = new Map<string, AchievementGroup>();
+function groupByCategory(achievements: AchievementWithStatus[]): AchievementGroup[] {
+  const byCategory = new Map<string, AchievementGroup>();
 
   for (const achievement of achievements) {
-    if (achievement.conventionId === null) {
-      if (!globalGroup.byCategory[achievement.category]) {
-        globalGroup.byCategory[achievement.category] = [];
-      }
-      globalGroup.byCategory[achievement.category].push(achievement);
-    } else {
-      if (!conventionGroups.has(achievement.conventionId)) {
-        conventionGroups.set(achievement.conventionId, {
-          key: achievement.conventionId,
-          label: achievement.conventionName ?? 'Convention',
-          isConvention: true,
-          byCategory: {},
-        });
-      }
-      const group = conventionGroups.get(achievement.conventionId)!;
-      if (!group.byCategory[achievement.category]) {
-        group.byCategory[achievement.category] = [];
-      }
-      group.byCategory[achievement.category].push(achievement);
+    if (!byCategory.has(achievement.category)) {
+      byCategory.set(achievement.category, {
+        key: achievement.category,
+        label: CATEGORY_LABELS[achievement.category] ?? achievement.category,
+        items: [],
+      });
     }
+
+    byCategory.get(achievement.category)!.items.push(achievement);
   }
 
-  const groups: AchievementGroup[] = [];
-  if (Object.keys(globalGroup.byCategory).length > 0) {
-    groups.push(globalGroup);
-  }
-  const sortedConventions = [...conventionGroups.values()].sort((a, b) =>
-    a.label.localeCompare(b.label),
-  );
-  groups.push(...sortedConventions);
-  return groups;
+  return [...byCategory.values()];
 }
 
 export default function AchievementsScreen() {
@@ -150,8 +124,8 @@ export default function AchievementsScreen() {
     })[0];
   }, [unlocked]);
 
-  const groupedUnlocked = useMemo(() => groupByConventionAndCategory(unlocked), [unlocked]);
-  const groupedLocked = useMemo(() => groupByConventionAndCategory(locked), [locked]);
+  const groupedUnlocked = useMemo(() => groupByCategory(unlocked), [unlocked]);
+  const groupedLocked = useMemo(() => groupByCategory(locked), [locked]);
 
   const isRefreshing = isFetching && !isLoading;
 
@@ -288,41 +262,44 @@ function AchievementGroupSection({
 }) {
   return (
     <View style={styles.groupBlock}>
-      {group.isConvention ? (
-        <View style={styles.conventionHeader}>
-          <Text style={styles.conventionBadge}>{group.label}</Text>
-        </View>
-      ) : null}
-      {Object.entries(group.byCategory).map(([category, items]) => (
-        <View
-          key={category}
-          style={styles.categoryBlock}
-        >
-          <Text style={styles.categoryLabel}>{CATEGORY_LABELS[category] ?? category}</Text>
-          {items.map((achievement) => (
-            <AchievementRow
-              key={achievement.id}
-              achievement={achievement}
-              unlocked={unlocked}
-              isConvention={group.isConvention}
-            />
-          ))}
-        </View>
+      <Text style={styles.categoryLabel}>{group.label}</Text>
+      {group.items.map((achievement) => (
+        <AchievementRow
+          key={achievement.id}
+          achievement={achievement}
+          unlocked={unlocked}
+        />
       ))}
     </View>
   );
 }
 
+function getConventionContextLabel(achievement: AchievementWithStatus, unlocked: boolean) {
+  if (!achievement.conventionId) {
+    return null;
+  }
+
+  if (!unlocked) {
+    return 'Convention exclusive';
+  }
+
+  return achievement.conventionName
+    ? `Earned at ${achievement.conventionName}`
+    : 'Earned at a convention';
+}
+
 function AchievementRow({
   achievement,
   unlocked,
-  isConvention,
 }: {
   achievement: AchievementWithStatus;
   unlocked: boolean;
-  isConvention: boolean;
 }) {
   const unlockedAt = formatUnlockedAt(achievement.unlockedAt ?? null);
+  const metaParts = [
+    RECIPIENT_LABELS[achievement.recipientRole] ?? 'General',
+    getConventionContextLabel(achievement, unlocked),
+  ].filter(Boolean);
 
   return (
     <View
@@ -334,12 +311,7 @@ function AchievementRow({
       <View style={styles.achievementContent}>
         <Text style={styles.achievementName}>{achievement.name}</Text>
         <Text style={styles.achievementDescription}>{achievement.description}</Text>
-        <Text style={styles.achievementMeta}>
-          {RECIPIENT_LABELS[achievement.recipientRole] ?? 'General'}
-          {isConvention
-            ? ` · ${CATEGORY_LABELS[achievement.category] ?? achievement.category}`
-            : ''}
-        </Text>
+        <Text style={styles.achievementMeta}>{metaParts.join(' · ')}</Text>
         {unlocked && unlockedAt ? (
           <Text style={styles.achievementUnlockedAt}>Unlocked on {unlockedAt}</Text>
         ) : null}
