@@ -263,6 +263,10 @@ async function ensureDefaultTasks(supabase: ServiceClient, conventionId: string)
   };
 
   for (const catalogTask of (catalogTasks ?? []) as CatalogTaskRow[]) {
+    if (!isDefaultRotationEligible(catalogTask.metadata)) {
+      continue;
+    }
+
     await ensureTask({
       key: `global-task-${catalogTask.id}`,
       name: catalogTask.name,
@@ -495,6 +499,11 @@ function metadataRecord(value: unknown): Record<string, unknown> {
   }
 
   return value as Record<string, unknown>;
+}
+
+function isDefaultRotationEligible(metadata: unknown) {
+  const record = metadataRecord(metadata);
+  return record.defaultRotationEligible !== false && record.rotationPool !== 'special';
 }
 
 function sourceAchievementRule(

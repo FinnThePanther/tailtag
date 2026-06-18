@@ -83,6 +83,8 @@ type DailyTaskRow = {
   description: string;
   kind: string;
   requirement: number;
+  metadata?: Record<string, unknown> | null;
+  is_active?: boolean | null;
 };
 
 type AssignmentWithTask = {
@@ -329,7 +331,9 @@ function shuffleInPlace<T>(items: T[], rng: () => number): void {
 async function fetchAssignments(conventionId: string, day: string): Promise<AssignmentWithTask[]> {
   const { data, error } = await supabaseAdmin
     .from('daily_assignments')
-    .select('position, task:daily_tasks (id, name, description, kind, requirement)')
+    .select(
+      'position, task:daily_tasks (id, name, description, kind, requirement, metadata, is_active)',
+    )
     .eq('convention_id', conventionId)
     .eq('day', day)
     .order('position', { ascending: true });
@@ -341,10 +345,16 @@ async function fetchAssignments(conventionId: string, day: string): Promise<Assi
   const assignments: AssignmentWithTask[] = [];
   for (const row of data ?? []) {
     const task = row.task as unknown as DailyTaskRow | null;
-    if (!task) continue;
+    if (!task || task.is_active === false || !isDefaultRotationEligible(task.metadata)) continue;
     assignments.push({
       position: row.position as number,
-      task,
+      task: {
+        id: task.id,
+        name: task.name,
+        description: task.description,
+        kind: task.kind,
+        requirement: task.requirement,
+      },
     });
   }
 
@@ -354,7 +364,7 @@ async function fetchAssignments(conventionId: string, day: string): Promise<Assi
 async function fetchTaskPool(conventionId: string | null): Promise<DailyTaskRow[]> {
   let query = supabaseAdmin
     .from('daily_tasks')
-    .select('id, name, description, kind, requirement')
+    .select('id, name, description, kind, requirement, metadata, is_active')
     .eq('is_active', true)
     .order('name', { ascending: true });
 
@@ -368,7 +378,22 @@ async function fetchTaskPool(conventionId: string | null): Promise<DailyTaskRow[
   if (error) {
     throw new Error(`Unable to fetch daily tasks: ${error.message}`);
   }
-  return (data ?? []) as DailyTaskRow[];
+  return ((data ?? []) as DailyTaskRow[]).filter((task) =>
+    isDefaultRotationEligible(task.metadata),
+  );
+}
+
+function metadataRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function isDefaultRotationEligible(metadata: unknown): boolean {
+  const record = metadataRecord(metadata);
+  return record.defaultRotationEligible !== false && record.rotationPool !== 'special';
 }
 
 async function selectAssignments(conventionId: string, day: string, requestedCount?: number) {
