@@ -16,6 +16,7 @@ TailTag is past MVP. Current work should target the first beta and near-term V1 
 ## Build, Test, and Development Commands
 Use `npm install` at the repo root, then run commands from the relevant app directory.
 
+- Prefix shell commands with `rtk` by default to reduce token-heavy output, except for `npm ...` and `supabase ...` commands. Keep `npm` and `supabase` commands unprefixed.
 - `npm run start` from the root starts the Expo app.
 - `npm run ios` / `npm run android` from the root run native Expo builds locally.
 - `npm run lint` and `npm run typecheck` from the root validate the mobile app.
