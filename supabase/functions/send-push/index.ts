@@ -7,6 +7,10 @@ import {
   completeBackendWorkerRun,
   type BackendWorkerRunStatus,
 } from '../_shared/backendWorkerRuns.ts';
+import {
+  isInAppOnlyNotificationType,
+  isPushNotificationType,
+} from '../../../packages/notification-contract/src/index.ts';
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -35,23 +39,6 @@ const DEFAULT_BATCH_SIZE = 25;
 const MAX_BATCH_SIZE = 100;
 const DEFAULT_MAX_DURATION_MS = 10_000;
 const TARGETED_MAX_DURATION_MS = 2_500;
-
-const SUPPORTED_TYPES = new Set([
-  'achievement_awarded',
-  'convention_started',
-  'convention_finalizing_started',
-  'fursuit_caught',
-  'catch_pending',
-  'catch_confirmed',
-  'catch_rejected',
-  'catch_expired',
-  'catch_invite_claimed',
-  'catch_invite_approved',
-  'catch_invite_declined',
-  'catch_invite_reported',
-  'daily_all_complete',
-  'convention_recap_ready',
-]);
 
 interface NotificationRecord {
   id?: unknown;
@@ -359,6 +346,13 @@ async function buildMessage(
         title: 'Invite Reported',
         body: 'Your TailTag invite was reported and is under review.',
       };
+    case 'daily_task_completed': {
+      const taskName = extractString(payload.task_name);
+      return {
+        title: 'Daily task complete',
+        body: taskName ? `Completed: ${taskName}` : 'You completed a daily task.',
+      };
+    }
     case 'daily_all_complete':
       return {
         title: 'All Tasks Complete!',
@@ -516,11 +510,11 @@ async function deliverPushJob(job: PushJobRow, fetchDeadlineAt: number): Promise
     return { status: 'skipped', skipReason: 'Missing notification type' };
   }
 
-  if (notificationType === 'daily_task_completed' || notificationType === 'daily_reset') {
-    return { status: 'skipped', skipReason: 'Unsupported type' };
+  if (isInAppOnlyNotificationType(notificationType)) {
+    return { status: 'skipped', skipReason: 'In-app-only type' };
   }
 
-  if (!SUPPORTED_TYPES.has(notificationType)) {
+  if (!isPushNotificationType(notificationType)) {
     return { status: 'skipped', skipReason: 'Unhandled type' };
   }
 
