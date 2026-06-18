@@ -5,6 +5,12 @@ where id = '86765af1-77e8-4ca0-a3dc-51531dc9c6c2';
 
 update public.daily_tasks
 set
+  name = 'Catch 10 suiters today',
+  description = 'Go on a catching spree by snagging ten suiters today.'
+where metadata ->> 'sourceTaskId' = '86765af1-77e8-4ca0-a3dc-51531dc9c6c2';
+
+update public.daily_tasks
+set
   is_active = false,
   metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
     'defaultRotationEligible', false,
