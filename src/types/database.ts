@@ -1515,10 +1515,12 @@ export type Database = {
           flagged_at: string | null
           flagged_reason: string | null
           id: string
+          interaction_badges: string[]
           is_flagged: boolean
           name: string
           owner_attribution_visibility: string
           owner_id: string
+          social_signal: string | null
           species_id: string | null
           unique_code: string
           visibility_audience: string
@@ -1533,10 +1535,12 @@ export type Database = {
           flagged_at?: string | null
           flagged_reason?: string | null
           id?: string
+          interaction_badges?: string[]
           is_flagged?: boolean
           name: string
           owner_attribution_visibility?: string
           owner_id: string
+          social_signal?: string | null
           species_id?: string | null
           unique_code: string
           visibility_audience?: string
@@ -1551,10 +1555,12 @@ export type Database = {
           flagged_at?: string | null
           flagged_reason?: string | null
           id?: string
+          interaction_badges?: string[]
           is_flagged?: boolean
           name?: string
           owner_attribution_visibility?: string
           owner_id?: string
+          social_signal?: string | null
           species_id?: string | null
           unique_code?: string
           visibility_audience?: string
@@ -1576,9 +1582,285 @@ export type Database = {
           },
         ]
       }
+      notification_push_attempts: {
+        Row: {
+          attempt_number: number
+          completed_at: string
+          created_at: string
+          error_message: string | null
+          expo_response_body: Json | null
+          expo_response_status: number | null
+          expo_ticket_id: string | null
+          id: string
+          job_id: string
+          notification_id: string
+          request_snapshot: Json | null
+          result_status: string
+          skip_reason: string | null
+          started_at: string
+        }
+        Insert: {
+          attempt_number: number
+          completed_at?: string
+          created_at?: string
+          error_message?: string | null
+          expo_response_body?: Json | null
+          expo_response_status?: number | null
+          expo_ticket_id?: string | null
+          id?: string
+          job_id: string
+          notification_id: string
+          request_snapshot?: Json | null
+          result_status: string
+          skip_reason?: string | null
+          started_at?: string
+        }
+        Update: {
+          attempt_number?: number
+          completed_at?: string
+          created_at?: string
+          error_message?: string | null
+          expo_response_body?: Json | null
+          expo_response_status?: number | null
+          expo_ticket_id?: string | null
+          id?: string
+          job_id?: string
+          notification_id?: string
+          request_snapshot?: Json | null
+          result_status?: string
+          skip_reason?: string | null
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_push_attempts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "notification_push_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_push_attempts_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_push_jobs: {
+        Row: {
+          attempt_count: number
+          created_at: string
+          failed_at: string | null
+          id: string
+          last_attempted_at: string | null
+          last_error: string | null
+          last_response_body: Json | null
+          last_response_status: number | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          next_attempt_at: string | null
+          notification_id: string
+          notification_type: string
+          payload: Json
+          sent_at: string | null
+          skipped_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          created_at?: string
+          failed_at?: string | null
+          id?: string
+          last_attempted_at?: string | null
+          last_error?: string | null
+          last_response_body?: Json | null
+          last_response_status?: number | null
+          locked_at?: string | null
+          locked_by?: string | null
+          max_attempts?: number
+          next_attempt_at?: string | null
+          notification_id: string
+          notification_type: string
+          payload?: Json
+          sent_at?: string | null
+          skipped_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempt_count?: number
+          created_at?: string
+          failed_at?: string | null
+          id?: string
+          last_attempted_at?: string | null
+          last_error?: string | null
+          last_response_body?: Json | null
+          last_response_status?: number | null
+          locked_at?: string | null
+          locked_by?: string | null
+          max_attempts?: number
+          next_attempt_at?: string | null
+          notification_id?: string
+          notification_type?: string
+          payload?: Json
+          sent_at?: string | null
+          skipped_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_push_jobs_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: true
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_push_jobs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_push_receipts: {
+        Row: {
+          attempt_count: number
+          attempt_id: string
+          created_at: string
+          error_at: string | null
+          expired_at: string | null
+          expires_at: string
+          expo_error: string | null
+          expo_message: string | null
+          expo_push_token: string
+          expo_ticket_id: string
+          failed_at: string | null
+          id: string
+          job_id: string
+          last_error: string | null
+          last_polled_at: string | null
+          last_receipt_body: Json | null
+          last_response_body: Json | null
+          last_response_status: number | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          next_attempt_at: string | null
+          notification_id: string
+          ok_at: string | null
+          status: string
+          token_cleared: boolean
+          token_cleared_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          attempt_id: string
+          created_at?: string
+          error_at?: string | null
+          expired_at?: string | null
+          expires_at?: string
+          expo_error?: string | null
+          expo_message?: string | null
+          expo_push_token: string
+          expo_ticket_id: string
+          failed_at?: string | null
+          id?: string
+          job_id: string
+          last_error?: string | null
+          last_polled_at?: string | null
+          last_receipt_body?: Json | null
+          last_response_body?: Json | null
+          last_response_status?: number | null
+          locked_at?: string | null
+          locked_by?: string | null
+          max_attempts?: number
+          next_attempt_at?: string | null
+          notification_id: string
+          ok_at?: string | null
+          status?: string
+          token_cleared?: boolean
+          token_cleared_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempt_count?: number
+          attempt_id?: string
+          created_at?: string
+          error_at?: string | null
+          expired_at?: string | null
+          expires_at?: string
+          expo_error?: string | null
+          expo_message?: string | null
+          expo_push_token?: string
+          expo_ticket_id?: string
+          failed_at?: string | null
+          id?: string
+          job_id?: string
+          last_error?: string | null
+          last_polled_at?: string | null
+          last_receipt_body?: Json | null
+          last_response_body?: Json | null
+          last_response_status?: number | null
+          locked_at?: string | null
+          locked_by?: string | null
+          max_attempts?: number
+          next_attempt_at?: string | null
+          notification_id?: string
+          ok_at?: string | null
+          status?: string
+          token_cleared?: boolean
+          token_cleared_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_push_receipts_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "notification_push_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_push_receipts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "notification_push_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_push_receipts_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_push_receipts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
+          dedupe_key: string | null
           id: string
           payload: Json
           type: string
@@ -1586,6 +1868,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dedupe_key?: string | null
           id?: string
           payload?: Json
           type: string
@@ -1593,6 +1876,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dedupe_key?: string | null
           id?: string
           payload?: Json
           type?: string
@@ -2498,6 +2782,37 @@ export type Database = {
         Args: { p_claimant_profile_id: string; p_token_hash: string }
         Returns: Json
       }
+      claim_notification_push_jobs: {
+        Args: {
+          p_limit?: number
+          p_notification_id?: string
+          p_worker_id: string
+        }
+        Returns: {
+          attempt_number: number
+          id: string
+          max_attempts: number
+          notification_id: string
+          notification_type: string
+          payload: Json
+          user_id: string
+        }[]
+      }
+      claim_notification_push_receipts: {
+        Args: { p_limit?: number; p_worker_id: string }
+        Returns: {
+          attempt_id: string
+          attempt_number: number
+          expires_at: string
+          expo_push_token: string
+          expo_ticket_id: string
+          id: string
+          job_id: string
+          max_attempts: number
+          notification_id: string
+          user_id: string
+        }[]
+      }
       claim_unprocessed_events: {
         Args: { p_batch_size?: number; p_min_age_seconds?: number }
         Returns: {
@@ -2528,6 +2843,38 @@ export type Database = {
       }
       cleanup_old_audit_logs: { Args: never; Returns: undefined }
       cleanup_old_notifications: { Args: never; Returns: undefined }
+      complete_notification_push_job: {
+        Args: {
+          p_error_message?: string
+          p_expo_push_token?: string
+          p_expo_ticket_id?: string
+          p_job_id: string
+          p_request_snapshot?: Json
+          p_response_body?: Json
+          p_response_status?: number
+          p_result_status: string
+          p_retry_after_seconds?: number
+          p_skip_reason?: string
+          p_worker_id: string
+        }
+        Returns: string
+      }
+      complete_notification_push_receipt: {
+        Args: {
+          p_error_message?: string
+          p_expo_error?: string
+          p_expo_message?: string
+          p_receipt_body?: Json
+          p_receipt_id: string
+          p_response_body?: Json
+          p_response_status?: number
+          p_result_status: string
+          p_retry_after_seconds?: number
+          p_token_cleared?: boolean
+          p_worker_id: string
+        }
+        Returns: string
+      }
       confirm_catch: {
         Args: {
           p_catch_id: string
@@ -2655,6 +3002,10 @@ export type Database = {
           scan_count: number
         }[]
       }
+      enqueue_notification_push_job: {
+        Args: { p_notification_id: string }
+        Returns: string
+      }
       ensure_own_profile_exists: {
         Args: { p_username?: string }
         Returns: undefined
@@ -2750,10 +3101,12 @@ export type Database = {
           fursuit_created_at: string
           fursuit_description: string
           fursuit_id: string
+          fursuit_interaction_badges: string[]
           fursuit_name: string
           fursuit_owner_attribution_visibility: string
           fursuit_owner_id: string
           fursuit_redacted: boolean
+          fursuit_social_signal: string
           fursuit_unique_code: string
           fursuit_visibility_audience: string
           makers: Json
@@ -2881,11 +3234,13 @@ export type Database = {
           fursuit_bio: Json
           fursuit_conventions: Json
           id: string
+          interaction_badges: string[]
           makers: Json
           name: string
           owner_attribution_visibility: string
           owner_id: string
           owner_social_links: Json
+          social_signal: string
           species_entry: Json
           species_id: string
           unique_code: string
@@ -2954,10 +3309,12 @@ export type Database = {
           fursuit_created_at: string
           fursuit_description: string
           fursuit_id: string
+          fursuit_interaction_badges: string[]
           fursuit_name: string
           fursuit_owner_attribution_visibility: string
           fursuit_owner_id: string
           fursuit_redacted: boolean
+          fursuit_social_signal: string
           fursuit_unique_code: string
           fursuit_visibility_audience: string
           makers: Json
@@ -3078,11 +3435,13 @@ export type Database = {
           fursuit_bio: Json
           fursuit_conventions: Json
           id: string
+          interaction_badges: string[]
           makers: Json
           name: string
           owner_attribution_visibility: string
           owner_id: string
           owner_social_links: Json
+          social_signal: string
           species_entry: Json
           species_id: string
           visibility_audience: string
@@ -3133,6 +3492,22 @@ export type Database = {
       insert_convention_recap_ready_notification_once: {
         Args: { p_payload: Json; p_user_id: string }
         Returns: boolean
+      }
+      insert_notification_once: {
+        Args: {
+          p_dedupe_key: string
+          p_payload: Json
+          p_type: string
+          p_user_id: string
+        }
+        Returns: {
+          inserted: boolean
+          notification_id: string
+        }[]
+      }
+      invoke_edge_function: {
+        Args: { p_body?: Json; p_function_name: string }
+        Returns: undefined
       }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean }
@@ -3236,6 +3611,10 @@ export type Database = {
           p_verification_method?: string
           p_verified_location?: Json
         }
+        Returns: undefined
+      }
+      persist_daily_task_state_and_notifications: {
+        Args: { p_notifications: Json; p_progress_rows: Json; p_streak: Json }
         Returns: undefined
       }
       process_achievement_queue_if_active: { Args: never; Returns: undefined }
@@ -3344,6 +3723,10 @@ export type Database = {
           p_severity?: string
         }
         Returns: string
+      }
+      text_array_has_no_duplicates: {
+        Args: { input_values: string[] }
+        Returns: boolean
       }
       transition_ended_conventions_to_finalizing: {
         Args: { p_now?: string }

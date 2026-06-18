@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Share, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -21,6 +21,7 @@ import {
   createReciprocalCatchOffer,
   CODE_CATCH_OUTBOX_TIMEOUT_MS,
   submitPhotoCatchBatch,
+  uploadCatchPhotoFromUri,
   myPendingCatchesQueryKey,
   pendingCatchesQueryKey,
   PhotoCatchCard,
@@ -42,6 +43,12 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { AppImage } from '../../src/components/ui/AppImage';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { useAuth } from '../../src/features/auth';
+import { createCatchInvite } from '../../src/features/catch-invites';
+import {
+  InteractionPreferencesSummary,
+  type InteractionBadgeKey,
+  type SocialSignalKey,
+} from '@/features/interaction-preferences';
 import {
   formatConventionCloseoutDeadline,
   getConventionPlayerLifecycleState,
@@ -58,20 +65,23 @@ import {
   createClientAttemptId,
 } from '../../src/features/catch-confirmations/lib/catchPerformance';
 import { colors, spacing } from '../../src/theme';
+import { useToast } from '../../src/hooks/useToast';
 import { isValidUniqueCodeInput, normalizeUniqueCodeInput } from '../../src/utils/code';
 import { UNIQUE_CODE_LENGTH, UNIQUE_CODE_MIN_LENGTH } from '../../src/constants/codes';
 import { FURSUIT_BUCKET } from '../../src/constants/storage';
 import { resolveStorageMediaUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/(tabs)/catch.styles';
 
-type PostCatchFursuit = {
+interface PostCatchFursuit {
   id: string | null;
   name: string;
   avatar_url: string | null;
   owner_id: string | null;
   catch_count: number;
   bio: FursuitBio | null;
-};
+  socialSignal: SocialSignalKey | null;
+  interactionBadges: InteractionBadgeKey[];
+}
 
 type CatchRecord = {
   id: string;
@@ -176,6 +186,8 @@ function buildFallbackPostCatchFursuit(
     owner_id: catchResult.fursuitOwnerId,
     catch_count: catchResult.requiresApproval ? 0 : (catchResult.catchNumber ?? 1),
     bio: null,
+    socialSignal: null,
+    interactionBadges: [],
   };
 }
 
@@ -202,6 +214,8 @@ async function resolvePostCatchFursuit(
           ? detail.catchCount
           : Math.max(detail.catchCount, catchResult.catchNumber),
       bio: detail.bio,
+      socialSignal: detail.socialSignal,
+      interactionBadges: detail.interactionBadges,
     };
   } catch (caught) {
     captureHandledException(caught, {
@@ -268,6 +282,7 @@ export default function CatchScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const { sync: syncOutbox } = useCatchOutboxSync(userId, queryClient);
   const {
     conventionMemberships,
@@ -299,21 +314,28 @@ export default function CatchScreen() {
           ) ?? null),
     [conventionMemberships, hasActiveConvention],
   );
-  const photoCatchUnavailableReason = useMemo(() => {
+  const cameraCatchUnavailableReason = useMemo(() => {
     if (hasActiveConvention) {
       return null;
     }
 
     if (verificationRequiredConvention) {
-      return `Verify your location for ${verificationRequiredConvention.name} before logging photo catches.`;
+      return `Verify your location for ${verificationRequiredConvention.name} before taking photo catches.`;
     }
 
     if (isMembershipLoading) {
       return 'Loading your convention status. Please try again in a moment.';
     }
 
-    return 'Photo catches open when you are ready to catch at a live convention. Join or verify a convention before using camera or gallery catches.';
+    return 'Camera catches open when you are ready to catch at a live convention. Join or verify a convention before using camera catches.';
   }, [hasActiveConvention, isMembershipLoading, verificationRequiredConvention]);
+  const galleryCatchUnavailableReason = useMemo(() => {
+    if (isMembershipLoading) {
+      return 'Loading your convention status. Please try again in a moment.';
+    }
+
+    return null;
+  }, [isMembershipLoading]);
   const leaderboardOpenConvention = useMemo(
     () =>
       hasActiveConvention
@@ -387,7 +409,9 @@ export default function CatchScreen() {
   const [lastCatchConventionId, setLastCatchConventionId] = useState<string | null>(null);
   const [lastCatchConventionIds, setLastCatchConventionIds] = useState<string[]>([]);
   const isCodeCatchConventionContextReady = Boolean(singleActiveConventionId);
-  const isLifecycleCatchBlocked = Boolean(catchLifecycleConvention);
+  const isConventionFinalizing = catchLifecycleConvention?.state === 'finalizing';
+  const isLifecycleCatchBlocked = catchLifecycleConvention?.state === 'recap_delayed';
+  const isCodeCatchBlocked = Boolean(catchLifecycleConvention);
 
   const resetCatchState = useCallback(() => {
     setCaughtFursuit(null);
@@ -574,7 +598,7 @@ export default function CatchScreen() {
       return;
     }
 
-    if (isLifecycleCatchBlocked) {
+    if (isCodeCatchBlocked) {
       setSubmitError('Catching has ended for this convention. Review your catches instead.');
       return;
     }
@@ -947,6 +971,42 @@ export default function CatchScreen() {
     }
   };
 
+  const handleInviteCatch = async (params: {
+    localPhotoUri: string;
+    photoSource: 'camera' | 'gallery';
+    conventionId: string | null;
+  }) => {
+    if (!userId) return;
+
+    const uploadedPhoto = await uploadCatchPhotoFromUri({
+      userId,
+      localPhotoUri: params.localPhotoUri,
+    });
+    const result = await createCatchInvite({
+      catchPhotoPath: uploadedPhoto.photoPath,
+      catchPhotoUrl: uploadedPhoto.photoUrl,
+      catchPhotoSource: params.photoSource,
+      conventionId: params.conventionId,
+      caughtAt: new Date().toISOString(),
+    });
+
+    const message = `I tagged you on TailTag. Join and approve the catch here: ${result.shareUrl}`;
+    try {
+      await Share.share({
+        message,
+        url: result.shareUrl,
+        title: 'TailTag invite catch',
+      });
+      showToast('Invite created. This catch will count if they join and approve it.');
+    } catch (caught) {
+      captureHandledException(caught, {
+        scope: 'catch.inviteCatch.share',
+        userId,
+      });
+      showToast("Invite created, but TailTag couldn't open sharing. Try sharing again later.");
+    }
+  };
+
   const renderPhotoBatchResult = (batchResult: PhotoCatchBatchResult) => {
     const summary = summarizePhotoBatch(batchResult);
     const hasRetryableFailures = batchResult.results.some((result) => result.status === 'failed');
@@ -1058,8 +1118,8 @@ export default function CatchScreen() {
                 <Text style={styles.sectionBody}>
                   {catchLifecycleConvention.state === 'finalizing'
                     ? catchLifecycleDeadlineLabel
-                      ? `${catchLifecycleConvention.membership.name} has ended. We're finalizing catches until ${catchLifecycleDeadlineLabel}.`
-                      : `${catchLifecycleConvention.membership.name} has ended. We're finalizing catches now.`
+                      ? `${catchLifecycleConvention.membership.name} has ended. Review pending catches and add final gallery catches before ${catchLifecycleDeadlineLabel}.`
+                      : `${catchLifecycleConvention.membership.name} has ended. Review pending catches and add final gallery catches while we finalize.`
                     : `Your ${catchLifecycleConvention.membership.name} recap is delayed while we finish finalizing this convention.`}
                 </Text>
               </View>
@@ -1106,6 +1166,7 @@ export default function CatchScreen() {
             <PhotoCatchCard
               userId={userId}
               onCatchSubmit={handlePhotoCatch}
+              onInviteSubmit={handleInviteCatch}
               isSubmitting={isPhotoSubmitting}
               submitError={photoSubmitError}
               activeConventionIds={activeConventionIds}
@@ -1113,7 +1174,12 @@ export default function CatchScreen() {
               conventionOptions={photoCatchConventionOptions}
               preloadedFursuits={pickerItems}
               isRosterRefreshing={isRosterRefreshing || (isUsingRosterSnapshot && isRosterLoading)}
-              catchUnavailableReason={photoCatchUnavailableReason}
+              cameraCatchUnavailableReason={
+                isConventionFinalizing
+                  ? 'Camera catches are closed because this convention has ended. Choose from Gallery for final catches.'
+                  : cameraCatchUnavailableReason
+              }
+              galleryCatchUnavailableReason={galleryCatchUnavailableReason}
             />
           ) : null}
         </View>
@@ -1132,7 +1198,7 @@ export default function CatchScreen() {
               placeholder="PH17719"
               autoCapitalize="characters"
               maxLength={UNIQUE_CODE_LENGTH}
-              editable={!isSubmitting && !isLifecycleCatchBlocked}
+              editable={!isSubmitting && !isCodeCatchBlocked}
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
               style={styles.codeInput}
@@ -1188,7 +1254,7 @@ export default function CatchScreen() {
             disabled={
               !userId ||
               isSubmitting ||
-              isLifecycleCatchBlocked ||
+              isCodeCatchBlocked ||
               Boolean(leaderboardOpenConvention) ||
               !isCodeCatchConventionContextReady
             }
@@ -1229,6 +1295,13 @@ export default function CatchScreen() {
               conversationPrompt,
             })}
           </Text>
+          <InteractionPreferencesSummary
+            socialSignal={caughtFursuit.socialSignal}
+            badges={caughtFursuit.interactionBadges}
+            title="Before you interact"
+            body="These are quick signals, not blanket permission. Ask when unsure."
+            style={styles.postCatchInteractionPreferences}
+          />
           {catchRecord?.photo_upload_state === 'pending_upload' ? (
             <View style={styles.catchProgressNotice}>
               <Ionicons

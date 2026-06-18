@@ -187,7 +187,7 @@ INSERT INTO daily_tasks (id, name, description, kind, requirement, metadata, is_
 ON CONFLICT (id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
--- 7. Edge Function Config (16 rows)
+-- 7. Edge Function Config (17 rows)
 -- -----------------------------------------------------------------------------
 INSERT INTO edge_function_config (function_name, description, rate_limit_enabled, rate_limit_requests_per_minute, rate_limit_requests_per_hour, max_payload_size_bytes, validate_event_types, require_jwt, allowed_roles, is_deprecated, deprecation_date, replacement_function, config) VALUES
   ('create-catch',                                'Create catch with approval workflow',                            true,  30,   300,  10240, false, true,  '{"authenticated"}', false, null, null, '{}'),
@@ -203,6 +203,7 @@ INSERT INTO edge_function_config (function_name, description, rate_limit_enabled
   ('gameplay_queue_wakeup_max_duration_ms',       'Maximum wall-clock time in milliseconds for a producer wake-up drain before it yields to cron recovery.', false, null, null, 10240, true, false, '{"service_role"}', false, null, null, '{"value":2500}'),
   ('gameplay_queue_wakeup_max_messages',          'Maximum number of gameplay queue messages a producer wake-up should attempt in one low-latency drain.',    false, null, null, 10240, true, false, '{"service_role"}', false, null, null, '{"value":6}'),
   ('legacy_event_processor_enabled',              'Feature flag for the dormant legacy process-achievements worker. Keep false unless performing a controlled rollback.', false, null, null, 10240, true, false, '{"service_role"}', false, null, null, '{"value":false}'),
+  ('process-push-receipts',                       'Expo push receipt polling worker',                              false, null, null, 5120,  false, true,  '{"service_role"}',  false, null, null, '{}'),
   ('rotate-dailys',                               'Daily task rotation (cron)',                                      false, null, null, 1024,  false, true,  '{"authenticated"}', false, null, null, '{}'),
   ('send-push',                                   'Push notification handler',                                       true,  100,  1000, 5120,  false, true,  '{"authenticated"}', false, null, null, '{}'),
   ('sync-provider-avatar',                        'OAuth avatar sync',                                               true,  10,   50,   2048,  false, true,  '{"authenticated"}', false, null, null, '{}')

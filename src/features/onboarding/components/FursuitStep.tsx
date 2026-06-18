@@ -17,6 +17,12 @@ import {
   type FursuitPhotoCandidate,
   type OnboardingFursuitDraft,
 } from '@/features/onboarding';
+import {
+  InteractionPreferencesEditor,
+  getInteractionPreferencesError,
+  type InteractionBadgeKey,
+  type SocialSignalKey,
+} from '@/features/interaction-preferences';
 import { MY_SUITS_QUERY_KEY } from '@/features/suits';
 import {
   addFursuitConvention,
@@ -154,6 +160,12 @@ export function FursuitStep({
   const [selectedColorIds, setSelectedColorIds] = useState<string[]>(draft.selectedColorIds);
   const [visibilityAudience, setVisibilityAudience] = useState<VisibilityAudience>(
     draft.visibilityAudience,
+  );
+  const [selectedSocialSignal, setSelectedSocialSignal] = useState<SocialSignalKey | null>(
+    draft.selectedSocialSignal,
+  );
+  const [selectedInteractionBadges, setSelectedInteractionBadges] = useState<InteractionBadgeKey[]>(
+    draft.selectedInteractionBadges,
   );
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(
     new Set(draft.selectedConventionIds),
@@ -332,6 +344,8 @@ export function FursuitStep({
       selectedConventionIds: [...selectedConventionIds],
       selectedPhoto,
       visibilityAudience,
+      selectedSocialSignal,
+      selectedInteractionBadges,
     });
   }, [
     descriptionInput,
@@ -340,7 +354,9 @@ export function FursuitStep({
     onDraftChange,
     selectedColorIds,
     selectedConventionIds,
+    selectedInteractionBadges,
     selectedPhoto,
+    selectedSocialSignal,
     speciesInput,
     visibilityAudience,
   ]);
@@ -476,6 +492,8 @@ export function FursuitStep({
     setSelectedColorIds(emptyDraft.selectedColorIds);
     setSelectedConventionIds(new Set(profileConventionIdSet));
     setVisibilityAudience('everyone');
+    setSelectedSocialSignal(emptyDraft.selectedSocialSignal);
+    setSelectedInteractionBadges(emptyDraft.selectedInteractionBadges);
     hasAppliedDefaultConventionsRef.current = true;
     setSelectedPhoto(null);
     setPhotoError(null);
@@ -532,6 +550,12 @@ export function FursuitStep({
       return;
     }
 
+    const interactionPreferencesError = getInteractionPreferencesError(selectedInteractionBadges);
+    if (interactionPreferencesError) {
+      setSubmitError(interactionPreferencesError);
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -544,6 +568,8 @@ export function FursuitStep({
         photo: selectedPhoto,
         colorIds,
         visibilityAudience,
+        socialSignal: selectedSocialSignal,
+        interactionBadges: selectedInteractionBadges,
       });
 
       const listedConventionIds = [...selectedConventionIds].filter((conventionId) =>
@@ -848,6 +874,17 @@ export function FursuitStep({
                 </TailTagButton>
               )}
               {photoError ? <Text style={styles.error}>{photoError}</Text> : null}
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Interaction preferences</Text>
+              <InteractionPreferencesEditor
+                socialSignal={selectedSocialSignal}
+                selectedBadges={selectedInteractionBadges}
+                onSocialSignalChange={setSelectedSocialSignal}
+                onBadgesChange={setSelectedInteractionBadges}
+                disabled={isSubmitting}
+              />
             </View>
 
             <View style={styles.fieldGroup}>

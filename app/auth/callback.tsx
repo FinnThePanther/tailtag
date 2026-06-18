@@ -2,13 +2,25 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
 
 import { completeOAuthSessionFromUrl } from '../../src/features/auth/utils/oauth';
+import { loadPendingCatchInviteToken } from '../../src/features/catch-invites';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/auth/callback.styles';
 
 const formatErrorMessage = (input: unknown) =>
   input instanceof Error ? input.message : 'Unable to finish signing in. Please try again.';
+
+async function resolvePostAuthHref(): Promise<Href> {
+  const token = await loadPendingCatchInviteToken();
+  return token
+    ? {
+        pathname: '/invite/[token]',
+        params: { token },
+      }
+    : '/';
+}
 
 type StatusState = 'loading' | 'idle' | 'error';
 
@@ -41,7 +53,8 @@ export default function OAuthCallbackScreen() {
         }
 
         if (handled) {
-          router.replace('/');
+          const href = await resolvePostAuthHref();
+          router.replace(href);
           return;
         }
 
