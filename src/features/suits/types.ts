@@ -2,6 +2,7 @@ import type { ConventionSummary } from '../conventions';
 import type { FursuitColorOption } from '../colors';
 import type { FursuitSocialLink } from '../../types/database';
 import type { VisibilityAudience } from '@/features/adult-boundary';
+import type { InteractionBadgeKey, SocialSignalKey } from '@/features/interaction-preferences';
 
 export type FursuitBio = {
   version: number;
@@ -40,6 +41,8 @@ export type FursuitSummary = {
   unique_code: string | null;
   visibility_audience: VisibilityAudience;
   ownerAttributionVisibility: 'public' | 'hidden';
+  socialSignal: SocialSignalKey | null;
+  interactionBadges: InteractionBadgeKey[];
   catchCount: number;
   created_at: string | null;
   conventions: FursuitConvention[];

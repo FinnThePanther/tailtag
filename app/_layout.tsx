@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useSegments, Stack, Redirect, useNavigationContainerRef, useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -26,6 +27,11 @@ import { ToastProvider } from '../src/hooks/useToast';
 import { DailyTaskToastManager } from '../src/features/daily-tasks/components/DailyTaskToastManager';
 import { AchievementToastManager } from '../src/features/achievements';
 import { CatchConfirmationToastManager } from '../src/features/catch-confirmations';
+import {
+  loadPendingCatchInviteToken,
+  savePendingCatchInviteToken,
+  subscribePendingCatchInviteToken,
+} from '../src/features/catch-invites';
 import { CatchOutboxSyncManager } from '../src/features/catch-outbox';
 import { PushNotificationManager } from '../src/features/push-notifications';
 import {
@@ -64,6 +70,35 @@ function LoadingScreen() {
       />
     </View>
   );
+}
+
+function extractCatchInviteToken(url: string | null | undefined): string | null {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsed = Linking.parse(url);
+    const pathParts = (parsed.path ?? '').split('/').filter(Boolean);
+    const inviteIndex = pathParts.indexOf('invite');
+    const pathToken =
+      inviteIndex !== -1 && pathParts[inviteIndex + 1] ? pathParts[inviteIndex + 1] : null;
+    const hostToken = parsed.hostname === 'invite' && pathParts[0] ? pathParts[0] : null;
+    const queryToken =
+      typeof parsed.queryParams?.token === 'string' ? parsed.queryParams.token : null;
+    const token = pathToken ?? hostToken ?? queryToken;
+
+    return token && /^[A-Za-z0-9_-]{32,160}$/.test(token) ? token : null;
+  } catch {
+    return null;
+  }
+}
+
+function createInviteHref(token: string): Href {
+  return {
+    pathname: '/invite/[token]',
+    params: { token },
+  };
 }
 
 function BlockingProfileError({
@@ -131,6 +166,7 @@ function RootLayoutNav() {
   const inAuthGroup = firstSegment === '(auth)';
   const inAuthCallbackFlow = firstSegment === 'auth' && secondSegment === 'callback';
   const inOnboardingFlow = firstSegment === 'onboarding';
+  const inInviteFlow = firstSegment === 'invite';
   const inAgeGateFlow = firstSegment === 'age-gate';
   const inLegalConsentFlow = firstSegment === 'legal-consent';
   const inResetPasswordFlow = firstSegment === 'reset-password';
@@ -139,6 +175,8 @@ function RootLayoutNav() {
   const setNavigationReady = useSetNavigationReady();
   const initialRecoveryUrlCheckKeyRef = useRef<string | null>(null);
   const completedInitialRecoveryUrlRef = useRef<string | null>(null);
+  const initialInviteUrlCheckKeyRef = useRef<string | null>(null);
+  const [pendingInviteToken, setPendingInviteToken] = useState<string | null>(null);
 
   const {
     data: profile,
@@ -199,7 +237,9 @@ function RootLayoutNav() {
     !profile &&
     (isProfileLoading || isProfileFetching);
 
-  let redirectHref: '/' | '/auth' | '/onboarding' | '/age-gate' | '/legal-consent' | null = null;
+  const postGateHomeHref: Href = pendingInviteToken ? createInviteHref(pendingInviteToken) : '/';
+
+  let redirectHref: Href | null = null;
 
   if (!session && !inPublicAuthFlow) {
     redirectHref = '/auth';
@@ -231,7 +271,7 @@ function RootLayoutNav() {
         ? '/age-gate'
         : shouldGateOnboarding
           ? '/onboarding'
-          : '/';
+          : postGateHomeHref;
   } else if (
     !inResetPasswordFlow &&
     session &&
@@ -247,7 +287,7 @@ function RootLayoutNav() {
     !isProfileLoading &&
     !isProfileFetching
   ) {
-    redirectHref = shouldGateOnboarding ? '/onboarding' : '/';
+    redirectHref = shouldGateOnboarding ? '/onboarding' : postGateHomeHref;
   } else if (
     session &&
     inOnboardingFlow &&
@@ -255,7 +295,7 @@ function RootLayoutNav() {
     !isProfileLoading &&
     !isProfileFetching
   ) {
-    redirectHref = '/';
+    redirectHref = postGateHomeHref;
   }
 
   const shouldShowLoadingScreen =
@@ -296,7 +336,7 @@ function RootLayoutNav() {
           ? '/age-gate'
           : shouldGateOnboarding
             ? '/onboarding'
-            : '/',
+            : postGateHomeHref,
     );
   }, [
     inAuthGroup,
@@ -308,6 +348,89 @@ function RootLayoutNav() {
     shouldGateAgeAttestation,
     shouldGateOnboarding,
     shouldResolvePostAuthDestination,
+    postGateHomeHref,
+  ]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const rememberInviteToken = async (incomingUrl: string | null | undefined) => {
+      const token = extractCatchInviteToken(incomingUrl);
+      if (!token) {
+        return;
+      }
+
+      await savePendingCatchInviteToken(token);
+      if (isMounted) {
+        setPendingInviteToken(token);
+      }
+    };
+
+    void loadPendingCatchInviteToken().then((token) => {
+      if (isMounted) {
+        setPendingInviteToken(token);
+      }
+    });
+
+    const unsubscribePendingInviteToken = subscribePendingCatchInviteToken((token) => {
+      if (isMounted) {
+        setPendingInviteToken(token);
+      }
+    });
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      void rememberInviteToken(event.url);
+    });
+
+    const initialUrlCheckKey = session ? 'signed_in' : 'signed_out';
+    if (initialInviteUrlCheckKeyRef.current !== initialUrlCheckKey) {
+      initialInviteUrlCheckKeyRef.current = initialUrlCheckKey;
+      void Linking.getInitialURL()
+        .then((initialUrl) => rememberInviteToken(initialUrl))
+        .catch((caught) => {
+          captureNonCriticalError(caught, {
+            scope: 'catchInvite.initialUrl',
+            action: 'getInitialURL',
+          });
+        });
+    }
+
+    return () => {
+      isMounted = false;
+      unsubscribePendingInviteToken();
+      subscription.remove();
+    };
+  }, [session]);
+
+  useEffect(() => {
+    if (
+      !session ||
+      !pendingInviteToken ||
+      inInviteFlow ||
+      inAuthGroup ||
+      shouldGateLegalConsent ||
+      shouldGateAgeAttestation ||
+      shouldGateOnboarding ||
+      hasProfileBlockingError ||
+      isProfileLoading ||
+      isProfileFetching
+    ) {
+      return;
+    }
+
+    router.replace(createInviteHref(pendingInviteToken));
+  }, [
+    hasProfileBlockingError,
+    inAuthGroup,
+    inInviteFlow,
+    isProfileFetching,
+    isProfileLoading,
+    pendingInviteToken,
+    router,
+    session,
+    shouldGateAgeAttestation,
+    shouldGateLegalConsent,
+    shouldGateOnboarding,
   ]);
 
   useEffect(() => {
@@ -491,7 +614,13 @@ function RootLayoutNav() {
   ) {
     return (
       <Redirect
-        href={shouldGateAgeAttestation ? '/age-gate' : shouldGateOnboarding ? '/onboarding' : '/'}
+        href={
+          shouldGateAgeAttestation
+            ? '/age-gate'
+            : shouldGateOnboarding
+              ? '/onboarding'
+              : postGateHomeHref
+        }
       />
     );
   }
@@ -503,7 +632,7 @@ function RootLayoutNav() {
     !isProfileLoading &&
     !isProfileFetching
   ) {
-    return <Redirect href={shouldGateOnboarding ? '/onboarding' : '/'} />;
+    return <Redirect href={shouldGateOnboarding ? '/onboarding' : postGateHomeHref} />;
   }
 
   if (
@@ -513,7 +642,7 @@ function RootLayoutNav() {
     !isProfileLoading &&
     !isProfileFetching
   ) {
-    return <Redirect href="/" />;
+    return <Redirect href={postGateHomeHref} />;
   }
 
   // Suspension gate: if user is suspended, show full-screen overlay
@@ -582,6 +711,12 @@ function RootLayoutNav() {
       {/* Catch detail screens */}
       <Stack.Screen
         name="catches"
+        options={{ headerShown: false }}
+      />
+
+      {/* Invite catch claim flow */}
+      <Stack.Screen
+        name="invite"
         options={{ headerShown: false }}
       />
 

@@ -4,6 +4,12 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { captureHandledException } from '@/lib/sentry';
 import type { FursuitPhotoCandidate } from '@/features/onboarding/api/onboarding';
 import { normalizeVisibilityAudience, type VisibilityAudience } from '@/features/adult-boundary';
+import {
+  normalizeInteractionBadges,
+  normalizeSocialSignal,
+  type InteractionBadgeKey,
+  type SocialSignalKey,
+} from '@/features/interaction-preferences';
 
 export const ONBOARDING_STEPS = [
   'welcome',
@@ -24,6 +30,8 @@ export type OnboardingFursuitDraft = {
   selectedConventionIds: string[];
   selectedPhoto: FursuitPhotoCandidate | null;
   visibilityAudience: VisibilityAudience;
+  selectedSocialSignal: SocialSignalKey | null;
+  selectedInteractionBadges: InteractionBadgeKey[];
 };
 
 export type OnboardingProgress = {
@@ -43,6 +51,8 @@ export const createEmptyFursuitDraft = (): OnboardingFursuitDraft => ({
   selectedConventionIds: [],
   selectedPhoto: null,
   visibilityAudience: 'everyone',
+  selectedSocialSignal: null,
+  selectedInteractionBadges: [],
 });
 
 export const createInitialOnboardingProgress = (): OnboardingProgress => ({
@@ -163,6 +173,8 @@ const normalizeFursuitDraft = (value: unknown): OnboardingFursuitDraft => {
     selectedConventionIds,
     selectedPhoto: isPhotoCandidate(draft.selectedPhoto) ? draft.selectedPhoto : null,
     visibilityAudience: normalizeVisibilityAudience(draft.visibilityAudience),
+    selectedSocialSignal: normalizeSocialSignal(draft.selectedSocialSignal),
+    selectedInteractionBadges: normalizeInteractionBadges(draft.selectedInteractionBadges),
   };
 };
 

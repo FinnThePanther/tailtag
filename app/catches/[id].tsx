@@ -28,6 +28,7 @@ import {
   caughtSuitsQueryKey,
   fetchCatchById,
 } from '../../src/features/suits';
+import { InteractionPreferencesSummary } from '@/features/interaction-preferences';
 import type { CaughtRecord } from '../../src/features/suits';
 import { useAuth } from '../../src/features/auth';
 import { ContentActionMenu } from '../../src/features/moderation';
@@ -180,6 +181,14 @@ export default function CatchDetailScreen() {
                 codeLabel={null}
               />
             </Pressable>
+            {!isFursuitRedacted ? (
+              <InteractionPreferencesSummary
+                socialSignal={details.socialSignal}
+                badges={details.interactionBadges}
+                title="Before you interact"
+                body="These are quick signals, not blanket permission. Ask when unsure."
+              />
+            ) : null}
             {record.catchPhotoUrl ? (
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Catch photo</Text>

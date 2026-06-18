@@ -38,8 +38,9 @@ Set Edge Function secrets through Supabase, not in committed files.
 | `SUPABASE_SERVICE_ROLE_KEY` | Fallback | Yes | Edge Functions | Some functions accept this as a fallback service-role name. |
 | `SUPABASE_ANON_KEY` | Function-specific | No | Public-authenticated Edge Function flows | Used by functions that need anon-key request handling. |
 | `ANON_KEY` | Fallback | No | Public-authenticated Edge Function flows | Fallback name for anon key in some functions. |
-| `SUPABASE_JWT_SECRET` | Function-specific | Yes | Push notification authorization | Used by `send-push` when verifying JWT-based requests. |
+| `SUPABASE_JWT_SECRET` | Function-specific | Yes | Push notification authorization | Used by `send-push` and `process-push-receipts` when verifying JWT-based requests. |
 | `JWT_SECRET` | Fallback | Yes | Push notification authorization | Fallback name for JWT secret. |
+| `EXPO_ACCESS_TOKEN` | Function-specific | Yes | Expo push delivery | Optional bearer token for Expo push send and receipt requests when enhanced push security is enabled. |
 
 `docs/environment-setup.md` has the fuller per-environment Supabase secret and Vault setup checklist.
 

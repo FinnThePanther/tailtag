@@ -1,0 +1,17 @@
+{
+  "name": "@tailtag/notification-contract",
+  "version": "0.1.0",
+  "description": "Shared notification type contract for TailTag clients and workers.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "lint": "tsc --noEmit --pretty"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}

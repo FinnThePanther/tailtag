@@ -234,6 +234,175 @@ export type Database = {
           },
         ];
       };
+      backend_worker_runs: {
+        Row: {
+          completed_at: string | null;
+          counts: Json;
+          created_at: string;
+          duration_ms: number | null;
+          error_details: Json | null;
+          error_message: string | null;
+          id: string;
+          metadata: Json;
+          source: string;
+          started_at: string;
+          status: string;
+          updated_at: string;
+          worker_name: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          counts?: Json;
+          created_at?: string;
+          duration_ms?: number | null;
+          error_details?: Json | null;
+          error_message?: string | null;
+          id?: string;
+          metadata?: Json;
+          source: string;
+          started_at?: string;
+          status?: string;
+          updated_at?: string;
+          worker_name: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          counts?: Json;
+          created_at?: string;
+          duration_ms?: number | null;
+          error_details?: Json | null;
+          error_message?: string | null;
+          id?: string;
+          metadata?: Json;
+          source?: string;
+          started_at?: string;
+          status?: string;
+          updated_at?: string;
+          worker_name?: string;
+        };
+        Relationships: [];
+      };
+      catch_invites: {
+        Row: {
+          approved_at: string | null;
+          canceled_at: string | null;
+          catch_photo_path: string;
+          catch_photo_source: string;
+          catch_photo_url: string;
+          caught_at: string;
+          claimed_at: string | null;
+          claimed_by_profile_id: string | null;
+          convention_id: string | null;
+          converted_catch_id: string | null;
+          created_at: string;
+          credit_scope: string;
+          declined_at: string | null;
+          expires_at: string;
+          id: string;
+          invitee_display_name: string | null;
+          inviter_profile_id: string;
+          report_reason: string | null;
+          reported_at: string | null;
+          selected_fursuit_id: string | null;
+          status: string;
+          token_hash: string;
+          updated_at: string;
+        };
+        Insert: {
+          approved_at?: string | null;
+          canceled_at?: string | null;
+          catch_photo_path: string;
+          catch_photo_source?: string;
+          catch_photo_url: string;
+          caught_at?: string;
+          claimed_at?: string | null;
+          claimed_by_profile_id?: string | null;
+          convention_id?: string | null;
+          converted_catch_id?: string | null;
+          created_at?: string;
+          credit_scope?: string;
+          declined_at?: string | null;
+          expires_at: string;
+          id?: string;
+          invitee_display_name?: string | null;
+          inviter_profile_id: string;
+          report_reason?: string | null;
+          reported_at?: string | null;
+          selected_fursuit_id?: string | null;
+          status?: string;
+          token_hash: string;
+          updated_at?: string;
+        };
+        Update: {
+          approved_at?: string | null;
+          canceled_at?: string | null;
+          catch_photo_path?: string;
+          catch_photo_source?: string;
+          catch_photo_url?: string;
+          caught_at?: string;
+          claimed_at?: string | null;
+          claimed_by_profile_id?: string | null;
+          convention_id?: string | null;
+          converted_catch_id?: string | null;
+          created_at?: string;
+          credit_scope?: string;
+          declined_at?: string | null;
+          expires_at?: string;
+          id?: string;
+          invitee_display_name?: string | null;
+          inviter_profile_id?: string;
+          report_reason?: string | null;
+          reported_at?: string | null;
+          selected_fursuit_id?: string | null;
+          status?: string;
+          token_hash?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'catch_invites_claimed_by_profile_id_fkey';
+            columns: ['claimed_by_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_invites_convention_id_fkey';
+            columns: ['convention_id'];
+            isOneToOne: false;
+            referencedRelation: 'conventions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_invites_converted_catch_id_fkey';
+            columns: ['converted_catch_id'];
+            isOneToOne: false;
+            referencedRelation: 'catches';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_invites_inviter_profile_id_fkey';
+            columns: ['inviter_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_invites_selected_fursuit_id_fkey';
+            columns: ['selected_fursuit_id'];
+            isOneToOne: false;
+            referencedRelation: 'fursuits';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catch_invites_selected_fursuit_id_fkey';
+            columns: ['selected_fursuit_id'];
+            isOneToOne: false;
+            referencedRelation: 'fursuits_moderation';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       catch_performance_events: {
         Row: {
           app_version: string | null;
@@ -404,6 +573,7 @@ export type Database = {
       };
       catches: {
         Row: {
+          catch_credit_scope: string;
           catch_number: number | null;
           catch_photo_path: string | null;
           catch_photo_source: string | null;
@@ -422,6 +592,7 @@ export type Database = {
           status: string;
         };
         Insert: {
+          catch_credit_scope?: string;
           catch_number?: number | null;
           catch_photo_path?: string | null;
           catch_photo_source?: string | null;
@@ -440,6 +611,7 @@ export type Database = {
           status?: string;
         };
         Update: {
+          catch_credit_scope?: string;
           catch_number?: number | null;
           catch_photo_path?: string | null;
           catch_photo_source?: string | null;
@@ -1337,10 +1509,12 @@ export type Database = {
           flagged_at: string | null;
           flagged_reason: string | null;
           id: string;
+          interaction_badges: string[];
           is_flagged: boolean;
           name: string;
           owner_attribution_visibility: string;
           owner_id: string;
+          social_signal: string | null;
           species_id: string | null;
           unique_code: string;
           visibility_audience: string;
@@ -1355,10 +1529,12 @@ export type Database = {
           flagged_at?: string | null;
           flagged_reason?: string | null;
           id?: string;
+          interaction_badges?: string[];
           is_flagged?: boolean;
           name: string;
           owner_attribution_visibility?: string;
           owner_id: string;
+          social_signal?: string | null;
           species_id?: string | null;
           unique_code: string;
           visibility_audience?: string;
@@ -1373,10 +1549,12 @@ export type Database = {
           flagged_at?: string | null;
           flagged_reason?: string | null;
           id?: string;
+          interaction_badges?: string[];
           is_flagged?: boolean;
           name?: string;
           owner_attribution_visibility?: string;
           owner_id?: string;
+          social_signal?: string | null;
           species_id?: string | null;
           unique_code?: string;
           visibility_audience?: string;
@@ -1398,9 +1576,285 @@ export type Database = {
           },
         ];
       };
+      notification_push_attempts: {
+        Row: {
+          attempt_number: number;
+          completed_at: string;
+          created_at: string;
+          error_message: string | null;
+          expo_response_body: Json | null;
+          expo_response_status: number | null;
+          expo_ticket_id: string | null;
+          id: string;
+          job_id: string;
+          notification_id: string;
+          request_snapshot: Json | null;
+          result_status: string;
+          skip_reason: string | null;
+          started_at: string;
+        };
+        Insert: {
+          attempt_number: number;
+          completed_at?: string;
+          created_at?: string;
+          error_message?: string | null;
+          expo_response_body?: Json | null;
+          expo_response_status?: number | null;
+          expo_ticket_id?: string | null;
+          id?: string;
+          job_id: string;
+          notification_id: string;
+          request_snapshot?: Json | null;
+          result_status: string;
+          skip_reason?: string | null;
+          started_at?: string;
+        };
+        Update: {
+          attempt_number?: number;
+          completed_at?: string;
+          created_at?: string;
+          error_message?: string | null;
+          expo_response_body?: Json | null;
+          expo_response_status?: number | null;
+          expo_ticket_id?: string | null;
+          id?: string;
+          job_id?: string;
+          notification_id?: string;
+          request_snapshot?: Json | null;
+          result_status?: string;
+          skip_reason?: string | null;
+          started_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notification_push_attempts_job_id_fkey';
+            columns: ['job_id'];
+            isOneToOne: false;
+            referencedRelation: 'notification_push_jobs';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'notification_push_attempts_notification_id_fkey';
+            columns: ['notification_id'];
+            isOneToOne: false;
+            referencedRelation: 'notifications';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      notification_push_jobs: {
+        Row: {
+          attempt_count: number;
+          created_at: string;
+          failed_at: string | null;
+          id: string;
+          last_attempted_at: string | null;
+          last_error: string | null;
+          last_response_body: Json | null;
+          last_response_status: number | null;
+          locked_at: string | null;
+          locked_by: string | null;
+          max_attempts: number;
+          next_attempt_at: string | null;
+          notification_id: string;
+          notification_type: string;
+          payload: Json;
+          sent_at: string | null;
+          skipped_at: string | null;
+          status: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          attempt_count?: number;
+          created_at?: string;
+          failed_at?: string | null;
+          id?: string;
+          last_attempted_at?: string | null;
+          last_error?: string | null;
+          last_response_body?: Json | null;
+          last_response_status?: number | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          next_attempt_at?: string | null;
+          notification_id: string;
+          notification_type: string;
+          payload?: Json;
+          sent_at?: string | null;
+          skipped_at?: string | null;
+          status?: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          attempt_count?: number;
+          created_at?: string;
+          failed_at?: string | null;
+          id?: string;
+          last_attempted_at?: string | null;
+          last_error?: string | null;
+          last_response_body?: Json | null;
+          last_response_status?: number | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          next_attempt_at?: string | null;
+          notification_id?: string;
+          notification_type?: string;
+          payload?: Json;
+          sent_at?: string | null;
+          skipped_at?: string | null;
+          status?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notification_push_jobs_notification_id_fkey';
+            columns: ['notification_id'];
+            isOneToOne: true;
+            referencedRelation: 'notifications';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'notification_push_jobs_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      notification_push_receipts: {
+        Row: {
+          attempt_count: number;
+          attempt_id: string;
+          created_at: string;
+          error_at: string | null;
+          expired_at: string | null;
+          expires_at: string;
+          expo_error: string | null;
+          expo_message: string | null;
+          expo_push_token: string;
+          expo_ticket_id: string;
+          failed_at: string | null;
+          id: string;
+          job_id: string;
+          last_error: string | null;
+          last_polled_at: string | null;
+          last_receipt_body: Json | null;
+          last_response_body: Json | null;
+          last_response_status: number | null;
+          locked_at: string | null;
+          locked_by: string | null;
+          max_attempts: number;
+          next_attempt_at: string | null;
+          notification_id: string;
+          ok_at: string | null;
+          status: string;
+          token_cleared: boolean;
+          token_cleared_at: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          attempt_count?: number;
+          attempt_id: string;
+          created_at?: string;
+          error_at?: string | null;
+          expired_at?: string | null;
+          expires_at?: string;
+          expo_error?: string | null;
+          expo_message?: string | null;
+          expo_push_token: string;
+          expo_ticket_id: string;
+          failed_at?: string | null;
+          id?: string;
+          job_id: string;
+          last_error?: string | null;
+          last_polled_at?: string | null;
+          last_receipt_body?: Json | null;
+          last_response_body?: Json | null;
+          last_response_status?: number | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          next_attempt_at?: string | null;
+          notification_id: string;
+          ok_at?: string | null;
+          status?: string;
+          token_cleared?: boolean;
+          token_cleared_at?: string | null;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          attempt_count?: number;
+          attempt_id?: string;
+          created_at?: string;
+          error_at?: string | null;
+          expired_at?: string | null;
+          expires_at?: string;
+          expo_error?: string | null;
+          expo_message?: string | null;
+          expo_push_token?: string;
+          expo_ticket_id?: string;
+          failed_at?: string | null;
+          id?: string;
+          job_id?: string;
+          last_error?: string | null;
+          last_polled_at?: string | null;
+          last_receipt_body?: Json | null;
+          last_response_body?: Json | null;
+          last_response_status?: number | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          next_attempt_at?: string | null;
+          notification_id?: string;
+          ok_at?: string | null;
+          status?: string;
+          token_cleared?: boolean;
+          token_cleared_at?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notification_push_receipts_attempt_id_fkey';
+            columns: ['attempt_id'];
+            isOneToOne: false;
+            referencedRelation: 'notification_push_attempts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'notification_push_receipts_job_id_fkey';
+            columns: ['job_id'];
+            isOneToOne: false;
+            referencedRelation: 'notification_push_jobs';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'notification_push_receipts_notification_id_fkey';
+            columns: ['notification_id'];
+            isOneToOne: false;
+            referencedRelation: 'notifications';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'notification_push_receipts_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       notifications: {
         Row: {
           created_at: string;
+          dedupe_key: string | null;
           id: string;
           payload: Json;
           type: string;
@@ -1408,6 +1862,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          dedupe_key?: string | null;
           id?: string;
           payload?: Json;
           type: string;
@@ -1415,6 +1870,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          dedupe_key?: string | null;
           id?: string;
           payload?: Json;
           type?: string;
@@ -1705,7 +2161,7 @@ export type Database = {
           id: string;
           linked_at: string | null;
           qr_asset_path: string | null;
-          qr_token: string | null;
+          qr_token: string;
           qr_token_created_at: string | null;
           registered_at: string;
           registered_by_user_id: string | null;
@@ -1717,7 +2173,7 @@ export type Database = {
           id?: string;
           linked_at?: string | null;
           qr_asset_path?: string | null;
-          qr_token?: string | null;
+          qr_token: string;
           qr_token_created_at?: string | null;
           registered_at?: string;
           registered_by_user_id?: string | null;
@@ -1729,7 +2185,7 @@ export type Database = {
           id?: string;
           linked_at?: string | null;
           qr_asset_path?: string | null;
-          qr_token?: string | null;
+          qr_token?: string;
           qr_token_created_at?: string | null;
           registered_at?: string;
           registered_by_user_id?: string | null;
@@ -2242,6 +2698,14 @@ export type Database = {
       };
     };
     Functions: {
+      approve_catch_invite: {
+        Args: {
+          p_claimant_profile_id: string;
+          p_fursuit_id: string;
+          p_invite_id: string;
+        };
+        Returns: Json;
+      };
       archive_gameplay_event_queue_message: {
         Args: { p_message_id: number };
         Returns: boolean;
@@ -2304,6 +2768,45 @@ export type Database = {
         Args: { p_object_name: string; p_viewer_id: string };
         Returns: boolean;
       };
+      catch_invite_expiration: {
+        Args: { p_convention_id: string };
+        Returns: string;
+      };
+      claim_catch_invite: {
+        Args: { p_claimant_profile_id: string; p_token_hash: string };
+        Returns: Json;
+      };
+      claim_notification_push_jobs: {
+        Args: {
+          p_limit?: number;
+          p_notification_id?: string;
+          p_worker_id: string;
+        };
+        Returns: {
+          attempt_number: number;
+          id: string;
+          max_attempts: number;
+          notification_id: string;
+          notification_type: string;
+          payload: Json;
+          user_id: string;
+        }[];
+      };
+      claim_notification_push_receipts: {
+        Args: { p_limit?: number; p_worker_id: string };
+        Returns: {
+          attempt_id: string;
+          attempt_number: number;
+          expires_at: string;
+          expo_push_token: string;
+          expo_ticket_id: string;
+          id: string;
+          job_id: string;
+          max_attempts: number;
+          notification_id: string;
+          user_id: string;
+        }[];
+      };
       claim_unprocessed_events: {
         Args: { p_batch_size?: number; p_min_age_seconds?: number };
         Returns: {
@@ -2334,6 +2837,38 @@ export type Database = {
       };
       cleanup_old_audit_logs: { Args: never; Returns: undefined };
       cleanup_old_notifications: { Args: never; Returns: undefined };
+      complete_notification_push_job: {
+        Args: {
+          p_error_message?: string;
+          p_expo_push_token?: string;
+          p_expo_ticket_id?: string;
+          p_job_id: string;
+          p_request_snapshot?: Json;
+          p_response_body?: Json;
+          p_response_status?: number;
+          p_result_status: string;
+          p_retry_after_seconds?: number;
+          p_skip_reason?: string;
+          p_worker_id: string;
+        };
+        Returns: string;
+      };
+      complete_notification_push_receipt: {
+        Args: {
+          p_error_message?: string;
+          p_expo_error?: string;
+          p_expo_message?: string;
+          p_receipt_body?: Json;
+          p_receipt_id: string;
+          p_response_body?: Json;
+          p_response_status?: number;
+          p_result_status: string;
+          p_retry_after_seconds?: number;
+          p_token_cleared?: boolean;
+          p_worker_id: string;
+        };
+        Returns: string;
+      };
       confirm_catch: {
         Args: {
           p_catch_id: string;
@@ -2390,6 +2925,19 @@ export type Database = {
         Returns: number;
       };
       count_user_fursuits: { Args: { p_user_id: string }; Returns: number };
+      create_catch_invite: {
+        Args: {
+          p_catch_photo_path: string;
+          p_catch_photo_source?: string;
+          p_catch_photo_url: string;
+          p_caught_at?: string;
+          p_convention_id?: string;
+          p_invitee_display_name?: string;
+          p_inviter_profile_id: string;
+          p_token_hash: string;
+        };
+        Returns: Json;
+      };
       create_catch_reciprocal_offer: {
         Args: {
           p_offered_by_profile_id: string;
@@ -2423,6 +2971,10 @@ export type Database = {
         Returns: Json;
       };
       current_user_has_password_credential: { Args: never; Returns: boolean };
+      decline_catch_invite: {
+        Args: { p_claimant_profile_id: string; p_invite_id: string };
+        Returns: Json;
+      };
       delete_archived_convention_in_dev: {
         Args: { p_actor_id: string; p_convention_id: string };
         Returns: {
@@ -2444,6 +2996,10 @@ export type Database = {
           scan_count: number;
         }[];
       };
+      enqueue_notification_push_job: {
+        Args: { p_notification_id: string };
+        Returns: string;
+      };
       ensure_own_profile_exists: {
         Args: { p_username?: string };
         Returns: undefined;
@@ -2456,6 +3012,7 @@ export type Database = {
         Args: { p_convention_id: string };
         Returns: Json;
       };
+      expire_stale_catch_invites: { Args: never; Returns: Json };
       fetch_unprocessed_events: {
         Args: { batch_size?: number; min_age_seconds?: number };
         Returns: {
@@ -2490,6 +3047,25 @@ export type Database = {
           convention_id: string;
         }[];
       };
+      get_backend_worker_run_health: {
+        Args: never;
+        Returns: {
+          display_name: string;
+          last_failure_at: string;
+          last_success_at: string;
+          latest_completed_at: string;
+          latest_counts: Json;
+          latest_duration_ms: number;
+          latest_error_message: string;
+          latest_run_id: string;
+          latest_source: string;
+          latest_started_at: string;
+          latest_status: string;
+          recent_failure_count: number;
+          running_started_at: string;
+          worker_name: string;
+        }[];
+      };
       get_blocked_users: {
         Args: { p_user_id: string };
         Returns: {
@@ -2519,10 +3095,12 @@ export type Database = {
           fursuit_created_at: string;
           fursuit_description: string;
           fursuit_id: string;
+          fursuit_interaction_badges: string[];
           fursuit_name: string;
           fursuit_owner_attribution_visibility: string;
           fursuit_owner_id: string;
           fursuit_redacted: boolean;
+          fursuit_social_signal: string;
           fursuit_unique_code: string;
           fursuit_visibility_audience: string;
           makers: Json;
@@ -2650,11 +3228,13 @@ export type Database = {
           fursuit_bio: Json;
           fursuit_conventions: Json;
           id: string;
+          interaction_badges: string[];
           makers: Json;
           name: string;
           owner_attribution_visibility: string;
           owner_id: string;
           owner_social_links: Json;
+          social_signal: string;
           species_entry: Json;
           species_id: string;
           unique_code: string;
@@ -2723,10 +3303,12 @@ export type Database = {
           fursuit_created_at: string;
           fursuit_description: string;
           fursuit_id: string;
+          fursuit_interaction_badges: string[];
           fursuit_name: string;
           fursuit_owner_attribution_visibility: string;
           fursuit_owner_id: string;
           fursuit_redacted: boolean;
+          fursuit_social_signal: string;
           fursuit_unique_code: string;
           fursuit_visibility_audience: string;
           makers: Json;
@@ -2847,11 +3429,13 @@ export type Database = {
           fursuit_bio: Json;
           fursuit_conventions: Json;
           id: string;
+          interaction_badges: string[];
           makers: Json;
           name: string;
           owner_attribution_visibility: string;
           owner_id: string;
           owner_social_links: Json;
+          social_signal: string;
           species_entry: Json;
           species_id: string;
           visibility_audience: string;
@@ -2903,11 +3487,31 @@ export type Database = {
         Args: { p_payload: Json; p_user_id: string };
         Returns: boolean;
       };
+      insert_notification_once: {
+        Args: {
+          p_dedupe_key: string;
+          p_payload: Json;
+          p_type: string;
+          p_user_id: string;
+        };
+        Returns: {
+          inserted: boolean;
+          notification_id: string;
+        }[];
+      };
+      invoke_edge_function: {
+        Args: { p_body?: Json; p_function_name: string };
+        Returns: undefined;
+      };
       is_admin: { Args: { user_id: string }; Returns: boolean };
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean };
       is_adult_profile: { Args: { p_profile_id: string }; Returns: boolean };
       is_blocked: {
         Args: { p_user_a: string; p_user_b: string };
+        Returns: boolean;
+      };
+      is_convention_closeout_started: {
+        Args: { p_convention_id: string };
         Returns: boolean;
       };
       is_convention_gallery_catchable: {
@@ -3003,6 +3607,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      persist_daily_task_state_and_notifications: {
+        Args: { p_notifications: Json; p_progress_rows: Json; p_streak: Json };
+        Returns: undefined;
+      };
       process_achievement_queue_if_active: { Args: never; Returns: undefined };
       process_catch_reciprocal_offer: {
         Args: { p_offer_id: string };
@@ -3016,6 +3624,10 @@ export type Database = {
           config: Json;
           config_name: string;
         }[];
+      };
+      read_catch_invite_payload: {
+        Args: { p_invite: Database['public']['Tables']['catch_invites']['Row'] };
+        Returns: Json;
       };
       read_gameplay_event_queue: {
         Args: { p_batch_size?: number; p_visibility_timeout_seconds?: number };
@@ -3049,6 +3661,14 @@ export type Database = {
           replayed: boolean;
           status: string;
         }[];
+      };
+      report_catch_invite: {
+        Args: {
+          p_claimant_profile_id: string;
+          p_invite_id: string;
+          p_reason?: string;
+        };
+        Returns: Json;
       };
       search_players: {
         Args: {
@@ -3097,6 +3717,10 @@ export type Database = {
           p_severity?: string;
         };
         Returns: string;
+      };
+      text_array_has_no_duplicates: {
+        Args: { input_values: string[] };
+        Returns: boolean;
       };
       transition_ended_conventions_to_finalizing: {
         Args: { p_now?: string };
@@ -3165,11 +3789,8 @@ export type Database = {
     };
   };
 };
-
 type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
-
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>];
-
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
@@ -3196,7 +3817,6 @@ export type Tables<
       ? R
       : never
     : never;
-
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema['Tables']
@@ -3221,7 +3841,6 @@ export type TablesInsert<
       ? I
       : never
     : never;
-
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema['Tables']
@@ -3246,7 +3865,6 @@ export type TablesUpdate<
       ? U
       : never
     : never;
-
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema['Enums']
@@ -3263,7 +3881,6 @@ export type Enums<
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
     ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
     : never;
-
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema['CompositeTypes']
@@ -3280,7 +3897,6 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
     ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
     : never;
-
 export const Constants = {
   public: {
     Enums: {

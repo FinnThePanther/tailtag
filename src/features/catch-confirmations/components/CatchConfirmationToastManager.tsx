@@ -25,6 +25,10 @@ const CATCH_NOTIFICATION_TYPES = [
   'catch_confirmed',
   'catch_rejected',
   'catch_expired',
+  'catch_invite_claimed',
+  'catch_invite_approved',
+  'catch_invite_declined',
+  'catch_invite_reported',
 ] as const;
 
 function isAdultBoundaryChecked(payload: Record<string, unknown> | null): boolean {
@@ -52,6 +56,11 @@ function getCatchNotificationDedupeKey(
   type: string,
   payload: Record<string, unknown> | null,
 ): string | null {
+  const catchInviteId = readPayloadString(payload, 'catch_invite_id');
+  if (type.startsWith('catch_invite_') && catchInviteId) {
+    return `${type}:${catchInviteId}`;
+  }
+
   const catchId = readPayloadString(payload, 'catch_id');
   if (!catchId) {
     return null;
@@ -77,6 +86,7 @@ type CatchNotificationRow = {
  * - catch_confirmed: When your catch was approved
  * - catch_rejected: When your catch was declined
  * - catch_expired: When a pending catch expired
+ * - catch_invite_*: When a claimed TailTag invite changes status
  *
  * Deduplication Strategy:
  * We track processed notification IDs in-memory (processedNotificationIdsRef) to prevent
@@ -368,6 +378,73 @@ export function CatchConfirmationToastManager() {
       });
     };
 
+    const handleCatchInviteClaimed = (payload: Record<string, unknown> | null) => {
+      const catchInviteId = readPayloadString(payload, 'catch_invite_id');
+
+      showToast('Your TailTag invite was claimed');
+
+      addMonitoringBreadcrumb({
+        category: 'catch-invites',
+        message: 'Catch invite claimed notification received',
+        data: { userId, catchInviteId },
+      });
+    };
+
+    const handleCatchInviteApproved = (payload: Record<string, unknown> | null) => {
+      const catchInviteId = readPayloadString(payload, 'catch_invite_id');
+      const fursuitId = readPayloadString(payload, 'fursuit_id');
+      const fursuitName = readPayloadString(payload, 'fursuit_name') ?? 'their fursuit';
+
+      showToast(`Your catch of ${fursuitName} now counts`);
+
+      addMonitoringBreadcrumb({
+        category: 'catch-invites',
+        message: 'Catch invite approved notification received',
+        data: { userId, catchInviteId, fursuitId },
+      });
+
+      invalidateCaughtHistory();
+      void queryClient.invalidateQueries({
+        queryKey: [DAILY_TASKS_QUERY_KEY],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: achievementsStatusQueryKey(userId),
+      });
+
+      if (fursuitId) {
+        void queryClient.invalidateQueries({
+          queryKey: fursuitDetailQueryKey(fursuitId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: catchesByFursuitQueryKey(fursuitId, userId),
+        });
+      }
+    };
+
+    const handleCatchInviteDeclined = (payload: Record<string, unknown> | null) => {
+      const catchInviteId = readPayloadString(payload, 'catch_invite_id');
+
+      showToast('Your TailTag invite catch was declined');
+
+      addMonitoringBreadcrumb({
+        category: 'catch-invites',
+        message: 'Catch invite declined notification received',
+        data: { userId, catchInviteId },
+      });
+    };
+
+    const handleCatchInviteReported = (payload: Record<string, unknown> | null) => {
+      const catchInviteId = readPayloadString(payload, 'catch_invite_id');
+
+      showToast('Your TailTag invite was reported and is under review');
+
+      addMonitoringBreadcrumb({
+        category: 'catch-invites',
+        message: 'Catch invite reported notification received',
+        data: { userId, catchInviteId },
+      });
+    };
+
     const processNotificationRow = (row: Record<string, unknown> | null) => {
       if (!row || typeof row !== 'object') {
         return;
@@ -418,6 +495,18 @@ export function CatchConfirmationToastManager() {
           break;
         case 'catch_expired':
           handleCatchExpired(notificationPayload);
+          break;
+        case 'catch_invite_claimed':
+          handleCatchInviteClaimed(notificationPayload);
+          break;
+        case 'catch_invite_approved':
+          handleCatchInviteApproved(notificationPayload);
+          break;
+        case 'catch_invite_declined':
+          handleCatchInviteDeclined(notificationPayload);
+          break;
+        case 'catch_invite_reported':
+          handleCatchInviteReported(notificationPayload);
           break;
         default:
           break;

@@ -1417,7 +1417,7 @@ export default function SettingsScreen() {
   return (
     <KeyboardAwareFormWrapper
       contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
+      keyboardShouldPersistTaps="always"
     >
       <View style={styles.headerRow}>
         <View style={styles.header}>
