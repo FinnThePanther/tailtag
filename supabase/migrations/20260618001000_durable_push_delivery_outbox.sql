@@ -94,7 +94,7 @@ ALTER TABLE public.notification_push_attempts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.notification_push_jobs FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.notification_push_attempts FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.notification_push_jobs TO service_role;
-REVOKE UPDATE, DELETE ON TABLE public.notification_push_attempts FROM service_role;
+REVOKE ALL ON TABLE public.notification_push_attempts FROM service_role;
 GRANT SELECT, INSERT ON TABLE public.notification_push_attempts TO service_role;
 
 DROP POLICY IF EXISTS "notification_push_jobs_service_role_select"
