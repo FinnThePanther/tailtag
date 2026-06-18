@@ -13,7 +13,7 @@ export const siteConfig = {
   },
 
   meta: {
-    url: 'https://playtailtag.com',
+    url: 'https://www.playtailtag.com',
     image: '/icon.png',
   },
 } as const;

@@ -12,7 +12,8 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('ANON_KEY');
 const serviceRoleKey =
   Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-const inviteBaseUrl = Deno.env.get('TAILTAG_INVITE_BASE_URL') ?? 'https://playtailtag.com/invite';
+const inviteBaseUrl =
+  Deno.env.get('TAILTAG_INVITE_BASE_URL') ?? 'https://www.playtailtag.com/invite';
 
 if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
   throw new Error('Missing Supabase configuration');

@@ -81,7 +81,7 @@ module.exports = ({ config }) => ({
     bundleIdentifier: env.iosBundleId,
     googleServicesFile: maybeResolveExistingFile(env.iosGoogleServicesFile),
     usesAppleSignIn: true,
-    associatedDomains: ['applinks:playtailtag.com'],
+    associatedDomains: ['applinks:www.playtailtag.com', 'applinks:playtailtag.com'],
     infoPlist: {
       NSPhotoLibraryUsageDescription: PHOTO_LIBRARY_PERMISSION,
       NSCameraUsageDescription: CAMERA_PERMISSION,
@@ -104,6 +104,11 @@ module.exports = ({ config }) => ({
         action: 'VIEW',
         autoVerify: true,
         data: [
+          {
+            scheme: 'https',
+            host: 'www.playtailtag.com',
+            pathPrefix: '/invite',
+          },
           {
             scheme: 'https',
             host: 'playtailtag.com',
