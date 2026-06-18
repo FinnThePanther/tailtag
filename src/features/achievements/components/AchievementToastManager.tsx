@@ -25,6 +25,7 @@ import {
   PAST_CONVENTION_RECAPS_QUERY_KEY,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
 } from '../../conventions';
+import { canOptimisticallyIncrementDailyTask } from '@/features/daily-tasks/optimisticProgress';
 import type { AchievementWithStatus } from '../api/achievements';
 import { caughtSuitsQueryKey, type CaughtRecord } from '../../suits';
 import { hasUploadedProfileAvatar, profileQueryKey, type ProfileSummary } from '../../profile';
@@ -43,23 +44,6 @@ type NotificationRow = {
   type: string;
   payload: Json;
   user_id: string;
-};
-
-type DailyTaskMetadataFilter = {
-  path: string;
-  equals?: unknown;
-  notEquals?: unknown;
-  in?: unknown[];
-  notIn?: unknown[];
-  exists?: boolean;
-  notEqualsUserId?: boolean;
-};
-
-type DailyTaskMetadata = {
-  eventType: string;
-  metric: 'total' | 'unique';
-  uniqueBy?: string;
-  filters: DailyTaskMetadataFilter[];
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -111,51 +95,6 @@ function conventionRecapReadyToastKey(
   return recapId ?? `${userId}:${conventionName}`;
 }
 
-function getValueAtPath(root: Record<string, unknown>, path: string): unknown {
-  return path.split('.').reduce<unknown>((current, segment) => {
-    if (!isRecord(current)) {
-      return undefined;
-    }
-    return current[segment];
-  }, root);
-}
-
-function normalizeDailyTaskMetadata(raw: unknown): DailyTaskMetadata | null {
-  if (!isRecord(raw)) {
-    return null;
-  }
-
-  const eventType =
-    typeof raw.eventType === 'string'
-      ? raw.eventType
-      : typeof raw.event_type === 'string'
-        ? raw.event_type
-        : typeof raw.trigger === 'string'
-          ? raw.trigger
-          : null;
-
-  if (!eventType) {
-    return null;
-  }
-
-  return {
-    eventType,
-    metric: raw.metric === 'unique' ? 'unique' : 'total',
-    uniqueBy:
-      typeof raw.uniqueBy === 'string'
-        ? raw.uniqueBy
-        : typeof raw.unique_by === 'string'
-          ? raw.unique_by
-          : undefined,
-    filters: Array.isArray(raw.filters)
-      ? raw.filters.filter(
-          (entry): entry is DailyTaskMetadataFilter =>
-            isRecord(entry) && typeof entry.path === 'string',
-        )
-      : [],
-  };
-}
-
 function normalizeUserFacingAchievementName(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
@@ -174,49 +113,6 @@ function normalizeUserFacingAchievementName(value: unknown): string | null {
   }
 
   return name;
-}
-
-function matchesLocalDailyTaskFilters(
-  metadata: DailyTaskMetadata,
-  eventPayload: Record<string, unknown>,
-  userId: string,
-) {
-  return metadata.filters.every((filter) => {
-    const candidate = getValueAtPath(eventPayload, filter.path);
-
-    if (filter.exists === true && candidate === undefined) {
-      return false;
-    }
-
-    if (filter.exists === false && candidate !== undefined) {
-      return false;
-    }
-
-    if (filter.notEqualsUserId === true && candidate === userId) {
-      return false;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(filter, 'equals') && candidate !== filter.equals) {
-      return false;
-    }
-
-    if (
-      Object.prototype.hasOwnProperty.call(filter, 'notEquals') &&
-      candidate === filter.notEquals
-    ) {
-      return false;
-    }
-
-    if (Array.isArray(filter.in) && !filter.in.includes(candidate)) {
-      return false;
-    }
-
-    if (Array.isArray(filter.notIn) && filter.notIn.includes(candidate)) {
-      return false;
-    }
-
-    return true;
-  });
 }
 
 /**
@@ -861,22 +757,14 @@ export function AchievementToastManager() {
         let changed = false;
         let completedCount = 0;
         const tasks = summary.tasks.map((task) => {
-          const metadata = normalizeDailyTaskMetadata(task.metadata);
-          const supportsOptimisticIncrement = Boolean(
-            metadata &&
-            metadata.eventType === event.type &&
-            (metadata.metric === 'total' ||
-              (metadata.metric === 'unique' && event.type === 'catch_performed')),
-          );
-
-          if (!metadata || !supportsOptimisticIncrement) {
-            if (task.isCompleted) {
-              completedCount += 1;
-            }
-            return task;
-          }
-
-          if (!matchesLocalDailyTaskFilters(metadata, normalizedEventPayload, userId)) {
+          if (
+            !canOptimisticallyIncrementDailyTask({
+              metadata: task.metadata,
+              eventType: event.type,
+              eventPayload: normalizedEventPayload,
+              userId,
+            })
+          ) {
             if (task.isCompleted) {
               completedCount += 1;
             }
