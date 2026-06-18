@@ -53,23 +53,23 @@ const SUPPORTED_TYPES = new Set([
   'convention_recap_ready',
 ]);
 
-type NotificationRecord = {
+interface NotificationRecord {
   id?: unknown;
   user_id?: unknown;
   type?: unknown;
   payload?: unknown;
-};
+}
 
-type WorkerRequestBody = {
+interface WorkerRequestBody {
   notification_id?: unknown;
   notificationId?: unknown;
   maxJobs?: unknown;
   maxDurationMs?: unknown;
   source?: unknown;
   record?: NotificationRecord;
-};
+}
 
-type ExpoPushResponse = {
+interface ExpoPushResponse {
   data?:
     | {
         status?: string;
@@ -82,9 +82,9 @@ type ExpoPushResponse = {
         details?: { error?: string };
       }>;
   errors?: Array<{ code?: string; message?: string }>;
-};
+}
 
-type PushJobRow = {
+interface PushJobRow {
   id: string;
   notification_id: string;
   user_id: string;
@@ -92,11 +92,11 @@ type PushJobRow = {
   payload: Record<string, unknown> | null;
   attempt_number: number;
   max_attempts: number;
-};
+}
 
 type DeliveryStatus = 'sent' | 'skipped' | 'retry_pending' | 'failed';
 
-type DeliveryResult = {
+interface DeliveryResult {
   status: DeliveryStatus;
   errorMessage?: string | null;
   skipReason?: string | null;
@@ -106,9 +106,9 @@ type DeliveryResult = {
   retryAfterSeconds?: number | null;
   expoTicketErrors?: number;
   tokenCleared?: boolean;
-};
+}
 
-type PushRunPayload = {
+interface PushRunPayload {
   success?: boolean;
   error?: string;
   jobs_claimed?: number;
@@ -121,7 +121,7 @@ type PushRunPayload = {
   errors?: number;
   expo_ticket_errors?: number;
   tokens_cleared?: number;
-};
+}
 
 function respondJson(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -372,14 +372,15 @@ async function buildMessage(
   }
 }
 
-async function clearPushToken(userId: string): Promise<boolean> {
+async function clearPushToken(userId: string, expoPushToken: string): Promise<boolean> {
   const { error } = await supabaseAdmin
     .from('profiles')
     .update({
       expo_push_token: null,
       push_notifications_enabled: false,
     })
-    .eq('id', userId);
+    .eq('id', userId)
+    .eq('expo_push_token', expoPushToken);
 
   if (error) {
     console.error('[send-push] Failed clearing invalid token', { userId, error });
@@ -431,6 +432,10 @@ function redactedRequestSnapshot(requestBody: Record<string, unknown>): Record<s
     ...rest,
     token_present: typeof requestBody.to === 'string' && requestBody.to.length > 0,
   };
+}
+
+function remainingBudgetMs(deadlineAt: number): number {
+  return Math.max(1, deadlineAt - Date.now());
 }
 
 async function ensureNotificationPushJob(notificationId: string): Promise<void> {
@@ -485,7 +490,7 @@ async function completePushJob(
   return (extractString(data) as DeliveryStatus | null) ?? result.status;
 }
 
-async function deliverPushJob(job: PushJobRow): Promise<DeliveryResult> {
+async function deliverPushJob(job: PushJobRow, fetchDeadlineAt: number): Promise<DeliveryResult> {
   const notificationType = extractString(job.notification_type);
   if (!notificationType) {
     return { status: 'skipped', skipReason: 'Missing notification type' };
@@ -554,18 +559,22 @@ async function deliverPushJob(job: PushJobRow): Promise<DeliveryResult> {
   }
 
   let responseJson: ExpoPushResponse | null = null;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), remainingBudgetMs(fetchDeadlineAt));
 
   try {
     const response = await fetch(EXPO_PUSH_URL, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
+      signal: controller.signal,
     });
 
     try {
       responseJson = (await response.json()) as ExpoPushResponse;
     } catch (parseError) {
       console.error('[send-push] Failed parsing Expo response', { parseError });
+      throw parseError;
     }
 
     if (!response.ok) {
@@ -600,6 +609,8 @@ async function deliverPushJob(job: PushJobRow): Promise<DeliveryResult> {
       requestSnapshot,
       retryAfterSeconds: retryDelaySeconds(job.attempt_number),
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (responseJson) {
@@ -612,7 +623,7 @@ async function deliverPushJob(job: PushJobRow): Promise<DeliveryResult> {
       });
 
       if (expoErrors.includes('DeviceNotRegistered')) {
-        const tokenCleared = await clearPushToken(job.user_id);
+        const tokenCleared = await clearPushToken(job.user_id, profile.expo_push_token);
         return {
           status: 'skipped',
           skipReason: 'DeviceNotRegistered',
@@ -701,6 +712,7 @@ async function handleRequest(body: WorkerRequestBody): Promise<Response> {
   );
   const workerId = crypto.randomUUID();
   const startedAt = Date.now();
+  const deadlineAt = startedAt + maxDurationMs;
 
   const counts: Required<
     Pick<
@@ -729,7 +741,7 @@ async function handleRequest(body: WorkerRequestBody): Promise<Response> {
     tokens_cleared: 0,
   };
 
-  while (counts.jobs_claimed < maxJobs && Date.now() - startedAt < maxDurationMs) {
+  while (counts.jobs_claimed < maxJobs && Date.now() < deadlineAt) {
     const job = await claimNextJob(workerId, notificationId);
     if (!job) {
       break;
@@ -739,7 +751,7 @@ async function handleRequest(body: WorkerRequestBody): Promise<Response> {
 
     let result: DeliveryResult;
     try {
-      result = await deliverPushJob(job);
+      result = await deliverPushJob(job, deadlineAt);
     } catch (error) {
       result = {
         status: 'retry_pending',
@@ -828,8 +840,6 @@ async function verifyServiceRoleRequest(req: Request): Promise<Response | null> 
   }
 
   const token = authHeader.substring(7);
-  const userAgent = req.headers.get('User-Agent') ?? '';
-  const isFromPgNet = userAgent.startsWith('pg_net/');
 
   if (supabaseJwtSecret) {
     try {
@@ -845,26 +855,13 @@ async function verifyServiceRoleRequest(req: Request): Promise<Response | null> 
       console.error('[send-push] Token verification failed', { error });
       return respondJson({ error: 'Invalid or expired token' }, 401);
     }
-  } else if (isFromPgNet) {
-    try {
-      const [, payloadB64] = token.split('.');
-      if (!payloadB64) {
-        return respondJson({ error: 'Invalid token format' }, 401);
-      }
-      const payloadJson = atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/'));
-      const payload = JSON.parse(payloadJson) as { role?: string };
-
-      if (payload.role !== 'service_role') {
-        return respondJson({ error: 'Insufficient permissions' }, 403);
-      }
-      console.info('[send-push] Authenticated via pg_net with service_role');
-    } catch (error) {
-      console.error('[send-push] Token decode failed', { error });
-      return respondJson({ error: 'Invalid token' }, 401);
-    }
+  } else if (token !== serviceRoleKey) {
+    console.error(
+      '[send-push] SUPABASE_JWT_SECRET not configured and token is not service role key',
+    );
+    return respondJson({ error: 'Invalid or expired token' }, 401);
   } else {
-    console.error('[send-push] SUPABASE_JWT_SECRET not configured and request is not from pg_net');
-    return respondJson({ error: 'Server misconfigured' }, 500);
+    console.info('[send-push] Authenticated with exact service role key');
   }
 
   return null;
