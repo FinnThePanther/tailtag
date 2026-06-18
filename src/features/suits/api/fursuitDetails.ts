@@ -3,10 +3,12 @@ import {
   applyProfileSocialLinksToBio,
   mapFursuitConventionAppearances,
   mapFursuitColors,
+  mapFursuitSpecies,
   mapFursuitMakers,
   mapLatestFursuitBio,
   parseSocialLinks,
 } from './utils';
+import { formatFursuitSpeciesList } from '@/features/species';
 import type { Database } from '@/types/database';
 import type { FursuitDetail } from '../types';
 import { captureHandledMessage, captureSupabaseError } from '../../../lib/sentry';
@@ -76,8 +78,35 @@ export async function fetchFursuitDetail(
     profileSocialLinks,
   );
   const speciesEntry = isSpeciesEntry(row.species_entry) ? row.species_entry : null;
-  const speciesName = speciesEntry?.name ?? null;
-  const speciesId = speciesEntry?.id ?? row.species_id ?? null;
+  const { data: speciesAssignments, error: speciesAssignmentsError } = await (supabase as any)
+    .from('fursuit_species_assignments')
+    .select(
+      `
+      position,
+      species:fursuit_species (
+        id,
+        name,
+        normalized_name
+      )
+    `,
+    )
+    .eq('fursuit_id', row.id)
+    .order('position', { ascending: true });
+
+  if (speciesAssignmentsError) {
+    captureSupabaseError(speciesAssignmentsError, {
+      scope: 'suits.fetchFursuitDetail.speciesAssignments',
+      fursuitId: row.id,
+    });
+  }
+
+  const speciesTags = mapFursuitSpecies(speciesAssignments ?? null, {
+    id: speciesEntry?.id ?? row.species_id ?? null,
+    name: speciesEntry?.name ?? null,
+  });
+  const primarySpecies = speciesTags[0] ?? null;
+  const speciesName = formatFursuitSpeciesList(speciesTags, speciesEntry?.name ?? null);
+  const speciesId = primarySpecies?.id ?? speciesEntry?.id ?? row.species_id ?? null;
   const colors = mapFursuitColors(row.color_assignments ?? null);
   const makers = mapFursuitMakers(row.makers ?? null);
 
@@ -103,6 +132,7 @@ export async function fetchFursuitDetail(
     name: row.name,
     species: speciesName,
     speciesId: speciesId,
+    speciesTags,
     colors,
     avatar_path: row.avatar_path ?? null,
     avatar_url: resolveStorageMediaUrl({

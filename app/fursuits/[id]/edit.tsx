@@ -44,8 +44,11 @@ import {
   ensureSpeciesEntry,
   fetchFursuitSpecies,
   FURSUIT_SPECIES_QUERY_KEY,
+  MAX_FURSUIT_SPECIES,
   normalizeSpeciesName,
-  sortSpeciesOptions,
+  replaceFursuitSpeciesAssignments,
+  upsertSpeciesOptionsInCache,
+  validateFursuitSpeciesSelection,
   type FursuitSpeciesOption,
 } from '../../../src/features/species';
 import {
@@ -244,7 +247,7 @@ export default function EditFursuitScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption | null>(null);
+  const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption[]>([]);
   const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
   const [initialColors, setInitialColors] = useState<FursuitColorOption[]>([]);
   const [selectedVisibilityAudience, setSelectedVisibilityAudience] =
@@ -286,35 +289,40 @@ export default function EditFursuitScreen() {
       return [] as FursuitSpeciesOption[];
     }
 
-    if (!normalizedSpeciesInput) {
-      return speciesOptions.slice(0, 12);
-    }
-
+    const selectedSpeciesIds = new Set(selectedSpecies.map((option) => option.id));
     return speciesOptions
-      .filter((option) => option.normalizedName.includes(normalizedSpeciesInput))
+      .filter(
+        (option) =>
+          !selectedSpeciesIds.has(option.id) &&
+          (!normalizedSpeciesInput || option.normalizedName.includes(normalizedSpeciesInput)),
+      )
       .slice(0, 12);
-  }, [normalizedSpeciesInput, speciesOptions]);
+  }, [normalizedSpeciesInput, selectedSpecies, speciesOptions]);
 
-  const handleSpeciesInputChange = useCallback(
-    (value: string) => {
-      setSpeciesInput(value);
-
-      const normalized = normalizeSpeciesName(value);
-
-      if (!normalized) {
-        setSelectedSpecies(null);
-        return;
-      }
-
-      const match = speciesOptions.find((option) => option.normalizedName === normalized) ?? null;
-      setSelectedSpecies(match);
-    },
-    [speciesOptions],
-  );
+  const handleSpeciesInputChange = useCallback((value: string) => {
+    setSpeciesInput(value);
+  }, []);
 
   const handleSpeciesSelect = useCallback((option: FursuitSpeciesOption) => {
-    setSpeciesInput(option.name);
-    setSelectedSpecies(option);
+    Keyboard.dismiss();
+    setSelectedSpecies((current) => {
+      const exists = current.some(
+        (entry) =>
+          entry.id === option.id ||
+          normalizeSpeciesName(entry.name) === normalizeSpeciesName(option.name),
+      );
+
+      if (exists || current.length >= MAX_FURSUIT_SPECIES) {
+        return current;
+      }
+
+      return [...current, option];
+    });
+    setSpeciesInput('');
+  }, []);
+
+  const handleRemoveSpecies = useCallback((optionId: string) => {
+    setSelectedSpecies((current) => current.filter((option) => option.id !== optionId));
   }, []);
 
   const handleTogglePronoun = useCallback((option: string) => {
@@ -372,17 +380,20 @@ export default function EditFursuitScreen() {
     }
 
     setNameInput(detail.name ?? '');
-    setSpeciesInput(detail.species ?? '');
-
-    if (detail.species && detail.speciesId) {
-      setSelectedSpecies({
-        id: detail.speciesId,
-        name: detail.species,
-        normalizedName: normalizeSpeciesName(detail.species),
-      });
-    } else {
-      setSelectedSpecies(null);
-    }
+    setSpeciesInput('');
+    setSelectedSpecies(
+      detail.speciesTags.length > 0
+        ? detail.speciesTags
+        : detail.species && detail.speciesId
+          ? [
+              {
+                id: detail.speciesId,
+                name: detail.species,
+                normalizedName: normalizeSpeciesName(detail.species),
+              },
+            ]
+          : [],
+    );
 
     const bio: FursuitBio | null = detail.bio;
 
@@ -655,7 +666,6 @@ export default function EditFursuitScreen() {
     const trimmedPhotoCredit = photoCreditInput.trim();
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
-    const normalizedSpeciesValue = normalizeSpeciesName(trimmedSpecies);
 
     const normalizedMakers = fursuitMakersToSave(makers);
     const selectedColorIds = selectedColors.map((color) => color.id);
@@ -667,8 +677,13 @@ export default function EditFursuitScreen() {
       return;
     }
 
-    if (!trimmedSpecies) {
-      setSubmitError('Add your fursuit species before saving.');
+    if (selectedSpecies.length === 0 && !trimmedSpecies) {
+      setSubmitError('Add at least one fursuit species before saving.');
+      return;
+    }
+
+    if (selectedSpecies.length >= MAX_FURSUIT_SPECIES && trimmedSpecies) {
+      setSubmitError(`You can choose up to ${MAX_FURSUIT_SPECIES} species.`);
       return;
     }
 
@@ -752,6 +767,7 @@ export default function EditFursuitScreen() {
     const client = supabase as any;
     const previousName = detail.name;
     const previousSpeciesId = detail.speciesId ?? null;
+    const previousSpeciesTags = detail.speciesTags;
     const previousAvatarPath = detail.avatar_path ?? null;
     const previousAvatarUrl = detail.avatar_url;
     const previousVisibilityAudience = detail.visibility_audience;
@@ -761,31 +777,24 @@ export default function EditFursuitScreen() {
     const initialNormalizedMakers = fursuitMakersToSave(initialMakers);
     let updatedCoreRecord = false;
     let replacedColors = false;
+    let replacedSpecies = false;
     const addedConventionIds: string[] = [];
     const removedConventionIds: string[] = [];
     const updatedRosterConventionIds: string[] = [];
 
     try {
-      const speciesRecord =
-        selectedSpecies && selectedSpecies.normalizedName === normalizedSpeciesValue
-          ? selectedSpecies
-          : await ensureSpeciesEntry(trimmedSpecies);
+      const typedSpeciesRecord = trimmedSpecies ? await ensureSpeciesEntry(trimmedSpecies) : null;
+      const speciesRecords = validateFursuitSpeciesSelection([
+        ...selectedSpecies,
+        ...(typedSpeciesRecord ? [typedSpeciesRecord] : []),
+      ]);
+      const primarySpecies = speciesRecords[0]!;
 
-      setSelectedSpecies(speciesRecord);
-      setSpeciesInput(speciesRecord.name);
+      setSelectedSpecies(speciesRecords);
+      setSpeciesInput('');
       queryClient.setQueryData<FursuitSpeciesOption[]>(
         [FURSUIT_SPECIES_QUERY_KEY],
-        (current = []) => {
-          const existingIndex = current.findIndex((option) => option.id === speciesRecord.id);
-
-          if (existingIndex >= 0) {
-            const next = [...current];
-            next[existingIndex] = speciesRecord;
-            return sortSpeciesOptions(next);
-          }
-
-          return sortSpeciesOptions([...current, speciesRecord]);
-        },
+        (current = []) => upsertSpeciesOptionsInCache(current, speciesRecords),
       );
       void queryClient.invalidateQueries({
         queryKey: [FURSUIT_SPECIES_QUERY_KEY],
@@ -819,7 +828,7 @@ export default function EditFursuitScreen() {
         .from('fursuits')
         .update({
           name: trimmedName,
-          species_id: speciesRecord.id,
+          species_id: primarySpecies.id,
           visibility_audience: selectedVisibilityAudience,
           owner_attribution_visibility: anonymousFursuitsEnabled
             ? hideOwnerPublicly
@@ -855,6 +864,17 @@ export default function EditFursuitScreen() {
       }
 
       updatedCoreRecord = true;
+
+      const previousSpeciesIds = previousSpeciesTags.map((species) => species.id);
+      const selectedSpeciesIds = speciesRecords.map((species) => species.id);
+      const speciesChanged =
+        previousSpeciesIds.length !== selectedSpeciesIds.length ||
+        previousSpeciesIds.some((speciesId, index) => speciesId !== selectedSpeciesIds[index]);
+
+      if (speciesChanged) {
+        await replaceFursuitSpeciesAssignments(fursuitId, speciesRecords);
+        replacedSpecies = true;
+      }
 
       const colorsChanged =
         previousColorIds.length !== selectedColorIds.length ||
@@ -1071,6 +1091,15 @@ export default function EditFursuitScreen() {
         setInitialColors(previousColors);
       }
 
+      if (replacedSpecies) {
+        try {
+          await replaceFursuitSpeciesAssignments(fursuitId, previousSpeciesTags);
+          setSelectedSpecies(previousSpeciesTags);
+        } catch (revertError) {
+          console.warn('Failed to restore species assignments after error', revertError);
+        }
+      }
+
       if (updatedCoreRecord) {
         const { error: revertError } = await client
           .from('fursuits')
@@ -1277,8 +1306,28 @@ export default function EditFursuitScreen() {
                   autoCapitalize="words"
                 />
                 <Text style={styles.helperLabel}>
-                  Tap a suggestion or keep typing to add a new species to the shared list.
+                  Pick up to {MAX_FURSUIT_SPECIES}. The first species is used as the primary label
+                  for older app versions.
                 </Text>
+                <View style={styles.colorSelectedList}>
+                  {selectedSpecies.length === 0 ? (
+                    <Text style={styles.helperLabel}>No species selected yet.</Text>
+                  ) : null}
+                  {selectedSpecies.map((option, index) => (
+                    <Pressable
+                      key={`selected-species-${option.id}`}
+                      style={styles.colorSelectedChip}
+                      onPress={() => handleRemoveSpecies(option.id)}
+                      disabled={disableForm}
+                    >
+                      <Text style={styles.colorSelectedText}>
+                        {option.name}
+                        {index === 0 ? ' (primary)' : ''}
+                      </Text>
+                      <Text style={styles.colorSelectedRemove}>Remove</Text>
+                    </Pressable>
+                  ))}
+                </View>
                 {isSpeciesBusy ? (
                   <Text style={styles.helperLabel}>Loading species…</Text>
                 ) : speciesLoadError ? (
@@ -1302,19 +1351,19 @@ export default function EditFursuitScreen() {
                     </Text>
                     <View style={styles.speciesSuggestionList}>
                       {speciesSuggestions.map((option) => {
-                        const isSelected = selectedSpecies?.id === option.id;
+                        const isAtLimit = selectedSpecies.length >= MAX_FURSUIT_SPECIES;
                         return (
                           <Pressable
                             key={option.id}
                             accessibilityRole="button"
                             onPress={() => handleSpeciesSelect(option)}
-                            style={[styles.colorChip, isSelected ? styles.colorChipSelected : null]}
-                            disabled={disableForm}
+                            style={[styles.colorChip, isAtLimit ? styles.colorChipDisabled : null]}
+                            disabled={disableForm || isAtLimit}
                           >
                             <Text
                               style={[
                                 styles.colorChipLabel,
-                                isSelected ? styles.colorChipLabelSelected : null,
+                                isAtLimit ? styles.colorChipLabelDisabled : null,
                               ]}
                             >
                               {option.name}

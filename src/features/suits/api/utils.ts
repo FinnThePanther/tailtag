@@ -1,5 +1,6 @@
 import type { FursuitBio, FursuitConvention, FursuitMaker } from '../types';
 import type { FursuitColorOption } from '../../colors';
+import { normalizeSpeciesName, type FursuitSpeciesOption } from '@/features/species';
 import type { ConventionLifecycleStatus } from '../../conventions';
 import type { FursuitSocialLink } from '../../../types/database';
 
@@ -23,6 +24,15 @@ type RawFursuitBio = {
 type RawColorAssignment = {
   position?: unknown;
   color?: {
+    id?: unknown;
+    name?: unknown;
+    normalized_name?: unknown;
+  } | null;
+};
+
+type RawSpeciesAssignment = {
+  position?: unknown;
+  species?: {
     id?: unknown;
     name?: unknown;
     normalized_name?: unknown;
@@ -232,6 +242,78 @@ export const mapFursuitColors = (raw: unknown): FursuitColorOption[] => {
       return a.option.name.localeCompare(b.option.name, undefined, { sensitivity: 'base' });
     })
     .map((entry) => entry.option);
+};
+
+export const mapFursuitSpecies = (
+  raw: unknown,
+  fallback?: { id?: string | null; name?: string | null } | null,
+): FursuitSpeciesOption[] => {
+  const mapped = Array.isArray(raw)
+    ? raw
+        .map((entry) => {
+          if (!entry || typeof entry !== 'object') {
+            return null;
+          }
+
+          const source = entry as RawSpeciesAssignment;
+          const species = source.species ?? null;
+          const id =
+            species && typeof species === 'object' && typeof species.id === 'string'
+              ? species.id
+              : null;
+          const name =
+            species && typeof species === 'object' && typeof species.name === 'string'
+              ? species.name
+              : null;
+          const normalizedName =
+            species && typeof species === 'object' && typeof species.normalized_name === 'string'
+              ? species.normalized_name
+              : null;
+          const positionNumber = Number(source.position);
+
+          if (!id || !name) {
+            return null;
+          }
+
+          return {
+            option: {
+              id,
+              name,
+              normalizedName:
+                normalizedName && normalizedName.length > 0
+                  ? normalizedName
+                  : normalizeSpeciesName(name),
+            } satisfies FursuitSpeciesOption,
+            order: Number.isFinite(positionNumber) ? positionNumber : Number.MAX_SAFE_INTEGER,
+          };
+        })
+        .filter((entry): entry is { option: FursuitSpeciesOption; order: number } => Boolean(entry))
+    : [];
+
+  const species = mapped
+    .sort((a, b) => {
+      if (a.order !== b.order) {
+        return a.order - b.order;
+      }
+      return a.option.name.localeCompare(b.option.name, undefined, { sensitivity: 'base' });
+    })
+    .map((entry) => entry.option);
+
+  if (species.length > 0) {
+    return species;
+  }
+
+  if (fallback?.id && fallback.name) {
+    return [
+      {
+        id: fallback.id,
+        name: fallback.name,
+        normalizedName: normalizeSpeciesName(fallback.name),
+      },
+    ];
+  }
+
+  return [];
 };
 
 export const mapFursuitMakers = (raw: unknown): FursuitMaker[] => {

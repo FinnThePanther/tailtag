@@ -5,9 +5,11 @@ import {
   applyProfileSocialLinksToBio,
   mapFursuitConventionAppearances,
   mapFursuitColors,
+  mapFursuitSpecies,
   mapLatestFursuitBio,
   parseSocialLinks,
 } from './utils';
+import { formatFursuitSpeciesList } from '@/features/species';
 import { fetchFursuitMakersByFursuitIds } from './makers';
 import { FURSUIT_BUCKET } from '../../../constants/storage';
 import { resolveStorageMediaUrl } from '../../../utils/supabase-image';
@@ -75,6 +77,12 @@ type TableFursuitRow = Pick<
   | 'created_at'
 > & {
   species_entry: FursuitSpeciesRow | null;
+  species_assignments:
+    | {
+        position: number;
+        species: FursuitSpeciesRow | null;
+      }[]
+    | null;
   color_assignments:
     | {
         position: number;
@@ -153,6 +161,14 @@ export async function fetchMySuits(
         name,
         normalized_name
       ),
+      species_assignments:fursuit_species_assignments (
+        position,
+        species:fursuit_species (
+          id,
+          name,
+          normalized_name
+        )
+      ),
       color_assignments:fursuit_color_assignments (
         position,
         color:fursuit_colors (
@@ -213,7 +229,14 @@ async function mapFursuitRows(
   rows: ProfileFursuitsRpcRow[] | TableFursuitRow[],
   includeUniqueCodes: boolean,
 ): Promise<FursuitSummary[]> {
-  const makersByFursuitId = await fetchFursuitMakersByFursuitIds(rows.map((item) => item.id));
+  const fursuitIds = rows.map((item) => item.id);
+  const assignmentFallbackFursuitIds = rows
+    .filter((item) => !('species_assignments' in item))
+    .map((item) => item.id);
+  const [makersByFursuitId, speciesAssignmentsByFursuitId] = await Promise.all([
+    fetchFursuitMakersByFursuitIds(fursuitIds),
+    fetchSpeciesAssignmentsByFursuitIds(assignmentFallbackFursuitIds),
+  ]);
 
   return rows.map((item) => {
     const conventions = mapFursuitConventionAppearances(item.fursuit_conventions ?? []);
@@ -227,8 +250,17 @@ async function mapFursuitRows(
       parseSocialLinks(ownerSocialLinks ?? null),
     );
     const speciesEntry = isSpeciesEntry(item.species_entry) ? item.species_entry : null;
-    const speciesName = speciesEntry?.name ?? null;
-    const speciesId = speciesEntry?.id ?? item.species_id ?? null;
+    const rawSpeciesAssignments =
+      'species_assignments' in item
+        ? item.species_assignments
+        : (speciesAssignmentsByFursuitId.get(item.id) ?? []);
+    const speciesTags = mapFursuitSpecies(rawSpeciesAssignments ?? null, {
+      id: speciesEntry?.id ?? item.species_id ?? null,
+      name: speciesEntry?.name ?? null,
+    });
+    const primarySpecies = speciesTags[0] ?? null;
+    const speciesName = formatFursuitSpeciesList(speciesTags, speciesEntry?.name ?? null);
+    const speciesId = primarySpecies?.id ?? speciesEntry?.id ?? item.species_id ?? null;
     const colors = mapFursuitColors(item.color_assignments ?? null);
     const makers = makersByFursuitId.get(item.id) ?? [];
 
@@ -237,6 +269,7 @@ async function mapFursuitRows(
       name: item.name,
       species: speciesName,
       speciesId: speciesId,
+      speciesTags,
       colors,
       avatar_path: item.avatar_path ?? null,
       avatar_url: resolveStorageMediaUrl({
@@ -258,6 +291,58 @@ async function mapFursuitRows(
       bio,
     } satisfies FursuitSummary;
   });
+}
+
+async function fetchSpeciesAssignmentsByFursuitIds(fursuitIds: string[]) {
+  const result = new Map<
+    string,
+    {
+      position: number;
+      species: FursuitSpeciesRow | null;
+    }[]
+  >();
+
+  if (fursuitIds.length === 0) {
+    return result;
+  }
+
+  const { data, error } = await (supabase as any)
+    .from('fursuit_species_assignments')
+    .select(
+      `
+      fursuit_id,
+      position,
+      species:fursuit_species (
+        id,
+        name,
+        normalized_name
+      )
+    `,
+    )
+    .in('fursuit_id', fursuitIds)
+    .order('position', { ascending: true });
+
+  if (error) {
+    captureSupabaseError(error, {
+      scope: 'suits.fetchSpeciesAssignmentsByFursuitIds',
+      fursuitIds,
+    });
+    return result;
+  }
+
+  for (const row of data ?? []) {
+    const fursuitId = typeof row.fursuit_id === 'string' ? row.fursuit_id : null;
+    if (!fursuitId) continue;
+
+    const current = result.get(fursuitId) ?? [];
+    current.push({
+      position: Number(row.position),
+      species: Array.isArray(row.species) ? (row.species[0] ?? null) : (row.species ?? null),
+    });
+    result.set(fursuitId, current);
+  }
+
+  return result;
 }
 
 export const createMySuitsQueryOptions = (userId: string) => ({
