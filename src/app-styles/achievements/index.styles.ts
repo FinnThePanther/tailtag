@@ -87,26 +87,6 @@ export const styles = StyleSheet.create({
   groupBlock: {
     gap: spacing.md,
   },
-  conventionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  conventionBadge: {
-    color: '#f59e0b',
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.4)',
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    backgroundColor: 'rgba(245,158,11,0.08)',
-  },
-  categoryBlock: {
-    gap: spacing.sm,
-  },
   categoryLabel: {
     color: colors.textSubtle,
     fontSize: 13,

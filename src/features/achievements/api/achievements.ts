@@ -35,17 +35,27 @@ export const ACHIEVEMENTS_STATUS_QUERY_KEY = 'achievements-status';
 export const achievementsStatusQueryKey = (userId: string) =>
   [ACHIEVEMENTS_STATUS_QUERY_KEY, userId] as const;
 
-function normalizeAchievementIdentity(value: string | null | undefined): string {
-  return (value ?? '').trim().toLowerCase();
+function normalizeAchievementIdentity(value: string | null | undefined): string | null {
+  const normalized = (value ?? '').trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
 }
 
-function getAchievementDedupeKey(achievement: Pick<AchievementRecord, 'id' | 'key' | 'name'>) {
-  // Convention gameplay packs can create scoped mirrors of global achievements
-  // for recap/automation bookkeeping. User-facing achievement lists should show
-  // the badge once, regardless of how many scoped mirrors backed the unlock.
+function readContextSourceAchievementKey(context: Json | null): string | null {
+  if (!context || typeof context !== 'object' || Array.isArray(context)) {
+    return null;
+  }
+
+  const value = (context as Record<string, unknown>).source_achievement_key;
+  return typeof value === 'string' ? value : null;
+}
+
+function getAchievementDedupeKey(
+  achievement: Pick<AchievementWithStatus, 'id' | 'key' | 'context'>,
+): string {
+  const sourceKey = readContextSourceAchievementKey(achievement.context);
   return (
-    normalizeAchievementIdentity(achievement.name) ||
-    normalizeAchievementIdentity(achievement.key) ||
+    normalizeAchievementIdentity(sourceKey) ??
+    normalizeAchievementIdentity(achievement.key) ??
     achievement.id
   );
 }
@@ -160,27 +170,10 @@ export async function fetchUserAchievements(userId: string): Promise<UserAchieve
   return (data ?? []) as UserAchievementsRow[];
 }
 
-async function fetchOptedInConventionIds(userId: string): Promise<string[]> {
-  const client = supabase as any;
-  const { data, error } = await client
-    .from('profile_conventions')
-    .select('convention_id')
-    .eq('profile_id', userId)
-    .eq('attendance_state', 'active')
-    .is('active_until', null);
-
-  if (error) {
-    return [];
-  }
-
-  return (data ?? []).map((row: { convention_id: string }) => row.convention_id);
-}
-
 export async function fetchAchievementStatus(userId: string): Promise<AchievementWithStatus[]> {
-  const [achievements, userAchievements, optedInConventionIds] = await Promise.all([
+  const [achievements, userAchievements] = await Promise.all([
     fetchAchievementCatalog(),
     fetchUserAchievements(userId),
-    fetchOptedInConventionIds(userId),
   ]);
 
   const unlockedMap = new Map<string, UserAchievementsRow>();
@@ -189,12 +182,8 @@ export async function fetchAchievementStatus(userId: string): Promise<Achievemen
   }
 
   const visibleAchievements = achievements
-    .filter((achievement) => achievement.isActive)
-    .filter(
-      (achievement) =>
-        achievement.conventionId === null ||
-        optedInConventionIds.includes(achievement.conventionId),
-    );
+    .filter((achievement) => achievement.conventionId === null || unlockedMap.has(achievement.id))
+    .filter((achievement) => achievement.isActive || unlockedMap.has(achievement.id));
 
   return dedupeAchievementStatuses(
     visibleAchievements.map((achievement) => {
@@ -224,7 +213,8 @@ export async function fetchUserUnlockedAchievements(
       unlocked_at,
       context,
       achievement:achievements!inner(
-        id, key, name, description, category, recipient_role, trigger_event, is_active, convention_id
+        id, key, name, description, category, recipient_role, trigger_event, is_active, convention_id,
+        convention:conventions(name)
       )
     `,
     )
@@ -237,7 +227,7 @@ export async function fetchUserUnlockedAchievements(
 
   return dedupeUnlockedAchievements(
     (data ?? [])
-      .filter((row: any) => row.achievement?.is_active)
+      .filter((row: any) => row.achievement)
       .map((row: any) => ({
         id: row.achievement.id,
         key: row.achievement.key,
@@ -248,7 +238,7 @@ export async function fetchUserUnlockedAchievements(
         triggerEvent: row.achievement.trigger_event,
         isActive: row.achievement.is_active,
         conventionId: row.achievement.convention_id ?? null,
-        conventionName: null,
+        conventionName: row.achievement.convention?.name ?? null,
         unlocked: true,
         unlockedAt: row.unlocked_at ?? null,
         context: row.context ?? null,
