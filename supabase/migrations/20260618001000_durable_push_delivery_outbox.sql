@@ -94,7 +94,8 @@ ALTER TABLE public.notification_push_attempts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.notification_push_jobs FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.notification_push_attempts FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.notification_push_jobs TO service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.notification_push_attempts TO service_role;
+REVOKE UPDATE, DELETE ON TABLE public.notification_push_attempts FROM service_role;
+GRANT SELECT, INSERT ON TABLE public.notification_push_attempts TO service_role;
 
 DROP POLICY IF EXISTS "notification_push_jobs_service_role_select"
   ON public.notification_push_jobs;
@@ -132,19 +133,6 @@ DROP POLICY IF EXISTS "notification_push_attempts_service_role_insert"
 CREATE POLICY "notification_push_attempts_service_role_insert"
   ON public.notification_push_attempts FOR INSERT TO public
   WITH CHECK ((SELECT auth.role()) = 'service_role');
-
-DROP POLICY IF EXISTS "notification_push_attempts_service_role_update"
-  ON public.notification_push_attempts;
-CREATE POLICY "notification_push_attempts_service_role_update"
-  ON public.notification_push_attempts FOR UPDATE TO public
-  USING ((SELECT auth.role()) = 'service_role')
-  WITH CHECK ((SELECT auth.role()) = 'service_role');
-
-DROP POLICY IF EXISTS "notification_push_attempts_service_role_delete"
-  ON public.notification_push_attempts;
-CREATE POLICY "notification_push_attempts_service_role_delete"
-  ON public.notification_push_attempts FOR DELETE TO public
-  USING ((SELECT auth.role()) = 'service_role');
 
 CREATE OR REPLACE FUNCTION public.set_notification_push_jobs_updated_at()
 RETURNS trigger
@@ -264,6 +252,7 @@ BEGIN
          )
          OR (
            j.status = 'processing'
+           AND j.attempt_count < j.max_attempts
            AND j.locked_at < now() - interval '5 minutes'
          )
        )
@@ -587,7 +576,7 @@ UPDATE public.push_notification_retry_queue q
    AND EXISTS (
      SELECT 1
        FROM legacy_retry_candidates c
-      WHERE c.id = q.id
+      WHERE c.notification_id = q.notification_id
    );
 
 UPDATE public.backend_worker_runs
