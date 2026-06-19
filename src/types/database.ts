@@ -1504,6 +1504,52 @@ export type Database = {
         }
         Relationships: []
       }
+      fursuit_species_assignments: {
+        Row: {
+          created_at: string
+          fursuit_id: string
+          id: string
+          position: number
+          species_id: string
+        }
+        Insert: {
+          created_at?: string
+          fursuit_id: string
+          id?: string
+          position: number
+          species_id: string
+        }
+        Update: {
+          created_at?: string
+          fursuit_id?: string
+          id?: string
+          position?: number
+          species_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fursuit_species_assignments_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fursuit_species_assignments_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fursuit_species_assignments_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "fursuit_species"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fursuits: {
         Row: {
           avatar_path: string | null
@@ -3672,6 +3718,10 @@ export type Database = {
       }
       replace_fursuit_makers: {
         Args: { fursuit_id: string; makers?: Json }
+        Returns: undefined
+      }
+      replace_fursuit_species_assignments: {
+        Args: { p_fursuit_id: string; p_species_ids: string[] }
         Returns: undefined
       }
       replay_gameplay_dead_letter_events: {
