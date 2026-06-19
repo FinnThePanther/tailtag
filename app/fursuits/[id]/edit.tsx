@@ -16,6 +16,7 @@ import {
   fetchFursuitDetail,
   fursuitDetailQueryKey,
   insertNextFursuitBioVersion,
+  isFursuitUniqueCodeAvailable,
   MY_SUITS_QUERY_KEY,
   MY_SUITS_COUNT_QUERY_KEY,
 } from '../../../src/features/suits';
@@ -501,22 +502,18 @@ export default function EditFursuitScreen() {
     codeCheckTimeoutRef.current = setTimeout(async () => {
       codeCheckTimeoutRef.current = null;
 
-      const { data: existingCode, error: codeCheckError } = await supabase
-        .from('fursuits')
-        .select('id')
-        .eq('unique_code', normalized)
-        .neq('id', fursuitId)
-        .limit(1)
-        .maybeSingle();
-
-      setIsCheckingCode(false);
-
-      if (codeCheckError) {
+      let isAvailable = false;
+      try {
+        isAvailable = await isFursuitUniqueCodeAvailable(normalized, fursuitId);
+      } catch {
         setCodeError('Could not verify catch code availability. Please try again.');
+        setIsCheckingCode(false);
         return;
       }
 
-      if (existingCode) {
+      setIsCheckingCode(false);
+
+      if (!isAvailable) {
         setCodeError('That code is already taken. Try another.');
       }
     }, 400);
@@ -739,22 +736,18 @@ export default function EditFursuitScreen() {
       setCodeError(null);
       setIsCheckingCode(true);
 
-      const { data: existingCode, error: codeCheckError } = await supabase
-        .from('fursuits')
-        .select('id')
-        .eq('unique_code', normalizedCode)
-        .neq('id', fursuitId)
-        .limit(1)
-        .maybeSingle();
-
-      setIsCheckingCode(false);
-
-      if (codeCheckError) {
+      let isAvailable = false;
+      try {
+        isAvailable = await isFursuitUniqueCodeAvailable(normalizedCode, fursuitId);
+      } catch {
         setCodeError('Could not verify catch code availability. Please try again.');
+        setIsCheckingCode(false);
         return;
       }
 
-      if (existingCode) {
+      setIsCheckingCode(false);
+
+      if (!isAvailable) {
         setCodeError('That code is already taken. Try another.');
         return;
       }

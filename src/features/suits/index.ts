@@ -61,6 +61,7 @@ export {
 } from './api/utils';
 export { fetchFursuitMakersByFursuitIds } from './api/makers';
 export { insertNextFursuitBioVersion } from './api/bios';
+export { isFursuitUniqueCodeAvailable } from './api/codeAvailability';
 export {
   fetchFursuitDetail,
   FURSUIT_DETAIL_QUERY_KEY,

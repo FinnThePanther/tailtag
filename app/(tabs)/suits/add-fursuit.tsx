@@ -26,6 +26,7 @@ import {
   MY_SUITS_QUERY_KEY,
   MY_SUITS_COUNT_QUERY_KEY,
   createMySuitsCountQueryOptions,
+  isFursuitUniqueCodeAvailable,
 } from '../../../src/features/suits';
 import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
 import {
@@ -495,21 +496,10 @@ export default function AddFursuitScreen() {
   );
 
   const ensureUniqueCode = useCallback(async () => {
-    const client = supabase as any;
-
     for (let attempt = 0; attempt < UNIQUE_CODE_ATTEMPTS; attempt += 1) {
       const candidate = generateUniqueCodeCandidate();
-      const { data, error } = await client
-        .from('fursuits')
-        .select('id')
-        .ilike('unique_code', candidate)
-        .limit(1);
 
-      if (error) {
-        throw error;
-      }
-
-      if (!data || data.length === 0) {
+      if (await isFursuitUniqueCodeAvailable(candidate)) {
         return candidate;
       }
     }

@@ -3542,6 +3542,10 @@ export type Database = {
         Args: { p_feature_key: string; p_profile_id: string };
         Returns: boolean;
       };
+      is_fursuit_unique_code_available: {
+        Args: { p_excluding_fursuit_id?: string; p_unique_code: string };
+        Returns: boolean;
+      };
       insert_next_fursuit_bio_version: {
         Args: {
           p_ask_me_about: string;

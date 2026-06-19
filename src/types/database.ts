@@ -3606,6 +3606,10 @@ export type Database = {
         Args: { p_feature_key: string; p_profile_id: string }
         Returns: boolean
       }
+      is_fursuit_unique_code_available: {
+        Args: { p_excluding_fursuit_id?: string; p_unique_code: string }
+        Returns: boolean
+      }
       is_moderator_or_higher: {
         Args: { check_user_id: string }
         Returns: boolean
