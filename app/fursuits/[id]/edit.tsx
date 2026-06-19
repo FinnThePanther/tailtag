@@ -15,6 +15,7 @@ import {
   FursuitBio,
   fetchFursuitDetail,
   fursuitDetailQueryKey,
+  insertNextFursuitBioVersion,
   MY_SUITS_QUERY_KEY,
   MY_SUITS_COUNT_QUERY_KEY,
 } from '../../../src/features/suits';
@@ -110,6 +111,20 @@ const ASK_ME_ABOUT_SUGGESTIONS = [
   'Character lore',
   'Good food nearby',
 ] as const;
+
+const isUniqueCodeConflict = (caught: unknown) =>
+  Boolean(
+    caught &&
+    typeof caught === 'object' &&
+    'code' in caught &&
+    (caught as any).code === '23505' &&
+    ('constraint' in caught
+      ? typeof (caught as any).constraint === 'string' &&
+        (caught as any).constraint.includes('fursuits_unique_code')
+      : 'message' in caught &&
+        typeof (caught as any).message === 'string' &&
+        (caught as any).message.includes('fursuits_unique_code')),
+  );
 
 type UploadCandidate = {
   uri: string;
@@ -931,22 +946,14 @@ export default function EditFursuitScreen() {
         removedConventionIds.push(conventionId);
       }
 
-      const nextVersion = (detail.bio?.version ?? 0) + 1;
-
-      const { error: bioError } = await client.from('fursuit_bios').insert({
-        fursuit_id: fursuitId,
-        version: nextVersion,
-        owner_name: profile?.username ?? '',
-        photo_credit: trimmedPhotoCredit,
+      await insertNextFursuitBioVersion({
+        fursuitId,
+        ownerName: profile?.username ?? '',
+        photoCredit: trimmedPhotoCredit,
         pronouns: trimmedPronouns,
-        likes_and_interests: trimmedLikes,
-        ask_me_about: trimmedAskMeAbout,
-        social_links: [],
+        likesAndInterests: trimmedLikes,
+        askMeAbout: trimmedAskMeAbout,
       });
-
-      if (bioError) {
-        throw bioError;
-      }
 
       queryClient.invalidateQueries({
         queryKey: fursuitDetailQueryKey(fursuitId),
@@ -987,12 +994,7 @@ export default function EditFursuitScreen() {
 
       router.back();
     } catch (caught) {
-      if (
-        caught &&
-        typeof caught === 'object' &&
-        'code' in caught &&
-        (caught as any).code === '23505'
-      ) {
+      if (isUniqueCodeConflict(caught)) {
         setCodeError('That code is already taken. Try another.');
         setSubmitError(null);
         return;
