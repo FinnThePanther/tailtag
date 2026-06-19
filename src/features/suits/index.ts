@@ -60,6 +60,7 @@ export {
   parseSocialLinks,
 } from './api/utils';
 export { fetchFursuitMakersByFursuitIds } from './api/makers';
+export { insertNextFursuitBioVersion } from './api/bios';
 export {
   fetchFursuitDetail,
   FURSUIT_DETAIL_QUERY_KEY,

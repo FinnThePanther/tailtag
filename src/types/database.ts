@@ -3539,6 +3539,18 @@ export type Database = {
         Args: { p_payload: Json; p_user_id: string }
         Returns: boolean
       }
+      insert_next_fursuit_bio_version: {
+        Args: {
+          p_ask_me_about: string
+          p_fursuit_id: string
+          p_likes_and_interests: string
+          p_owner_name: string
+          p_photo_credit: string
+          p_pronouns: string
+          p_social_links?: Json
+        }
+        Returns: number
+      }
       insert_notification_once: {
         Args: {
           p_dedupe_key: string

@@ -3542,6 +3542,18 @@ export type Database = {
         Args: { p_feature_key: string; p_profile_id: string };
         Returns: boolean;
       };
+      insert_next_fursuit_bio_version: {
+        Args: {
+          p_ask_me_about: string;
+          p_fursuit_id: string;
+          p_likes_and_interests: string;
+          p_owner_name: string;
+          p_photo_credit: string;
+          p_pronouns: string;
+          p_social_links?: Json;
+        };
+        Returns: number;
+      };
       is_moderator_or_higher: {
         Args: { check_user_id: string };
         Returns: boolean;
