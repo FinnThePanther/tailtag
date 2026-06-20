@@ -213,6 +213,10 @@ BEGIN
     RETURN;
   END IF;
 
+  IF p_xp_amount > 2147483647 - v_progress.total_xp THEN
+    RAISE EXCEPTION 'XP total would exceed integer limit';
+  END IF;
+
   v_xp_after := v_progress.total_xp + p_xp_amount;
   v_level_after := public.player_level_for_xp(v_xp_after);
 
