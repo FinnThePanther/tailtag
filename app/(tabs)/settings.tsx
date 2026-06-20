@@ -116,6 +116,11 @@ import type { CaughtRecord } from '../../src/features/suits/api/caughtSuits';
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../src/features/leaderboard/api/leaderboard';
 import { usePushNotifications } from '../../src/features/push-notifications';
 import { useOtaUpdateCheck } from '../../src/hooks/useOtaUpdateCheck';
+import {
+  PLAYER_LEVELING_UI_FEATURE_KEY,
+  featureFlagQueryKey,
+  isFeatureEnabledForProfile,
+} from '@/features/feature-flags';
 import { createOwnPlayerProgressQueryOptions } from '@/features/player-leveling';
 import { styles } from '../../src/app-styles/(tabs)/settings.styles';
 
@@ -308,13 +313,24 @@ export default function SettingsScreen() {
     refetchOnReconnect: false,
     queryFn: () => fetchMySuits(userId!),
   });
+  const { data: isPlayerLevelingUiEnabled = false } = useQuery({
+    queryKey: userId
+      ? featureFlagQueryKey(PLAYER_LEVELING_UI_FEATURE_KEY, userId)
+      : [PLAYER_LEVELING_UI_FEATURE_KEY, 'guest'],
+    queryFn: () => isFeatureEnabledForProfile(PLAYER_LEVELING_UI_FEATURE_KEY, userId!),
+    enabled: Boolean(userId),
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+  const shouldShowPlayerLevel = isPlayerLevelingUiEnabled === true;
   const {
     data: ownPlayerProgress = null,
     error: ownPlayerProgressError,
     isLoading: isPlayerLevelLoading,
   } = useQuery({
     ...createOwnPlayerProgressQueryOptions(userId ?? ''),
-    enabled: Boolean(userId),
+    enabled: Boolean(userId) && shouldShowPlayerLevel,
   });
 
   const {
@@ -710,9 +726,10 @@ export default function SettingsScreen() {
         : null;
   const isStatsLoading =
     isCaughtSuitsLoading || isProfileConventionsLoading || isPastConventionRecapsLoading;
-  const playerLevelError = ownPlayerProgressError
-    ? getUserVisibleErrorMessage(ownPlayerProgressError, 'We could not load your player level.')
-    : null;
+  const playerLevelError =
+    shouldShowPlayerLevel && ownPlayerProgressError
+      ? getUserVisibleErrorMessage(ownPlayerProgressError, 'We could not load your player level.')
+      : null;
   const caughtSuitCount = caughtSuits.length;
   const attendedConventionCount = useMemo(() => {
     const conventionIds = new Set(
@@ -1529,19 +1546,21 @@ export default function SettingsScreen() {
                 <Text style={styles.statValue}>{attendedConventionCount.toLocaleString()}</Text>
                 <Text style={styles.statLabel}>Conventions attended</Text>
               </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {ownPlayerProgress ? `Level ${ownPlayerProgress.level}` : 'Level --'}
-                </Text>
-                <Text style={styles.statLabel}>Player level</Text>
-              </View>
+              {shouldShowPlayerLevel ? (
+                <View style={styles.statCard}>
+                  <Text style={styles.statValue}>
+                    {ownPlayerProgress ? `Level ${ownPlayerProgress.level}` : 'Level --'}
+                  </Text>
+                  <Text style={styles.statLabel}>Player level</Text>
+                </View>
+              ) : null}
             </View>
           )}
-          {isPlayerLevelLoading ? (
+          {shouldShowPlayerLevel && isPlayerLevelLoading ? (
             <Text style={styles.message}>Loading player level…</Text>
           ) : playerLevelError ? (
             <Text style={styles.error}>{playerLevelError}</Text>
-          ) : ownPlayerProgress ? (
+          ) : shouldShowPlayerLevel && ownPlayerProgress ? (
             <View style={styles.levelProgressCard}>
               <View style={styles.levelProgressHeader}>
                 <Text style={styles.levelProgressTitle}>Level progress</Text>
