@@ -15,6 +15,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       achievement_rules: {
@@ -1930,6 +1955,94 @@ export type Database = {
         }
         Relationships: []
       }
+      player_progress: {
+        Row: {
+          created_at: string
+          last_level_up_at: string | null
+          level: number
+          total_xp: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          last_level_up_at?: string | null
+          level?: number
+          total_xp?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          last_level_up_at?: string | null
+          level?: number
+          total_xp?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_xp_events: {
+        Row: {
+          created_at: string
+          dedupe_key: string
+          id: string
+          level_after: number
+          level_before: number
+          metadata: Json
+          reason: string
+          source_event_id: string | null
+          user_id: string
+          xp_after: number
+          xp_amount: number
+          xp_before: number
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key: string
+          id?: string
+          level_after: number
+          level_before: number
+          metadata?: Json
+          reason: string
+          source_event_id?: string | null
+          user_id: string
+          xp_after: number
+          xp_amount: number
+          xp_before: number
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string
+          id?: string
+          level_after?: number
+          level_before?: number
+          metadata?: Json
+          reason?: string
+          source_event_id?: string | null
+          user_id?: string
+          xp_after?: number
+          xp_amount?: number
+          xp_before?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_xp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_conventions: {
         Row: {
           active_until: string | null
@@ -2773,6 +2886,53 @@ export type Database = {
         }
         Returns: Json
       }
+      award_owned_fursuit_catch_xp_once: {
+        Args: {
+          p_catch_id: string
+          p_convention_id?: string
+          p_daily_cap?: number
+          p_fursuit_id: string
+          p_local_day: string
+          p_metadata?: Json
+          p_owner_id: string
+          p_source_event_id?: string
+          p_xp_amount: number
+        }
+        Returns: {
+          awarded: boolean
+          level_after: number
+          level_before: number
+          leveled_up: boolean
+          levels_gained: number
+          user_id: string
+          xp_after: number
+          xp_amount: number
+          xp_before: number
+          xp_event_id: string
+        }[]
+      }
+      award_player_xp_once: {
+        Args: {
+          p_dedupe_key: string
+          p_metadata?: Json
+          p_reason: string
+          p_source_event_id?: string
+          p_user_id: string
+          p_xp_amount: number
+        }
+        Returns: {
+          awarded: boolean
+          level_after: number
+          level_before: number
+          leveled_up: boolean
+          levels_gained: number
+          user_id: string
+          xp_after: number
+          xp_amount: number
+          xp_before: number
+          xp_event_id: string
+        }[]
+      }
       calculate_catch_expiration:
         | { Args: never; Returns: string }
         | { Args: { convention_id_param: string }; Returns: string }
@@ -3469,6 +3629,13 @@ export type Database = {
           time_remaining: string
         }[]
       }
+      get_player_level_summary: {
+        Args: { p_user_id: string }
+        Returns: {
+          level: number
+          user_id: string
+        }[]
+      }
       get_profile_fursuits: {
         Args: { p_profile_id: string }
         Returns: {
@@ -3679,6 +3846,7 @@ export type Database = {
         Args: { p_notifications: Json; p_progress_rows: Json; p_streak: Json }
         Returns: undefined
       }
+      player_level_for_xp: { Args: { p_total_xp: number }; Returns: number }
       process_achievement_queue_if_active: { Args: never; Returns: undefined }
       process_catch_reciprocal_offer: {
         Args: { p_offer_id: string }
@@ -3867,8 +4035,11 @@ export type Database = {
     }
   }
 }
+
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
@@ -3897,6 +4068,7 @@ export type Tables<
       ? R
       : never
     : never
+
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
@@ -3921,6 +4093,7 @@ export type TablesInsert<
       ? I
       : never
     : never
+
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
@@ -3945,6 +4118,7 @@ export type TablesUpdate<
       ? U
       : never
     : never
+
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
@@ -3961,6 +4135,7 @@ export type Enums<
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
+
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
@@ -3977,7 +4152,11 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       achievement_category: [
