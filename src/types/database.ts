@@ -3822,6 +3822,18 @@ export type Database = {
         Returns: undefined
       }
       player_level_for_xp: { Args: { p_total_xp: number }; Returns: number }
+      preview_player_leveling_backfill: {
+        Args: never
+        Returns: {
+          already_awarded_count: number
+          already_awarded_xp: number
+          candidate_count: number
+          candidate_xp: number
+          reason: string
+          would_award_count: number
+          would_award_xp: number
+        }[]
+      }
       process_achievement_queue_if_active: { Args: never; Returns: undefined }
       process_catch_reciprocal_offer: {
         Args: { p_offer_id: string }
@@ -3884,6 +3896,16 @@ export type Database = {
           p_reason?: string
         }
         Returns: Json
+      }
+      run_player_leveling_backfill: {
+        Args: never
+        Returns: {
+          awarded_count: number
+          awarded_xp: number
+          candidate_count: number
+          reason: string
+          skipped_count: number
+        }[]
       }
       search_players: {
         Args: {
