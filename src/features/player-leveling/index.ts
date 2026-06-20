@@ -9,6 +9,9 @@ export {
   ownPlayerProgressQueryKey,
   playerLevelSummaryQueryKey,
   xpRequiredForLevel,
-} from './api/playerLeveling';
+} from '@/features/player-leveling/api/playerLeveling';
 
-export type { OwnPlayerProgress, PlayerLevelSummary } from './api/playerLeveling';
+export type {
+  OwnPlayerProgress,
+  PlayerLevelSummary,
+} from '@/features/player-leveling/api/playerLeveling';

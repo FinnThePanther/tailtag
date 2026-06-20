@@ -1,7 +1,8 @@
 import type { QueryClient } from '@tanstack/react-query';
 
-import { supabase } from '../../../lib/supabase';
-import type { Database } from '../../../types/database';
+import { captureSupabaseError } from '@/lib/sentry';
+import { supabase } from '@/lib/supabase';
+import type { Database } from '@/types/database';
 
 export const PLAYER_LEVEL_SUMMARY_QUERY_KEY = 'player-level-summary';
 export const OWN_PLAYER_PROGRESS_QUERY_KEY = 'own-player-progress';
@@ -105,6 +106,11 @@ export async function fetchPlayerLevelSummary(userId: string): Promise<PlayerLev
   });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'player-leveling.fetchPlayerLevelSummary',
+      action: 'get_player_level_summary',
+      userId,
+    });
     throw new Error(`Could not load player level: ${error.message}`);
   }
 
@@ -120,6 +126,11 @@ export async function fetchOwnPlayerProgress(userId: string): Promise<OwnPlayerP
     .maybeSingle();
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'player-leveling.fetchOwnPlayerProgress',
+      action: 'select_player_progress',
+      userId,
+    });
     throw new Error(`Could not load your player level: ${error.message}`);
   }
 

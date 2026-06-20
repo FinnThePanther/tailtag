@@ -37,7 +37,7 @@ import {
 import {
   createOwnPlayerProgressQueryOptions,
   createPlayerLevelSummaryQueryOptions,
-} from '../../../src/features/player-leveling';
+} from '@/features/player-leveling';
 import { useAllDataReady } from '../../../src/hooks/useAllDataReady';
 import { captureNonCriticalError } from '../../../src/lib/sentry';
 import { colors } from '../../../src/theme';

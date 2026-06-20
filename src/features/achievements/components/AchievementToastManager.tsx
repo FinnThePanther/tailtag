@@ -26,10 +26,10 @@ import {
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
 } from '../../conventions';
 import { canOptimisticallyIncrementDailyTask } from '@/features/daily-tasks/optimisticProgress';
+import { invalidatePlayerLevelingQueries } from '@/features/player-leveling';
 import type { AchievementWithStatus } from '../api/achievements';
 import { caughtSuitsQueryKey, type CaughtRecord } from '../../suits';
 import { hasUploadedProfileAvatar, profileQueryKey, type ProfileSummary } from '../../profile';
-import { invalidatePlayerLevelingQueries } from '../../player-leveling';
 import type { Json } from '../../../types/database';
 
 const CATCH_RECONCILE_DEBOUNCE_MS = 800;

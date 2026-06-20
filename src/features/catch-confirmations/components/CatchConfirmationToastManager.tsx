@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { invalidatePlayerLevelingQueries } from '@/features/player-leveling';
 import { useAuth } from '../../auth';
 import { useToast } from '../../../hooks/useToast';
 import { supabase } from '../../../lib/supabase';
@@ -17,7 +18,6 @@ import {
 } from '../../suits';
 import { DAILY_TASKS_QUERY_KEY } from '../../daily-tasks/hooks';
 import { achievementsStatusQueryKey } from '../../achievements';
-import { invalidatePlayerLevelingQueries } from '../../player-leveling';
 
 const CATCH_NOTIFICATION_CATCHUP_LOOKBACK_MS = 60_000;
 const CATCH_NOTIFICATION_TYPES = [
