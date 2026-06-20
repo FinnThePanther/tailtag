@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { invalidatePlayerLevelingQueries } from '@/features/player-leveling';
 import { useAuth } from '../../auth';
 import { useToast } from '../../../hooks/useToast';
 import { supabase } from '../../../lib/supabase';
@@ -210,8 +211,13 @@ export function CatchConfirmationToastManager() {
       });
     };
 
+    const invalidatePlayerLeveling = () => {
+      invalidatePlayerLevelingQueries(queryClient, userId);
+    };
+
     const handleFursuitCaught = (payload: Record<string, unknown> | null) => {
       if (!isAdultBoundaryChecked(payload)) {
+        invalidatePlayerLeveling();
         showToast('Someone caught your fursuit');
         addMonitoringBreadcrumb({
           category: 'catch-confirmations',
@@ -229,6 +235,7 @@ export function CatchConfirmationToastManager() {
         });
         return;
       }
+      invalidatePlayerLeveling();
       const catcherUsername = readPayloadString(payload, 'catcher_username') ?? 'Someone';
       const fursuitName = readPayloadString(payload, 'fursuit_name') ?? 'your fursuit';
       const fursuitId = readPayloadString(payload, 'fursuit_id');
@@ -265,6 +272,7 @@ export function CatchConfirmationToastManager() {
 
     const handleCatchConfirmed = (payload: Record<string, unknown> | null) => {
       if (!isAdultBoundaryChecked(payload)) {
+        invalidatePlayerLeveling();
         showToast('Your catch was approved');
         invalidateCaughtHistory();
         void queryClient.invalidateQueries({
@@ -278,6 +286,7 @@ export function CatchConfirmationToastManager() {
         });
         return;
       }
+      invalidatePlayerLeveling();
       const fursuitName = readPayloadString(payload, 'fursuit_name') ?? 'The fursuit';
 
       showToast(`${fursuitName} approved your catch!`);
@@ -395,6 +404,7 @@ export function CatchConfirmationToastManager() {
       const fursuitId = readPayloadString(payload, 'fursuit_id');
       const fursuitName = readPayloadString(payload, 'fursuit_name') ?? 'their fursuit';
 
+      invalidatePlayerLeveling();
       showToast(`Your catch of ${fursuitName} now counts`);
 
       addMonitoringBreadcrumb({

@@ -26,6 +26,7 @@ import {
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
 } from '../../conventions';
 import { canOptimisticallyIncrementDailyTask } from '@/features/daily-tasks/optimisticProgress';
+import { invalidatePlayerLevelingQueries } from '@/features/player-leveling';
 import type { AchievementWithStatus } from '../api/achievements';
 import { caughtSuitsQueryKey, type CaughtRecord } from '../../suits';
 import { hasUploadedProfileAvatar, profileQueryKey, type ProfileSummary } from '../../profile';
@@ -113,6 +114,11 @@ function normalizeUserFacingAchievementName(value: unknown): string | null {
   }
 
   return name;
+}
+
+function readPayloadNumber(payload: Record<string, unknown> | null, key: string): number | null {
+  const value = payload?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 /**
@@ -946,6 +952,8 @@ export function AchievementToastManager() {
       payload: Record<string, unknown> | null,
       createdAt: string | null,
     ) => {
+      invalidatePlayerLevelingQueries(queryClient, userId);
+
       const notificationReceivedAt = Date.now();
 
       const achievementIdRaw = payload?.achievement_id ?? payload?.achievementId ?? null;
@@ -1163,6 +1171,26 @@ export function AchievementToastManager() {
       })();
     };
 
+    const handleLevelUp = (payload: Record<string, unknown> | null) => {
+      invalidatePlayerLevelingQueries(queryClient, userId);
+
+      const levelAfter = readPayloadNumber(payload, 'level_after');
+      if (!levelAfter || levelAfter < 2) {
+        return;
+      }
+
+      showToast(`You reached Level ${levelAfter}`);
+      addMonitoringBreadcrumb({
+        category: 'player-leveling',
+        message: 'Level-up notification received',
+        data: {
+          userId,
+          levelAfter,
+          levelsGained: readPayloadNumber(payload, 'levels_gained'),
+        },
+      });
+    };
+
     const catchUpAchievementNotifications = async () => {
       const catchupStartedAt = new Date().toISOString();
       const since = notificationCatchupCursorRef.current;
@@ -1172,7 +1200,7 @@ export function AchievementToastManager() {
           .from('notifications')
           .select('id, created_at, type, payload, user_id')
           .eq('user_id', userId)
-          .eq('type', 'achievement_awarded')
+          .in('type', ['achievement_awarded', 'level_up'])
           .gte('created_at', since)
           .order('created_at', { ascending: true })
           .limit(20);
@@ -1205,7 +1233,11 @@ export function AchievementToastManager() {
               ? (row.payload as Record<string, unknown>)
               : null;
 
-          handleAchievementAwarded(notificationPayload, row.created_at);
+          if (row.type === 'achievement_awarded') {
+            handleAchievementAwarded(notificationPayload, row.created_at);
+          } else if (row.type === 'level_up') {
+            handleLevelUp(notificationPayload);
+          }
         }
 
         notificationCatchupCursorRef.current = catchupStartedAt;
@@ -1214,7 +1246,7 @@ export function AchievementToastManager() {
           scope: 'notifications.realtime',
           action: 'catchup',
           userId,
-          type: 'achievement_awarded',
+          type: 'achievement_awarded,level_up',
         });
       }
     };
@@ -1425,6 +1457,8 @@ export function AchievementToastManager() {
     };
 
     const handleDailyTaskCompleted = (payload: Record<string, unknown> | null) => {
+      invalidatePlayerLevelingQueries(queryClient, userId);
+
       const taskNameRaw = payload?.task_name ?? payload?.taskName ?? null;
       const taskName =
         typeof taskNameRaw === 'string' && taskNameRaw.trim().length > 0
@@ -1512,6 +1546,8 @@ export function AchievementToastManager() {
     };
 
     const handleDailyAllComplete = (payload: Record<string, unknown> | null) => {
+      invalidatePlayerLevelingQueries(queryClient, userId);
+
       const currentStreakRaw = payload?.current_streak ?? payload?.currentStreak ?? null;
       const currentStreak =
         typeof currentStreakRaw === 'number' && Number.isFinite(currentStreakRaw)
@@ -1634,6 +1670,9 @@ export function AchievementToastManager() {
             break;
           case 'daily_all_complete':
             handleDailyAllComplete(notificationPayload);
+            break;
+          case 'level_up':
+            handleLevelUp(notificationPayload);
             break;
           case 'convention_recap_ready':
             handleConventionRecapReady(notificationPayload);
