@@ -2861,6 +2861,31 @@ export type Database = {
         }
         Returns: Json
       }
+      award_owned_fursuit_catch_xp_once: {
+        Args: {
+          p_catch_id: string
+          p_convention_id: string
+          p_daily_cap?: number
+          p_fursuit_id: string
+          p_local_day: string
+          p_metadata?: Json
+          p_owner_id: string
+          p_source_event_id?: string
+          p_xp_amount: number
+        }
+        Returns: {
+          awarded: boolean
+          level_after: number
+          level_before: number
+          leveled_up: boolean
+          levels_gained: number
+          user_id: string
+          xp_after: number
+          xp_amount: number
+          xp_before: number
+          xp_event_id: string
+        }[]
+      }
       award_player_xp_once: {
         Args: {
           p_dedupe_key: string

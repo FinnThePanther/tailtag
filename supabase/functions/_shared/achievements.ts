@@ -10,10 +10,22 @@ import {
   type ProfileEventContext,
   type SimpleEventContext,
 } from '../../../packages/achievement-rules/src/index.ts';
-import { processDailyTasksForEvent, type DailyTaskCompletion } from './dailyTasks.ts';
+import {
+  processDailyTasksForEvent,
+  type DailyTaskCompletion,
+  type DailyTaskProcessResult,
+} from './dailyTasks.ts';
+import {
+  DAILY_TASK_ACHIEVEMENT_PREFIX,
+  awardAcceptedCatchXp,
+  awardAchievementXp,
+  awardDailyTaskXp,
+  awardOwnedFursuitCatchXp,
+  insertLevelUpNotificationsForXpAwards,
+  type PlayerXpAwardResult,
+} from './playerLeveling.ts';
 import type { InsertableEventRow, Json } from './types.ts';
 
-const DAILY_TASK_ACHIEVEMENT_PREFIX = 'DAILY_TASK_';
 const PROFILE_AVATAR_BUCKET = 'profile-avatars';
 const PROFILE_AVATAR_PUBLIC_PATH = `/storage/v1/object/public/${PROFILE_AVATAR_BUCKET}/`;
 const PROFILE_AVATAR_AUTHENTICATED_PATH = `/storage/v1/object/authenticated/${PROFILE_AVATAR_BUCKET}/`;
@@ -197,6 +209,16 @@ type ProcessCatchEventOptions = {
   skipDailyTasks?: boolean;
 };
 
+type DailyTaskCollectionResult = {
+  awards: AwardCandidate[];
+  taskResults: DailyTaskProcessResult[];
+};
+
+type AwardApplicationResult = {
+  achievementResult: ProcessedAchievementResult;
+  xpResults: PlayerXpAwardResult[];
+};
+
 export async function processAchievementsForEvent(
   supabaseAdmin: SupabaseClient<any, 'public', any>,
   event: InsertableEventRow,
@@ -315,6 +337,7 @@ async function processCatchEvent(
     hasMakerMatchWithCatcherOwnedSuit,
     distinctSelfMadeFursuitsCaught,
     isNewMakerForCatcherAtConvention,
+    isFirstAcceptedCatchForCatcher,
   ] = await Promise.all([
     countCatchesByUser(supabaseAdmin, catcherId),
     fursuitOwnerId ? countCatchesByFursuit(supabaseAdmin, fursuitId) : Promise.resolve(0),
@@ -338,6 +361,7 @@ async function processCatchEvent(
           makerMetadata.normalizedMakerNames,
         )
       : Promise.resolve(false),
+    isEarliestAcceptedCatchForUser(supabaseAdmin, catcherId, catchId),
   ]);
 
   const enrichedPayload = {
@@ -417,6 +441,7 @@ async function processCatchEvent(
   const catchHasPhoto = Boolean((catchRow as Record<string, unknown>).catch_photo_url);
 
   const conventionTimezone = conventionInfo?.timezone ?? 'UTC';
+  const ownerXpLocalDay = localParts?.date ?? toLocalParts(occurredAt, 'UTC').date;
   const [distinctLocalDaysForFursuitAtConvention, catchesByCatcherToday] = await Promise.all([
     fursuitOwnerId && primaryConventionId
       ? countDistinctLocalDaysForFursuitAtConvention(
@@ -493,10 +518,10 @@ async function processCatchEvent(
     : [];
 
   // Process daily tasks for the catcher
-  let catcherDailyAwards: AwardCandidate[] = [];
-  let ownerDailyAwards: AwardCandidate[] = [];
+  let catcherDailyResult: DailyTaskCollectionResult = { awards: [], taskResults: [] };
+  let ownerDailyResult: DailyTaskCollectionResult = { awards: [], taskResults: [] };
   if (!options.skipDailyTasks) {
-    catcherDailyAwards = await collectDailyTaskAwardsFromCatch({
+    catcherDailyResult = await collectDailyTaskAwardsFromCatch({
       event: enrichedEvent,
       userId: catcherId,
       occurredAt,
@@ -507,7 +532,7 @@ async function processCatchEvent(
     // Also process daily tasks for the fursuit owner (if different from catcher)
     // Both the catcher and owner should receive daily task credit when a suit is caught
     if (fursuitOwnerId && fursuitOwnerId !== catcherId) {
-      ownerDailyAwards = await collectDailyTaskAwardsFromCatch({
+      ownerDailyResult = await collectDailyTaskAwardsFromCatch({
         event: enrichedEvent,
         userId: fursuitOwnerId,
         occurredAt,
@@ -520,10 +545,43 @@ async function processCatchEvent(
   const combinedAwards = [
     ...awards,
     ...conventionAwards,
-    ...catcherDailyAwards,
-    ...ownerDailyAwards,
+    ...catcherDailyResult.awards,
+    ...ownerDailyResult.awards,
   ];
-  const mainResult = await applyAwards(supabaseAdmin, combinedAwards, enrichedEvent);
+  const mainApplication = await applyAwardsWithAchievementXp(
+    supabaseAdmin,
+    combinedAwards,
+    enrichedEvent,
+  );
+  const mainResult = mainApplication.achievementResult;
+
+  const xpResults: PlayerXpAwardResult[] = [];
+  xpResults.push(
+    ...(await awardAcceptedCatchXp(supabaseAdmin, {
+      event: enrichedEvent,
+      catcherId,
+      catchId,
+      fursuitId,
+      conventionId: primaryConventionId,
+      isFirstAcceptedCatch: isFirstAcceptedCatchForCatcher,
+    })),
+  );
+  if (fursuitOwnerId && fursuitOwnerId !== catcherId) {
+    xpResults.push(
+      ...(await awardOwnedFursuitCatchXp(supabaseAdmin, {
+        event: enrichedEvent,
+        ownerId: fursuitOwnerId,
+        catchId,
+        fursuitId,
+        conventionId: primaryConventionId,
+        localDay: ownerXpLocalDay,
+      })),
+    );
+  }
+  for (const dailyResult of [...catcherDailyResult.taskResults, ...ownerDailyResult.taskResults]) {
+    xpResults.push(...(await awardDailyTaskXp(supabaseAdmin, dailyResult, enrichedEvent)));
+  }
+  xpResults.push(...mainApplication.xpResults);
 
   // Post-award meta pass: check ACHIEVEMENT_HUNTER after main batch is granted
   const anyGranted = mainResult.awards.some((r) => r.awarded);
@@ -539,11 +597,18 @@ async function processCatchEvent(
     }
 
     if (metaCandidates.length > 0) {
-      const metaResult = await applyAwards(supabaseAdmin, metaCandidates, enrichedEvent);
-      return { awards: [...mainResult.awards, ...metaResult.awards] };
+      const metaApplication = await applyAwardsWithAchievementXp(
+        supabaseAdmin,
+        metaCandidates,
+        enrichedEvent,
+      );
+      xpResults.push(...metaApplication.xpResults);
+      await insertLevelUpNotificationsForXpAwards(supabaseAdmin, xpResults, enrichedEvent);
+      return { awards: [...mainResult.awards, ...metaApplication.achievementResult.awards] };
     }
   }
 
+  await insertLevelUpNotificationsForXpAwards(supabaseAdmin, xpResults, enrichedEvent);
   return mainResult;
 }
 
@@ -736,7 +801,9 @@ async function processProfileEvent(
   };
 
   const awards = evaluateProfileAchievements(context);
-  return await applyAwards(supabaseAdmin, awards, event);
+  const application = await applyAwardsWithAchievementXp(supabaseAdmin, awards, event);
+  await insertLevelUpNotificationsForXpAwards(supabaseAdmin, application.xpResults, event);
+  return application.achievementResult;
 }
 
 async function processSimpleEvent(
@@ -764,7 +831,13 @@ async function processSimpleEvent(
         )
       : [];
 
-  return await applyAwards(supabaseAdmin, [...awards, ...conventionAwards], event);
+  const application = await applyAwardsWithAchievementXp(
+    supabaseAdmin,
+    [...awards, ...conventionAwards],
+    event,
+  );
+  await insertLevelUpNotificationsForXpAwards(supabaseAdmin, application.xpResults, event);
+  return application.achievementResult;
 }
 
 async function processDailyTaskOnlyEvent(
@@ -788,13 +861,19 @@ async function processDailyTaskOnlyEvent(
       conventionInfo,
     });
     const awards = result.completions.map(buildDailyTaskAward);
-    return await applyAwards(supabaseAdmin, awards, event);
+    const application = await applyAwardsWithAchievementXp(supabaseAdmin, awards, event);
+    const xpResults = [
+      ...(await awardDailyTaskXp(supabaseAdmin, result, event)),
+      ...application.xpResults,
+    ];
+    await insertLevelUpNotificationsForXpAwards(supabaseAdmin, xpResults, event);
+    return application.achievementResult;
   } catch (error) {
     console.error('[events-ingress] Failed processing daily tasks', {
       event_id: event.event_id,
       error,
     });
-    return { awards: [] };
+    throw error;
   }
 }
 
@@ -804,8 +883,9 @@ async function collectDailyTaskAwardsFromCatch(options: {
   occurredAt: string;
   conventionIds: string[];
   conventionInfoMap: Map<string, ConventionInfo | null>;
-}): Promise<AwardCandidate[]> {
+}): Promise<DailyTaskCollectionResult> {
   const awards: AwardCandidate[] = [];
+  const taskResults: DailyTaskProcessResult[] = [];
   for (const conventionId of options.conventionIds) {
     if (!conventionId) continue;
     const conventionInfo = options.conventionInfoMap.get(conventionId) ?? null;
@@ -817,6 +897,7 @@ async function collectDailyTaskAwardsFromCatch(options: {
         conventionInfo,
         occurredAt: options.occurredAt,
       });
+      taskResults.push(result);
       awards.push(...result.completions.map(buildDailyTaskAward));
     } catch (error) {
       console.error('[events-ingress] Failed processing daily tasks for catch', {
@@ -826,7 +907,7 @@ async function collectDailyTaskAwardsFromCatch(options: {
       });
     }
   }
-  return awards;
+  return { awards, taskResults };
 }
 
 function buildDailyTaskAward(completion: DailyTaskCompletion): AwardCandidate {
@@ -988,6 +1069,16 @@ async function applyAwards(
   await insertNotificationsForAwards(supabaseAdmin, results);
 
   return { awards: results };
+}
+
+async function applyAwardsWithAchievementXp(
+  supabaseAdmin: SupabaseClient<any, 'public', any>,
+  awards: AwardCandidate[],
+  event: InsertableEventRow,
+): Promise<AwardApplicationResult> {
+  const achievementResult = await applyAwards(supabaseAdmin, awards, event);
+  const xpResults = await awardAchievementXp(supabaseAdmin, achievementResult.awards, event);
+  return { achievementResult, xpResults };
 }
 
 async function insertNotificationsForAwards(
@@ -1168,6 +1259,33 @@ async function countCatchesByUser(
     return 0;
   }
   return count ?? 0;
+}
+
+async function isEarliestAcceptedCatchForUser(
+  supabaseAdmin: SupabaseClient<any, 'public', any>,
+  userId: string,
+  catchId: string,
+) {
+  const { data, error } = await supabaseAdmin
+    .from('catches')
+    .select('id')
+    .eq('catcher_id', userId)
+    .eq('status', 'ACCEPTED')
+    .order('caught_at', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[events-ingress] Failed checking first accepted catch', {
+      userId,
+      catchId,
+      error,
+    });
+    throw new Error(`Failed checking first accepted catch for ${userId}: ${error.message}`);
+  }
+
+  return data?.id === catchId;
 }
 
 async function countCatchesByFursuit(
