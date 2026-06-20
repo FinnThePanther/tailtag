@@ -17,7 +17,7 @@
     "types": ["@types/node"],
     "baseUrl": ".",
     "paths": {
-      "@/types/database": ["../src/types/database"],
+      "@/types/database": ["./types/database"],
       "@/*": ["./*"]
     },
     "plugins": [
