@@ -4,4 +4,4 @@ export {
   PLAYER_LEVELING_UI_FEATURE_KEY,
   featureFlagQueryKey,
   isFeatureEnabledForProfile,
-} from './api/featureFlags';
+} from '@/features/feature-flags/api/featureFlags';

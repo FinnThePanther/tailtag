@@ -293,19 +293,19 @@ function FeatureFlagOverrideForm({
   );
 }
 
-type FeatureFlag = {
+interface FeatureFlag {
   key: string;
   description: string | null;
   enabled: boolean;
   rollout_percentage: number;
-};
+}
 
-type FeatureFlagOverride = {
+interface FeatureFlagOverride {
   feature_key: string;
   enabled: boolean;
   reason: string | null;
   updated_at: string | null;
-};
+}
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
