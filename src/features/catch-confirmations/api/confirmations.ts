@@ -339,6 +339,14 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
           errorCode: 'convention_catch_closed',
         });
       }
+      if (errorCode === 'convention_not_live' || errorMessage.includes('Convention is not live')) {
+        throw withCatchPerformanceError(
+          new Error(
+            'Catching is not open for that convention anymore. Refresh your convention and try again.',
+          ),
+          { result: 'failed', edgeRequestMs, errorCode: 'convention_not_live' },
+        );
+      }
       if (errorMessage.includes('Cannot catch your own')) {
         throw withCatchPerformanceError(
           new Error(

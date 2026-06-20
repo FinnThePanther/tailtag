@@ -104,6 +104,16 @@ type CatchLifecycleConvention = {
 
 const SHARED_CONVENTION_HELP =
   'This suit is not catchable at your playable convention yet. Both players must be Ready to catch for the same live event, and the fursuit owner must list that specific suit for the event.';
+const NON_RETRYABLE_CATCH_SUBMISSION_ERROR_CODES = new Set([
+  'already_caught',
+  'blocked_user',
+  'code_not_found',
+  'convention_catch_closed',
+  'convention_not_live',
+  'gallery_closed',
+  'self_catch',
+  'shared_convention_required',
+]);
 
 function reciprocalOfferMessage(offer: ReciprocalCatchOfferResult | null | undefined) {
   if (!offer) return null;
@@ -124,6 +134,11 @@ function reciprocalOfferMessage(offer: ReciprocalCatchOfferResult | null | undef
 }
 
 function isRetryableCatchSubmissionError(error: unknown) {
+  const errorCode = catchSubmissionErrorCode(error);
+  if (NON_RETRYABLE_CATCH_SUBMISSION_ERROR_CODES.has(errorCode)) {
+    return false;
+  }
+
   if (!(error instanceof Error)) {
     return true;
   }
@@ -155,10 +170,15 @@ function catchSubmissionErrorCode(error: unknown) {
   if (message.includes("couldn't find")) return 'code_not_found';
   if (message.includes('already caught')) return 'already_caught';
   if (message.includes('own suits')) return 'self_catch';
+  if (message.includes('convention') && message.includes('not open')) {
+    return 'convention_not_live';
+  }
+  if (message.includes('convention is not live')) return 'convention_not_live';
   if (message.includes('share a playable convention') || message.includes('not catchable')) {
     return 'shared_convention_required';
   }
   if (message.includes('new catches are closed')) return 'convention_catch_closed';
+  if (message.includes('not accepting gallery catches')) return 'gallery_closed';
   if (message.includes('cannot catch')) return 'blocked_user';
   return 'server_rejected';
 }
