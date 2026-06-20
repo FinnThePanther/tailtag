@@ -2,6 +2,21 @@ import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 
 const MAX_BACKOFF_MS = 5 * 60 * 1000;
 const SHARED_FALLBACK_ERROR_MESSAGE = "We couldn't finish that catch. Please try again.";
+const NON_RETRYABLE_ERROR_CODES = new Set([
+  'already_caught',
+  'blocked_user',
+  'catch_not_found',
+  'code_not_found',
+  'convention_catch_closed',
+  'convention_not_live',
+  'forbidden',
+  'gallery_closed',
+  'invalid_photo_upload_state',
+  'photo_file_unavailable',
+  'photo_upload_state_conflict',
+  'self_catch',
+  'shared_convention_required',
+]);
 
 export type CatchOutboxErrorClassification = {
   retryable: boolean;
@@ -55,7 +70,7 @@ function normalizedErrorMessage(error: unknown) {
 
 function isRetryableCatchOutboxError(error: unknown) {
   const errorCode = rawErrorCode(error);
-  if (errorCode === 'convention_catch_closed') {
+  if (errorCode && NON_RETRYABLE_ERROR_CODES.has(errorCode)) {
     return false;
   }
 
@@ -75,7 +90,9 @@ function isRetryableCatchOutboxError(error: unknown) {
     message.includes('own suits') ||
     message.includes('not catchable') ||
     message.includes('share a playable convention') ||
+    message.includes('convention is not live') ||
     message.includes('new catches are closed') ||
+    message.includes('not accepting gallery catches') ||
     message.includes('cannot catch') ||
     message.includes('forbidden') ||
     message.includes('catch not found') ||
@@ -131,10 +148,12 @@ function errorCodeFor(error: unknown) {
   if (message.includes('already caught')) return 'already_caught';
   if (message.includes("couldn't find")) return 'code_not_found';
   if (message.includes('own suits')) return 'self_catch';
+  if (message.includes('convention is not live')) return 'convention_not_live';
   if (message.includes('not catchable') || message.includes('share a playable convention')) {
     return 'shared_convention_required';
   }
   if (message.includes('new catches are closed')) return 'convention_catch_closed';
+  if (message.includes('not accepting gallery catches')) return 'gallery_closed';
   if (message.includes('cannot catch')) return 'blocked_user';
   if (
     message.includes('no such file') ||

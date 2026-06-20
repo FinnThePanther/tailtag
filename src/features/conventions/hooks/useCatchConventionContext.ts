@@ -29,7 +29,9 @@ import {
 
 const activeConventionIdsFromMemberships = (memberships: ConventionMembership[]) =>
   memberships
-    .filter((membership) => membership.membership_state === 'active')
+    .filter(
+      (membership) => membership.membership_state === 'active' && membership.is_joinable === true,
+    )
     .map((membership) => membership.convention_id);
 
 export function useCatchConventionContext(userId: string | null) {
