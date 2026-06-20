@@ -14,9 +14,12 @@ import {
   fetchConventionReadiness,
   generateDefaultGameplayPack,
 } from '@/lib/convention-lifecycle';
+import type { Database } from '@/types/database';
 
 const CONFIG_ROLES = ['owner', 'organizer'] as const;
 const CONTENT_ROLES = ['owner', 'organizer'] as const;
+type SilentRepairHistoricalConventionResult =
+  Database['public']['Functions']['silent_repair_historical_convention']['Returns'][number];
 
 const DEFAULT_CONFIG = {
   cooldowns: { catch_seconds: 0 },
@@ -539,12 +542,14 @@ export async function silentRepairHistoricalConventionAction(conventionId: strin
 
   if (error) throw error;
 
+  const repairResult = result as SilentRepairHistoricalConventionResult | null;
+
   revalidatePath('/conventions');
   revalidatePath(`/conventions/${conventionId}`);
 
   return {
-    repaired: Boolean(result?.repaired),
-    counts: (result?.counts ?? {}) as Record<string, number>,
+    repaired: Boolean(repairResult?.repaired),
+    counts: (repairResult?.counts ?? {}) as Record<string, number>,
   };
 }
 
