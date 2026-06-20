@@ -3,19 +3,29 @@ import { ShieldAlert, Activity } from 'lucide-react';
 
 import { Card } from '@/components/card';
 import { Table } from '@/components/table';
-import { fetchConventions, fetchPlayerProfile, fetchUserBlocks } from '@/lib/data';
+import {
+  fetchConventions,
+  fetchFeatureFlags,
+  fetchPlayerProfile,
+  fetchUserBlocks,
+} from '@/lib/data';
 import { ModerationPanel } from '@/components/moderation-panel';
 import { requireAdminDataContext } from '@/lib/auth';
 import { setFeatureFlagProfileOverrideAction } from '../../feature-flags/actions';
 
 export default async function PlayerDetail({ params }: { params: { id: string } }) {
   const { supabase, profile: adminProfile } = await requireAdminDataContext();
-  const [{ profile, moderationSummary, actions, flagOverrides }, conventions, blocks] =
-    await Promise.all([
-      fetchPlayerProfile(supabase, params.id),
-      fetchConventions(supabase),
-      fetchUserBlocks(supabase, params.id),
-    ]);
+  const [
+    { profile, moderationSummary, actions, flagOverrides },
+    featureFlags,
+    conventions,
+    blocks,
+  ] = await Promise.all([
+    fetchPlayerProfile(supabase, params.id),
+    fetchFeatureFlags(supabase),
+    fetchConventions(supabase),
+    fetchUserBlocks(supabase, params.id),
+  ]);
 
   if (!profile) {
     notFound();
@@ -93,9 +103,8 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
         <FeatureFlagOverrideForm
           profileId={profile.id}
           canManage={adminProfile.role === 'owner' || adminProfile.role === 'organizer'}
-          override={(flagOverrides as any[]).find(
-            (entry) => entry.feature_key === 'anonymous_fursuits',
-          )}
+          flags={featureFlags as FeatureFlag[]}
+          overrides={flagOverrides as FeatureFlagOverride[]}
         />
       </Card>
 
@@ -181,87 +190,121 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
 function FeatureFlagOverrideForm({
   profileId,
   canManage,
-  override,
+  flags,
+  overrides,
 }: {
   profileId: string;
   canManage: boolean;
-  override?: {
-    feature_key: string;
-    enabled: boolean;
-    reason: string | null;
-    updated_at: string | null;
-  };
+  flags: FeatureFlag[];
+  overrides: FeatureFlagOverride[];
 }) {
-  const status = override
-    ? override.enabled
-      ? 'Force enabled'
-      : 'Force disabled'
-    : 'Default rollout';
+  const overrideByFeatureKey = new Map(
+    overrides.map((override) => [override.feature_key, override]),
+  );
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 md:grid-cols-3">
-        <Info
-          label="Anonymous fursuits"
-          value={status}
-        />
-        <Info
-          label="Reason"
-          value={override?.reason ?? '-'}
-        />
-        <Info
-          label="Updated"
-          value={override?.updated_at ? new Date(override.updated_at).toLocaleString() : '-'}
-        />
-      </div>
-      {canManage ? (
-        <form
-          action={setFeatureFlagProfileOverrideAction}
-          className="flex flex-wrap items-end gap-3"
-        >
-          <input
-            type="hidden"
-            name="feature_key"
-            value="anonymous_fursuits"
-          />
-          <input
-            type="hidden"
-            name="profile_id"
-            value={profileId}
-          />
-          <label className="grid gap-1 text-sm text-slate-200">
-            Override
-            <select
-              name="override_action"
-              defaultValue={override ? (override.enabled ? 'enable' : 'disable') : 'clear'}
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-white"
-            >
-              <option value="enable">Force enable</option>
-              <option value="disable">Force disable</option>
-              <option value="clear">Use default rollout</option>
-            </select>
-          </label>
-          <label className="grid min-w-64 flex-1 gap-1 text-sm text-slate-200">
-            Reason
-            <input
-              name="reason"
-              defaultValue={override?.reason ?? ''}
-              placeholder="Pilot cohort, support request, or rollout note"
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-white"
-            />
-          </label>
-          <button
-            type="submit"
-            className="rounded-md border border-primary/40 px-4 py-2 text-sm font-semibold text-primary"
+      {flags.map((flag) => {
+        const override = overrideByFeatureKey.get(flag.key);
+        const status = override
+          ? override.enabled
+            ? 'Force enabled'
+            : 'Force disabled'
+          : 'Default rollout';
+
+        return (
+          <div
+            key={flag.key}
+            className="space-y-3 rounded-xl border border-border bg-background/50 p-3"
           >
-            Save override
-          </button>
-        </form>
-      ) : (
+            <div className="grid gap-3 md:grid-cols-4">
+              <Info
+                label={flag.key}
+                value={status}
+              />
+              <Info
+                label="Global rollout"
+                value={`${flag.enabled ? 'Enabled' : 'Disabled'} / ${flag.rollout_percentage}%`}
+              />
+              <Info
+                label="Reason"
+                value={override?.reason ?? '-'}
+              />
+              <Info
+                label="Updated"
+                value={override?.updated_at ? new Date(override.updated_at).toLocaleString() : '-'}
+              />
+            </div>
+            {flag.description ? <p className="text-sm text-muted">{flag.description}</p> : null}
+            {canManage ? (
+              <form
+                action={setFeatureFlagProfileOverrideAction}
+                className="flex flex-wrap items-end gap-3"
+              >
+                <input
+                  type="hidden"
+                  name="feature_key"
+                  value={flag.key}
+                />
+                <input
+                  type="hidden"
+                  name="profile_id"
+                  value={profileId}
+                />
+                <label className="grid gap-1 text-sm text-slate-200">
+                  Override
+                  <select
+                    name="override_action"
+                    defaultValue={override ? (override.enabled ? 'enable' : 'disable') : 'clear'}
+                    className="rounded-md border border-border bg-background px-3 py-2 text-sm text-white"
+                  >
+                    <option value="enable">Force enable</option>
+                    <option value="disable">Force disable</option>
+                    <option value="clear">Use default rollout</option>
+                  </select>
+                </label>
+                <label className="grid min-w-64 flex-1 gap-1 text-sm text-slate-200">
+                  Reason
+                  <input
+                    name="reason"
+                    defaultValue={override?.reason ?? ''}
+                    placeholder="Pilot cohort, support request, or rollout note"
+                    className="rounded-md border border-border bg-background px-3 py-2 text-sm text-white"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="rounded-md border border-primary/40 px-4 py-2 text-sm font-semibold text-primary"
+                >
+                  Save override
+                </button>
+              </form>
+            ) : null}
+          </div>
+        );
+      })}
+      {flags.length === 0 ? (
+        <p className="text-sm text-muted">No feature flags configured.</p>
+      ) : null}
+      {!canManage ? (
         <p className="text-sm text-muted">Only owners and organizers can manage feature access.</p>
-      )}
+      ) : null}
     </div>
   );
+}
+
+interface FeatureFlag {
+  key: string;
+  description: string | null;
+  enabled: boolean;
+  rollout_percentage: number;
+}
+
+interface FeatureFlagOverride {
+  feature_key: string;
+  enabled: boolean;
+  reason: string | null;
+  updated_at: string | null;
 }
 
 function Info({ label, value }: { label: string; value: string }) {
