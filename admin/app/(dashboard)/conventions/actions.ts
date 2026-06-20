@@ -14,12 +14,13 @@ import {
   fetchConventionReadiness,
   generateDefaultGameplayPack,
 } from '@/lib/convention-lifecycle';
-import type { Database } from '@/types/database';
 
 const CONFIG_ROLES = ['owner', 'organizer'] as const;
 const CONTENT_ROLES = ['owner', 'organizer'] as const;
-type SilentRepairHistoricalConventionResult =
-  Database['public']['Functions']['silent_repair_historical_convention']['Returns'][number];
+type SilentRepairHistoricalConventionResult = {
+  repaired: boolean | null;
+  counts: unknown;
+};
 
 const DEFAULT_CONFIG = {
   cooldowns: { catch_seconds: 0 },
