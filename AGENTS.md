@@ -98,5 +98,32 @@ Database changes must leave generated types current before final validation or P
 
 Only apply changes to other environments (staging, production) if explicitly instructed or after approval. When working in staging or production, the Supabase MCP tools are not configured for those environments — use the Supabase CLI instead by linking to the respective project (`supabase link --project-ref <staging-or-prod-ref>`) and applying changes there.
 
+### Production Database Access via `psql`
+For production database inspection, prefer direct Postgres access through `psql` when Supabase CLI access is unavailable or unnecessary. The local `.env.prod.local` file may provide:
+
+- `TAILTAG_PROD_READONLY_POOLER_DATABASE_URL` for read-only production queries.
+- `TAILTAG_PROD_MAINTENANCE_POOLER_DATABASE_URL` for approved production data fixes.
+
+Use the read-only pooler URL by default:
+
+```bash
+set -a; source .env.prod.local; set +a
+psql "$TAILTAG_PROD_READONLY_POOLER_DATABASE_URL"
+```
+
+Codex Desktop usually requires elevated command execution for these `psql` calls because outbound network access to Supabase is sandboxed. If a `psql` command fails with DNS, routing, or connection errors from the sandbox, rerun the same command with escalation.
+
+The production roles are expected to have `BYPASSRLS` so read-only diagnostics can see RLS-protected app rows. This does not replace table grants: continue using the read-only role for inspection and use the maintenance role only when the user explicitly asks for a direct production data change.
+
+For production writes, always inspect first, use an explicit transaction, verify the affected rows before commit, and prefer `rollback` unless the requested change and verification are clear:
+
+```sql
+begin;
+-- inspect target rows
+-- update/insert/delete
+-- verify exact result
+commit;
+```
+
 ## Security & Configuration Tips
 Keep secrets out of source control. Mobile code expects `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`; `admin/` also needs `SUPABASE_SERVICE_ROLE_KEY` for server actions. Treat generated native folders (`ios/`, `android/`) and database types carefully, and update Supabase migrations instead of patching production schema by hand.
