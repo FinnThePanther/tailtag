@@ -34,6 +34,10 @@ import {
   FursuitsListSkeleton,
   AchievementsListSkeleton,
 } from '../../../src/features/public-profile';
+import {
+  createOwnPlayerProgressQueryOptions,
+  createPlayerLevelSummaryQueryOptions,
+} from '../../../src/features/player-leveling';
 import { useAllDataReady } from '../../../src/hooks/useAllDataReady';
 import { captureNonCriticalError } from '../../../src/lib/sentry';
 import { colors } from '../../../src/theme';
@@ -116,8 +120,23 @@ export default function PublicProfileScreen() {
   });
   const { data: conventionCount = 0 } = conventionCountQuery;
 
+  const levelSummaryQuery = useQuery({
+    ...createPlayerLevelSummaryQueryOptions(profileId ?? ''),
+    enabled: canLoadProfileDetails,
+  });
+
+  const ownPlayerProgressQuery = useQuery({
+    ...createOwnPlayerProgressQueryOptions(currentUserId ?? ''),
+    enabled: Boolean(isSelf && canLoadProfileDetails && currentUserId),
+  });
+
   const avatarUrl = profile?.avatar_url ?? (fursuits.length > 0 ? fursuits[0].avatar_url : null);
   const socialLinks = aggregateSocialLinks(fursuits, profile?.social_links ?? []);
+  const ownPlayerProgress =
+    isSelf && !ownPlayerProgressQuery.isError ? ownPlayerProgressQuery.data : null;
+  const visibleLevel =
+    ownPlayerProgress?.level ??
+    (!levelSummaryQuery.isError ? (levelSummaryQuery.data?.level ?? null) : null);
 
   const [headerAvatarLoaded, setHeaderAvatarLoaded] = useState(false);
   useEffect(() => {
@@ -228,7 +247,14 @@ export default function PublicProfileScreen() {
                         </View>
                       )}
                     </View>
-                    <Text style={styles.username}>{profile?.username}</Text>
+                    <View style={styles.usernameRow}>
+                      <Text style={styles.username}>{profile?.username}</Text>
+                      {visibleLevel ? (
+                        <View style={styles.levelBadge}>
+                          <Text style={styles.levelBadgeText}>Level {visibleLevel}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                     {profile?.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
                   </View>
                 )}
@@ -262,6 +288,30 @@ export default function PublicProfileScreen() {
                   <Text style={styles.statValue}>{conventionCount.toLocaleString()}</Text>
                   <Text style={styles.statLabel}>Conventions attended</Text>
                 </View>
+                {ownPlayerProgress ? (
+                  <View style={styles.levelProgressCard}>
+                    <View style={styles.levelProgressHeader}>
+                      <Text style={styles.levelProgressTitle}>Level progress</Text>
+                      <Text style={styles.levelProgressValue}>
+                        {ownPlayerProgress.xpToNextLevel.toLocaleString()} XP to Level{' '}
+                        {ownPlayerProgress.level + 1}
+                      </Text>
+                    </View>
+                    <View style={styles.levelProgressTrack}>
+                      <View
+                        style={[
+                          styles.levelProgressFill,
+                          { width: `${ownPlayerProgress.levelProgress * 100}%` },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.levelProgressMeta}>
+                      {ownPlayerProgress.totalXp.toLocaleString()} /{' '}
+                      {ownPlayerProgress.nextLevelXp.toLocaleString()} XP to Level{' '}
+                      {ownPlayerProgress.level + 1}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             )}
           </TailTagCard>

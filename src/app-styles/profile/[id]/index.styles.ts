@@ -53,6 +53,25 @@ export const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
   },
+  usernameRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  levelBadge: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySurface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  levelBadgeText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   bio: {
     color: colors.textMuted,
     fontSize: 14,
@@ -88,6 +107,47 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statLabel: {
+    color: colors.textSubtle,
+    fontSize: 13,
+  },
+  levelProgressCard: {
+    flexBasis: '100%',
+    backgroundColor: colors.surfaceMutedSoft,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderMuted,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  levelProgressHeader: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  levelProgressTitle: {
+    color: colors.foreground,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  levelProgressValue: {
+    color: colors.textSubtle,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  levelProgressTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: colors.surfaceMuted,
+    overflow: 'hidden',
+  },
+  levelProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+  },
+  levelProgressMeta: {
     color: colors.textSubtle,
     fontSize: 13,
   },
