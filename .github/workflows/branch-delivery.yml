@@ -230,12 +230,17 @@ jobs:
 
           exit "$missing"
 
+      - name: Link Vercel project
+        run: |
+          set -euo pipefail
+
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
       - name: Pull Vercel environment
-        working-directory: admin
         run: npx --yes vercel@"$VERCEL_CLI_VERSION" pull --yes --environment="$VERCEL_ENVIRONMENT" --token="$VERCEL_TOKEN"
 
       - name: Build Vercel artifact
-        working-directory: admin
         run: |
           set -euo pipefail
 
@@ -246,7 +251,6 @@ jobs:
           fi
 
       - name: Deploy prebuilt artifact
-        working-directory: admin
         run: |
           set -euo pipefail
 
@@ -297,12 +301,17 @@ jobs:
 
           exit "$missing"
 
+      - name: Link Vercel project
+        run: |
+          set -euo pipefail
+
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
       - name: Pull Vercel environment
-        working-directory: web
         run: npx --yes vercel@"$VERCEL_CLI_VERSION" pull --yes --environment="$VERCEL_ENVIRONMENT" --token="$VERCEL_TOKEN"
 
       - name: Build Vercel artifact
-        working-directory: web
         run: |
           set -euo pipefail
 
@@ -313,7 +322,6 @@ jobs:
           fi
 
       - name: Deploy prebuilt artifact
-        working-directory: web
         run: |
           set -euo pipefail
 
