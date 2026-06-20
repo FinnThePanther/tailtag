@@ -1,12 +1,33 @@
 BEGIN;
 
+DROP FUNCTION IF EXISTS public.award_owned_fursuit_catch_xp_once(
+  uuid,
+  integer,
+  uuid,
+  uuid,
+  uuid,
+  date,
+  uuid,
+  jsonb,
+  integer
+);
+
+CREATE INDEX IF NOT EXISTS player_xp_events_owned_fursuit_cap_idx
+  ON public.player_xp_events (
+    user_id,
+    (metadata->>'fursuit_id'),
+    (coalesce(metadata->>'convention_id', '')),
+    (metadata->>'local_day')
+  )
+  WHERE reason = 'owned_fursuit_caught';
+
 CREATE OR REPLACE FUNCTION public.award_owned_fursuit_catch_xp_once(
   p_owner_id uuid,
   p_xp_amount integer,
   p_catch_id uuid,
   p_fursuit_id uuid,
-  p_convention_id uuid,
   p_local_day date,
+  p_convention_id uuid DEFAULT NULL::uuid,
   p_source_event_id uuid DEFAULT NULL::uuid,
   p_metadata jsonb DEFAULT '{}'::jsonb,
   p_daily_cap integer DEFAULT 5
@@ -132,8 +153,8 @@ REVOKE ALL ON FUNCTION public.award_owned_fursuit_catch_xp_once(
   integer,
   uuid,
   uuid,
-  uuid,
   date,
+  uuid,
   uuid,
   jsonb,
   integer
@@ -143,8 +164,8 @@ GRANT EXECUTE ON FUNCTION public.award_owned_fursuit_catch_xp_once(
   integer,
   uuid,
   uuid,
-  uuid,
   date,
+  uuid,
   uuid,
   jsonb,
   integer
@@ -155,8 +176,8 @@ COMMENT ON FUNCTION public.award_owned_fursuit_catch_xp_once(
   integer,
   uuid,
   uuid,
-  uuid,
   date,
+  uuid,
   uuid,
   jsonb,
   integer

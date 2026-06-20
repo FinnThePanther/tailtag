@@ -2864,7 +2864,7 @@ export type Database = {
       award_owned_fursuit_catch_xp_once: {
         Args: {
           p_catch_id: string
-          p_convention_id: string
+          p_convention_id?: string
           p_daily_cap?: number
           p_fursuit_id: string
           p_local_day: string
