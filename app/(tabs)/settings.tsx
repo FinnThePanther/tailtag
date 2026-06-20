@@ -116,6 +116,7 @@ import type { CaughtRecord } from '../../src/features/suits/api/caughtSuits';
 import { CONVENTION_LEADERBOARD_QUERY_KEY } from '../../src/features/leaderboard/api/leaderboard';
 import { usePushNotifications } from '../../src/features/push-notifications';
 import { useOtaUpdateCheck } from '../../src/hooks/useOtaUpdateCheck';
+import { createOwnPlayerProgressQueryOptions } from '@/features/player-leveling';
 import { styles } from '../../src/app-styles/(tabs)/settings.styles';
 
 const COMMUNITY_CHAT_URL = 'https://t.me/+x2C_t-_kgI40ZDlh';
@@ -306,6 +307,14 @@ export default function SettingsScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryFn: () => fetchMySuits(userId!),
+  });
+  const {
+    data: ownPlayerProgress = null,
+    error: ownPlayerProgressError,
+    isLoading: isPlayerLevelLoading,
+  } = useQuery({
+    ...createOwnPlayerProgressQueryOptions(userId ?? ''),
+    enabled: Boolean(userId),
   });
 
   const {
@@ -701,6 +710,9 @@ export default function SettingsScreen() {
         : null;
   const isStatsLoading =
     isCaughtSuitsLoading || isProfileConventionsLoading || isPastConventionRecapsLoading;
+  const playerLevelError = ownPlayerProgressError
+    ? getUserVisibleErrorMessage(ownPlayerProgressError, 'We could not load your player level.')
+    : null;
   const caughtSuitCount = caughtSuits.length;
   const attendedConventionCount = useMemo(() => {
     const conventionIds = new Set(
@@ -1517,8 +1529,42 @@ export default function SettingsScreen() {
                 <Text style={styles.statValue}>{attendedConventionCount.toLocaleString()}</Text>
                 <Text style={styles.statLabel}>Conventions attended</Text>
               </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>
+                  {ownPlayerProgress ? `Level ${ownPlayerProgress.level}` : 'Level --'}
+                </Text>
+                <Text style={styles.statLabel}>Player level</Text>
+              </View>
             </View>
           )}
+          {isPlayerLevelLoading ? (
+            <Text style={styles.message}>Loading player level…</Text>
+          ) : playerLevelError ? (
+            <Text style={styles.error}>{playerLevelError}</Text>
+          ) : ownPlayerProgress ? (
+            <View style={styles.levelProgressCard}>
+              <View style={styles.levelProgressHeader}>
+                <Text style={styles.levelProgressTitle}>Level progress</Text>
+                <Text style={styles.levelProgressValue}>
+                  {ownPlayerProgress.xpToNextLevel.toLocaleString()} XP to Level{' '}
+                  {ownPlayerProgress.level + 1}
+                </Text>
+              </View>
+              <View style={styles.levelProgressTrack}>
+                <View
+                  style={[
+                    styles.levelProgressFill,
+                    { width: `${ownPlayerProgress.levelProgress * 100}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.levelProgressMeta}>
+                {ownPlayerProgress.totalXp.toLocaleString()} /{' '}
+                {ownPlayerProgress.nextLevelXp.toLocaleString()} XP to Level{' '}
+                {ownPlayerProgress.level + 1}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </TailTagCard>
 
