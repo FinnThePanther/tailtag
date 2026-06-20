@@ -283,7 +283,7 @@ AS $$
   WHERE p.id = p_user_id
     AND (
       auth.role() = 'service_role'
-      OR public.can_view_profile(auth.uid(), p_user_id)
+      OR public.can_view_profile(p_viewer_id => auth.uid(), p_target_id => p_user_id)
     );
 $$;
 
