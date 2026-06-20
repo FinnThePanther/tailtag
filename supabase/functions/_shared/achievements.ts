@@ -578,9 +578,12 @@ async function processCatchEvent(
       })),
     );
   }
-  for (const dailyResult of [...catcherDailyResult.taskResults, ...ownerDailyResult.taskResults]) {
-    xpResults.push(...(await awardDailyTaskXp(supabaseAdmin, dailyResult, enrichedEvent)));
-  }
+  const dailyTaskXpResults = await Promise.all(
+    [...catcherDailyResult.taskResults, ...ownerDailyResult.taskResults].map((dailyResult) =>
+      awardDailyTaskXp(supabaseAdmin, dailyResult, enrichedEvent),
+    ),
+  );
+  xpResults.push(...dailyTaskXpResults.flat());
   xpResults.push(...mainApplication.xpResults);
 
   // Post-award meta pass: check ACHIEVEMENT_HUNTER after main batch is granted
