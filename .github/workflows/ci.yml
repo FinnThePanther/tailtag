@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: 20
+  NODE_VERSION: 22
   # Opt in now so JavaScript-based actions execute on Node 24 ahead of
   # GitHub's forced migration window.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -42,76 +42,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install admin dependencies
+        run: npm ci
+        working-directory: admin
+
+      - name: Install web dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@667a34cdef165d8d2b2e98dde39547c9daac7282 # v2.0.4
+        with:
+          deno-version: v2.x
+
       - name: Install Supabase CLI
         uses: supabase/setup-cli@b60b5899c73b63a2d2d651b1e90db8d4c9392f51 # v1
         with:
           version: 2.90.0
 
-      - name: Validate mobile app
-        run: npm run ci:validate
-
-      - name: Install admin dependencies
-        run: npm ci
-        working-directory: admin
-
-      - name: Validate admin dashboard
-        working-directory: admin
-        run: |
-          npm run lint
-          npm run typecheck
-          npm run test:security
-          npm run build
-
-      - name: Validate migration files
-        run: |
-          MIGRATION_DIR="supabase/migrations"
-          if [ ! -d "$MIGRATION_DIR" ]; then
-            echo "No migrations directory found - skipping"
-            exit 0
-          fi
-
-          errors=0
-
-          # Check filenames match expected format.
-          for f in "$MIGRATION_DIR"/*.sql; do
-            [ -e "$f" ] || continue
-            filename=$(basename "$f")
-            if ! echo "$filename" | grep -qE '^[0-9]{14}_.+\.sql$'; then
-              echo "ERROR: Invalid migration filename: $filename (expected: YYYYMMDDHHmmss_description.sql)"
-              errors=1
-            fi
-          done
-
-          # Check for duplicate timestamps.
-          dupes=$(find "$MIGRATION_DIR" -maxdepth 1 -type f -name '*.sql' -print \
-            | while IFS= read -r file; do basename "$file"; done \
-            | cut -c1-14 \
-            | sort | uniq -d)
-
-          if [ -n "$dupes" ]; then
-            echo "ERROR: Duplicate migration timestamps detected:"
-            printf '%s\n' "$dupes" | sed 's/^/  /'
-            errors=1
-          fi
-
-          if [ "$errors" -eq 1 ]; then
-            exit 1
-          fi
-
-          echo "All migration files are valid"
-
-      - name: Generate types from dev schema
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase gen types typescript \
-            --project-id rtxbvjicfxgcouufumce \
-            > /tmp/generated-types.ts
-
-      - name: Compare generated types to committed file
-        run: python3 scripts/check-types.py /tmp/generated-types.ts
-
-      - name: Type-check achievement-rules package
-        run: |
-          cd packages/achievement-rules
-          npx tsc --noEmit --pretty
+      - name: Validate repository
+        run: npm run validate:repo

@@ -63,10 +63,13 @@ Small dynamic style merges can stay inline when extracting them would make the c
 Run the root validation command for mobile changes:
 
 ```bash
-npm run ci:validate
+npm run validate:mobile
 ```
 
-This runs Expo doctor, format check, ESLint, and TypeScript checking.
+This runs Expo doctor, format check, ESLint, TypeScript checking, and mobile
+regression tests. Use `npm run validate:repo` from the root for the full
+PR-equivalent validation across mobile, admin, web, shared packages, Edge
+Functions, migrations, and generated database types.
 
 For native changes, also run the affected platform locally when possible:
 

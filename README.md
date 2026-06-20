@@ -13,7 +13,7 @@ TailTag is a real-world convention game where players register fursuits, catch o
 
 ## Prerequisites
 
-- Node.js 20 is recommended because CI uses Node 20.
+- Node.js 22 is required because CI and local version files use Node 22.
 - npm is used for dependency installation in each app/package.
 - Expo and EAS tooling are only required when building or submitting native mobile builds.
 - Supabase CLI is only required for backend work.
@@ -87,17 +87,26 @@ Backend work lives under `supabase/`. The repo includes migrations, reference se
 
 ## Validation
 
-Run the root validation command for mobile changes:
+Run the mobile validation command for app-only changes:
 
 ```bash
-npm run ci:validate
+npm run validate:mobile
 ```
 
-Validate the admin dashboard:
+Run the full repository validation command before PR handoff when Docker/Supabase
+local development is available:
+
+```bash
+npm run validate:repo
+```
+
+Validate the admin dashboard only:
 
 ```bash
 cd admin
 npm run lint
+npm run typecheck
+npm run test:security
 npm run build
 ```
 
@@ -108,11 +117,10 @@ cd web
 npm run build
 ```
 
-Type-check the shared achievement rules package:
+Type-check shared packages:
 
 ```bash
-cd packages/achievement-rules
-npm run lint
+npm run validate:packages
 ```
 
 ## Useful docs

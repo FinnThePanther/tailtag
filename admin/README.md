@@ -4,7 +4,7 @@ Next.js app for TailTag operations (player management, events, tags, moderation,
 
 ## Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 22 and npm
 - Supabase project with the existing TailTag schema
 - Environment variables set (see `.env.example`)
 
@@ -51,4 +51,4 @@ App runs on http://localhost:3000. Login with a Supabase Auth user whose `profil
   [`../docs/runbooks/convention-closeout-lifecycle.md`](../docs/runbooks/convention-closeout-lifecycle.md).
 - CSV export currently limits to 2000 rows per request.
 - Mobile Staff Mode in the main app is gated by `EXPO_PUBLIC_STAFF_MODE_ENABLED` and roles.
-- Database types (`types/database.ts`) are copied from the main app. If schema changes, re-copy from `../src/types/database.ts`.
+- Database types resolve to the main app's generated `../src/types/database.ts` file through the admin TypeScript path mapping.

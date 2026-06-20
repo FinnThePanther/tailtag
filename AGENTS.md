@@ -20,9 +20,11 @@ Use `npm install` at the repo root, then run commands from the relevant app dire
 - `npm run start` from the root starts the Expo app.
 - `npm run ios` / `npm run android` from the root run native Expo builds locally.
 - `npm run lint` and `npm run typecheck` from the root validate the mobile app.
-- `npm run ci:validate` from the root runs Expo doctor, lint, and type checking together.
+- `npm run validate:mobile` from the root runs Expo doctor, formatting, linting, type checking, and mobile regression tests.
+- `npm run validate:repo` from the root runs the full PR-equivalent validation across mobile, admin, web, shared packages, Edge Functions, migrations, and generated database types.
 - `npm run gen:types` from the root regenerates Supabase database types in `src/types/database.ts`.
-- `npx supabase gen types typescript --project-id rtxbvjicfxgcouufumce > /tmp/generated-types.ts && python3 scripts/check-types.py /tmp/generated-types.ts` verifies committed database types match the dev schema.
+- `npm run validate:types:local` verifies committed database types against a local Supabase schema rebuilt from committed migrations and seeds.
+- `npm run validate:types:remote:dev` verifies committed database types match the dev Supabase schema.
 - Codex Desktop currently does not inherit the Supabase access token needed for `npm run gen:types`; when working there, ask Nick to run it in his terminal instead of retrying it from Codex.
 - `cd admin && npm run dev` starts the admin dashboard.
 - `cd admin && npm run build` or `npm run lint` validates the admin app.
@@ -37,17 +39,17 @@ For example:
 ```bash
 npm run format src/features/auth/api/auth.ts src/components/Button.tsx
 ```
-Run `npm run format` with all edited file paths before running `npm run ci:validate` or `npm run lint`. This ensures code follows the project's style conventions.
+Run `npm run format` with all edited file paths before running `npm run validate:mobile`, `npm run validate:repo`, or `npm run lint`. This ensures code follows the project's style conventions.
 
 ### Agent Command Troubleshooting
 Codex Desktop runs with workspace sandboxing and `zsh`, so a few repo commands need care:
 
 - Quote Expo route paths that contain parentheses or brackets. For example, use `npm run format 'app/(tabs)/suits/add-fursuit.tsx' 'app/fursuits/[id]/edit.tsx'`; unquoted paths can fail with `zsh: no matches found`.
-- `npm run ci:validate` runs Expo Doctor, which contacts Expo APIs. If it fails with `fetch failed`, `getaddrinfo ENOTFOUND exp.host`, or React Native Directory network errors, rerun the same command with network escalation instead of debugging project config.
+- `npm run validate:mobile` and `npm run validate:repo` run Expo Doctor, which contacts Expo APIs. If it fails with `fetch failed`, `getaddrinfo ENOTFOUND exp.host`, or React Native Directory network errors, rerun the same command with network escalation instead of debugging project config.
 - Supabase CLI commands may try to write telemetry/config under `~/.supabase`, which is outside the workspace sandbox. If `supabase migration list`, `supabase migration up`, or similar commands fail with `EPERM ... ~/.supabase/telemetry.json`, rerun the same Supabase CLI command with escalation.
 - `supabase db query` for the dev project should use the linked project flag, not `--project-ref`: `supabase db query --linked "<sql>"`. The CLI rejects `--project-ref` for this subcommand.
 - `npm run gen:types` may need network access because it invokes `npx supabase@...`; if it fails with `getaddrinfo ENOTFOUND registry.npmjs.org`, rerun with network escalation. If it instead fails because `SUPABASE_ACCESS_TOKEN` is missing, stop retrying in Codex Desktop and ask Nick to run `npm run gen:types` locally.
-- After schema changes, the reliable sequence is: apply the migration to dev with `supabase migration up --linked`, run `npm run gen:types`, format `src/types/database.ts`, then rerun `npm run ci:validate`.
+- After schema changes, the reliable sequence is: apply the migration to dev with `supabase migration up --linked`, run `npm run gen:types`, format `src/types/database.ts`, then rerun `npm run validate:repo`.
 
 ## Coding Style & Naming Conventions
 Use the surrounding file as the formatting source of truth and avoid unrelated reformatting. Prefer:
@@ -68,7 +70,7 @@ Linting is enforced with ESLint at the root and `next lint` in `admin/`. There i
 - Leave small dynamic style merges inline when extracting them would add indirection without reducing duplication.
 
 ## Testing Guidelines
-There is no committed automated test suite yet. At minimum, run `npm run ci:validate` for mobile changes, `cd admin && npm run lint`, and the relevant production build for `admin/` or `web/`. If you add tests, prefer colocated `*.test.ts(x)` files beside the feature they cover.
+At minimum, run `npm run validate:mobile` for mobile changes, `npm run validate:admin` for admin changes, `npm run validate:web` for web changes, and `npm run validate:repo` before PR handoff when Docker/Supabase local development is available. If you add tests, prefer colocated `*.test.ts(x)` files beside the feature they cover.
 
 ## Commit & Pull Request Guidelines
 Recent history uses short, imperative commit subjects such as `Remove Inngest implementation` and `Add cron-based achievement processor backup`, sometimes with issue references like `(#42)`. Follow that format. PRs should include a concise summary, linked issue if applicable, affected surfaces, and screenshots for UI changes.
@@ -83,9 +85,9 @@ Codex Desktop may not have access to the GitHub CLI's macOS Keychain-backed auth
 1. **Mobile app:** Build via EAS (`eas build --profile [profile] --platform [platform]`)
 2. **OTA updates:** Pushes to `dev` auto-publish to the `staging` EAS Update channel; pushes to `main` auto-publish to `production`. The CI splits mobile changes two ways: **JS-only** pushes (`app/`, `src/`, `assets/`, `packages/`, `package.json`, `package-lock.json`) ship via OTA alone when they do not require native project changes. **Native** pushes (`ios/`, `android/`, `app.config.ts`, `eas.json`) trigger both a full EAS Build and an OTA. Runtime version uses the `appVersion` policy, so **native pushes MUST include a `package.json` version bump** — the native version guard fails the workflow otherwise, preventing OTAs that would crash older binaries missing the new native modules. Changes to native-looking packages (`expo-*`, `@expo/*`, `react-native-*`, `@react-native/*`) must include generated native project changes from `expo prebuild` or an intentional EAS skip. Add `[skip eas]` to the merge commit to opt out of both paths and guards.
 3. **Supabase Edge Functions:** `npx supabase functions deploy [function-name]`
-4. **Database changes:** Apply migrations via Supabase CLI or dashboard. After any schema-affecting change (tables, views, functions/RPCs, enums, or generated-type-impacting policy changes), run `npm run gen:types` so `src/types/database.ts` stays in sync. If you believe types do not need to change, verify before finishing with `npx supabase gen types typescript --project-id rtxbvjicfxgcouufumce > /tmp/generated-types.ts && python3 scripts/check-types.py /tmp/generated-types.ts`.
+4. **Database changes:** Apply migrations via Supabase CLI or dashboard. After any schema-affecting change (tables, views, functions/RPCs, enums, or generated-type-impacting policy changes), run `npm run gen:types` so `src/types/database.ts` stays in sync. If you believe types do not need to change, verify before finishing with `npm run validate:types:local` or `npm run validate:types:remote:dev`.
 5. **Achievement rules:** Deploy edge function after updating `/packages/achievement-rules/`
-6. **CI validation:** Ensure `npm run ci:validate` passes before merging to `dev`
+6. **CI validation:** Ensure `npm run validate:repo` passes before merging to `dev`
 
 ## Supabase Environments
 Unless explicitly stated, all changes, migrations, and Edge Function updates are to go to the **dev environment**:

@@ -176,7 +176,7 @@ Automation rules:
 1. Verify `dev` is green and staging has passed smoke testing.
 
 ```bash
-npm run ci:validate
+npm run validate:repo
 npm run verify:production-release
 ./scripts/verify-environment.sh staging
 ```

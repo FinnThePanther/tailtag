@@ -17,6 +17,9 @@ if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
   throw new Error('Missing Supabase configuration');
 }
 
+const resolvedSupabaseUrl = supabaseUrl;
+const resolvedServiceRoleKey = serviceRoleKey;
+
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   auth: {
     autoRefreshToken: false,
@@ -47,7 +50,18 @@ function normalizeUuidLike(value: unknown): string | null {
 
 function scheduleQueueWakeup() {
   void loadGameplayQueueConfig(supabaseAdmin)
-    .then((config) => scheduleGameplayQueueDrain(config))
+    .then((config) => {
+      if (!config.queueEnabled || !config.wakeupEnabled) {
+        return;
+      }
+
+      scheduleGameplayQueueDrain({
+        supabaseUrl: resolvedSupabaseUrl,
+        serviceRoleKey: resolvedServiceRoleKey,
+        maxMessages: config.wakeupMaxMessages,
+        maxDurationMs: config.wakeupMaxDurationMs,
+      });
+    })
     .catch((error) => {
       console.error('[create-reciprocal-catch-offer] Queue wakeup failed:', error);
     });

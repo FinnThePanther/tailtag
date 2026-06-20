@@ -64,6 +64,7 @@ interface CreateCatchRequest {
 }
 
 interface UpdateCatchPhotoRequest {
+  catch_id?: string;
   catch_photo_path?: string;
   catch_photo_url?: string;
   catch_photo_source?: 'camera' | 'gallery' | null;

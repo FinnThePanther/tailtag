@@ -27,8 +27,8 @@ This is the mandatory quality gate for merges into protected branches.
 
 - `.github/workflows/ci.yml`:
   - Runs on pull requests and is the required merge check.
-  - Validates GitHub workflow syntax with `actionlint`.
-  - Validates Expo doctor, formatting, linting, type checking, migration file naming/uniqueness, and generated Supabase type drift.
+  - Uses Node 22 and validates GitHub workflow syntax with `actionlint`.
+  - Runs the full `npm run validate:repo` surface: mobile, admin, web, shared packages, Edge Functions, migration file naming/uniqueness, and generated Supabase types from local migrations.
   - Fails PRs that change native-looking dependencies without native project/config changes.
   - Forces JavaScript-based GitHub actions to execute on Node 24 to surface deprecation-window compatibility issues early.
 
@@ -37,7 +37,9 @@ This is the mandatory quality gate for merges into protected branches.
   - Uses static job names so GitHub check labels stay readable.
   - Deploys backend changes to staging (`dev`) or production (`main`).
   - Runs a preflight migration drift check before `supabase db push` and fails with remediation guidance if remote migration history is missing locally committed files.
+  - Regenerates database types from the target Supabase project after migrations and seeds are applied, then compares them to committed types.
   - Triggers OTA updates and, when native surfaces change, EAS native builds.
+  - Runs production release config verification before production EAS build/update steps.
   - Enforces `package.json` version bumps for native changes unless EAS delivery is explicitly skipped.
   - Fails `dev` -> `main` release PRs that were squash/rebase merged instead of merge-committed.
   - Waits for production EAS native builds to finish before tagging the release. Staging native builds remain fire-and-forget.

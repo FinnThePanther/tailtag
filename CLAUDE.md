@@ -26,7 +26,8 @@ npm run web
 # Type checking and linting
 npm run typecheck      # TypeScript type checking
 npm run lint          # ESLint with zero warnings enforced
-npm run ci:validate   # Run doctor, lint, and typecheck
+npm run validate:mobile # Run mobile doctor, lint, typecheck, and regressions
+npm run validate:repo # Run full PR-equivalent repository validation
 
 # Expo utilities
 npm run doctor        # Diagnose Expo project issues
@@ -65,7 +66,7 @@ Example:
 npm run format src/features/auth/api/auth.ts src/components/Button.tsx
 ```
 
-Run `npm run format` with all edited file paths before running `npm run ci:validate`, `npm run lint`, or `npm run typecheck`. This ensures code follows the project's style conventions.
+Run `npm run format` with all edited file paths before running `npm run validate:mobile`, `npm run lint`, or `npm run typecheck`. This ensures code follows the project's style conventions.
 
 **Note:** There are no test runners configured currently. Tests should be added as the project matures.
 
@@ -424,9 +425,9 @@ Non-critical operations (like event emission) should return `null` on error, not
   - Staging: Internal release builds (APK for Android)
   - Production: Store distribution (app-bundle for Android, release for iOS)
 - **CI Pipeline:** GitHub Actions workflow (`.github/workflows/ci.yml`)
-  - Runs on pushes to `dev` branch and all pull requests
-  - Steps: checkout → install → doctor → lint → typecheck
-  - Node.js 20 required
+  - Runs on pull requests and from branch delivery
+  - Steps: checkout → install all lockfiles → validate all repo surfaces
+  - Node.js 22 required
 
 ---
 
@@ -459,7 +460,7 @@ Non-critical operations (like event emission) should return `null` on error, not
 3. **Supabase Edge Functions:** `npx supabase functions deploy [function-name]`
 4. **Database changes:** Apply migrations via Supabase CLI or dashboard
 5. **Achievement rules:** Deploy edge function after updating `/packages/achievement-rules/`
-6. **CI validation:** Ensure `npm run ci:validate` passes before merging to `dev`
+6. **CI validation:** Ensure `npm run validate:repo` passes before merging to `dev`
 
 ---
 

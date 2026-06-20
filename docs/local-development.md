@@ -4,7 +4,7 @@ This guide expands on the root README with practical local setup notes for each 
 
 ## Prerequisites
 
-- Node.js 20.
+- Node.js 22.
 - npm.
 - Xcode for local iOS native builds.
 - Android Studio and Android SDK for local Android native builds.
@@ -109,37 +109,43 @@ Use `docs/environment-setup.md` for environment provisioning details before touc
 
 ## Validation
 
-Run the root validation command for mobile changes:
+Run the mobile validation command for app-only changes:
 
 ```bash
-npm run ci:validate
+npm run validate:mobile
 ```
+
+Run the full PR-equivalent repository validation when Docker/Supabase local
+development is available:
+
+```bash
+npm run validate:repo
+```
+
+This runs `validate:types:local`, which starts Supabase locally and resets the
+local Supabase database from committed migrations and seeds.
 
 Run admin checks:
 
 ```bash
-cd admin
-npm run lint
-npm run build
+npm run validate:admin
 ```
 
 Run landing site checks:
 
 ```bash
-cd web
-npm run build
+npm run validate:web
 ```
 
 Run shared rules validation:
 
 ```bash
-cd packages/achievement-rules
-npm run lint
+npm run validate:packages
 ```
 
 ## Common issues
 
 - If native app startup fails because Firebase config files are missing, confirm the environment-specific Google service files exist for the selected `APP_ENV`.
 - If admin actions fail with a service-role error, confirm `SUPABASE_SERVICE_ROLE_KEY` is set in `admin/.env.local`.
-- If generated database types drift, use the root `npm run gen:types` workflow and review the resulting type changes before committing.
+- If generated database types drift, use the root `npm run gen:types` workflow and review the resulting type changes before committing. Use `npm run validate:types:local` for deterministic checks from local migrations and `npm run validate:types:remote:dev` for explicit dev-project drift checks.
 - If backend behavior differs by environment, run `scripts/verify-environment.sh` for the target environment and compare against `docs/environment-setup.md`.

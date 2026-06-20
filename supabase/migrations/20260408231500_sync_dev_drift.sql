@@ -120,6 +120,8 @@ $$;
 -- if a job already exists with a different schedule or command, it gets
 -- realigned via cron.alter_job; otherwise it's created via cron.schedule.
 
+create extension if not exists pg_cron with schema pg_catalog;
+
 do $$
 declare
   desired jsonb := jsonb_build_array(

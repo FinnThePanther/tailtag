@@ -82,15 +82,20 @@ Use `docs/environment-setup.md` for the full environment checklist. Use runbooks
 For backend-related pull requests, run the relevant local checks plus:
 
 ```bash
-cd packages/achievement-rules
-npm run lint
+npm run validate:packages
+npm run validate:edge-functions
+npm run validate:migrations
 ```
 
 When touching migrations or generated database types, also run:
 
 ```bash
-npm run gen:types
+npm run validate:types:local
 ```
+
+Use `npm run gen:types` to refresh `src/types/database.ts` from the dev
+project after applying schema changes there. Use `npm run validate:types:remote:dev`
+only when intentionally checking dev-project drift.
 
 For shared environments, use:
 

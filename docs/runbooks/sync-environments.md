@@ -112,7 +112,7 @@ Before pushing to `main`:
       seeded automatically on every deploy
 - [ ] No new edge functions need extra secrets that the workflow doesn't
       already set
-- [ ] `npm run ci:validate` is passing on `dev`
+- [ ] `npm run validate:repo` is passing on `dev`
 
 ### Post-deploy verification
 

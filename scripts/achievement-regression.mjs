@@ -367,8 +367,12 @@ describe('Checked In achievement hardening', () => {
       insertNotificationsForAwards,
       /const surfacedNotificationKeys = new Set<string>\(\)/,
     );
-    assert.match(insertNotificationsForAwards, /isCheckedInAchievementIdentity\(/);
-    assert.match(insertNotificationsForAwards, /'achievement:checked-in'/);
+    assert.match(
+      source,
+      /function buildAchievementNotificationDedupeKey[\s\S]*isCheckedInAchievementIdentity\(/,
+    );
+    assert.match(source, /function buildAchievementNotificationDedupeKey[\s\S]*'checked-in'/);
+    assert.match(insertNotificationsForAwards, /buildAchievementNotificationDedupeKey\(/);
     assert.match(
       insertNotificationsForAwards,
       /const userNotificationKey = `\$\{summary\.user_id}:/,

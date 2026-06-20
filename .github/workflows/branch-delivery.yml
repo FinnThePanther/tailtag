@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name == 'dev' }}
 
 env:
-  NODE_VERSION: 20
+  NODE_VERSION: 22
   # Opt in now so JavaScript-based actions execute on Node 24 ahead of
   # GitHub's forced migration window.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -56,6 +56,7 @@ jobs:
             backend:
               - 'supabase/**'
               - 'packages/achievement-rules/**'
+              - 'packages/notification-contract/**'
               - 'scripts/bootstrap-vault-secrets.sql'
               - 'scripts/setup-environment.sh'
               - 'scripts/run-event-processing-canary.py'
@@ -183,6 +184,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Install Supabase CLI
         uses: supabase/setup-cli@b60b5899c73b63a2d2d651b1e90db8d4c9392f51 # v1
         with:
@@ -253,6 +263,12 @@ jobs:
         run: supabase db query --linked -f supabase/seeds/reference.sql
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Validate target generated types
+        run: bash scripts/validate-remote-types.sh "$PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ github.ref_name == 'dev' && secrets.STAGING_PROJECT_REF || secrets.PROD_PROJECT_REF }}
 
       - name: Sync required vault and edge function secrets
         # After a DB reset/resync the vault's SERVICE_ROLE_KEY or SUPABASE_URL may
@@ -447,6 +463,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify production release config
+        if: github.ref_name == 'main'
+        run: npm run verify:production-release
+
       - name: Set up EAS
         uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
         with:
@@ -506,6 +526,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify production release config
+        if: github.ref_name == 'main'
+        run: npm run verify:production-release
+
       - name: Set up EAS
         uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
         with:
@@ -551,6 +575,18 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify production release config
+        run: npm run verify:production-release
 
       - name: Create release tag
         env:
