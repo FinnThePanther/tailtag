@@ -240,7 +240,7 @@ jobs:
       - name: Pull Vercel environment
         run: npx --yes vercel@"$VERCEL_CLI_VERSION" pull --yes --environment="$VERCEL_ENVIRONMENT" --token="$VERCEL_TOKEN"
 
-      - name: Load Vercel environment
+      - name: Build Vercel artifact
         run: |
           set -euo pipefail
 
@@ -250,11 +250,9 @@ jobs:
             exit 1
           fi
 
-          grep -vE '^[[:space:]]*(#|$)' "$env_file" >> "$GITHUB_ENV"
-
-      - name: Build Vercel artifact
-        run: |
-          set -euo pipefail
+          set -a
+          source "$env_file"
+          set +a
 
           if [[ "$VERCEL_ENVIRONMENT" == "production" ]]; then
             npx --yes vercel@"$VERCEL_CLI_VERSION" build --prod --token="$VERCEL_TOKEN"
@@ -323,7 +321,7 @@ jobs:
       - name: Pull Vercel environment
         run: npx --yes vercel@"$VERCEL_CLI_VERSION" pull --yes --environment="$VERCEL_ENVIRONMENT" --token="$VERCEL_TOKEN"
 
-      - name: Load Vercel environment
+      - name: Build Vercel artifact
         run: |
           set -euo pipefail
 
@@ -333,11 +331,9 @@ jobs:
             exit 1
           fi
 
-          grep -vE '^[[:space:]]*(#|$)' "$env_file" >> "$GITHUB_ENV"
-
-      - name: Build Vercel artifact
-        run: |
-          set -euo pipefail
+          set -a
+          source "$env_file"
+          set +a
 
           if [[ "$VERCEL_ENVIRONMENT" == "production" ]]; then
             npx --yes vercel@"$VERCEL_CLI_VERSION" build --prod --token="$VERCEL_TOKEN"
