@@ -237,38 +237,14 @@ jobs:
           mkdir -p .vercel
           printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
 
-      - name: Pull Vercel environment
-        run: npx --yes vercel@"$VERCEL_CLI_VERSION" pull --yes --environment="$VERCEL_ENVIRONMENT" --token="$VERCEL_TOKEN"
-
-      - name: Build Vercel artifact
-        run: |
-          set -euo pipefail
-
-          env_file=".vercel/.env.${VERCEL_ENVIRONMENT}.local"
-          if [[ ! -f "$env_file" ]]; then
-            echo "::error::Expected ${env_file} from vercel pull."
-            exit 1
-          fi
-
-          set -a
-          # shellcheck source=/dev/null
-          source "$env_file"
-          set +a
-
-          if [[ "$VERCEL_ENVIRONMENT" == "production" ]]; then
-            npx --yes vercel@"$VERCEL_CLI_VERSION" build --prod --token="$VERCEL_TOKEN"
-          else
-            npx --yes vercel@"$VERCEL_CLI_VERSION" build --token="$VERCEL_TOKEN"
-          fi
-
-      - name: Deploy prebuilt artifact
+      - name: Deploy through Vercel build
         run: |
           set -euo pipefail
 
           if [[ "$VERCEL_ENVIRONMENT" == "production" ]]; then
-            DEPLOYMENT_URL="$(npx --yes vercel@"$VERCEL_CLI_VERSION" deploy --prebuilt --prod --token="$VERCEL_TOKEN")"
+            DEPLOYMENT_URL="$(npx --yes vercel@"$VERCEL_CLI_VERSION" deploy --yes --prod --token="$VERCEL_TOKEN")"
           else
-            DEPLOYMENT_URL="$(npx --yes vercel@"$VERCEL_CLI_VERSION" deploy --prebuilt --token="$VERCEL_TOKEN")"
+            DEPLOYMENT_URL="$(npx --yes vercel@"$VERCEL_CLI_VERSION" deploy --yes --token="$VERCEL_TOKEN")"
           fi
 
           echo "Admin dashboard deployment: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"
