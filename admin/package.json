@@ -12,15 +12,16 @@
     "test:security": "node --test scripts/security-regression.mjs"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.59.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.58.0",
     "clsx": "^2.1.0",
     "lucide-react": "^0.468.0",
+    "maplibre-gl": "^4.4.0",
     "next": "14.2.16",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-map-gl": "^7.1.5",
-    "maplibre-gl": "^4.4.0"
+    "react-map-gl": "^7.1.5"
   },
   "devDependencies": {
     "@types/react": "18.3.11",

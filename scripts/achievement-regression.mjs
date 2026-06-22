@@ -392,9 +392,19 @@ describe('Checked In achievement hardening', () => {
       /keySuffix\s*:\s*["']CHECKED_IN["']/,
       `${path} must not seed Checked In`,
     );
-    assert.match(source, /isCheckedInAchievementIdentity/, `${path} must identify catalog clones`);
-    assert.match(source, /triggerEvent\s*:\s*catalogAchievement\s*\.\s*trigger_event/);
-    assert.match(source, /continue;/, `${path} must skip Checked In catalog clones`);
+    assert.match(source, /function countGlobalAchievements/);
+    assert.match(source, /\.from\(["']achievements["']\)/);
+    assert.match(
+      source,
+      /\.select\(["']id["'],\s*\{\s*count:\s*["']exact["'],\s*head:\s*true\s*\}\)/,
+    );
+    assert.match(source, /\.is\(["']convention_id["'],\s*null\)/);
+    assert.match(source, /\.eq\(["']is_active["'],\s*true\)/);
+    assert.doesNotMatch(
+      source,
+      /\.from\(["']achievements["']\)\s*\.\s*(insert|upsert)\(/,
+      `${path} must not create convention-scoped achievement clones`,
+    );
   });
 
   it('blocks Checked In-style convention achievements in the admin write surface', () => {
