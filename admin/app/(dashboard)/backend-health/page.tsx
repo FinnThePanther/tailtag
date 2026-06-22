@@ -4,6 +4,7 @@ import { Card } from '@/components/card';
 import { Metric } from '@/components/metric';
 import { Table } from '@/components/table';
 import { requireAdminDataContext } from '@/lib/auth';
+import { captureSupabaseError } from '@/lib/sentry';
 import {
   fetchBackendWorkerHealth,
   fetchDeadLetteredGameplayEvents,
@@ -16,17 +17,52 @@ import {
 export default async function BackendHealthPage() {
   const { supabase } = await requireAdminDataContext();
   let queueHealthUnavailable = false;
+  let retryingEventsUnavailable = false;
+  let deadLetteredEventsUnavailable = false;
   let workerHealthUnavailable = false;
 
   const [queueHealth, retryingEvents, deadLetteredEvents, workerHealth] = await Promise.all([
-    fetchGameplayQueueHealth(supabase).catch((error) => {
-      console.error('[admin] Failed to load gameplay queue health', error);
-      queueHealthUnavailable = true;
-      return emptyGameplayQueueHealth();
+    fetchGameplayQueueHealth(supabase)
+      .then((health) => {
+        if (!health) {
+          queueHealthUnavailable = true;
+          return emptyGameplayQueueHealth();
+        }
+
+        return health;
+      })
+      .catch((error) => {
+        captureSupabaseError(error, {
+          scope: 'admin.backend-health',
+          action: 'fetch_gameplay_queue_health',
+        });
+        console.error('[admin] Failed to load gameplay queue health', error);
+        queueHealthUnavailable = true;
+        return emptyGameplayQueueHealth();
+      }),
+    fetchRetryingGameplayEvents(supabase, 25).catch((error) => {
+      captureSupabaseError(error, {
+        scope: 'admin.backend-health',
+        action: 'fetch_retrying_gameplay_events',
+      });
+      console.error('[admin] Failed to load retrying gameplay events', error);
+      retryingEventsUnavailable = true;
+      return [];
     }),
-    fetchRetryingGameplayEvents(supabase, 25),
-    fetchDeadLetteredGameplayEvents(supabase, 25),
+    fetchDeadLetteredGameplayEvents(supabase, 25).catch((error) => {
+      captureSupabaseError(error, {
+        scope: 'admin.backend-health',
+        action: 'fetch_dead_lettered_gameplay_events',
+      });
+      console.error('[admin] Failed to load dead-lettered gameplay events', error);
+      deadLetteredEventsUnavailable = true;
+      return [];
+    }),
     fetchBackendWorkerHealth(supabase).catch((error) => {
+      captureSupabaseError(error, {
+        scope: 'admin.backend-health',
+        action: 'fetch_backend_worker_health',
+      });
       console.error('[admin] Failed to load backend worker health', error);
       workerHealthUnavailable = true;
       return [] as BackendWorkerHealthRow[];
@@ -102,6 +138,18 @@ export default async function BackendHealthPage() {
         >
           <p className="text-sm text-muted">
             Event failure tables may still load, but queue depth and age metrics are unavailable.
+          </p>
+        </Card>
+      ) : null}
+
+      {retryingEventsUnavailable || deadLetteredEventsUnavailable ? (
+        <Card
+          title="Gameplay event details partially unavailable"
+          subtitle="The dashboard could not load every event detail query"
+        >
+          <p className="text-sm text-muted">
+            {retryingEventsUnavailable ? 'Retrying event rows are unavailable. ' : ''}
+            {deadLetteredEventsUnavailable ? 'Dead-lettered event rows are unavailable.' : ''}
           </p>
         </Card>
       ) : null}
