@@ -281,15 +281,18 @@ export function ConventionAchievementsCard({ conventionId, achievements }: Props
 
   return (
     <Card
-      title="Convention Achievements"
-      subtitle="Achievements visible only to players opted into this convention"
+      title="Achievement Catalog"
+      subtitle="Active achievements available at every convention"
     >
-      <Table headers={['Name / Key', 'Category', 'Rule', 'Filters', 'Status', '']}>
+      <Table headers={['Name / Key', 'Scope', 'Category', 'Rule', 'Filters', 'Status', '']}>
         {achievements.map((ach) => (
           <tr key={ach.id}>
             <td className="px-4 py-3">
               <p className="font-medium text-slate-200">{ach.name}</p>
               <p className="font-mono text-xs text-muted">{ach.key}</p>
+            </td>
+            <td className="px-4 py-3">
+              <ScopeBadge global={ach.convention_id === null} />
             </td>
             <td className="px-4 py-3">
               <span className="rounded-md bg-white/5 px-2 py-1 text-xs font-medium capitalize text-slate-300">
@@ -344,9 +347,9 @@ export function ConventionAchievementsCard({ conventionId, achievements }: Props
           <tr>
             <td
               className="px-4 py-3 text-sm text-muted"
-              colSpan={6}
+              colSpan={7}
             >
-              No convention achievements yet.
+              No achievements yet.
             </td>
           </tr>
         ) : null}
@@ -531,6 +534,14 @@ export function ConventionAchievementsCard({ conventionId, achievements }: Props
         </form>
       </div>
     </Card>
+  );
+}
+
+function ScopeBadge({ global }: { global: boolean }) {
+  return (
+    <span className="rounded-md bg-white/5 px-2 py-1 text-xs font-medium text-slate-300">
+      {global ? 'Global' : 'Legacy scoped'}
+    </span>
   );
 }
 
