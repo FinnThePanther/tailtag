@@ -23,7 +23,7 @@ TailTag has real users who may not update immediately. Design new features and f
 - Backend code should support both generations during the compatibility window: old clients can keep submitting old payloads, new clients can use new fields, and shared reads normalize data into shapes each client can handle.
 - Apply the same thinking to fixes. A client fix may need a server-side guard if older versions can still send bad payloads, receive incompatible data, or exercise a broken path before users update.
 - Reserve hard force updates for security issues, data corruption risk, policy/legal requirements, native/runtime incompatibility, or backend contracts that cannot safely support old clients. Prefer soft update prompts and graceful degradation for ordinary feature gaps.
-- For core surfaces, including onboarding, profile completion, catches, daily tasks, achievements, notifications, and admin moderation, verify: old clients can still complete the existing flow, old payloads are accepted or safely rejected, old clients can read new records, and rollback/kill-switch behavior is clear.
+- For core surfaces, including onboarding, profile completion, catches, daily tasks, achievements, notifications, and admin moderation, verify: old clients can still complete the existing flow, old payloads are accepted or safely rejected, old clients can read new data, and rollback/kill-switch behavior is clear.
 
 ## Build, Test, and Development Commands
 Use `npm install` at the repo root, then run commands from the relevant app directory.
