@@ -88,6 +88,28 @@ export type BackendWorkerHealthRow = {
   recent_failure_count: number;
 };
 
+export type GameplayQueueFailureGroup = {
+  type: string;
+  convention_id: string | null;
+  convention_name: string | null;
+  retrying_count: number;
+  dead_lettered_count: number;
+  latest_attempted_at: string | null;
+  latest_dead_lettered_at: string | null;
+};
+
+export type GameplayQueueHealthRow = {
+  queue_depth: number;
+  visible_queue_depth: number;
+  oldest_visible_message_enqueued_at: string | null;
+  oldest_visible_message_age_seconds: number | null;
+  oldest_unprocessed_event_received_at: string | null;
+  oldest_unprocessed_event_age_seconds: number | null;
+  retrying_event_count: number;
+  dead_lettered_event_count: number;
+  grouped_failures: GameplayQueueFailureGroup[];
+};
+
 export async function fetchBackendWorkerHealth(
   supabase: ServiceRoleClient,
 ): Promise<BackendWorkerHealthRow[]> {
@@ -98,6 +120,55 @@ export async function fetchBackendWorkerHealth(
   }
 
   return (data ?? []) as BackendWorkerHealthRow[];
+}
+
+export async function fetchGameplayQueueHealth(
+  supabase: ServiceRoleClient,
+): Promise<GameplayQueueHealthRow> {
+  const { data, error } = await (supabase as any).rpc('get_gameplay_queue_health');
+
+  if (error) {
+    throw error;
+  }
+
+  const row = (data?.[0] ?? {}) as Partial<
+    Omit<GameplayQueueHealthRow, 'grouped_failures'> & { grouped_failures?: unknown }
+  >;
+
+  return {
+    queue_depth: row.queue_depth ?? 0,
+    visible_queue_depth: row.visible_queue_depth ?? 0,
+    oldest_visible_message_enqueued_at: row.oldest_visible_message_enqueued_at ?? null,
+    oldest_visible_message_age_seconds: row.oldest_visible_message_age_seconds ?? null,
+    oldest_unprocessed_event_received_at: row.oldest_unprocessed_event_received_at ?? null,
+    oldest_unprocessed_event_age_seconds: row.oldest_unprocessed_event_age_seconds ?? null,
+    retrying_event_count: row.retrying_event_count ?? 0,
+    dead_lettered_event_count: row.dead_lettered_event_count ?? 0,
+    grouped_failures: normalizeGameplayQueueFailureGroups(row.grouped_failures),
+  };
+}
+
+function normalizeGameplayQueueFailureGroups(value: unknown): GameplayQueueFailureGroup[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter(
+      (entry): entry is Record<string, unknown> => entry !== null && typeof entry === 'object',
+    )
+    .map((entry) => ({
+      type: typeof entry.type === 'string' ? entry.type : 'unknown',
+      convention_id: typeof entry.convention_id === 'string' ? entry.convention_id : null,
+      convention_name: typeof entry.convention_name === 'string' ? entry.convention_name : null,
+      retrying_count: typeof entry.retrying_count === 'number' ? entry.retrying_count : 0,
+      dead_lettered_count:
+        typeof entry.dead_lettered_count === 'number' ? entry.dead_lettered_count : 0,
+      latest_attempted_at:
+        typeof entry.latest_attempted_at === 'string' ? entry.latest_attempted_at : null,
+      latest_dead_lettered_at:
+        typeof entry.latest_dead_lettered_at === 'string' ? entry.latest_dead_lettered_at : null,
+    }));
 }
 
 export async function fetchPlayerSearch(
@@ -766,6 +837,58 @@ export async function fetchDeadLetteredGameplayEvents(
   }
 
   return (data ?? []) as unknown as DeadLetteredGameplayEvent[];
+}
+
+export type RetryingGameplayEvent = Pick<
+  EventRow,
+  | 'event_id'
+  | 'user_id'
+  | 'convention_id'
+  | 'type'
+  | 'occurred_at'
+  | 'received_at'
+  | 'retry_count'
+  | 'last_error'
+  | 'queue_name'
+  | 'queue_message_id'
+  | 'enqueued_at'
+  | 'last_attempted_at'
+>;
+
+export async function fetchRetryingGameplayEvents(
+  supabase: ServiceRoleClient,
+  limit = 25,
+): Promise<RetryingGameplayEvent[]> {
+  const { data, error } = await supabase
+    .from('events')
+    .select(
+      [
+        'event_id',
+        'user_id',
+        'convention_id',
+        'type',
+        'occurred_at',
+        'received_at',
+        'retry_count',
+        'last_error',
+        'queue_name',
+        'queue_message_id',
+        'enqueued_at',
+        'last_attempted_at',
+      ].join(', '),
+    )
+    .is('processed_at', null)
+    .is('dead_lettered_at', null)
+    .gt('retry_count', 0)
+    .order('last_attempted_at', { ascending: false, nullsFirst: false })
+    .order('received_at', { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as unknown as RetryingGameplayEvent[];
 }
 
 export type GameplayDeadLetterReplayAudit = Pick<
