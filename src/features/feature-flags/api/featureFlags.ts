@@ -11,6 +11,7 @@ const isSupabaseError = (
 
 export const FEATURE_FLAG_QUERY_KEY = 'feature-flag';
 export const ANONYMOUS_FURSUITS_FEATURE_KEY = 'anonymous_fursuits';
+export const CATCH_INVITES_FEATURE_KEY = 'catch_invites';
 export const PLAYER_LEVELING_UI_FEATURE_KEY = 'player_leveling_ui';
 
 export const featureFlagQueryKey = (featureKey: string, profileId: string) =>

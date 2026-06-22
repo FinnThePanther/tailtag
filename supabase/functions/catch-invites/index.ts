@@ -14,6 +14,7 @@ const serviceRoleKey =
   Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const inviteBaseUrl =
   Deno.env.get('TAILTAG_INVITE_BASE_URL') ?? 'https://www.playtailtag.com/invite';
+const sentryDsn = Deno.env.get('SENTRY_DSN') ?? Deno.env.get('SUPABASE_SENTRY_DSN') ?? null;
 
 if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
   throw new Error('Missing Supabase configuration');
@@ -22,6 +23,7 @@ if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
 const resolvedSupabaseUrl = supabaseUrl;
 const resolvedSupabaseAnonKey = supabaseAnonKey;
 const resolvedServiceRoleKey = serviceRoleKey;
+const catchInvitesFeatureKey = 'catch_invites';
 
 const supabaseAdmin = createClient(resolvedSupabaseUrl, resolvedServiceRoleKey, {
   auth: {
@@ -32,6 +34,8 @@ const supabaseAdmin = createClient(resolvedSupabaseUrl, resolvedServiceRoleKey, 
 
 type Action = 'create' | 'claim' | 'approve' | 'decline' | 'report';
 
+type ErrorContext = Record<string, unknown>;
+
 function jsonResponse(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -39,6 +43,97 @@ function jsonResponse(status: number, payload: unknown) {
       ...corsHeaders,
       'Content-Type': 'application/json',
     },
+  });
+}
+
+function normalizeError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      type: error.name || 'Error',
+      value: error.message,
+      stacktrace: error.stack
+        ? {
+            frames: error.stack
+              .split('\n')
+              .slice(1)
+              .map((line) => ({ function: line.trim() }))
+              .reverse(),
+          }
+        : undefined,
+    };
+  }
+
+  return {
+    type: 'Error',
+    value: typeof error === 'string' ? error : JSON.stringify(error),
+  };
+}
+
+function parseSentryDsn(dsn: string | null) {
+  if (!dsn) {
+    return null;
+  }
+
+  try {
+    const url = new URL(dsn);
+    const publicKey = url.username;
+    const projectId = url.pathname.replace(/^\/+/, '');
+    const envelopeUrl = `${url.protocol}//${url.host}/api/${projectId}/envelope/`;
+
+    if (!publicKey || !projectId) {
+      return null;
+    }
+
+    return { envelopeUrl, publicKey };
+  } catch {
+    return null;
+  }
+}
+
+function captureHandledException(error: unknown, context: ErrorContext) {
+  const parsedDsn = parseSentryDsn(sentryDsn);
+
+  if (!parsedDsn) {
+    console.error('[catch-invites] Handled exception', { error, context });
+    return;
+  }
+
+  const eventId = crypto.randomUUID().replace(/-/g, '');
+  const event = {
+    event_id: eventId,
+    level: 'error',
+    platform: 'javascript',
+    timestamp: new Date().toISOString(),
+    exception: {
+      values: [normalizeError(error)],
+    },
+    contexts: {
+      tailtag: context,
+    },
+  };
+  const envelope = [
+    JSON.stringify({
+      event_id: eventId,
+      sent_at: new Date().toISOString(),
+      dsn: sentryDsn,
+    }),
+    JSON.stringify({ type: 'event' }),
+    JSON.stringify(event),
+  ].join('\n');
+
+  void fetch(parsedDsn.envelopeUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-sentry-envelope',
+      'X-Sentry-Auth': `Sentry sentry_version=7, sentry_key=${parsedDsn.publicKey}, sentry_client=tailtag-edge/1.0`,
+    },
+    body: envelope,
+  }).catch((captureError) => {
+    console.error('[catch-invites] Failed capturing handled exception', {
+      error,
+      context,
+      captureError,
+    });
   });
 }
 
@@ -125,6 +220,24 @@ function scheduleQueueWakeup() {
     });
 }
 
+async function isCatchInvitesEnabledForProfile(profileId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.rpc('is_feature_enabled_for_profile', {
+    p_feature_key: catchInvitesFeatureKey,
+    p_profile_id: profileId,
+  });
+
+  if (error) {
+    captureHandledException(error, {
+      scope: 'catch-invites.isCatchInvitesEnabledForProfile',
+      featureKey: catchInvitesFeatureKey,
+      profileId,
+    });
+    return false;
+  }
+
+  return data === true;
+}
+
 function errorResponse(error: { message?: string } | null | undefined) {
   const message =
     typeof error?.message === 'string' && error.message.trim().length > 0
@@ -190,6 +303,11 @@ Deno.serve(async (req) => {
   }
 
   if (action === 'create') {
+    const catchInvitesEnabled = await isCatchInvitesEnabledForProfile(user.id);
+    if (!catchInvitesEnabled) {
+      return jsonResponse(400, { error: 'Invite catches are not available yet.' });
+    }
+
     const photoPath = readString(body.catch_photo_path);
     const photoUrl = readString(body.catch_photo_url);
     const photoSource = normalizePhotoSource(body.catch_photo_source) ?? 'camera';

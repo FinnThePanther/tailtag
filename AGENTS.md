@@ -13,6 +13,18 @@ TailTag is past MVP. Current work should target the first beta and near-term V1 
 - Avoid introducing placeholder copy, incomplete states, hidden debug-only behavior, or brittle local-only assumptions unless explicitly scoped as temporary.
 - Preserve release safety: validate changes, keep migrations reversible where practical, and consider OTA/native build implications before changing app/runtime dependencies.
 
+## Backward Compatibility Strategy
+TailTag has real users who may not update immediately. Design new features and fixes so older supported app versions keep working unless there is a deliberate, documented reason to require an update.
+
+- Treat feature flags and slow rollouts as rollout controls, not as the whole compatibility strategy. Compatibility should come from additive schemas, tolerant APIs, capability checks, and safe fallbacks.
+- Prefer additive backend and database changes: add nullable columns or new tables, preserve old RPC/Edge Function request shapes, keep response fields old clients depend on, and avoid renaming/removing values until the supported-version window has passed.
+- When adding a complex feature or a dependency that requires a new native build, gate access by client capability or app/runtime version as well as any user rollout flag. Older builds should keep the old path and never be routed to screens, actions, notifications, or deep links that require unavailable native code.
+- New data created by newer clients must remain safe for older clients to read. Provide old-client-safe summaries, hide unsupported sections, map unknown enum values to known fallbacks, or return read-only placeholders instead of letting older clients crash or dead-end.
+- Backend code should support both generations during the compatibility window: old clients can keep submitting old payloads, new clients can use new fields, and shared reads normalize data into shapes each client can handle.
+- Apply the same thinking to fixes. A client fix may need a server-side guard if older versions can still send bad payloads, receive incompatible data, or exercise a broken path before users update.
+- Reserve hard force updates for security issues, data corruption risk, policy/legal requirements, native/runtime incompatibility, or backend contracts that cannot safely support old clients. Prefer soft update prompts and graceful degradation for ordinary feature gaps.
+- For core surfaces, including onboarding, profile completion, catches, daily tasks, achievements, notifications, and admin moderation, verify: old clients can still complete the existing flow, old payloads are accepted or safely rejected, old clients can read new data, and rollback/kill-switch behavior is clear.
+
 ## Build, Test, and Development Commands
 Use `npm install` at the repo root, then run commands from the relevant app directory.
 
@@ -96,12 +108,21 @@ Unless explicitly stated, all changes, migrations, and Edge Function updates are
 
 For any work that requires database changes, apply those changes to the dev environment using either the Supabase CLI or the Supabase MCP tooling (MCP is configured for dev only). Verify the target project before pushing migrations or schema changes. Never push database changes to staging or production unless explicitly instructed to do so.
 
+### Supabase Tooling Policy
+Use the Supabase MCP for hosted **dev** project inspection and lightweight operations: checking schema shape, table contents, policies, functions/RPCs, migration state, and dev-only data needed to understand or verify a change. Treat MCP output as live hosted-dev state, not as a replacement for committed migrations.
+
+Use the Supabase CLI for repeatable schema and deployment workflows: starting/stopping the local stack, resetting local DB state from migrations and seeds, applying migrations to linked dev, generating database types, deploying Edge Functions, and explicitly linking to staging or production when approved. Prefer CLI commands for anything that should be reproducible by CI or another developer.
+
+Use local Docker/OrbStack Supabase before shared dev when validating migration-backed work. The preferred flow is: write migration, run local reset/type validation, apply to linked dev, run `npm run gen:types`, format generated types, then validate. For tiny feature-flag row inserts, hosted dev inspection is fine, but schema/RPC/RLS changes should get local validation first.
+
+Do not use the Supabase MCP for staging or production unless it has been explicitly reconfigured and approved for that environment. Current expectation is MCP = dev only; staging/production operations use deliberate CLI linking or dashboard workflows.
+
 Database changes must leave generated types current before final validation or PR handoff. Prefer `npm run gen:types`, which preserves the manual aliases at the bottom of `src/types/database.ts`; otherwise run the explicit `supabase gen types` plus `scripts/check-types.py` verification command and note why no type update was needed. In Codex Desktop, do not repeatedly attempt these type-generation commands if they fail with `SUPABASE_ACCESS_TOKEN` missing; ask Nick to run `npm run gen:types` locally and continue once the resulting type files are available.
 
 Only apply changes to other environments (staging, production) if explicitly instructed or after approval. When working in staging or production, the Supabase MCP tools are not configured for those environments — use the Supabase CLI instead by linking to the respective project (`supabase link --project-ref <staging-or-prod-ref>`) and applying changes there.
 
 ### Production Database Access via `psql`
-For production database inspection, prefer direct Postgres access through `psql` when Supabase CLI access is unavailable or unnecessary. The local `.env.prod.local` file may provide:
+For production database inspection, prefer direct Postgres access through read-only `psql` when Supabase CLI access is unavailable or unnecessary. Use this for targeted diagnostics only, not routine development. The local `.env.prod.local` file may provide:
 
 - `TAILTAG_PROD_READONLY_POOLER_DATABASE_URL` for read-only production queries.
 - `TAILTAG_PROD_MAINTENANCE_POOLER_DATABASE_URL` for approved production data fixes.
@@ -113,7 +134,7 @@ set -a; source .env.prod.local; set +a
 psql "$TAILTAG_PROD_READONLY_POOLER_DATABASE_URL"
 ```
 
-Codex Desktop usually requires elevated command execution for these `psql` calls because outbound network access to Supabase is sandboxed. If a `psql` command fails with DNS, routing, or connection errors from the sandbox, rerun the same command with escalation.
+Codex Desktop usually requires elevated command execution for these `psql` calls because outbound network access to Supabase is sandboxed. If a `psql` command fails with DNS, routing, or connection errors from the sandbox, rerun the same command with escalation. Keep production queries narrowly scoped, avoid selecting unnecessary personal data, and summarize findings without exposing secrets or large row dumps.
 
 The production roles are expected to have `BYPASSRLS` so read-only diagnostics can see RLS-protected app rows. This does not replace table grants: continue using the read-only role for inspection and use the maintenance role only when the user explicitly asks for a direct production data change.
 
