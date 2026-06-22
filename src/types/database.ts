@@ -10,11 +10,6 @@ export type AttendanceState = "active" | "left" | "removed" | "finalized"
 export type RosterState = "active" | "removed" | "finalized"
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       achievement_rules: {
@@ -1052,6 +1047,115 @@ export type Database = {
           {
             foreignKeyName: "event_staff_profile_id_fkey"
             columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_suggestions: {
+        Row: {
+          city_region: string
+          contact_method: string
+          contact_value: string
+          converted_convention_id: string | null
+          country: string
+          created_at: string
+          date_notes: string | null
+          date_status: string
+          duplicate_of_convention_id: string | null
+          end_date: string | null
+          event_name: string
+          event_type: string
+          event_visibility: string
+          expected_attendance: number | null
+          id: string
+          notes: string | null
+          official_url: string | null
+          preferred_setup: string | null
+          resolution_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          start_date: string | null
+          status: string
+          submitter_relationship: string
+          updated_at: string
+          venue_name: string | null
+        }
+        Insert: {
+          city_region: string
+          contact_method: string
+          contact_value: string
+          converted_convention_id?: string | null
+          country: string
+          created_at?: string
+          date_notes?: string | null
+          date_status: string
+          duplicate_of_convention_id?: string | null
+          end_date?: string | null
+          event_name: string
+          event_type: string
+          event_visibility: string
+          expected_attendance?: number | null
+          id?: string
+          notes?: string | null
+          official_url?: string | null
+          preferred_setup?: string | null
+          resolution_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_date?: string | null
+          status?: string
+          submitter_relationship: string
+          updated_at?: string
+          venue_name?: string | null
+        }
+        Update: {
+          city_region?: string
+          contact_method?: string
+          contact_value?: string
+          converted_convention_id?: string | null
+          country?: string
+          created_at?: string
+          date_notes?: string | null
+          date_status?: string
+          duplicate_of_convention_id?: string | null
+          end_date?: string | null
+          event_name?: string
+          event_type?: string
+          event_visibility?: string
+          expected_attendance?: number | null
+          id?: string
+          notes?: string | null
+          official_url?: string | null
+          preferred_setup?: string | null
+          resolution_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_date?: string | null
+          status?: string
+          submitter_relationship?: string
+          updated_at?: string
+          venue_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_suggestions_converted_convention_id_fkey"
+            columns: ["converted_convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_suggestions_duplicate_of_convention_id_fkey"
+            columns: ["duplicate_of_convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_suggestions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2740,6 +2844,24 @@ export type Database = {
       }
     }
     Views: {
+      catch_mode_default_experiment_results: {
+        Row: {
+          accepted_catches_after_exposure: number | null
+          assigned_profiles: number | null
+          catches_after_exposure: number | null
+          current_auto_profiles: number | null
+          current_manual_profiles: number | null
+          defaults_applied: number | null
+          experiment_key: string | null
+          exposed_profiles: number | null
+          fursuits_created_after_exposure: number | null
+          pending_catches_after_exposure: number | null
+          switch_away_rate: number | null
+          switched_away_profiles: number | null
+          variant: string | null
+        }
+        Relationships: []
+      }
       fursuits_moderation: {
         Row: {
           created_at: string | null
@@ -3782,6 +3904,7 @@ export type Database = {
         Args: { p_convention_id: string; p_profile_id: string }
         Returns: boolean
       }
+      is_tutorial_fursuit: { Args: { p_fursuit_id: string }; Returns: boolean }
       is_username_available: {
         Args: { p_current_user_id?: string; p_username: string }
         Returns: boolean
