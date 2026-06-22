@@ -10,6 +10,11 @@ export type AttendanceState = "active" | "left" | "removed" | "finalized"
 export type RosterState = "active" | "removed" | "finalized"
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
   public: {
     Tables: {
       achievement_rules: {
@@ -2840,24 +2845,6 @@ export type Database = {
       }
     }
     Views: {
-      catch_mode_default_experiment_results: {
-        Row: {
-          accepted_catches_after_exposure: number | null
-          assigned_profiles: number | null
-          catches_after_exposure: number | null
-          current_auto_profiles: number | null
-          current_manual_profiles: number | null
-          defaults_applied: number | null
-          experiment_key: string | null
-          exposed_profiles: number | null
-          fursuits_created_after_exposure: number | null
-          pending_catches_after_exposure: number | null
-          switch_away_rate: number | null
-          switched_away_profiles: number | null
-          variant: string | null
-        }
-        Relationships: []
-      }
       fursuits_moderation: {
         Row: {
           created_at: string | null
@@ -3920,7 +3907,6 @@ export type Database = {
         Args: { p_convention_id: string; p_profile_id: string }
         Returns: boolean
       }
-      is_tutorial_fursuit: { Args: { p_fursuit_id: string }; Returns: boolean }
       is_username_available: {
         Args: { p_current_user_id?: string; p_username: string }
         Returns: boolean
