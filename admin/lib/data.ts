@@ -88,7 +88,7 @@ export type BackendWorkerHealthRow = {
   recent_failure_count: number;
 };
 
-export interface GameplayQueueFailureGroup {
+export type GameplayQueueFailureGroup = {
   type: string;
   convention_id: string | null;
   convention_name: string | null;
@@ -96,9 +96,9 @@ export interface GameplayQueueFailureGroup {
   dead_lettered_count: number;
   latest_attempted_at: string | null;
   latest_dead_lettered_at: string | null;
-}
+};
 
-export interface GameplayQueueHealthRow {
+export type GameplayQueueHealthRow = {
   queue_depth: number;
   visible_queue_depth: number;
   oldest_visible_message_enqueued_at: string | null;
@@ -108,7 +108,7 @@ export interface GameplayQueueHealthRow {
   retrying_event_count: number;
   dead_lettered_event_count: number;
   grouped_failures: GameplayQueueFailureGroup[];
-}
+};
 
 export async function fetchBackendWorkerHealth(
   supabase: ServiceRoleClient,
@@ -124,18 +124,14 @@ export async function fetchBackendWorkerHealth(
 
 export async function fetchGameplayQueueHealth(
   supabase: ServiceRoleClient,
-): Promise<GameplayQueueHealthRow | null> {
-  const { data, error } = await supabase.rpc('get_gameplay_queue_health');
+): Promise<GameplayQueueHealthRow> {
+  const { data, error } = await (supabase as any).rpc('get_gameplay_queue_health');
 
   if (error) {
     throw error;
   }
 
-  if (!data?.[0]) {
-    return null;
-  }
-
-  const row = data[0] as Partial<
+  const row = (data?.[0] ?? {}) as Partial<
     Omit<GameplayQueueHealthRow, 'grouped_failures'> & { grouped_failures?: unknown }
   >;
 

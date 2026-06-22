@@ -2345,6 +2345,36 @@ export type Database = {
           },
         ];
       };
+      tutorial_fursuits: {
+        Row: {
+          created_at: string;
+          fursuit_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          fursuit_id: string;
+        };
+        Update: {
+          created_at?: string;
+          fursuit_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'tutorial_fursuits_fursuit_id_fkey';
+            columns: ['fursuit_id'];
+            isOneToOne: true;
+            referencedRelation: 'fursuits';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'tutorial_fursuits_fursuit_id_fkey';
+            columns: ['fursuit_id'];
+            isOneToOne: true;
+            referencedRelation: 'fursuits_moderation';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       user_achievements: {
         Row: {
           achievement_id: string;
@@ -3265,10 +3295,10 @@ export type Database = {
         Returns: {
           dead_lettered_event_count: number;
           grouped_failures: Json;
-          oldest_unprocessed_event_age_seconds: number;
-          oldest_unprocessed_event_received_at: string;
-          oldest_visible_message_age_seconds: number;
-          oldest_visible_message_enqueued_at: string;
+          oldest_unprocessed_event_age_seconds: number | null;
+          oldest_unprocessed_event_received_at: string | null;
+          oldest_visible_message_age_seconds: number | null;
+          oldest_visible_message_enqueued_at: string | null;
           queue_depth: number;
           retrying_event_count: number;
           visible_queue_depth: number;
@@ -3306,7 +3336,7 @@ export type Database = {
           fursuit_interaction_badges: string[];
           fursuit_name: string;
           fursuit_owner_attribution_visibility: string;
-          fursuit_owner_id: string | null;
+          fursuit_owner_id: string;
           fursuit_redacted: boolean;
           fursuit_social_signal: string;
           fursuit_unique_code: string;
@@ -3366,7 +3396,7 @@ export type Database = {
           fursuit_name: string;
           fursuit_redacted: boolean;
           last_caught_at: string;
-          owner_id: string | null;
+          owner_id: string;
           species_id: string;
           species_name: string;
           unique_catchers: number;
@@ -3382,7 +3412,7 @@ export type Database = {
           fursuit_avatar_url: string;
           fursuit_id: string;
           fursuit_name: string;
-          owner_id: string | null;
+          owner_id: string;
           owner_username: string;
           roster_visible: boolean;
           species_id: string;
@@ -3440,7 +3470,7 @@ export type Database = {
           makers: Json;
           name: string;
           owner_attribution_visibility: string;
-          owner_id: string | null;
+          owner_id: string;
           owner_social_links: Json;
           social_signal: string;
           species_entry: Json;
@@ -3448,10 +3478,6 @@ export type Database = {
           unique_code: string;
           visibility_audience: string;
         }[];
-      };
-      get_fursuit_limit_for_profile: {
-        Args: { p_profile_id: string };
-        Returns: number;
       };
       get_gallery_profile_convention_ids: {
         Args: { p_profile_id: string };
@@ -3518,7 +3544,7 @@ export type Database = {
           fursuit_interaction_badges: string[];
           fursuit_name: string;
           fursuit_owner_attribution_visibility: string;
-          fursuit_owner_id: string | null;
+          fursuit_owner_id: string;
           fursuit_redacted: boolean;
           fursuit_social_signal: string;
           fursuit_unique_code: string;
@@ -3652,7 +3678,7 @@ export type Database = {
           makers: Json;
           name: string;
           owner_attribution_visibility: string;
-          owner_id: string | null;
+          owner_id: string;
           owner_social_links: Json;
           social_signal: string;
           species_entry: Json;
