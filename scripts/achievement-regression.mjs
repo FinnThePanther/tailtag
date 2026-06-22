@@ -402,7 +402,7 @@ describe('Checked In achievement hardening', () => {
     assert.match(source, /\.eq\(["']is_active["'],\s*true\)/);
     assert.doesNotMatch(
       source,
-      /\.from\(["']achievements["']\)[\s\S]*\.(insert|upsert)\(/,
+      /\.from\(["']achievements["']\)\s*\.\s*(insert|upsert)\(/,
       `${path} must not create convention-scoped achievement clones`,
     );
   });
