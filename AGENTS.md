@@ -87,7 +87,7 @@ At minimum, run `npm run validate:mobile` for mobile changes, `npm run validate:
 ## Commit & Pull Request Guidelines
 Recent history uses short, imperative commit subjects such as `Remove Inngest implementation` and `Add cron-based achievement processor backup`, sometimes with issue references like `(#42)`. Follow that format. PRs should include a concise summary, linked issue if applicable, affected surfaces, and screenshots for UI changes.
 
-Agents must never create commits under their own name or generated assistant identity. When making commits in this repository, always author them as `Finn the Panther <finn@finnthepanther.com>` using `git commit --author="Finn the Panther <finn@finnthepanther.com>"` or equivalent repo-local git author configuration.
+Agents must never create commits under their own name or generated assistant identity. When making commits in this repository, always use `Finn the Panther <finn@finnthepanther.com>` for both the author and committer identities. Set repo-local `user.name` and `user.email`, or pass `GIT_COMMITTER_NAME="Finn the Panther" GIT_COMMITTER_EMAIL="finn@finnthepanther.com"` together with `git commit --author="Finn the Panther <finn@finnthepanther.com>"`.
 
 When addressing PR review comments, verify each finding against the current code before editing. Fix only comments that are still valid, skip stale or already-resolved comments with a brief reason, and keep changes scoped to the review feedback. If the user asks to commit comment fixes, create one separate commit per distinct piece of feedback so each review comment can be traced to an individual change.
 
