@@ -323,11 +323,11 @@ export function ConventionLifecycleCard({
           onClick={() =>
             runAction('generate', async () => {
               const result = await generateConventionGameplayPackAction(conventionId);
-              return `Gameplay pack ready: ${result.tasks.created} task(s) and ${result.achievements.created} achievement(s) created.`;
+              return `Gameplay catalog ready: ${result.tasks.existing} active task(s) and ${result.achievements.existing} active achievement(s) available.`;
             })
           }
         >
-          Generate gameplay pack
+          Check gameplay catalog
         </ActionButton>
         <ActionButton
           disabled={isPending}

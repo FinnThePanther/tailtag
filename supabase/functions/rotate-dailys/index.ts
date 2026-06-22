@@ -361,18 +361,12 @@ async function fetchAssignments(conventionId: string, day: string): Promise<Assi
   return assignments;
 }
 
-async function fetchTaskPool(conventionId: string | null): Promise<DailyTaskRow[]> {
-  let query = supabaseAdmin
+async function fetchTaskPool(): Promise<DailyTaskRow[]> {
+  const query = supabaseAdmin
     .from('daily_tasks')
     .select('id, name, description, kind, requirement, metadata, is_active')
     .eq('is_active', true)
     .order('name', { ascending: true });
-
-  if (conventionId === null) {
-    query = (query as any).is('convention_id', null);
-  } else {
-    query = query.eq('convention_id', conventionId);
-  }
 
   const { data, error } = await query;
   if (error) {
@@ -397,15 +391,7 @@ function isDefaultRotationEligible(metadata: unknown): boolean {
 }
 
 async function selectAssignments(conventionId: string, day: string, requestedCount?: number) {
-  const [globalTasks, conventionTasks] = await Promise.all([
-    fetchTaskPool(null),
-    fetchTaskPool(conventionId),
-  ]);
-
-  const candidatePool =
-    conventionTasks.length >= MIN_TASKS
-      ? [...conventionTasks]
-      : [...conventionTasks, ...globalTasks];
+  const candidatePool = await fetchTaskPool();
   const totalPool = candidatePool.length;
   if (totalPool < MIN_TASKS) {
     throw new Error(

@@ -962,7 +962,7 @@ async function evaluateConventionAchievements(
   const { data, error } = await supabaseAdmin
     .from('achievements')
     .select('key, achievement_rules(kind, rule, metadata)')
-    .eq('convention_id', conventionId)
+    .or(`convention_id.is.null,convention_id.eq.${conventionId}`)
     .eq('trigger_event', triggerEvent)
     .eq('is_active', true);
 

@@ -241,15 +241,18 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
 
   return (
     <Card
-      title="Convention Daily Tasks"
-      subtitle="Tasks added to the rotation for this convention"
+      title="Daily Task Catalog"
+      subtitle="Active tasks available to rotate at every convention"
     >
-      <Table headers={['Name', 'Kind', 'Req.', 'Filters', 'Status', '']}>
+      <Table headers={['Name', 'Scope', 'Kind', 'Req.', 'Filters', 'Status', '']}>
         {tasks.map((task) => (
           <tr key={task.id}>
             <td className="px-4 py-3">
               <p className="font-medium text-slate-200">{task.name}</p>
               {task.description ? <p className="text-xs text-muted">{task.description}</p> : null}
+            </td>
+            <td className="px-4 py-3">
+              <ScopeBadge global={task.convention_id === null} />
             </td>
             <td className="px-4 py-3">
               <span className="rounded-md bg-white/5 px-2 py-1 text-xs font-medium text-slate-300">
@@ -297,9 +300,9 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
           <tr>
             <td
               className="px-4 py-3 text-sm text-muted"
-              colSpan={6}
+              colSpan={7}
             >
-              No convention tasks yet.
+              No daily tasks yet.
             </td>
           </tr>
         ) : null}
@@ -444,6 +447,14 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
         </form>
       </div>
     </Card>
+  );
+}
+
+function ScopeBadge({ global }: { global: boolean }) {
+  return (
+    <span className="rounded-md bg-white/5 px-2 py-1 text-xs font-medium text-slate-300">
+      {global ? 'Global' : 'Legacy scoped'}
+    </span>
   );
 }
 
