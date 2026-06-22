@@ -12,7 +12,7 @@
     "test:security": "node --test scripts/security-regression.mjs"
   },
   "dependencies": {
-    "@sentry/nextjs": "^10.12.0",
+    "@sentry/nextjs": "^10.59.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.58.0",
     "clsx": "^2.1.0",
