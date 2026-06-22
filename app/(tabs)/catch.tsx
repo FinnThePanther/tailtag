@@ -3,7 +3,7 @@ import { Pressable, Share, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   CAUGHT_COLLECTION_QUERY_KEY,
@@ -44,6 +44,11 @@ import { AppImage } from '../../src/components/ui/AppImage';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { useAuth } from '../../src/features/auth';
 import { createCatchInvite } from '../../src/features/catch-invites';
+import {
+  CATCH_INVITES_FEATURE_KEY,
+  featureFlagQueryKey,
+  isFeatureEnabledForProfile,
+} from '../../src/features/feature-flags';
 import {
   InteractionPreferencesSummary,
   type InteractionBadgeKey,
@@ -304,6 +309,16 @@ export default function CatchScreen() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const { sync: syncOutbox } = useCatchOutboxSync(userId, queryClient);
+  const { data: catchInvitesEnabled = false } = useQuery({
+    queryKey: userId
+      ? featureFlagQueryKey(CATCH_INVITES_FEATURE_KEY, userId)
+      : [CATCH_INVITES_FEATURE_KEY, 'guest'],
+    queryFn: () => isFeatureEnabledForProfile(CATCH_INVITES_FEATURE_KEY, userId!),
+    enabled: Boolean(userId),
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
   const {
     conventionMemberships,
     activeConventionIds,
@@ -1186,7 +1201,7 @@ export default function CatchScreen() {
             <PhotoCatchCard
               userId={userId}
               onCatchSubmit={handlePhotoCatch}
-              onInviteSubmit={handleInviteCatch}
+              onInviteSubmit={catchInvitesEnabled ? handleInviteCatch : undefined}
               isSubmitting={isPhotoSubmitting}
               submitError={photoSubmitError}
               activeConventionIds={activeConventionIds}

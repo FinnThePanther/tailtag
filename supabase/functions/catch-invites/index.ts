@@ -22,6 +22,7 @@ if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
 const resolvedSupabaseUrl = supabaseUrl;
 const resolvedSupabaseAnonKey = supabaseAnonKey;
 const resolvedServiceRoleKey = serviceRoleKey;
+const catchInvitesFeatureKey = 'catch_invites';
 
 const supabaseAdmin = createClient(resolvedSupabaseUrl, resolvedServiceRoleKey, {
   auth: {
@@ -125,6 +126,20 @@ function scheduleQueueWakeup() {
     });
 }
 
+async function isCatchInvitesEnabledForProfile(profileId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.rpc('is_feature_enabled_for_profile', {
+    p_feature_key: catchInvitesFeatureKey,
+    p_profile_id: profileId,
+  });
+
+  if (error) {
+    console.error('[catch-invites] Feature flag check failed:', error);
+    return false;
+  }
+
+  return data === true;
+}
+
 function errorResponse(error: { message?: string } | null | undefined) {
   const message =
     typeof error?.message === 'string' && error.message.trim().length > 0
@@ -190,6 +205,11 @@ Deno.serve(async (req) => {
   }
 
   if (action === 'create') {
+    const catchInvitesEnabled = await isCatchInvitesEnabledForProfile(user.id);
+    if (!catchInvitesEnabled) {
+      return jsonResponse(400, { error: 'Invite catches are not available yet.' });
+    }
+
     const photoPath = readString(body.catch_photo_path);
     const photoUrl = readString(body.catch_photo_url);
     const photoSource = normalizePhotoSource(body.catch_photo_source) ?? 'camera';
