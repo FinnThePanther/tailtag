@@ -48,7 +48,7 @@ import {
   CATCH_INVITES_FEATURE_KEY,
   featureFlagQueryKey,
   isFeatureEnabledForProfile,
-} from '../../src/features/feature-flags';
+} from '@/features/feature-flags';
 import {
   InteractionPreferencesSummary,
   type InteractionBadgeKey,
