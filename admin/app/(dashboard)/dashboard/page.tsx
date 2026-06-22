@@ -170,9 +170,9 @@ export default async function DashboardPage() {
             description="Manage event staff access"
           />
           <QuickLink
-            href="/audit"
-            label="Audit log"
-            description="Review recent admin activity"
+            href="/backend-health"
+            label="Backend health"
+            description="Inspect queues and worker failures"
           />
         </div>
       </Card>
