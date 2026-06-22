@@ -45,10 +45,6 @@ This is the mandatory quality gate for merges into protected branches.
   - Waits for production EAS native builds to finish before tagging the release. Staging native builds remain fire-and-forget.
   - Automatically creates production mobile release tags on `main` after successful delivery.
 
-- `.github/workflows/branch-sync.yml`:
-  - Runs daily and on demand.
-  - Fails when `origin/main` is not an ancestor of `origin/dev`, which catches missed post-release fast-forwards.
-
 All third-party GitHub Actions in these workflows are pinned to commit SHAs.
 
 ## Commit-message delivery overrides
