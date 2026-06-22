@@ -16,6 +16,8 @@ trap cleanup EXIT
 
 cd "$ROOT_DIR"
 
+scripts/preload-supabase-typegen-image.sh
+
 echo "Starting local Supabase stack..."
 if ! supabase start > "$START_LOG" 2>&1; then
   echo "supabase start failed. Redacted startup output:"
