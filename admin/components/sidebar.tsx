@@ -19,12 +19,12 @@ import clsx from 'clsx';
 import type { AdminProfile } from '@/lib/auth';
 import { canReviewEventSuggestions } from '@/lib/admin-permissions';
 
-type NavItem = {
+interface NavItem {
   href: string;
   label: string;
   icon: typeof ShieldCheck;
   canView?: (profile: Pick<AdminProfile, 'role'>) => boolean;
-};
+}
 
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Overview', icon: ShieldCheck },

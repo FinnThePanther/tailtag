@@ -509,41 +509,45 @@ import Footer from '../components/Footer.astro';
 
     setSubmitting(true);
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-        persistSession: false,
-      },
-    });
+    try {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          persistSession: false,
+        },
+      });
 
-    const { error } = await supabase.from('event_suggestions').insert({
-      event_name: textValue('event-name'),
-      event_type: selectValue('event-type'),
-      event_visibility: selectValue('event-visibility'),
-      date_status: dateStatus,
-      start_date: startDate,
-      end_date: endDate,
-      date_notes: optionalText('date-notes'),
-      city_region: textValue('city-region'),
-      country: textValue('country'),
-      venue_name: optionalText('venue-name'),
-      official_url: officialUrl,
-      submitter_relationship: textValue('submitter-relationship'),
-      contact_method: selectValue('contact-method'),
-      contact_value: textValue('contact-value'),
-      expected_attendance: getExpectedAttendance(),
-      preferred_setup: optionalText('preferred-setup'),
-      notes: textareaValue('notes'),
-    });
+      const { error } = await supabase.from('event_suggestions').insert({
+        event_name: textValue('event-name'),
+        event_type: selectValue('event-type'),
+        event_visibility: selectValue('event-visibility'),
+        date_status: dateStatus,
+        start_date: startDate,
+        end_date: endDate,
+        date_notes: optionalText('date-notes'),
+        city_region: textValue('city-region'),
+        country: textValue('country'),
+        venue_name: optionalText('venue-name'),
+        official_url: officialUrl,
+        submitter_relationship: textValue('submitter-relationship'),
+        contact_method: selectValue('contact-method'),
+        contact_value: textValue('contact-value'),
+        expected_attendance: getExpectedAttendance(),
+        preferred_setup: optionalText('preferred-setup'),
+        notes: textareaValue('notes'),
+      });
 
-    setSubmitting(false);
+      if (error) {
+        setError('Could not submit this suggestion. Please check the form and try again.');
+        return;
+      }
 
-    if (error) {
+      showSuccess();
+    } catch {
       setError('Could not submit this suggestion. Please check the form and try again.');
-      return;
+    } finally {
+      setSubmitting(false);
     }
-
-    showSuccess();
   });
 </script>

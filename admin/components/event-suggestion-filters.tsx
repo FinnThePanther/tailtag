@@ -36,8 +36,14 @@ export function EventSuggestionFilters({ initialStatus }: { initialStatus?: stri
       className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]"
     >
       <div>
-        <label className="text-sm text-slate-200">Status</label>
+        <label
+          htmlFor="status-select"
+          className="text-sm text-slate-200"
+        >
+          Status
+        </label>
         <select
+          id="status-select"
           value={status}
           onChange={(event) => setStatus(event.target.value)}
           className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"

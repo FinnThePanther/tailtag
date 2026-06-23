@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { assertAdminAction } from '@/lib/auth';
 import { createServiceRoleClient } from '@/lib/supabase/service';
 import { logAudit } from '@/lib/audit';
+import { captureSupabaseError } from '@/lib/sentry';
 import type { EventSuggestionStatus } from '@/lib/data';
 
 const REVIEW_ROLES = ['owner', 'organizer', 'moderator'] as const;
@@ -37,6 +38,15 @@ function trimOrNull(value: string | null | undefined) {
 function requireResolutionReason(status: EventSuggestionStatus, resolutionReason?: string | null) {
   if (RESOLUTION_STATUSES.has(status) && !trimOrNull(resolutionReason)) {
     throw new Error('A resolution reason is required for this action.');
+  }
+}
+
+function requireDuplicateConvention(
+  status: EventSuggestionStatus,
+  duplicateOfConventionId?: string | null,
+) {
+  if (status === 'duplicate' && !trimOrNull(duplicateOfConventionId)) {
+    throw new Error('A duplicate convention link is required for duplicate suggestions.');
   }
 }
 
@@ -97,6 +107,7 @@ export async function updateEventSuggestionStatusAction(input: {
   const supabase = createServiceRoleClient();
 
   requireResolutionReason(input.status, input.resolutionReason);
+  requireDuplicateConvention(input.status, input.duplicateOfConventionId);
 
   const { data: current, error: currentError } = await (supabase as any)
     .from('event_suggestions')
@@ -105,7 +116,11 @@ export async function updateEventSuggestionStatusAction(input: {
     .maybeSingle();
 
   if (currentError) {
-    throw currentError;
+    throw captureSupabaseError(currentError, {
+      scope: 'event-suggestions.update-status',
+      action: 'load-current-suggestion',
+      suggestionId: input.suggestionId,
+    });
   }
 
   if (!current) {
@@ -133,7 +148,12 @@ export async function updateEventSuggestionStatusAction(input: {
     .eq('id', input.suggestionId);
 
   if (error) {
-    throw new Error(`Failed to update event suggestion: ${error.message}`);
+    throw captureSupabaseError(error, {
+      scope: 'event-suggestions.update-status',
+      action: 'update-suggestion-status',
+      suggestionId: input.suggestionId,
+      status: input.status,
+    });
   }
 
   await logAudit({
@@ -175,7 +195,11 @@ export async function createConventionDraftFromSuggestionAction(input: { suggest
     .maybeSingle();
 
   if (suggestionError) {
-    throw suggestionError;
+    throw captureSupabaseError(suggestionError, {
+      scope: 'event-suggestions.create-draft',
+      action: 'load-suggestion',
+      suggestionId: input.suggestionId,
+    });
   }
 
   if (!suggestion) {
@@ -210,7 +234,12 @@ export async function createConventionDraftFromSuggestionAction(input: { suggest
     .single();
 
   if (conventionError) {
-    throw conventionError;
+    throw captureSupabaseError(conventionError, {
+      scope: 'event-suggestions.create-draft',
+      action: 'insert-convention-draft',
+      suggestionId: input.suggestionId,
+      slug,
+    });
   }
 
   const { data: updatedSuggestion, error: updateError } = await (supabase as any)
@@ -229,7 +258,13 @@ export async function createConventionDraftFromSuggestionAction(input: { suggest
     .maybeSingle();
 
   if (updateError) {
-    throw updateError;
+    await supabase.from('conventions').delete().eq('id', convention.id).eq('status', 'draft');
+    throw captureSupabaseError(updateError, {
+      scope: 'event-suggestions.create-draft',
+      action: 'link-suggestion-to-convention',
+      suggestionId: input.suggestionId,
+      conventionId: convention.id,
+    });
   }
 
   if (!updatedSuggestion) {

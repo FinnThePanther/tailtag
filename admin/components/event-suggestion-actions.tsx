@@ -7,6 +7,7 @@ import {
   updateEventSuggestionStatusAction,
 } from '@/app/(dashboard)/event-suggestions/actions';
 import type { EventSuggestionStatus } from '@/lib/data';
+import { captureHandledException } from '@/lib/sentry';
 
 type ConventionOption = {
   id: string;
@@ -38,6 +39,8 @@ export function EventSuggestionActions({
 
   const isActive = status === 'new' || status === 'reviewing';
   const canReopen = !isActive && !convertedConventionId;
+  const resolutionReasonId = `event-suggestion-${suggestionId}-resolution-reason`;
+  const duplicateConventionId = `event-suggestion-${suggestionId}-duplicate-convention`;
 
   const updateStatus = (nextStatus: EventSuggestionStatus) => {
     setMessage(null);
@@ -51,6 +54,12 @@ export function EventSuggestionActions({
         });
         setMessage({ tone: 'success', text: 'Updated' });
       } catch (error) {
+        captureHandledException(error, {
+          scope: 'event-suggestions.actions',
+          action: 'update-status',
+          suggestionId,
+          status: nextStatus,
+        });
         setMessage({
           tone: 'error',
           text: error instanceof Error ? error.message : 'Could not update suggestion.',
@@ -66,6 +75,11 @@ export function EventSuggestionActions({
         await createConventionDraftFromSuggestionAction({ suggestionId });
         setMessage({ tone: 'success', text: 'Draft created' });
       } catch (error) {
+        captureHandledException(error, {
+          scope: 'event-suggestions.actions',
+          action: 'create-draft',
+          suggestionId,
+        });
         setMessage({
           tone: 'error',
           text: error instanceof Error ? error.message : 'Could not create draft.',
@@ -76,14 +90,28 @@ export function EventSuggestionActions({
 
   return (
     <div className="min-w-64 space-y-3 text-xs text-slate-200">
+      <label
+        htmlFor={resolutionReasonId}
+        className="block text-[11px] font-semibold uppercase tracking-wide text-muted"
+      >
+        Resolution reason
+      </label>
       <textarea
+        id={resolutionReasonId}
         value={resolutionReason}
         onChange={(event) => setResolutionReason(event.target.value)}
         placeholder="Resolution reason"
         className="w-full rounded-lg border border-border bg-background px-2 py-1 text-xs text-slate-100 outline-none focus:border-primary"
         rows={2}
       />
+      <label
+        htmlFor={duplicateConventionId}
+        className="block text-[11px] font-semibold uppercase tracking-wide text-muted"
+      >
+        Duplicate convention link
+      </label>
       <select
+        id={duplicateConventionId}
         value={duplicateOfConventionId}
         onChange={(event) => setDuplicateOfConventionId(event.target.value)}
         className="w-full rounded-lg border border-border bg-background px-2 py-1 text-xs text-slate-100 outline-none focus:border-primary"

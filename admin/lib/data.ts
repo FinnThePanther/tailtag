@@ -28,7 +28,7 @@ export type EventSuggestionStatus =
   | 'duplicate'
   | 'spam';
 
-export type EventSuggestionRow = {
+export interface EventSuggestionRow {
   id: string;
   event_name: string;
   event_type: string;
@@ -57,7 +57,7 @@ export type EventSuggestionRow = {
   updated_at: string;
   duplicate_convention?: { id: string; name: string } | { id: string; name: string }[] | null;
   converted_convention?: { id: string; name: string } | { id: string; name: string }[] | null;
-};
+}
 
 const CONVENTION_LIST_COLUMNS = [
   'id',
@@ -358,7 +358,7 @@ export async function fetchEventSuggestions(
     limit?: number;
   },
 ): Promise<EventSuggestionRow[]> {
-  const query = (supabase as any)
+  const query = supabase
     .from('event_suggestions')
     .select(EVENT_SUGGESTION_COLUMNS.join(', '))
     .order('created_at', { ascending: false })
@@ -375,7 +375,7 @@ export async function fetchEventSuggestions(
     throw error;
   }
 
-  return (data ?? []) as EventSuggestionRow[];
+  return (data ?? []) as unknown as EventSuggestionRow[];
 }
 
 type EventStaffAssignment = {

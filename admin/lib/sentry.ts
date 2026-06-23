@@ -65,4 +65,24 @@ export function captureSupabaseError(
     scope.setExtras(metadata);
     Sentry.captureException(capturedError);
   });
+
+  return capturedError;
+}
+
+export function captureHandledException(error: unknown, context: Extras = {}) {
+  const capturedError = normalizeError(error);
+
+  Sentry.withScope((scope) => {
+    scope.setTag('handled', 'true');
+    scope.setLevel('error');
+
+    if (typeof context.scope === 'string') {
+      scope.setTag('scope', context.scope);
+    }
+
+    scope.setExtras(context);
+    Sentry.captureException(capturedError);
+  });
+
+  return capturedError;
 }
