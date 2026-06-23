@@ -21,7 +21,7 @@ function normalizeError(error: unknown): Error {
 export function captureSupabaseError(
   error: unknown,
   context: Extras & { scope?: string; action?: string } = {},
-) {
+): Error {
   const capturedError = normalizeError(error);
   const metadata: Extras = { ...context };
 
@@ -65,4 +65,28 @@ export function captureSupabaseError(
     scope.setExtras(metadata);
     Sentry.captureException(capturedError);
   });
+
+  return capturedError;
+}
+
+export function captureHandledException(error: unknown, context: Extras = {}): Error {
+  const capturedError = normalizeError(error);
+
+  Sentry.withScope((scope) => {
+    scope.setTag('handled', 'true');
+    scope.setLevel('error');
+
+    if (typeof context.scope === 'string') {
+      scope.setTag('scope', context.scope);
+    }
+
+    if (typeof context.action === 'string') {
+      scope.setTag('action', context.action);
+    }
+
+    scope.setExtras(context);
+    Sentry.captureException(capturedError);
+  });
+
+  return capturedError;
 }
