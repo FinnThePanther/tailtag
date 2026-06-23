@@ -24,10 +24,7 @@ import {
   useCatchOutbox,
   useCatchOutboxSync,
 } from '../../../src/features/catch-outbox';
-import {
-  getMaxFursuitsForFeatureState,
-  MAX_FURSUITS_PER_USER,
-} from '../../../src/constants/fursuits';
+import { getMaxFursuitsForFeatureState, MAX_FURSUITS_PER_USER } from '@/constants/fursuits';
 import type { FursuitSummary } from '../../../src/features/suits';
 import {
   hasDismissedInteractionPreferencesNudge,
@@ -49,7 +46,7 @@ import {
   EXPANDED_FURSUIT_LIMIT_FEATURE_KEY,
   featureFlagQueryKey,
   isFeatureEnabledForProfile,
-} from '../../../src/features/feature-flags';
+} from '@/features/feature-flags';
 
 export default function MySuitsScreen() {
   const router = useRouter();
