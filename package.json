@@ -38,7 +38,7 @@
     "prebuild:development": "APP_ENV=development npm run prebuild",
     "prebuild:staging": "APP_ENV=staging npm run prebuild",
     "prebuild:production": "APP_ENV=production npm run prebuild",
-    "gen:types": "npx supabase@2.90.0 gen types typescript --project-id rtxbvjicfxgcouufumce --schema public > /tmp/fresh-types.ts && python3 scripts/update-types.py /tmp/fresh-types.ts",
+    "gen:types": "npx supabase@2.90.0 gen types typescript --project-id rtxbvjicfxgcouufumce --schema public > /tmp/fresh-types.ts && PYTHONDONTWRITEBYTECODE=1 python3 scripts/update-types.py /tmp/fresh-types.ts",
     "test:achievements": "node --test scripts/achievement-regression.mjs",
     "test:daily-tasks": "node --test scripts/daily-task-optimistic-regression.mjs",
     "test:notifications": "node --test scripts/notification-contract-regression.mjs",

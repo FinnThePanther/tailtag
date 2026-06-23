@@ -13,4 +13,4 @@ trap cleanup EXIT
 cd "$ROOT_DIR"
 
 supabase gen types typescript --project-id "$PROJECT_REF" --schema public > "$TMP_FILE"
-python3 scripts/check-types.py "$TMP_FILE"
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/check-types.py "$TMP_FILE"

@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   Users,
   CalendarDays,
+  ClipboardList,
   UserCog,
   FileClock,
   Flag,
@@ -16,11 +17,25 @@ import {
 import clsx from 'clsx';
 
 import type { AdminProfile } from '@/lib/auth';
+import { canReviewEventSuggestions } from '@/lib/admin-permissions';
 
-const navItems = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: typeof ShieldCheck;
+  canView?: (profile: Pick<AdminProfile, 'role'>) => boolean;
+}
+
+const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Overview', icon: ShieldCheck },
   { href: '/players', label: 'Players', icon: Users },
   { href: '/conventions', label: 'Conventions', icon: CalendarDays },
+  {
+    href: '/event-suggestions',
+    label: 'Event Suggestions',
+    icon: ClipboardList,
+    canView: canReviewEventSuggestions,
+  },
   { href: '/staff', label: 'Staff', icon: UserCog },
   { href: '/analytics', label: 'Analytics', icon: ShieldCheck },
   { href: '/achievements', label: 'Achievements', icon: ShieldCheck },
@@ -42,28 +57,30 @@ export function Sidebar({ profile }: { profile: AdminProfile }) {
         <p className="mt-1 text-lg font-semibold text-white">Admin</p>
       </div>
       <nav className="flex-1 space-y-1">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={clsx(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition',
-                isActive
-                  ? 'bg-white/5 text-white ring-1 ring-primary/60'
-                  : 'text-slate-300 hover:bg-white/5 hover:text-white',
-              )}
-            >
-              <Icon
-                size={18}
-                className={isActive ? 'text-primary' : 'text-slate-400'}
-              />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+        {navItems
+          .filter((item) => !item.canView || item.canView(profile))
+          .map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={clsx(
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition',
+                  isActive
+                    ? 'bg-white/5 text-white ring-1 ring-primary/60'
+                    : 'text-slate-300 hover:bg-white/5 hover:text-white',
+                )}
+              >
+                <Icon
+                  size={18}
+                  className={isActive ? 'text-primary' : 'text-slate-400'}
+                />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
       </nav>
       <div className="mt-8 rounded-lg border border-border bg-background px-3 py-2 text-xs text-slate-400">
         <div className="flex items-center gap-2">
