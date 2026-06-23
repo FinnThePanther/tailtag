@@ -13,8 +13,8 @@ import { emitGameplayEvent } from '../../events';
 
 import type { FursuitsInsert } from '../../../types/database';
 import { MAX_FURSUIT_COLORS } from '../../colors';
-import { getMaxFursuitsForFeatureState, MAX_FURSUITS_PER_USER } from '../../../constants/fursuits';
-import { ensureSpeciesEntry } from '../../species';
+import { getMaxFursuitsForFeatureState, MAX_FURSUITS_PER_USER } from '@/constants/fursuits';
+import { ensureSpeciesEntry } from '@/features/species';
 import { normalizeVisibilityAudience, type VisibilityAudience } from '@/features/adult-boundary';
 import {
   EXPANDED_FURSUIT_LIMIT_FEATURE_KEY,

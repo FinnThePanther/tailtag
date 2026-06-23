@@ -28,10 +28,7 @@ import {
   createMySuitsCountQueryOptions,
   isFursuitUniqueCodeAvailable,
 } from '../../../src/features/suits';
-import {
-  getMaxFursuitsForFeatureState,
-  MAX_FURSUITS_PER_USER,
-} from '../../../src/constants/fursuits';
+import { getMaxFursuitsForFeatureState, MAX_FURSUITS_PER_USER } from '@/constants/fursuits';
 import {
   ensureSpeciesEntry,
   fetchFursuitSpecies,
