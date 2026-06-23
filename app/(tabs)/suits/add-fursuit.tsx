@@ -28,7 +28,10 @@ import {
   createMySuitsCountQueryOptions,
   isFursuitUniqueCodeAvailable,
 } from '../../../src/features/suits';
-import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
+import {
+  getMaxFursuitsForFeatureState,
+  MAX_FURSUITS_PER_USER,
+} from '../../../src/constants/fursuits';
 import {
   ensureSpeciesEntry,
   fetchFursuitSpecies,
@@ -88,6 +91,7 @@ import {
 import { styles } from '../../../src/app-styles/(tabs)/suits/add-fursuit.styles';
 import {
   ANONYMOUS_FURSUITS_FEATURE_KEY,
+  EXPANDED_FURSUIT_LIMIT_FEATURE_KEY,
   featureFlagQueryKey,
   isFeatureEnabledForProfile,
 } from '../../../src/features/feature-flags';
@@ -172,8 +176,22 @@ export default function AddFursuitScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+  const { data: expandedFursuitLimitEnabled = false } = useQuery({
+    queryKey: userId
+      ? featureFlagQueryKey(EXPANDED_FURSUIT_LIMIT_FEATURE_KEY, userId)
+      : [EXPANDED_FURSUIT_LIMIT_FEATURE_KEY, 'guest'],
+    queryFn: () => isFeatureEnabledForProfile(EXPANDED_FURSUIT_LIMIT_FEATURE_KEY, userId!),
+    enabled: Boolean(userId),
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
 
-  const isAtFursuitLimit = suitCount >= MAX_FURSUITS_PER_USER;
+  const fursuitLimit = getMaxFursuitsForFeatureState(expandedFursuitLimitEnabled);
+  const isAtFursuitLimit = suitCount >= fursuitLimit;
+  const fursuitLimitReachedMessage = expandedFursuitLimitEnabled
+    ? "You've reached your fursuit limit. Delete an existing fursuit to add a new one."
+    : `You can only have ${MAX_FURSUITS_PER_USER} fursuits. Delete an existing fursuit to add a new one.`;
 
   const [nameInput, setNameInput] = useState('');
   const [speciesInput, setSpeciesInput] = useState('');
@@ -561,9 +579,7 @@ export default function AddFursuitScreen() {
     }
 
     if (isAtFursuitLimit) {
-      setSubmitError(
-        `You can only have ${MAX_FURSUITS_PER_USER} fursuits. Delete an existing fursuit to add a new one.`,
-      );
+      setSubmitError(fursuitLimitReachedMessage);
       return;
     }
 
@@ -881,10 +897,7 @@ export default function AddFursuitScreen() {
       <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
         {isAtFursuitLimit && (
           <TailTagCard style={styles.limitBanner}>
-            <Text style={styles.limitBannerText}>
-              You have reached the maximum of {MAX_FURSUITS_PER_USER} fursuits. Delete an existing
-              fursuit to add a new one.
-            </Text>
+            <Text style={styles.limitBannerText}>{fursuitLimitReachedMessage}</Text>
             <TailTagButton
               variant="outline"
               onPress={() => router.push('/suits')}
