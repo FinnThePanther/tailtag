@@ -3471,6 +3471,10 @@ export type Database = {
           visibility_audience: string
         }[]
       }
+      get_fursuit_limit_for_profile: {
+        Args: { p_profile_id: string }
+        Returns: number
+      }
       get_gallery_profile_convention_ids: {
         Args: { p_profile_id: string }
         Returns: {

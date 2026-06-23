@@ -24,7 +24,10 @@ import {
   useCatchOutbox,
   useCatchOutboxSync,
 } from '../../../src/features/catch-outbox';
-import { MAX_FURSUITS_PER_USER } from '../../../src/constants/fursuits';
+import {
+  getMaxFursuitsForFeatureState,
+  MAX_FURSUITS_PER_USER,
+} from '../../../src/constants/fursuits';
 import type { FursuitSummary } from '../../../src/features/suits';
 import {
   hasDismissedInteractionPreferencesNudge,
@@ -42,6 +45,11 @@ import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../../src/theme';
 import { toDisplayDate } from '../../../src/utils/dates';
 import { styles } from '../../../src/app-styles/(tabs)/suits/index.styles';
+import {
+  EXPANDED_FURSUIT_LIMIT_FEATURE_KEY,
+  featureFlagQueryKey,
+  isFeatureEnabledForProfile,
+} from '../../../src/features/feature-flags';
 
 export default function MySuitsScreen() {
   const router = useRouter();
@@ -77,6 +85,16 @@ export default function MySuitsScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryFn: () => fetchMySuits(userId!),
+  });
+  const { data: expandedFursuitLimitEnabled = false } = useQuery({
+    queryKey: userId
+      ? featureFlagQueryKey(EXPANDED_FURSUIT_LIMIT_FEATURE_KEY, userId)
+      : [EXPANDED_FURSUIT_LIMIT_FEATURE_KEY, 'guest'],
+    queryFn: () => isFeatureEnabledForProfile(EXPANDED_FURSUIT_LIMIT_FEATURE_KEY, userId!),
+    enabled: Boolean(userId),
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
@@ -222,7 +240,15 @@ export default function MySuitsScreen() {
     [suits],
   );
   const suitCount = suits.length;
-  const isAtFursuitLimit = suitCount >= MAX_FURSUITS_PER_USER;
+  const fursuitLimit = getMaxFursuitsForFeatureState(expandedFursuitLimitEnabled);
+  const isAtFursuitLimit = suitCount >= fursuitLimit;
+  const limitHelperText = expandedFursuitLimitEnabled
+    ? isAtFursuitLimit
+      ? "You've reached your fursuit limit. Delete one to add another."
+      : 'Add a new suit before you head to the floor.'
+    : isAtFursuitLimit
+      ? `You have ${MAX_FURSUITS_PER_USER}/${MAX_FURSUITS_PER_USER} suits. Delete one to add another.`
+      : `Add a new suit before you head to the floor. (${suitCount}/${MAX_FURSUITS_PER_USER})`;
   const combinedError = error
     ? getUserVisibleErrorMessage(error, "We couldn't load your fursuits.")
     : null;
@@ -542,11 +568,7 @@ export default function MySuitsScreen() {
 
       <TailTagCard style={styles.cardSpacing}>
         <View style={styles.helperRow}>
-          <Text style={styles.helperText}>
-            {isAtFursuitLimit
-              ? `You have ${MAX_FURSUITS_PER_USER}/${MAX_FURSUITS_PER_USER} suits. Delete one to add another.`
-              : `Add a new suit before you head to the floor. (${suitCount}/${MAX_FURSUITS_PER_USER})`}
-          </Text>
+          <Text style={styles.helperText}>{limitHelperText}</Text>
           <TailTagButton
             onPress={() => router.push('/suits/add-fursuit')}
             disabled={isAtFursuitLimit}
