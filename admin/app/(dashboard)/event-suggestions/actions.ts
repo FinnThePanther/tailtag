@@ -127,8 +127,8 @@ export async function updateEventSuggestionStatusAction(input: {
     throw new Error('Event suggestion not found.');
   }
 
-  if (input.status === 'reviewing' && current.converted_convention_id) {
-    throw new Error('A converted suggestion cannot be reopened.');
+  if (current.converted_convention_id) {
+    throw new Error('A converted suggestion cannot be changed.');
   }
 
   const update = {
@@ -142,10 +142,13 @@ export async function updateEventSuggestionStatusAction(input: {
       input.status === 'duplicate' ? trimOrNull(input.duplicateOfConventionId) : null,
   };
 
-  const { error } = await (supabase as any)
+  const { data: updatedSuggestion, error } = await (supabase as any)
     .from('event_suggestions')
     .update(update)
-    .eq('id', input.suggestionId);
+    .eq('id', input.suggestionId)
+    .eq('status', current.status)
+    .select('id')
+    .maybeSingle();
 
   if (error) {
     throw captureSupabaseError(error, {
@@ -154,6 +157,10 @@ export async function updateEventSuggestionStatusAction(input: {
       suggestionId: input.suggestionId,
       status: input.status,
     });
+  }
+
+  if (!updatedSuggestion) {
+    throw new Error('This suggestion was updated by another reviewer. Refresh and try again.');
   }
 
   await logAudit({

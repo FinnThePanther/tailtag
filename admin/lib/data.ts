@@ -2,6 +2,7 @@ import type { ServiceRoleClient } from './supabase/service';
 import type { AdminProfile } from './auth';
 import type { Database } from '@/types/database';
 import { resolveAdminMediaUrl } from './storage';
+import { captureSupabaseError } from './sentry';
 
 type PlayerSearchResult = {
   id: string;
@@ -372,7 +373,12 @@ export async function fetchEventSuggestions(
 
   const { data, error } = await query;
   if (error) {
-    throw error;
+    throw captureSupabaseError(error, {
+      scope: 'event-suggestions.data',
+      action: 'fetch-event-suggestions',
+      status: params.status ?? 'active',
+      limit: params.limit ?? 100,
+    });
   }
 
   return (data ?? []) as unknown as EventSuggestionRow[];

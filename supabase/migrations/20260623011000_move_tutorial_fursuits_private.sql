@@ -39,5 +39,6 @@ as $$
 $$;
 
 grant execute on function public.is_tutorial_fursuit(uuid) to authenticated, service_role;
+revoke execute on function public.is_tutorial_fursuit(uuid) from public;
 
 drop table if exists public.tutorial_fursuits;

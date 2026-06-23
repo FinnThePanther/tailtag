@@ -329,6 +329,7 @@ import Footer from '../components/Footer.astro';
               type="number"
               min="1"
               max="1000000"
+              step="1"
               inputmode="numeric"
               placeholder="Optional"
               class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
@@ -456,7 +457,7 @@ import Footer from '../components/Footer.astro';
     const value = textValue('expected-attendance');
     if (!value) return null;
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
+    return Number.isInteger(parsed) ? parsed : null;
   };
 
   const isHttpUrl = (value: string | null) => {

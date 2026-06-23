@@ -105,13 +105,17 @@ returns trigger
 language plpgsql
 as $$
 begin
+  if tg_op = 'INSERT' then
+    new.created_at = now();
+  end if;
+
   new.updated_at = now();
   return new;
 end;
 $$;
 
 create trigger set_event_suggestions_updated_at
-  before update on public.event_suggestions
+  before insert or update on public.event_suggestions
   for each row
   execute function public.set_event_suggestions_updated_at();
 

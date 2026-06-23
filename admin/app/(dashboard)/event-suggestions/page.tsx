@@ -100,6 +100,17 @@ function hostLabel(value: string) {
   }
 }
 
+function safeHttpUrl(value: string | null) {
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function relationValue(
   value: EventSuggestionRow['converted_convention'] | EventSuggestionRow['duplicate_convention'],
 ) {
@@ -158,6 +169,7 @@ export default async function EventSuggestionsPage({
           {suggestions.map((suggestion) => {
             const convertedConvention = relationValue(suggestion.converted_convention);
             const duplicateConvention = relationValue(suggestion.duplicate_convention);
+            const officialUrl = safeHttpUrl(suggestion.official_url);
 
             return (
               <tr key={suggestion.id}>
@@ -171,15 +183,19 @@ export default async function EventSuggestionsPage({
                           suggestion.event_visibility}
                       </p>
                     </div>
-                    {suggestion.official_url ? (
+                    {officialUrl ? (
                       <a
-                        href={suggestion.official_url}
+                        href={officialUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex max-w-xs text-xs font-semibold text-primary underline decoration-primary/40 underline-offset-4"
                       >
-                        {hostLabel(suggestion.official_url)}
+                        {hostLabel(officialUrl)}
                       </a>
+                    ) : suggestion.official_url ? (
+                      <p className="max-w-xs truncate text-xs text-muted">
+                        {suggestion.official_url}
+                      </p>
                     ) : null}
                   </div>
                 </td>
