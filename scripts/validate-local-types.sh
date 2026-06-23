@@ -30,4 +30,4 @@ fi
 
 supabase db reset
 supabase gen types typescript --local --schema public > "$TMP_FILE"
-python3 scripts/check-types.py "$TMP_FILE"
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/check-types.py "$TMP_FILE"

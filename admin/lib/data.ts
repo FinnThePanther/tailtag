@@ -20,6 +20,45 @@ type PlayerSearchResult = {
 type ConventionRow = Database['public']['Tables']['conventions']['Row'];
 type EventRow = Database['public']['Tables']['events']['Row'];
 type AuditLogRow = Database['public']['Tables']['audit_log']['Row'];
+export type EventSuggestionStatus =
+  | 'new'
+  | 'reviewing'
+  | 'accepted'
+  | 'declined'
+  | 'duplicate'
+  | 'spam';
+
+export type EventSuggestionRow = {
+  id: string;
+  event_name: string;
+  event_type: string;
+  event_visibility: string;
+  date_status: string;
+  start_date: string | null;
+  end_date: string | null;
+  date_notes: string | null;
+  city_region: string;
+  country: string;
+  venue_name: string | null;
+  official_url: string | null;
+  submitter_relationship: string;
+  contact_method: string;
+  contact_value: string;
+  expected_attendance: number | null;
+  preferred_setup: string | null;
+  notes: string | null;
+  status: EventSuggestionStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  resolution_reason: string | null;
+  duplicate_of_convention_id: string | null;
+  converted_convention_id: string | null;
+  created_at: string;
+  updated_at: string;
+  duplicate_convention?: { id: string; name: string } | { id: string; name: string }[] | null;
+  converted_convention?: { id: string; name: string } | { id: string; name: string }[] | null;
+};
+
 const CONVENTION_LIST_COLUMNS = [
   'id',
   'name',
@@ -51,6 +90,37 @@ const CONVENTION_LIST_COLUMNS = [
 ] as const satisfies ReadonlyArray<keyof ConventionRow>;
 
 export type ConventionListRow = Pick<ConventionRow, (typeof CONVENTION_LIST_COLUMNS)[number]>;
+
+const EVENT_SUGGESTION_COLUMNS = [
+  'id',
+  'event_name',
+  'event_type',
+  'event_visibility',
+  'date_status',
+  'start_date',
+  'end_date',
+  'date_notes',
+  'city_region',
+  'country',
+  'venue_name',
+  'official_url',
+  'submitter_relationship',
+  'contact_method',
+  'contact_value',
+  'expected_attendance',
+  'preferred_setup',
+  'notes',
+  'status',
+  'reviewed_by',
+  'reviewed_at',
+  'resolution_reason',
+  'duplicate_of_convention_id',
+  'converted_convention_id',
+  'created_at',
+  'updated_at',
+  'duplicate_convention:duplicate_of_convention_id(id, name)',
+  'converted_convention:converted_convention_id(id, name)',
+] as const;
 
 export async function fetchDashboardSummary(supabase: ServiceRoleClient) {
   const [players, suspended, conventions, pendingReports] = await Promise.all([
@@ -279,6 +349,33 @@ export async function fetchConventions(supabase: ServiceRoleClient): Promise<Con
     throw error;
   }
   return (data ?? []) as unknown as ConventionListRow[];
+}
+
+export async function fetchEventSuggestions(
+  supabase: ServiceRoleClient,
+  params: {
+    status?: EventSuggestionStatus | 'active' | 'all' | null;
+    limit?: number;
+  },
+): Promise<EventSuggestionRow[]> {
+  const query = (supabase as any)
+    .from('event_suggestions')
+    .select(EVENT_SUGGESTION_COLUMNS.join(', '))
+    .order('created_at', { ascending: false })
+    .limit(params.limit ?? 100);
+
+  if (!params.status || params.status === 'active') {
+    query.in('status', ['new', 'reviewing']);
+  } else if (params.status !== 'all') {
+    query.eq('status', params.status);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as EventSuggestionRow[];
 }
 
 type EventStaffAssignment = {
