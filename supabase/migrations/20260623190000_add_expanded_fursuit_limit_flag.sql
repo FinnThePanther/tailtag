@@ -29,7 +29,7 @@ $function$;
 REVOKE ALL ON FUNCTION public.get_fursuit_limit_for_profile(uuid)
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_fursuit_limit_for_profile(uuid)
-  TO authenticated, service_role;
+  TO service_role;
 
 CREATE OR REPLACE FUNCTION public.enforce_fursuit_insert_limit()
 RETURNS trigger
@@ -42,16 +42,18 @@ DECLARE
   v_limit integer;
   v_current_count integer;
 BEGIN
-  IF (SELECT auth.role()) = 'service_role' THEN
-    RETURN NEW;
-  END IF;
-
   IF v_owner_id IS NULL THEN
     v_owner_id := auth.uid();
     NEW.owner_id := v_owner_id;
   END IF;
 
-  IF v_owner_id IS NULL OR v_owner_id IS DISTINCT FROM auth.uid() THEN
+  IF v_owner_id IS NULL THEN
+    RAISE EXCEPTION 'Fursuit owner is required'
+      USING ERRCODE = '23502';
+  END IF;
+
+  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role'
+    AND v_owner_id IS DISTINCT FROM auth.uid() THEN
     RAISE EXCEPTION 'Users can only create fursuits for their own profile'
       USING ERRCODE = '42501';
   END IF;
