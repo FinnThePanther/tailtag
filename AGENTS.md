@@ -28,7 +28,8 @@ TailTag has real users who may not update immediately. Design new features and f
 ## Build, Test, and Development Commands
 Use `npm install` at the repo root, then run commands from the relevant app directory.
 
-- Prefix shell commands with `rtk` by default to reduce token-heavy output, except for `npm ...` and `supabase ...` commands. Keep `npm` and `supabase` commands unprefixed.
+- Codex shell commands in this repository must start with `rtk`, `npm`, or `supabase`. This is enforced by the repo-local Codex `PreToolUse` hook in `.codex/hooks.json`.
+- Prefix shell commands with `rtk` to reduce token-heavy output, except for `npm ...` and `supabase ...` commands. Keep `npm` and `supabase` commands unprefixed.
 - `npm run start` from the root starts the Expo app.
 - `npm run ios` / `npm run android` from the root run native Expo builds locally.
 - `npm run lint` and `npm run typecheck` from the root validate the mobile app.
