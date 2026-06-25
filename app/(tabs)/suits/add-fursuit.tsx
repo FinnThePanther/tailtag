@@ -50,13 +50,17 @@ import {
 } from '../../../src/features/colors';
 import {
   addFursuitConvention,
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
   CONVENTION_SUIT_ROSTER_QUERY_KEY,
   createJoinableConventionsQueryOptions,
   fetchProfileConventionMemberships,
+  optInToConvention,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+  useConventionVerificationAction,
   type ConventionMembership,
   type FursuitConventionRosterSettings,
+  type VerifiedLocation,
 } from '../../../src/features/conventions';
 import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
 import { FursuitConventionRosterControls } from '../../../src/components/conventions/FursuitConventionRosterControls';
@@ -430,6 +434,8 @@ export default function AddFursuitScreen() {
     Record<string, FursuitConventionRosterSettings>
   >({});
   const [hasHydratedConventions, setHasHydratedConventions] = useState(false);
+  const [pendingMemberships, setPendingMemberships] = useState<Set<string>>(new Set());
+  const [conventionError, setConventionError] = useState<string | null>(null);
 
   const makersCanAddMore = useMemo(() => makers.length < FURSUIT_MAKER_LIMIT, [makers.length]);
 
@@ -452,12 +458,67 @@ export default function AddFursuitScreen() {
     [joinableConventionIdSet, profileConventionMemberships],
   );
 
+  const conventionMembershipById = useMemo(
+    () =>
+      new Map(
+        profileConventionMemberships.map((membership) => [membership.convention_id, membership]),
+      ),
+    [profileConventionMemberships],
+  );
+
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
   const conventionsLoadError = conventionsError
     ? getUserVisibleErrorMessage(conventionsError, 'We could not load conventions.')
     : profileConventionsError
       ? getUserVisibleErrorMessage(profileConventionsError, 'We could not load your conventions.')
       : null;
+
+  const selectConventionForSuit = useCallback((conventionId: string) => {
+    setSelectedConventionIds((current) => {
+      if (current.has(conventionId)) {
+        return current;
+      }
+
+      return new Set([...current, conventionId]);
+    });
+
+    setConventionRosterSettingsById((current) => ({
+      ...current,
+      [conventionId]: current[conventionId] ?? DEFAULT_ROSTER_SETTINGS,
+    }));
+  }, []);
+
+  const unselectConventionForSuit = useCallback((conventionId: string) => {
+    setSelectedConventionIds((current) => {
+      if (!current.has(conventionId)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.delete(conventionId);
+      return next;
+    });
+
+    setConventionRosterSettingsById((current) => {
+      if (!(conventionId in current)) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[conventionId];
+      return next;
+    });
+  }, []);
+
+  const { verifyConvention, verificationModals, isVerifyingConvention } =
+    useConventionVerificationAction({
+      profileId: userId,
+      onVerified: async (convention) => {
+        setConventionError(null);
+        selectConventionForSuit(convention.id);
+        await refetchProfileConventions({ throwOnError: false });
+      },
+    });
 
   useEffect(() => {
     if (!userId) {
@@ -492,37 +553,79 @@ export default function AddFursuitScreen() {
   }, [hasHydratedConventions, profileAssignableConventionIdSet, isConventionsBusy, userId]);
 
   const handleConventionToggle = useCallback(
-    (conventionId: string, nextSelected: boolean) => {
-      if (!profileAssignableConventionIdSet.has(conventionId)) {
+    async (
+      conventionId: string,
+      nextSelected: boolean,
+      verifiedLocation?: VerifiedLocation | null,
+    ) => {
+      if (isSubmitting || !userId) {
         return;
       }
 
-      setSelectedConventionIds((current) => {
+      setConventionError(null);
+
+      if (!nextSelected) {
+        unselectConventionForSuit(conventionId);
+        return;
+      }
+
+      if (profileAssignableConventionIdSet.has(conventionId)) {
+        selectConventionForSuit(conventionId);
+        return;
+      }
+
+      const key = `profile:${userId}:${conventionId}`;
+
+      if (pendingMemberships.has(key)) {
+        return;
+      }
+
+      setPendingMemberships((current) => {
         const next = new Set(current);
-
-        if (nextSelected) {
-          next.add(conventionId);
-        } else {
-          next.delete(conventionId);
-        }
-
+        next.add(key);
         return next;
       });
 
-      setConventionRosterSettingsById((current) => {
-        if (nextSelected) {
-          return {
-            ...current,
-            [conventionId]: current[conventionId] ?? DEFAULT_ROSTER_SETTINGS,
-          };
-        }
-
-        const next = { ...current };
-        delete next[conventionId];
-        return next;
-      });
+      try {
+        await optInToConvention({
+          profileId: userId,
+          conventionId,
+          verifiedLocation: verifiedLocation ?? undefined,
+          verificationMethod: verifiedLocation ? 'gps' : 'none',
+        });
+        selectConventionForSuit(conventionId);
+        await Promise.all([
+          refetchProfileConventions({ throwOnError: false }),
+          queryClient.invalidateQueries({
+            queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+          }),
+          queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] }),
+        ]);
+      } catch (caught) {
+        setConventionError(
+          getUserVisibleErrorMessage(
+            caught,
+            'We could not update your convention attendance right now. Please try again.',
+          ),
+        );
+      } finally {
+        setPendingMemberships((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+      }
     },
-    [profileAssignableConventionIdSet],
+    [
+      isSubmitting,
+      pendingMemberships,
+      profileAssignableConventionIdSet,
+      queryClient,
+      refetchProfileConventions,
+      selectConventionForSuit,
+      unselectConventionForSuit,
+      userId,
+    ],
   );
 
   const ensureUniqueCode = useCallback(async () => {
@@ -1315,15 +1418,14 @@ export default function AddFursuitScreen() {
               </View>
             ) : conventions.length === 0 ? (
               <Text style={styles.message}>No conventions are open for joining right now.</Text>
-            ) : profileAssignableConventionIdSet.size === 0 ? (
-              <Text style={styles.message}>
-                Attend a convention in Settings before listing this suit.
-              </Text>
             ) : (
               <View style={styles.conventionList}>
                 {conventions.map((convention) => {
                   const isAllowed = profileAssignableConventionIdSet.has(convention.id);
                   const isSelected = selectedConventionIds.has(convention.id);
+                  const membership = conventionMembershipById.get(convention.id);
+                  const membershipKey = `profile:${userId}:${convention.id}`;
+                  const isPending = pendingMemberships.has(membershipKey);
                   const rosterSettings =
                     conventionRosterSettingsById[convention.id] ?? DEFAULT_ROSTER_SETTINGS;
 
@@ -1335,13 +1437,22 @@ export default function AddFursuitScreen() {
                       <ConventionToggle
                         convention={convention}
                         selected={isSelected}
-                        pending={false}
-                        disabled={!isAllowed}
+                        pending={isPending || isVerifyingConvention}
+                        disabled={isSubmitting}
                         badgeText={
-                          isAllowed ? (isSelected ? 'Listed' : 'List suit') : 'Attend first'
+                          isSelected
+                            ? 'Listed'
+                            : membership?.membership_state === 'needs_location_verification'
+                              ? 'Verify location'
+                              : isAllowed
+                                ? 'List suit'
+                                : 'Attend'
                         }
-                        onToggle={(conventionId, nextSelected) =>
-                          handleConventionToggle(conventionId, nextSelected)
+                        membershipState={membership?.membership_state}
+                        profileId={userId ?? undefined}
+                        onVerifyLocation={verifyConvention}
+                        onToggle={(conventionId, nextSelected, verifiedLocation) =>
+                          void handleConventionToggle(conventionId, nextSelected, verifiedLocation)
                         }
                       />
                       {isSelected ? (
@@ -1361,6 +1472,8 @@ export default function AddFursuitScreen() {
                 })}
               </View>
             )}
+            {conventionError ? <Text style={styles.errorText}>{conventionError}</Text> : null}
+            {verificationModals}
           </View>
 
           {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
