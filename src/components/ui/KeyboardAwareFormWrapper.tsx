@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import {
+  KeyboardAwareScrollView,
+  type KeyboardAwareScrollViewProps as RNKCKeyboardAwareScrollViewProps,
+} from 'react-native-keyboard-controller';
 
 import type { ScrollViewProps, StyleProp, ViewStyle } from 'react-native';
 
@@ -9,6 +12,7 @@ import { styles } from './KeyboardAwareFormWrapper.styles';
 interface KeyboardAwareFormWrapperProps {
   children: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  disableScrollOnKeyboardHide?: RNKCKeyboardAwareScrollViewProps['disableScrollOnKeyboardHide'];
   keyboardShouldPersistTaps?: ScrollViewProps['keyboardShouldPersistTaps'];
 }
 
@@ -22,12 +26,14 @@ interface KeyboardAwareFormWrapperProps {
 export function KeyboardAwareFormWrapper({
   children,
   contentContainerStyle,
+  disableScrollOnKeyboardHide,
   keyboardShouldPersistTaps = 'handled',
 }: KeyboardAwareFormWrapperProps) {
   return (
     <KeyboardAwareScrollView
       style={styles.wrapper}
       contentContainerStyle={[styles.defaultContainer, contentContainerStyle]}
+      disableScrollOnKeyboardHide={disableScrollOnKeyboardHide}
       keyboardDismissMode="interactive"
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}
       showsVerticalScrollIndicator

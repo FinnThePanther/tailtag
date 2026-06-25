@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Platform, Pressable, Switch, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
 import { useRouter } from 'expo-router';
@@ -1031,7 +1031,11 @@ export default function AddFursuitScreen() {
         title="Add a Fursuit"
         onBack={() => router.back()}
       />
-      <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+      <KeyboardAwareFormWrapper
+        contentContainerStyle={styles.container}
+        disableScrollOnKeyboardHide={Platform.OS === 'android'}
+        keyboardShouldPersistTaps={Platform.OS === 'android' ? 'always' : 'handled'}
+      >
         {isAtFursuitLimit && (
           <TailTagCard style={styles.limitBanner}>
             <Text style={styles.limitBannerText}>
