@@ -57,7 +57,6 @@ function parseItem(value: unknown): CatchOutboxItem | null {
     status,
     fursuitCode: typeof value.fursuitCode === 'string' ? value.fursuitCode : undefined,
     fursuitId: typeof value.fursuitId === 'string' ? value.fursuitId : undefined,
-    fursuitOwnerId: typeof value.fursuitOwnerId === 'string' ? value.fursuitOwnerId : undefined,
     fursuitName: typeof value.fursuitName === 'string' ? value.fursuitName : undefined,
     fursuitAvatarUrl:
       typeof value.fursuitAvatarUrl === 'string' || value.fursuitAvatarUrl === null
@@ -209,7 +208,6 @@ function redactAdultBoundaryMetadata(item: CatchOutboxItem): CatchOutboxItem {
   return {
     ...item,
     fursuitId: undefined,
-    fursuitOwnerId: undefined,
     fursuitName: undefined,
     fursuitAvatarUrl: undefined,
     fursuitAvatarPath: undefined,
@@ -220,7 +218,6 @@ function redactAdultBoundaryMetadata(item: CatchOutboxItem): CatchOutboxItem {
 function hasAdultBoundaryMetadata(item: CatchOutboxItem) {
   return (
     item.fursuitId !== undefined ||
-    item.fursuitOwnerId !== undefined ||
     item.fursuitName !== undefined ||
     item.fursuitAvatarUrl !== undefined ||
     item.fursuitAvatarPath !== undefined ||

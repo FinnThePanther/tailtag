@@ -5,7 +5,6 @@ import {
   createCatch,
   markCatchPhotoUploadFailed,
   myPendingCatchesQueryKey,
-  pendingCatchesQueryKey,
   updateCatchPhoto,
   uploadCatchPhotoFromUri,
 } from '../catch-confirmations';
@@ -78,11 +77,6 @@ function notifyPhotoCatchResolved(options: {
     });
     void queryClient.invalidateQueries({
       queryKey: conventionSuitRosterCaughtIdsQueryKey(userId, item.conventionId),
-    });
-  }
-  if (item.fursuitOwnerId) {
-    void queryClient.invalidateQueries({
-      queryKey: pendingCatchesQueryKey(item.fursuitOwnerId),
     });
   }
 }
