@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, Pressable, Switch, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  Platform,
+  Pressable,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -1399,7 +1408,11 @@ export default function EditFursuitScreen() {
         title="Edit Fursuit"
         onBack={() => router.back()}
       />
-      <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+      <KeyboardAwareFormWrapper
+        contentContainerStyle={styles.container}
+        disableScrollOnKeyboardHide={Platform.OS === 'android'}
+        keyboardShouldPersistTaps={Platform.OS === 'android' ? 'always' : 'handled'}
+      >
         <View style={styles.formCard}>
           {isLoading ? (
             <Text style={styles.message}>Loading your fursuit details…</Text>

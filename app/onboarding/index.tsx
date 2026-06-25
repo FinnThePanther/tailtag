@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
 
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
@@ -219,7 +219,11 @@ export default function OnboardingScreen() {
       style={styles.safeArea}
       edges={['top', 'bottom']}
     >
-      <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
+      <KeyboardAwareFormWrapper
+        contentContainerStyle={styles.container}
+        disableScrollOnKeyboardHide={Platform.OS === 'android'}
+        keyboardShouldPersistTaps={Platform.OS === 'android' ? 'always' : 'handled'}
+      >
         <Text style={styles.header}>New player onboarding</Text>
         <ProgressDots
           currentIndex={currentIndex}
