@@ -1594,133 +1594,6 @@ export default function EditFursuitScreen() {
                 ) : null}
               </View>
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Catch code</Text>
-                <Text style={styles.helperLabel}>
-                  Other players type this to catch your suit. 4-8 letters and numbers.
-                </Text>
-                <View style={styles.codeRow}>
-                  <TailTagInput
-                    value={codeInput}
-                    onChangeText={(v) => setCodeInput(normalizeUniqueCodeInput(v))}
-                    placeholder="Your unique catch code"
-                    editable={!disableForm}
-                    autoCapitalize="characters"
-                    returnKeyType="next"
-                    style={styles.codeInput}
-                  />
-                </View>
-                {isCheckingCode ? (
-                  <ActivityIndicator color={colors.primary} />
-                ) : codeError ? (
-                  <Text style={styles.errorText}>{codeError}</Text>
-                ) : codeInput !== initialCode &&
-                  isValidUniqueCodeInput(codeInput) &&
-                  !submitError ? (
-                  <Text style={styles.codeValidText}>Valid code</Text>
-                ) : null}
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Fursuit visibility</Text>
-                <Text style={styles.helperLabel}>
-                  18+ visibility limits this fursuit to players who have confirmed they are 18 or
-                  older. It does not allow adult or sexual content.
-                </Text>
-                {profileAlreadyAdultsOnly ? (
-                  <Text style={styles.helperLabel}>
-                    Your profile uses 18+ visibility, so this fursuit is already restricted by your
-                    profile setting.
-                  </Text>
-                ) : null}
-                <View style={styles.visibilityOptions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: selectedVisibilityAudience === 'everyone' }}
-                    disabled={disableForm}
-                    onPress={() => setSelectedVisibilityAudience('everyone')}
-                    style={({ pressed }) => [
-                      styles.visibilityOption,
-                      selectedVisibilityAudience === 'everyone' && styles.visibilityOptionSelected,
-                      pressed && styles.visibilityOptionPressed,
-                    ]}
-                  >
-                    <View style={styles.visibilityOptionText}>
-                      <Text
-                        style={[
-                          styles.visibilityOptionTitle,
-                          selectedVisibilityAudience === 'everyone' &&
-                            styles.visibilityOptionTitleSelected,
-                        ]}
-                      >
-                        Everyone
-                      </Text>
-                      <Text style={styles.visibilityOptionDescription}>
-                        Any signed-in player can view this fursuit.
-                      </Text>
-                    </View>
-                    {selectedVisibilityAudience === 'everyone' ? (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={22}
-                        color={colors.primary}
-                      />
-                    ) : null}
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{
-                      selected: selectedVisibilityAudience === 'adults_only',
-                      disabled: disableForm || !canUseAdultsOnlyFursuitVisibility,
-                    }}
-                    disabled={disableForm || !canUseAdultsOnlyFursuitVisibility}
-                    onPress={() => setSelectedVisibilityAudience('adults_only')}
-                    style={({ pressed }) => [
-                      styles.visibilityOption,
-                      selectedVisibilityAudience === 'adults_only' &&
-                        styles.visibilityOptionSelected,
-                      !canUseAdultsOnlyFursuitVisibility && styles.visibilityOptionDisabled,
-                      pressed && styles.visibilityOptionPressed,
-                    ]}
-                  >
-                    <View style={styles.visibilityOptionText}>
-                      <Text
-                        style={[
-                          styles.visibilityOptionTitle,
-                          selectedVisibilityAudience === 'adults_only' &&
-                            styles.visibilityOptionTitleSelected,
-                          !canUseAdultsOnlyFursuitVisibility &&
-                            styles.visibilityOptionTitleDisabled,
-                        ]}
-                      >
-                        18+ visibility
-                      </Text>
-                      <Text
-                        style={[
-                          styles.visibilityOptionDescription,
-                          !canUseAdultsOnlyFursuitVisibility &&
-                            styles.visibilityOptionDescriptionDisabled,
-                        ]}
-                      >
-                        Only players who have confirmed they are 18 or older can view this fursuit.
-                      </Text>
-                    </View>
-                    {selectedVisibilityAudience === 'adults_only' ? (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={22}
-                        color={colors.primary}
-                      />
-                    ) : null}
-                  </Pressable>
-                </View>
-                {hasLoadedProfile && !canUseAdultsOnlyFursuitVisibility ? (
-                  <Text style={styles.helperLabel}>
-                    Confirm you are 18 or older to use 18+ visibility.
-                  </Text>
-                ) : null}
-              </View>
-
-              <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Colors</Text>
                 <Text style={styles.helperLabel}>Optional. Pick up to three colors.</Text>
                 {isColorBusy ? (
@@ -2041,6 +1914,133 @@ export default function EditFursuitScreen() {
                 )}
                 {conventionError ? <Text style={styles.errorText}>{conventionError}</Text> : null}
                 {verificationModals}
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Catch code</Text>
+                <Text style={styles.helperLabel}>
+                  Other players type this to catch your suit. 4-8 letters and numbers.
+                </Text>
+                <View style={styles.codeRow}>
+                  <TailTagInput
+                    value={codeInput}
+                    onChangeText={(v) => setCodeInput(normalizeUniqueCodeInput(v))}
+                    placeholder="Your unique catch code"
+                    editable={!disableForm}
+                    autoCapitalize="characters"
+                    returnKeyType="next"
+                    style={styles.codeInput}
+                  />
+                </View>
+                {isCheckingCode ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : codeError ? (
+                  <Text style={styles.errorText}>{codeError}</Text>
+                ) : codeInput !== initialCode &&
+                  isValidUniqueCodeInput(codeInput) &&
+                  !submitError ? (
+                  <Text style={styles.codeValidText}>Valid code</Text>
+                ) : null}
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Fursuit visibility</Text>
+                <Text style={styles.helperLabel}>
+                  18+ visibility limits this fursuit to players who have confirmed they are 18 or
+                  older. It does not allow adult or sexual content.
+                </Text>
+                {profileAlreadyAdultsOnly ? (
+                  <Text style={styles.helperLabel}>
+                    Your profile uses 18+ visibility, so this fursuit is already restricted by your
+                    profile setting.
+                  </Text>
+                ) : null}
+                <View style={styles.visibilityOptions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedVisibilityAudience === 'everyone' }}
+                    disabled={disableForm}
+                    onPress={() => setSelectedVisibilityAudience('everyone')}
+                    style={({ pressed }) => [
+                      styles.visibilityOption,
+                      selectedVisibilityAudience === 'everyone' && styles.visibilityOptionSelected,
+                      pressed && styles.visibilityOptionPressed,
+                    ]}
+                  >
+                    <View style={styles.visibilityOptionText}>
+                      <Text
+                        style={[
+                          styles.visibilityOptionTitle,
+                          selectedVisibilityAudience === 'everyone' &&
+                            styles.visibilityOptionTitleSelected,
+                        ]}
+                      >
+                        Everyone
+                      </Text>
+                      <Text style={styles.visibilityOptionDescription}>
+                        Any signed-in player can view this fursuit.
+                      </Text>
+                    </View>
+                    {selectedVisibilityAudience === 'everyone' ? (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={22}
+                        color={colors.primary}
+                      />
+                    ) : null}
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{
+                      selected: selectedVisibilityAudience === 'adults_only',
+                      disabled: disableForm || !canUseAdultsOnlyFursuitVisibility,
+                    }}
+                    disabled={disableForm || !canUseAdultsOnlyFursuitVisibility}
+                    onPress={() => setSelectedVisibilityAudience('adults_only')}
+                    style={({ pressed }) => [
+                      styles.visibilityOption,
+                      selectedVisibilityAudience === 'adults_only' &&
+                        styles.visibilityOptionSelected,
+                      !canUseAdultsOnlyFursuitVisibility && styles.visibilityOptionDisabled,
+                      pressed && styles.visibilityOptionPressed,
+                    ]}
+                  >
+                    <View style={styles.visibilityOptionText}>
+                      <Text
+                        style={[
+                          styles.visibilityOptionTitle,
+                          selectedVisibilityAudience === 'adults_only' &&
+                            styles.visibilityOptionTitleSelected,
+                          !canUseAdultsOnlyFursuitVisibility &&
+                            styles.visibilityOptionTitleDisabled,
+                        ]}
+                      >
+                        18+ visibility
+                      </Text>
+                      <Text
+                        style={[
+                          styles.visibilityOptionDescription,
+                          !canUseAdultsOnlyFursuitVisibility &&
+                            styles.visibilityOptionDescriptionDisabled,
+                        ]}
+                      >
+                        Only players who have confirmed they are 18 or older can view this fursuit.
+                      </Text>
+                    </View>
+                    {selectedVisibilityAudience === 'adults_only' ? (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={22}
+                        color={colors.primary}
+                      />
+                    ) : null}
+                  </Pressable>
+                </View>
+                {hasLoadedProfile && !canUseAdultsOnlyFursuitVisibility ? (
+                  <Text style={styles.helperLabel}>
+                    Confirm you are 18 or older to use 18+ visibility.
+                  </Text>
+                ) : null}
               </View>
 
               {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
