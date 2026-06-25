@@ -7,8 +7,44 @@ export type FursuitSpeciesOption = {
   normalizedName: string;
 };
 
+export type FursuitSpeciesSuggestion = {
+  key: string;
+  name: string;
+  normalizedName: string;
+  option: FursuitSpeciesOption | null;
+  source: 'common' | 'typed';
+};
+
 export const FURSUIT_SPECIES_QUERY_KEY = 'fursuit-species';
 export const MAX_FURSUIT_SPECIES = 5;
+export const DEFAULT_FURSUIT_SPECIES_SUGGESTION_LIMIT = 12;
+
+export const COMMON_FURSONA_SPECIES = [
+  'Wolf',
+  'Fox',
+  'Dragon',
+  'Dog',
+  'Cat',
+  'Tiger',
+  'Husky',
+  'Lion',
+  'Hyena',
+  'Deer',
+  'Rabbit',
+  'Protogen',
+  'Dutch Angel Dragon',
+  'Sergal',
+  'Avali',
+  'Coyote',
+  'Snow Leopard',
+  'Red Panda',
+  'Raccoon',
+  'Otter',
+  'Bear',
+  'Skunk',
+  'Horse',
+  'Manokit',
+] as const;
 
 const SPECIES_FIELDS = 'id, name, normalized_name';
 
@@ -26,6 +62,8 @@ export const sortSpeciesOptions = (options: FursuitSpeciesOption[]) =>
 
 export const normalizeSpeciesName = (value: string) =>
   value.trim().replace(/\s+/g, ' ').toLowerCase();
+
+const normalizeDisplaySpeciesName = (value: string) => value.trim().replace(/\s+/g, ' ');
 
 export const dedupeSpeciesOptions = (options: FursuitSpeciesOption[]) => {
   const seen = new Set<string>();
@@ -70,6 +108,70 @@ export const formatFursuitSpeciesList = (
   }
 
   return fallbackSpecies?.trim() || null;
+};
+
+export const buildFursuitSpeciesSuggestions = ({
+  speciesOptions,
+  selectedSpecies,
+  input,
+  limit = DEFAULT_FURSUIT_SPECIES_SUGGESTION_LIMIT,
+}: {
+  speciesOptions: FursuitSpeciesOption[];
+  selectedSpecies: FursuitSpeciesOption[];
+  input: string;
+  limit?: number;
+}): FursuitSpeciesSuggestion[] => {
+  const normalizedInput = normalizeSpeciesName(input);
+  const typedName = normalizeDisplaySpeciesName(input);
+  const optionsByName = new Map<string, FursuitSpeciesOption>();
+  const selectedNames = new Set(
+    selectedSpecies.map((option) => option.normalizedName || normalizeSpeciesName(option.name)),
+  );
+
+  speciesOptions.forEach((option) => {
+    const normalizedName = option.normalizedName || normalizeSpeciesName(option.name);
+    if (!optionsByName.has(normalizedName)) {
+      optionsByName.set(normalizedName, option);
+    }
+  });
+
+  const commonSuggestions = COMMON_FURSONA_SPECIES.flatMap((name) => {
+    const normalizedName = normalizeSpeciesName(name);
+
+    if (selectedNames.has(normalizedName)) {
+      return [];
+    }
+
+    if (normalizedInput && !normalizedName.includes(normalizedInput)) {
+      return [];
+    }
+
+    const option = optionsByName.get(normalizedName) ?? null;
+    return [
+      {
+        key: `common:${normalizedName}`,
+        name: option?.name ?? name,
+        normalizedName,
+        option,
+        source: 'common' as const,
+      },
+    ];
+  });
+
+  if (normalizedInput && commonSuggestions.length === 0 && !selectedNames.has(normalizedInput)) {
+    const option = optionsByName.get(normalizedInput) ?? null;
+    return [
+      {
+        key: `typed:${normalizedInput}`,
+        name: option?.name ?? typedName,
+        normalizedName: option?.normalizedName ?? normalizedInput,
+        option,
+        source: 'typed',
+      },
+    ];
+  }
+
+  return commonSuggestions.slice(0, limit);
 };
 
 export async function ensureSpeciesEntries(names: string[]): Promise<FursuitSpeciesOption[]> {

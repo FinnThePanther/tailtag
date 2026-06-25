@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, Switch, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -26,12 +26,16 @@ import {
 import { MY_SUITS_QUERY_KEY } from '@/features/suits';
 import {
   addFursuitConvention,
+  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
   createJoinableConventionsQueryOptions,
   fetchProfileConventionMemberships,
+  optInToConvention,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
+  useConventionVerificationAction,
   type ConventionMembership,
   type ConventionSummary,
+  type VerifiedLocation,
 } from '@/features/conventions';
 import { captureHandledException } from '@/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
@@ -45,6 +49,12 @@ import {
   type ProfileSummary,
 } from '@/features/profile';
 import {
+  buildFursuitSpeciesSuggestions,
+  fetchFursuitSpecies,
+  FURSUIT_SPECIES_QUERY_KEY,
+  type FursuitSpeciesOption,
+} from '@/features/species';
+import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
@@ -52,6 +62,11 @@ import {
 } from '@/features/colors';
 import { styles } from './FursuitStep.styles';
 import { profileNeedsAgeAttestation, type VisibilityAudience } from '@/features/adult-boundary';
+import {
+  ANONYMOUS_FURSUITS_FEATURE_KEY,
+  featureFlagQueryKey,
+  isFeatureEnabledForProfile,
+} from '@/features/feature-flags';
 
 const EXPERIMENT_EVENT_TIMEOUT_MS = 5000;
 
@@ -146,10 +161,26 @@ export function FursuitStep({
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+  const { data: speciesOptions = [] } = useQuery<FursuitSpeciesOption[], Error>({
+    queryKey: [FURSUIT_SPECIES_QUERY_KEY],
+    queryFn: fetchFursuitSpecies,
+    staleTime: 12 * 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const { data: anonymousFursuitsEnabled = false } = useQuery({
+    queryKey: featureFlagQueryKey(ANONYMOUS_FURSUITS_FEATURE_KEY, userId),
+    queryFn: () => isFeatureEnabledForProfile(ANONYMOUS_FURSUITS_FEATURE_KEY, userId),
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
   const [isExpanded, setIsExpanded] = useState(draft.isExpanded);
   const [nameInput, setNameInput] = useState(draft.nameInput);
   const [speciesInput, setSpeciesInput] = useState(draft.speciesInput);
   const [descriptionInput, setDescriptionInput] = useState(draft.descriptionInput);
+  const [photoCreditInput, setPhotoCreditInput] = useState(draft.photoCreditInput);
+  const [showPhotoCreditInput, setShowPhotoCreditInput] = useState(draft.showPhotoCreditInput);
   const [selectedPhoto, setSelectedPhoto] = useState<FursuitPhotoCandidate | null>(
     draft.selectedPhoto,
   );
@@ -161,6 +192,7 @@ export function FursuitStep({
   const [visibilityAudience, setVisibilityAudience] = useState<VisibilityAudience>(
     draft.visibilityAudience,
   );
+  const [hideOwnerPublicly, setHideOwnerPublicly] = useState(draft.hideOwnerPublicly);
   const [selectedSocialSignal, setSelectedSocialSignal] = useState<SocialSignalKey | null>(
     draft.selectedSocialSignal,
   );
@@ -170,6 +202,8 @@ export function FursuitStep({
   const [selectedConventionIds, setSelectedConventionIds] = useState<Set<string>>(
     new Set(draft.selectedConventionIds),
   );
+  const [pendingMemberships, setPendingMemberships] = useState<Set<string>>(new Set());
+  const [conventionError, setConventionError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
   const hasAppliedDefaultConventionsRef = useRef(draft.selectedConventionIds.length > 0);
   const colorLoadError = colorError
@@ -210,6 +244,14 @@ export function FursuitStep({
     [profileConventionMemberships],
   );
 
+  const conventionMembershipById = useMemo(
+    () =>
+      new Map(
+        profileConventionMemberships.map((membership) => [membership.convention_id, membership]),
+      ),
+    [profileConventionMemberships],
+  );
+
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
   const conventionsLoadError = conventionsError
     ? getUserVisibleErrorMessage(conventionsError, 'We could not load conventions.')
@@ -224,6 +266,48 @@ export function FursuitStep({
         .filter((option): option is FursuitColorOption => Boolean(option)),
     [colorOptions, selectedColorIds],
   );
+
+  const speciesSuggestions = useMemo(
+    () =>
+      buildFursuitSpeciesSuggestions({
+        speciesOptions,
+        selectedSpecies: [],
+        input: speciesInput,
+      }),
+    [speciesInput, speciesOptions],
+  );
+
+  const selectConventionForSuit = useCallback((conventionId: string) => {
+    setSelectedConventionIds((current) => {
+      if (current.has(conventionId)) {
+        return current;
+      }
+
+      return new Set([...current, conventionId]);
+    });
+  }, []);
+
+  const unselectConventionForSuit = useCallback((conventionId: string) => {
+    setSelectedConventionIds((current) => {
+      if (!current.has(conventionId)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.delete(conventionId);
+      return next;
+    });
+  }, []);
+
+  const { verifyConvention, verificationModals, isVerifyingConvention } =
+    useConventionVerificationAction({
+      profileId: userId,
+      onVerified: async (convention) => {
+        setConventionError(null);
+        selectConventionForSuit(convention.id);
+        await refetchProfileConventions({ throwOnError: false });
+      },
+    });
 
   useEffect(() => {
     return () => {
@@ -240,6 +324,12 @@ export function FursuitStep({
       setVisibilityAudience('everyone');
     }
   }, [canUseAdultsOnlyFursuitVisibility, hasLoadedProfile, visibilityAudience]);
+
+  useEffect(() => {
+    if (!anonymousFursuitsEnabled && hideOwnerPublicly) {
+      setHideOwnerPublicly(false);
+    }
+  }, [anonymousFursuitsEnabled, hideOwnerPublicly]);
 
   const createTimeoutPromise = useCallback(
     (eventType: string) =>
@@ -340,23 +430,29 @@ export function FursuitStep({
       nameInput,
       speciesInput,
       descriptionInput,
+      photoCreditInput,
+      showPhotoCreditInput,
       selectedColorIds,
       selectedConventionIds: [...selectedConventionIds],
       selectedPhoto,
+      hideOwnerPublicly,
       visibilityAudience,
       selectedSocialSignal,
       selectedInteractionBadges,
     });
   }, [
     descriptionInput,
+    hideOwnerPublicly,
     isExpanded,
     nameInput,
     onDraftChange,
+    photoCreditInput,
     selectedColorIds,
     selectedConventionIds,
     selectedInteractionBadges,
     selectedPhoto,
     selectedSocialSignal,
+    showPhotoCreditInput,
     speciesInput,
     visibilityAudience,
   ]);
@@ -399,25 +495,93 @@ export function FursuitStep({
   }, []);
 
   const handleConventionToggle = useCallback(
-    (conventionId: string, nextSelected: boolean) => {
-      if (!profileConventionIdSet.has(conventionId)) {
+    async (
+      conventionId: string,
+      nextSelected: boolean,
+      verifiedLocation?: VerifiedLocation | null,
+    ) => {
+      if (isSubmitting) {
         return;
       }
 
-      setSelectedConventionIds((current) => {
+      setConventionError(null);
+
+      if (!nextSelected) {
+        unselectConventionForSuit(conventionId);
+        return;
+      }
+
+      if (profileConventionIdSet.has(conventionId)) {
+        selectConventionForSuit(conventionId);
+        return;
+      }
+
+      const key = `profile:${userId}:${conventionId}`;
+
+      if (pendingMemberships.has(key)) {
+        return;
+      }
+
+      setPendingMemberships((current) => {
         const next = new Set(current);
-
-        if (nextSelected) {
-          next.add(conventionId);
-        } else {
-          next.delete(conventionId);
-        }
-
+        next.add(key);
         return next;
       });
+
+      try {
+        await optInToConvention({
+          profileId: userId,
+          conventionId,
+          verifiedLocation: verifiedLocation ?? undefined,
+          verificationMethod: verifiedLocation ? 'gps' : 'none',
+        });
+        selectConventionForSuit(conventionId);
+        await Promise.all([
+          refetchProfileConventions({ throwOnError: false }),
+          queryClient.invalidateQueries({
+            queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
+          }),
+          queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] }),
+        ]);
+      } catch (caught) {
+        captureHandledException(caught, {
+          scope: 'onboarding.fursuitStep.handleConventionToggle',
+          additionalContext: {
+            conventionId,
+            userId,
+            verifiedLocationProvided: Boolean(verifiedLocation),
+          },
+        });
+        setConventionError(
+          getUserVisibleErrorMessage(
+            caught,
+            'We could not update your convention attendance right now. Please try again.',
+          ),
+        );
+      } finally {
+        setPendingMemberships((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+      }
     },
-    [profileConventionIdSet],
+    [
+      isSubmitting,
+      pendingMemberships,
+      profileConventionIdSet,
+      queryClient,
+      refetchProfileConventions,
+      selectConventionForSuit,
+      unselectConventionForSuit,
+      userId,
+    ],
   );
+
+  const handleSpeciesSuggestionSelect = useCallback((speciesName: string) => {
+    Keyboard.dismiss();
+    setSpeciesInput(speciesName);
+  }, []);
 
   const handlePickPhoto = async () => {
     try {
@@ -480,6 +644,8 @@ export function FursuitStep({
 
     void deleteDraftPhoto(userId, selectedPhoto);
     setSelectedPhoto(null);
+    setPhotoCreditInput('');
+    setShowPhotoCreditInput(false);
     setPhotoError(null);
   };
 
@@ -489,8 +655,11 @@ export function FursuitStep({
     setNameInput(emptyDraft.nameInput);
     setSpeciesInput(emptyDraft.speciesInput);
     setDescriptionInput(emptyDraft.descriptionInput);
+    setPhotoCreditInput(emptyDraft.photoCreditInput);
+    setShowPhotoCreditInput(emptyDraft.showPhotoCreditInput);
     setSelectedColorIds(emptyDraft.selectedColorIds);
     setSelectedConventionIds(new Set(profileConventionIdSet));
+    setHideOwnerPublicly(false);
     setVisibilityAudience('everyone');
     setSelectedSocialSignal(emptyDraft.selectedSocialSignal);
     setSelectedInteractionBadges(emptyDraft.selectedInteractionBadges);
@@ -566,7 +735,9 @@ export function FursuitStep({
         species: trimmedSpecies,
         description: trimmedDescription.length > 0 ? trimmedDescription : null,
         photo: selectedPhoto,
+        photoCredit: selectedPhoto ? photoCreditInput.trim() : '',
         colorIds,
+        hideOwnerPublicly: anonymousFursuitsEnabled && hideOwnerPublicly,
         visibilityAudience,
         socialSignal: selectedSocialSignal,
         interactionBadges: selectedInteractionBadges,
@@ -668,6 +839,26 @@ export function FursuitStep({
                 autoCorrect
                 returnKeyType="done"
               />
+              {speciesSuggestions.length > 0 ? (
+                <View style={styles.speciesSuggestionSection}>
+                  <Text style={styles.helperLabel}>
+                    {speciesInput.trim() ? 'Matching species' : 'Popular species'}
+                  </Text>
+                  <View style={styles.speciesSuggestionList}>
+                    {speciesSuggestions.map((suggestion) => (
+                      <Pressable
+                        key={suggestion.key}
+                        accessibilityRole="button"
+                        onPress={() => handleSpeciesSuggestionSelect(suggestion.name)}
+                        style={styles.colorChip}
+                        disabled={isSubmitting}
+                      >
+                        <Text style={styles.colorChipLabel}>{suggestion.name}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
             </View>
 
             <View style={styles.fieldGroup}>
@@ -873,6 +1064,31 @@ export function FursuitStep({
                   Choose photo
                 </TailTagButton>
               )}
+              {selectedPhoto ? (
+                showPhotoCreditInput ? (
+                  <View style={styles.helperColumn}>
+                    <Text style={styles.helperLabel}>
+                      Credit the photographer for your fursuit photo, if you want to share one.
+                    </Text>
+                    <TailTagInput
+                      value={photoCreditInput}
+                      onChangeText={setPhotoCreditInput}
+                      placeholder="Photographer name, handle, or credit line"
+                      editable={!isSubmitting}
+                      returnKeyType="next"
+                    />
+                  </View>
+                ) : (
+                  <TailTagButton
+                    variant="outline"
+                    size="sm"
+                    onPress={() => setShowPhotoCreditInput(true)}
+                    disabled={isSubmitting}
+                  >
+                    Add photo credit
+                  </TailTagButton>
+                )
+              ) : null}
               {photoError ? <Text style={styles.error}>{photoError}</Text> : null}
             </View>
 
@@ -886,6 +1102,30 @@ export function FursuitStep({
                 disabled={isSubmitting}
               />
             </View>
+
+            {anonymousFursuitsEnabled ? (
+              <View style={styles.fieldGroup}>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchText}>
+                    <Text style={styles.label}>Hide owner publicly</Text>
+                    <Text style={styles.helperLabel}>
+                      Players can still catch this suit, but they will not see that it belongs to
+                      you.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={hideOwnerPublicly}
+                    onValueChange={setHideOwnerPublicly}
+                    disabled={isSubmitting}
+                    accessibilityRole="switch"
+                    accessibilityLabel="Hide owner publicly"
+                    accessibilityHint="Controls whether other players can see you own this fursuit."
+                    trackColor={{ false: colors.borderStrong, true: colors.primaryBorder }}
+                    thumbColor={hideOwnerPublicly ? colors.primary : colors.textMuted}
+                  />
+                </View>
+              </View>
+            ) : null}
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Convention roster</Text>
@@ -913,34 +1153,44 @@ export function FursuitStep({
                 <Text style={styles.helperLabel}>
                   No conventions are open for joining right now.
                 </Text>
-              ) : profileConventionIdSet.size === 0 ? (
-                <Text style={styles.helperLabel}>
-                  Attend a convention before listing this suit.
-                </Text>
               ) : (
                 <View style={styles.conventionList}>
                   {conventions.map((convention) => {
                     const isAllowed = profileConventionIdSet.has(convention.id);
                     const isSelected = selectedConventionIds.has(convention.id);
+                    const membership = conventionMembershipById.get(convention.id);
+                    const membershipKey = `profile:${userId}:${convention.id}`;
+                    const isPending = pendingMemberships.has(membershipKey);
 
                     return (
                       <ConventionToggle
                         key={convention.id}
                         convention={convention}
                         selected={isSelected}
-                        pending={false}
-                        disabled={isSubmitting || !isAllowed}
+                        pending={isPending || isVerifyingConvention}
+                        disabled={isSubmitting}
                         badgeText={
-                          isAllowed ? (isSelected ? 'Listed' : 'List suit') : 'Attend first'
+                          isSelected
+                            ? 'Listed'
+                            : membership?.membership_state === 'needs_location_verification'
+                              ? 'Verify location'
+                              : isAllowed
+                                ? 'List suit'
+                                : 'Attend'
                         }
-                        onToggle={(conventionId, nextSelected) =>
-                          handleConventionToggle(conventionId, nextSelected)
+                        membershipState={membership?.membership_state}
+                        profileId={userId}
+                        onVerifyLocation={verifyConvention}
+                        onToggle={(conventionId, nextSelected, verifiedLocation) =>
+                          void handleConventionToggle(conventionId, nextSelected, verifiedLocation)
                         }
                       />
                     );
                   })}
                 </View>
               )}
+              {conventionError ? <Text style={styles.error}>{conventionError}</Text> : null}
+              {verificationModals}
             </View>
 
             {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
