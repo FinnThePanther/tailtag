@@ -1550,37 +1550,6 @@ export default function EditFursuitScreen() {
                 ) : null}
               </View>
 
-              {anonymousFursuitsEnabled ? (
-                <View style={styles.fieldGroup}>
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchText}>
-                      <Text style={styles.label}>Hide owner publicly</Text>
-                      <Text style={styles.helperLabel}>
-                        Players can still catch this suit, but they will not see that it belongs to
-                        you.
-                      </Text>
-                    </View>
-                    <Switch
-                      value={hideOwnerPublicly}
-                      onValueChange={setHideOwnerPublicly}
-                      disabled={disableForm}
-                      accessibilityRole="switch"
-                      accessibilityLabel="Hide owner publicly"
-                      accessibilityHint="Controls whether other players can see you own this fursuit."
-                      trackColor={{ false: colors.borderStrong, true: colors.primaryBorder }}
-                      thumbColor={hideOwnerPublicly ? colors.primary : colors.textMuted}
-                    />
-                  </View>
-                </View>
-              ) : initialHideOwnerPublicly ? (
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>Owner hidden publicly</Text>
-                  <Text style={styles.helperLabel}>
-                    This suit is currently hidden from public owner attribution.
-                  </Text>
-                </View>
-              ) : null}
-
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Colors</Text>
                 <Text style={styles.helperLabel}>Optional. Pick up to three colors.</Text>
@@ -1789,6 +1758,37 @@ export default function EditFursuitScreen() {
                   disabled={disableForm}
                 />
               </View>
+
+              {anonymousFursuitsEnabled ? (
+                <View style={styles.fieldGroup}>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchText}>
+                      <Text style={styles.label}>Hide owner publicly</Text>
+                      <Text style={styles.helperLabel}>
+                        Players can still catch this suit, but they will not see that it belongs to
+                        you.
+                      </Text>
+                    </View>
+                    <Switch
+                      value={hideOwnerPublicly}
+                      onValueChange={setHideOwnerPublicly}
+                      disabled={disableForm}
+                      accessibilityRole="switch"
+                      accessibilityLabel="Hide owner publicly"
+                      accessibilityHint="Controls whether other players can see you own this fursuit."
+                      trackColor={{ false: colors.borderStrong, true: colors.primaryBorder }}
+                      thumbColor={hideOwnerPublicly ? colors.primary : colors.textMuted}
+                    />
+                  </View>
+                </View>
+              ) : initialHideOwnerPublicly ? (
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>Owner hidden publicly</Text>
+                  <Text style={styles.helperLabel}>
+                    This suit is currently hidden from public owner attribution.
+                  </Text>
+                </View>
+              ) : null}
 
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Convention roster</Text>
