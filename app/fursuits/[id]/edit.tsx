@@ -43,6 +43,7 @@ import { ConventionToggle } from '../../../src/components/conventions/Convention
 import { FursuitConventionRosterControls } from '../../../src/components/conventions/FursuitConventionRosterControls';
 import { createProfileQueryOptions } from '../../../src/features/profile';
 import {
+  buildFursuitSpeciesSuggestions,
   ensureSpeciesEntry,
   fetchFursuitSpecies,
   FURSUIT_SPECIES_QUERY_KEY,
@@ -52,6 +53,7 @@ import {
   upsertSpeciesOptionsInCache,
   validateFursuitSpeciesSelection,
   type FursuitSpeciesOption,
+  type FursuitSpeciesSuggestion,
 } from '../../../src/features/species';
 import {
   fetchFursuitColors,
@@ -263,6 +265,9 @@ export default function EditFursuitScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingSpeciesSuggestionKey, setPendingSpeciesSuggestionKey] = useState<string | null>(
+    null,
+  );
   const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption[]>([]);
   const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
   const [initialColors, setInitialColors] = useState<FursuitColorOption[]>([]);
@@ -284,6 +289,7 @@ export default function EditFursuitScreen() {
   const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
   const codeCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
   const speciesLoadError = speciesError
     ? getUserVisibleErrorMessage(speciesError, 'We could not load species.')
@@ -300,26 +306,21 @@ export default function EditFursuitScreen() {
 
   const normalizedSpeciesInput = useMemo(() => normalizeSpeciesName(speciesInput), [speciesInput]);
 
-  const speciesSuggestions = useMemo(() => {
-    if (speciesOptions.length === 0) {
-      return [] as FursuitSpeciesOption[];
-    }
-
-    const selectedSpeciesIds = new Set(selectedSpecies.map((option) => option.id));
-    return speciesOptions
-      .filter(
-        (option) =>
-          !selectedSpeciesIds.has(option.id) &&
-          (!normalizedSpeciesInput || option.normalizedName.includes(normalizedSpeciesInput)),
-      )
-      .slice(0, 12);
-  }, [normalizedSpeciesInput, selectedSpecies, speciesOptions]);
+  const speciesSuggestions = useMemo(
+    () =>
+      buildFursuitSpeciesSuggestions({
+        speciesOptions,
+        selectedSpecies,
+        input: speciesInput,
+      }),
+    [selectedSpecies, speciesInput, speciesOptions],
+  );
 
   const handleSpeciesInputChange = useCallback((value: string) => {
     setSpeciesInput(value);
   }, []);
 
-  const handleSpeciesSelect = useCallback((option: FursuitSpeciesOption) => {
+  const addSelectedSpecies = useCallback((option: FursuitSpeciesOption) => {
     Keyboard.dismiss();
     setSelectedSpecies((current) => {
       const exists = current.some(
@@ -336,6 +337,44 @@ export default function EditFursuitScreen() {
     });
     setSpeciesInput('');
   }, []);
+
+  const handleSpeciesSelect = useCallback(
+    async (suggestion: FursuitSpeciesSuggestion) => {
+      if (selectedSpecies.length >= MAX_FURSUIT_SPECIES || pendingSpeciesSuggestionKey) {
+        return;
+      }
+
+      if (suggestion.option) {
+        addSelectedSpecies(suggestion.option);
+        return;
+      }
+
+      Keyboard.dismiss();
+      setSubmitError(null);
+      setPendingSpeciesSuggestionKey(suggestion.key);
+
+      try {
+        const record = await ensureSpeciesEntry(suggestion.name);
+        if (!isMountedRef.current) {
+          return;
+        }
+        queryClient.setQueryData<FursuitSpeciesOption[]>(
+          [FURSUIT_SPECIES_QUERY_KEY],
+          (current = []) => upsertSpeciesOptionsInCache(current, [record]),
+        );
+        addSelectedSpecies(record);
+      } catch (error) {
+        if (isMountedRef.current) {
+          setSubmitError(getUserVisibleErrorMessage(error, 'We could not add that species.'));
+        }
+      } finally {
+        if (isMountedRef.current) {
+          setPendingSpeciesSuggestionKey(null);
+        }
+      }
+    },
+    [addSelectedSpecies, pendingSpeciesSuggestionKey, queryClient, selectedSpecies.length],
+  );
 
   const handleRemoveSpecies = useCallback((optionId: string) => {
     setSelectedSpecies((current) => current.filter((option) => option.id !== optionId));
@@ -389,6 +428,12 @@ export default function EditFursuitScreen() {
     },
     [profileConventionIdSet],
   );
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!detail || hasHydratedFormRef.current || isProfileConventionsLoading) {
@@ -1323,7 +1368,44 @@ export default function EditFursuitScreen() {
                     </Pressable>
                   ))}
                 </View>
-                {isSpeciesBusy ? (
+                {speciesSuggestions.length > 0 ? (
+                  <View style={styles.speciesSuggestionSection}>
+                    <Text style={styles.helperLabel}>
+                      {normalizedSpeciesInput ? 'Matching species' : 'Popular species'}
+                    </Text>
+                    <View style={styles.speciesSuggestionList}>
+                      {speciesSuggestions.map((option) => {
+                        const isAtLimit = selectedSpecies.length >= MAX_FURSUIT_SPECIES;
+                        const isPending = pendingSpeciesSuggestionKey === option.key;
+                        const disableSuggestion =
+                          disableForm || isAtLimit || pendingSpeciesSuggestionKey !== null;
+                        return (
+                          <Pressable
+                            key={option.key}
+                            accessibilityRole="button"
+                            onPress={() => {
+                              void handleSpeciesSelect(option);
+                            }}
+                            style={[
+                              styles.colorChip,
+                              disableSuggestion ? styles.colorChipDisabled : null,
+                            ]}
+                            disabled={disableSuggestion}
+                          >
+                            <Text
+                              style={[
+                                styles.colorChipLabel,
+                                disableSuggestion ? styles.colorChipLabelDisabled : null,
+                              ]}
+                            >
+                              {isPending ? 'Adding…' : option.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ) : isSpeciesBusy ? (
                   <Text style={styles.helperLabel}>Loading species…</Text>
                 ) : speciesLoadError ? (
                   <View style={styles.helperColumn}>
@@ -1338,35 +1420,6 @@ export default function EditFursuitScreen() {
                     >
                       Try again
                     </TailTagButton>
-                  </View>
-                ) : speciesSuggestions.length > 0 ? (
-                  <View style={styles.speciesSuggestionSection}>
-                    <Text style={styles.helperLabel}>
-                      {normalizedSpeciesInput ? 'Matching species' : 'Popular species'}
-                    </Text>
-                    <View style={styles.speciesSuggestionList}>
-                      {speciesSuggestions.map((option) => {
-                        const isAtLimit = selectedSpecies.length >= MAX_FURSUIT_SPECIES;
-                        return (
-                          <Pressable
-                            key={option.id}
-                            accessibilityRole="button"
-                            onPress={() => handleSpeciesSelect(option)}
-                            style={[styles.colorChip, isAtLimit ? styles.colorChipDisabled : null]}
-                            disabled={disableForm || isAtLimit}
-                          >
-                            <Text
-                              style={[
-                                styles.colorChipLabel,
-                                isAtLimit ? styles.colorChipLabelDisabled : null,
-                              ]}
-                            >
-                              {option.name}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
                   </View>
                 ) : null}
               </View>
