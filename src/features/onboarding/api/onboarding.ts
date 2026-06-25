@@ -11,7 +11,7 @@ import {
 import { buildAuthenticatedStorageObjectUrl } from '../../../utils/supabase-image';
 import { emitGameplayEvent } from '../../events';
 
-import type { FursuitBiosInsert, FursuitsInsert } from '../../../types/database';
+import type { FursuitBiosInsert, FursuitsInsert } from '@/types/database';
 import { MAX_FURSUIT_COLORS } from '../../colors';
 import { MAX_FURSUITS_PER_USER } from '../../../constants/fursuits';
 import { ensureSpeciesEntry } from '../../species';

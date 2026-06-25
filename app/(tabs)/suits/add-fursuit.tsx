@@ -14,7 +14,7 @@ import { FURSUIT_BUCKET } from '../../../src/constants/storage';
 import { UNIQUE_CODE_ATTEMPTS, UNIQUE_INSERT_ATTEMPTS } from '../../../src/constants/codes';
 import { useAuth } from '../../../src/features/auth';
 import { supabase } from '../../../src/lib/supabase';
-import { captureNonCriticalError } from '../../../src/lib/sentry';
+import { captureHandledException, captureNonCriticalError } from '../../../src/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { generateUniqueCodeCandidate } from '../../../src/utils/code';
 import { loadUriAsUint8Array } from '../../../src/utils/files';
@@ -359,6 +359,14 @@ export default function AddFursuitScreen() {
         );
         addSelectedSpecies(record);
       } catch (error) {
+        captureHandledException(error, {
+          scope: 'add-fursuit.handleSpeciesSelect',
+          additionalContext: {
+            speciesName: suggestion.name,
+            suggestionSource: suggestion.source,
+            userId,
+          },
+        });
         if (isMountedRef.current) {
           setSubmitError(getUserVisibleErrorMessage(error, 'We could not add that species.'));
         }
@@ -368,7 +376,7 @@ export default function AddFursuitScreen() {
         }
       }
     },
-    [addSelectedSpecies, pendingSpeciesSuggestionKey, queryClient, selectedSpecies.length],
+    [addSelectedSpecies, pendingSpeciesSuggestionKey, queryClient, selectedSpecies.length, userId],
   );
 
   const handleRemoveSpecies = useCallback((optionId: string) => {
@@ -603,6 +611,14 @@ export default function AddFursuitScreen() {
           queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] }),
         ]);
       } catch (caught) {
+        captureHandledException(caught, {
+          scope: 'add-fursuit.handleConventionToggle',
+          additionalContext: {
+            conventionId,
+            userId,
+            verifiedLocationProvided: Boolean(verifiedLocation),
+          },
+        });
         setConventionError(
           getUserVisibleErrorMessage(
             caught,
@@ -913,6 +929,7 @@ export default function AddFursuitScreen() {
       setSelectedColors([]);
       setSelectedPronouns([]);
       setPhotoCreditInput('');
+      setShowPhotoCreditInput(false);
       setLikesInput('');
       setAskMeAboutInput('');
       setMakers(createInitialFursuitMakers());
