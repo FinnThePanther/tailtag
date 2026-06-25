@@ -215,10 +215,14 @@ export default function CatchDetailScreen() {
                 </TailTagButton>
               </View>
             ) : null}
-            {!isFursuitRedacted && fursuitBioHasDisplayableContent(details.bio, details.makers) ? (
+            {!isFursuitRedacted &&
+            fursuitBioHasDisplayableContent(details.bio, details.makers, {
+              hideSocialLinks: details.ownerAttributionVisibility === 'hidden',
+            }) ? (
               <FursuitBioDetails
                 bio={details.bio}
                 makers={details.makers}
+                hideSocialLinks={details.ownerAttributionVisibility === 'hidden'}
               />
             ) : null}
           </View>

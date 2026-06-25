@@ -72,10 +72,16 @@ export async function fetchFursuitDetail(
 
   const conventions = mapFursuitConventionAppearances(row.fursuit_conventions ?? []);
 
-  const profileSocialLinks = parseSocialLinks(row.owner_social_links ?? null);
+  const ownerAttributionVisibility =
+    row.owner_attribution_visibility === 'hidden' ? 'hidden' : 'public';
+  const hideSocialLinks = ownerAttributionVisibility === 'hidden';
+  const profileSocialLinks = hideSocialLinks
+    ? []
+    : parseSocialLinks(row.owner_social_links ?? null);
   const bio = applyProfileSocialLinksToBio(
     mapLatestFursuitBio(row.fursuit_bio ?? null),
     profileSocialLinks,
+    { hideSocialLinks },
   );
   const speciesEntry = isSpeciesEntry(row.species_entry) ? row.species_entry : null;
   const { data: speciesAssignments, error: speciesAssignmentsError } = await (supabase as any)
@@ -143,7 +149,7 @@ export async function fetchFursuitDetail(
     description: row.description ?? null,
     unique_code: row.unique_code ?? null,
     visibility_audience: normalizeVisibilityAudience(row.visibility_audience),
-    ownerAttributionVisibility: row.owner_attribution_visibility === 'hidden' ? 'hidden' : 'public',
+    ownerAttributionVisibility,
     socialSignal: normalizeSocialSignal(row.social_signal),
     interactionBadges: normalizeInteractionBadges(row.interaction_badges),
     catchCount: resolvedCatchCount,
