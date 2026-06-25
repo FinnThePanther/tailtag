@@ -17,6 +17,7 @@ type FursuitCardProps = {
   uniqueCode?: string | null;
   timelineLabel?: string | null;
   codeLabel?: string | null;
+  statusBadgeLabel?: string | null;
   actionSlot?: ReactNode;
   onPress?: () => void;
   onCodeCopied?: () => void;
@@ -62,6 +63,7 @@ export function FursuitCard({
   uniqueCode,
   timelineLabel,
   codeLabel = 'Catch code',
+  statusBadgeLabel,
   actionSlot,
   onPress,
   onCodeCopied,
@@ -101,12 +103,22 @@ export function FursuitCard({
           )}
         </View>
         <View style={styles.details}>
-          <Text
-            style={styles.name}
-            numberOfLines={2}
-          >
-            {name}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text
+              style={styles.name}
+              numberOfLines={2}
+            >
+              {name}
+            </Text>
+            {statusBadgeLabel ? (
+              <View
+                accessibilityLabel={statusBadgeLabel}
+                style={styles.statusBadge}
+              >
+                <Text style={styles.statusBadgeText}>{statusBadgeLabel}</Text>
+              </View>
+            ) : null}
+          </View>
           <Text
             style={styles.species}
             numberOfLines={2}

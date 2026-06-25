@@ -74,3 +74,9 @@ export {
   queueSuitAutoEnrollNotice,
   type SuitAutoEnrollNotice,
 } from './autoEnrollNotice';
+export {
+  consumeHiddenSuitAddedTip,
+  getHiddenSuitsVisiblePreference,
+  queueHiddenSuitAddedTip,
+  setHiddenSuitsVisiblePreference,
+} from './hiddenSuitControls';
