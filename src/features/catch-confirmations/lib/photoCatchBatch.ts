@@ -223,7 +223,6 @@ export async function submitPhotoCatchBatch(params: {
         status: 'uploading',
         catchId: catchResult.catchId,
         fursuitId: fursuit.id,
-        fursuitOwnerId: catchResult.fursuitOwnerId,
         fursuitName: fursuit.name,
         fursuitAvatarUrl: fursuit.avatarUrl,
         fursuitSpeciesName: fursuit.species,

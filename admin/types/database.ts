@@ -3406,7 +3406,7 @@ export type Database = {
           fursuit_interaction_badges: string[];
           fursuit_name: string;
           fursuit_owner_attribution_visibility: string;
-          fursuit_owner_id: string;
+          fursuit_owner_id: string | null;
           fursuit_redacted: boolean;
           fursuit_social_signal: string;
           fursuit_unique_code: string;
@@ -3466,7 +3466,7 @@ export type Database = {
           fursuit_name: string;
           fursuit_redacted: boolean;
           last_caught_at: string;
-          owner_id: string;
+          owner_id: string | null;
           species_id: string;
           species_name: string;
           unique_catchers: number;
@@ -3482,7 +3482,7 @@ export type Database = {
           fursuit_avatar_url: string;
           fursuit_id: string;
           fursuit_name: string;
-          owner_id: string;
+          owner_id: string | null;
           owner_username: string;
           roster_visible: boolean;
           species_id: string;
@@ -3540,7 +3540,7 @@ export type Database = {
           makers: Json;
           name: string;
           owner_attribution_visibility: string;
-          owner_id: string;
+          owner_id: string | null;
           owner_social_links: Json;
           social_signal: string;
           species_entry: Json;
@@ -3632,7 +3632,7 @@ export type Database = {
           fursuit_interaction_badges: string[];
           fursuit_name: string;
           fursuit_owner_attribution_visibility: string;
-          fursuit_owner_id: string;
+          fursuit_owner_id: string | null;
           fursuit_redacted: boolean;
           fursuit_social_signal: string;
           fursuit_unique_code: string;
@@ -3766,7 +3766,7 @@ export type Database = {
           makers: Json;
           name: string;
           owner_attribution_visibility: string;
-          owner_id: string;
+          owner_id: string | null;
           owner_social_links: Json;
           social_signal: string;
           species_entry: Json;

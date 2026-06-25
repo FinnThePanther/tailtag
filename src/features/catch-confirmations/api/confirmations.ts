@@ -419,7 +419,7 @@ export async function createCatch(params: CreateCatchParams): Promise<CreateCatc
       expiresAt: responseData.expires_at ?? null,
       catchNumber: responseData.catch_number ?? null,
       requiresApproval: responseData.requires_approval ?? false,
-      fursuitOwnerId: responseData.fursuit_owner_id,
+      fursuitOwnerId: stringField(responseData.fursuit_owner_id),
       conventionId: responseData.convention_id ?? params.conventionId ?? null,
       fursuitId: responseData.fursuit_id ?? params.fursuitId,
       fursuitName: responseData.fursuit_name,

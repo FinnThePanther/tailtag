@@ -26,9 +26,12 @@ export type OnboardingFursuitDraft = {
   nameInput: string;
   speciesInput: string;
   descriptionInput: string;
+  photoCreditInput: string;
+  showPhotoCreditInput: boolean;
   selectedColorIds: string[];
   selectedConventionIds: string[];
   selectedPhoto: FursuitPhotoCandidate | null;
+  hideOwnerPublicly: boolean;
   visibilityAudience: VisibilityAudience;
   selectedSocialSignal: SocialSignalKey | null;
   selectedInteractionBadges: InteractionBadgeKey[];
@@ -47,9 +50,12 @@ export const createEmptyFursuitDraft = (): OnboardingFursuitDraft => ({
   nameInput: '',
   speciesInput: '',
   descriptionInput: '',
+  photoCreditInput: '',
+  showPhotoCreditInput: false,
   selectedColorIds: [],
   selectedConventionIds: [],
   selectedPhoto: null,
+  hideOwnerPublicly: false,
   visibilityAudience: 'everyone',
   selectedSocialSignal: null,
   selectedInteractionBadges: [],
@@ -169,9 +175,12 @@ const normalizeFursuitDraft = (value: unknown): OnboardingFursuitDraft => {
     nameInput: normalizeString(draft.nameInput),
     speciesInput: normalizeString(draft.speciesInput),
     descriptionInput: normalizeString(draft.descriptionInput),
+    photoCreditInput: normalizeString(draft.photoCreditInput),
+    showPhotoCreditInput: draft.showPhotoCreditInput === true,
     selectedColorIds,
     selectedConventionIds,
     selectedPhoto: isPhotoCandidate(draft.selectedPhoto) ? draft.selectedPhoto : null,
+    hideOwnerPublicly: draft.hideOwnerPublicly === true,
     visibilityAudience: normalizeVisibilityAudience(draft.visibilityAudience),
     selectedSocialSignal: normalizeSocialSignal(draft.selectedSocialSignal),
     selectedInteractionBadges: normalizeInteractionBadges(draft.selectedInteractionBadges),
