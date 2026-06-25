@@ -13,9 +13,13 @@ import { emitGameplayEvent } from '../../events';
 
 import type { FursuitBiosInsert, FursuitsInsert } from '@/types/database';
 import { MAX_FURSUIT_COLORS } from '../../colors';
-import { MAX_FURSUITS_PER_USER } from '../../../constants/fursuits';
-import { ensureSpeciesEntry } from '../../species';
+import { getMaxFursuitsForFeatureState, MAX_FURSUITS_PER_USER } from '@/constants/fursuits';
+import { ensureSpeciesEntry } from '@/features/species';
 import { normalizeVisibilityAudience, type VisibilityAudience } from '@/features/adult-boundary';
+import {
+  EXPANDED_FURSUIT_LIMIT_FEATURE_KEY,
+  isFeatureEnabledForProfile,
+} from '@/features/feature-flags';
 import {
   getInteractionPreferencesError,
   normalizeInteractionBadges,
@@ -107,8 +111,19 @@ export async function createQuickFursuit(options: {
     throw new Error(`We couldn't verify your fursuit count: ${countError.message}`);
   }
 
-  if ((count ?? 0) >= MAX_FURSUITS_PER_USER) {
-    throw new Error(`You can only have ${MAX_FURSUITS_PER_USER} fursuits.`);
+  const fursuitCount = count ?? 0;
+  const expandedFursuitLimitEnabled =
+    fursuitCount >= MAX_FURSUITS_PER_USER
+      ? await isFeatureEnabledForProfile(EXPANDED_FURSUIT_LIMIT_FEATURE_KEY, userId)
+      : false;
+  const fursuitLimit = getMaxFursuitsForFeatureState(expandedFursuitLimitEnabled);
+
+  if (fursuitCount >= fursuitLimit) {
+    throw new Error(
+      expandedFursuitLimitEnabled
+        ? "You've reached your fursuit limit."
+        : `You can only have ${MAX_FURSUITS_PER_USER} fursuits.`,
+    );
   }
 
   let uploadedStoragePath: string | null = null;
