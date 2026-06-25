@@ -11,6 +11,7 @@ import {
   Flag,
   Check,
   ToggleLeft,
+  Activity,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -23,6 +24,7 @@ const navItems = [
   { href: '/staff', label: 'Staff', icon: UserCog },
   { href: '/analytics', label: 'Analytics', icon: ShieldCheck },
   { href: '/achievements', label: 'Achievements', icon: ShieldCheck },
+  { href: '/backend-health', label: 'Backend Health', icon: Activity },
   { href: '/errors', label: 'Errors', icon: ShieldCheck },
   { href: '/checklist', label: 'Pre-Event Checklist', icon: Check },
   { href: '/reports', label: 'Reports', icon: Flag },

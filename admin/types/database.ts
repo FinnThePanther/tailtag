@@ -3290,6 +3290,20 @@ export type Database = {
           worker_name: string;
         }[];
       };
+      get_gameplay_queue_health: {
+        Args: never;
+        Returns: {
+          dead_lettered_event_count: number;
+          grouped_failures: Json;
+          oldest_unprocessed_event_age_seconds: number;
+          oldest_unprocessed_event_received_at: string;
+          oldest_visible_message_age_seconds: number;
+          oldest_visible_message_enqueued_at: string;
+          queue_depth: number;
+          retrying_event_count: number;
+          visible_queue_depth: number;
+        }[];
+      };
       get_blocked_users: {
         Args: { p_user_id: string };
         Returns: {

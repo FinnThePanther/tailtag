@@ -3487,6 +3487,20 @@ export type Database = {
           convention_id: string
         }[]
       }
+      get_gameplay_queue_health: {
+        Args: never
+        Returns: {
+          dead_lettered_event_count: number
+          grouped_failures: Json
+          oldest_unprocessed_event_age_seconds: number
+          oldest_unprocessed_event_received_at: string
+          oldest_visible_message_age_seconds: number
+          oldest_visible_message_enqueued_at: string
+          queue_depth: number
+          retrying_event_count: number
+          visible_queue_depth: number
+        }[]
+      }
       get_global_dashboard_summary: {
         Args: never
         Returns: {
