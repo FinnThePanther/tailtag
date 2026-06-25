@@ -1,24 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Keyboard,
-  Platform,
-  Pressable,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, Pressable, Switch, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { AppImage } from '@/components/ui/AppImage';
-import { TailTagButton } from '@/components/ui/TailTagButton';
-import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { TailTagInput } from '@/components/ui/TailTagInput';
-import { KeyboardAwareFormWrapper } from '@/components/ui/KeyboardAwareFormWrapper';
+import { AppImage } from '../../../src/components/ui/AppImage';
+import { TailTagButton } from '../../../src/components/ui/TailTagButton';
+import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
+import { TailTagInput } from '../../../src/components/ui/TailTagInput';
+import { KeyboardAwareFormWrapper } from '../../../src/components/ui/KeyboardAwareFormWrapper';
 import {
   CAUGHT_SUITS_QUERY_KEY,
   FursuitBio,
@@ -28,7 +19,7 @@ import {
   isFursuitUniqueCodeAvailable,
   MY_SUITS_QUERY_KEY,
   MY_SUITS_COUNT_QUERY_KEY,
-} from '@/features/suits';
+} from '../../../src/features/suits';
 import {
   createEmptyFursuitMaker,
   createInitialFursuitMakers,
@@ -36,25 +27,21 @@ import {
   fursuitMakersToSave,
   hasDuplicateFursuitMakers,
   type EditableFursuitMaker,
-} from '@/features/suits/forms/makers';
+} from '../../../src/features/suits/forms/makers';
 import {
   addFursuitConvention,
-  ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
   CONVENTIONS_STALE_TIME,
   CONVENTION_SUIT_ROSTER_QUERY_KEY,
   createJoinableConventionsQueryOptions,
   fetchProfileConventionMemberships,
-  optInToConvention,
   removeFursuitConvention,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
-  useConventionVerificationAction,
   type ConventionMembership,
   type FursuitConventionRosterSettings,
-  type VerifiedLocation,
-} from '@/features/conventions';
-import { ConventionToggle } from '@/components/conventions/ConventionToggle';
-import { FursuitConventionRosterControls } from '@/components/conventions/FursuitConventionRosterControls';
-import { createProfileQueryOptions } from '@/features/profile';
+} from '../../../src/features/conventions';
+import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
+import { FursuitConventionRosterControls } from '../../../src/components/conventions/FursuitConventionRosterControls';
+import { createProfileQueryOptions } from '../../../src/features/profile';
 import {
   buildFursuitSpeciesSuggestions,
   ensureSpeciesEntry,
@@ -67,35 +54,39 @@ import {
   validateFursuitSpeciesSelection,
   type FursuitSpeciesOption,
   type FursuitSpeciesSuggestion,
-} from '@/features/species';
+} from '../../../src/features/species';
 import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
   type FursuitColorOption,
-} from '@/features/colors';
-import { useAuth } from '@/features/auth';
-import { supabase } from '@/lib/supabase';
-import { FURSUIT_BUCKET } from '@/constants/storage';
-import { loadUriAsUint8Array } from '@/utils/files';
-import { processImageForUpload, IMAGE_UPLOAD_PRESETS, extractStoragePath } from '@/utils/images';
-import { launchFursuitPhotoPickerAsync } from '@/utils/imagePicker';
-import { buildAuthenticatedStorageObjectUrl } from '@/utils/supabase-image';
-import { colors } from '@/theme';
-import { styles } from '@/app-styles/fursuits/[id]/edit.styles';
-import { captureHandledException } from '@/lib/sentry';
+} from '../../../src/features/colors';
+import { useAuth } from '../../../src/features/auth';
+import { supabase } from '../../../src/lib/supabase';
+import { FURSUIT_BUCKET } from '../../../src/constants/storage';
+import { loadUriAsUint8Array } from '../../../src/utils/files';
+import {
+  processImageForUpload,
+  IMAGE_UPLOAD_PRESETS,
+  extractStoragePath,
+} from '../../../src/utils/images';
+import { launchFursuitPhotoPickerAsync } from '../../../src/utils/imagePicker';
+import { buildAuthenticatedStorageObjectUrl } from '../../../src/utils/supabase-image';
+import { colors } from '../../../src/theme';
+import { styles } from '../../../src/app-styles/fursuits/[id]/edit.styles';
+import { captureHandledException } from '../../../src/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import {
   profileNeedsAgeAttestation,
   refreshAdultBoundaryCaches,
   type VisibilityAudience,
-} from '@/features/adult-boundary';
-import { normalizeUniqueCodeInput, isValidUniqueCodeInput } from '@/utils/code';
+} from '../../../src/features/adult-boundary';
+import { normalizeUniqueCodeInput, isValidUniqueCodeInput } from '../../../src/utils/code';
 import {
   ANONYMOUS_FURSUITS_FEATURE_KEY,
   featureFlagQueryKey,
   isFeatureEnabledForProfile,
-} from '@/features/feature-flags';
+} from '../../../src/features/feature-flags';
 import {
   InteractionPreferencesEditor,
   getInteractionPreferencesError,
@@ -254,14 +245,6 @@ export default function EditFursuitScreen() {
     [profileConventionMemberships],
   );
 
-  const conventionMembershipById = useMemo(
-    () =>
-      new Map(
-        profileConventionMemberships.map((membership) => [membership.convention_id, membership]),
-      ),
-    [profileConventionMemberships],
-  );
-
   const isConventionsBusy = isConventionsLoading || isProfileConventionsLoading;
   const conventionsLoadError = conventionsError
     ? getUserVisibleErrorMessage(conventionsError, 'We could not load conventions.')
@@ -275,16 +258,13 @@ export default function EditFursuitScreen() {
   const [speciesInput, setSpeciesInput] = useState('');
   const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
   const [photoCreditInput, setPhotoCreditInput] = useState('');
-  const [showPhotoCreditInput, setShowPhotoCreditInput] = useState(false);
   const [likesInput, setLikesInput] = useState('');
   const [askMeAboutInput, setAskMeAboutInput] = useState('');
   const [makers, setMakers] = useState<EditableFursuitMaker[]>(() => createInitialFursuitMakers());
   const [initialMakers, setInitialMakers] = useState<EditableFursuitMaker[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [conventionError, setConventionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [pendingMemberships, setPendingMemberships] = useState<Set<string>>(new Set());
   const [pendingSpeciesSuggestionKey, setPendingSpeciesSuggestionKey] = useState<string | null>(
     null,
   );
@@ -310,75 +290,6 @@ export default function EditFursuitScreen() {
   const [codeError, setCodeError] = useState<string | null>(null);
   const codeCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
-
-  const selectConventionForSuit = useCallback(
-    (conventionId: string, options?: { markInitial?: boolean }) => {
-      hasTouchedConventionRosterRef.current = true;
-
-      setSelectedConventionIds((current) => {
-        if (current.has(conventionId)) {
-          return current;
-        }
-
-        return new Set([...current, conventionId]);
-      });
-
-      setConventionRosterSettingsById((current) => ({
-        ...current,
-        [conventionId]: current[conventionId] ?? DEFAULT_ROSTER_SETTINGS,
-      }));
-
-      if (options?.markInitial) {
-        setInitialConventionIds((current) => {
-          if (current.has(conventionId)) {
-            return current;
-          }
-
-          return new Set([...current, conventionId]);
-        });
-
-        setInitialConventionRosterSettingsById((current) => ({
-          ...current,
-          [conventionId]: current[conventionId] ?? DEFAULT_ROSTER_SETTINGS,
-        }));
-      }
-    },
-    [],
-  );
-
-  const unselectConventionForSuit = useCallback((conventionId: string) => {
-    hasTouchedConventionRosterRef.current = true;
-
-    setSelectedConventionIds((current) => {
-      if (!current.has(conventionId)) {
-        return current;
-      }
-
-      const next = new Set(current);
-      next.delete(conventionId);
-      return next;
-    });
-
-    setConventionRosterSettingsById((current) => {
-      if (!(conventionId in current)) {
-        return current;
-      }
-
-      const next = { ...current };
-      delete next[conventionId];
-      return next;
-    });
-  }, []);
-
-  const { verifyConvention, verificationModals, isVerifyingConvention } =
-    useConventionVerificationAction({
-      profileId: userId,
-      onVerified: async (convention) => {
-        setConventionError(null);
-        selectConventionForSuit(convention.id);
-        await refetchProfileConventions({ throwOnError: false });
-      },
-    });
 
   const speciesLoadError = speciesError
     ? getUserVisibleErrorMessage(speciesError, 'We could not load species.')
@@ -453,15 +364,6 @@ export default function EditFursuitScreen() {
         );
         addSelectedSpecies(record);
       } catch (error) {
-        captureHandledException(error, {
-          scope: 'app/fursuits/[id]/edit.handleSpeciesSelect',
-          additionalContext: {
-            fursuitId,
-            speciesName: suggestion.name,
-            suggestionSource: suggestion.source,
-            userId,
-          },
-        });
         if (isMountedRef.current) {
           setSubmitError(getUserVisibleErrorMessage(error, 'We could not add that species.'));
         }
@@ -471,14 +373,7 @@ export default function EditFursuitScreen() {
         }
       }
     },
-    [
-      addSelectedSpecies,
-      fursuitId,
-      pendingSpeciesSuggestionKey,
-      queryClient,
-      selectedSpecies.length,
-      userId,
-    ],
+    [addSelectedSpecies, pendingSpeciesSuggestionKey, queryClient, selectedSpecies.length],
   );
 
   const handleRemoveSpecies = useCallback((optionId: string) => {
@@ -569,9 +464,7 @@ export default function EditFursuitScreen() {
       .map((p) => p.trim())
       .filter((p) => (PRONOUN_OPTIONS as readonly string[]).includes(p));
     setSelectedPronouns(parsedPronouns);
-    const savedPhotoCredit = bio?.photoCredit ?? '';
-    setPhotoCreditInput(savedPhotoCredit);
-    setShowPhotoCreditInput(Boolean(detail.avatar_url && savedPhotoCredit.trim()));
+    setPhotoCreditInput(bio?.photoCredit ?? '');
     setLikesInput(bio?.likesAndInterests ?? '');
     setAskMeAboutInput(bio?.askMeAbout ?? '');
 
@@ -743,12 +636,6 @@ export default function EditFursuitScreen() {
 
   const handleClearPhoto = () => {
     setSelectedPhoto(null);
-    if (!detail?.avatar_url) {
-      setPhotoCreditInput('');
-      setShowPhotoCreditInput(false);
-    } else if (!photoCreditInput.trim()) {
-      setShowPhotoCreditInput(false);
-    }
     setPhotoError(null);
   };
 
@@ -833,7 +720,7 @@ export default function EditFursuitScreen() {
     const trimmedName = nameInput.trim();
     const trimmedSpecies = speciesInput.trim();
     const trimmedPronouns = selectedPronouns.join(', ');
-    const trimmedPhotoCredit = selectedPhoto || detail.avatar_url ? photoCreditInput.trim() : '';
+    const trimmedPhotoCredit = photoCreditInput.trim();
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
 
@@ -1280,95 +1167,40 @@ export default function EditFursuitScreen() {
   };
 
   const disableForm = isLoading || !detail || !isOwner || isSubmitting || isDeleting;
-  const hasSuitPhoto = Boolean(selectedPhoto || detail?.avatar_url);
 
   const handleConventionToggle = useCallback(
-    async (
-      conventionId: string,
-      nextSelected: boolean,
-      verifiedLocation?: VerifiedLocation | null,
-    ) => {
-      if (disableForm || !userId) {
+    (conventionId: string, nextSelected: boolean) => {
+      if (disableForm || (nextSelected && !profileConventionIdSet.has(conventionId))) {
         return;
       }
 
-      setConventionError(null);
-
-      if (!nextSelected) {
-        unselectConventionForSuit(conventionId);
-        return;
-      }
-
-      if (profileConventionIdSet.has(conventionId)) {
-        selectConventionForSuit(conventionId);
-        return;
-      }
-
-      const key = `profile:${userId}:${conventionId}`;
-
-      if (pendingMemberships.has(key)) {
-        return;
-      }
-
-      setPendingMemberships((current) => {
+      hasTouchedConventionRosterRef.current = true;
+      setSelectedConventionIds((current) => {
         const next = new Set(current);
-        next.add(key);
+
+        if (nextSelected) {
+          next.add(conventionId);
+        } else {
+          next.delete(conventionId);
+        }
+
         return next;
       });
 
-      try {
-        await optInToConvention({
-          profileId: userId,
-          conventionId,
-          verifiedLocation: verifiedLocation ?? undefined,
-          verificationMethod: verifiedLocation ? 'gps' : 'none',
-        });
-        selectConventionForSuit(conventionId, { markInitial: true });
-        await Promise.all([
-          refetchProfileConventions({ throwOnError: false }),
-          queryClient.invalidateQueries({
-            queryKey: [ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY, userId],
-          }),
-          queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] }),
-          fursuitId
-            ? queryClient.invalidateQueries({ queryKey: fursuitDetailQueryKey(fursuitId) })
-            : Promise.resolve(),
-        ]);
-      } catch (caught) {
-        captureHandledException(caught, {
-          scope: 'app/fursuits/[id]/edit.handleConventionToggle',
-          additionalContext: {
-            conventionId,
-            fursuitId,
-            userId,
-            verifiedLocationProvided: Boolean(verifiedLocation),
-          },
-        });
-        setConventionError(
-          getUserVisibleErrorMessage(
-            caught,
-            'We could not update your convention attendance right now. Please try again.',
-          ),
-        );
-      } finally {
-        setPendingMemberships((current) => {
-          const next = new Set(current);
-          next.delete(key);
-          return next;
-        });
-      }
+      setConventionRosterSettingsById((current) => {
+        if (nextSelected) {
+          return {
+            ...current,
+            [conventionId]: current[conventionId] ?? DEFAULT_ROSTER_SETTINGS,
+          };
+        }
+
+        const next = { ...current };
+        delete next[conventionId];
+        return next;
+      });
     },
-    [
-      disableForm,
-      fursuitId,
-      pendingMemberships,
-      profileConventionIdSet,
-      queryClient,
-      refetchProfileConventions,
-      selectConventionForSuit,
-      unselectConventionForSuit,
-      userId,
-    ],
+    [disableForm, profileConventionIdSet],
   );
 
   const handleConventionRosterSettingsChange = useCallback(
@@ -1408,11 +1240,7 @@ export default function EditFursuitScreen() {
         title="Edit Fursuit"
         onBack={() => router.back()}
       />
-      <KeyboardAwareFormWrapper
-        contentContainerStyle={styles.container}
-        disableScrollOnKeyboardHide={Platform.OS === 'android'}
-        keyboardShouldPersistTaps={Platform.OS === 'android' ? 'always' : 'handled'}
-      >
+      <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
         <View style={styles.formCard}>
           {isLoading ? (
             <Text style={styles.message}>Loading your fursuit details…</Text>
@@ -1479,32 +1307,21 @@ export default function EditFursuitScreen() {
                     </TailTagButton>
                   ) : null}
                 </View>
-                {hasSuitPhoto ? (
-                  showPhotoCreditInput ? (
-                    <View style={styles.helperColumn}>
-                      <Text style={styles.helperLabel}>
-                        Credit the photographer for your fursuit photo, if you want to share one.
-                      </Text>
-                      <TailTagInput
-                        value={photoCreditInput}
-                        onChangeText={setPhotoCreditInput}
-                        placeholder="Photographer name, handle, or credit line"
-                        editable={!disableForm}
-                        returnKeyType="next"
-                      />
-                    </View>
-                  ) : (
-                    <TailTagButton
-                      variant="outline"
-                      size="sm"
-                      onPress={() => setShowPhotoCreditInput(true)}
-                      disabled={disableForm}
-                    >
-                      Add photo credit
-                    </TailTagButton>
-                  )
-                ) : null}
                 {photoError ? <Text style={styles.errorText}>{photoError}</Text> : null}
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Photo credit</Text>
+                <Text style={styles.helperLabel}>
+                  Credit the photographer for your fursuit photo, if you want to share one.
+                </Text>
+                <TailTagInput
+                  value={photoCreditInput}
+                  onChangeText={setPhotoCreditInput}
+                  placeholder="Photographer name, handle, or credit line"
+                  editable={!disableForm}
+                  returnKeyType="next"
+                />
               </View>
 
               <View style={styles.fieldGroup}>
@@ -1606,6 +1423,164 @@ export default function EditFursuitScreen() {
                   </View>
                 ) : null}
               </View>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Catch code</Text>
+                <Text style={styles.helperLabel}>
+                  Other players type this to catch your suit. 4-8 letters and numbers.
+                </Text>
+                <View style={styles.codeRow}>
+                  <TailTagInput
+                    value={codeInput}
+                    onChangeText={(v) => setCodeInput(normalizeUniqueCodeInput(v))}
+                    placeholder="Your unique catch code"
+                    editable={!disableForm}
+                    autoCapitalize="characters"
+                    returnKeyType="next"
+                    style={styles.codeInput}
+                  />
+                </View>
+                {isCheckingCode ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : codeError ? (
+                  <Text style={styles.errorText}>{codeError}</Text>
+                ) : codeInput !== initialCode &&
+                  isValidUniqueCodeInput(codeInput) &&
+                  !submitError ? (
+                  <Text style={styles.codeValidText}>Valid code</Text>
+                ) : null}
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Fursuit visibility</Text>
+                <Text style={styles.helperLabel}>
+                  18+ visibility limits this fursuit to players who have confirmed they are 18 or
+                  older. It does not allow adult or sexual content.
+                </Text>
+                {profileAlreadyAdultsOnly ? (
+                  <Text style={styles.helperLabel}>
+                    Your profile uses 18+ visibility, so this fursuit is already restricted by your
+                    profile setting.
+                  </Text>
+                ) : null}
+                <View style={styles.visibilityOptions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedVisibilityAudience === 'everyone' }}
+                    disabled={disableForm}
+                    onPress={() => setSelectedVisibilityAudience('everyone')}
+                    style={({ pressed }) => [
+                      styles.visibilityOption,
+                      selectedVisibilityAudience === 'everyone' && styles.visibilityOptionSelected,
+                      pressed && styles.visibilityOptionPressed,
+                    ]}
+                  >
+                    <View style={styles.visibilityOptionText}>
+                      <Text
+                        style={[
+                          styles.visibilityOptionTitle,
+                          selectedVisibilityAudience === 'everyone' &&
+                            styles.visibilityOptionTitleSelected,
+                        ]}
+                      >
+                        Everyone
+                      </Text>
+                      <Text style={styles.visibilityOptionDescription}>
+                        Any signed-in player can view this fursuit.
+                      </Text>
+                    </View>
+                    {selectedVisibilityAudience === 'everyone' ? (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={22}
+                        color={colors.primary}
+                      />
+                    ) : null}
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{
+                      selected: selectedVisibilityAudience === 'adults_only',
+                      disabled: disableForm || !canUseAdultsOnlyFursuitVisibility,
+                    }}
+                    disabled={disableForm || !canUseAdultsOnlyFursuitVisibility}
+                    onPress={() => setSelectedVisibilityAudience('adults_only')}
+                    style={({ pressed }) => [
+                      styles.visibilityOption,
+                      selectedVisibilityAudience === 'adults_only' &&
+                        styles.visibilityOptionSelected,
+                      !canUseAdultsOnlyFursuitVisibility && styles.visibilityOptionDisabled,
+                      pressed && styles.visibilityOptionPressed,
+                    ]}
+                  >
+                    <View style={styles.visibilityOptionText}>
+                      <Text
+                        style={[
+                          styles.visibilityOptionTitle,
+                          selectedVisibilityAudience === 'adults_only' &&
+                            styles.visibilityOptionTitleSelected,
+                          !canUseAdultsOnlyFursuitVisibility &&
+                            styles.visibilityOptionTitleDisabled,
+                        ]}
+                      >
+                        18+ visibility
+                      </Text>
+                      <Text
+                        style={[
+                          styles.visibilityOptionDescription,
+                          !canUseAdultsOnlyFursuitVisibility &&
+                            styles.visibilityOptionDescriptionDisabled,
+                        ]}
+                      >
+                        Only players who have confirmed they are 18 or older can view this fursuit.
+                      </Text>
+                    </View>
+                    {selectedVisibilityAudience === 'adults_only' ? (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={22}
+                        color={colors.primary}
+                      />
+                    ) : null}
+                  </Pressable>
+                </View>
+                {hasLoadedProfile && !canUseAdultsOnlyFursuitVisibility ? (
+                  <Text style={styles.helperLabel}>
+                    Confirm you are 18 or older to use 18+ visibility.
+                  </Text>
+                ) : null}
+              </View>
+
+              {anonymousFursuitsEnabled ? (
+                <View style={styles.fieldGroup}>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchText}>
+                      <Text style={styles.label}>Hide owner publicly</Text>
+                      <Text style={styles.helperLabel}>
+                        Players can still catch this suit, but they will not see that it belongs to
+                        you.
+                      </Text>
+                    </View>
+                    <Switch
+                      value={hideOwnerPublicly}
+                      onValueChange={setHideOwnerPublicly}
+                      disabled={disableForm}
+                      accessibilityRole="switch"
+                      accessibilityLabel="Hide owner publicly"
+                      accessibilityHint="Controls whether other players can see you own this fursuit."
+                      trackColor={{ false: colors.borderStrong, true: colors.primaryBorder }}
+                      thumbColor={hideOwnerPublicly ? colors.primary : colors.textMuted}
+                    />
+                  </View>
+                </View>
+              ) : initialHideOwnerPublicly ? (
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>Owner hidden publicly</Text>
+                  <Text style={styles.helperLabel}>
+                    This suit is currently hidden from public owner attribution.
+                  </Text>
+                </View>
+              ) : null}
+
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Colors</Text>
                 <Text style={styles.helperLabel}>Optional. Pick up to three colors.</Text>
@@ -1815,37 +1790,6 @@ export default function EditFursuitScreen() {
                 />
               </View>
 
-              {anonymousFursuitsEnabled ? (
-                <View style={styles.fieldGroup}>
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchText}>
-                      <Text style={styles.label}>Hide owner publicly</Text>
-                      <Text style={styles.helperLabel}>
-                        Players can still catch this suit, but they will not see that it belongs to
-                        you.
-                      </Text>
-                    </View>
-                    <Switch
-                      value={hideOwnerPublicly}
-                      onValueChange={setHideOwnerPublicly}
-                      disabled={disableForm}
-                      accessibilityRole="switch"
-                      accessibilityLabel="Hide owner publicly"
-                      accessibilityHint="Controls whether other players can see you own this fursuit."
-                      trackColor={{ false: colors.borderStrong, true: colors.primaryBorder }}
-                      thumbColor={hideOwnerPublicly ? colors.primary : colors.textMuted}
-                    />
-                  </View>
-                </View>
-              ) : initialHideOwnerPublicly ? (
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>Owner hidden publicly</Text>
-                  <Text style={styles.helperLabel}>
-                    This suit is currently hidden from public owner attribution.
-                  </Text>
-                </View>
-              ) : null}
-
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Convention roster</Text>
                 <Text style={styles.helperLabel}>
@@ -1870,14 +1814,15 @@ export default function EditFursuitScreen() {
                   </View>
                 ) : conventions.length === 0 ? (
                   <Text style={styles.message}>No conventions are open for joining right now.</Text>
+                ) : profileConventionIdSet.size === 0 ? (
+                  <Text style={styles.message}>
+                    Attend a convention in Settings before listing this suit.
+                  </Text>
                 ) : (
                   <View style={styles.conventionList}>
                     {conventions.map((convention) => {
                       const isAllowed = profileConventionIdSet.has(convention.id);
                       const isSelected = selectedConventionIds.has(convention.id);
-                      const membership = conventionMembershipById.get(convention.id);
-                      const membershipKey = `profile:${userId}:${convention.id}`;
-                      const isPending = pendingMemberships.has(membershipKey);
                       const rosterSettings =
                         conventionRosterSettingsById[convention.id] ?? DEFAULT_ROSTER_SETTINGS;
 
@@ -1889,26 +1834,13 @@ export default function EditFursuitScreen() {
                           <ConventionToggle
                             convention={convention}
                             selected={isSelected}
-                            pending={isPending || isVerifyingConvention}
-                            disabled={disableForm}
+                            pending={false}
+                            disabled={disableForm || (!isAllowed && !isSelected)}
                             badgeText={
-                              isSelected
-                                ? 'Listed'
-                                : membership?.membership_state === 'needs_location_verification'
-                                  ? 'Verify location'
-                                  : isAllowed
-                                    ? 'List suit'
-                                    : 'Attend'
+                              isAllowed ? (isSelected ? 'Listed' : 'List suit') : 'Attend first'
                             }
-                            membershipState={membership?.membership_state}
-                            profileId={userId ?? undefined}
-                            onVerifyLocation={verifyConvention}
-                            onToggle={(conventionId, nextSelected, verifiedLocation) =>
-                              void handleConventionToggle(
-                                conventionId,
-                                nextSelected,
-                                verifiedLocation,
-                              )
+                            onToggle={(conventionId, nextSelected) =>
+                              handleConventionToggle(conventionId, nextSelected)
                             }
                           />
                           {isSelected ? (
@@ -1925,135 +1857,6 @@ export default function EditFursuitScreen() {
                     })}
                   </View>
                 )}
-                {conventionError ? <Text style={styles.errorText}>{conventionError}</Text> : null}
-                {verificationModals}
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Catch code</Text>
-                <Text style={styles.helperLabel}>
-                  Other players type this to catch your suit. 4-8 letters and numbers.
-                </Text>
-                <View style={styles.codeRow}>
-                  <TailTagInput
-                    value={codeInput}
-                    onChangeText={(v) => setCodeInput(normalizeUniqueCodeInput(v))}
-                    placeholder="Your unique catch code"
-                    editable={!disableForm}
-                    autoCapitalize="characters"
-                    returnKeyType="next"
-                    style={styles.codeInput}
-                  />
-                </View>
-                {isCheckingCode ? (
-                  <ActivityIndicator color={colors.primary} />
-                ) : codeError ? (
-                  <Text style={styles.errorText}>{codeError}</Text>
-                ) : codeInput !== initialCode &&
-                  isValidUniqueCodeInput(codeInput) &&
-                  !submitError ? (
-                  <Text style={styles.codeValidText}>Valid code</Text>
-                ) : null}
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Fursuit visibility</Text>
-                <Text style={styles.helperLabel}>
-                  18+ visibility limits this fursuit to players who have confirmed they are 18 or
-                  older. It does not allow adult or sexual content.
-                </Text>
-                {profileAlreadyAdultsOnly ? (
-                  <Text style={styles.helperLabel}>
-                    Your profile uses 18+ visibility, so this fursuit is already restricted by your
-                    profile setting.
-                  </Text>
-                ) : null}
-                <View style={styles.visibilityOptions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: selectedVisibilityAudience === 'everyone' }}
-                    disabled={disableForm}
-                    onPress={() => setSelectedVisibilityAudience('everyone')}
-                    style={({ pressed }) => [
-                      styles.visibilityOption,
-                      selectedVisibilityAudience === 'everyone' && styles.visibilityOptionSelected,
-                      pressed && styles.visibilityOptionPressed,
-                    ]}
-                  >
-                    <View style={styles.visibilityOptionText}>
-                      <Text
-                        style={[
-                          styles.visibilityOptionTitle,
-                          selectedVisibilityAudience === 'everyone' &&
-                            styles.visibilityOptionTitleSelected,
-                        ]}
-                      >
-                        Everyone
-                      </Text>
-                      <Text style={styles.visibilityOptionDescription}>
-                        Any signed-in player can view this fursuit.
-                      </Text>
-                    </View>
-                    {selectedVisibilityAudience === 'everyone' ? (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={22}
-                        color={colors.primary}
-                      />
-                    ) : null}
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{
-                      selected: selectedVisibilityAudience === 'adults_only',
-                      disabled: disableForm || !canUseAdultsOnlyFursuitVisibility,
-                    }}
-                    disabled={disableForm || !canUseAdultsOnlyFursuitVisibility}
-                    onPress={() => setSelectedVisibilityAudience('adults_only')}
-                    style={({ pressed }) => [
-                      styles.visibilityOption,
-                      selectedVisibilityAudience === 'adults_only' &&
-                        styles.visibilityOptionSelected,
-                      !canUseAdultsOnlyFursuitVisibility && styles.visibilityOptionDisabled,
-                      pressed && styles.visibilityOptionPressed,
-                    ]}
-                  >
-                    <View style={styles.visibilityOptionText}>
-                      <Text
-                        style={[
-                          styles.visibilityOptionTitle,
-                          selectedVisibilityAudience === 'adults_only' &&
-                            styles.visibilityOptionTitleSelected,
-                          !canUseAdultsOnlyFursuitVisibility &&
-                            styles.visibilityOptionTitleDisabled,
-                        ]}
-                      >
-                        18+ visibility
-                      </Text>
-                      <Text
-                        style={[
-                          styles.visibilityOptionDescription,
-                          !canUseAdultsOnlyFursuitVisibility &&
-                            styles.visibilityOptionDescriptionDisabled,
-                        ]}
-                      >
-                        Only players who have confirmed they are 18 or older can view this fursuit.
-                      </Text>
-                    </View>
-                    {selectedVisibilityAudience === 'adults_only' ? (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={22}
-                        color={colors.primary}
-                      />
-                    ) : null}
-                  </Pressable>
-                </View>
-                {hasLoadedProfile && !canUseAdultsOnlyFursuitVisibility ? (
-                  <Text style={styles.helperLabel}>
-                    Confirm you are 18 or older to use 18+ visibility.
-                  </Text>
-                ) : null}
               </View>
 
               {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
