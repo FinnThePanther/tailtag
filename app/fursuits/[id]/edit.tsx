@@ -5,11 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { AppImage } from '../../../src/components/ui/AppImage';
-import { TailTagButton } from '../../../src/components/ui/TailTagButton';
-import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
-import { TailTagInput } from '../../../src/components/ui/TailTagInput';
-import { KeyboardAwareFormWrapper } from '../../../src/components/ui/KeyboardAwareFormWrapper';
+import { AppImage } from '@/components/ui/AppImage';
+import { TailTagButton } from '@/components/ui/TailTagButton';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { TailTagInput } from '@/components/ui/TailTagInput';
+import { KeyboardAwareFormWrapper } from '@/components/ui/KeyboardAwareFormWrapper';
 import {
   CAUGHT_SUITS_QUERY_KEY,
   FursuitBio,
@@ -19,7 +19,7 @@ import {
   isFursuitUniqueCodeAvailable,
   MY_SUITS_QUERY_KEY,
   MY_SUITS_COUNT_QUERY_KEY,
-} from '../../../src/features/suits';
+} from '@/features/suits';
 import {
   createEmptyFursuitMaker,
   createInitialFursuitMakers,
@@ -27,7 +27,7 @@ import {
   fursuitMakersToSave,
   hasDuplicateFursuitMakers,
   type EditableFursuitMaker,
-} from '../../../src/features/suits/forms/makers';
+} from '@/features/suits/forms/makers';
 import {
   addFursuitConvention,
   ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY,
@@ -42,10 +42,10 @@ import {
   type ConventionMembership,
   type FursuitConventionRosterSettings,
   type VerifiedLocation,
-} from '../../../src/features/conventions';
-import { ConventionToggle } from '../../../src/components/conventions/ConventionToggle';
-import { FursuitConventionRosterControls } from '../../../src/components/conventions/FursuitConventionRosterControls';
-import { createProfileQueryOptions } from '../../../src/features/profile';
+} from '@/features/conventions';
+import { ConventionToggle } from '@/components/conventions/ConventionToggle';
+import { FursuitConventionRosterControls } from '@/components/conventions/FursuitConventionRosterControls';
+import { createProfileQueryOptions } from '@/features/profile';
 import {
   buildFursuitSpeciesSuggestions,
   ensureSpeciesEntry,
@@ -58,39 +58,35 @@ import {
   validateFursuitSpeciesSelection,
   type FursuitSpeciesOption,
   type FursuitSpeciesSuggestion,
-} from '../../../src/features/species';
+} from '@/features/species';
 import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
   type FursuitColorOption,
-} from '../../../src/features/colors';
-import { useAuth } from '../../../src/features/auth';
-import { supabase } from '../../../src/lib/supabase';
-import { FURSUIT_BUCKET } from '../../../src/constants/storage';
-import { loadUriAsUint8Array } from '../../../src/utils/files';
-import {
-  processImageForUpload,
-  IMAGE_UPLOAD_PRESETS,
-  extractStoragePath,
-} from '../../../src/utils/images';
-import { launchFursuitPhotoPickerAsync } from '../../../src/utils/imagePicker';
-import { buildAuthenticatedStorageObjectUrl } from '../../../src/utils/supabase-image';
-import { colors } from '../../../src/theme';
-import { styles } from '../../../src/app-styles/fursuits/[id]/edit.styles';
-import { captureHandledException } from '../../../src/lib/sentry';
+} from '@/features/colors';
+import { useAuth } from '@/features/auth';
+import { supabase } from '@/lib/supabase';
+import { FURSUIT_BUCKET } from '@/constants/storage';
+import { loadUriAsUint8Array } from '@/utils/files';
+import { processImageForUpload, IMAGE_UPLOAD_PRESETS, extractStoragePath } from '@/utils/images';
+import { launchFursuitPhotoPickerAsync } from '@/utils/imagePicker';
+import { buildAuthenticatedStorageObjectUrl } from '@/utils/supabase-image';
+import { colors } from '@/theme';
+import { styles } from '@/app-styles/fursuits/[id]/edit.styles';
+import { captureHandledException } from '@/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import {
   profileNeedsAgeAttestation,
   refreshAdultBoundaryCaches,
   type VisibilityAudience,
-} from '../../../src/features/adult-boundary';
-import { normalizeUniqueCodeInput, isValidUniqueCodeInput } from '../../../src/utils/code';
+} from '@/features/adult-boundary';
+import { normalizeUniqueCodeInput, isValidUniqueCodeInput } from '@/utils/code';
 import {
   ANONYMOUS_FURSUITS_FEATURE_KEY,
   featureFlagQueryKey,
   isFeatureEnabledForProfile,
-} from '../../../src/features/feature-flags';
+} from '@/features/feature-flags';
 import {
   InteractionPreferencesEditor,
   getInteractionPreferencesError,
@@ -370,7 +366,7 @@ export default function EditFursuitScreen() {
       profileId: userId,
       onVerified: async (convention) => {
         setConventionError(null);
-        selectConventionForSuit(convention.id, { markInitial: true });
+        selectConventionForSuit(convention.id);
         await refetchProfileConventions({ throwOnError: false });
       },
     });
@@ -448,6 +444,15 @@ export default function EditFursuitScreen() {
         );
         addSelectedSpecies(record);
       } catch (error) {
+        captureHandledException(error, {
+          scope: 'app/fursuits/[id]/edit.handleSpeciesSelect',
+          additionalContext: {
+            fursuitId,
+            speciesName: suggestion.name,
+            suggestionSource: suggestion.source,
+            userId,
+          },
+        });
         if (isMountedRef.current) {
           setSubmitError(getUserVisibleErrorMessage(error, 'We could not add that species.'));
         }
@@ -457,7 +462,14 @@ export default function EditFursuitScreen() {
         }
       }
     },
-    [addSelectedSpecies, pendingSpeciesSuggestionKey, queryClient, selectedSpecies.length],
+    [
+      addSelectedSpecies,
+      fursuitId,
+      pendingSpeciesSuggestionKey,
+      queryClient,
+      selectedSpecies.length,
+      userId,
+    ],
   );
 
   const handleRemoveSpecies = useCallback((optionId: string) => {
@@ -1314,6 +1326,15 @@ export default function EditFursuitScreen() {
             : Promise.resolve(),
         ]);
       } catch (caught) {
+        captureHandledException(caught, {
+          scope: 'app/fursuits/[id]/edit.handleConventionToggle',
+          additionalContext: {
+            conventionId,
+            fursuitId,
+            userId,
+            verifiedLocationProvided: Boolean(verifiedLocation),
+          },
+        });
         setConventionError(
           getUserVisibleErrorMessage(
             caught,
