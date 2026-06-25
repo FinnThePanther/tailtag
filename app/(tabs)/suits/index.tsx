@@ -154,23 +154,25 @@ export default function MySuitsScreen() {
     };
   }, [userId]);
 
-  useEffect(() => {
-    if (!userId) {
-      return;
-    }
-
-    let cancelled = false;
-
-    void consumeHiddenSuitAddedTip(userId).then((shouldShowTip) => {
-      if (!cancelled && shouldShowTip) {
-        showToast('Press and hold Your fursuits to hide or show hidden suits.');
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) {
+        return;
       }
-    });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [showToast, userId]);
+      let cancelled = false;
+
+      void consumeHiddenSuitAddedTip(userId).then((shouldShowTip) => {
+        if (!cancelled && shouldShowTip) {
+          showToast('Press and hold Your fursuits to hide or show hidden suits.');
+        }
+      });
+
+      return () => {
+        cancelled = true;
+      };
+    }, [showToast, userId]),
+  );
 
   const handleAcceptCatch = useCallback(
     (catchId: string, conventionId?: string) => {
