@@ -187,6 +187,7 @@ export default function AddFursuitScreen() {
   const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
   const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
   const [photoCreditInput, setPhotoCreditInput] = useState('');
+  const [showPhotoCreditInput, setShowPhotoCreditInput] = useState(false);
   const [likesInput, setLikesInput] = useState('');
   const [askMeAboutInput, setAskMeAboutInput] = useState('');
   const [makers, setMakers] = useState<EditableFursuitMaker[]>(() => createInitialFursuitMakers());
@@ -685,6 +686,8 @@ export default function AddFursuitScreen() {
 
   const handleClearPhoto = () => {
     setSelectedPhoto(null);
+    setPhotoCreditInput('');
+    setShowPhotoCreditInput(false);
     setPhotoError(null);
   };
 
@@ -702,7 +705,7 @@ export default function AddFursuitScreen() {
 
     const trimmedName = nameInput.trim();
     const trimmedSpecies = speciesInput.trim();
-    const trimmedPhotoCredit = photoCreditInput.trim();
+    const trimmedPhotoCredit = selectedPhoto ? photoCreditInput.trim() : '';
     const pronounsValue = selectedPronouns
       .map((value) => value.trim())
       .filter((value) => value.length > 0)
@@ -1065,21 +1068,32 @@ export default function AddFursuitScreen() {
                 </TailTagButton>
               ) : null}
             </View>
+            {selectedPhoto ? (
+              showPhotoCreditInput ? (
+                <View style={styles.helperColumn}>
+                  <Text style={styles.helperLabel}>
+                    Credit the photographer for your fursuit photo, if you want to share one.
+                  </Text>
+                  <TailTagInput
+                    value={photoCreditInput}
+                    onChangeText={setPhotoCreditInput}
+                    placeholder="Photographer name, handle, or credit line"
+                    editable={!isSubmitting}
+                    returnKeyType="next"
+                  />
+                </View>
+              ) : (
+                <TailTagButton
+                  variant="outline"
+                  size="sm"
+                  onPress={() => setShowPhotoCreditInput(true)}
+                  disabled={isSubmitting}
+                >
+                  Add photo credit
+                </TailTagButton>
+              )
+            ) : null}
             {photoError ? <Text style={styles.errorText}>{photoError}</Text> : null}
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Photo credit</Text>
-            <Text style={styles.helperLabel}>
-              Credit the photographer for your fursuit photo, if you want to share one.
-            </Text>
-            <TailTagInput
-              value={photoCreditInput}
-              onChangeText={setPhotoCreditInput}
-              placeholder="Photographer name, handle, or credit line"
-              editable={!isSubmitting}
-              returnKeyType="next"
-            />
           </View>
 
           <View style={styles.fieldGroup}>

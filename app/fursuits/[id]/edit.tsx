@@ -270,6 +270,7 @@ export default function EditFursuitScreen() {
   const [speciesInput, setSpeciesInput] = useState('');
   const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
   const [photoCreditInput, setPhotoCreditInput] = useState('');
+  const [showPhotoCreditInput, setShowPhotoCreditInput] = useState(false);
   const [likesInput, setLikesInput] = useState('');
   const [askMeAboutInput, setAskMeAboutInput] = useState('');
   const [makers, setMakers] = useState<EditableFursuitMaker[]>(() => createInitialFursuitMakers());
@@ -547,7 +548,9 @@ export default function EditFursuitScreen() {
       .map((p) => p.trim())
       .filter((p) => (PRONOUN_OPTIONS as readonly string[]).includes(p));
     setSelectedPronouns(parsedPronouns);
-    setPhotoCreditInput(bio?.photoCredit ?? '');
+    const savedPhotoCredit = bio?.photoCredit ?? '';
+    setPhotoCreditInput(savedPhotoCredit);
+    setShowPhotoCreditInput(Boolean(detail.avatar_url && savedPhotoCredit.trim()));
     setLikesInput(bio?.likesAndInterests ?? '');
     setAskMeAboutInput(bio?.askMeAbout ?? '');
 
@@ -719,6 +722,12 @@ export default function EditFursuitScreen() {
 
   const handleClearPhoto = () => {
     setSelectedPhoto(null);
+    if (!detail?.avatar_url) {
+      setPhotoCreditInput('');
+      setShowPhotoCreditInput(false);
+    } else if (!photoCreditInput.trim()) {
+      setShowPhotoCreditInput(false);
+    }
     setPhotoError(null);
   };
 
@@ -803,7 +812,7 @@ export default function EditFursuitScreen() {
     const trimmedName = nameInput.trim();
     const trimmedSpecies = speciesInput.trim();
     const trimmedPronouns = selectedPronouns.join(', ');
-    const trimmedPhotoCredit = photoCreditInput.trim();
+    const trimmedPhotoCredit = selectedPhoto || detail.avatar_url ? photoCreditInput.trim() : '';
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
 
@@ -1250,6 +1259,7 @@ export default function EditFursuitScreen() {
   };
 
   const disableForm = isLoading || !detail || !isOwner || isSubmitting || isDeleting;
+  const hasSuitPhoto = Boolean(selectedPhoto || detail?.avatar_url);
 
   const handleConventionToggle = useCallback(
     async (
@@ -1435,21 +1445,32 @@ export default function EditFursuitScreen() {
                     </TailTagButton>
                   ) : null}
                 </View>
+                {hasSuitPhoto ? (
+                  showPhotoCreditInput ? (
+                    <View style={styles.helperColumn}>
+                      <Text style={styles.helperLabel}>
+                        Credit the photographer for your fursuit photo, if you want to share one.
+                      </Text>
+                      <TailTagInput
+                        value={photoCreditInput}
+                        onChangeText={setPhotoCreditInput}
+                        placeholder="Photographer name, handle, or credit line"
+                        editable={!disableForm}
+                        returnKeyType="next"
+                      />
+                    </View>
+                  ) : (
+                    <TailTagButton
+                      variant="outline"
+                      size="sm"
+                      onPress={() => setShowPhotoCreditInput(true)}
+                      disabled={disableForm}
+                    >
+                      Add photo credit
+                    </TailTagButton>
+                  )
+                ) : null}
                 {photoError ? <Text style={styles.errorText}>{photoError}</Text> : null}
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Photo credit</Text>
-                <Text style={styles.helperLabel}>
-                  Credit the photographer for your fursuit photo, if you want to share one.
-                </Text>
-                <TailTagInput
-                  value={photoCreditInput}
-                  onChangeText={setPhotoCreditInput}
-                  placeholder="Photographer name, handle, or credit line"
-                  editable={!disableForm}
-                  returnKeyType="next"
-                />
               </View>
 
               <View style={styles.fieldGroup}>
