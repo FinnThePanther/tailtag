@@ -2351,36 +2351,6 @@ export type Database = {
           },
         ]
       }
-      tutorial_fursuits: {
-        Row: {
-          created_at: string
-          fursuit_id: string
-        }
-        Insert: {
-          created_at?: string
-          fursuit_id: string
-        }
-        Update: {
-          created_at?: string
-          fursuit_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tutorial_fursuits_fursuit_id_fkey"
-            columns: ["fursuit_id"]
-            isOneToOne: true
-            referencedRelation: "fursuits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tutorial_fursuits_fursuit_id_fkey"
-            columns: ["fursuit_id"]
-            isOneToOne: true
-            referencedRelation: "fursuits_moderation"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_achievements: {
         Row: {
           achievement_id: string
