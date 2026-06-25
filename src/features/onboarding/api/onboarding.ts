@@ -11,7 +11,7 @@ import {
 import { buildAuthenticatedStorageObjectUrl } from '../../../utils/supabase-image';
 import { emitGameplayEvent } from '../../events';
 
-import type { FursuitsInsert } from '../../../types/database';
+import type { FursuitBiosInsert, FursuitsInsert } from '../../../types/database';
 import { MAX_FURSUIT_COLORS } from '../../colors';
 import { MAX_FURSUITS_PER_USER } from '../../../constants/fursuits';
 import { ensureSpeciesEntry } from '../../species';
@@ -87,7 +87,9 @@ export async function createQuickFursuit(options: {
   species: string;
   description: string | null;
   photo: FursuitPhotoCandidate | null;
+  photoCredit?: string | null;
   colorIds: string[];
+  hideOwnerPublicly?: boolean;
   visibilityAudience?: VisibilityAudience;
   socialSignal?: SocialSignalKey | null;
   interactionBadges?: InteractionBadgeKey[];
@@ -122,6 +124,7 @@ export async function createQuickFursuit(options: {
     const normalizedName = name.trim();
     const normalizedSpecies = species.trim();
     const normalizedDescription = description?.trim() ?? null;
+    const normalizedPhotoCredit = photo ? (options.photoCredit ?? '').trim() : '';
     const visibilityAudience = normalizeVisibilityAudience(options.visibilityAudience);
     const socialSignal = normalizeSocialSignal(options.socialSignal);
     const interactionBadges = normalizeInteractionBadges(options.interactionBadges);
@@ -158,6 +161,7 @@ export async function createQuickFursuit(options: {
 
       const payload: FursuitsInsert & {
         avatar_path?: string | null;
+        owner_attribution_visibility?: 'public' | 'hidden';
         visibility_audience?: VisibilityAudience;
       } = {
         owner_id: userId,
@@ -167,6 +171,7 @@ export async function createQuickFursuit(options: {
         avatar_url: avatarUrl,
         unique_code: uniqueCode,
         description: normalizedDescription,
+        owner_attribution_visibility: options.hideOwnerPublicly ? 'hidden' : 'public',
         visibility_audience: visibilityAudience,
         social_signal: socialSignal,
         interaction_badges: interactionBadges,
@@ -209,6 +214,40 @@ export async function createQuickFursuit(options: {
             }
 
             throw colorAssignmentError;
+          }
+        }
+
+        if (normalizedPhotoCredit) {
+          const bioPayload: FursuitBiosInsert = {
+            fursuit_id: fursuitId,
+            version: 1,
+            owner_name: '',
+            photo_credit: normalizedPhotoCredit,
+            pronouns: '',
+            likes_and_interests: '',
+            ask_me_about: '',
+            social_links: [],
+          };
+
+          const { error: bioError } = await client.from('fursuit_bios').insert(bioPayload);
+
+          if (bioError) {
+            const { error: cleanupFursuitError } = await client
+              .from('fursuits')
+              .delete()
+              .eq('id', fursuitId)
+              .eq('owner_id', userId);
+
+            if (cleanupFursuitError) {
+              captureSupabaseError(cleanupFursuitError, {
+                scope: 'onboarding.createQuickFursuit',
+                action: 'cleanupFursuitAfterBioFailure',
+                userId,
+                fursuitId,
+              });
+            }
+
+            throw bioError;
           }
         }
 
