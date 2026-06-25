@@ -311,6 +311,3 @@ default. If `package.json` changes native-looking packages (`expo-*`, `@expo/*`,
 `react-native-*`, or `@react-native/*`) without native project/config changes,
 CI fails. Run `expo prebuild` and include the resulting native project changes,
 or use an EAS skip directive for an intentional exception.
-
-The Branch Sync workflow runs daily and fails if `dev` does not contain `main`.
-Treat that as a missed post-release fast-forward.

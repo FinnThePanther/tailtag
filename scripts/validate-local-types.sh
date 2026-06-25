@@ -16,6 +16,8 @@ trap cleanup EXIT
 
 cd "$ROOT_DIR"
 
+scripts/preload-supabase-typegen-image.sh
+
 echo "Starting local Supabase stack..."
 if ! supabase start > "$START_LOG" 2>&1; then
   echo "supabase start failed. Redacted startup output:"
@@ -28,4 +30,4 @@ fi
 
 supabase db reset
 supabase gen types typescript --local --schema public > "$TMP_FILE"
-python3 scripts/check-types.py "$TMP_FILE"
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/check-types.py "$TMP_FILE"

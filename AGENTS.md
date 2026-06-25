@@ -69,7 +69,8 @@ Use the surrounding file as the formatting source of truth and avoid unrelated r
 - `PascalCase` for React components and screen-level modules.
 - `camelCase` for hooks, utilities, and helper functions.
 - `kebab-case` for route folders, Supabase functions, and non-component filenames when already established.
-- `@/` path-alias imports for modules inside `src/` importing other `src/` modules.
+- `@/` path-alias imports for application source modules from both `src/**` and `app/**` files. Prefer `@/features/...`, `@/components/...`, `@/lib/...`, `@/utils/...`, `@/theme`, and `@/types/...` over deep relative imports like `../../../src/...`.
+- Relative imports are fine for nearby files in the same route/component folder, or for sibling files that are not under `src/`.
 - `@/` path-alias re-exports in `src/**/index.ts` barrel files; avoid `./api`, `./storage`, or other relative barrel paths for sibling `src/` modules.
 
 Linting is enforced with ESLint at the root and `next lint` in `admin/`. There is no repo-wide Prettier config, so keep diffs small and consistent with local style.
@@ -87,7 +88,7 @@ At minimum, run `npm run validate:mobile` for mobile changes, `npm run validate:
 ## Commit & Pull Request Guidelines
 Recent history uses short, imperative commit subjects such as `Remove Inngest implementation` and `Add cron-based achievement processor backup`, sometimes with issue references like `(#42)`. Follow that format. PRs should include a concise summary, linked issue if applicable, affected surfaces, and screenshots for UI changes.
 
-Agents must never create commits under their own name or generated assistant identity. When making commits in this repository, always author them as `Finn the Panther <finn@finnthepanther.com>` using `git commit --author="Finn the Panther <finn@finnthepanther.com>"` or equivalent repo-local git author configuration.
+Agents must never create commits under their own name or generated assistant identity. When making commits in this repository, always use `Finn the Panther <finn@finnthepanther.com>` for both the author and committer identities. Set repo-local `user.name` and `user.email`, or pass `GIT_COMMITTER_NAME="Finn the Panther" GIT_COMMITTER_EMAIL="finn@finnthepanther.com"` together with `git commit --author="Finn the Panther <finn@finnthepanther.com>"`.
 
 When addressing PR review comments, verify each finding against the current code before editing. Fix only comments that are still valid, skip stale or already-resolved comments with a brief reason, and keep changes scoped to the review feedback. If the user asks to commit comment fixes, create one separate commit per distinct piece of feedback so each review comment can be traced to an individual change.
 
