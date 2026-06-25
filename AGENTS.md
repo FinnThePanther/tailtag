@@ -69,7 +69,8 @@ Use the surrounding file as the formatting source of truth and avoid unrelated r
 - `PascalCase` for React components and screen-level modules.
 - `camelCase` for hooks, utilities, and helper functions.
 - `kebab-case` for route folders, Supabase functions, and non-component filenames when already established.
-- `@/` path-alias imports for modules inside `src/` importing other `src/` modules.
+- `@/` path-alias imports for application source modules from both `src/**` and `app/**` files. Prefer `@/features/...`, `@/components/...`, `@/lib/...`, `@/utils/...`, `@/theme`, and `@/types/...` over deep relative imports like `../../../src/...`.
+- Relative imports are fine for nearby files in the same route/component folder, or for sibling files that are not under `src/`.
 - `@/` path-alias re-exports in `src/**/index.ts` barrel files; avoid `./api`, `./storage`, or other relative barrel paths for sibling `src/` modules.
 
 Linting is enforced with ESLint at the root and `next lint` in `admin/`. There is no repo-wide Prettier config, so keep diffs small and consistent with local style.
