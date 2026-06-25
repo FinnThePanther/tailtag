@@ -294,7 +294,7 @@ export default function FursuitDetailScreen() {
                       </Pressable>
                     </View>
                   ) : null}
-                  {!isOwner && detail.owner_id ? (
+                  {!isOwner && detail.ownerAttributionVisibility !== 'hidden' && detail.owner_id ? (
                     <Pressable
                       style={({ pressed }) => [styles.ownerRow, pressed && styles.ownerRowPressed]}
                       onPress={() =>

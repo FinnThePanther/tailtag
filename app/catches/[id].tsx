@@ -75,7 +75,10 @@ export default function CatchDetailScreen() {
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [photoFullscreen, setPhotoFullscreen] = useState(false);
-  const ownerId = isFursuitRedacted ? null : (details?.owner_id ?? null);
+  const ownerId =
+    isFursuitRedacted || details?.ownerAttributionVisibility === 'hidden'
+      ? null
+      : (details?.owner_id ?? null);
   const canModerateOwnerContent = Boolean(ownerId && userId && ownerId !== userId);
 
   const handleDownloadPhoto = useCallback(

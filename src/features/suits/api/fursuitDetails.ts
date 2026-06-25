@@ -42,7 +42,7 @@ const isSpeciesEntry = (value: unknown): value is { id: string; name: string } =
 
 export async function fetchFursuitDetail(
   fursuitId: string,
-  _viewerId?: string | null,
+  viewerId?: string | null,
 ): Promise<FursuitDetail> {
   const { data, error } = await supabase.rpc('get_fursuit_detail', {
     p_fursuit_id: fursuitId,
@@ -134,7 +134,8 @@ export async function fetchFursuitDetail(
 
   return {
     id: row.id,
-    owner_id: row.owner_id,
+    owner_id:
+      ownerAttributionVisibility === 'hidden' && row.owner_id !== viewerId ? null : row.owner_id,
     name: row.name,
     species: speciesName,
     speciesId: speciesId,
