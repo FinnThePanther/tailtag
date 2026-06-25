@@ -733,7 +733,7 @@ export async function updateConventionGeofenceAction(input: {
   revalidatePath(`/conventions/${input.conventionId}/location`);
 }
 
-// ─── Convention-scoped daily tasks ───────────────────────────────────────────
+// ─── Shared daily task catalog ───────────────────────────────────────────────
 
 export async function createConventionTaskAction(input: {
   conventionId: string;
@@ -753,7 +753,7 @@ export async function createConventionTaskAction(input: {
   const { data, error } = await supabase
     .from('daily_tasks')
     .insert({
-      convention_id: input.conventionId,
+      convention_id: null,
       name: input.name.trim(),
       description: input.description.trim(),
       kind: input.kind,
@@ -862,7 +862,7 @@ export async function deleteConventionTaskAction(input: { taskId: string; conven
   revalidatePath(`/conventions/${input.conventionId}`);
 }
 
-// ─── Convention-scoped achievements ──────────────────────────────────────────
+// ─── Shared achievement catalog ──────────────────────────────────────────────
 
 const KIND_META: Record<string, { triggerEvent: string; recipientRole: string }> = {
   fursuit_caught_count_at_convention: {
@@ -910,7 +910,7 @@ export async function createConventionAchievementAction(input: {
 
   const rule = input.rule ?? {};
 
-  const slug = `convention-${input.conventionId.slice(0, 8)}-${input.key.toLowerCase()}`;
+  const slug = `catalog-${input.key.toLowerCase()}`;
 
   // Insert rule first
   const { data: ruleData, error: ruleError } = await supabase
@@ -931,7 +931,7 @@ export async function createConventionAchievementAction(input: {
   const { data: achData, error: achError } = await supabase
     .from('achievements')
     .insert({
-      convention_id: input.conventionId,
+      convention_id: null,
       key: input.key.trim(),
       name: input.name.trim(),
       description: normalizeAchievementDescription(input.description),
@@ -974,7 +974,7 @@ export async function toggleConventionAchievementAction(input: {
       .from('achievements')
       .select('key, name, trigger_event')
       .eq('id', input.achievementId)
-      .eq('convention_id', input.conventionId)
+      .or(`convention_id.is.null,convention_id.eq.${input.conventionId}`)
       .maybeSingle();
 
     if (fetchError) throw fetchError;
@@ -1028,7 +1028,7 @@ export async function updateConventionAchievementAction(input: {
     .from('achievements')
     .select('key, is_active')
     .eq('id', input.achievementId)
-    .eq('convention_id', input.conventionId)
+    .or(`convention_id.is.null,convention_id.eq.${input.conventionId}`)
     .maybeSingle();
 
   if (fetchError) throw fetchError;
