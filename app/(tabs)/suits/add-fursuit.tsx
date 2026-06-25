@@ -27,6 +27,7 @@ import {
   MY_SUITS_COUNT_QUERY_KEY,
   createMySuitsCountQueryOptions,
   isFursuitUniqueCodeAvailable,
+  queueHiddenSuitAddedTip,
 } from '../../../src/features/suits';
 import { getMaxFursuitsForFeatureState, MAX_FURSUITS_PER_USER } from '@/constants/fursuits';
 import {
@@ -967,6 +968,10 @@ export default function AddFursuitScreen() {
       });
       void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
       void exposeCatchModeExperiment();
+
+      if (anonymousFursuitsEnabled && hideOwnerPublicly) {
+        await queueHiddenSuitAddedTip(userId);
+      }
 
       // Navigate immediately
       router.replace('/suits');

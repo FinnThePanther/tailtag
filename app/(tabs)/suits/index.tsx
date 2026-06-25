@@ -6,11 +6,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   FursuitCard,
   fetchMySuits,
+  consumeHiddenSuitAddedTip,
   consumeSuitAutoEnrollNotice,
+  getHiddenSuitsVisiblePreference,
   hasSeenSuitAutoEnrollMigrationNotice,
   markSuitAutoEnrollMigrationNoticeSeen,
   MY_SUITS_STALE_TIME,
   mySuitsQueryKey,
+  setHiddenSuitsVisiblePreference,
 } from '../../../src/features/suits';
 import {
   PENDING_CATCHES_STALE_TIME,
@@ -37,6 +40,7 @@ import { PullToRefreshHint } from '../../../src/components/ui/PullToRefreshHint'
 import { useAuth } from '../../../src/features/auth';
 import { getIncompleteFursuitProfiles } from '../../../src/features/profile-guidance';
 import { usePullToRefreshHint } from '../../../src/hooks/usePullToRefreshHint';
+import { useToast } from '../../../src/hooks/useToast';
 import { captureHandledException } from '@/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../../src/theme';
@@ -56,6 +60,7 @@ export default function MySuitsScreen() {
     conventionName?: string;
   }>();
   const { session } = useAuth();
+  const { showToast } = useToast();
   const userId = session?.user.id ?? null;
   const suitsQueryKey = useMemo(() => mySuitsQueryKey(userId ?? 'guest'), [userId]);
   const pendingCatchesKey = useMemo(() => pendingCatchesQueryKey(userId ?? ''), [userId]);
@@ -96,6 +101,7 @@ export default function MySuitsScreen() {
 
   const [processingCatchId, setProcessingCatchId] = useState<string | null>(null);
   const [interactionNudgeDismissed, setInteractionNudgeDismissed] = useState(true);
+  const [hiddenSuitsVisible, setHiddenSuitsVisible] = useState(true);
 
   const {
     data: pendingCatches = [],
@@ -107,6 +113,7 @@ export default function MySuitsScreen() {
   useEffect(() => {
     if (!userId) {
       setInteractionNudgeDismissed(true);
+      setHiddenSuitsVisible(true);
       return;
     }
 
@@ -128,6 +135,44 @@ export default function MySuitsScreen() {
       cancelled = true;
     };
   }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void getHiddenSuitsVisiblePreference(userId).then((visible) => {
+      if (!cancelled) {
+        setHiddenSuitsVisible(visible);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) {
+        return;
+      }
+
+      let cancelled = false;
+
+      void consumeHiddenSuitAddedTip(userId).then((shouldShowTip) => {
+        if (!cancelled && shouldShowTip) {
+          showToast('Press and hold Your fursuits to hide or show hidden suits.');
+        }
+      });
+
+      return () => {
+        cancelled = true;
+      };
+    }, [showToast, userId]),
+  );
 
   const handleAcceptCatch = useCallback(
     (catchId: string, conventionId?: string) => {
@@ -231,12 +276,31 @@ export default function MySuitsScreen() {
     }, [isRefreshing]),
   );
 
+  const hiddenSuitCount = useMemo(
+    () => suits.filter((suit) => suit.ownerAttributionVisibility === 'hidden').length,
+    [suits],
+  );
+  const hasHiddenSuits = hiddenSuitCount > 0;
+  const visibleSuits = useMemo(
+    () =>
+      hiddenSuitsVisible
+        ? suits
+        : suits.filter((suit) => suit.ownerAttributionVisibility !== 'hidden'),
+    [hiddenSuitsVisible, suits],
+  );
   const hasSuits = suits.length > 0;
+  const hasVisibleSuits = visibleSuits.length > 0;
   const hasConventionListedSuits = useMemo(
     () => suits.some((suit) => suit.conventions.length > 0),
     [suits],
   );
   const suitCount = suits.length;
+  const visibleSuitCount = visibleSuits.length;
+  const sectionMetaText = !hasSuits
+    ? 'No suits yet'
+    : hasHiddenSuits && !hiddenSuitsVisible
+      ? `${visibleSuitCount} of ${suitCount} ${suitCount === 1 ? 'suit' : 'suits'} shown`
+      : `${suitCount} ${suitCount === 1 ? 'suit' : 'suits'}`;
   const fursuitLimit = getMaxFursuitsForFeatureState(expandedFursuitLimitEnabled);
   const isAtFursuitLimit = suitCount >= fursuitLimit;
   const limitHelperText = expandedFursuitLimitEnabled
@@ -262,6 +326,21 @@ export default function MySuitsScreen() {
       : 'this convention';
   const rosterGuidanceSuits = rosterGuidanceConventionId ? suits : [];
   const showRosterGuidance = Boolean(rosterGuidanceConventionId);
+
+  const handleHiddenSuitsTitleLongPress = useCallback(() => {
+    if (!userId || !hasHiddenSuits) {
+      return;
+    }
+
+    const nextVisible = !hiddenSuitsVisible;
+    setHiddenSuitsVisible(nextVisible);
+    void setHiddenSuitsVisiblePreference(userId, nextVisible);
+    showToast(
+      nextVisible
+        ? 'Hidden suits are shown.'
+        : 'Hidden suits are hidden. Press and hold Your fursuits to show them.',
+    );
+  }, [hasHiddenSuits, hiddenSuitsVisible, showToast, userId]);
 
   useEffect(() => {
     if (!userId || isLoading || error || !hasSuits || autoEnrollNoticeShownRef.current) {
@@ -504,10 +583,22 @@ export default function MySuitsScreen() {
 
       <TailTagCard style={styles.cardSpacing}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Your fursuits</Text>
-          <Text style={styles.sectionMeta}>
-            {hasSuits ? `${suitCount} ${suitCount === 1 ? 'suit' : 'suits'}` : 'No suits yet'}
-          </Text>
+          <Pressable
+            accessibilityRole={hasHiddenSuits ? 'button' : undefined}
+            accessibilityHint={
+              hasHiddenSuits ? 'Press and hold to hide or show hidden suits' : undefined
+            }
+            disabled={!hasHiddenSuits}
+            hitSlop={8}
+            onLongPress={handleHiddenSuitsTitleLongPress}
+            style={({ pressed }) => [
+              styles.sectionTitlePressable,
+              pressed && hasHiddenSuits ? styles.sectionTitlePressed : null,
+            ]}
+          >
+            <Text style={styles.sectionTitle}>Your fursuits</Text>
+          </Pressable>
+          <Text style={styles.sectionMeta}>{sectionMetaText}</Text>
         </View>
         {isLoading ? (
           <Text style={styles.message}>Loading your suits…</Text>
@@ -522,21 +613,21 @@ export default function MySuitsScreen() {
               Try again
             </TailTagButton>
           </View>
-        ) : hasSuits ? (
+        ) : hasVisibleSuits ? (
           <View style={styles.list}>
-            {suits.map((suit, index) => {
+            {visibleSuits.map((suit, index) => {
+              const isHiddenSuit = suit.ownerAttributionVisibility === 'hidden';
               const addedLabel = suit.created_at
                 ? `Added on ${toDisplayDate(suit.created_at)}`
                 : null;
-              const timelineLabel =
-                suit.ownerAttributionVisibility === 'hidden'
-                  ? [addedLabel, 'Owner hidden publicly'].filter(Boolean).join(' · ')
-                  : addedLabel;
+              const timelineLabel = isHiddenSuit
+                ? [addedLabel, 'Owner hidden publicly'].filter(Boolean).join(' · ')
+                : addedLabel;
 
               return (
                 <View
                   key={suit.id}
-                  style={index < suits.length - 1 ? styles.listItemSpacing : undefined}
+                  style={index < visibleSuits.length - 1 ? styles.listItemSpacing : undefined}
                 >
                   <FursuitCard
                     name={suit.name}
@@ -545,6 +636,7 @@ export default function MySuitsScreen() {
                     avatarUrl={suit.avatar_url}
                     uniqueCode={suit.unique_code}
                     timelineLabel={timelineLabel}
+                    statusBadgeLabel={isHiddenSuit ? 'Hidden' : null}
                     onPress={() =>
                       router.push({
                         pathname: '/fursuits/[id]',
@@ -556,6 +648,10 @@ export default function MySuitsScreen() {
               );
             })}
           </View>
+        ) : hasSuits && hasHiddenSuits ? (
+          <Text style={styles.message}>
+            Hidden suits are currently hidden. Press and hold “Your fursuits” to show them.
+          </Text>
         ) : (
           <Text style={styles.message}>
             You haven&apos;t added any suits yet. Tap “Add a fursuit” below to get started.

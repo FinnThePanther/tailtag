@@ -119,6 +119,12 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
+  sectionTitlePressable: {
+    alignSelf: 'flex-start',
+  },
+  sectionTitlePressed: {
+    opacity: 0.72,
+  },
   sectionMeta: {
     color: colors.textSubtle,
     fontSize: 12,
