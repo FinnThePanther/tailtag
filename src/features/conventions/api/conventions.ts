@@ -498,10 +498,38 @@ function mapConventionRecapDetail(raw: unknown): ConventionRecapDetail {
 async function applyProfileSocialLinksToConventionRecapDetail(
   detail: ConventionRecapDetail,
 ): Promise<ConventionRecapDetail> {
+  const fursuitIds = detail.caughtFursuits
+    .filter((fursuit) => !fursuit.isRedacted)
+    .map((fursuit) => fursuit.fursuitId);
+
+  if (fursuitIds.length === 0) {
+    return detail;
+  }
+
+  const client = supabase as any;
+  const { data: fursuits, error: fursuitsError } = await client
+    .from('fursuits')
+    .select('id, owner_attribution_visibility')
+    .in('id', fursuitIds);
+
+  if (fursuitsError) {
+    captureSupabaseError(fursuitsError, {
+      scope: 'conventions.applyProfileSocialLinksToConventionRecapDetail.fursuits',
+    });
+    return detail;
+  }
+
+  const hiddenFursuitIds = new Set<string>();
+  for (const fursuit of fursuits ?? []) {
+    if (fursuit?.id && fursuit.owner_attribution_visibility === 'hidden') {
+      hiddenFursuitIds.add(fursuit.id);
+    }
+  }
+
   const ownerIds = Array.from(
     new Set(
       detail.caughtFursuits
-        .filter((fursuit) => !fursuit.isRedacted)
+        .filter((fursuit) => !fursuit.isRedacted && !hiddenFursuitIds.has(fursuit.fursuitId))
         .map((fursuit) => fursuit.ownerId)
         .filter((ownerId): ownerId is string => Boolean(ownerId)),
     ),
@@ -511,7 +539,6 @@ async function applyProfileSocialLinksToConventionRecapDetail(
     return detail;
   }
 
-  const client = supabase as any;
   const { data, error } = await client
     .from('profiles')
     .select('id, social_links')
@@ -535,7 +562,7 @@ async function applyProfileSocialLinksToConventionRecapDetail(
     caughtFursuits: detail.caughtFursuits.map((fursuit) => ({
       ...fursuit,
       socialLinks:
-        !fursuit.isRedacted && fursuit.ownerId
+        !fursuit.isRedacted && !hiddenFursuitIds.has(fursuit.fursuitId) && fursuit.ownerId
           ? (socialLinksByOwnerId.get(fursuit.ownerId) ?? [])
           : [],
     })),

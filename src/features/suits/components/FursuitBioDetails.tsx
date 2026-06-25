@@ -9,13 +9,14 @@ import { styles } from './FursuitBioDetails.styles';
 export function fursuitBioHasDisplayableContent(
   bio: FursuitBio | null | undefined,
   makers: FursuitMaker[] = [],
+  options: { hideSocialLinks?: boolean } = {},
 ): boolean {
   const hasPhotoCredit = Boolean(bio?.photoCredit?.trim());
   const hasPronouns = Boolean(bio?.pronouns?.trim());
   const hasLikesAndInterests = Boolean(bio?.likesAndInterests?.trim());
   const hasAskMeAbout = Boolean(bio?.askMeAbout?.trim());
   const hasLikesSection = hasLikesAndInterests || hasAskMeAbout;
-  const hasSocial = (bio?.socialLinks ?? []).length > 0;
+  const hasSocial = !options.hideSocialLinks && (bio?.socialLinks ?? []).length > 0;
   const hasMakers = makers.length > 0;
   return hasPhotoCredit || hasPronouns || hasLikesSection || hasSocial || hasMakers;
 }
@@ -44,10 +45,15 @@ const openSocialLink = async (url: string) => {
 type FursuitBioDetailsProps = {
   bio: FursuitBio | null;
   makers?: FursuitMaker[];
+  hideSocialLinks?: boolean;
 };
 
-export function FursuitBioDetails({ bio, makers = [] }: FursuitBioDetailsProps) {
-  if (!fursuitBioHasDisplayableContent(bio, makers)) {
+export function FursuitBioDetails({
+  bio,
+  makers = [],
+  hideSocialLinks = false,
+}: FursuitBioDetailsProps) {
+  if (!fursuitBioHasDisplayableContent(bio, makers, { hideSocialLinks })) {
     return null;
   }
 
@@ -56,7 +62,7 @@ export function FursuitBioDetails({ bio, makers = [] }: FursuitBioDetailsProps) 
   const hasLikesAndInterests = Boolean(bio?.likesAndInterests?.trim());
   const hasAskMeAbout = Boolean(bio?.askMeAbout?.trim());
   const hasLikesSection = hasLikesAndInterests || hasAskMeAbout;
-  const socialLinks = bio?.socialLinks ?? [];
+  const socialLinks = hideSocialLinks ? [] : (bio?.socialLinks ?? []);
 
   return (
     <View style={styles.sections}>

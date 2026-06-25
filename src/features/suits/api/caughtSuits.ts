@@ -72,6 +72,7 @@ export function mapCaughtRecordFromRpcRow(record: HistoricalCatchRpcRow): Caught
       : [];
   const ownerAttributionVisibility =
     (record as any).fursuit_owner_attribution_visibility === 'hidden' ? 'hidden' : 'public';
+  const hideSocialLinks = ownerAttributionVisibility === 'hidden';
   const fursuit = fursuitId
     ? ({
         id: fursuitId,
@@ -111,7 +112,8 @@ export function mapCaughtRecordFromRpcRow(record: HistoricalCatchRpcRow): Caught
           ? null
           : applyProfileSocialLinksToBio(
               mapLatestFursuitBio(record.fursuit_bio ?? null),
-              parseSocialLinks(record.owner_social_links ?? null),
+              hideSocialLinks ? [] : parseSocialLinks(record.owner_social_links ?? null),
+              { hideSocialLinks },
             ),
       } satisfies FursuitSummary)
     : null;
