@@ -23,7 +23,6 @@ import {
   submitPhotoCatchBatch,
   uploadCatchPhotoFromUri,
   myPendingCatchesQueryKey,
-  pendingCatchesQueryKey,
   PhotoCatchCard,
   ReciprocalCatchSelector,
   type CatchStatus,
@@ -208,7 +207,7 @@ function buildFallbackPostCatchFursuit(
       path: catchResult.fursuitAvatarPath ?? null,
       legacyUrl: catchResult.fursuitAvatarUrl ?? null,
     }),
-    owner_id: catchResult.fursuitOwnerId,
+    owner_id: null,
     catch_count: catchResult.requiresApproval ? 0 : (catchResult.catchNumber ?? 1),
     bio: null,
     socialSignal: null,
@@ -525,12 +524,6 @@ export default function CatchScreen() {
           queryKey: achievementsStatusQueryKey(currentUserId),
         });
 
-        if (params.catchResult.requiresApproval && params.catchResult.fursuitOwnerId) {
-          void queryClient.invalidateQueries({
-            queryKey: pendingCatchesQueryKey(params.catchResult.fursuitOwnerId),
-          });
-        }
-
         if (params.catchResult.status === 'PENDING') {
           void queryClient.invalidateQueries({
             queryKey: myPendingCatchesQueryKey(currentUserId),
@@ -550,7 +543,6 @@ export default function CatchScreen() {
       const currentUserId = userId;
       const fursuitIds = new Set<string>();
       const conventionIds = new Set<string>();
-      const ownerIds = new Set<string>();
       let hasPendingCatch = false;
 
       batchResult.results.forEach((result) => {
@@ -560,9 +552,6 @@ export default function CatchScreen() {
         }
         if (result.catchResult.conventionId) {
           conventionIds.add(result.catchResult.conventionId);
-        }
-        if (result.catchResult.requiresApproval && result.catchResult.fursuitOwnerId) {
-          ownerIds.add(result.catchResult.fursuitOwnerId);
         }
         if (result.catchResult.status === 'PENDING') {
           hasPendingCatch = true;
@@ -593,11 +582,6 @@ export default function CatchScreen() {
         });
         void queryClient.invalidateQueries({
           queryKey: achievementsStatusQueryKey(currentUserId),
-        });
-        ownerIds.forEach((ownerId) => {
-          void queryClient.invalidateQueries({
-            queryKey: pendingCatchesQueryKey(ownerId),
-          });
         });
         if (hasPendingCatch) {
           void queryClient.invalidateQueries({

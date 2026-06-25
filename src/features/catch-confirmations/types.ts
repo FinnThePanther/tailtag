@@ -75,7 +75,7 @@ export type CreateCatchResult = {
   expiresAt: string | null;
   catchNumber: number | null;
   requiresApproval: boolean;
-  fursuitOwnerId: string;
+  fursuitOwnerId: string | null;
   conventionId: string | null;
   fursuitId?: string;
   fursuitName?: string;

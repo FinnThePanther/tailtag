@@ -14,7 +14,6 @@ export type CatchOutboxItem = {
   status: CatchOutboxStatus;
   fursuitCode?: string;
   fursuitId?: string;
-  fursuitOwnerId?: string;
   fursuitName?: string;
   fursuitAvatarUrl?: string | null;
   fursuitAvatarPath?: string | null;

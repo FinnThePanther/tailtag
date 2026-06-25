@@ -78,7 +78,7 @@ interface CreateCatchResponse {
   expires_at: string | null;
   catch_number: number | null;
   requires_approval: boolean;
-  fursuit_owner_id: string;
+  fursuit_owner_id: string | null;
   convention_id?: string | null;
   fursuit_id?: string;
   fursuit_name?: string;
@@ -97,7 +97,7 @@ interface CreateCatchResponse {
     offered_fursuit_name?: string;
     offered_fursuit_avatar_path?: string | null;
     offered_fursuit_avatar_url?: string | null;
-    recipient_profile_id?: string;
+    recipient_profile_id?: string | null;
   } | null;
   event_id: string | null;
   event_duplicate?: boolean;
