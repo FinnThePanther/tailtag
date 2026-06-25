@@ -3295,10 +3295,10 @@ export type Database = {
         Returns: {
           dead_lettered_event_count: number;
           grouped_failures: Json;
-          oldest_unprocessed_event_age_seconds: number | null;
-          oldest_unprocessed_event_received_at: string | null;
-          oldest_visible_message_age_seconds: number | null;
-          oldest_visible_message_enqueued_at: string | null;
+          oldest_unprocessed_event_age_seconds: number;
+          oldest_unprocessed_event_received_at: string;
+          oldest_visible_message_age_seconds: number;
+          oldest_visible_message_enqueued_at: string;
           queue_depth: number;
           retrying_event_count: number;
           visible_queue_depth: number;
