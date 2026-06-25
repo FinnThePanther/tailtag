@@ -544,14 +544,6 @@ export function FursuitStep({
           queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] }),
         ]);
       } catch (caught) {
-        captureHandledException(caught, {
-          scope: 'onboarding.fursuitStep.handleConventionToggle',
-          additionalContext: {
-            conventionId,
-            userId,
-            verifiedLocationProvided: Boolean(verifiedLocation),
-          },
-        });
         setConventionError(
           getUserVisibleErrorMessage(
             caught,
