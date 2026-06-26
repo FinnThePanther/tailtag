@@ -10,11 +10,6 @@ export type AttendanceState = "active" | "left" | "removed" | "finalized"
 export type RosterState = "active" | "removed" | "finalized"
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       achievement_rules: {
@@ -245,6 +240,7 @@ export type Database = {
           created_at: string
           display_name: string
           idle_count_24h: number
+          idle_count_window_started_at: string
           last_idle_at: string | null
           last_idle_counts: Json
           last_idle_duration_ms: number | null
@@ -258,6 +254,7 @@ export type Database = {
           created_at?: string
           display_name: string
           idle_count_24h?: number
+          idle_count_window_started_at?: string
           last_idle_at?: string | null
           last_idle_counts?: Json
           last_idle_duration_ms?: number | null
@@ -271,6 +268,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           idle_count_24h?: number
+          idle_count_window_started_at?: string
           last_idle_at?: string | null
           last_idle_counts?: Json
           last_idle_duration_ms?: number | null
@@ -4040,6 +4038,7 @@ export type Database = {
           created_at: string
           display_name: string
           idle_count_24h: number
+          idle_count_window_started_at: string
           last_idle_at: string | null
           last_idle_counts: Json
           last_idle_duration_ms: number | null
