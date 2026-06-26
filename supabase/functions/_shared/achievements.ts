@@ -1223,7 +1223,7 @@ async function fetchCatchWithRelations(
   const { data, error } = await supabaseAdmin
     .from('catches')
     .select(
-      'id,catcher_id,fursuit_id,convention_id,status,caught_at,catch_photo_url,fursuit:fursuits(id,owner_id,species_id,species:fursuit_species(id,name,normalized_name),species_assignments:fursuit_species_assignments(position,species:fursuit_species(id,name,normalized_name)),color_assignments:fursuit_color_assignments(color:fursuit_colors(name,normalized_name)))',
+      'id,catcher_id,fursuit_id,convention_id,status,caught_at,catch_photo_url,fursuit:fursuits(id,owner_id,species_id,species:fursuit_species(id,name,normalized_name),species_assignments:fursuit_species_assignments(position,species:fursuit_species(id,name,normalized_name)),color_assignments:fursuit_color_assignments(position,color:fursuit_colors(name,normalized_name)))',
     )
     .eq('id', catchId)
     .limit(1)

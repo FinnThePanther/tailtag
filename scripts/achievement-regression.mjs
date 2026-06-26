@@ -83,16 +83,23 @@ async function importCatchRulesModule() {
     },
     fileName: 'packages/achievement-rules/src/rules/catch.ts',
   });
+  const achievementRuleIdsImportPattern =
+    /import\s+\{\s*ACHIEVEMENT_RULE_IDS\s*\}\s+from\s+['"]\.\.\/constants\.ts['"];?\n/;
   const output = transpiled.outputText.replace(
-    /import \{ ACHIEVEMENT_RULE_IDS \} from '\.\.\/constants\.ts';\n/,
+    achievementRuleIdsImportPattern,
     `const ACHIEVEMENT_RULE_IDS = ${JSON.stringify(ACHIEVEMENT_RULE_IDS)};\n`,
   );
+  if (output === transpiled.outputText) {
+    throw new Error(
+      'importCatchRulesModule could not rewrite the ACHIEVEMENT_RULE_IDS runtime import from catch.ts',
+    );
+  }
 
   return import(`data:text/javascript;base64,${Buffer.from(output, 'utf8').toString('base64')}`);
 }
 
 function catchContext(overrides = {}) {
-  return {
+  const defaults = {
     eventId: 'event-1',
     occurredAt: '2026-06-26T12:00:00.000Z',
     catchId: 'catch-1',
@@ -137,7 +144,31 @@ function catchContext(overrides = {}) {
       names: [],
       normalizedNames: [],
     },
+  };
+
+  return {
+    ...defaults,
     ...overrides,
+    timing: {
+      ...defaults.timing,
+      ...(overrides.timing ?? {}),
+    },
+    stats: {
+      ...defaults.stats,
+      ...(overrides.stats ?? {}),
+    },
+    flags: {
+      ...defaults.flags,
+      ...(overrides.flags ?? {}),
+    },
+    makers: {
+      ...defaults.makers,
+      ...(overrides.makers ?? {}),
+    },
+    colors: {
+      ...defaults.colors,
+      ...(overrides.colors ?? {}),
+    },
   };
 }
 
@@ -683,7 +714,7 @@ describe('Over the Rainbow achievement', () => {
     assert.match(migration, /'d73dcb1e-01f3-4957-a798-f031e7e1d02e'/);
     assert.doesNotMatch(migration, /insert into public\.user_achievements/i);
     assert.match(rules, /context\.colors\.normalizedNames\.includes\('rainbow'\)/);
-    assert.match(worker, /fursuit_colors\(name,normalized_name\)/);
+    assert.match(worker, /fursuit_color_assignments\(position,color:fursuit_colors/);
     assert.match(worker, /function extractFursuitColorMetadata/);
   });
 });
