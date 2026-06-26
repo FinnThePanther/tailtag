@@ -134,7 +134,7 @@ async function confirmOwnProfileExists(userId: string): Promise<boolean> {
   return result.data != null;
 }
 
-async function ensureOwnProfileExists(userId: string): Promise<void> {
+export async function ensureCurrentUserProfileExists(userId: string): Promise<void> {
   const client = supabase as any;
   const {
     data: { session },
@@ -290,7 +290,7 @@ export async function fetchProfile(userId: string): Promise<ProfileSummary | nul
       }
 
       if (!result.data) {
-        await ensureOwnProfileExists(userId);
+        await ensureCurrentUserProfileExists(userId);
         result = await selectProfileWithColumnFallback(userId);
       }
     }

@@ -1,5 +1,6 @@
 export {
   fetchProfile,
+  ensureCurrentUserProfileExists,
   uploadProfileAvatar,
   updateProfileAvatar,
   updateProfileSocialLinks,
