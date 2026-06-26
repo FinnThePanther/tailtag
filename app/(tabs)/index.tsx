@@ -26,8 +26,13 @@ import {
   fetchPastConventionRecaps,
   formatConventionCloseoutDeadline,
   getConventionPlayerLifecycleState,
+  dismissNearbyConventionSetupReminder,
   PAST_CONVENTION_RECAPS_QUERY_KEY,
+  markNearbyConventionSetupReminderActed,
+  markNearbyConventionSetupReminderShown,
+  NearbyConventionSetupReminderCard,
   useConventionVerificationAction,
+  useNearbyConventionSetupReminder,
 } from '../../src/features/conventions';
 import {
   CONVENTION_LEADERBOARD_QUERY_KEY,
@@ -360,6 +365,21 @@ export default function HomeScreen() {
   );
   const shouldShowProfileGuidance =
     Boolean(userId) && isProfileGuidanceReady && !profileGuidance.isComplete;
+  const {
+    reminder: nearbyConventionReminder,
+    dismissLocally: dismissNearbyConventionReminderLocally,
+  } = useNearbyConventionSetupReminder({
+    enabled: profileQuery.data?.nearby_convention_reminders_enabled === true,
+    userId,
+  });
+
+  useEffect(() => {
+    if (!nearbyConventionReminder) {
+      return;
+    }
+
+    void markNearbyConventionSetupReminderShown(nearbyConventionReminder.conventionId);
+  }, [nearbyConventionReminder]);
 
   useEffect(() => {
     if (
@@ -908,6 +928,39 @@ export default function HomeScreen() {
     handleProfileGuidanceTaskPress(profileGuidance.nextTask.id);
   }, [handleProfileGuidanceTaskPress, profileGuidance.nextTask]);
 
+  const handleNearbyConventionReminderPress = useCallback(() => {
+    if (!nearbyConventionReminder) {
+      return;
+    }
+
+    const { conventionId, conventionName, action } = nearbyConventionReminder;
+    dismissNearbyConventionReminderLocally(conventionId);
+    void markNearbyConventionSetupReminderActed(conventionId);
+
+    if (action === 'add_suit') {
+      router.push({
+        pathname: '/suits',
+        params: {
+          guidance: 'convention-roster',
+          conventionId,
+          conventionName,
+        },
+      });
+      return;
+    }
+
+    router.push('/settings');
+  }, [dismissNearbyConventionReminderLocally, nearbyConventionReminder, router]);
+
+  const handleDismissNearbyConventionReminder = useCallback(() => {
+    if (!nearbyConventionReminder) {
+      return;
+    }
+
+    dismissNearbyConventionReminderLocally(nearbyConventionReminder.conventionId);
+    void dismissNearbyConventionSetupReminder(nearbyConventionReminder.conventionId);
+  }, [dismissNearbyConventionReminderLocally, nearbyConventionReminder]);
+
   return (
     <View style={styles.wrapper}>
       <LinearGradient
@@ -945,6 +998,15 @@ export default function HomeScreen() {
             </TailTagButton>
           </View>
         </View>
+
+        {nearbyConventionReminder ? (
+          <NearbyConventionSetupReminderCard
+            reminder={nearbyConventionReminder}
+            onPress={handleNearbyConventionReminderPress}
+            onDismiss={handleDismissNearbyConventionReminder}
+            style={[styles.nearbyConventionCard, contentWidthStyle]}
+          />
+        ) : null}
 
         {shouldShowProfileGuidance ? (
           <TailTagCard style={[styles.guidanceCard, contentWidthStyle]}>
