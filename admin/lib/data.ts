@@ -157,6 +157,10 @@ export type BackendWorkerHealthRow = {
   last_failure_at: string | null;
   running_started_at: string | null;
   recent_failure_count: number;
+  last_heartbeat_at: string | null;
+  last_idle_at: string | null;
+  last_idle_counts: Record<string, unknown>;
+  idle_count_24h: number;
 };
 
 export interface GameplayQueueFailureGroup {

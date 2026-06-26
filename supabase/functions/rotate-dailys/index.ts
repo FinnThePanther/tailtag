@@ -1,7 +1,11 @@
 /// <reference lib="deno.unstable" />
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
-import { beginBackendWorkerRun, completeBackendWorkerRun } from '../_shared/backendWorkerRuns.ts';
+import {
+  beginBackendWorkerRun,
+  completeBackendWorkerRun,
+  completeOrHeartbeatBackendWorkerRun,
+} from '../_shared/backendWorkerRuns.ts';
 import { ingestGameplayEvent } from '../_shared/gameplayQueue.ts';
 
 const corsHeaders = {
@@ -640,7 +644,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+    await completeOrHeartbeatBackendWorkerRun(supabaseAdmin, workerRun, {
       status: 'succeeded',
       counts: {
         conventions_processed: results.length,

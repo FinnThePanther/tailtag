@@ -134,13 +134,19 @@ export default async function DashboardPage() {
                   </p>
                 </div>
                 <div className="text-xs text-muted">
-                  <p>Last run {formatDateTime(worker.latest_started_at)}</p>
+                  <p>
+                    {worker.latest_started_at ? 'Last run' : 'Last heartbeat'}{' '}
+                    {formatDateTime(worker.latest_started_at ?? worker.last_heartbeat_at)}
+                  </p>
                   <p>Last success {formatDateTime(worker.last_success_at)}</p>
                   <p>Last failure {formatDateTime(worker.last_failure_at)}</p>
                 </div>
                 <div className="min-w-0 text-xs text-muted">
                   <p>Duration {formatDuration(worker.latest_duration_ms)}</p>
                   <p className="truncate">Counts {formatCounts(worker.latest_counts)}</p>
+                  <p className="truncate">
+                    Idle {worker.idle_count_24h} in 24h · {formatCounts(worker.last_idle_counts)}
+                  </p>
                   {worker.latest_error_message ? (
                     <p className="truncate text-red-200">Error {worker.latest_error_message}</p>
                   ) : null}
