@@ -42,7 +42,7 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { AppImage } from '../../src/components/ui/AppImage';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { useAuth } from '../../src/features/auth';
-import { fetchProfile, profileQueryKey } from '../../src/features/profile';
+import { fetchProfile, profileQueryKey } from '@/features/profile';
 import { createCatchInvite } from '../../src/features/catch-invites';
 import {
   CATCH_INVITES_FEATURE_KEY,
@@ -1135,7 +1135,10 @@ export default function CatchScreen() {
       return;
     }
 
-    void markNearbyConventionSetupReminderShown(nearbyConventionReminder.conventionId);
+    void markNearbyConventionSetupReminderShown(
+      nearbyConventionReminder.conventionId,
+      nearbyConventionReminder.action,
+    );
   }, [nearbyConventionReminder]);
 
   const handleNearbyConventionReminderPress = useCallback(() => {
@@ -1145,7 +1148,7 @@ export default function CatchScreen() {
 
     const { conventionId, conventionName, action } = nearbyConventionReminder;
     dismissNearbyConventionReminderLocally(conventionId);
-    void markNearbyConventionSetupReminderActed(conventionId);
+    void markNearbyConventionSetupReminderActed(conventionId, action);
 
     if (action === 'add_suit') {
       router.push({
@@ -1168,7 +1171,10 @@ export default function CatchScreen() {
     }
 
     dismissNearbyConventionReminderLocally(nearbyConventionReminder.conventionId);
-    void dismissNearbyConventionSetupReminder(nearbyConventionReminder.conventionId);
+    void dismissNearbyConventionSetupReminder(
+      nearbyConventionReminder.conventionId,
+      nearbyConventionReminder.action,
+    );
   }, [dismissNearbyConventionReminderLocally, nearbyConventionReminder]);
 
   return (

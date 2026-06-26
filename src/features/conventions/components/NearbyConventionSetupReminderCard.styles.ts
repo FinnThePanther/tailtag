@@ -39,8 +39,8 @@ export const styles = StyleSheet.create({
     lineHeight: 20,
   },
   dismissButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',

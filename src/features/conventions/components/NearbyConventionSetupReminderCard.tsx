@@ -4,8 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { TailTagButton } from '@/components/ui/TailTagButton';
 import { TailTagCard } from '@/components/ui/TailTagCard';
 import type { NearbyConventionSetupReminder } from '@/features/conventions/api/nearbyConventionReminders';
+import { styles } from '@/features/conventions/components/NearbyConventionSetupReminderCard.styles';
 import { colors } from '@/theme';
-import { styles } from './NearbyConventionSetupReminderCard.styles';
 
 type NearbyConventionSetupReminderCardProps = {
   reminder: NearbyConventionSetupReminder;
@@ -65,6 +65,7 @@ export function NearbyConventionSetupReminderCard({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Dismiss nearby convention reminder"
+          hitSlop={8}
           onPress={onDismiss}
           style={({ pressed }) => [styles.dismissButton, pressed ? styles.pressed : null]}
         >

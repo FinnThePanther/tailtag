@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
 
@@ -6,7 +6,7 @@ import {
   fetchNearbyConventionSetupReminder,
   type NearbyConventionSetupReminder,
 } from '@/features/conventions/api/nearbyConventionReminders';
-import { captureNonCriticalError } from '@/lib/sentry';
+import { captureHandledException } from '@/lib/sentry';
 
 const LOCATION_TIMEOUT_MS = 4500;
 const LAST_KNOWN_MAX_AGE_MS = 5 * 60_000;
@@ -23,8 +23,12 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | nul
     promise
       .then((value) => resolve(value))
       .catch((error) => {
-        captureNonCriticalError(error, {
+        captureHandledException(error, {
           scope: 'nearby-convention-reminders.location',
+          additionalContext: {
+            flow: 'nearby-convention-setup-reminder',
+            timeoutMs,
+          },
         });
         resolve(null);
       })
@@ -42,8 +46,13 @@ async function resolveForegroundLocation(): Promise<Location.LocationObject | nu
     maxAge: LAST_KNOWN_MAX_AGE_MS,
     requiredAccuracy: 1000,
   }).catch((error) => {
-    captureNonCriticalError(error, {
+    captureHandledException(error, {
       scope: 'nearby-convention-reminders.lastKnownLocation',
+      additionalContext: {
+        flow: 'nearby-convention-setup-reminder',
+        maxAgeMs: LAST_KNOWN_MAX_AGE_MS,
+        requiredAccuracyMeters: 1000,
+      },
     });
     return null;
   });
@@ -68,6 +77,11 @@ export function useNearbyConventionSetupReminder({
   const [dismissedConventionIds, setDismissedConventionIds] = useState<Set<string>>(
     () => new Set(),
   );
+
+  useEffect(() => {
+    setDismissedConventionIds(new Set());
+    setReminder(null);
+  }, [enabled, userId]);
 
   const dismissLocally = useCallback((conventionId: string) => {
     setDismissedConventionIds((current) => {

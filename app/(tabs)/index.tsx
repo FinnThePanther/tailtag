@@ -378,7 +378,10 @@ export default function HomeScreen() {
       return;
     }
 
-    void markNearbyConventionSetupReminderShown(nearbyConventionReminder.conventionId);
+    void markNearbyConventionSetupReminderShown(
+      nearbyConventionReminder.conventionId,
+      nearbyConventionReminder.action,
+    );
   }, [nearbyConventionReminder]);
 
   useEffect(() => {
@@ -935,7 +938,7 @@ export default function HomeScreen() {
 
     const { conventionId, conventionName, action } = nearbyConventionReminder;
     dismissNearbyConventionReminderLocally(conventionId);
-    void markNearbyConventionSetupReminderActed(conventionId);
+    void markNearbyConventionSetupReminderActed(conventionId, action);
 
     if (action === 'add_suit') {
       router.push({
@@ -958,7 +961,10 @@ export default function HomeScreen() {
     }
 
     dismissNearbyConventionReminderLocally(nearbyConventionReminder.conventionId);
-    void dismissNearbyConventionSetupReminder(nearbyConventionReminder.conventionId);
+    void dismissNearbyConventionSetupReminder(
+      nearbyConventionReminder.conventionId,
+      nearbyConventionReminder.action,
+    );
   }, [dismissNearbyConventionReminderLocally, nearbyConventionReminder]);
 
   return (

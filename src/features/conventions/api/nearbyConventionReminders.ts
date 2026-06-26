@@ -1,12 +1,13 @@
 import { supabase } from '@/lib/supabase';
-import { captureNonCriticalError } from '@/lib/sentry';
+import { captureSupabaseError } from '@/lib/sentry';
+import type { Database } from '@/types/database';
 
 export type NearbyConventionSetupReminderAction =
   | 'join_convention'
   | 'finish_check_in'
   | 'add_suit';
 
-export type NearbyConventionSetupReminder = {
+export interface NearbyConventionSetupReminder {
   conventionId: string;
   conventionName: string;
   distanceMeters: number | null;
@@ -14,13 +15,16 @@ export type NearbyConventionSetupReminder = {
   membershipState: string | null;
   ownedSuitCount: number;
   rosteredOwnedSuitCount: number;
-};
+}
 
-type FetchNearbyConventionSetupReminderParams = {
+interface FetchNearbyConventionSetupReminderParams {
   latitude: number;
   longitude: number;
   accuracyMeters?: number | null;
-};
+}
+
+type NearbyConventionSetupReminderRow =
+  Database['public']['Functions']['get_nearby_convention_setup_reminder']['Returns'][number];
 
 function normalizeAction(value: unknown): NearbyConventionSetupReminderAction {
   switch (value) {
@@ -32,7 +36,9 @@ function normalizeAction(value: unknown): NearbyConventionSetupReminderAction {
   }
 }
 
-function mapReminderRow(row: any): NearbyConventionSetupReminder | null {
+function mapReminderRow(
+  row: NearbyConventionSetupReminderRow | undefined,
+): NearbyConventionSetupReminder | null {
   if (!row?.convention_id || !row?.convention_name) {
     return null;
   }
@@ -72,8 +78,10 @@ export async function fetchNearbyConventionSetupReminder(
   });
 
   if (error) {
-    captureNonCriticalError(error, {
+    captureSupabaseError(error, {
       scope: 'nearby-convention-reminders.fetch',
+      action: 'get_nearby_convention_setup_reminder',
+      rpc: 'get_nearby_convention_setup_reminder',
     });
     return null;
   }
@@ -84,43 +92,62 @@ export async function fetchNearbyConventionSetupReminder(
 
 export async function markNearbyConventionSetupReminderShown(
   conventionId: string,
+  action: NearbyConventionSetupReminderAction,
   source = 'foreground',
 ): Promise<void> {
   const { error } = await supabase.rpc('mark_nearby_convention_setup_reminder_shown', {
+    p_action: action,
     p_convention_id: conventionId,
     p_source: source,
   });
 
   if (error) {
-    captureNonCriticalError(error, {
+    captureSupabaseError(error, {
       scope: 'nearby-convention-reminders.markShown',
+      action: 'mark_nearby_convention_setup_reminder_shown',
+      rpc: 'mark_nearby_convention_setup_reminder_shown',
       conventionId,
+      reminderAction: action,
     });
   }
 }
 
-export async function dismissNearbyConventionSetupReminder(conventionId: string): Promise<void> {
+export async function dismissNearbyConventionSetupReminder(
+  conventionId: string,
+  action: NearbyConventionSetupReminderAction,
+): Promise<void> {
   const { error } = await supabase.rpc('dismiss_nearby_convention_setup_reminder', {
+    p_action: action,
     p_convention_id: conventionId,
   });
 
   if (error) {
-    captureNonCriticalError(error, {
+    captureSupabaseError(error, {
       scope: 'nearby-convention-reminders.dismiss',
+      action: 'dismiss_nearby_convention_setup_reminder',
+      rpc: 'dismiss_nearby_convention_setup_reminder',
       conventionId,
+      reminderAction: action,
     });
   }
 }
 
-export async function markNearbyConventionSetupReminderActed(conventionId: string): Promise<void> {
+export async function markNearbyConventionSetupReminderActed(
+  conventionId: string,
+  action: NearbyConventionSetupReminderAction,
+): Promise<void> {
   const { error } = await supabase.rpc('mark_nearby_convention_setup_reminder_acted', {
+    p_action: action,
     p_convention_id: conventionId,
   });
 
   if (error) {
-    captureNonCriticalError(error, {
+    captureSupabaseError(error, {
       scope: 'nearby-convention-reminders.markActed',
+      action: 'mark_nearby_convention_setup_reminder_acted',
+      rpc: 'mark_nearby_convention_setup_reminder_acted',
       conventionId,
+      reminderAction: action,
     });
   }
 }
