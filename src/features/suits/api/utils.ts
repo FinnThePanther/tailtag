@@ -110,17 +110,20 @@ export const parseSocialLinks = (value: unknown): FursuitSocialLink[] => {
 export const applyProfileSocialLinksToBio = (
   bio: FursuitBio | null,
   socialLinks: FursuitSocialLink[],
+  options: { hideSocialLinks?: boolean } = {},
 ): FursuitBio | null => {
+  const socialLinksToApply = options.hideSocialLinks ? [] : socialLinks;
+
   if (bio) {
-    const socialLinksToUse = socialLinks.length > 0 ? socialLinks : bio.socialLinks;
+    const socialLinksToUse = socialLinksToApply.length > 0 ? socialLinksToApply : bio.socialLinks;
 
     return {
       ...bio,
-      socialLinks: socialLinksToUse,
+      socialLinks: options.hideSocialLinks ? [] : socialLinksToUse,
     };
   }
 
-  if (socialLinks.length === 0) {
+  if (socialLinksToApply.length === 0) {
     return null;
   }
 
@@ -131,7 +134,7 @@ export const applyProfileSocialLinksToBio = (
     pronouns: '',
     likesAndInterests: '',
     askMeAbout: '',
-    socialLinks,
+    socialLinks: socialLinksToApply,
     createdAt: null,
     updatedAt: null,
   } satisfies FursuitBio;

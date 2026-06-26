@@ -75,7 +75,10 @@ export default function CatchDetailScreen() {
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [photoFullscreen, setPhotoFullscreen] = useState(false);
-  const ownerId = isFursuitRedacted ? null : (details?.owner_id ?? null);
+  const ownerId =
+    isFursuitRedacted || details?.ownerAttributionVisibility === 'hidden'
+      ? null
+      : (details?.owner_id ?? null);
   const canModerateOwnerContent = Boolean(ownerId && userId && ownerId !== userId);
 
   const handleDownloadPhoto = useCallback(
@@ -215,10 +218,14 @@ export default function CatchDetailScreen() {
                 </TailTagButton>
               </View>
             ) : null}
-            {!isFursuitRedacted && fursuitBioHasDisplayableContent(details.bio, details.makers) ? (
+            {!isFursuitRedacted &&
+            fursuitBioHasDisplayableContent(details.bio, details.makers, {
+              hideSocialLinks: details.ownerAttributionVisibility === 'hidden',
+            }) ? (
               <FursuitBioDetails
                 bio={details.bio}
                 makers={details.makers}
+                hideSocialLinks={details.ownerAttributionVisibility === 'hidden'}
               />
             ) : null}
           </View>

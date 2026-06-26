@@ -1,12 +1,12 @@
 /// <reference lib="deno.unstable" />
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote imports.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
-import { jwtVerify } from 'https://esm.sh/jose@5.6.3';
 import {
   beginBackendWorkerRun,
   completeBackendWorkerRun,
   type BackendWorkerRunStatus,
 } from '../_shared/backendWorkerRuns.ts';
+import { verifyHs256Jwt } from '../_shared/serviceRoleJwt.ts';
 import {
   isInAppOnlyNotificationType,
   isPushNotificationType,
@@ -878,10 +878,8 @@ async function verifyServiceRoleRequest(req: Request): Promise<Response | null> 
 
   if (supabaseJwtSecret) {
     try {
-      const { payload } = await jwtVerify(token, new TextEncoder().encode(supabaseJwtSecret), {
-        algorithms: ['HS256'],
-      });
-      const role = typeof payload.role === 'string' ? payload.role : null;
+      const payload = await verifyHs256Jwt(token, supabaseJwtSecret);
+      const role = typeof payload?.role === 'string' ? payload.role : null;
 
       if (role !== 'service_role') {
         return respondJson({ error: 'Insufficient permissions' }, 403);

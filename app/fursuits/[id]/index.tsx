@@ -294,7 +294,7 @@ export default function FursuitDetailScreen() {
                       </Pressable>
                     </View>
                   ) : null}
-                  {!isOwner && detail.owner_id ? (
+                  {!isOwner && detail.ownerAttributionVisibility !== 'hidden' && detail.owner_id ? (
                     <Pressable
                       style={({ pressed }) => [styles.ownerRow, pressed && styles.ownerRowPressed]}
                       onPress={() =>
@@ -312,10 +312,13 @@ export default function FursuitDetailScreen() {
                       </View>
                     </Pressable>
                   ) : null}
-                  {fursuitBioHasDisplayableContent(detail.bio, detail.makers) ? (
+                  {fursuitBioHasDisplayableContent(detail.bio, detail.makers, {
+                    hideSocialLinks: detail.ownerAttributionVisibility === 'hidden',
+                  }) ? (
                     <FursuitBioDetails
                       bio={detail.bio}
                       makers={detail.makers}
+                      hideSocialLinks={detail.ownerAttributionVisibility === 'hidden'}
                     />
                   ) : (
                     <Text style={styles.message}>This fursuit does not have a bio yet.</Text>
