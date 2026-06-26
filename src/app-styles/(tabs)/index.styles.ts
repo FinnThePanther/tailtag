@@ -42,6 +42,9 @@ export const styles = StyleSheet.create({
   heroBlock: {
     marginBottom: spacing.xl,
   },
+  nearbyConventionCard: {
+    marginBottom: spacing.xl,
+  },
   recapBannerCard: {
     marginBottom: spacing.xl,
     borderWidth: 1,

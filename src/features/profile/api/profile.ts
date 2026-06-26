@@ -62,6 +62,7 @@ export type ProfileSummary = {
   role?: UserRole;
   push_notifications_enabled?: boolean;
   push_notifications_prompted?: boolean;
+  nearby_convention_reminders_enabled?: boolean;
   is_suspended?: boolean;
   suspended_until?: string | null;
   suspension_reason?: string | null;
@@ -75,7 +76,7 @@ export const profileQueryKey = (userId: string) => [PROFILE_QUERY_KEY, userId] a
 // Stable columns that have always existed — used as fallback when new columns aren't migrated yet.
 const STABLE_COLUMNS =
   'username, bio, is_new, onboarding_completed, role, push_notifications_enabled, push_notifications_prompted';
-const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, avatar_path, social_links, is_adult, age_confirmed_at, age_gate_version, legal_terms_accepted_at, legal_terms_version, visibility_audience, default_catch_mode, catch_mode_preference_source, is_suspended, suspended_until, suspension_reason`;
+const FULL_COLUMNS = `${STABLE_COLUMNS}, avatar_url, avatar_path, social_links, is_adult, age_confirmed_at, age_gate_version, legal_terms_accepted_at, legal_terms_version, visibility_audience, default_catch_mode, catch_mode_preference_source, nearby_convention_reminders_enabled, is_suspended, suspended_until, suspension_reason`;
 const NEW_USER_PROFILE_RETRY_DELAYS_MS = [150, 500] as const;
 
 const normalizeCatchMode = (value: unknown): CatchMode =>
@@ -231,6 +232,7 @@ function mapProfileData(data: any, overrides: Partial<ProfileSummary> = {}): Pro
     role: data.role ?? undefined,
     push_notifications_enabled: data.push_notifications_enabled ?? false,
     push_notifications_prompted: data.push_notifications_prompted ?? false,
+    nearby_convention_reminders_enabled: data.nearby_convention_reminders_enabled ?? false,
     is_suspended: data.is_suspended ?? false,
     suspended_until: data.suspended_until ?? null,
     suspension_reason: data.suspension_reason ?? null,
