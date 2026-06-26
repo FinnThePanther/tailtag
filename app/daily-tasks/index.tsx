@@ -17,6 +17,7 @@ import {
 } from '../../src/features/conventions';
 import { type DailyTasksAvailability, useDailyTasks } from '../../src/features/daily-tasks';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
+import { normalizeUuidString } from '@/utils/ids';
 import { colors } from '../../src/theme';
 import { styles } from '../../src/app-styles/daily-tasks/index.styles';
 
@@ -147,6 +148,10 @@ export default function DailyTasksScreen() {
     selectedConventionId,
     { suppressToasts: true },
   );
+  const normalizedSelectedConventionId = useMemo(
+    () => normalizeUuidString(selectedConventionId),
+    [selectedConventionId],
+  );
 
   const tasks = data?.tasks ?? [];
   const totalCount = data?.totalCount ?? 0;
@@ -167,19 +172,23 @@ export default function DailyTasksScreen() {
     (isFetching && !isLoading) || (isConventionsFetching && !isConventionsLoading);
 
   const handleRetry = useCallback(() => {
+    if (!normalizedSelectedConventionId) {
+      return;
+    }
     void refetch({ throwOnError: false });
-  }, [refetch]);
+  }, [normalizedSelectedConventionId, refetch]);
 
   const handleRetryConventions = useCallback(() => {
     void refetchConventionMemberships({ throwOnError: false });
   }, [refetchConventionMemberships]);
 
   const handleRefresh = useCallback(async () => {
-    await Promise.all([
-      refetch({ throwOnError: false }),
-      refetchConventionMemberships({ throwOnError: false }),
-    ]);
-  }, [refetch, refetchConventionMemberships]);
+    const refreshes: Promise<unknown>[] = [refetchConventionMemberships({ throwOnError: false })];
+    if (normalizedSelectedConventionId) {
+      refreshes.push(refetch({ throwOnError: false }));
+    }
+    await Promise.all(refreshes);
+  }, [normalizedSelectedConventionId, refetch, refetchConventionMemberships]);
 
   const conventionErrorMessage = conventionMembershipsError
     ? getUserVisibleErrorMessage(conventionMembershipsError, 'We could not load your conventions.')

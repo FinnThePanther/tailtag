@@ -7,6 +7,7 @@ import { FURSUIT_BUCKET } from '@/constants/storage';
 import type { FursuitColorOption } from '@/features/colors';
 import { mapFursuitColors } from '@/features/suits/api/utils';
 import { resolveStorageMediaUrl } from '@/utils/supabase-image';
+import { normalizeUuidString } from '@/utils/ids';
 import type { Database, FursuitSocialLink } from '@/types/database';
 
 const GAMEPLAY_EVENT_TIMEOUT_MS = 5000;
@@ -712,6 +713,14 @@ function mapConventionMembership(row: any): ConventionMembership {
   };
 }
 
+function normalizeConventionIdRow(row: any): string | null {
+  return normalizeUuidString(row?.convention_id ?? row?.id);
+}
+
+function mapConventionIdRows(data: any[] | null | undefined): string[] {
+  return (data ?? []).map(normalizeConventionIdRow).filter((id): id is string => Boolean(id));
+}
+
 function mapPastConventionRecap(row: any): PastConventionRecap {
   return {
     recapId: row.recap_id,
@@ -876,7 +885,7 @@ export async function fetchActiveProfileConventionIds(profileId: string): Promis
     throw new Error(`We couldn't load your playable conventions: ${error.message}`);
   }
 
-  return (data ?? []).map((row: any) => row.convention_id);
+  return mapConventionIdRows(data);
 }
 
 export async function fetchProfileConventionMemberships(): Promise<ConventionMembership[]> {
@@ -887,7 +896,23 @@ export async function fetchProfileConventionMemberships(): Promise<ConventionMem
     throw new Error(`We couldn't load your conventions: ${error.message}`);
   }
 
-  return (data ?? []).map(mapConventionMembership);
+  const memberships: ConventionMembership[] = [];
+  for (const row of data ?? []) {
+    const conventionId = normalizeConventionIdRow(row);
+    if (!conventionId) {
+      continue;
+    }
+
+    memberships.push(
+      mapConventionMembership({
+        ...row,
+        id: conventionId,
+        convention_id: conventionId,
+      }),
+    );
+  }
+
+  return memberships;
 }
 
 export async function fetchActiveSharedConventionIds(
@@ -904,7 +929,7 @@ export async function fetchActiveSharedConventionIds(
     throw new Error(`We couldn't resolve your playable shared conventions: ${error.message}`);
   }
 
-  return (data ?? []).map((row: any) => row.convention_id);
+  return mapConventionIdRows(data);
 }
 
 export async function fetchGalleryProfileConventionIds(profileId: string): Promise<string[]> {
@@ -917,7 +942,7 @@ export async function fetchGalleryProfileConventionIds(profileId: string): Promi
     throw new Error(`We couldn't load your gallery-eligible conventions: ${error.message}`);
   }
 
-  return (data ?? []).map((row: any) => row.convention_id);
+  return mapConventionIdRows(data);
 }
 
 export async function fetchGallerySharedConventionIds(
@@ -936,7 +961,7 @@ export async function fetchGallerySharedConventionIds(
     );
   }
 
-  return (data ?? []).map((row: any) => row.convention_id);
+  return mapConventionIdRows(data);
 }
 
 export async function optInToConvention(params: OptInParams): Promise<void> {
