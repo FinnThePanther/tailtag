@@ -4238,6 +4238,22 @@ export type Database = {
           started_at: string
         }[]
       }
+      update_fursuit_profile: {
+        Args: {
+          p_avatar_changed: boolean
+          p_avatar_path: string
+          p_avatar_url: string
+          p_fursuit_id: string
+          p_interaction_badges: string[]
+          p_name: string
+          p_owner_attribution_visibility: string
+          p_social_signal: string
+          p_species_id: string
+          p_unique_code: string
+          p_visibility_audience: string
+        }
+        Returns: Json
+      }
       user_owns_fursuit: {
         Args: { p_fursuit_id: string; p_profile_id: string }
         Returns: boolean
