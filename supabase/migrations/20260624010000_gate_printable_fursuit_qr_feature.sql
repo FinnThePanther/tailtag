@@ -303,7 +303,7 @@ BEGIN
       v_tag.avatar_url,
       v_tag.species_name;
   ELSE
-    RETURN QUERY SELECT true, 'valid'::text, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::text;
+    RETURN QUERY SELECT false, 'non_public'::text, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::text;
   END IF;
 END;
 $function$;
