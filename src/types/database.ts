@@ -1672,6 +1672,7 @@ export type Database = {
           id: string
           interaction_badges: string[]
           is_flagged: boolean
+          is_tutorial: boolean
           name: string
           owner_attribution_visibility: string
           owner_id: string
@@ -1692,6 +1693,7 @@ export type Database = {
           id?: string
           interaction_badges?: string[]
           is_flagged?: boolean
+          is_tutorial?: boolean
           name: string
           owner_attribution_visibility?: string
           owner_id: string
@@ -1712,6 +1714,7 @@ export type Database = {
           id?: string
           interaction_badges?: string[]
           is_flagged?: boolean
+          is_tutorial?: boolean
           name?: string
           owner_attribution_visibility?: string
           owner_id?: string

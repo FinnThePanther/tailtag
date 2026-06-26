@@ -42,6 +42,7 @@
     "test:achievements": "node --test scripts/achievement-regression.mjs",
     "test:daily-tasks": "node --test scripts/daily-task-optimistic-regression.mjs",
     "test:fursuits": "node --test scripts/fursuit-edit-regression.mjs",
+    "test:tutorial-compat": "node --test scripts/tutorial-compat-regression.mjs",
     "test:notifications": "node --test scripts/notification-contract-regression.mjs",
     "test:lifecycle": "node --test scripts/lifecycle-regression.mjs",
     "verify:production-release": "node scripts/verify-production-release-config.cjs",
