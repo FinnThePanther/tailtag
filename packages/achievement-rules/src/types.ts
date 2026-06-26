@@ -82,6 +82,10 @@ export interface CatchEventContext {
     names: string[];
     normalizedNames: string[];
   };
+  colors: {
+    names: string[];
+    normalizedNames: string[];
+  };
 }
 
 export interface ProfileSnapshot {

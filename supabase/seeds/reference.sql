@@ -17,7 +17,7 @@
 BEGIN;
 
 -- -----------------------------------------------------------------------------
--- 1. Fursuit Colors (12 rows)
+-- 1. Fursuit Colors (13 rows)
 -- -----------------------------------------------------------------------------
 INSERT INTO fursuit_colors (id, name, is_active) VALUES
   ('147a5a17-6019-4385-956c-340da1ce90e1', 'Black',  true),
@@ -28,6 +28,7 @@ INSERT INTO fursuit_colors (id, name, is_active) VALUES
   ('baa0390f-6654-49a3-939d-86d13eab78a3', 'Orange', true),
   ('a0ee46b5-110b-464e-9ca2-999190bff178', 'Pink',   true),
   ('f0e2ff9e-ef05-4d59-85e9-de9c3d655cdb', 'Purple', true),
+  ('bb992390-da81-47de-a2c8-772305dcc52b', 'Rainbow', true),
   ('15e575d8-ae9f-4885-8a3e-37ac9cf7912e', 'Red',    true),
   ('14505527-583d-4848-ba57-7f8307a586fc', 'Teal',   true),
   ('a084df70-7eb1-4ffa-9a40-39164b9ba393', 'White',  true),

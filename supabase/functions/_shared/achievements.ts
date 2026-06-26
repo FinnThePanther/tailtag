@@ -286,14 +286,8 @@ async function processCatchEvent(
 
   const catchFursuit = Array.isArray(catchRow.fursuit) ? catchRow.fursuit[0] : catchRow.fursuit;
   const speciesMetadata = extractFursuitSpeciesMetadata(catchFursuit);
-  const colorNames = ((catchFursuit?.color_assignments ?? []) as Array<{ color?: unknown }>)
-    .map((assignment) => {
-      const color = Array.isArray(assignment.color) ? assignment.color[0] : assignment.color;
-      return typeof color === 'object' && color !== null && 'name' in color
-        ? (color.name as string | null)
-        : null;
-    })
-    .filter((name): name is string => Boolean(name));
+  const colorMetadata = extractFursuitColorMetadata(catchFursuit);
+  const colorNames = colorMetadata.names;
   const rawOwnerId = catchFursuit?.owner_id ?? null;
 
   const candidateConventionIds = collectConventionIds(event, payload, catchRow.convention_id);
@@ -503,6 +497,7 @@ async function processCatchEvent(
       names: makerMetadata.makerNames,
       normalizedNames: makerMetadata.normalizedMakerNames,
     },
+    colors: colorMetadata,
   };
 
   const awards = evaluateCatchAchievements(catchContext);
@@ -680,14 +675,7 @@ async function processCatchConfirmedEvent(
 
   const catchFursuit = Array.isArray(catchRow.fursuit) ? catchRow.fursuit[0] : catchRow.fursuit;
   const speciesMetadata = extractFursuitSpeciesMetadata(catchFursuit);
-  const colorNames = ((catchFursuit?.color_assignments ?? []) as Array<{ color?: unknown }>)
-    .map((assignment) => {
-      const color = Array.isArray(assignment.color) ? assignment.color[0] : assignment.color;
-      return typeof color === 'object' && color !== null && 'name' in color
-        ? (color.name as string | null)
-        : null;
-    })
-    .filter((name): name is string => Boolean(name));
+  const colorNames = extractFursuitColorMetadata(catchFursuit).names;
   const makerMetadata = await fetchFursuitMakerMetadata(supabaseAdmin, catchRow.fursuit_id);
   const hasMakerMatchWithCatcherOwnedSuit = await hasCatcherOwnedMakerMatch(
     supabaseAdmin,
@@ -1235,7 +1223,7 @@ async function fetchCatchWithRelations(
   const { data, error } = await supabaseAdmin
     .from('catches')
     .select(
-      'id,catcher_id,fursuit_id,convention_id,status,caught_at,catch_photo_url,fursuit:fursuits(id,owner_id,species_id,species:fursuit_species(id,name,normalized_name),species_assignments:fursuit_species_assignments(position,species:fursuit_species(id,name,normalized_name)),color_assignments:fursuit_color_assignments(color:fursuit_colors(name)))',
+      'id,catcher_id,fursuit_id,convention_id,status,caught_at,catch_photo_url,fursuit:fursuits(id,owner_id,species_id,species:fursuit_species(id,name,normalized_name),species_assignments:fursuit_species_assignments(position,species:fursuit_species(id,name,normalized_name)),color_assignments:fursuit_color_assignments(color:fursuit_colors(name,normalized_name)))',
     )
     .eq('id', catchId)
     .limit(1)
@@ -1529,6 +1517,36 @@ function extractFursuitSpeciesMetadata(fursuit: any) {
     primaryId: ids[0] ?? null,
     primaryName: names[0] ?? null,
     isHybrid: species.length > 1 || isExplicitHybrid,
+  };
+}
+
+function extractFursuitColorMetadata(fursuit: any) {
+  const assignments = Array.isArray(fursuit?.color_assignments) ? fursuit.color_assignments : [];
+  const colors = assignments
+    .map((assignment: any) => {
+      const color = Array.isArray(assignment?.color) ? assignment.color[0] : assignment?.color;
+      if (!color?.name) return null;
+      const name = String(color.name);
+      const normalizedName = String(color.normalized_name ?? name)
+        .trim()
+        .toLowerCase();
+      return {
+        name,
+        normalizedName,
+        position: Number(assignment?.position),
+      };
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => {
+      const left = Number.isFinite(a.position) ? a.position : Number.MAX_SAFE_INTEGER;
+      const right = Number.isFinite(b.position) ? b.position : Number.MAX_SAFE_INTEGER;
+      if (left !== right) return left - right;
+      return a.name.localeCompare(b.name);
+    });
+
+  return {
+    names: colors.map((entry: any) => entry.name),
+    normalizedNames: colors.map((entry: any) => entry.normalizedName),
   };
 }
 

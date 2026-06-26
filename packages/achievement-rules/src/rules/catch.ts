@@ -673,6 +673,34 @@ export const catchRules: CatchRuleDefinition[] = [
         : [];
     },
   },
+  {
+    ruleId: ACHIEVEMENT_RULE_IDS.OVER_THE_RAINBOW,
+    achievementKey: 'OVER_THE_RAINBOW',
+    eventType: 'catch_performed',
+    metadata: {
+      displayName: 'Over the Rainbow',
+      description: 'Catch a fursuiter with Rainbow as one of their colors.',
+      category: 'variety',
+      recipientRole: 'catcher',
+      canEvaluateClient: true,
+      resetMode: 'none',
+    },
+    requiredStats: [],
+    evaluate(context) {
+      return context.colors.normalizedNames.includes('rainbow')
+        ? awardSingle(
+            context,
+            ACHIEVEMENT_RULE_IDS.OVER_THE_RAINBOW,
+            'OVER_THE_RAINBOW',
+            context.catcherId,
+            {
+              colors: context.colors.names,
+              normalized_colors: context.colors.normalizedNames,
+            },
+          )
+        : [];
+    },
+  },
 ];
 
 export function evaluateCatchAchievements(context: CatchEventContext): AwardCandidate[] {
