@@ -1,7 +1,8 @@
-import { supabase } from '../../../lib/supabase';
-import { normalizeUniqueCodeInput } from '../../../utils/code';
 import type { VisibilityAudience } from '@/features/adult-boundary';
 import type { InteractionBadgeKey, SocialSignalKey } from '@/features/interaction-preferences';
+import { captureSupabaseError } from '@/lib/sentry';
+import { supabase } from '@/lib/supabase';
+import { normalizeUniqueCodeInput } from '@/utils/code';
 
 export type UpdateFursuitProfileResult =
   | {
@@ -20,7 +21,7 @@ export type UpdateFursuitProfileResult =
       uniqueCode: null;
     };
 
-export type UpdateFursuitProfileInput = {
+export interface UpdateFursuitProfileInput {
   fursuitId: string;
   name: string;
   speciesId: string;
@@ -32,13 +33,13 @@ export type UpdateFursuitProfileInput = {
   avatarPath?: string | null;
   avatarUrl?: string | null;
   avatarChanged: boolean;
-};
+}
 
-type RawUpdateFursuitProfileResult = {
+interface RawUpdateFursuitProfileResult {
   status?: unknown;
   fursuit_id?: unknown;
   unique_code?: unknown;
-};
+}
 
 const parseUpdateFursuitProfileResult = (value: unknown): UpdateFursuitProfileResult => {
   if (!value || typeof value !== 'object') {
@@ -96,6 +97,15 @@ export async function updateFursuitProfile(
   });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'suits.updateFursuitProfile',
+      action: 'update_fursuit_profile',
+      rpc: 'update_fursuit_profile',
+      fursuitId: input.fursuitId,
+      speciesId: input.speciesId,
+      avatarChanged: input.avatarChanged,
+      uniqueCode: normalizedCode,
+    });
     throw error;
   }
 

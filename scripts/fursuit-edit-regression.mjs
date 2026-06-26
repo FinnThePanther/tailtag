@@ -38,6 +38,11 @@ describe('fursuit edit profile RPC', () => {
     const { source } = fursuitProfileMigration();
 
     assert.match(source, /'status', 'code_taken'/);
+    assert.match(
+      source,
+      /v_normalized_code text := upper\(btrim\(coalesce\(p_unique_code, ''\)\)\)/,
+    );
+    assert.match(source, /v_normalized_code !~ '\^\[A-Z0-9\]\{4,8\}\$'/);
     assert.match(source, /WHERE upper\(f\.unique_code\) = v_normalized_code/);
     assert.match(source, /AND f\.id <> p_fursuit_id/);
     assert.match(source, /EXCEPTION\s+WHEN unique_violation THEN\s+RETURN jsonb_build_object\(/s);

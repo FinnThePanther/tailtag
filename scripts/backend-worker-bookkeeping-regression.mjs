@@ -35,11 +35,15 @@ describe('Backend worker bookkeeping', () => {
     assert.match(source, /CREATE TABLE IF NOT EXISTS public\.backend_worker_heartbeats/);
     assert.match(source, /worker_name text PRIMARY KEY/);
     assert.match(source, /last_idle_counts jsonb NOT NULL DEFAULT '\{\}'::jsonb/);
+    assert.match(
+      source,
+      /idle_count_window_started_at timestamp with time zone NOT NULL DEFAULT now\(\)/,
+    );
     assert.match(source, /idle_count_24h integer NOT NULL DEFAULT 0/);
     assert.match(source, /CREATE OR REPLACE FUNCTION public\.record_backend_worker_heartbeat/);
     assert.match(
       source,
-      /public\.backend_worker_heartbeats\.updated_at < v_now - interval '24 hours'/,
+      /public\.backend_worker_heartbeats\.idle_count_window_started_at < v_now - interval '24 hours'/,
     );
     assert.match(source, /GRANT EXECUTE ON FUNCTION public\.record_backend_worker_heartbeat/);
     assert.match(source, /TO service_role/);

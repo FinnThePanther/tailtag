@@ -236,6 +236,7 @@ export type Database = {
           created_at: string;
           display_name: string;
           idle_count_24h: number;
+          idle_count_window_started_at: string;
           last_idle_at: string | null;
           last_idle_counts: Json;
           last_idle_duration_ms: number | null;
@@ -249,6 +250,7 @@ export type Database = {
           created_at?: string;
           display_name: string;
           idle_count_24h?: number;
+          idle_count_window_started_at?: string;
           last_idle_at?: string | null;
           last_idle_counts?: Json;
           last_idle_duration_ms?: number | null;
@@ -262,6 +264,7 @@ export type Database = {
           created_at?: string;
           display_name?: string;
           idle_count_24h?: number;
+          idle_count_window_started_at?: string;
           last_idle_at?: string | null;
           last_idle_counts?: Json;
           last_idle_duration_ms?: number | null;
@@ -4218,6 +4221,7 @@ export type Database = {
           created_at: string;
           display_name: string;
           idle_count_24h: number;
+          idle_count_window_started_at: string;
           last_idle_at: string | null;
           last_idle_counts: Json;
           last_idle_duration_ms: number | null;
