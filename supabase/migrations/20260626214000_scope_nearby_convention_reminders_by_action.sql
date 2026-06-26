@@ -133,7 +133,6 @@ AS $$
         AND candidate.rostered_owned_suit_count = 0
       )
     )
-    AND candidate.rostered_owned_suit_count = 0
   ORDER BY candidate.distance_meters ASC, candidate.convention_name ASC, candidate.convention_id ASC
   LIMIT 1;
 $$;
