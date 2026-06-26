@@ -2,7 +2,11 @@
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote esm.sh imports.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
 import { processAchievementsForEvent } from '../_shared/achievements.ts';
-import { beginBackendWorkerRun, completeBackendWorkerRun } from '../_shared/backendWorkerRuns.ts';
+import {
+  beginBackendWorkerRun,
+  completeBackendWorkerRun,
+  completeOrHeartbeatBackendWorkerRun,
+} from '../_shared/backendWorkerRuns.ts';
 import { processCatchNotificationForEvent } from '../_shared/catchNotifications.ts';
 import { loadGameplayQueueConfig } from '../_shared/gameplayQueue.ts';
 import type { InsertableEventRow } from '../_shared/types.ts';
@@ -439,7 +443,12 @@ Deno.serve(async (req) => {
 
   try {
     const result = await processQueue(body);
-    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+    const completeQueueRun =
+      typeof body.canaryEventId === 'string' && body.canaryEventId.trim().length > 0
+        ? completeBackendWorkerRun
+        : completeOrHeartbeatBackendWorkerRun;
+
+    await completeQueueRun(supabaseAdmin, workerRun, {
       status: result.failed > 0 || result.archived > 0 ? 'partial' : 'succeeded',
       counts: {
         fetched: result.fetched,

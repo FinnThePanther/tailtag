@@ -240,6 +240,48 @@ export type Database = {
           },
         ]
       }
+      backend_worker_heartbeats: {
+        Row: {
+          created_at: string
+          display_name: string
+          idle_count_24h: number
+          last_idle_at: string | null
+          last_idle_counts: Json
+          last_idle_duration_ms: number | null
+          last_seen_at: string
+          metadata: Json
+          source: string
+          updated_at: string
+          worker_name: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          idle_count_24h?: number
+          last_idle_at?: string | null
+          last_idle_counts?: Json
+          last_idle_duration_ms?: number | null
+          last_seen_at?: string
+          metadata?: Json
+          source: string
+          updated_at?: string
+          worker_name: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          idle_count_24h?: number
+          last_idle_at?: string | null
+          last_idle_counts?: Json
+          last_idle_duration_ms?: number | null
+          last_seen_at?: string
+          metadata?: Json
+          source?: string
+          updated_at?: string
+          worker_name?: string
+        }
+        Relationships: []
+      }
       backend_worker_runs: {
         Row: {
           completed_at: string | null
@@ -3395,7 +3437,11 @@ export type Database = {
         Args: never
         Returns: {
           display_name: string
+          idle_count_24h: number
           last_failure_at: string
+          last_heartbeat_at: string
+          last_idle_at: string
+          last_idle_counts: Json
           last_success_at: string
           latest_completed_at: string
           latest_counts: Json
@@ -4087,6 +4133,36 @@ export type Database = {
           read_ct: number
           vt: string
         }[]
+      }
+      record_backend_worker_heartbeat: {
+        Args: {
+          p_display_name: string
+          p_last_idle_at: string
+          p_last_idle_counts?: Json
+          p_last_idle_duration_ms: number
+          p_metadata?: Json
+          p_source: string
+          p_worker_name: string
+        }
+        Returns: {
+          created_at: string
+          display_name: string
+          idle_count_24h: number
+          last_idle_at: string | null
+          last_idle_counts: Json
+          last_idle_duration_ms: number | null
+          last_seen_at: string
+          metadata: Json
+          source: string
+          updated_at: string
+          worker_name: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "backend_worker_heartbeats"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       refresh_analytics_views: { Args: never; Returns: undefined }
       register_push_token: {

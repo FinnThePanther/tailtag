@@ -326,6 +326,50 @@ export default async function BackendHealthPage() {
       </Card>
 
       <Card
+        title="Worker freshness"
+        subtitle="Latest durable runs with compact idle cron heartbeats where no real run exists"
+      >
+        {workerHealthUnavailable ? (
+          <p className="text-sm text-muted">
+            Backend worker health is temporarily unavailable. Worker records may still be written.
+          </p>
+        ) : (
+          <Table headers={['Worker', 'Status', 'Last activity', 'Idle in 24h', 'Idle counts']}>
+            {workerHealth.map((worker) => (
+              <tr key={worker.worker_name}>
+                <td className="px-4 py-3">
+                  <div className="font-semibold text-white">{worker.display_name}</div>
+                  <div className="text-xs text-muted">Source {worker.latest_source ?? '—'}</div>
+                </td>
+                <td className="px-4 py-3">
+                  <StatusBadge status={worker.latest_status} />
+                </td>
+                <td className="px-4 py-3 text-slate-200">
+                  {formatDateTime(worker.latest_started_at ?? worker.last_heartbeat_at)}
+                </td>
+                <td className="px-4 py-3 text-slate-200">{worker.idle_count_24h}</td>
+                <td className="px-4 py-3">
+                  <div className="max-w-xl truncate text-sm text-slate-200">
+                    {formatCounts(worker.last_idle_counts)}
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {!workerHealth.length ? (
+              <tr>
+                <td
+                  className="px-4 py-3 text-sm text-muted"
+                  colSpan={5}
+                >
+                  No backend worker health records yet.
+                </td>
+              </tr>
+            ) : null}
+          </Table>
+        )}
+      </Card>
+
+      <Card
         title="Push and admin errors"
         subtitle="Push delivery failures remain separate from gameplay queue health"
       >
@@ -382,6 +426,18 @@ function formatAge(value: number | null): string {
   }
 
   return `${Math.floor(value / 86400)}d`;
+}
+
+function formatCounts(counts: Record<string, unknown>): string {
+  const entries = Object.entries(counts)
+    .filter(([, value]) => typeof value === 'number' && value !== 0)
+    .slice(0, 4);
+
+  if (entries.length === 0) {
+    return 'none';
+  }
+
+  return entries.map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join(', ');
 }
 
 function StatusBadge({ status }: { status: string | null }) {

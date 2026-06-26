@@ -10,7 +10,11 @@
 
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
-import { beginBackendWorkerRun, completeBackendWorkerRun } from '../_shared/backendWorkerRuns.ts';
+import {
+  beginBackendWorkerRun,
+  completeBackendWorkerRun,
+  completeOrHeartbeatBackendWorkerRun,
+} from '../_shared/backendWorkerRuns.ts';
 import { ingestGameplayEvent } from '../_shared/gameplayQueue.ts';
 
 const corsHeaders: Record<string, string> = {
@@ -236,7 +240,7 @@ async function handleRequest(req: Request): Promise<Response> {
       `[expire-pending-catches] Completed: ${result.expired_count} catches expired, ${notificationsSent} notifications sent`,
     );
 
-    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+    await completeOrHeartbeatBackendWorkerRun(supabaseAdmin, workerRun, {
       status: notificationFailures > 0 || eventFailures > 0 ? 'partial' : 'succeeded',
       counts: {
         expired_catches: result.expired_count,
