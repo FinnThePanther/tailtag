@@ -74,7 +74,7 @@ def starts_with_allowed_command(tokens: list[str]) -> bool:
 def command_is_allowed(command: str) -> bool:
     tokens = shell_tokens(command)
     current_segment: list[str] = []
-    saw_preamble = False
+    saw_allowed_command = False
 
     for token in [*tokens, ";"]:
         if token not in SHELL_SEPARATORS:
@@ -86,15 +86,16 @@ def command_is_allowed(command: str) -> bool:
             continue
 
         if starts_with_allowed_command(current_segment):
-            return True
+            saw_allowed_command = True
+            current_segment = []
+            continue
 
-        if current_segment[0] not in APPROVED_PREAMBLE_COMMANDS:
+        if saw_allowed_command or current_segment[0] not in APPROVED_PREAMBLE_COMMANDS:
             return False
 
-        saw_preamble = True
         current_segment = []
 
-    return saw_preamble and False
+    return saw_allowed_command
 
 
 def main() -> int:
