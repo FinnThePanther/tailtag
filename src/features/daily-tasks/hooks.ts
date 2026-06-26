@@ -7,6 +7,7 @@ import { fetchDailyTasks } from './api/dailyTasks';
 import { useToast } from '../../hooks/useToast';
 import { supabase } from '../../lib/supabase';
 import { addMonitoringBreadcrumb } from '../../lib/sentry';
+import { normalizeUuidString } from '@/utils/ids';
 
 export const DAILY_TASKS_QUERY_KEY = 'daily-tasks';
 
@@ -84,14 +85,15 @@ type DailyTaskOptions = {
 
 export function useDailyTasks(
   userId: string | null,
-  conventionId: string | null,
+  conventionId: string | null | undefined,
   options: DailyTaskOptions = {},
 ) {
   const now = useTicker();
-  const enabled = Boolean(userId && conventionId);
+  const normalizedConventionId = useMemo(() => normalizeUuidString(conventionId), [conventionId]);
+  const enabled = Boolean(userId && normalizedConventionId);
   const { showToast } = useToast();
   const suppressToasts = options.suppressToasts ?? false;
-  const stateKey = userId && conventionId ? `${userId}:${conventionId}` : null;
+  const stateKey = userId && normalizedConventionId ? `${userId}:${normalizedConventionId}` : null;
   const [isToastStateReady, setToastStateReady] = useState<boolean>(() =>
     Boolean(stateKey && dailyTaskToastStateMap.has(stateKey)),
   );
@@ -143,9 +145,16 @@ export function useDailyTasks(
 
   const query = useQuery<DailyTasksSummary, Error>({
     queryKey:
-      userId && conventionId ? dailyTasksQueryKey(userId, conventionId) : [DAILY_TASKS_QUERY_KEY],
+      userId && normalizedConventionId
+        ? dailyTasksQueryKey(userId, normalizedConventionId)
+        : [DAILY_TASKS_QUERY_KEY],
     enabled,
-    queryFn: () => fetchDailyTasks({ userId: userId!, conventionId: conventionId! }),
+    queryFn: () => {
+      if (!userId || !normalizedConventionId) {
+        throw new Error('No playable convention is selected.');
+      }
+      return fetchDailyTasks({ userId, conventionId: normalizedConventionId });
+    },
     staleTime: Infinity,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -158,7 +167,7 @@ export function useDailyTasks(
       return Math.min(Math.max(msUntilReset, 30_000), 60_000);
     },
     refetchIntervalInBackground: true,
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData) => (enabled ? previousData : undefined),
   });
 
   const resetAt = query.data?.resetAt ?? null;
@@ -182,14 +191,16 @@ export function useDailyTasks(
 
   const queryClient = useQueryClient();
   useEffect(() => {
-    if (!userId || !conventionId || !enabled) {
+    if (!userId || !normalizedConventionId || !enabled) {
       return;
     }
 
     if (millisecondsUntilReset <= 0) {
-      void queryClient.invalidateQueries({ queryKey: dailyTasksQueryKey(userId, conventionId) });
+      void queryClient.invalidateQueries({
+        queryKey: dailyTasksQueryKey(userId, normalizedConventionId),
+      });
     }
-  }, [userId, conventionId, enabled, millisecondsUntilReset, queryClient]);
+  }, [userId, normalizedConventionId, enabled, millisecondsUntilReset, queryClient]);
 
   useEffect(() => {
     if (!isToastStateReady || !enabled || !userId || !stateKey) {
@@ -265,7 +276,7 @@ export function useDailyTasks(
   const activeSubscriptionRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!userId || !conventionId || !enabled) {
+    if (!userId || !normalizedConventionId || !enabled) {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
@@ -274,7 +285,7 @@ export function useDailyTasks(
       return;
     }
 
-    const subscriptionKey = `${userId}:${conventionId}`;
+    const subscriptionKey = `${userId}:${normalizedConventionId}`;
     if (activeSubscriptionRef.current === subscriptionKey) {
       return;
     }
@@ -285,7 +296,7 @@ export function useDailyTasks(
 
     const instanceId = Math.random().toString(36).slice(2, 10);
     const channel = supabase
-      .channel(`daily-progress:${userId}:${conventionId}:${instanceId}`)
+      .channel(`daily-progress:${userId}:${normalizedConventionId}:${instanceId}`)
       .on(
         'postgres_changes',
         {
@@ -300,14 +311,14 @@ export function useDailyTasks(
             message: 'Realtime: user_daily_progress changed',
             data: {
               userId,
-              conventionId,
+              conventionId: normalizedConventionId,
               event: payload.eventType,
             },
           });
 
           // Invalidate query to trigger refetch and toast logic
           void queryClient.invalidateQueries({
-            queryKey: dailyTasksQueryKey(userId, conventionId),
+            queryKey: dailyTasksQueryKey(userId, normalizedConventionId),
           });
         },
       )
@@ -316,7 +327,7 @@ export function useDailyTasks(
           addMonitoringBreadcrumb({
             category: 'daily-tasks',
             message: 'Realtime subscription active',
-            data: { userId, conventionId },
+            data: { userId, conventionId: normalizedConventionId },
           });
         }
       });
@@ -331,7 +342,7 @@ export function useDailyTasks(
         activeSubscriptionRef.current = null;
       }
     };
-  }, [userId, conventionId, enabled, queryClient]);
+  }, [userId, normalizedConventionId, enabled, queryClient]);
 
   return {
     ...query,
