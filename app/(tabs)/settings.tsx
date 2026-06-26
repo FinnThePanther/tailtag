@@ -55,7 +55,7 @@ import type {
 import { ConventionToggle } from '../../src/components/conventions/ConventionToggle';
 import { supabase } from '../../src/lib/supabase';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../src/lib/runtimeConfig';
-import { captureHandledException } from '../../src/lib/sentry';
+import { captureHandledException, captureSupabaseError } from '../../src/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { buildImageUploadCandidate, extractStoragePath } from '../../src/utils/images';
@@ -767,6 +767,8 @@ export default function SettingsScreen() {
   const displayNearbyConventionRemindersOn =
     optimisticNearbyConventionRemindersEnabled ??
     profile?.nearby_convention_reminders_enabled === true;
+  const canToggleNearbyConventionReminders =
+    Boolean(userId && profile) && optimisticNearbyConventionRemindersEnabled === null;
   const showUsernameGuidance =
     params.focus === 'username' &&
     hasReviewedUsername === false &&
@@ -821,9 +823,22 @@ export default function SettingsScreen() {
 
   const handleToggleNearbyConventionReminders = useCallback(
     async (nextValue: boolean) => {
-      if (!userId) {
+      if (!userId || !profile) {
         return;
       }
+
+      const previousValue = profile.nearby_convention_reminders_enabled === true;
+
+      const rollbackNearbyConventionReminderState = () => {
+        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+          current
+            ? {
+                ...current,
+                nearby_convention_reminders_enabled: previousValue,
+              }
+            : current,
+        );
+      };
 
       setOptimisticNearbyConventionRemindersEnabled(nextValue);
       setNearbyConventionRemindersError(null);
@@ -836,35 +851,52 @@ export default function SettingsScreen() {
           : current,
       );
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          nearby_convention_reminders_enabled: nextValue,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', userId);
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            nearby_convention_reminders_enabled: nextValue,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userId);
 
-      setOptimisticNearbyConventionRemindersEnabled(null);
-
-      if (error) {
-        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
-          current
-            ? {
-                ...current,
-                nearby_convention_reminders_enabled:
-                  profile?.nearby_convention_reminders_enabled ?? false,
-              }
-            : current,
-        );
+        if (error) {
+          captureSupabaseError(error, {
+            scope: 'settings.nearbyConventionReminders.toggle',
+            action: 'profiles.update',
+            userId,
+            nextValue,
+            previousValue,
+          });
+          rollbackNearbyConventionReminderState();
+          setNearbyConventionRemindersError(
+            getUserVisibleErrorMessage(
+              error,
+              'Could not update nearby convention reminders. Try again.',
+            ),
+          );
+        }
+      } catch (error) {
+        captureHandledException(error, {
+          scope: 'settings.nearbyConventionReminders.toggle',
+          additionalContext: {
+            userId,
+            nextValue,
+            previousValue,
+          },
+        });
+        rollbackNearbyConventionReminderState();
         setNearbyConventionRemindersError(
           getUserVisibleErrorMessage(
             error,
             'Could not update nearby convention reminders. Try again.',
           ),
         );
+      } finally {
+        setOptimisticNearbyConventionRemindersEnabled(null);
       }
     },
-    [profile?.nearby_convention_reminders_enabled, profileQueryKey, queryClient, userId],
+    [profile, profileQueryKey, queryClient, userId],
   );
 
   const handleOpenCommunityChat = useCallback(async () => {
@@ -2303,13 +2335,13 @@ export default function SettingsScreen() {
             <Switch
               value={displayNearbyConventionRemindersOn}
               onValueChange={handleToggleNearbyConventionReminders}
-              disabled={!userId || optimisticNearbyConventionRemindersEnabled !== null}
+              disabled={!canToggleNearbyConventionReminders}
               accessibilityRole="switch"
               accessibilityLabel="Nearby convention reminders"
               accessibilityHint="Toggle in-app setup reminders for live nearby conventions."
               accessibilityState={{
                 checked: displayNearbyConventionRemindersOn,
-                disabled: !userId || optimisticNearbyConventionRemindersEnabled !== null,
+                disabled: !canToggleNearbyConventionReminders,
               }}
             />
           </View>

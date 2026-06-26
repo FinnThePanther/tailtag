@@ -1783,6 +1783,7 @@ export type Database = {
       nearby_convention_setup_reminders: {
         Row: {
           acted_at: string | null
+          action: string
           convention_id: string
           created_at: string
           dismissed_at: string | null
@@ -1794,6 +1795,7 @@ export type Database = {
         }
         Insert: {
           acted_at?: string | null
+          action?: string
           convention_id: string
           created_at?: string
           dismissed_at?: string | null
@@ -1805,6 +1807,7 @@ export type Database = {
         }
         Update: {
           acted_at?: string | null
+          action?: string
           convention_id?: string
           created_at?: string
           dismissed_at?: string | null
@@ -3513,7 +3516,7 @@ export type Database = {
         }[]
       }
       dismiss_nearby_convention_setup_reminder: {
-        Args: { p_convention_id: string }
+        Args: { p_action: string; p_convention_id: string }
         Returns: undefined
       }
       enqueue_notification_push_job: {
@@ -4205,11 +4208,11 @@ export type Database = {
         Returns: string
       }
       mark_nearby_convention_setup_reminder_acted: {
-        Args: { p_convention_id: string }
+        Args: { p_action: string; p_convention_id: string }
         Returns: undefined
       }
       mark_nearby_convention_setup_reminder_shown: {
-        Args: { p_convention_id: string; p_source?: string }
+        Args: { p_action: string; p_convention_id: string; p_source?: string }
         Returns: undefined
       }
       normalize_qr_label: { Args: { p_label: string }; Returns: string }

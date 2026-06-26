@@ -66,16 +66,16 @@ export {
 export type {
   NearbyConventionSetupReminder,
   NearbyConventionSetupReminderAction,
-} from './api/nearbyConventionReminders';
+} from '@/features/conventions/api/nearbyConventionReminders';
 export {
   fetchNearbyConventionSetupReminder,
   markNearbyConventionSetupReminderShown,
   dismissNearbyConventionSetupReminder,
   markNearbyConventionSetupReminderActed,
-} from './api/nearbyConventionReminders';
-export { useConventionVerificationAction } from './hooks/useConventionVerificationAction';
-export { useCatchConventionContext } from './hooks/useCatchConventionContext';
-export { useNearbyConventionSetupReminder } from './hooks/useNearbyConventionSetupReminder';
-export { NearbyConventionSetupReminderCard } from './components/NearbyConventionSetupReminderCard';
+} from '@/features/conventions/api/nearbyConventionReminders';
+export { useConventionVerificationAction } from '@/features/conventions/hooks/useConventionVerificationAction';
+export { useCatchConventionContext } from '@/features/conventions/hooks/useCatchConventionContext';
+export { useNearbyConventionSetupReminder } from '@/features/conventions/hooks/useNearbyConventionSetupReminder';
+export { NearbyConventionSetupReminderCard } from '@/features/conventions/components/NearbyConventionSetupReminderCard';
 export { formatConventionDateRange, isConventionEnded } from './utils';
 export { clearCatchConventionSnapshotsForUser } from './storage/catchConventionSnapshots';
