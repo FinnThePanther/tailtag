@@ -10,6 +10,8 @@ from typing import Any
 
 
 ALLOWED_COMMANDS = {"rtk", "npm", "supabase"}
+APPROVED_PREAMBLE_COMMANDS = {"cd", "export", "set", "source", "."}
+SHELL_SEPARATORS = {"&&", ";", "||"}
 
 
 def nested_get(payload: dict[str, Any], *path: str) -> str:
@@ -37,13 +39,62 @@ def extract_command(payload: dict[str, Any]) -> str:
     return ""
 
 
-def first_shell_token(command: str) -> str:
+def shell_tokens(command: str) -> list[str]:
     try:
-        tokens = shlex.split(command)
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        return list(lexer)
     except ValueError:
-        tokens = command.split()
+        return command.split()
+
+
+def first_shell_token(command: str) -> str:
+    tokens = shell_tokens(command)
 
     return tokens[0] if tokens else ""
+
+
+def starts_with_allowed_command(tokens: list[str]) -> bool:
+    first_token = tokens[0] if tokens else ""
+
+    if first_token in ALLOWED_COMMANDS:
+        return True
+
+    if first_token != "env":
+        return False
+
+    for token in tokens[1:]:
+        if "=" in token and not token.startswith("-"):
+            continue
+        return token in ALLOWED_COMMANDS
+
+    return False
+
+
+def command_is_allowed(command: str) -> bool:
+    tokens = shell_tokens(command)
+    current_segment: list[str] = []
+    saw_preamble = False
+
+    for token in [*tokens, ";"]:
+        if token not in SHELL_SEPARATORS:
+            current_segment.append(token)
+            continue
+
+        if not current_segment:
+            current_segment = []
+            continue
+
+        if starts_with_allowed_command(current_segment):
+            return True
+
+        if current_segment[0] not in APPROVED_PREAMBLE_COMMANDS:
+            return False
+
+        saw_preamble = True
+        current_segment = []
+
+    return saw_preamble and False
 
 
 def main() -> int:
@@ -59,10 +110,13 @@ def main() -> int:
 
     command = extract_command(payload)
     if not command:
-        return 0
+        print(
+            "RTK policy hook could not determine the shell command from the Codex hook payload.",
+            file=sys.stderr,
+        )
+        return 2
 
-    first_token = first_shell_token(command)
-    if first_token in ALLOWED_COMMANDS:
+    if command_is_allowed(command):
         return 0
 
     allowed_list = ", ".join(f"`{command}`" for command in sorted(ALLOWED_COMMANDS))
