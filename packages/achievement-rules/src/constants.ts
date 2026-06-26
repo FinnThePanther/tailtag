@@ -32,6 +32,7 @@ export const ACHIEVEMENT_RULE_IDS = {
   MAKER_MATCH: 'f0229fa6-015b-4b72-a563-90257a6db4ca',
   CON_FLOOR_COLLECTOR: '738249c7-0b59-43d0-ae31-734787ff3781',
   SELF_MADE_SUPPORTER: 'dacb8bdd-38bd-4a03-bfd4-ad317e931b18',
+  OVER_THE_RAINBOW: '4e41b76e-d348-49f9-b729-43395b75e7cc',
 } as const;
 
 export type AchievementRuleId = (typeof ACHIEVEMENT_RULE_IDS)[keyof typeof ACHIEVEMENT_RULE_IDS];

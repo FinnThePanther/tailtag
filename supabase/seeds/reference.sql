@@ -17,7 +17,7 @@
 BEGIN;
 
 -- -----------------------------------------------------------------------------
--- 1. Fursuit Colors (12 rows)
+-- 1. Fursuit Colors (12 base rows + Rainbow)
 -- -----------------------------------------------------------------------------
 INSERT INTO fursuit_colors (id, name, is_active) VALUES
   ('147a5a17-6019-4385-956c-340da1ce90e1', 'Black',  true),
@@ -33,6 +33,13 @@ INSERT INTO fursuit_colors (id, name, is_active) VALUES
   ('a084df70-7eb1-4ffa-9a40-39164b9ba393', 'White',  true),
   ('6cb79681-1a80-448f-b193-ce392c7a1d93', 'Yellow', true)
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO fursuit_colors (id, name, is_active)
+VALUES ('bb992390-da81-47de-a2c8-772305dcc52b', 'Rainbow', true)
+ON CONFLICT (normalized_name) DO UPDATE
+SET
+  name = EXCLUDED.name,
+  is_active = true;
 
 -- -----------------------------------------------------------------------------
 -- 2. Fursuit Species (30 rows — excludes test entries: Test, Text, Ott, Sea)

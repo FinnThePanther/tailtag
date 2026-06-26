@@ -70,6 +70,108 @@ async function importTypeScriptModule(path) {
   );
 }
 
+async function importCatchRulesModule() {
+  const { ACHIEVEMENT_RULE_IDS } = await importTypeScriptModule(
+    'packages/achievement-rules/src/constants.ts',
+  );
+  const source = read('packages/achievement-rules/src/rules/catch.ts');
+  const transpiled = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+      verbatimModuleSyntax: false,
+    },
+    fileName: 'packages/achievement-rules/src/rules/catch.ts',
+  });
+  const achievementRuleIdsImportPattern =
+    /import\s+\{\s*ACHIEVEMENT_RULE_IDS\s*\}\s+from\s+['"]\.\.\/constants\.ts['"];?\n/;
+  const output = transpiled.outputText.replace(
+    achievementRuleIdsImportPattern,
+    `const ACHIEVEMENT_RULE_IDS = ${JSON.stringify(ACHIEVEMENT_RULE_IDS)};\n`,
+  );
+  if (output === transpiled.outputText) {
+    throw new Error(
+      'importCatchRulesModule could not rewrite the ACHIEVEMENT_RULE_IDS runtime import from catch.ts',
+    );
+  }
+
+  return import(`data:text/javascript;base64,${Buffer.from(output, 'utf8').toString('base64')}`);
+}
+
+function catchContext(overrides = {}) {
+  const defaults = {
+    eventId: 'event-1',
+    occurredAt: '2026-06-26T12:00:00.000Z',
+    catchId: 'catch-1',
+    catcherId: 'catcher-1',
+    actingUserId: 'catcher-1',
+    fursuitId: 'fursuit-1',
+    fursuitOwnerId: 'owner-1',
+    conventionId: null,
+    conventionInfo: null,
+    timing: {
+      isConventionDayOne: false,
+      isLateNight: false,
+      isEarlyMorning: false,
+    },
+    stats: {
+      totalCatches: 0,
+      totalFursuitCatches: 0,
+      distinctSpeciesCaught: 0,
+      distinctConventionsVisited: 0,
+      catchesAtConvention: 0,
+      uniqueCatchersAtConvention: 0,
+      uniqueCatchersForFursuitLifetime: 0,
+      distinctLocalDaysForFursuitAtConvention: 0,
+      distinctConventionsForFursuit: 0,
+      distinctConventionsForCatcherFursuit: 0,
+      catchesByCatcherToday: 0,
+      distinctMakersCaughtAtConvention: 0,
+      distinctSelfMadeFursuitsCaught: 0,
+    },
+    flags: {
+      hybridFursuit: false,
+      doubleCatchWithinMinute: false,
+      catchHasPhoto: false,
+      hasSelfMadeMaker: false,
+      hasMakerMatchWithCatcherOwnedSuit: false,
+    },
+    makers: {
+      names: [],
+      normalizedNames: [],
+    },
+    colors: {
+      names: [],
+      normalizedNames: [],
+    },
+  };
+
+  return {
+    ...defaults,
+    ...overrides,
+    timing: {
+      ...defaults.timing,
+      ...(overrides.timing ?? {}),
+    },
+    stats: {
+      ...defaults.stats,
+      ...(overrides.stats ?? {}),
+    },
+    flags: {
+      ...defaults.flags,
+      ...(overrides.flags ?? {}),
+    },
+    makers: {
+      ...defaults.makers,
+      ...(overrides.makers ?? {}),
+    },
+    colors: {
+      ...defaults.colors,
+      ...(overrides.colors ?? {}),
+    },
+  };
+}
+
 function checkedInAchievement(overrides = {}) {
   return {
     id: 'global-explorer',
@@ -543,5 +645,76 @@ describe('Familiar Face achievement', () => {
     assert.match(migration, /insert into public\.user_achievements/);
     assert.match(migration, /on conflict \(user_id, achievement_id\) do nothing/);
     assert.doesNotMatch(migration, /insert into public\.notifications/);
+  });
+});
+
+describe('Over the Rainbow achievement', () => {
+  it('awards the catcher when a caught fursuit has Rainbow as a color', async () => {
+    const { evaluateCatchAchievements } = await importCatchRulesModule();
+
+    const awards = evaluateCatchAchievements(
+      catchContext({
+        colors: {
+          names: ['Black', 'Rainbow'],
+          normalizedNames: ['black', 'rainbow'],
+        },
+      }),
+    );
+
+    assert.deepEqual(
+      awards.filter((award) => award.achievementKey === 'OVER_THE_RAINBOW'),
+      [
+        {
+          ruleId: '4e41b76e-d348-49f9-b729-43395b75e7cc',
+          achievementKey: 'OVER_THE_RAINBOW',
+          userId: 'catcher-1',
+          context: {
+            catch_id: 'catch-1',
+            fursuit_id: 'fursuit-1',
+            convention_id: null,
+            fursuit_owner_id: 'owner-1',
+            maker_names: [],
+            normalized_maker_names: [],
+            colors: ['Black', 'Rainbow'],
+            normalized_colors: ['black', 'rainbow'],
+          },
+        },
+      ],
+    );
+  });
+
+  it('does not treat Rainbow as a wildcard for other color achievements', async () => {
+    const { evaluateCatchAchievements } = await importCatchRulesModule();
+
+    const awards = evaluateCatchAchievements(
+      catchContext({
+        colors: {
+          names: ['Red', 'Blue'],
+          normalizedNames: ['red', 'blue'],
+        },
+      }),
+    );
+
+    assert.equal(
+      awards.some((award) => award.achievementKey === 'OVER_THE_RAINBOW'),
+      false,
+    );
+  });
+
+  it('registers Rainbow reference data and future-only achievement rows', () => {
+    const seed = read('supabase/seeds/reference.sql');
+    const migration = read('supabase/migrations/20260626130000_add_rainbow_color_achievement.sql');
+    const rules = read('packages/achievement-rules/src/rules/catch.ts');
+    const worker = read('supabase/functions/_shared/achievements.ts');
+
+    assert.match(seed, /'bb992390-da81-47de-a2c8-772305dcc52b', 'Rainbow', true/);
+    assert.match(migration, /'OVER_THE_RAINBOW'/);
+    assert.match(migration, /'Over the Rainbow'/);
+    assert.match(migration, /'4e41b76e-d348-49f9-b729-43395b75e7cc'/);
+    assert.match(migration, /'d73dcb1e-01f3-4957-a798-f031e7e1d02e'/);
+    assert.doesNotMatch(migration, /insert into public\.user_achievements/i);
+    assert.match(rules, /context\.colors\.normalizedNames\.includes\('rainbow'\)/);
+    assert.match(worker, /fursuit_color_assignments\(position,color:fursuit_colors/);
+    assert.match(worker, /function extractFursuitColorMetadata/);
   });
 });
