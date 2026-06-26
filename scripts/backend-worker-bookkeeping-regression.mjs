@@ -27,11 +27,27 @@ function readLatestMigrationMatching(pattern) {
   };
 }
 
+function readMigrationMatchingFile(pattern) {
+  const migrationsDir = join(root, 'supabase/migrations');
+  const migration = readdirSync(migrationsDir)
+    .filter((file) => file.endsWith('.sql'))
+    .find((file) => pattern.test(file));
+
+  assert.ok(migration, `Expected to find migration file matching ${pattern}`);
+
+  return {
+    file: migration,
+    source: readFileSync(join(migrationsDir, migration), 'utf8'),
+  };
+}
+
 describe('Backend worker bookkeeping', () => {
   it('adds compact heartbeat storage and service-role RPC access', () => {
-    const { file, source } = readLatestMigrationMatching(/backend_worker_heartbeats/);
+    const { file, source } = readMigrationMatchingFile(
+      /^20260626120000_add_backend_worker_heartbeats\.sql$/,
+    );
 
-    assert.match(file, /^202606/);
+    assert.equal(file, '20260626120000_add_backend_worker_heartbeats.sql');
     assert.match(source, /CREATE TABLE IF NOT EXISTS public\.backend_worker_heartbeats/);
     assert.match(source, /worker_name text PRIMARY KEY/);
     assert.match(source, /last_idle_counts jsonb NOT NULL DEFAULT '\{\}'::jsonb/);
@@ -40,6 +56,25 @@ describe('Backend worker bookkeeping', () => {
       /idle_count_window_started_at timestamp with time zone NOT NULL DEFAULT now\(\)/,
     );
     assert.match(source, /idle_count_24h integer NOT NULL DEFAULT 0/);
+    assert.match(source, /CREATE OR REPLACE FUNCTION public\.record_backend_worker_heartbeat/);
+    assert.match(
+      source,
+      /public\.backend_worker_heartbeats\.idle_count_window_started_at < v_now - interval '24 hours'/,
+    );
+    assert.match(source, /GRANT EXECUTE ON FUNCTION public\.record_backend_worker_heartbeat/);
+    assert.match(source, /TO service_role/);
+  });
+
+  it('keeps the heartbeat window repair migration idempotent', () => {
+    const { file, source } = readLatestMigrationMatching(
+      /ADD COLUMN IF NOT EXISTS idle_count_window_started_at/,
+    );
+
+    assert.equal(file, '20260626215000_repair_backend_worker_heartbeat_window.sql');
+    assert.match(
+      source,
+      /ALTER TABLE public\.backend_worker_heartbeats\s+ADD COLUMN IF NOT EXISTS idle_count_window_started_at timestamp with time zone NOT NULL DEFAULT now\(\)/,
+    );
     assert.match(source, /CREATE OR REPLACE FUNCTION public\.record_backend_worker_heartbeat/);
     assert.match(
       source,
