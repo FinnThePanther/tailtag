@@ -68,3 +68,25 @@ export function captureSupabaseError(
 
   return capturedError;
 }
+
+export function captureHandledException(error: unknown, context: Extras = {}): Error {
+  const capturedError = normalizeError(error);
+
+  Sentry.withScope((scope) => {
+    scope.setTag('handled', 'true');
+    scope.setLevel('error');
+
+    if (typeof context.scope === 'string') {
+      scope.setTag('scope', context.scope);
+    }
+
+    if (typeof context.action === 'string') {
+      scope.setTag('action', context.action);
+    }
+
+    scope.setExtras(context);
+    Sentry.captureException(capturedError);
+  });
+
+  return capturedError;
+}

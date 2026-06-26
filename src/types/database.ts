@@ -10,6 +10,11 @@ export type AttendanceState = "active" | "left" | "removed" | "finalized"
 export type RosterState = "active" | "removed" | "finalized"
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
   public: {
     Tables: {
       achievement_rules: {
@@ -234,6 +239,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      backend_worker_heartbeats: {
+        Row: {
+          created_at: string
+          display_name: string
+          idle_count_24h: number
+          idle_count_window_started_at: string
+          last_idle_at: string | null
+          last_idle_counts: Json
+          last_idle_duration_ms: number | null
+          last_seen_at: string
+          metadata: Json
+          source: string
+          updated_at: string
+          worker_name: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          idle_count_24h?: number
+          idle_count_window_started_at?: string
+          last_idle_at?: string | null
+          last_idle_counts?: Json
+          last_idle_duration_ms?: number | null
+          last_seen_at?: string
+          metadata?: Json
+          source: string
+          updated_at?: string
+          worker_name: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          idle_count_24h?: number
+          idle_count_window_started_at?: string
+          last_idle_at?: string | null
+          last_idle_counts?: Json
+          last_idle_duration_ms?: number | null
+          last_seen_at?: string
+          metadata?: Json
+          source?: string
+          updated_at?: string
+          worker_name?: string
+        }
+        Relationships: []
       }
       backend_worker_runs: {
         Row: {
@@ -1558,6 +1608,7 @@ export type Database = {
           id: string
           interaction_badges: string[]
           is_flagged: boolean
+          is_tutorial: boolean
           name: string
           owner_attribution_visibility: string
           owner_id: string
@@ -1578,6 +1629,7 @@ export type Database = {
           id?: string
           interaction_badges?: string[]
           is_flagged?: boolean
+          is_tutorial?: boolean
           name: string
           owner_attribution_visibility?: string
           owner_id: string
@@ -1598,6 +1650,7 @@ export type Database = {
           id?: string
           interaction_badges?: string[]
           is_flagged?: boolean
+          is_tutorial?: boolean
           name?: string
           owner_attribution_visibility?: string
           owner_id?: string
@@ -3251,7 +3304,11 @@ export type Database = {
         Args: never
         Returns: {
           display_name: string
+          idle_count_24h: number
           last_failure_at: string
+          last_heartbeat_at: string
+          last_idle_at: string
+          last_idle_counts: Json
           last_success_at: string
           latest_completed_at: string
           latest_counts: Json
@@ -3894,6 +3951,37 @@ export type Database = {
           vt: string
         }[]
       }
+      record_backend_worker_heartbeat: {
+        Args: {
+          p_display_name: string
+          p_last_idle_at: string
+          p_last_idle_counts?: Json
+          p_last_idle_duration_ms: number
+          p_metadata?: Json
+          p_source: string
+          p_worker_name: string
+        }
+        Returns: {
+          created_at: string
+          display_name: string
+          idle_count_24h: number
+          idle_count_window_started_at: string
+          last_idle_at: string | null
+          last_idle_counts: Json
+          last_idle_duration_ms: number | null
+          last_seen_at: string
+          metadata: Json
+          source: string
+          updated_at: string
+          worker_name: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "backend_worker_heartbeats"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       refresh_analytics_views: { Args: never; Returns: undefined }
       register_push_token: {
         Args: { p_expo_push_token: string; p_user_id: string }
@@ -4005,6 +4093,22 @@ export type Database = {
           convention_id: string
           started_at: string
         }[]
+      }
+      update_fursuit_profile: {
+        Args: {
+          p_avatar_changed: boolean
+          p_avatar_path: string
+          p_avatar_url: string
+          p_fursuit_id: string
+          p_interaction_badges: string[]
+          p_name: string
+          p_owner_attribution_visibility: string
+          p_social_signal: string
+          p_species_id: string
+          p_unique_code: string
+          p_visibility_audience: string
+        }
+        Returns: Json
       }
       validate_catch_reciprocal_offer: {
         Args: {

@@ -1,8 +1,5 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
-export type AttendanceState = 'active' | 'left' | 'removed' | 'finalized';
-export type RosterState = 'active' | 'removed' | 'finalized';
-
 export type Database = {
   public: {
     Tables: {
@@ -228,6 +225,51 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      backend_worker_heartbeats: {
+        Row: {
+          created_at: string;
+          display_name: string;
+          idle_count_24h: number;
+          idle_count_window_started_at: string;
+          last_idle_at: string | null;
+          last_idle_counts: Json;
+          last_idle_duration_ms: number | null;
+          last_seen_at: string;
+          metadata: Json;
+          source: string;
+          updated_at: string;
+          worker_name: string;
+        };
+        Insert: {
+          created_at?: string;
+          display_name: string;
+          idle_count_24h?: number;
+          idle_count_window_started_at?: string;
+          last_idle_at?: string | null;
+          last_idle_counts?: Json;
+          last_idle_duration_ms?: number | null;
+          last_seen_at?: string;
+          metadata?: Json;
+          source: string;
+          updated_at?: string;
+          worker_name: string;
+        };
+        Update: {
+          created_at?: string;
+          display_name?: string;
+          idle_count_24h?: number;
+          idle_count_window_started_at?: string;
+          last_idle_at?: string | null;
+          last_idle_counts?: Json;
+          last_idle_duration_ms?: number | null;
+          last_seen_at?: string;
+          metadata?: Json;
+          source?: string;
+          updated_at?: string;
+          worker_name?: string;
+        };
+        Relationships: [];
       };
       backend_worker_runs: {
         Row: {
@@ -1377,7 +1419,7 @@ export type Database = {
           finalized_at: string | null;
           fursuit_id: string;
           removed_at: string | null;
-          roster_state: RosterState;
+          roster_state: string;
           roster_visible: boolean;
         };
         Insert: {
@@ -1387,7 +1429,7 @@ export type Database = {
           finalized_at?: string | null;
           fursuit_id: string;
           removed_at?: string | null;
-          roster_state?: RosterState;
+          roster_state?: string;
           roster_visible?: boolean;
         };
         Update: {
@@ -1397,7 +1439,7 @@ export type Database = {
           finalized_at?: string | null;
           fursuit_id?: string;
           removed_at?: string | null;
-          roster_state?: RosterState;
+          roster_state?: string;
           roster_visible?: boolean;
         };
         Relationships: [
@@ -1552,6 +1594,7 @@ export type Database = {
           id: string;
           interaction_badges: string[];
           is_flagged: boolean;
+          is_tutorial: boolean;
           name: string;
           owner_attribution_visibility: string;
           owner_id: string;
@@ -1572,6 +1615,7 @@ export type Database = {
           id?: string;
           interaction_badges?: string[];
           is_flagged?: boolean;
+          is_tutorial?: boolean;
           name: string;
           owner_attribution_visibility?: string;
           owner_id: string;
@@ -1592,6 +1636,7 @@ export type Database = {
           id?: string;
           interaction_badges?: string[];
           is_flagged?: boolean;
+          is_tutorial?: boolean;
           name?: string;
           owner_attribution_visibility?: string;
           owner_id?: string;
@@ -2010,7 +2055,7 @@ export type Database = {
       profile_conventions: {
         Row: {
           active_until: string | null;
-          attendance_state: AttendanceState;
+          attendance_state: string;
           convention_id: string;
           created_at: string;
           finalized_at: string | null;
@@ -2027,7 +2072,7 @@ export type Database = {
         };
         Insert: {
           active_until?: string | null;
-          attendance_state?: AttendanceState;
+          attendance_state?: string;
           convention_id: string;
           created_at?: string;
           finalized_at?: string | null;
@@ -2044,7 +2089,7 @@ export type Database = {
         };
         Update: {
           active_until?: string | null;
-          attendance_state?: AttendanceState;
+          attendance_state?: string;
           convention_id?: string;
           created_at?: string;
           finalized_at?: string | null;
@@ -3245,7 +3290,11 @@ export type Database = {
         Args: never;
         Returns: {
           display_name: string;
+          idle_count_24h: number;
           last_failure_at: string;
+          last_heartbeat_at: string;
+          last_idle_at: string;
+          last_idle_counts: Json;
           last_success_at: string;
           latest_completed_at: string;
           latest_counts: Json;
@@ -3265,10 +3314,10 @@ export type Database = {
         Returns: {
           dead_lettered_event_count: number;
           grouped_failures: Json;
-          oldest_unprocessed_event_age_seconds: number;
-          oldest_unprocessed_event_received_at: string;
-          oldest_visible_message_age_seconds: number;
-          oldest_visible_message_enqueued_at: string;
+          oldest_unprocessed_event_age_seconds: number | null;
+          oldest_unprocessed_event_received_at: string | null;
+          oldest_visible_message_age_seconds: number | null;
+          oldest_visible_message_enqueued_at: string | null;
           queue_depth: number;
           retrying_event_count: number;
           visible_queue_depth: number;
@@ -3306,7 +3355,7 @@ export type Database = {
           fursuit_interaction_badges: string[];
           fursuit_name: string;
           fursuit_owner_attribution_visibility: string;
-          fursuit_owner_id: string | null;
+          fursuit_owner_id: string;
           fursuit_redacted: boolean;
           fursuit_social_signal: string;
           fursuit_unique_code: string;
@@ -3366,7 +3415,7 @@ export type Database = {
           fursuit_name: string;
           fursuit_redacted: boolean;
           last_caught_at: string;
-          owner_id: string | null;
+          owner_id: string;
           species_id: string;
           species_name: string;
           unique_catchers: number;
@@ -3382,7 +3431,7 @@ export type Database = {
           fursuit_avatar_url: string;
           fursuit_id: string;
           fursuit_name: string;
-          owner_id: string | null;
+          owner_id: string;
           owner_username: string;
           roster_visible: boolean;
           species_id: string;
@@ -3440,7 +3489,7 @@ export type Database = {
           makers: Json;
           name: string;
           owner_attribution_visibility: string;
-          owner_id: string | null;
+          owner_id: string;
           owner_social_links: Json;
           social_signal: string;
           species_entry: Json;
@@ -3518,7 +3567,7 @@ export type Database = {
           fursuit_interaction_badges: string[];
           fursuit_name: string;
           fursuit_owner_attribution_visibility: string;
-          fursuit_owner_id: string | null;
+          fursuit_owner_id: string;
           fursuit_redacted: boolean;
           fursuit_social_signal: string;
           fursuit_unique_code: string;
@@ -3652,7 +3701,7 @@ export type Database = {
           makers: Json;
           name: string;
           owner_attribution_visibility: string;
-          owner_id: string | null;
+          owner_id: string;
           owner_social_links: Json;
           social_signal: string;
           species_entry: Json;
@@ -3888,6 +3937,37 @@ export type Database = {
           vt: string;
         }[];
       };
+      record_backend_worker_heartbeat: {
+        Args: {
+          p_display_name: string;
+          p_last_idle_at: string;
+          p_last_idle_counts?: Json;
+          p_last_idle_duration_ms: number;
+          p_metadata?: Json;
+          p_source: string;
+          p_worker_name: string;
+        };
+        Returns: {
+          created_at: string;
+          display_name: string;
+          idle_count_24h: number;
+          idle_count_window_started_at: string;
+          last_idle_at: string | null;
+          last_idle_counts: Json;
+          last_idle_duration_ms: number | null;
+          last_seen_at: string;
+          metadata: Json;
+          source: string;
+          updated_at: string;
+          worker_name: string;
+        };
+        SetofOptions: {
+          from: '*';
+          to: 'backend_worker_heartbeats';
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       refresh_analytics_views: { Args: never; Returns: undefined };
       register_push_token: {
         Args: { p_expo_push_token: string; p_user_id: string };
@@ -3910,7 +3990,7 @@ export type Database = {
         Returns: {
           event_id: string;
           message: string;
-          queue_message_id: number | null;
+          queue_message_id: number;
           replayed: boolean;
           status: string;
         }[];
@@ -4000,6 +4080,22 @@ export type Database = {
           started_at: string;
         }[];
       };
+      update_fursuit_profile: {
+        Args: {
+          p_avatar_changed: boolean;
+          p_avatar_path: string;
+          p_avatar_url: string;
+          p_fursuit_id: string;
+          p_interaction_badges: string[];
+          p_name: string;
+          p_owner_attribution_visibility: string;
+          p_social_signal: string;
+          p_species_id: string;
+          p_unique_code: string;
+          p_visibility_audience: string;
+        };
+        Returns: Json;
+      };
       validate_catch_reciprocal_offer: {
         Args: {
           p_offered_by_profile_id: string;
@@ -4052,8 +4148,11 @@ export type Database = {
     };
   };
 };
+
 type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
+
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>];
+
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
@@ -4080,6 +4179,7 @@ export type Tables<
       ? R
       : never
     : never;
+
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema['Tables']
@@ -4104,6 +4204,7 @@ export type TablesInsert<
       ? I
       : never
     : never;
+
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema['Tables']
@@ -4128,6 +4229,7 @@ export type TablesUpdate<
       ? U
       : never
     : never;
+
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema['Enums']
@@ -4144,6 +4246,7 @@ export type Enums<
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
     ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
     : never;
+
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema['CompositeTypes']
@@ -4160,6 +4263,7 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
     ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
     : never;
+
 export const Constants = {
   public: {
     Enums: {
@@ -4179,28 +4283,3 @@ export const Constants = {
     },
   },
 } as const;
-
-// Type aliases for application use
-export type FursuitSocialLink = {
-  label: string;
-  url: string;
-};
-
-export type FursuitsRow = Database['public']['Tables']['fursuits']['Row'];
-export type FursuitsInsert = Database['public']['Tables']['fursuits']['Insert'];
-export type FursuitBiosInsert = Database['public']['Tables']['fursuit_bios']['Insert'];
-export type FursuitMakersInsert = Database['public']['Tables']['fursuit_makers']['Insert'];
-export type ConventionStatus = Database['public']['Tables']['conventions']['Row']['status'];
-export type ConventionParticipantRecapRow =
-  Database['public']['Tables']['convention_participant_recaps']['Row'];
-export type AchievementCategory = Database['public']['Enums']['achievement_category'];
-export type AchievementRecipientRole = Database['public']['Enums']['achievement_recipient_role'];
-export type AchievementTriggerEvent = Database['public']['Enums']['achievement_trigger_event'];
-export type AchievementsRow = Database['public']['Tables']['achievements']['Row'];
-export type UserAchievementsRow = Database['public']['Tables']['user_achievements']['Row'];
-export type AchievementEventsRow = Database['public']['Tables']['user_achievements']['Row'];
-export type DailyTaskKind = string;
-export type DailyAssignmentsRow = Database['public']['Tables']['daily_assignments']['Row'];
-export type DailyTasksRow = Database['public']['Tables']['daily_tasks']['Row'];
-export type UserDailyProgressRow = Database['public']['Tables']['user_daily_progress']['Row'];
-export type UserDailyStreaksRow = Database['public']['Tables']['user_daily_streaks']['Row'];

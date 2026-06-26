@@ -28,6 +28,7 @@ import {
   isFursuitUniqueCodeAvailable,
   MY_SUITS_QUERY_KEY,
   MY_SUITS_COUNT_QUERY_KEY,
+  updateFursuitProfile,
 } from '@/features/suits';
 import {
   createEmptyFursuitMaker,
@@ -126,20 +127,6 @@ const ASK_ME_ABOUT_SUGGESTIONS = [
   'Character lore',
   'Good food nearby',
 ] as const;
-
-const isUniqueCodeConflict = (caught: unknown) =>
-  Boolean(
-    caught &&
-    typeof caught === 'object' &&
-    'code' in caught &&
-    (caught as any).code === '23505' &&
-    ('constraint' in caught
-      ? typeof (caught as any).constraint === 'string' &&
-        (caught as any).constraint.includes('fursuits_unique_code')
-      : 'message' in caught &&
-        typeof (caught as any).message === 'string' &&
-        (caught as any).message.includes('fursuits_unique_code')),
-  );
 
 type UploadCandidate = {
   uri: string;
@@ -944,9 +931,23 @@ export default function EditFursuitScreen() {
     let updatedCoreRecord = false;
     let replacedColors = false;
     let replacedSpecies = false;
+    let coreRecordReverted = false;
     const addedConventionIds: string[] = [];
     const removedConventionIds: string[] = [];
     const updatedRosterConventionIds: string[] = [];
+    let uploadedAvatarPath: string | null = null;
+
+    const removeStoragePath = async (path: string, warningMessage: string) => {
+      try {
+        const { error: cleanupError } = await supabase.storage.from(FURSUIT_BUCKET).remove([path]);
+
+        if (cleanupError) {
+          console.warn(warningMessage, cleanupError);
+        }
+      } catch (cleanupError) {
+        console.warn(warningMessage, cleanupError);
+      }
+    };
 
     try {
       const typedSpeciesRecord = trimmedSpecies ? await ensureSpeciesEntry(trimmedSpecies) : null;
@@ -987,46 +988,51 @@ export default function EditFursuitScreen() {
         }
 
         newAvatarPath = storagePath;
+        uploadedAvatarPath = storagePath;
         newAvatarUrl = buildAuthenticatedStorageObjectUrl(FURSUIT_BUCKET, storagePath);
       }
 
-      const { error: updateError } = await client
-        .from('fursuits')
-        .update({
-          name: trimmedName,
-          species_id: primarySpecies.id,
-          visibility_audience: selectedVisibilityAudience,
-          owner_attribution_visibility: anonymousFursuitsEnabled
-            ? hideOwnerPublicly
-              ? 'hidden'
-              : 'public'
-            : detail.ownerAttributionVisibility,
-          social_signal: selectedSocialSignal,
-          interaction_badges: selectedInteractionBadges,
-          ...(newAvatarPath !== undefined
-            ? { avatar_path: newAvatarPath, avatar_url: newAvatarUrl }
-            : {}),
-          ...(codeChanged ? { unique_code: normalizedCode } : {}),
-        })
-        .eq('id', fursuitId)
-        .eq('owner_id', userId);
+      const updateResult = await updateFursuitProfile({
+        fursuitId,
+        name: trimmedName,
+        speciesId: primarySpecies.id,
+        visibilityAudience: selectedVisibilityAudience,
+        ownerAttributionVisibility: anonymousFursuitsEnabled
+          ? hideOwnerPublicly
+            ? 'hidden'
+            : 'public'
+          : detail.ownerAttributionVisibility,
+        socialSignal: selectedSocialSignal,
+        interactionBadges: selectedInteractionBadges,
+        uniqueCode: normalizedCode,
+        avatarPath: newAvatarPath,
+        avatarUrl: newAvatarUrl,
+        avatarChanged: newAvatarPath !== undefined,
+      });
 
-      if (updateError) {
-        throw updateError;
+      if (updateResult.status === 'code_taken') {
+        if (uploadedAvatarPath) {
+          await removeStoragePath(
+            uploadedAvatarPath,
+            'Failed to clean up new fursuit avatar after code conflict',
+          );
+          uploadedAvatarPath = null;
+        }
+        setCodeError('That code is already taken. Try another.');
+        setSubmitError(null);
+        return;
       }
 
-      // Orphan cleanup: delete the old avatar after the DB update succeeds
-      if (newAvatarUrl !== undefined) {
-        const oldPath =
-          detail.avatar_path ?? extractStoragePath(detail.avatar_url ?? null, FURSUIT_BUCKET);
-        if (oldPath) {
-          void supabase.storage
-            .from(FURSUIT_BUCKET)
-            .remove([oldPath])
-            .catch((err) => {
-              console.warn('Failed to clean up old fursuit avatar', err);
-            });
+      if (updateResult.status === 'not_found') {
+        if (uploadedAvatarPath) {
+          await removeStoragePath(
+            uploadedAvatarPath,
+            'Failed to clean up new fursuit avatar after inaccessible edit',
+          );
+          uploadedAvatarPath = null;
         }
+        setSubmitError("We couldn't update that fursuit. It may have been deleted or moved.");
+        return;
       }
 
       updatedCoreRecord = true;
@@ -1126,6 +1132,15 @@ export default function EditFursuitScreen() {
         askMeAbout: trimmedAskMeAbout,
       });
 
+      if (newAvatarPath !== undefined) {
+        const oldPath =
+          detail.avatar_path ?? extractStoragePath(detail.avatar_url ?? null, FURSUIT_BUCKET);
+        if (oldPath) {
+          void removeStoragePath(oldPath, 'Failed to clean up old fursuit avatar');
+        }
+        uploadedAvatarPath = null;
+      }
+
       queryClient.invalidateQueries({
         queryKey: fursuitDetailQueryKey(fursuitId),
       });
@@ -1165,10 +1180,12 @@ export default function EditFursuitScreen() {
 
       router.back();
     } catch (caught) {
-      if (isUniqueCodeConflict(caught)) {
-        setCodeError('That code is already taken. Try another.');
-        setSubmitError(null);
-        return;
+      if (uploadedAvatarPath && !updatedCoreRecord) {
+        await removeStoragePath(
+          uploadedAvatarPath,
+          'Failed to clean up new fursuit avatar after edit error',
+        );
+        uploadedAvatarPath = null;
       }
 
       setSubmitError(
@@ -1272,7 +1289,17 @@ export default function EditFursuitScreen() {
 
         if (revertError) {
           console.warn('Failed to revert fursuit record after edit error', revertError);
+        } else {
+          coreRecordReverted = true;
         }
+      }
+
+      if (uploadedAvatarPath && coreRecordReverted) {
+        await removeStoragePath(
+          uploadedAvatarPath,
+          'Failed to clean up new fursuit avatar after rollback',
+        );
+        uploadedAvatarPath = null;
       }
     } finally {
       setIsSubmitting(false);

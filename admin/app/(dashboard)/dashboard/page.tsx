@@ -10,6 +10,8 @@ import {
   type BackendWorkerHealthRow,
 } from '@/lib/data';
 import { requireAdminDataContext } from '@/lib/auth';
+import { captureSupabaseError } from '@/lib/sentry';
+import { formatCounts } from '@/lib/worker-format';
 
 export default async function DashboardPage() {
   const { supabase } = await requireAdminDataContext();
@@ -18,6 +20,10 @@ export default async function DashboardPage() {
     fetchDashboardSummary(supabase),
     fetchConventions(supabase),
     fetchBackendWorkerHealth(supabase).catch((error) => {
+      captureSupabaseError(error, {
+        scope: 'admin.dashboard',
+        action: 'fetch_backend_worker_health',
+      });
       console.error('[admin] Failed to load backend worker health', error);
       workerHealthUnavailable = true;
       return [] as BackendWorkerHealthRow[];
@@ -134,13 +140,19 @@ export default async function DashboardPage() {
                   </p>
                 </div>
                 <div className="text-xs text-muted">
-                  <p>Last run {formatDateTime(worker.latest_started_at)}</p>
+                  <p>
+                    {worker.latest_started_at ? 'Last run' : 'Last heartbeat'}{' '}
+                    {formatDateTime(worker.latest_started_at ?? worker.last_heartbeat_at)}
+                  </p>
                   <p>Last success {formatDateTime(worker.last_success_at)}</p>
                   <p>Last failure {formatDateTime(worker.last_failure_at)}</p>
                 </div>
                 <div className="min-w-0 text-xs text-muted">
                   <p>Duration {formatDuration(worker.latest_duration_ms)}</p>
                   <p className="truncate">Counts {formatCounts(worker.latest_counts)}</p>
+                  <p className="truncate">
+                    Idle {worker.idle_count_24h} in 24h · {formatCounts(worker.last_idle_counts)}
+                  </p>
                   {worker.latest_error_message ? (
                     <p className="truncate text-red-200">Error {worker.latest_error_message}</p>
                   ) : null}
@@ -194,18 +206,6 @@ function formatDuration(value: number | null): string {
   }
 
   return `${(value / 1000).toFixed(1)}s`;
-}
-
-function formatCounts(counts: Record<string, unknown>): string {
-  const entries = Object.entries(counts)
-    .filter(([, value]) => typeof value === 'number' && value !== 0)
-    .slice(0, 4);
-
-  if (entries.length === 0) {
-    return 'none';
-  }
-
-  return entries.map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join(', ');
 }
 
 function StatusBadge({ status }: { status: string | null }) {

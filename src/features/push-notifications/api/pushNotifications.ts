@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { ensureCurrentUserProfileExists } from '@/features/profile';
 
 type PushSettings = {
   token: string | null;
@@ -23,6 +24,8 @@ export async function fetchPushSettings(userId: string): Promise<PushSettings> {
 }
 
 export async function registerPushToken(userId: string, token: string): Promise<void> {
+  await ensureCurrentUserProfileExists(userId);
+
   const { error } = await supabase.rpc('register_push_token', {
     p_user_id: userId,
     p_expo_push_token: token,
@@ -34,6 +37,8 @@ export async function registerPushToken(userId: string, token: string): Promise<
 }
 
 export async function updatePushPreference(userId: string, enabled: boolean): Promise<void> {
+  await ensureCurrentUserProfileExists(userId);
+
   const payload: Record<string, unknown> = {
     push_notifications_enabled: enabled,
     updated_at: new Date().toISOString(),

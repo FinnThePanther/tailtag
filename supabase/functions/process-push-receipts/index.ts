@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
 import {
   beginBackendWorkerRun,
   completeBackendWorkerRun,
+  completeOrHeartbeatBackendWorkerRun,
   type BackendWorkerRunStatus,
 } from '../_shared/backendWorkerRuns.ts';
 import { verifyHs256Jwt } from '../_shared/serviceRoleJwt.ts';
@@ -720,7 +721,7 @@ Deno.serve(async (req) => {
   try {
     const response = await handleRequest(body);
     const payload = await readReceiptRunPayload(response);
-    await completeBackendWorkerRun(supabaseAdmin, workerRun, {
+    await completeOrHeartbeatBackendWorkerRun(supabaseAdmin, workerRun, {
       status: receiptRunStatus(response, payload),
       counts: receiptRunCounts(payload),
       error: payload.error ?? null,
