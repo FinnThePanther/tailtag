@@ -29,6 +29,32 @@ async function importTypeScriptModule(path) {
 }
 
 describe('Daily task optimistic progress', () => {
+  it('normalizes canonical UUID strings', async () => {
+    const { normalizeUuidString } = await importTypeScriptModule('src/utils/ids.ts');
+
+    assert.equal(
+      normalizeUuidString('  A0EBD36F-3BE9-4C7D-91A4-58E1543B2D2C  '),
+      'a0ebd36f-3be9-4c7d-91a4-58e1543b2d2c',
+    );
+  });
+
+  it('rejects missing sentinel and malformed UUID values', async () => {
+    const { normalizeUuidString } = await importTypeScriptModule('src/utils/ids.ts');
+
+    for (const value of [
+      null,
+      undefined,
+      '',
+      'null',
+      'undefined',
+      'abc',
+      'a0ebd36f3be94c7d91a458e1543b2d2c',
+      'a0ebd36f-3be9-4c7d-91a4-58e1543b2d2',
+    ]) {
+      assert.equal(normalizeUuidString(value), null);
+    }
+  });
+
   it('matches user-id filters against the active user', async () => {
     const { matchesDailyTaskMetadataFilters } = await importTypeScriptModule(
       'src/features/daily-tasks/optimisticProgress.ts',

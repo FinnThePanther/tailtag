@@ -9,6 +9,7 @@ import type {
   UserDailyStreaksRow,
 } from '../../../types/database';
 import { captureHandledMessage } from '../../../lib/sentry';
+import { normalizeUuidString } from '../../../utils/ids';
 
 export type DailyTaskRecord = {
   id: string;
@@ -49,7 +50,7 @@ export type DailyTasksSummary = {
 
 type FetchDailyTasksParams = {
   userId: string;
-  conventionId: string;
+  conventionId: string | null | undefined;
 };
 
 type AssignmentRow = DailyAssignmentsRow & {
@@ -402,10 +403,15 @@ export async function fetchDailyTasks({
   userId,
   conventionId,
 }: FetchDailyTasksParams): Promise<DailyTasksSummary> {
+  const normalizedConventionId = normalizeUuidString(conventionId);
+  if (!normalizedConventionId) {
+    throw new Error('No playable convention is selected.');
+  }
+
   const { data: conventionRow, error: conventionError } = await supabase
     .from('conventions')
     .select('id, timezone, status, start_date, end_date')
-    .eq('id', conventionId)
+    .eq('id', normalizedConventionId)
     .maybeSingle();
 
   if (conventionError) {
@@ -418,7 +424,7 @@ export async function fetchDailyTasks({
       {
         scope: 'dailyTasks.fetchDailyTasks',
         userId,
-        conventionId,
+        conventionId: normalizedConventionId,
       },
       'warning',
     );
@@ -437,7 +443,7 @@ export async function fetchDailyTasks({
   const availability = getDailyTasksAvailability(convention, localDay);
   if (availability !== 'available') {
     return buildUnavailableSummary(
-      conventionId,
+      normalizedConventionId,
       timezone,
       localDay,
       resetAtIso,
@@ -451,17 +457,17 @@ export async function fetchDailyTasks({
     .select('task_id, current_count, is_completed, completed_at')
     .eq('user_id', userId)
     .eq('day', localDay)
-    .eq('convention_id', conventionId);
+    .eq('convention_id', normalizedConventionId);
 
   const streakPromise = supabase
     .from('user_daily_streaks')
     .select('current_streak, best_streak, last_completed_day')
     .eq('user_id', userId)
-    .eq('convention_id', conventionId)
+    .eq('convention_id', normalizedConventionId)
     .maybeSingle();
 
   const [assignmentsResult, progressResult, streakResult] = await Promise.all([
-    loadAssignments(conventionId, localDay),
+    loadAssignments(normalizedConventionId, localDay),
     progressPromise,
     streakPromise,
   ]);
@@ -480,7 +486,7 @@ export async function fetchDailyTasks({
 
   const ensuredAssignmentsResult = await ensureAssignmentsForDay(
     userId,
-    conventionId,
+    normalizedConventionId,
     localDay,
     assignmentsResult,
   );
@@ -544,7 +550,7 @@ export async function fetchDailyTasks({
     totalCount,
     completedCount,
     remainingCount,
-    conventionId,
+    conventionId: normalizedConventionId,
     timezone,
     resetAt: resetAtIso,
     millisecondsUntilReset,
