@@ -1,5 +1,6 @@
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions run in Deno.
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+import { captureHandledException, captureSupabaseError } from './sentry.ts';
 import type { Json } from './types.ts';
 
 export type BackendWorkerName =
@@ -221,6 +222,12 @@ async function deleteBackendWorkerRun(
     const { error } = await supabaseAdmin.from('backend_worker_runs').delete().eq('id', handle.id);
 
     if (error) {
+      captureSupabaseError(error, {
+        scope: 'backendWorkerRuns.deleteIdleRun',
+        action: 'delete_backend_worker_run',
+        workerName: handle.workerName,
+        runId: handle.id,
+      });
       console.error('[backendWorkerRuns] Failed to delete idle run record', {
         worker_name: handle.workerName,
         run_id: handle.id,
@@ -231,6 +238,12 @@ async function deleteBackendWorkerRun(
 
     return true;
   } catch (error) {
+    captureHandledException(error, {
+      scope: 'backendWorkerRuns.deleteIdleRun',
+      action: 'delete_backend_worker_run',
+      workerName: handle.workerName,
+      runId: handle.id,
+    });
     console.error('[backendWorkerRuns] Unexpected error deleting idle run record', {
       worker_name: handle.workerName,
       run_id: handle.id,
@@ -259,6 +272,12 @@ async function recordBackendWorkerHeartbeat(
     });
 
     if (error) {
+      captureSupabaseError(error, {
+        scope: 'backendWorkerRuns.recordIdleHeartbeat',
+        action: 'record_backend_worker_heartbeat',
+        workerName: handle.workerName,
+        runId: handle.id,
+      });
       console.error('[backendWorkerRuns] Failed to record idle heartbeat', {
         worker_name: handle.workerName,
         run_id: handle.id,
@@ -269,6 +288,12 @@ async function recordBackendWorkerHeartbeat(
 
     return true;
   } catch (error) {
+    captureHandledException(error, {
+      scope: 'backendWorkerRuns.recordIdleHeartbeat',
+      action: 'record_backend_worker_heartbeat',
+      workerName: handle.workerName,
+      runId: handle.id,
+    });
     console.error('[backendWorkerRuns] Unexpected error recording idle heartbeat', {
       worker_name: handle.workerName,
       run_id: handle.id,

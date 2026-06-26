@@ -1,5 +1,5 @@
 ALTER TABLE public.fursuits
-  ADD COLUMN IF NOT EXISTS is_tutorial boolean NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS is_tutorial boolean DEFAULT false;
 
 COMMENT ON COLUMN public.fursuits.is_tutorial IS
   'Legacy REST compatibility shadow column. Canonical tutorial state lives in app_private.tutorial_fursuits and public.is_tutorial_fursuit(uuid).';
@@ -10,6 +10,10 @@ SET is_tutorial = EXISTS (
   FROM app_private.tutorial_fursuits tf
   WHERE tf.fursuit_id = f.id
 );
+
+ALTER TABLE public.fursuits
+  ALTER COLUMN is_tutorial SET DEFAULT false,
+  ALTER COLUMN is_tutorial SET NOT NULL;
 
 CREATE OR REPLACE FUNCTION public.sync_fursuit_is_tutorial_shadow()
 RETURNS trigger

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS public.backend_worker_heartbeats (
   last_idle_at timestamp with time zone,
   last_idle_duration_ms integer,
   last_idle_counts jsonb NOT NULL DEFAULT '{}'::jsonb,
+  idle_count_window_started_at timestamp with time zone NOT NULL DEFAULT now(),
   idle_count_24h integer NOT NULL DEFAULT 0,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -100,6 +101,7 @@ BEGIN
     last_idle_at,
     last_idle_duration_ms,
     last_idle_counts,
+    idle_count_window_started_at,
     idle_count_24h,
     metadata
   )
@@ -111,6 +113,7 @@ BEGIN
     p_last_idle_at,
     p_last_idle_duration_ms,
     COALESCE(p_last_idle_counts, '{}'::jsonb),
+    v_now,
     1,
     COALESCE(p_metadata, '{}'::jsonb)
   )
@@ -121,8 +124,12 @@ BEGIN
     last_idle_at = EXCLUDED.last_idle_at,
     last_idle_duration_ms = EXCLUDED.last_idle_duration_ms,
     last_idle_counts = EXCLUDED.last_idle_counts,
+    idle_count_window_started_at = CASE
+      WHEN public.backend_worker_heartbeats.idle_count_window_started_at < v_now - interval '24 hours' THEN v_now
+      ELSE public.backend_worker_heartbeats.idle_count_window_started_at
+    END,
     idle_count_24h = CASE
-      WHEN public.backend_worker_heartbeats.updated_at < v_now - interval '24 hours' THEN 1
+      WHEN public.backend_worker_heartbeats.idle_count_window_started_at < v_now - interval '24 hours' THEN 1
       ELSE public.backend_worker_heartbeats.idle_count_24h + 1
     END,
     metadata = EXCLUDED.metadata

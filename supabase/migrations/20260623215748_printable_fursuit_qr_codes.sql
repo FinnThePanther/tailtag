@@ -353,10 +353,13 @@ DECLARE
   v_token text;
   v_token_hash text;
   v_tag_id uuid;
+  v_asset_path text;
 BEGIN
   IF auth.uid() IS NULL OR NOT public.user_owns_fursuit(auth.uid(), p_fursuit_id) THEN
     RAISE EXCEPTION 'Fursuit not found';
   END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_fursuit_id::text, 0));
 
   SELECT count(*)::integer
   INTO v_active_count
@@ -396,6 +399,10 @@ BEGIN
   )
   RETURNING id INTO v_tag_id;
 
+  v_asset_path := auth.uid()::text || '/' || v_tag_id::text || '.png';
+
+  PERFORM public.attach_fursuit_qr_asset(v_tag_id, v_asset_path);
+
   RETURN QUERY
   SELECT
     t.id,
@@ -404,7 +411,7 @@ BEGIN
     'linked'::text,
     v_token,
     'https://www.playtailtag.com/catch/qr/' || v_token,
-    t.qr_asset_path,
+    v_asset_path,
     t.registered_at
   FROM public.tags t
   WHERE t.id = v_tag_id;
@@ -500,11 +507,18 @@ DECLARE
   v_old record;
   v_new record;
 BEGIN
-  SELECT t.id, t.fursuit_id, t.label, f.owner_id
+  SELECT
+    t.id,
+    t.fursuit_id,
+    t.label,
+    t.status,
+    t.replaced_by_tag_id,
+    f.owner_id
   INTO v_old
   FROM public.tags t
   JOIN public.fursuits f ON f.id = t.fursuit_id
-  WHERE t.id = p_tag_id;
+  WHERE t.id = p_tag_id
+  FOR UPDATE OF t;
 
   IF NOT found OR auth.uid() IS NULL OR v_old.owner_id <> auth.uid() THEN
     RAISE EXCEPTION 'QR code not found';
@@ -512,6 +526,10 @@ BEGIN
 
   IF v_old.fursuit_id IS NULL THEN
     RAISE EXCEPTION 'QR code is not linked to a fursuit';
+  END IF;
+
+  IF v_old.status = 'replaced' OR v_old.replaced_by_tag_id IS NOT NULL THEN
+    RAISE EXCEPTION 'QR code has already been replaced';
   END IF;
 
   UPDATE public.tags

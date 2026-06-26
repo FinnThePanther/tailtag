@@ -5,6 +5,7 @@ import { Metric } from '@/components/metric';
 import { Table } from '@/components/table';
 import { requireAdminDataContext } from '@/lib/auth';
 import { captureSupabaseError } from '@/lib/sentry';
+import { formatCounts } from '@/lib/worker-format';
 import {
   fetchBackendWorkerHealth,
   fetchDeadLetteredGameplayEvents,
@@ -426,18 +427,6 @@ function formatAge(value: number | null): string {
   }
 
   return `${Math.floor(value / 86400)}d`;
-}
-
-function formatCounts(counts: Record<string, unknown>): string {
-  const entries = Object.entries(counts)
-    .filter(([, value]) => typeof value === 'number' && value !== 0)
-    .slice(0, 4);
-
-  if (entries.length === 0) {
-    return 'none';
-  }
-
-  return entries.map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join(', ');
 }
 
 function StatusBadge({ status }: { status: string | null }) {

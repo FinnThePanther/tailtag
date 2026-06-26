@@ -7,7 +7,7 @@ import { fetchDailyTasks } from './api/dailyTasks';
 import { useToast } from '../../hooks/useToast';
 import { supabase } from '../../lib/supabase';
 import { addMonitoringBreadcrumb } from '../../lib/sentry';
-import { normalizeUuidString } from '../../utils/ids';
+import { normalizeUuidString } from '@/utils/ids';
 
 export const DAILY_TASKS_QUERY_KEY = 'daily-tasks';
 

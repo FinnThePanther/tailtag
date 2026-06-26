@@ -9,7 +9,7 @@ import type {
   UserDailyStreaksRow,
 } from '../../../types/database';
 import { captureHandledMessage } from '../../../lib/sentry';
-import { normalizeUuidString } from '../../../utils/ids';
+import { normalizeUuidString } from '@/utils/ids';
 
 export type DailyTaskRecord = {
   id: string;

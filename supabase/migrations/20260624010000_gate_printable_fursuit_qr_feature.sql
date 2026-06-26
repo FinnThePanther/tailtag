@@ -219,17 +219,108 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.resolve_fursuit_qr_preview(p_qr_token text)
+RETURNS TABLE (
+  valid boolean,
+  result text,
+  fursuit_id uuid,
+  fursuit_name text,
+  fursuit_avatar_path text,
+  fursuit_avatar_url text,
+  species_name text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_token text := nullif(btrim(p_qr_token), '');
+  v_tag record;
+BEGIN
+  IF v_token IS NULL OR length(v_token) > 256 THEN
+    RETURN QUERY SELECT false, 'invalid'::text, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::text;
+    RETURN;
+  END IF;
+
+  SELECT
+    t.id,
+    t.status,
+    t.disabled_at,
+    t.expires_at,
+    f.id AS fursuit_id,
+    f.name,
+    f.avatar_path,
+    f.avatar_url,
+    fs.name AS species_name,
+    f.visibility_audience,
+    f.owner_attribution_visibility,
+    f.owner_id
+  INTO v_tag
+  FROM public.tags t
+  JOIN public.fursuits f ON f.id = t.fursuit_id
+  LEFT JOIN public.fursuit_species fs ON fs.id = f.species_id
+  WHERE t.qr_token_hash = public.hash_qr_token(v_token)
+  LIMIT 1;
+
+  IF NOT found THEN
+    RETURN QUERY SELECT false, 'invalid'::text, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::text;
+    RETURN;
+  END IF;
+
+  IF NOT public.is_printable_fursuit_qr_enabled_for_profile(v_tag.owner_id) THEN
+    RETURN QUERY SELECT false, 'feature_disabled'::text, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::text;
+    RETURN;
+  END IF;
+
+  IF v_tag.status = 'replaced' THEN
+    RETURN QUERY SELECT false, 'replaced'::text, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::text;
+    RETURN;
+  END IF;
+
+  IF v_tag.status = 'disabled' OR v_tag.disabled_at IS NOT NULL THEN
+    RETURN QUERY SELECT false, 'disabled'::text, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::text;
+    RETURN;
+  END IF;
+
+  IF v_tag.status = 'expired' OR (v_tag.expires_at IS NOT NULL AND v_tag.expires_at <= now()) THEN
+    RETURN QUERY SELECT false, 'expired'::text, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::text;
+    RETURN;
+  END IF;
+
+  IF v_tag.status NOT IN ('linked', 'active') THEN
+    RETURN QUERY SELECT false, 'unlinked'::text, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::text;
+    RETURN;
+  END IF;
+
+  IF v_tag.visibility_audience = 'public' AND v_tag.owner_attribution_visibility = 'public' THEN
+    RETURN QUERY
+    SELECT
+      true,
+      'valid'::text,
+      v_tag.fursuit_id,
+      v_tag.name,
+      v_tag.avatar_path,
+      v_tag.avatar_url,
+      v_tag.species_name;
+  ELSE
+    RETURN QUERY SELECT true, 'valid'::text, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::text;
+  END IF;
+END;
+$function$;
+
 REVOKE ALL ON FUNCTION public.list_fursuit_qr_codes(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.create_fursuit_qr_code(uuid, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.attach_fursuit_qr_asset(uuid, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.disable_fursuit_qr_code(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.replace_fursuit_qr_code(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.resolve_fursuit_qr_preview(text) FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.list_fursuit_qr_codes(uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.create_fursuit_qr_code(uuid, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.attach_fursuit_qr_asset(uuid, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.disable_fursuit_qr_code(uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.replace_fursuit_qr_code(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.resolve_fursuit_qr_preview(text) TO anon, authenticated, service_role;
 
 NOTIFY pgrst, 'reload schema';
 

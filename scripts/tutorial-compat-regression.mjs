@@ -29,8 +29,10 @@ describe('tutorial fursuit compatibility', () => {
   it('restores only the fursuits REST compatibility column', () => {
     assert.match(
       migrationSource,
-      /ALTER TABLE public\.fursuits\s+ADD COLUMN IF NOT EXISTS is_tutorial boolean NOT NULL DEFAULT false;/s,
+      /ALTER TABLE public\.fursuits\s+ADD COLUMN IF NOT EXISTS is_tutorial boolean DEFAULT false;/s,
     );
+    assert.match(migrationSource, /ALTER COLUMN is_tutorial SET DEFAULT false/);
+    assert.match(migrationSource, /ALTER COLUMN is_tutorial SET NOT NULL/);
     assert.match(migrationSource, /COMMENT ON COLUMN public\.fursuits\.is_tutorial IS/);
     assert.match(migrationSource, /Legacy REST compatibility shadow column/);
     assert.doesNotMatch(
@@ -96,7 +98,7 @@ describe('tutorial fursuit compatibility', () => {
 
         assert.doesNotMatch(
           source,
-          /\.select\([^)]*is_tutorial|\.eq\(['"]is_tutorial['"]|\.neq\(['"]is_tutorial['"]/s,
+          /\.select\([^)]*is_tutorial|\.eq\(['"]is_tutorial['"]|\.neq\(['"]is_tutorial['"]|\.is\(['"]is_tutorial['"]|\.not\(['"]is_tutorial['"]|\.filter\(['"]is_tutorial['"]|\.or\([^)]*is_tutorial/s,
           `unexpected is_tutorial query or filter in ${file}`,
         );
       }

@@ -18,7 +18,7 @@ SET search_path TO public, pg_temp
 AS $function$
 DECLARE
   v_viewer_id uuid := auth.uid();
-  v_normalized_code text := upper(coalesce(p_unique_code, ''));
+  v_normalized_code text := upper(btrim(coalesce(p_unique_code, '')));
   v_updated_count integer := 0;
 BEGIN
   IF v_viewer_id IS NULL THEN
@@ -40,6 +40,11 @@ BEGIN
       'fursuit_id', p_fursuit_id,
       'unique_code', NULL
     );
+  END IF;
+
+  IF v_normalized_code !~ '^[A-Z0-9]{4,8}$' THEN
+    RAISE EXCEPTION 'Unique code must be 4 to 8 letters or numbers'
+      USING ERRCODE = '22023';
   END IF;
 
   IF EXISTS (

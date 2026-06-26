@@ -10,6 +10,8 @@ import {
   type BackendWorkerHealthRow,
 } from '@/lib/data';
 import { requireAdminDataContext } from '@/lib/auth';
+import { captureSupabaseError } from '@/lib/sentry';
+import { formatCounts } from '@/lib/worker-format';
 
 export default async function DashboardPage() {
   const { supabase } = await requireAdminDataContext();
@@ -18,6 +20,10 @@ export default async function DashboardPage() {
     fetchDashboardSummary(supabase),
     fetchConventions(supabase),
     fetchBackendWorkerHealth(supabase).catch((error) => {
+      captureSupabaseError(error, {
+        scope: 'admin.dashboard',
+        action: 'fetch_backend_worker_health',
+      });
       console.error('[admin] Failed to load backend worker health', error);
       workerHealthUnavailable = true;
       return [] as BackendWorkerHealthRow[];
@@ -200,18 +206,6 @@ function formatDuration(value: number | null): string {
   }
 
   return `${(value / 1000).toFixed(1)}s`;
-}
-
-function formatCounts(counts: Record<string, unknown>): string {
-  const entries = Object.entries(counts)
-    .filter(([, value]) => typeof value === 'number' && value !== 0)
-    .slice(0, 4);
-
-  if (entries.length === 0) {
-    return 'none';
-  }
-
-  return entries.map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join(', ');
 }
 
 function StatusBadge({ status }: { status: string | null }) {
