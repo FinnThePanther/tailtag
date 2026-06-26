@@ -49,7 +49,7 @@
     "verify:production-release": "node scripts/verify-production-release-config.cjs",
     "format": "prettier . --write --ignore-unknown",
     "format:check": "prettier . --check --ignore-unknown",
-    "validate:mobile": "npm run doctor && npm run format:check && npm run lint && npm run typecheck && npm run test:notifications && npm run test:backend-workers && npm run test:daily-tasks && npm run test:achievements && npm run test:fursuits && npm run test:lifecycle",
+    "validate:mobile": "npm run doctor && npm run format:check && npm run lint && npm run typecheck && npm run test:notifications && npm run test:backend-workers && npm run test:daily-tasks && npm run test:achievements && npm run test:fursuits && npm run test:tutorial-compat && npm run test:lifecycle",
     "validate:admin": "npm --prefix admin run lint && npm --prefix admin run typecheck && npm --prefix admin run test:security && npm --prefix admin run build",
     "validate:web": "npm --prefix web run build",
     "validate:hosted": "npm run validate:admin && npm run validate:web",
