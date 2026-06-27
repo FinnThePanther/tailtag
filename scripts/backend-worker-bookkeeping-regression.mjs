@@ -86,6 +86,12 @@ describe('Backend worker bookkeeping', () => {
       source,
       /public\.backend_worker_heartbeats\.idle_count_window_started_at < v_now - interval '24 hours'/,
     );
+    assert.match(source, /IF \(SELECT auth\.role\(\)\) <> 'service_role' THEN/);
+    assert.match(source, /RAISE EXCEPTION 'record_backend_worker_heartbeat requires service_role'/);
+    assert.match(
+      source,
+      /REVOKE ALL ON FUNCTION public\.record_backend_worker_heartbeat\(\s+text,\s+text,\s+text,\s+timestamp with time zone,\s+integer,\s+jsonb,\s+jsonb\s+\) FROM PUBLIC, anon, authenticated/,
+    );
     assert.match(source, /GRANT EXECUTE ON FUNCTION public\.record_backend_worker_heartbeat/);
     assert.match(source, /TO service_role/);
   });
