@@ -149,6 +149,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.mark_nearby_convention_setup_reminder_shown(
   p_convention_id uuid,
+  p_action text,
   p_source text DEFAULT 'foreground'
 )
 RETURNS void
@@ -175,7 +176,7 @@ BEGIN
   VALUES (
     v_profile_id,
     p_convention_id,
-    'join_convention',
+    p_action,
     v_source,
     now(),
     now()
@@ -186,7 +187,8 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.dismiss_nearby_convention_setup_reminder(
-  p_convention_id uuid
+  p_convention_id uuid,
+  p_action text
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -212,7 +214,7 @@ BEGIN
   VALUES (
     v_profile_id,
     p_convention_id,
-    'join_convention',
+    p_action,
     'foreground',
     now(),
     now(),
@@ -226,7 +228,8 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.mark_nearby_convention_setup_reminder_acted(
-  p_convention_id uuid
+  p_convention_id uuid,
+  p_action text
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -252,7 +255,7 @@ BEGIN
   VALUES (
     v_profile_id,
     p_convention_id,
-    'join_convention',
+    p_action,
     'foreground',
     now(),
     now(),
@@ -276,17 +279,17 @@ GRANT EXECUTE ON FUNCTION public.get_nearby_convention_setup_reminder(
   integer
 ) TO authenticated;
 
-REVOKE ALL ON FUNCTION public.mark_nearby_convention_setup_reminder_shown(uuid, text)
+REVOKE ALL ON FUNCTION public.mark_nearby_convention_setup_reminder_shown(uuid, text, text)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.mark_nearby_convention_setup_reminder_shown(uuid, text)
+GRANT EXECUTE ON FUNCTION public.mark_nearby_convention_setup_reminder_shown(uuid, text, text)
   TO authenticated;
 
-REVOKE ALL ON FUNCTION public.dismiss_nearby_convention_setup_reminder(uuid)
+REVOKE ALL ON FUNCTION public.dismiss_nearby_convention_setup_reminder(uuid, text)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.dismiss_nearby_convention_setup_reminder(uuid)
+GRANT EXECUTE ON FUNCTION public.dismiss_nearby_convention_setup_reminder(uuid, text)
   TO authenticated;
 
-REVOKE ALL ON FUNCTION public.mark_nearby_convention_setup_reminder_acted(uuid)
+REVOKE ALL ON FUNCTION public.mark_nearby_convention_setup_reminder_acted(uuid, text)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.mark_nearby_convention_setup_reminder_acted(uuid)
+GRANT EXECUTE ON FUNCTION public.mark_nearby_convention_setup_reminder_acted(uuid, text)
   TO authenticated;
