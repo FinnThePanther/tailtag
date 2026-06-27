@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from './supabase/service';
+import { captureSupabaseError } from './sentry';
 import type { Database } from '@/types/database';
 
 export {
@@ -185,9 +186,31 @@ export async function buildConventionReadiness(
       .eq('day', localDay),
   ]);
 
-  if (dailyTaskError) throw dailyTaskError;
-  if (achievementError) throw achievementError;
-  if (assignmentError) throw assignmentError;
+  if (dailyTaskError) {
+    captureSupabaseError(dailyTaskError, {
+      scope: 'conventionLifecycle.buildReadiness',
+      action: 'load_daily_tasks',
+      conventionId,
+    });
+    throw dailyTaskError;
+  }
+  if (achievementError) {
+    captureSupabaseError(achievementError, {
+      scope: 'conventionLifecycle.buildReadiness',
+      action: 'count_available_achievements',
+      conventionId,
+    });
+    throw achievementError;
+  }
+  if (assignmentError) {
+    captureSupabaseError(assignmentError, {
+      scope: 'conventionLifecycle.buildReadiness',
+      action: 'count_today_assignments',
+      conventionId,
+      localDay,
+    });
+    throw assignmentError;
+  }
 
   const activeRotationTasks = ((dailyTaskRows ?? []) as DailyTaskEligibilityRow[]).filter((task) =>
     isDefaultRotationEligible(task.metadata),

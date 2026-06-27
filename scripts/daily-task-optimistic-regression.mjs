@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -12,17 +12,14 @@ function read(path) {
   return readFileSync(join(root, path), 'utf8');
 }
 
-function readLatestMigrationMatching(pattern) {
+function readExpectedMigration(fileName, pattern) {
   const migrationsDir = join(root, 'supabase/migrations');
-  const migration = readdirSync(migrationsDir)
-    .filter((file) => file.endsWith('.sql'))
-    .sort()
-    .reverse()
-    .find((file) => pattern.test(readFileSync(join(migrationsDir, file), 'utf8')));
+  const migrationPath = join(migrationsDir, fileName);
+  const migration = readFileSync(migrationPath, 'utf8');
 
-  assert.ok(migration, `Expected to find migration matching ${pattern}`);
+  assert.match(migration, pattern, `Expected ${fileName} to match ${pattern}`);
 
-  return readFileSync(join(migrationsDir, migration), 'utf8');
+  return migration;
 }
 
 async function importTypeScriptModule(path) {
@@ -277,16 +274,29 @@ describe('Daily task rotation metadata', () => {
 
   it('ships catalog metadata and a data migration for V1 daily rotation', () => {
     const seed = read('supabase/seeds/reference.sql');
-    const migration = readLatestMigrationMatching(/"family": "catch_volume"/);
-    const legacyFlagMigration = readLatestMigrationMatching(/defaultRotationEligible/);
-    const conventionViewMigration = readLatestMigrationMatching(/convention_detail_viewed/);
+    const rotationMetadataMigration = readExpectedMigration(
+      '20260627123000_add_daily_task_rotation_leveling_metadata.sql',
+      /"family": "catch_volume"/,
+    );
+    const catalogExpansionMigration = readExpectedMigration(
+      '20260627133000_add_v1_daily_task_catalog_expansion.sql',
+      /"family"\s*:\s*"catch_volume"/,
+    );
+    const legacyFlagMigration = readExpectedMigration(
+      '20260627130000_backfill_daily_task_rotation_legacy_flags.sql',
+      /defaultRotationEligible/,
+    );
+    const conventionViewMigration = readExpectedMigration(
+      '20260627134000_add_convention_view_daily_tasks.sql',
+      /convention_detail_viewed/,
+    );
     const rotationFunction = read('supabase/functions/rotate-dailys/index.ts');
     const achievementsProcessor = read('supabase/functions/_shared/achievements.ts');
     const adminTaskCard = read('admin/components/convention-tasks-card.tsx');
     const homeScreen = read('app/(tabs)/index.tsx');
     const rosterScreen = read('app/conventions/[conventionId]/roster.tsx');
 
-    for (const source of [seed, migration]) {
+    for (const source of [seed, rotationMetadataMigration]) {
       assert.match(source, /"slot":\s*"catch"/);
       assert.match(source, /"slot":\s*"explore"/);
       assert.match(source, /"slot":\s*"leaderboard"/);
@@ -302,6 +312,13 @@ describe('Daily task rotation metadata', () => {
     assert.match(seed, /Catch 4 suiters today[\s\S]*"xp":60/);
     assert.match(seed, /Catch 2 unique suiters[\s\S]*"family":"catch_unique"/);
     assert.match(seed, /View 5 suiter bios[\s\S]*"difficulty":"hard"[\s\S]*"xp":80/);
+    assert.match(catalogExpansionMigration, /Catch 2 suiters today[\s\S]*"xp":35/);
+    assert.match(catalogExpansionMigration, /Catch 4 suiters today[\s\S]*"xp":60/);
+    assert.match(catalogExpansionMigration, /Catch 2 unique suiters[\s\S]*"family":"catch_unique"/);
+    assert.match(
+      catalogExpansionMigration,
+      /View 5 suiter bios[\s\S]*"difficulty":"hard"[\s\S]*"xp":80/,
+    );
     assert.match(conventionViewMigration, /convention_roster_viewed/);
     assert.match(conventionViewMigration, /convention_detail_viewed/);
     assert.match(
@@ -309,7 +326,7 @@ describe('Daily task rotation metadata', () => {
       /86765af1-77e8-4ca0-a3dc-51531dc9c6c2[\s\S]*c5914eb9-dbd2-41b0-8176-b98199e1eccf/,
     );
     assert.match(seed, /Same Studio[\s\S]*"slot":"special"[\s\S]*true, null, null\)/);
-    assert.match(migration, /WHERE id = '8b5f9a7a-8d7d-4e89-9a92-4fd4b45b8b71';/);
+    assert.match(rotationMetadataMigration, /WHERE id = '8b5f9a7a-8d7d-4e89-9a92-4fd4b45b8b71';/);
     assert.match(rotationFunction, /function slotRecipe/);
     assert.match(rotationFunction, /return \['catch', 'explore', 'leaderboard'\]/);
     assert.match(
@@ -326,6 +343,10 @@ describe('Daily task rotation metadata', () => {
     assert.match(adminTaskCard, /rotationFamily/);
     assert.match(adminTaskCard, /levelingXp/);
     assert.match(adminTaskCard, /function preservedFilters/);
+    assert.match(
+      adminTaskCard,
+      /const eligible = explicitEligible && slot !== 'special' && difficulty !== 'special'/,
+    );
     assert.match(achievementsProcessor, /case 'convention_detail_viewed':/);
     assert.match(achievementsProcessor, /case 'convention_roster_viewed':/);
     assert.match(homeScreen, /type: 'convention_detail_viewed'/);

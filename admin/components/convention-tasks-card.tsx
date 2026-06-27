@@ -233,16 +233,13 @@ function buildMetadata(form: TaskFormState, baseMetadata: Record<string, unknown
   }
 
   if (form.kind === 'share') {
-    const existingFilters = preservedFilters(baseMetadata, new Set());
+    const existingFilters = preservedFilters(baseMetadata, new Set(['payload.context']));
     return withRotationAndLeveling(
       {
         ...baseFields,
         eventType: 'catch_shared',
         metric: 'total',
-        filters:
-          existingFilters.length > 0
-            ? existingFilters
-            : [{ path: 'payload.context', equals: 'catch_screen' }],
+        filters: [...existingFilters, { path: 'payload.context', equals: 'catch_screen' }],
       },
       form,
     );
@@ -302,10 +299,11 @@ function summarizeRotation(metadata: Record<string, unknown> | null): string {
   const slot = typeof rotation.slot === 'string' ? rotation.slot : 'catch';
   const difficulty = typeof rotation.difficulty === 'string' ? rotation.difficulty : 'medium';
   const family = typeof rotation.family === 'string' ? rotation.family : 'general';
-  const eligible =
+  const explicitEligible =
     typeof rotation.eligible === 'boolean'
       ? rotation.eligible
       : metadata?.defaultRotationEligible !== false && metadata?.rotationPool !== 'special';
+  const eligible = explicitEligible && slot !== 'special' && difficulty !== 'special';
 
   return `${eligible ? 'Rotates' : 'No rotation'} · ${slot} · ${difficulty} · ${family}`;
 }

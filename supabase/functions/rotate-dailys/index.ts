@@ -461,10 +461,27 @@ function sortRotationCandidates(candidates: RotationCandidate[]): RotationCandid
     hard: 2,
     special: 3,
   };
+  const familyCounts = new Map<string, number>();
+  for (const candidate of candidates) {
+    familyCounts.set(
+      candidate.rotation.family,
+      (familyCounts.get(candidate.rotation.family) ?? 0) + 1,
+    );
+  }
 
-  return [...candidates].sort(
-    (a, b) => difficultyRank[a.rotation.difficulty] - difficultyRank[b.rotation.difficulty],
-  );
+  return candidates
+    .map((candidate, index) => ({ candidate, index }))
+    .sort((a, b) => {
+      const aDifficulty = difficultyRank[a.candidate.rotation.difficulty];
+      const bDifficulty = difficultyRank[b.candidate.rotation.difficulty];
+      const sameFamily = a.candidate.rotation.family === b.candidate.rotation.family;
+      const hasFamilyVariants = (familyCounts.get(a.candidate.rotation.family) ?? 0) > 1;
+      const difficultyDelta =
+        sameFamily && hasFamilyVariants ? bDifficulty - aDifficulty : aDifficulty - bDifficulty;
+
+      return difficultyDelta || a.index - b.index;
+    })
+    .map(({ candidate }) => candidate);
 }
 
 function selectFromCandidates(
