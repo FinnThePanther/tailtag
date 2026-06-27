@@ -10,11 +10,6 @@ export type AttendanceState = "active" | "left" | "removed" | "finalized"
 export type RosterState = "active" | "removed" | "finalized"
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       achievement_rules: {
@@ -1676,6 +1671,60 @@ export type Database = {
           },
         ]
       }
+      nearby_convention_setup_reminders: {
+        Row: {
+          acted_at: string | null
+          action: string
+          convention_id: string
+          created_at: string
+          dismissed_at: string | null
+          id: string
+          profile_id: string
+          shown_at: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          acted_at?: string | null
+          action?: string
+          convention_id: string
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          profile_id: string
+          shown_at?: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          acted_at?: string | null
+          action?: string
+          convention_id?: string
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          profile_id?: string
+          shown_at?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nearby_convention_setup_reminders_convention_id_fkey"
+            columns: ["convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nearby_convention_setup_reminders_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_push_attempts: {
         Row: {
           attempt_number: number
@@ -2162,6 +2211,7 @@ export type Database = {
           location_permission_granted_at: string | null
           location_permission_requested_at: string | null
           location_permission_status: string | null
+          nearby_convention_reminders_enabled: boolean
           onboarding_completed: boolean
           push_notifications_enabled: boolean
           push_notifications_prompted: boolean | null
@@ -2192,6 +2242,7 @@ export type Database = {
           location_permission_granted_at?: string | null
           location_permission_requested_at?: string | null
           location_permission_status?: string | null
+          nearby_convention_reminders_enabled?: boolean
           onboarding_completed?: boolean
           push_notifications_enabled?: boolean
           push_notifications_prompted?: boolean | null
@@ -2222,6 +2273,7 @@ export type Database = {
           location_permission_granted_at?: string | null
           location_permission_requested_at?: string | null
           location_permission_status?: string | null
+          nearby_convention_reminders_enabled?: boolean
           onboarding_completed?: boolean
           push_notifications_enabled?: boolean
           push_notifications_prompted?: boolean | null
@@ -3249,6 +3301,10 @@ export type Database = {
           scan_count: number
         }[]
       }
+      dismiss_nearby_convention_setup_reminder: {
+        Args: { p_action: string; p_convention_id: string }
+        Returns: undefined
+      }
       enqueue_notification_push_job: {
         Args: { p_notification_id: string }
         Returns: string
@@ -3652,6 +3708,18 @@ export type Database = {
           unique_fursuits_caught_count: number
         }[]
       }
+      get_nearby_convention_setup_reminder: {
+        Args: { p_accuracy_meters?: number; p_lat: number; p_lng: number }
+        Returns: {
+          action: string
+          convention_id: string
+          convention_name: string
+          distance_meters: number
+          membership_state: string
+          owned_suit_count: number
+          rostered_owned_suit_count: number
+        }[]
+      }
       get_or_assign_catch_mode_default_experiment: {
         Args: never
         Returns: {
@@ -3874,6 +3942,14 @@ export type Database = {
           p_user_agent?: string
         }
         Returns: string
+      }
+      mark_nearby_convention_setup_reminder_acted: {
+        Args: { p_action: string; p_convention_id: string }
+        Returns: undefined
+      }
+      mark_nearby_convention_setup_reminder_shown: {
+        Args: { p_action: string; p_convention_id: string; p_source?: string }
+        Returns: undefined
       }
       notify_catch_decision: {
         Args: {

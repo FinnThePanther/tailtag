@@ -31,6 +31,9 @@ export const styles = StyleSheet.create({
   cardSpacing: {
     marginBottom: spacing.lg,
   },
+  nearbyConventionCard: {
+    marginBottom: spacing.lg,
+  },
   pendingCard: {
     borderColor: colors.amber,
     borderWidth: 2,

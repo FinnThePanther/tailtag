@@ -11,14 +11,12 @@ import {
   Play,
   RefreshCcw,
   Trash2,
-  Wand2,
   Wrench,
 } from 'lucide-react';
 
 import {
   closeConventionAction,
   deleteArchivedConventionInDevAction,
-  generateConventionGameplayPackAction,
   regenerateConventionRecapsAction,
   rotateConventionDailiesAction,
   retryConventionCloseoutAction,
@@ -182,10 +180,9 @@ export function ConventionLifecycleCard({
         </Info>
       </div>
 
-      <div className="mt-3 grid gap-3 md:grid-cols-3">
-        <Info label="Active rotation tasks">{readiness.counts.activeRotationTasks}</Info>
-        <Info label="Convention tasks">{readiness.counts.conventionTasks}</Info>
-        <Info label="Convention achievements">{readiness.counts.conventionAchievements}</Info>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <Info label="Available daily tasks">{readiness.counts.availableDailyTasks}</Info>
+        <Info label="Available achievements">{readiness.counts.availableAchievements}</Info>
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-4">
@@ -316,19 +313,6 @@ export function ConventionLifecycleCard({
       ) : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <ActionButton
-          disabled={isPending}
-          loading={action === 'generate'}
-          icon={<Wand2 size={14} />}
-          onClick={() =>
-            runAction('generate', async () => {
-              const result = await generateConventionGameplayPackAction(conventionId);
-              return `Gameplay catalog ready: ${result.tasks.existing} active task(s) and ${result.achievements.existing} active achievement(s) available.`;
-            })
-          }
-        >
-          Check gameplay catalog
-        </ActionButton>
         <ActionButton
           disabled={isPending}
           loading={action === 'readiness'}
