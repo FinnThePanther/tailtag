@@ -279,8 +279,12 @@ describe('Daily task rotation metadata', () => {
     const seed = read('supabase/seeds/reference.sql');
     const migration = readLatestMigrationMatching(/"family": "catch_volume"/);
     const legacyFlagMigration = readLatestMigrationMatching(/defaultRotationEligible/);
+    const conventionViewMigration = readLatestMigrationMatching(/convention_detail_viewed/);
     const rotationFunction = read('supabase/functions/rotate-dailys/index.ts');
+    const achievementsProcessor = read('supabase/functions/_shared/achievements.ts');
     const adminTaskCard = read('admin/components/convention-tasks-card.tsx');
+    const homeScreen = read('app/(tabs)/index.tsx');
+    const rosterScreen = read('app/conventions/[conventionId]/roster.tsx');
 
     for (const source of [seed, migration]) {
       assert.match(source, /"slot":\s*"catch"/);
@@ -294,6 +298,12 @@ describe('Daily task rotation metadata', () => {
     assert.match(seed, /Catch 10 suiters today[\s\S]*"eligible":false/);
     assert.match(seed, /Catch 10 suiters today[\s\S]*"defaultRotationEligible":false/);
     assert.match(seed, /Refresh the leaderboard twice[\s\S]*"eligible":false/);
+    assert.match(seed, /Catch 2 suiters today[\s\S]*"xp":35/);
+    assert.match(seed, /Catch 4 suiters today[\s\S]*"xp":60/);
+    assert.match(seed, /Catch 2 unique suiters[\s\S]*"family":"catch_unique"/);
+    assert.match(seed, /View 5 suiter bios[\s\S]*"difficulty":"hard"[\s\S]*"xp":80/);
+    assert.match(conventionViewMigration, /convention_roster_viewed/);
+    assert.match(conventionViewMigration, /convention_detail_viewed/);
     assert.match(
       legacyFlagMigration,
       /86765af1-77e8-4ca0-a3dc-51531dc9c6c2[\s\S]*c5914eb9-dbd2-41b0-8176-b98199e1eccf/,
@@ -316,5 +326,9 @@ describe('Daily task rotation metadata', () => {
     assert.match(adminTaskCard, /rotationFamily/);
     assert.match(adminTaskCard, /levelingXp/);
     assert.match(adminTaskCard, /function preservedFilters/);
+    assert.match(achievementsProcessor, /case 'convention_detail_viewed':/);
+    assert.match(achievementsProcessor, /case 'convention_roster_viewed':/);
+    assert.match(homeScreen, /type: 'convention_detail_viewed'/);
+    assert.match(rosterScreen, /type: 'convention_roster_viewed'/);
   });
 });

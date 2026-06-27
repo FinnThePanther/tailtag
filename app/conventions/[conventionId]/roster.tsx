@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +17,9 @@ import {
   createConventionSuitRosterQueryOptions,
   type ConventionSuitRosterViewEntry,
 } from '../../../src/features/conventions';
+import { DAILY_TASKS_QUERY_KEY } from '../../../src/features/daily-tasks';
+import { emitGameplayEvent } from '../../../src/features/events';
+import { captureHandledException } from '../../../src/lib/sentry';
 import { supabase } from '../../../src/lib/supabase';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../../src/theme';
@@ -49,6 +52,7 @@ export default function ConventionSuitRosterScreen() {
   }>();
   const [searchInput, setSearchInput] = useState('');
   const [activeFilter, setActiveFilter] = useState<RosterFilter>('all');
+  const rosterViewedRef = useRef<string | null>(null);
 
   const {
     data: rosterMetadataEntries = [],
@@ -89,6 +93,36 @@ export default function ConventionSuitRosterScreen() {
       })),
     [caughtFursuitIds, rosterMetadataEntries, userId],
   );
+
+  useEffect(() => {
+    if (!userId || !conventionId) {
+      return;
+    }
+
+    const key = `${userId}:${conventionId}`;
+    if (rosterViewedRef.current === key) {
+      return;
+    }
+    rosterViewedRef.current = key;
+
+    void emitGameplayEvent({
+      type: 'convention_roster_viewed',
+      conventionId,
+      payload: {
+        convention_id: conventionId,
+        source: 'convention_roster_screen',
+      },
+    })
+      .then(() => {
+        void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      })
+      .catch((error) => {
+        captureHandledException(error, {
+          scope: 'conventionRoster.viewedEvent',
+          conventionId,
+        });
+      });
+  }, [conventionId, queryClient, userId]);
 
   useEffect(() => {
     if (!conventionId) return;
