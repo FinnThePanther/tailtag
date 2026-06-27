@@ -278,7 +278,9 @@ describe('Daily task rotation metadata', () => {
   it('ships catalog metadata and a data migration for V1 daily rotation', () => {
     const seed = read('supabase/seeds/reference.sql');
     const migration = readLatestMigrationMatching(/"family": "catch_volume"/);
+    const legacyFlagMigration = readLatestMigrationMatching(/defaultRotationEligible/);
     const rotationFunction = read('supabase/functions/rotate-dailys/index.ts');
+    const adminTaskCard = read('admin/components/convention-tasks-card.tsx');
 
     for (const source of [seed, migration]) {
       assert.match(source, /"slot":\s*"catch"/);
@@ -290,7 +292,12 @@ describe('Daily task rotation metadata', () => {
     }
 
     assert.match(seed, /Catch 10 suiters today[\s\S]*"eligible":false/);
+    assert.match(seed, /Catch 10 suiters today[\s\S]*"defaultRotationEligible":false/);
     assert.match(seed, /Refresh the leaderboard twice[\s\S]*"eligible":false/);
+    assert.match(
+      legacyFlagMigration,
+      /86765af1-77e8-4ca0-a3dc-51531dc9c6c2[\s\S]*c5914eb9-dbd2-41b0-8176-b98199e1eccf/,
+    );
     assert.match(seed, /Same Studio[\s\S]*"slot":"special"[\s\S]*true, null, null\)/);
     assert.match(migration, /WHERE id = '8b5f9a7a-8d7d-4e89-9a92-4fd4b45b8b71';/);
     assert.match(rotationFunction, /function slotRecipe/);
@@ -303,5 +310,11 @@ describe('Daily task rotation metadata', () => {
       rotationFunction,
       /selected\.filter\(\(entry\) => entry\.rotation\.difficulty === 'hard'\)\.length >= 1/,
     );
+    assert.match(adminTaskCard, /Default rotation eligible/);
+    assert.match(adminTaskCard, /rotationSlot/);
+    assert.match(adminTaskCard, /rotationDifficulty/);
+    assert.match(adminTaskCard, /rotationFamily/);
+    assert.match(adminTaskCard, /levelingXp/);
+    assert.match(adminTaskCard, /function preservedFilters/);
   });
 });
