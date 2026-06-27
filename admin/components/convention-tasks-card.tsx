@@ -16,11 +16,27 @@ const TASK_KINDS = [
   { value: 'catch', label: 'Catch' },
   { value: 'leaderboard', label: 'Leaderboard' },
   { value: 'view_bio', label: 'View bio' },
+  { value: 'share', label: 'Share' },
 ] as const;
 
 const METRIC_OPTIONS = [
   { value: 'total', label: 'Total count' },
   { value: 'unique', label: 'Unique (deduplicated)' },
+] as const;
+
+const ROTATION_SLOTS = [
+  { value: 'catch', label: 'Catch' },
+  { value: 'explore', label: 'Explore' },
+  { value: 'leaderboard', label: 'Leaderboard' },
+  { value: 'social', label: 'Social' },
+  { value: 'special', label: 'Special' },
+] as const;
+
+const ROTATION_DIFFICULTIES = [
+  { value: 'easy', label: 'Easy' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'hard', label: 'Hard' },
+  { value: 'special', label: 'Special' },
 ] as const;
 
 type TaskFormState = {
@@ -32,6 +48,11 @@ type TaskFormState = {
   uniqueBy: string;
   speciesFilter: string;
   colorFilter: string;
+  rotationEligible: boolean;
+  rotationSlot: string;
+  rotationDifficulty: string;
+  rotationFamily: string;
+  levelingXp: number;
 };
 
 function defaultFormState(): TaskFormState {
@@ -44,11 +65,67 @@ function defaultFormState(): TaskFormState {
     uniqueBy: 'payload.fursuit_id',
     speciesFilter: '',
     colorFilter: '',
+    rotationEligible: true,
+    rotationSlot: 'catch',
+    rotationDifficulty: 'easy',
+    rotationFamily: 'catch_volume',
+    levelingXp: 25,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function recordFrom(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
+
+function defaultRotationSlotForKind(kind: string) {
+  if (kind === 'leaderboard') return 'leaderboard';
+  if (kind === 'view_bio') return 'explore';
+  if (kind === 'share') return 'social';
+  return 'catch';
+}
+
+function defaultRotationFamilyForKind(kind: string) {
+  if (kind === 'leaderboard') return 'leaderboard_check';
+  if (kind === 'view_bio') return 'bio_views';
+  if (kind === 'share') return 'share_catch';
+  return 'catch_volume';
+}
+
+function normalizeRotationSlot(value: unknown, kind: string) {
+  return ROTATION_SLOTS.some((option) => option.value === value)
+    ? (value as string)
+    : defaultRotationSlotForKind(kind);
+}
+
+function normalizeRotationDifficulty(value: unknown) {
+  return ROTATION_DIFFICULTIES.some((option) => option.value === value)
+    ? (value as string)
+    : 'medium';
+}
+
+function normalizeRotationFamily(value: unknown, kind: string) {
+  if (typeof value !== 'string') {
+    return defaultRotationFamilyForKind(kind);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : defaultRotationFamilyForKind(kind);
+}
+
+function normalizeLevelingXp(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 50;
+  }
+  return Math.max(1, Math.min(500, Math.trunc(value)));
 }
 
 function formStateFromTask(task: ConventionTaskRow): TaskFormState {
   const metadata = task.metadata;
+  const rotation = recordFrom(metadata?.rotation);
+  const leveling = recordFrom(metadata?.leveling);
   const filters = Array.isArray(metadata?.filters)
     ? (metadata.filters as Record<string, unknown>[])
     : [];
@@ -65,32 +142,128 @@ function formStateFromTask(task: ConventionTaskRow): TaskFormState {
     uniqueBy: typeof metadata?.uniqueBy === 'string' ? metadata.uniqueBy : 'payload.fursuit_id',
     speciesFilter: typeof speciesEntry?.equals === 'string' ? speciesEntry.equals : '',
     colorFilter: Array.isArray(colorEntry?.in) ? (colorEntry.in as string[]).join(', ') : '',
+    rotationEligible:
+      typeof rotation.eligible === 'boolean'
+        ? rotation.eligible
+        : metadata?.defaultRotationEligible !== false && metadata?.rotationPool !== 'special',
+    rotationSlot: normalizeRotationSlot(rotation.slot, task.kind),
+    rotationDifficulty: normalizeRotationDifficulty(rotation.difficulty),
+    rotationFamily: normalizeRotationFamily(rotation.family, task.kind),
+    levelingXp: normalizeLevelingXp(leveling.xp),
   };
 }
 
-function buildMetadata(form: TaskFormState) {
+function preservedMetadataFields(source: Record<string, unknown> | null) {
+  const record = source ?? {};
+  const omitted = new Set([
+    'eventType',
+    'event_type',
+    'trigger',
+    'metric',
+    'counter',
+    'uniqueBy',
+    'unique_by',
+    'filters',
+    'rotation',
+    'leveling',
+    'defaultRotationEligible',
+    'rotationPool',
+  ]);
+
+  return Object.fromEntries(Object.entries(record).filter(([key]) => !omitted.has(key)));
+}
+
+function preservedFilters(
+  source: Record<string, unknown> | null,
+  representedPaths: Set<string>,
+): Record<string, unknown>[] {
+  const filters = Array.isArray(source?.filters) ? (source.filters as unknown[]) : [];
+  return filters.filter(
+    (entry): entry is Record<string, unknown> =>
+      isRecord(entry) && typeof entry.path === 'string' && !representedPaths.has(entry.path),
+  );
+}
+
+function withRotationAndLeveling(
+  metadata: Record<string, unknown>,
+  form: TaskFormState,
+): Record<string, unknown> {
+  const rotationSlot = normalizeRotationSlot(form.rotationSlot, form.kind);
+  const rotationDifficulty = normalizeRotationDifficulty(form.rotationDifficulty);
+  const rotationEligible =
+    form.rotationEligible && rotationSlot !== 'special' && rotationDifficulty !== 'special';
+
+  const next: Record<string, unknown> = {
+    ...metadata,
+    rotation: {
+      eligible: rotationEligible,
+      slot: rotationSlot,
+      difficulty: rotationDifficulty,
+      family: normalizeRotationFamily(form.rotationFamily, form.kind),
+    },
+    leveling: {
+      xp: normalizeLevelingXp(form.levelingXp),
+    },
+  };
+
+  if (!rotationEligible) {
+    next.defaultRotationEligible = false;
+  }
+  if (rotationSlot === 'special' || rotationDifficulty === 'special') {
+    next.rotationPool = 'special';
+  }
+
+  return next;
+}
+
+function buildMetadata(form: TaskFormState, baseMetadata: Record<string, unknown> | null) {
+  const baseFields = preservedMetadataFields(baseMetadata);
   const filters: { path: string; equals?: string; in?: string[] }[] = [];
 
   if (form.kind === 'leaderboard') {
-    return {
-      eventType: 'leaderboard_refreshed',
-      metric: 'total',
-      filters: [],
-    };
+    return withRotationAndLeveling(
+      {
+        ...baseFields,
+        eventType: 'leaderboard_refreshed',
+        metric: 'total',
+        filters: [],
+      },
+      form,
+    );
+  }
+
+  if (form.kind === 'share') {
+    const existingFilters = preservedFilters(baseMetadata, new Set());
+    return withRotationAndLeveling(
+      {
+        ...baseFields,
+        eventType: 'catch_shared',
+        metric: 'total',
+        filters:
+          existingFilters.length > 0
+            ? existingFilters
+            : [{ path: 'payload.context', equals: 'catch_screen' }],
+      },
+      form,
+    );
   }
 
   if (form.kind === 'view_bio') {
     const metadata: Record<string, unknown> = {
+      ...baseFields,
       eventType: 'fursuit_bio_viewed',
       metric: form.metric,
-      filters: [{ path: 'payload.owner_id', notEqualsUserId: true }],
+      filters: [
+        ...preservedFilters(baseMetadata, new Set(['payload.owner_id'])),
+        { path: 'payload.owner_id', notEqualsUserId: true },
+      ],
     };
 
     if (form.metric === 'unique' && form.uniqueBy.trim()) {
       metadata.uniqueBy = form.uniqueBy.trim();
     }
 
-    return metadata;
+    return withRotationAndLeveling(metadata, form);
   }
 
   if (form.speciesFilter.trim()) {
@@ -108,16 +281,38 @@ function buildMetadata(form: TaskFormState) {
   }
 
   const metadata: Record<string, unknown> = {
+    ...baseFields,
     eventType: 'catch_performed',
     metric: form.metric,
-    filters,
+    filters: [
+      ...preservedFilters(baseMetadata, new Set(['payload.species', 'payload.colors'])),
+      ...filters,
+    ],
   };
 
   if (form.metric === 'unique' && form.uniqueBy.trim()) {
     metadata.uniqueBy = form.uniqueBy.trim();
   }
 
-  return metadata;
+  return withRotationAndLeveling(metadata, form);
+}
+
+function summarizeRotation(metadata: Record<string, unknown> | null): string {
+  const rotation = recordFrom(metadata?.rotation);
+  const slot = typeof rotation.slot === 'string' ? rotation.slot : 'catch';
+  const difficulty = typeof rotation.difficulty === 'string' ? rotation.difficulty : 'medium';
+  const family = typeof rotation.family === 'string' ? rotation.family : 'general';
+  const eligible =
+    typeof rotation.eligible === 'boolean'
+      ? rotation.eligible
+      : metadata?.defaultRotationEligible !== false && metadata?.rotationPool !== 'special';
+
+  return `${eligible ? 'Rotates' : 'No rotation'} · ${slot} · ${difficulty} · ${family}`;
+}
+
+function summarizeXp(metadata: Record<string, unknown> | null): string {
+  const leveling = recordFrom(metadata?.leveling);
+  return `${normalizeLevelingXp(leveling.xp)} XP`;
 }
 
 function summarizeMetadata(metadata: Record<string, unknown> | null): string | null {
@@ -131,6 +326,13 @@ function summarizeMetadata(metadata: Record<string, unknown> | null): string | n
     if (f.path === 'payload.species' && f.equals) parts.push(`species=${f.equals}`);
     if (f.path === 'payload.colors' && Array.isArray(f.in))
       parts.push(`colors=${(f.in as string[]).join(',')}`);
+    if (f.path === 'payload.owner_id' && f.notEqualsUserId) parts.push('not own suit');
+    if (f.path === 'payload.context' && f.equals) parts.push(`context=${f.equals}`);
+    if (f.path === 'payload.has_catcher_owned_maker_match' && f.equals === true)
+      parts.push('maker match');
+    if (f.path === 'payload.has_maker' && f.equals === true) parts.push('has maker');
+    if (f.path === 'payload.is_new_maker_for_catcher_at_convention' && f.equals === true)
+      parts.push('new maker');
   }
   return parts.length > 0 ? parts.join(', ') : null;
 }
@@ -143,6 +345,7 @@ type Props = {
 export function ConventionTasksCard({ conventionId, tasks }: Props) {
   const [form, setForm] = useState<TaskFormState>(defaultFormState);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingMetadata, setEditingMetadata] = useState<Record<string, unknown> | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -151,13 +354,21 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
   const updateField = <K extends keyof TaskFormState>(key: K, value: TaskFormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  const handleKindChange = (kind: string) =>
+    setForm((prev) => ({
+      ...prev,
+      kind,
+      rotationSlot: defaultRotationSlotForKind(kind),
+      rotationFamily: defaultRotationFamilyForKind(kind),
+    }));
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setFormSuccess(null);
     startTransition(async () => {
       try {
-        const metadata = buildMetadata(form);
+        const metadata = buildMetadata(form, null);
         await createConventionTaskAction({
           conventionId,
           name: form.name,
@@ -176,6 +387,7 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
 
   const handleStartEdit = (task: ConventionTaskRow) => {
     setEditingId(task.id);
+    setEditingMetadata(task.metadata);
     setForm(formStateFromTask(task));
     setFormError(null);
     setFormSuccess(null);
@@ -183,6 +395,7 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
 
   const handleCancelEdit = () => {
     setEditingId(null);
+    setEditingMetadata(null);
     setForm(defaultFormState());
     setFormError(null);
     setFormSuccess(null);
@@ -195,7 +408,7 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
     setFormSuccess(null);
     startTransition(async () => {
       try {
-        const metadata = buildMetadata(form);
+        const metadata = buildMetadata(form, editingMetadata);
         await updateConventionTaskAction({
           taskId: editingId,
           conventionId,
@@ -206,6 +419,7 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
           metadata,
         });
         setEditingId(null);
+        setEditingMetadata(null);
         setForm(defaultFormState());
         setFormSuccess('Task updated.');
       } catch (err) {
@@ -242,9 +456,9 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
   return (
     <Card
       title="Daily Task Catalog"
-      subtitle="Active tasks available to rotate at every convention"
+      subtitle="Active tasks are available to every convention; rotation metadata controls whether they enter normal daily rotation"
     >
-      <Table headers={['Name', 'Scope', 'Kind', 'Req.', 'Filters', 'Status', '']}>
+      <Table headers={['Name', 'Scope', 'Kind', 'Req.', 'Filters', 'Rotation', 'Status', '']}>
         {tasks.map((task) => (
           <tr key={task.id}>
             <td className="px-4 py-3">
@@ -262,6 +476,10 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
             <td className="px-4 py-3 text-sm text-slate-300">{task.requirement}</td>
             <td className="px-4 py-3 text-xs text-slate-400">
               {summarizeMetadata(task.metadata) ?? <span className="text-muted">none</span>}
+            </td>
+            <td className="px-4 py-3 text-xs text-slate-400">
+              {summarizeRotation(task.metadata)}
+              <span className="block text-slate-300">{summarizeXp(task.metadata)}</span>
             </td>
             <td className="px-4 py-3">
               <StatusBadge active={task.is_active} />
@@ -300,7 +518,7 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
           <tr>
             <td
               className="px-4 py-3 text-sm text-muted"
-              colSpan={7}
+              colSpan={8}
             >
               No daily tasks yet.
             </td>
@@ -342,7 +560,7 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
               <label className="text-xs text-muted">Kind</label>
               <select
                 value={form.kind}
-                onChange={(e) => updateField('kind', e.target.value)}
+                onChange={(e) => handleKindChange(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
               >
                 {TASK_KINDS.map((k) => (
@@ -417,6 +635,71 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
               />
             </div>
           </div>
+          <div className="grid gap-3 rounded-lg border border-border bg-white/[0.02] p-3 md:grid-cols-4">
+            <label className="flex items-center gap-2 text-sm text-slate-200 md:col-span-4">
+              <input
+                type="checkbox"
+                checked={form.rotationEligible}
+                onChange={(e) => updateField('rotationEligible', e.target.checked)}
+                className="h-4 w-4 rounded border-border bg-background"
+              />
+              Default rotation eligible
+            </label>
+            <div>
+              <label className="text-xs text-muted">Slot</label>
+              <select
+                value={form.rotationSlot}
+                onChange={(e) => updateField('rotationSlot', e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
+              >
+                {ROTATION_SLOTS.map((slot) => (
+                  <option
+                    key={slot.value}
+                    value={slot.value}
+                  >
+                    {slot.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted">Difficulty</label>
+              <select
+                value={form.rotationDifficulty}
+                onChange={(e) => updateField('rotationDifficulty', e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
+              >
+                {ROTATION_DIFFICULTIES.map((difficulty) => (
+                  <option
+                    key={difficulty.value}
+                    value={difficulty.value}
+                  >
+                    {difficulty.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted">Family</label>
+              <input
+                value={form.rotationFamily}
+                onChange={(e) => updateField('rotationFamily', e.target.value)}
+                placeholder="catch_volume"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted">XP</label>
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={form.levelingXp}
+                onChange={(e) => updateField('levelingXp', Number(e.target.value))}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
+              />
+            </div>
+          </div>
           <div className="flex items-center gap-3">
             <button
               type="submit"
@@ -425,8 +708,8 @@ export function ConventionTasksCard({ conventionId, tasks }: Props) {
             >
               {isPending
                 ? isEditing
-                  ? 'Saving…'
-                  : 'Creating…'
+                  ? 'Saving...'
+                  : 'Creating...'
                 : isEditing
                   ? 'Save changes'
                   : 'Create task'}
