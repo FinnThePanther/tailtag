@@ -485,28 +485,22 @@ describe('Checked In achievement hardening', () => {
     );
   });
 
-  it('prevents admin gameplay packs from creating convention-scoped Checked In achievements', () => {
-    const path = 'admin/lib/convention-gameplay-pack.ts';
-    const source = read(path);
+  it('keeps convention creation on the shared gameplay catalog', () => {
+    const actionPath = 'admin/app/(dashboard)/conventions/actions.ts';
+    const formPath = 'admin/components/create-convention-form.tsx';
+    const actionSource = read(actionPath);
+    const formSource = read(formPath);
 
-    assert.doesNotMatch(
-      source,
-      /keySuffix\s*:\s*["']CHECKED_IN["']/,
-      `${path} must not seed Checked In`,
-    );
-    assert.match(source, /function countGlobalAchievements/);
-    assert.match(source, /\.from\(["']achievements["']\)/);
-    assert.match(
-      source,
-      /\.select\(["']id["'],\s*\{\s*count:\s*["']exact["'],\s*head:\s*true\s*\}\)/,
-    );
-    assert.match(source, /\.is\(["']convention_id["'],\s*null\)/);
-    assert.match(source, /\.eq\(["']is_active["'],\s*true\)/);
-    assert.doesNotMatch(
-      source,
-      /\.from\(["']achievements["']\)\s*\.\s*(insert|upsert)\(/,
-      `${path} must not create convention-scoped achievement clones`,
-    );
+    assert.doesNotMatch(actionSource, /generateDefaultGameplayPack/);
+    assert.doesNotMatch(actionSource, /generateConventionGameplayPackAction/);
+    assert.doesNotMatch(actionSource, /createDefaultGameplayPack/);
+    assert.doesNotMatch(actionSource, /create_default_gameplay_pack/);
+    assert.doesNotMatch(actionSource, /pack_result/);
+    assert.doesNotMatch(formSource, /Create default gameplay pack/);
+    assert.doesNotMatch(formSource, /createDefaultGameplayPack/);
+
+    assert.match(actionSource, /convention_id:\s*null/);
+    assert.match(actionSource, /action:\s*['"]create_convention_achievement['"]/);
   });
 
   it('blocks Checked In-style convention achievements in the admin write surface', () => {

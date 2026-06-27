@@ -12,7 +12,6 @@ import {
   closeOutConvention,
   ensureConventionDailies,
   fetchConventionReadiness,
-  generateDefaultGameplayPack,
 } from '@/lib/convention-lifecycle';
 
 const CONFIG_ROLES = ['owner', 'organizer'] as const;
@@ -47,7 +46,6 @@ export async function createConventionAction(input: {
   endDate: string | null;
   location: string | null;
   timezone: string;
-  createDefaultGameplayPack: boolean;
   startImmediately: boolean;
 }) {
   const { profile } = await assertAdminAction([...CONFIG_ROLES]);
@@ -81,22 +79,9 @@ export async function createConventionAction(input: {
     context: {
       name: input.name,
       slug: input.slug,
-      create_default_gameplay_pack: input.createDefaultGameplayPack,
       start_immediately: input.startImmediately,
     },
   });
-
-  let packResult = null;
-  if (input.createDefaultGameplayPack) {
-    packResult = await generateDefaultGameplayPack(data.id, supabase);
-    await logAudit({
-      actorId: profile.id,
-      action: 'generate_convention_gameplay_pack',
-      entityType: 'convention',
-      entityId: data.id,
-      context: { ...packResult, during_create: true },
-    });
-  }
 
   const readiness = await fetchConventionReadiness(data.id, supabase);
   let finalStatus = 'draft';
@@ -185,7 +170,6 @@ export async function createConventionAction(input: {
         from: 'draft',
         to: finalStatus,
         readiness,
-        pack_result: packResult,
         rotation_result: rotationResult,
       },
     });
@@ -199,25 +183,6 @@ export async function createConventionAction(input: {
     : `/conventions/${data.id}`;
 
   redirect(redirectPath);
-}
-
-export async function generateConventionGameplayPackAction(conventionId: string) {
-  const { profile } = await assertAdminAction([...CONTENT_ROLES]);
-  const supabase = createServiceRoleClient();
-
-  const result = await generateDefaultGameplayPack(conventionId, supabase);
-
-  await logAudit({
-    actorId: profile.id,
-    action: 'generate_convention_gameplay_pack',
-    entityType: 'convention',
-    entityId: conventionId,
-    context: result,
-  });
-
-  revalidatePath(`/conventions/${conventionId}`);
-
-  return result;
 }
 
 export async function runConventionReadinessCheckAction(conventionId: string) {
