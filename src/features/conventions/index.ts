@@ -63,7 +63,19 @@ export {
   type LocationVerificationRequest,
   type LocationVerificationResponse,
 } from './api/geoVerification';
-export { useConventionVerificationAction } from './hooks/useConventionVerificationAction';
-export { useCatchConventionContext } from './hooks/useCatchConventionContext';
+export type {
+  NearbyConventionSetupReminder,
+  NearbyConventionSetupReminderAction,
+} from '@/features/conventions/api/nearbyConventionReminders';
+export {
+  fetchNearbyConventionSetupReminder,
+  markNearbyConventionSetupReminderShown,
+  dismissNearbyConventionSetupReminder,
+  markNearbyConventionSetupReminderActed,
+} from '@/features/conventions/api/nearbyConventionReminders';
+export { useConventionVerificationAction } from '@/features/conventions/hooks/useConventionVerificationAction';
+export { useCatchConventionContext } from '@/features/conventions/hooks/useCatchConventionContext';
+export { useNearbyConventionSetupReminder } from '@/features/conventions/hooks/useNearbyConventionSetupReminder';
+export { NearbyConventionSetupReminderCard } from '@/features/conventions/components/NearbyConventionSetupReminderCard';
 export { formatConventionDateRange, isConventionEnded } from './utils';
 export { clearCatchConventionSnapshotsForUser } from './storage/catchConventionSnapshots';

@@ -55,7 +55,7 @@ import type {
 import { ConventionToggle } from '../../src/components/conventions/ConventionToggle';
 import { supabase } from '../../src/lib/supabase';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../src/lib/runtimeConfig';
-import { captureHandledException } from '../../src/lib/sentry';
+import { captureHandledException, captureSupabaseError } from '../../src/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors } from '../../src/theme';
 import { buildImageUploadCandidate, extractStoragePath } from '../../src/utils/images';
@@ -354,6 +354,13 @@ export default function SettingsScreen() {
   const usernameCheckRequestRef = useRef(0);
 
   const [optimisticPushEnabled, setOptimisticPushEnabled] = useState<boolean | null>(null);
+  const [
+    optimisticNearbyConventionRemindersEnabled,
+    setOptimisticNearbyConventionRemindersEnabled,
+  ] = useState<boolean | null>(null);
+  const [nearbyConventionRemindersError, setNearbyConventionRemindersError] = useState<
+    string | null
+  >(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
@@ -757,6 +764,11 @@ export default function SettingsScreen() {
   const canTogglePush = isPushSupported && !isPushRegistering;
   const isPushToggleOn = isPushSupported && permissionStatus === 'granted' && isPushEnabled;
   const displayPushToggleOn = optimisticPushEnabled ?? isPushToggleOn;
+  const displayNearbyConventionRemindersOn =
+    optimisticNearbyConventionRemindersEnabled ??
+    profile?.nearby_convention_reminders_enabled === true;
+  const canToggleNearbyConventionReminders =
+    Boolean(userId && profile) && optimisticNearbyConventionRemindersEnabled === null;
   const showUsernameGuidance =
     params.focus === 'username' &&
     hasReviewedUsername === false &&
@@ -807,6 +819,84 @@ export default function SettingsScreen() {
       }
     },
     [disablePushNotifications, isPushDenied, requestPermissionAndRegister],
+  );
+
+  const handleToggleNearbyConventionReminders = useCallback(
+    async (nextValue: boolean) => {
+      if (!userId || !profile) {
+        return;
+      }
+
+      const previousValue = profile.nearby_convention_reminders_enabled === true;
+
+      const rollbackNearbyConventionReminderState = () => {
+        queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+          current
+            ? {
+                ...current,
+                nearby_convention_reminders_enabled: previousValue,
+              }
+            : current,
+        );
+      };
+
+      setOptimisticNearbyConventionRemindersEnabled(nextValue);
+      setNearbyConventionRemindersError(null);
+      queryClient.setQueryData<ProfileSummary | null>(profileQueryKey, (current) =>
+        current
+          ? {
+              ...current,
+              nearby_convention_reminders_enabled: nextValue,
+            }
+          : current,
+      );
+
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            nearby_convention_reminders_enabled: nextValue,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userId);
+
+        if (error) {
+          captureSupabaseError(error, {
+            scope: 'settings.nearbyConventionReminders.toggle',
+            action: 'profiles.update',
+            userId,
+            nextValue,
+            previousValue,
+          });
+          rollbackNearbyConventionReminderState();
+          setNearbyConventionRemindersError(
+            getUserVisibleErrorMessage(
+              error,
+              'Could not update nearby convention reminders. Try again.',
+            ),
+          );
+        }
+      } catch (error) {
+        captureHandledException(error, {
+          scope: 'settings.nearbyConventionReminders.toggle',
+          additionalContext: {
+            userId,
+            nextValue,
+            previousValue,
+          },
+        });
+        rollbackNearbyConventionReminderState();
+        setNearbyConventionRemindersError(
+          getUserVisibleErrorMessage(
+            error,
+            'Could not update nearby convention reminders. Try again.',
+          ),
+        );
+      } finally {
+        setOptimisticNearbyConventionRemindersEnabled(null);
+      }
+    },
+    [profile, profileQueryKey, queryClient, userId],
   );
 
   const handleOpenCommunityChat = useCallback(async () => {
@@ -2225,6 +2315,42 @@ export default function SettingsScreen() {
             <Text style={styles.warning}>Notifications are disabled in system settings.</Text>
           ) : null}
           {pushError ? <Text style={styles.error}>{pushError}</Text> : null}
+        </View>
+      </TailTagCard>
+
+      <TailTagCard>
+        <View style={styles.accountSection}>
+          <Text style={styles.sectionTitle}>Convention reminders</Text>
+          <Text style={styles.sectionDescription}>
+            Let TailTag nudge you to set up for live conventions while you&apos;re using the app.
+          </Text>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleText}>
+              <Text style={styles.sectionSubtitle}>Nearby convention reminders</Text>
+              <Text style={styles.sectionHint}>
+                When TailTag checks your location while the app is open, show setup reminders for
+                live conventions nearby.
+              </Text>
+            </View>
+            <Switch
+              value={displayNearbyConventionRemindersOn}
+              onValueChange={handleToggleNearbyConventionReminders}
+              disabled={!canToggleNearbyConventionReminders}
+              accessibilityRole="switch"
+              accessibilityLabel="Nearby convention reminders"
+              accessibilityHint="Toggle in-app setup reminders for live nearby conventions."
+              accessibilityState={{
+                checked: displayNearbyConventionRemindersOn,
+                disabled: !canToggleNearbyConventionReminders,
+              }}
+            />
+          </View>
+          <Text style={styles.sectionHint}>
+            This does not enable background location or closed-app push reminders.
+          </Text>
+          {nearbyConventionRemindersError ? (
+            <Text style={styles.error}>{nearbyConventionRemindersError}</Text>
+          ) : null}
         </View>
       </TailTagCard>
 

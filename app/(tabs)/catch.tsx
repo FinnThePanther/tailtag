@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, Share, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -42,6 +42,7 @@ import { TailTagInput } from '../../src/components/ui/TailTagInput';
 import { AppImage } from '../../src/components/ui/AppImage';
 import { KeyboardAwareFormWrapper } from '../../src/components/ui/KeyboardAwareFormWrapper';
 import { useAuth } from '../../src/features/auth';
+import { fetchProfile, profileQueryKey } from '@/features/profile';
 import { createCatchInvite } from '../../src/features/catch-invites';
 import {
   CATCH_INVITES_FEATURE_KEY,
@@ -56,9 +57,14 @@ import {
 import {
   formatConventionCloseoutDeadline,
   getConventionPlayerLifecycleState,
+  dismissNearbyConventionSetupReminder,
+  markNearbyConventionSetupReminderActed,
+  markNearbyConventionSetupReminderShown,
+  NearbyConventionSetupReminderCard,
   type ConventionMembership,
   useCatchConventionContext,
   useConventionVerificationAction,
+  useNearbyConventionSetupReminder,
 } from '../../src/features/conventions';
 import { DAILY_TASKS_QUERY_KEY } from '../../src/features/daily-tasks/hooks';
 import { achievementsStatusQueryKey } from '../../src/features/achievements';
@@ -308,6 +314,11 @@ export default function CatchScreen() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const { sync: syncOutbox } = useCatchOutboxSync(userId, queryClient);
+  const profileQuery = useQuery({
+    queryKey: userId ? profileQueryKey(userId) : ['profile', 'guest'],
+    queryFn: () => fetchProfile(userId!),
+    enabled: Boolean(userId),
+  });
   const { data: catchInvitesEnabled = false } = useQuery({
     queryKey: userId
       ? featureFlagQueryKey(CATCH_INVITES_FEATURE_KEY, userId)
@@ -422,6 +433,13 @@ export default function CatchScreen() {
         await refreshCatchConventionContext();
       },
     });
+  const {
+    reminder: nearbyConventionReminder,
+    dismissLocally: dismissNearbyConventionReminderLocally,
+  } = useNearbyConventionSetupReminder({
+    enabled: profileQuery.data?.nearby_convention_reminders_enabled === true,
+    userId,
+  });
 
   const [codeInput, setCodeInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1112,6 +1130,53 @@ export default function CatchScreen() {
     );
   };
 
+  useEffect(() => {
+    if (!nearbyConventionReminder) {
+      return;
+    }
+
+    void markNearbyConventionSetupReminderShown(
+      nearbyConventionReminder.conventionId,
+      nearbyConventionReminder.action,
+    );
+  }, [nearbyConventionReminder]);
+
+  const handleNearbyConventionReminderPress = useCallback(() => {
+    if (!nearbyConventionReminder) {
+      return;
+    }
+
+    const { conventionId, conventionName, action } = nearbyConventionReminder;
+    dismissNearbyConventionReminderLocally(conventionId);
+    void markNearbyConventionSetupReminderActed(conventionId, action);
+
+    if (action === 'add_suit') {
+      router.push({
+        pathname: '/suits',
+        params: {
+          guidance: 'convention-roster',
+          conventionId,
+          conventionName,
+        },
+      });
+      return;
+    }
+
+    router.push('/settings');
+  }, [dismissNearbyConventionReminderLocally, nearbyConventionReminder, router]);
+
+  const handleDismissNearbyConventionReminder = useCallback(() => {
+    if (!nearbyConventionReminder) {
+      return;
+    }
+
+    dismissNearbyConventionReminderLocally(nearbyConventionReminder.conventionId);
+    void dismissNearbyConventionSetupReminder(
+      nearbyConventionReminder.conventionId,
+      nearbyConventionReminder.action,
+    );
+  }, [dismissNearbyConventionReminderLocally, nearbyConventionReminder]);
+
   return (
     <KeyboardAwareFormWrapper contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -1122,6 +1187,15 @@ export default function CatchScreen() {
           need to memorize or share their code to be caught.
         </Text>
       </View>
+
+      {nearbyConventionReminder ? (
+        <NearbyConventionSetupReminderCard
+          reminder={nearbyConventionReminder}
+          onPress={handleNearbyConventionReminderPress}
+          onDismiss={handleDismissNearbyConventionReminder}
+          style={styles.nearbyConventionCard}
+        />
+      ) : null}
 
       {!caughtFursuit && !photoBatchResult && userId ? (
         <View style={styles.photoCatchSpacing}>
