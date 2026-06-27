@@ -361,7 +361,7 @@ export const catchRules: CatchRuleDefinition[] = [
     eventType: 'catch_performed',
     metadata: {
       displayName: 'First Fan',
-      description: 'One of your suits has been caught by 3 unique people.',
+      description: 'One of your suits has been caught by 2 unique people.',
       category: 'fursuiter',
       recipientRole: 'fursuit_owner',
       canEvaluateClient: false,
@@ -370,7 +370,7 @@ export const catchRules: CatchRuleDefinition[] = [
     requiredStats: ['uniqueCatchersForFursuitLifetime'],
     evaluate(context) {
       if (!context.fursuitOwnerId) return [];
-      return context.stats.uniqueCatchersForFursuitLifetime >= 3
+      return context.stats.uniqueCatchersForFursuitLifetime >= 2
         ? awardSingle(
             context,
             ACHIEVEMENT_RULE_IDS.FIRST_FAN,
@@ -503,7 +503,7 @@ export const catchRules: CatchRuleDefinition[] = [
     eventType: 'catch_performed',
     metadata: {
       displayName: 'Early Bird',
-      description: 'Make a catch from 5:00-8:59 AM local convention time.',
+      description: 'Make a catch from 5:00-9:59 AM local convention time.',
       category: 'dedication',
       recipientRole: 'catcher',
       canEvaluateClient: false,

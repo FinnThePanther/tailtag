@@ -1820,5 +1820,5 @@ function toLocalParts(iso: string, timeZone: string | null | undefined) {
 }
 
 function isEarlyBirdLocalTime(localParts: Record<'hour' | 'minute', number>) {
-  return localParts.hour >= 5 && localParts.hour < 9;
+  return localParts.hour >= 5 && localParts.hour < 10;
 }
