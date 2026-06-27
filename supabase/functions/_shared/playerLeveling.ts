@@ -214,6 +214,9 @@ function dailyTaskCompletionMetadata(
     task_id: completion.taskId,
     task_name: completion.taskName,
     requirement: completion.requirement,
+    slot: completion.slot,
+    difficulty: completion.difficulty,
+    xp_amount: completion.xpAmount,
   });
 }
 
@@ -228,7 +231,7 @@ export async function awardDailyTaskXp(
     xpResults.push(
       ...(await awardPlayerXpOnce(supabaseAdmin, {
         userId: completion.userId,
-        xpAmount: PLAYER_XP_AMOUNTS.dailyTaskCompleted,
+        xpAmount: completion.xpAmount ?? PLAYER_XP_AMOUNTS.dailyTaskCompleted,
         reason: 'daily_task_completed',
         dedupeKey: `daily-task-completed:${completion.conventionId}:${completion.day}:${completion.taskId}`,
         sourceEventId: event.event_id,

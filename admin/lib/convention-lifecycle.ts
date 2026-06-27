@@ -724,7 +724,13 @@ function metadataRecord(value: unknown): Record<string, unknown> {
 
 function isDefaultRotationEligible(metadata: unknown): boolean {
   const record = metadataRecord(metadata);
-  return record.defaultRotationEligible !== false && record.rotationPool !== 'special';
+  const rotation = metadataRecord(record.rotation);
+  const explicitEligible =
+    typeof rotation.eligible === 'boolean'
+      ? rotation.eligible
+      : record.defaultRotationEligible !== false && record.rotationPool !== 'special';
+
+  return explicitEligible && rotation.slot !== 'special' && rotation.difficulty !== 'special';
 }
 
 function isCloseoutDue(closeoutNotBefore: string | null) {

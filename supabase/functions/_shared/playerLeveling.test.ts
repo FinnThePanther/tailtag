@@ -1,6 +1,7 @@
 import {
   PLAYER_XP_AMOUNTS,
   awardAchievementXp,
+  awardDailyTaskXp,
   getLogicalAchievementKey,
   insertLevelUpNotificationsForXpAwards,
   isDailyTaskAchievementKey,
@@ -124,6 +125,61 @@ Deno.test('filters daily achievements out of logical achievement XP', async () =
   assertEquals(rpcCalls[0].params.p_reason, 'logical_achievement_unlocked');
   assertEquals(rpcCalls[0].params.p_dedupe_key, 'achievement-unlocked:catch_master');
   assertEquals(isDailyTaskAchievementKey('DAILY_TASK_FIRST_CATCH'), true);
+});
+
+Deno.test('awards daily task XP from task leveling metadata when present', async () => {
+  const rpcCalls: Array<{ name: string; params: Record<string, unknown> }> = [];
+  const supabaseAdmin = {
+    rpc: async (name: string, params: Record<string, unknown>) => {
+      rpcCalls.push({ name, params });
+      return {
+        data: [
+          {
+            xp_event_id: '00000000-0000-0000-0000-000000000004',
+            awarded: true,
+            user_id: params.p_user_id,
+            xp_amount: params.p_xp_amount,
+            xp_before: 0,
+            xp_after: params.p_xp_amount,
+            level_before: 1,
+            level_after: 1,
+            leveled_up: false,
+            levels_gained: 0,
+          },
+        ],
+        error: null,
+      };
+    },
+  };
+
+  await awardDailyTaskXp(
+    supabaseAdmin as never,
+    {
+      completions: [
+        {
+          userId: event.user_id,
+          conventionId: event.convention_id!,
+          taskId: '00000000-0000-0000-0000-000000000007',
+          day: '2026-06-19',
+          taskName: 'Catch 5 unique suiters',
+          requirement: 5,
+          slot: 'catch',
+          difficulty: 'hard',
+          xpAmount: 75,
+        },
+      ],
+      allTasksCompleted: false,
+    },
+    event,
+  );
+
+  assertEquals(rpcCalls.length, 1);
+  assertEquals(rpcCalls[0].params.p_xp_amount, 75);
+
+  const metadata = rpcCalls[0].params.p_metadata as Record<string, unknown>;
+  assertEquals(metadata.slot, 'catch');
+  assertEquals(metadata.difficulty, 'hard');
+  assertEquals(metadata.xp_amount, 75);
 });
 
 Deno.test('collapses level-up notifications to the highest level per user', async () => {
