@@ -1,4 +1,10 @@
 import { supabaseRestFetch } from './supabaseRest.ts';
+import {
+  normalizeDailyTaskLevelingMetadata,
+  normalizeDailyTaskRotationMetadata,
+  type DailyTaskRotationDifficulty,
+  type DailyTaskRotationSlot,
+} from './dailyTaskMetadata.ts';
 import type { InsertableEventRow } from './types.ts';
 
 type DailyTaskMetadataFilter = {
@@ -17,6 +23,14 @@ type DailyTaskMetadata = {
   metric: 'total' | 'unique';
   uniqueBy?: string;
   filters: DailyTaskMetadataFilter[];
+  rotation: {
+    slot: DailyTaskRotationSlot;
+    difficulty: DailyTaskRotationDifficulty;
+    family: string;
+  };
+  leveling: {
+    xp: number | null;
+  };
 };
 
 type DailyAssignmentRecord = {
@@ -107,6 +121,9 @@ export type DailyTaskCompletion = {
   day: string;
   taskName: string;
   requirement: number;
+  slot: DailyTaskRotationSlot;
+  difficulty: DailyTaskRotationDifficulty;
+  xpAmount?: number;
 };
 
 export type DailyTaskProcessResult = {
@@ -243,6 +260,8 @@ function coerceTaskMetadata(raw: unknown): DailyTaskMetadata {
       eventType: 'catch_performed',
       metric: 'total',
       filters: [],
+      rotation: normalizeDailyTaskRotationMetadata(raw),
+      leveling: normalizeDailyTaskLevelingMetadata(raw),
     };
   }
 
@@ -255,6 +274,8 @@ function coerceTaskMetadata(raw: unknown): DailyTaskMetadata {
     metric: metricRaw === 'unique' ? 'unique' : 'total',
     uniqueBy: typeof record.uniqueBy === 'string' ? record.uniqueBy : undefined,
     filters: Array.isArray(record.filters) ? (record.filters as DailyTaskMetadataFilter[]) : [],
+    rotation: normalizeDailyTaskRotationMetadata(raw),
+    leveling: normalizeDailyTaskLevelingMetadata(raw),
   };
 
   return metadata;
@@ -645,6 +666,9 @@ export async function processDailyTasksForEvent(
           convention_id: conventionId,
           task_name: assignment.name,
           requirement: assignment.requirement,
+          slot: assignment.metadata.rotation.slot,
+          difficulty: assignment.metadata.rotation.difficulty,
+          xp_amount: assignment.metadata.leveling.xp,
         },
       });
       completions.push({
@@ -654,6 +678,9 @@ export async function processDailyTasksForEvent(
         day: localDayKey,
         taskName: assignment.name,
         requirement: assignment.requirement,
+        slot: assignment.metadata.rotation.slot,
+        difficulty: assignment.metadata.rotation.difficulty,
+        xpAmount: assignment.metadata.leveling.xp ?? undefined,
       });
     }
 

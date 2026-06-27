@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -10,6 +10,19 @@ const root = join(scriptsDir, '..');
 
 function read(path) {
   return readFileSync(join(root, path), 'utf8');
+}
+
+function readLatestMigrationMatching(pattern) {
+  const migrationsDir = join(root, 'supabase/migrations');
+  const migration = readdirSync(migrationsDir)
+    .filter((file) => file.endsWith('.sql'))
+    .sort()
+    .reverse()
+    .find((file) => pattern.test(readFileSync(join(migrationsDir, file), 'utf8')));
+
+  assert.ok(migration, `Expected to find migration matching ${pattern}`);
+
+  return readFileSync(join(migrationsDir, migration), 'utf8');
 }
 
 async function importTypeScriptModule(path) {
@@ -215,6 +228,80 @@ describe('Daily task optimistic progress', () => {
         userId: 'user-1',
       }),
       true,
+    );
+  });
+});
+
+describe('Daily task rotation metadata', () => {
+  it('keeps rotation eligibility independent from active catalog availability', async () => {
+    const { isDefaultRotationEligible, normalizeDailyTaskLevelingMetadata } =
+      await importTypeScriptModule('supabase/functions/_shared/dailyTaskMetadata.ts');
+
+    assert.equal(
+      isDefaultRotationEligible({
+        rotation: {
+          eligible: true,
+          slot: 'catch',
+          difficulty: 'easy',
+          family: 'catch_volume',
+        },
+      }),
+      true,
+    );
+    assert.equal(
+      isDefaultRotationEligible({
+        rotation: {
+          eligible: false,
+          slot: 'catch',
+          difficulty: 'hard',
+          family: 'catch_volume',
+        },
+      }),
+      false,
+    );
+    assert.equal(
+      isDefaultRotationEligible({
+        rotation: {
+          eligible: true,
+          slot: 'special',
+          difficulty: 'special',
+          family: 'maker_metadata',
+        },
+      }),
+      false,
+    );
+    assert.equal(isDefaultRotationEligible({ defaultRotationEligible: false }), false);
+    assert.deepEqual(normalizeDailyTaskLevelingMetadata({ leveling: { xp: 75 } }), { xp: 75 });
+    assert.deepEqual(normalizeDailyTaskLevelingMetadata({ leveling: { xp: 0 } }), { xp: null });
+  });
+
+  it('ships catalog metadata and a data migration for V1 daily rotation', () => {
+    const seed = read('supabase/seeds/reference.sql');
+    const migration = readLatestMigrationMatching(/"family": "catch_volume"/);
+    const rotationFunction = read('supabase/functions/rotate-dailys/index.ts');
+
+    for (const source of [seed, migration]) {
+      assert.match(source, /"slot":\s*"catch"/);
+      assert.match(source, /"slot":\s*"explore"/);
+      assert.match(source, /"slot":\s*"leaderboard"/);
+      assert.match(source, /"difficulty":\s*"hard"/);
+      assert.match(source, /"family":\s*"bio_views"/);
+      assert.match(source, /"xp":\s*75/);
+    }
+
+    assert.match(seed, /Catch 10 suiters today[\s\S]*"eligible":false/);
+    assert.match(seed, /Refresh the leaderboard twice[\s\S]*"eligible":false/);
+    assert.match(seed, /Same Studio[\s\S]*"slot":"special"[\s\S]*true, null, null\)/);
+    assert.match(migration, /WHERE id = '8b5f9a7a-8d7d-4e89-9a92-4fd4b45b8b71';/);
+    assert.match(rotationFunction, /function slotRecipe/);
+    assert.match(rotationFunction, /return \['catch', 'explore', 'leaderboard'\]/);
+    assert.match(
+      rotationFunction,
+      /selected\.filter\(\(entry\) => entry\.rotation\.slot === 'catch'\)\.length >= 2/,
+    );
+    assert.match(
+      rotationFunction,
+      /selected\.filter\(\(entry\) => entry\.rotation\.difficulty === 'hard'\)\.length >= 1/,
     );
   });
 });
