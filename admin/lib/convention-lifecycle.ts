@@ -1,7 +1,6 @@
 import { createServiceRoleClient } from './supabase/service';
 import type { Database } from '@/types/database';
 
-export { generateDefaultGameplayPack, type GameplayPackResult } from './convention-gameplay-pack';
 export {
   closeOutConvention,
   ensureConventionDailies,
@@ -30,8 +29,8 @@ export type ConventionReadinessResult = {
   status: string;
   counts: {
     activeRotationTasks: number;
-    conventionTasks: number;
-    conventionAchievements: number;
+    availableDailyTasks: number;
+    availableAchievements: number;
     todayAssignments: number;
   };
 };
@@ -119,6 +118,11 @@ type ReadinessConvention = Pick<
 
 const CLOSED_STATUSES = new Set(['closed', 'archived', 'canceled']);
 
+type DailyTaskEligibilityRow = {
+  id: string;
+  metadata: Record<string, unknown> | null;
+};
+
 export function getConventionLocalDay(timezone: string | null | undefined, now = new Date()) {
   const timeZone = timezone?.trim() || 'UTC';
   try {
@@ -164,26 +168,16 @@ export async function buildConventionReadiness(
   const dateState = getConventionDateState(convention, localDay);
 
   const [
-    { count: activeRotationTasks, error: rotationError },
-    { count: conventionTasks, error: taskError },
-    { count: conventionAchievements, error: achievementError },
+    { data: dailyTaskRows, error: dailyTaskError },
+    { count: availableAchievements, error: achievementError },
     { count: todayAssignments, error: assignmentError },
   ] = await Promise.all([
-    supabase
-      .from('daily_tasks')
-      .select('id', { count: 'exact', head: true })
-      .eq('is_active', true)
-      .or(`convention_id.is.null,convention_id.eq.${conventionId}`),
-    supabase
-      .from('daily_tasks')
-      .select('id', { count: 'exact', head: true })
-      .eq('is_active', true)
-      .eq('convention_id', conventionId),
+    supabase.from('daily_tasks').select('id, metadata').eq('is_active', true),
     supabase
       .from('achievements')
       .select('id', { count: 'exact', head: true })
       .eq('is_active', true)
-      .eq('convention_id', conventionId),
+      .or(`convention_id.is.null,convention_id.eq.${conventionId}`),
     supabase
       .from('daily_assignments')
       .select('id', { count: 'exact', head: true })
@@ -191,15 +185,18 @@ export async function buildConventionReadiness(
       .eq('day', localDay),
   ]);
 
-  if (rotationError) throw rotationError;
-  if (taskError) throw taskError;
+  if (dailyTaskError) throw dailyTaskError;
   if (achievementError) throw achievementError;
   if (assignmentError) throw assignmentError;
 
+  const activeRotationTasks = ((dailyTaskRows ?? []) as DailyTaskEligibilityRow[]).filter((task) =>
+    isDefaultRotationEligible(task.metadata),
+  ).length;
+
   const counts = {
-    activeRotationTasks: activeRotationTasks ?? 0,
-    conventionTasks: conventionTasks ?? 0,
-    conventionAchievements: conventionAchievements ?? 0,
+    activeRotationTasks,
+    availableDailyTasks: activeRotationTasks,
+    availableAchievements: availableAchievements ?? 0,
     todayAssignments: todayAssignments ?? 0,
   };
 
@@ -235,11 +232,8 @@ export async function buildConventionReadiness(
     blockingIssues.push('Enabled geofence requires latitude, longitude, and radius.');
   }
 
-  if (counts.conventionTasks < 3) {
-    warnings.push('Fewer than three convention-scoped daily tasks are active.');
-  }
-  if (counts.conventionAchievements === 0) {
-    warnings.push('No convention achievements are active.');
+  if (counts.availableAchievements === 0) {
+    warnings.push('No achievements are active.');
   }
   if (dateState === 'before_window') {
     warnings.push('Convention is scheduled for a future local date.');
@@ -718,6 +712,19 @@ function createLifecycleDiagnostics(
 
 function numberFromCount(value: number | string | null | undefined) {
   return Number(value ?? 0);
+}
+
+function metadataRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function isDefaultRotationEligible(metadata: unknown): boolean {
+  const record = metadataRecord(metadata);
+  return record.defaultRotationEligible !== false && record.rotationPool !== 'special';
 }
 
 function isCloseoutDue(closeoutNotBefore: string | null) {
