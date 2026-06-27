@@ -5,16 +5,19 @@ CREATE TABLE IF NOT EXISTS public.nearby_convention_setup_reminders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   convention_id uuid NOT NULL REFERENCES public.conventions(id) ON DELETE CASCADE,
+  action text NOT NULL DEFAULT 'join_convention',
   source text NOT NULL DEFAULT 'foreground',
   shown_at timestamptz NOT NULL DEFAULT now(),
   dismissed_at timestamptz,
   acted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT nearby_convention_setup_reminders_action_check
+    CHECK (action IN ('join_convention', 'finish_check_in', 'add_suit')),
   CONSTRAINT nearby_convention_setup_reminders_source_check
     CHECK (char_length(btrim(source)) > 0),
   CONSTRAINT nearby_convention_setup_reminders_once
-    UNIQUE (profile_id, convention_id)
+    UNIQUE (profile_id, convention_id, action)
 );
 
 ALTER TABLE public.nearby_convention_setup_reminders ENABLE ROW LEVEL SECURITY;
@@ -60,7 +63,7 @@ AS $$
     FROM public.fursuits f
     JOIN current_profile cp ON cp.id = f.owner_id
   ),
-  candidates AS (
+  raw_candidates AS (
     SELECT
       c.id AS convention_id,
       c.name AS convention_name,
@@ -97,29 +100,41 @@ AS $$
      AND pc.convention_id = c.id
      AND pc.attendance_state = 'active'
      AND pc.active_until IS NULL
-    LEFT JOIN public.nearby_convention_setup_reminders reminder
-      ON reminder.profile_id = cp.id
-     AND reminder.convention_id = c.id
-    WHERE reminder.id IS NULL
+  ),
+  candidates AS (
+    SELECT
+      raw_candidate.*,
+      CASE
+        WHEN raw_candidate.attendance_state IS NULL THEN 'join_convention'
+        WHEN raw_candidate.is_gameplay_eligible IS NOT TRUE THEN 'finish_check_in'
+        ELSE 'add_suit'
+      END AS action,
+      CASE
+        WHEN raw_candidate.attendance_state IS NULL THEN 'not_joined'
+        WHEN raw_candidate.is_gameplay_eligible IS TRUE THEN 'active'
+        ELSE 'needs_location_verification'
+      END AS membership_state
+    FROM raw_candidates raw_candidate
   )
   SELECT
     candidate.convention_id,
     candidate.convention_name,
     candidate.distance_meters,
-    CASE
-      WHEN candidate.attendance_state IS NULL THEN 'join_convention'
-      WHEN candidate.is_gameplay_eligible IS NOT TRUE THEN 'finish_check_in'
-      ELSE 'add_suit'
-    END AS action,
-    CASE
-      WHEN candidate.attendance_state IS NULL THEN NULL
-      WHEN candidate.is_gameplay_eligible IS TRUE THEN 'active'
-      ELSE 'needs_location_verification'
-    END AS membership_state,
+    candidate.action,
+    candidate.membership_state,
     candidate.owned_suit_count,
     candidate.rostered_owned_suit_count
   FROM candidates candidate
-  WHERE candidate.distance_meters <= candidate.effective_radius_meters
+  LEFT JOIN public.nearby_convention_setup_reminders reminder
+    ON reminder.profile_id = auth.uid()
+   AND reminder.convention_id = candidate.convention_id
+   AND reminder.action = candidate.action
+   AND (
+     reminder.dismissed_at IS NOT NULL
+     OR reminder.acted_at IS NOT NULL
+   )
+  WHERE reminder.id IS NULL
+    AND candidate.distance_meters <= candidate.effective_radius_meters
     AND (
       candidate.attendance_state IS NULL
       OR candidate.is_gameplay_eligible IS NOT TRUE
@@ -128,7 +143,6 @@ AS $$
         AND candidate.rostered_owned_suit_count = 0
       )
     )
-    AND candidate.rostered_owned_suit_count = 0
   ORDER BY candidate.distance_meters ASC, candidate.convention_name ASC, candidate.convention_id ASC
   LIMIT 1;
 $$;
@@ -153,6 +167,7 @@ BEGIN
   INSERT INTO public.nearby_convention_setup_reminders (
     profile_id,
     convention_id,
+    action,
     source,
     shown_at,
     updated_at
@@ -160,11 +175,12 @@ BEGIN
   VALUES (
     v_profile_id,
     p_convention_id,
+    'join_convention',
     v_source,
     now(),
     now()
   )
-  ON CONFLICT (profile_id, convention_id)
+  ON CONFLICT (profile_id, convention_id, action)
   DO NOTHING;
 END;
 $$;
@@ -187,6 +203,7 @@ BEGIN
   INSERT INTO public.nearby_convention_setup_reminders (
     profile_id,
     convention_id,
+    action,
     source,
     shown_at,
     dismissed_at,
@@ -195,12 +212,13 @@ BEGIN
   VALUES (
     v_profile_id,
     p_convention_id,
+    'join_convention',
     'foreground',
     now(),
     now(),
     now()
   )
-  ON CONFLICT (profile_id, convention_id)
+  ON CONFLICT (profile_id, convention_id, action)
   DO UPDATE SET
     dismissed_at = coalesce(public.nearby_convention_setup_reminders.dismissed_at, now()),
     updated_at = now();
@@ -225,6 +243,7 @@ BEGIN
   INSERT INTO public.nearby_convention_setup_reminders (
     profile_id,
     convention_id,
+    action,
     source,
     shown_at,
     acted_at,
@@ -233,12 +252,13 @@ BEGIN
   VALUES (
     v_profile_id,
     p_convention_id,
+    'join_convention',
     'foreground',
     now(),
     now(),
     now()
   )
-  ON CONFLICT (profile_id, convention_id)
+  ON CONFLICT (profile_id, convention_id, action)
   DO UPDATE SET
     acted_at = coalesce(public.nearby_convention_setup_reminders.acted_at, now()),
     updated_at = now();
