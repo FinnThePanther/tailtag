@@ -298,9 +298,7 @@ export default function MySuitsScreen() {
   const visibleSuitCount = visibleSuits.length;
   const sectionMetaText = !hasSuits
     ? 'No suits yet'
-    : hasHiddenSuits && !hiddenSuitsVisible
-      ? `${visibleSuitCount} ${visibleSuitCount === 1 ? 'suit' : 'suits'} shown`
-      : `${suitCount} ${suitCount === 1 ? 'suit' : 'suits'}`;
+    : `${visibleSuitCount} ${visibleSuitCount === 1 ? 'Suit' : 'Suits'}`;
   const fursuitLimit = getMaxFursuitsForFeatureState(expandedFursuitLimitEnabled);
   const isAtFursuitLimit = suitCount >= fursuitLimit;
   const limitHelperText = expandedFursuitLimitEnabled
