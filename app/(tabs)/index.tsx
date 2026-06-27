@@ -765,7 +765,6 @@ export default function HomeScreen() {
     if (conventionDetailViewedRef.current === key) {
       return;
     }
-    conventionDetailViewedRef.current = key;
 
     void emitGameplayEvent({
       type: 'convention_detail_viewed',
@@ -776,7 +775,11 @@ export default function HomeScreen() {
         source: 'home_convention_section',
       },
     })
-      .then(() => {
+      .then((result) => {
+        if (!result) {
+          return;
+        }
+        conventionDetailViewedRef.current = key;
         void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
       })
       .catch((error) => {

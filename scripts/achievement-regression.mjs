@@ -499,8 +499,10 @@ describe('Checked In achievement hardening', () => {
     assert.doesNotMatch(formSource, /Create default gameplay pack/);
     assert.doesNotMatch(formSource, /createDefaultGameplayPack/);
 
-    assert.match(actionSource, /convention_id:\s*null/);
-    assert.match(actionSource, /action:\s*['"]create_convention_achievement['"]/);
+    assert.match(
+      actionSource,
+      /export async function createConventionAchievementAction[\s\S]*?\.from\('achievements'\)[\s\S]*?\.insert\(\{[\s\S]*?convention_id:\s*null[\s\S]*?await logAudit\(\{[\s\S]*?action:\s*['"]create_convention_achievement['"]/,
+    );
   });
 
   it('blocks Checked In-style convention achievements in the admin write surface', () => {

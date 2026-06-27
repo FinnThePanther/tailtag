@@ -1,7 +1,7 @@
 -- Tune V1 achievement criteria and copy.
 
 UPDATE public.achievement_rules
-SET description = 'One of your suits has been caught by 2 unique people'
+SET description = 'One of your suits has been caught by 2 unique people.'
 WHERE rule_id = 'f1a7b000-0000-4000-8000-000000000001';
 
 UPDATE public.achievements
@@ -61,6 +61,18 @@ qualified_first_fan AS (
   FROM ranked_catches
   WHERE unique_catchers >= 2
   GROUP BY user_id, fursuit_id, unique_catchers
+),
+ranked_first_fan AS (
+  SELECT
+    user_id,
+    fursuit_id,
+    unique_catchers,
+    unlocked_at,
+    ROW_NUMBER() OVER (
+      PARTITION BY user_id
+      ORDER BY unlocked_at ASC NULLS LAST, fursuit_id ASC
+    ) AS achievement_rank
+  FROM qualified_first_fan
 )
 INSERT INTO public.user_achievements (user_id, achievement_id, unlocked_at, context)
 SELECT
@@ -72,6 +84,7 @@ SELECT
     'unique_catchers_lifetime', q.unique_catchers,
     'source', '20260627120000_tune_v1_achievement_criteria'
   )
-FROM qualified_first_fan q
+FROM ranked_first_fan q
 CROSS JOIN first_fan
+WHERE q.achievement_rank = 1
 ON CONFLICT (user_id, achievement_id) DO NOTHING;
