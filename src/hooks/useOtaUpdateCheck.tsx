@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import * as Updates from 'expo-updates';
 
-import { captureNonCriticalError } from '@/lib/sentry';
+import { captureHandledException } from '@/lib/sentry';
 
 export function OtaUpdateProvider({ children }: { children: ReactNode }) {
   const isMountedRef = useRef(false);
@@ -28,7 +28,10 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
       try {
         result = await Updates.checkForUpdateAsync();
       } catch (error) {
-        captureNonCriticalError(error, { scope: 'ota.check' });
+        captureHandledException(error, {
+          scope: 'ota.checkForUpdate',
+          additionalContext: { phase: 'check' },
+        });
         return;
       }
 
@@ -39,7 +42,10 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
       try {
         await Updates.fetchUpdateAsync();
       } catch (error) {
-        captureNonCriticalError(error, { scope: 'ota.fetch' });
+        captureHandledException(error, {
+          scope: 'ota.fetchUpdate',
+          additionalContext: { phase: 'fetch' },
+        });
         return;
       }
 
