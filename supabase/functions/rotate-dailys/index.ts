@@ -6,6 +6,12 @@ import {
   completeBackendWorkerRun,
   completeOrHeartbeatBackendWorkerRun,
 } from '../_shared/backendWorkerRuns.ts';
+import {
+  isDefaultRotationEligible,
+  normalizeDailyTaskRotationMetadata,
+  type DailyTaskRotationMetadata,
+  type DailyTaskRotationSlot,
+} from '../_shared/dailyTaskMetadata.ts';
 import { ingestGameplayEvent } from '../_shared/gameplayQueue.ts';
 
 const corsHeaders = {
@@ -94,6 +100,11 @@ interface DailyTaskRow {
 type AssignmentWithTask = {
   position: number;
   task: DailyTaskRow;
+};
+
+type RotationCandidate = {
+  task: DailyTaskRow;
+  rotation: DailyTaskRotationMetadata;
 };
 
 type ConventionRow = {
@@ -332,6 +343,12 @@ function shuffleInPlace<T>(items: T[], rng: () => number): void {
   }
 }
 
+function shuffledCopy<T>(items: T[], rng: () => number): T[] {
+  const copy = [...items];
+  shuffleInPlace(copy, rng);
+  return copy;
+}
+
 async function fetchAssignments(conventionId: string, day: string): Promise<AssignmentWithTask[]> {
   const { data, error } = await supabaseAdmin
     .from('daily_assignments')
@@ -381,17 +398,148 @@ async function fetchTaskPool(): Promise<DailyTaskRow[]> {
   );
 }
 
-function metadataRecord(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {};
-  }
-
-  return value as Record<string, unknown>;
+function buildRotationCandidates(tasks: DailyTaskRow[]): RotationCandidate[] {
+  return tasks.map((task) => ({
+    task,
+    rotation: normalizeDailyTaskRotationMetadata(task.metadata),
+  }));
 }
 
-function isDefaultRotationEligible(metadata: unknown): boolean {
-  const record = metadataRecord(metadata);
-  return record.defaultRotationEligible !== false && record.rotationPool !== 'special';
+function slotRecipe(desiredCount: number): DailyTaskRotationSlot[] {
+  if (desiredCount <= 3) {
+    return ['catch', 'explore', 'leaderboard'];
+  }
+
+  if (desiredCount === 4) {
+    return ['catch', 'explore', 'leaderboard', 'catch'];
+  }
+
+  return ['catch', 'explore', 'leaderboard', 'catch', 'explore'];
+}
+
+function canSelectCandidate(
+  candidate: RotationCandidate,
+  selected: RotationCandidate[],
+  options: { strictFamily: boolean; enforceCaps: boolean },
+): boolean {
+  if (selected.some((entry) => entry.task.id === candidate.task.id)) {
+    return false;
+  }
+
+  if (
+    options.strictFamily &&
+    selected.some((entry) => entry.rotation.family === candidate.rotation.family)
+  ) {
+    return false;
+  }
+
+  if (!options.enforceCaps) {
+    return true;
+  }
+
+  if (
+    candidate.rotation.slot === 'catch' &&
+    selected.filter((entry) => entry.rotation.slot === 'catch').length >= 2
+  ) {
+    return false;
+  }
+
+  if (
+    candidate.rotation.difficulty === 'hard' &&
+    selected.filter((entry) => entry.rotation.difficulty === 'hard').length >= 1
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function sortRotationCandidates(candidates: RotationCandidate[]): RotationCandidate[] {
+  const difficultyRank: Record<DailyTaskRotationMetadata['difficulty'], number> = {
+    easy: 0,
+    medium: 1,
+    hard: 2,
+    special: 3,
+  };
+  const familyCounts = new Map<string, number>();
+  for (const candidate of candidates) {
+    familyCounts.set(
+      candidate.rotation.family,
+      (familyCounts.get(candidate.rotation.family) ?? 0) + 1,
+    );
+  }
+
+  return candidates
+    .map((candidate, index) => ({ candidate, index }))
+    .sort((a, b) => {
+      const aDifficulty = difficultyRank[a.candidate.rotation.difficulty];
+      const bDifficulty = difficultyRank[b.candidate.rotation.difficulty];
+      const sameFamily = a.candidate.rotation.family === b.candidate.rotation.family;
+      const hasFamilyVariants = (familyCounts.get(a.candidate.rotation.family) ?? 0) > 1;
+      const difficultyDelta =
+        sameFamily && hasFamilyVariants ? bDifficulty - aDifficulty : aDifficulty - bDifficulty;
+
+      return difficultyDelta || a.index - b.index;
+    })
+    .map(({ candidate }) => candidate);
+}
+
+function selectFromCandidates(
+  candidates: RotationCandidate[],
+  selected: RotationCandidate[],
+  options: {
+    slot?: DailyTaskRotationSlot;
+    strictFamily: boolean;
+    enforceCaps: boolean;
+  },
+): RotationCandidate | null {
+  const slotCandidates = options.slot
+    ? candidates.filter((candidate) => candidate.rotation.slot === options.slot)
+    : candidates;
+
+  return (
+    sortRotationCandidates(slotCandidates).find((candidate) =>
+      canSelectCandidate(candidate, selected, options),
+    ) ?? null
+  );
+}
+
+function selectBalancedTasks(
+  tasks: DailyTaskRow[],
+  desiredCount: number,
+  rng: () => number,
+): DailyTaskRow[] {
+  const candidates = shuffledCopy(buildRotationCandidates(tasks), rng);
+  const selected: RotationCandidate[] = [];
+
+  for (const slot of slotRecipe(desiredCount)) {
+    const candidate = selectFromCandidates(candidates, selected, {
+      slot,
+      strictFamily: true,
+      enforceCaps: true,
+    });
+    if (candidate) {
+      selected.push(candidate);
+    }
+  }
+
+  for (const options of [
+    { strictFamily: true, enforceCaps: true },
+    { strictFamily: false, enforceCaps: true },
+    { strictFamily: false, enforceCaps: false },
+  ]) {
+    while (selected.length < desiredCount) {
+      const candidate = selectFromCandidates(candidates, selected, options);
+      if (!candidate) break;
+      selected.push(candidate);
+    }
+
+    if (selected.length >= desiredCount) {
+      break;
+    }
+  }
+
+  return selected.slice(0, desiredCount).map((candidate) => candidate.task);
 }
 
 async function selectAssignments(conventionId: string, day: string, requestedCount?: number) {
@@ -411,8 +559,7 @@ async function selectAssignments(conventionId: string, day: string, requestedCou
     ? Math.min(maxAllowed, Math.max(MIN_TASKS, requestedCount))
     : MIN_TASKS + Math.floor(rng() * (maxAllowed - MIN_TASKS + 1));
 
-  shuffleInPlace(candidatePool, rng);
-  const selected = candidatePool.slice(0, desiredCount);
+  const selected = selectBalancedTasks(candidatePool, desiredCount, rng);
 
   return { selected, desiredCount, hashHex };
 }

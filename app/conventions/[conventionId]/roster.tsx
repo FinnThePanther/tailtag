@@ -1,26 +1,29 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { AppAvatar } from '../../../src/components/ui/AppAvatar';
-import { ScreenHeader } from '../../../src/components/ui/ScreenHeader';
-import { TailTagButton } from '../../../src/components/ui/TailTagButton';
-import { TailTagInput } from '../../../src/components/ui/TailTagInput';
-import { useAuth } from '../../../src/features/auth';
+import { AppAvatar } from '@/components/ui/AppAvatar';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { TailTagButton } from '@/components/ui/TailTagButton';
+import { TailTagInput } from '@/components/ui/TailTagInput';
+import { useAuth } from '@/features/auth';
 import {
   CONVENTION_SUIT_ROSTER_QUERY_KEY,
   CONVENTION_SUIT_ROSTER_CAUGHT_IDS_QUERY_KEY,
   createConventionSuitRosterCaughtIdsQueryOptions,
   createConventionSuitRosterQueryOptions,
   type ConventionSuitRosterViewEntry,
-} from '../../../src/features/conventions';
-import { supabase } from '../../../src/lib/supabase';
+} from '@/features/conventions';
+import { DAILY_TASKS_QUERY_KEY } from '@/features/daily-tasks';
+import { emitGameplayEvent } from '@/features/events';
+import { captureHandledException } from '@/lib/sentry';
+import { supabase } from '@/lib/supabase';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
-import { colors } from '../../../src/theme';
-import { styles } from '../../../src/app-styles/conventions/roster.styles';
+import { colors } from '@/theme';
+import { styles } from '@/app-styles/conventions/roster.styles';
 
 type RosterFilter = 'all' | 'not-caught' | 'caught';
 type RosterDisplayEntry = ConventionSuitRosterViewEntry & {
@@ -49,6 +52,7 @@ export default function ConventionSuitRosterScreen() {
   }>();
   const [searchInput, setSearchInput] = useState('');
   const [activeFilter, setActiveFilter] = useState<RosterFilter>('all');
+  const rosterViewedRef = useRef<string | null>(null);
 
   const {
     data: rosterMetadataEntries = [],
@@ -89,6 +93,39 @@ export default function ConventionSuitRosterScreen() {
       })),
     [caughtFursuitIds, rosterMetadataEntries, userId],
   );
+
+  useEffect(() => {
+    if (!userId || !conventionId) {
+      return;
+    }
+
+    const key = `${userId}:${conventionId}`;
+    if (rosterViewedRef.current === key) {
+      return;
+    }
+
+    void emitGameplayEvent({
+      type: 'convention_roster_viewed',
+      conventionId,
+      payload: {
+        convention_id: conventionId,
+        source: 'convention_roster_screen',
+      },
+    })
+      .then((result) => {
+        if (!result) {
+          return;
+        }
+        rosterViewedRef.current = key;
+        void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      })
+      .catch((error) => {
+        captureHandledException(error, {
+          scope: 'conventionRoster.viewedEvent',
+          conventionId,
+        });
+      });
+  }, [conventionId, queryClient, userId]);
 
   useEffect(() => {
     if (!conventionId) return;

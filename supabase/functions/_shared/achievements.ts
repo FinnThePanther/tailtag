@@ -253,6 +253,8 @@ export async function processAchievementsForEvent(
       return await processSimpleEvent(supabaseAdmin, event, 'convention_joined');
     case 'leaderboard_refreshed':
     case 'catch_shared':
+    case 'convention_detail_viewed':
+    case 'convention_roster_viewed':
     case 'fursuit_bio_viewed':
       return await processDailyTaskOnlyEvent(supabaseAdmin, event);
     default:
@@ -1820,5 +1822,5 @@ function toLocalParts(iso: string, timeZone: string | null | undefined) {
 }
 
 function isEarlyBirdLocalTime(localParts: Record<'hour' | 'minute', number>) {
-  return localParts.hour >= 5 && localParts.hour < 9;
+  return localParts.hour >= 5 && localParts.hour < 10;
 }

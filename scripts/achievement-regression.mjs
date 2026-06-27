@@ -485,27 +485,23 @@ describe('Checked In achievement hardening', () => {
     );
   });
 
-  it('prevents admin gameplay packs from creating convention-scoped Checked In achievements', () => {
-    const path = 'admin/lib/convention-gameplay-pack.ts';
-    const source = read(path);
+  it('keeps convention creation on the shared gameplay catalog', () => {
+    const actionPath = 'admin/app/(dashboard)/conventions/actions.ts';
+    const formPath = 'admin/components/create-convention-form.tsx';
+    const actionSource = read(actionPath);
+    const formSource = read(formPath);
 
-    assert.doesNotMatch(
-      source,
-      /keySuffix\s*:\s*["']CHECKED_IN["']/,
-      `${path} must not seed Checked In`,
-    );
-    assert.match(source, /function countGlobalAchievements/);
-    assert.match(source, /\.from\(["']achievements["']\)/);
+    assert.doesNotMatch(actionSource, /generateDefaultGameplayPack/);
+    assert.doesNotMatch(actionSource, /generateConventionGameplayPackAction/);
+    assert.doesNotMatch(actionSource, /createDefaultGameplayPack/);
+    assert.doesNotMatch(actionSource, /create_default_gameplay_pack/);
+    assert.doesNotMatch(actionSource, /pack_result/);
+    assert.doesNotMatch(formSource, /Create default gameplay pack/);
+    assert.doesNotMatch(formSource, /createDefaultGameplayPack/);
+
     assert.match(
-      source,
-      /\.select\(["']id["'],\s*\{\s*count:\s*["']exact["'],\s*head:\s*true\s*\}\)/,
-    );
-    assert.match(source, /\.is\(["']convention_id["'],\s*null\)/);
-    assert.match(source, /\.eq\(["']is_active["'],\s*true\)/);
-    assert.doesNotMatch(
-      source,
-      /\.from\(["']achievements["']\)\s*\.\s*(insert|upsert)\(/,
-      `${path} must not create convention-scoped achievement clones`,
+      actionSource,
+      /export async function createConventionAchievementAction[\s\S]*?\.from\('achievements'\)[\s\S]*?\.insert\(\{[\s\S]*?convention_id:\s*null[\s\S]*?await logAudit\(\{[\s\S]*?action:\s*['"]create_convention_achievement['"]/,
     );
   });
 
@@ -579,7 +575,7 @@ describe('Checked In achievement hardening', () => {
 });
 
 describe('Early Bird achievement timing', () => {
-  it('only treats 5:00-8:59 AM local convention time as early morning', () => {
+  it('only treats 5:00-9:59 AM local convention time as early morning', () => {
     const source = read('supabase/functions/_shared/achievements.ts');
     const isEarlyBirdLocalTime = new Function(
       'localParts',
@@ -589,7 +585,8 @@ describe('Early Bird achievement timing', () => {
     assert.equal(isEarlyBirdLocalTime({ hour: 4, minute: 59 }), false);
     assert.equal(isEarlyBirdLocalTime({ hour: 5, minute: 0 }), true);
     assert.equal(isEarlyBirdLocalTime({ hour: 8, minute: 59 }), true);
-    assert.equal(isEarlyBirdLocalTime({ hour: 9, minute: 0 }), false);
+    assert.equal(isEarlyBirdLocalTime({ hour: 9, minute: 59 }), true);
+    assert.equal(isEarlyBirdLocalTime({ hour: 10, minute: 0 }), false);
 
     assert.doesNotMatch(
       source,
@@ -605,8 +602,63 @@ describe('Early Bird achievement timing', () => {
     const source = read('packages/achievement-rules/src/rules/catch.ts');
 
     assert.match(source, /displayName: 'Early Bird'/);
-    assert.match(source, /description: 'Make a catch from 5:00-8:59 AM local convention time\.'/);
+    assert.match(source, /description: 'Make a catch from 5:00-9:59 AM local convention time\.'/);
     assert.match(source, /requiredStats: \['isEarlyMorning'\]/);
+  });
+});
+
+describe('V1 achievement criteria tuning', () => {
+  it('awards First Fan at 2 unique lifetime catchers', async () => {
+    const { evaluateCatchAchievements } = await importCatchRulesModule();
+
+    const oneFanAwards = evaluateCatchAchievements(
+      catchContext({
+        stats: {
+          ...catchContext().stats,
+          uniqueCatchersForFursuitLifetime: 1,
+        },
+      }),
+    );
+    const twoFanAwards = evaluateCatchAchievements(
+      catchContext({
+        stats: {
+          ...catchContext().stats,
+          uniqueCatchersForFursuitLifetime: 2,
+        },
+      }),
+    );
+
+    assert.equal(
+      oneFanAwards.some((award) => award.achievementKey === 'FIRST_FAN'),
+      false,
+    );
+    assert.equal(
+      twoFanAwards.some((award) => award.achievementKey === 'FIRST_FAN'),
+      true,
+    );
+  });
+
+  it('keeps seeded and migrated First Fan and Early Bird copy aligned', () => {
+    const seed = read('supabase/seeds/reference.sql');
+    const migration = read('supabase/migrations/20260627120000_tune_v1_achievement_criteria.sql');
+
+    assert.match(seed, /One of your suits has been caught by 2 unique people/);
+    assert.match(seed, /Make a catch from 5:00-9:59 AM local convention time\./);
+    assert.match(migration, /One of your suits has been caught by 2 unique people/);
+    assert.match(migration, /Make a catch from 5:00-9:59 AM local convention time\./);
+    assert.match(migration, /insert into public\.user_achievements/i);
+    assert.match(migration, /on conflict \(user_id, achievement_id\) do nothing/i);
+  });
+
+  it('keeps hybrid achievements based on structured multi-species or explicit hybrid data', () => {
+    const worker = read('supabase/functions/_shared/achievements.ts');
+    const rules = read('packages/achievement-rules/src/rules/catch.ts');
+
+    assert.match(worker, /species_assignments:fursuit_species_assignments/);
+    assert.match(worker, /const isExplicitHybrid = species\.some/);
+    assert.match(worker, /isHybrid: species\.length > 1 \|\| isExplicitHybrid/);
+    assert.match(rules, /MIX_AND_MATCH[\s\S]*context\.flags\.hybridFursuit/);
+    assert.match(rules, /HYBRID_VIBES[\s\S]*context\.flags\.hybridFursuit/);
   });
 });
 
