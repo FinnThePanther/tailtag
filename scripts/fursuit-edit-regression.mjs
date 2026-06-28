@@ -40,6 +40,19 @@ function codeChangeLimitMigration() {
   };
 }
 
+function codeAuditMigration() {
+  const file = readdirSync(migrationsDir)
+    .filter((candidate) => candidate.endsWith('_harden_fursuit_code_audit_trail.sql'))
+    .sort();
+
+  assert.ok(file.length > 0, 'expected fursuit code audit migration');
+
+  return {
+    file: file.at(-1),
+    source: read(join('supabase', 'migrations', file.at(-1))),
+  };
+}
+
 describe('fursuit edit profile RPC', () => {
   it('defines update_fursuit_profile in its migration', () => {
     const { file, source } = fursuitProfileMigration();
@@ -96,7 +109,19 @@ describe('fursuit edit profile RPC', () => {
     assert.notEqual(rollbackStart, -1, 'expected rollback section after RPC call');
     assert.doesNotMatch(saveSection, /\.from\('fursuits'\)\s*\.update\(/);
     assert.match(saveSection, /updateResult\.status === 'code_taken'/);
+    assert.match(saveSection, /updateResult\.status === 'code_invalid'/);
     assert.match(saveSection, /updateResult\.status === 'not_found'/);
+  });
+
+  it('sends client trace metadata with fursuit profile updates', () => {
+    const source = read('src/features/suits/api/updateFursuitProfile.ts');
+
+    assert.match(source, /createFursuitEditClientAttemptId/);
+    assert.match(source, /crypto\.randomUUID/);
+    assert.match(source, /p_client_attempt_id: clientAttemptId/);
+    assert.match(source, /p_client_app_version: getClientAppVersion\(\)/);
+    assert.match(source, /p_client_platform: Platform\.OS/);
+    assert.match(source, /clientAttemptId,/);
   });
 
   it('enforces one catch code change through a server-side allowance ledger', () => {
@@ -170,5 +195,76 @@ describe('fursuit edit profile RPC', () => {
     assert.match(source, /editable=\{isCodeInputEditable\}/);
     assert.match(source, /Catch codes can be changed once\. This code is now set\./);
     assert.doesNotMatch(source, /unique_code: previousUniqueCode/);
+  });
+
+  it('adds fursuit timestamps and code audit tables', () => {
+    const { source } = codeAuditMigration();
+
+    assert.match(source, /ALTER TABLE public\.fursuits\s+ADD COLUMN IF NOT EXISTS updated_at/s);
+    assert.match(source, /CREATE TRIGGER set_fursuits_updated_at/);
+    assert.match(source, /CREATE TABLE IF NOT EXISTS public\.fursuit_unique_code_history/);
+    assert.match(source, /CREATE TABLE IF NOT EXISTS public\.fursuit_code_change_attempts/);
+    assert.match(
+      source,
+      /ALTER TABLE public\.fursuit_unique_code_history ENABLE ROW LEVEL SECURITY/,
+    );
+    assert.match(
+      source,
+      /ALTER TABLE public\.fursuit_code_change_attempts ENABLE ROW LEVEL SECURITY/,
+    );
+    assert.match(
+      source,
+      /REVOKE ALL ON TABLE public\.fursuit_unique_code_history FROM PUBLIC, anon, authenticated/,
+    );
+    assert.match(
+      source,
+      /REVOKE ALL ON TABLE public\.fursuit_code_change_attempts FROM PUBLIC, anon, authenticated/,
+    );
+  });
+
+  it('keeps update_fursuit_profile unambiguous while accepting client trace defaults', () => {
+    const { source } = codeAuditMigration();
+    const legacySignature =
+      /public\.update_fursuit_profile\(\s*uuid,\s*text,\s*uuid,\s*text,\s*text,\s*text,\s*text\[\],\s*text,\s*text,\s*text,\s*boolean\s*\)/;
+    const tracedCreateSignature =
+      /public\.update_fursuit_profile\(\s*p_fursuit_id uuid,\s*p_name text,\s*p_species_id uuid,\s*p_visibility_audience text,\s*p_owner_attribution_visibility text,\s*p_social_signal text,\s*p_interaction_badges text\[\],\s*p_unique_code text,\s*p_avatar_path text,\s*p_avatar_url text,\s*p_avatar_changed boolean,\s*p_client_attempt_id text DEFAULT NULL,\s*p_client_app_version text DEFAULT NULL,\s*p_client_platform text DEFAULT NULL\s*\)/;
+    const tracedGrantSignature =
+      /public\.update_fursuit_profile\(\s*uuid,\s*text,\s*uuid,\s*text,\s*text,\s*text,\s*text\[\],\s*text,\s*text,\s*text,\s*boolean,\s*text,\s*text,\s*text\s*\)/;
+
+    assert.match(source, new RegExp(`DROP FUNCTION IF EXISTS ${legacySignature.source};`));
+    assert.match(
+      source,
+      new RegExp(`CREATE OR REPLACE FUNCTION ${tracedCreateSignature.source}\\s*RETURNS jsonb`),
+    );
+    assert.match(
+      source,
+      new RegExp(
+        `GRANT EXECUTE ON FUNCTION ${tracedGrantSignature.source}\\s*TO authenticated, service_role;`,
+      ),
+    );
+  });
+
+  it('records code history and attempts for support investigations', () => {
+    const { source } = codeAuditMigration();
+
+    assert.match(source, /CREATE TRIGGER fursuits_log_unique_code_create/);
+    assert.match(source, /CREATE TRIGGER fursuits_log_unique_code_update/);
+    assert.match(source, /current_setting\('tailtag\.client_attempt_id', true\)/);
+    assert.match(source, /CREATE OR REPLACE FUNCTION public\.record_fursuit_code_change_attempt/);
+    assert.match(source, /'updated'/);
+    assert.match(source, /'code_taken'/);
+    assert.match(source, /'code_change_locked'/);
+    assert.match(source, /'code_invalid'/);
+    assert.match(source, /'not_found'/);
+    assert.match(source, /p_conflicting_fursuit_id/);
+    assert.match(source, /client_app_version,\s+client_platform,\s+metadata\s+\)\s+VALUES/s);
+    assert.match(source, /NULLIF\(left\(btrim\(coalesce\(p_client_attempt_id, ''\)\), 128\), ''\)/);
+    assert.match(source, /NULLIF\(left\(btrim\(coalesce\(p_client_app_version, ''\)\), 80\), ''\)/);
+    assert.match(source, /NULLIF\(left\(btrim\(coalesce\(p_client_platform, ''\)\), 40\), ''\)/);
+    assert.match(source, /current_setting\('tailtag\.client_attempt_id', true\)/);
+    assert.match(source, /current_setting\('tailtag\.client_app_version', true\)/);
+    assert.match(source, /current_setting\('tailtag\.client_platform', true\)/);
+    assert.match(source, /v_supports_code_invalid_response/);
+    assert.match(source, /jsonb_build_object\('source', 'update_fursuit_profile'/);
   });
 });
