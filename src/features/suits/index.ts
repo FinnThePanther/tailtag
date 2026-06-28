@@ -66,8 +66,8 @@ export {
   fetchFursuitCodeChangeStatus,
   FURSUIT_CODE_CHANGE_STATUS_QUERY_KEY,
   fursuitCodeChangeStatusQueryKey,
-} from './api/codeChangeStatus';
-export type { FursuitCodeChangeStatus } from './api/codeChangeStatus';
+} from '@/features/suits/api/codeChangeStatus';
+export type { FursuitCodeChangeStatus } from '@/features/suits/api/codeChangeStatus';
 export { updateFursuitProfile } from '@/features/suits/api/updateFursuitProfile';
 export type {
   UpdateFursuitProfileInput,
