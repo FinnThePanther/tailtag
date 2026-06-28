@@ -24,15 +24,19 @@ function fursuitProfileMigration() {
 }
 
 function codeChangeLimitMigration() {
-  const file = readdirSync(migrationsDir)
-    .filter((candidate) => candidate.endsWith('_limit_fursuit_code_changes.sql'))
+  const files = readdirSync(migrationsDir)
+    .filter(
+      (candidate) =>
+        candidate.endsWith('_limit_fursuit_code_changes.sql') ||
+        candidate.endsWith('_lock_changed_fursuit_codes.sql'),
+    )
     .sort();
 
-  assert.ok(file.length > 0, 'expected fursuit code change limit migration');
+  assert.ok(files.length > 0, 'expected fursuit code change limit migration');
 
   return {
-    file: file.at(-1),
-    source: read(join('supabase', 'migrations', file.at(-1))),
+    file: files.at(-1),
+    source: files.map((file) => read(join('supabase', 'migrations', file))).join('\n'),
   };
 }
 
@@ -123,13 +127,31 @@ describe('fursuit edit profile RPC', () => {
     const { source } = codeChangeLimitMigration();
 
     assert.match(source, /CREATE OR REPLACE FUNCTION public\.get_fursuit_code_change_status/);
-    assert.match(source, /'status',\s+CASE\s+WHEN v_remaining_changes <= 0 THEN 'locked'/s);
+    assert.match(
+      source,
+      /'status',\s+CASE\s+WHEN v_has_changed_code OR v_remaining_changes <= 0 THEN 'locked'/s,
+    );
     assert.match(
       source,
       /GRANT EXECUTE ON FUNCTION public\.get_fursuit_code_change_status\(uuid\)/,
     );
     assert.match(source, /'status', 'code_change_locked'/);
     assert.match(source, /WHEN raise_exception THEN\s+IF SQLERRM = 'fursuit_code_change_locked'/s);
+  });
+
+  it('locks a fursuit after its own catch code allowance is consumed', () => {
+    const { source } = codeChangeLimitMigration();
+
+    assert.match(source, /a\.consumed_fursuit_id = p_fursuit_id/);
+    assert.match(source, /a\.consumed_fursuit_id = OLD\.id/);
+    assert.match(
+      source,
+      /IF EXISTS \(\s+SELECT 1\s+FROM public\.fursuit_code_change_allowances a\s+WHERE a\.owner_id = v_viewer_id\s+AND a\.consumed_fursuit_id = p_fursuit_id\s+\) THEN\s+RETURN jsonb_build_object\(\s+'status', 'code_change_locked'/s,
+    );
+    assert.match(
+      source,
+      /IF EXISTS \(\s+SELECT 1\s+FROM public\.fursuit_code_change_allowances a\s+WHERE a\.owner_id = OLD\.owner_id\s+AND a\.consumed_fursuit_id = OLD\.id\s+\) THEN\s+RAISE EXCEPTION 'fursuit_code_change_locked'/s,
+    );
   });
 
   it('renders locked catch codes as read-only in the edit screen', () => {
@@ -139,7 +161,10 @@ describe('fursuit edit profile RPC', () => {
       source,
       /useQuery\(\{\s+enabled: Boolean\(fursuitId && userId && isOwner\),\s+queryKey: fursuitCodeChangeStatusQueryKey\(fursuitId \?\? '', userId\),\s+queryFn: async \(\) => \{\s+try \{\s+return await fetchFursuitCodeChangeStatus\(fursuitId \?\? ''\);/s,
     );
-    assert.match(source, /const isCodeChangeLocked = codeChangeStatus\?\.status === 'locked'/);
+    assert.match(
+      source,
+      /const isCodeChangeLocked =\s+codeChangeStatus\?\.status === 'locked' \|\| codeChangeStatus\?\.hasChangedCode === true/,
+    );
     assert.match(source, /!isCodeChangeStatusLoading/);
     assert.match(source, /codeChangeStatus\?\.status === 'available'/);
     assert.match(source, /editable=\{isCodeInputEditable\}/);

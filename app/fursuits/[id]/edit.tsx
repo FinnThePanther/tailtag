@@ -641,7 +641,8 @@ export default function EditFursuitScreen() {
     refetchOnReconnect: false,
   });
 
-  const isCodeChangeLocked = codeChangeStatus?.status === 'locked';
+  const isCodeChangeLocked =
+    codeChangeStatus?.status === 'locked' || codeChangeStatus?.hasChangedCode === true;
 
   useEffect(() => {
     if (
@@ -1374,7 +1375,7 @@ export default function EditFursuitScreen() {
             setCodeInput(normalizedCode);
             setInitialCode(normalizedCode);
             queryClient.setQueryData(fursuitCodeChangeStatusQueryKey(fursuitId, userId), {
-              status: remainingChangesAfterCodeChange > 0 ? 'available' : 'locked',
+              status: 'locked',
               fursuitId,
               remainingChanges: remainingChangesAfterCodeChange,
               hasChangedCode: true,

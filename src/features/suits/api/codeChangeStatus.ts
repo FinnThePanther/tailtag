@@ -12,7 +12,7 @@ export type FursuitCodeChangeStatus =
       status: 'available';
       fursuitId: string;
       remainingChanges: number;
-      hasChangedCode: false;
+      hasChangedCode: boolean;
     }
   | {
       status: 'locked';
@@ -66,7 +66,7 @@ const parseFursuitCodeChangeStatus = (value: unknown): FursuitCodeChangeStatus =
       status: 'available',
       fursuitId,
       remainingChanges,
-      hasChangedCode: false,
+      hasChangedCode,
     };
   }
 
