@@ -39,6 +39,18 @@ CREATE TABLE IF NOT EXISTS public.fursuit_unique_code_history (
   client_platform text,
   changed_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT fursuit_unique_code_history_client_attempt_length_check CHECK (
+    client_attempt_id IS NULL
+    OR length(client_attempt_id) <= 128
+  ),
+  CONSTRAINT fursuit_unique_code_history_client_app_version_length_check CHECK (
+    client_app_version IS NULL
+    OR length(client_app_version) <= 80
+  ),
+  CONSTRAINT fursuit_unique_code_history_client_platform_length_check CHECK (
+    client_platform IS NULL
+    OR length(client_platform) <= 40
+  ),
   CONSTRAINT fursuit_unique_code_history_source_check CHECK (
     source IN ('create', 'edit', 'admin')
   )
@@ -77,6 +89,18 @@ CREATE TABLE IF NOT EXISTS public.fursuit_code_change_attempts (
   client_platform text,
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT fursuit_code_change_attempts_client_attempt_length_check CHECK (
+    client_attempt_id IS NULL
+    OR length(client_attempt_id) <= 128
+  ),
+  CONSTRAINT fursuit_code_change_attempts_client_app_version_length_check CHECK (
+    client_app_version IS NULL
+    OR length(client_app_version) <= 80
+  ),
+  CONSTRAINT fursuit_code_change_attempts_client_platform_length_check CHECK (
+    client_platform IS NULL
+    OR length(client_platform) <= 40
+  ),
   CONSTRAINT fursuit_code_change_attempts_result_check CHECK (
     result IN (
       'updated',
@@ -93,6 +117,87 @@ ALTER TABLE public.fursuit_code_change_attempts ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE public.fursuit_code_change_attempts FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE public.fursuit_code_change_attempts TO service_role;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fursuit_unique_code_history_client_attempt_length_check'
+      AND conrelid = 'public.fursuit_unique_code_history'::regclass
+  ) THEN
+    ALTER TABLE public.fursuit_unique_code_history
+    ADD CONSTRAINT fursuit_unique_code_history_client_attempt_length_check CHECK (
+      client_attempt_id IS NULL
+      OR length(client_attempt_id) <= 128
+    );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fursuit_unique_code_history_client_app_version_length_check'
+      AND conrelid = 'public.fursuit_unique_code_history'::regclass
+  ) THEN
+    ALTER TABLE public.fursuit_unique_code_history
+    ADD CONSTRAINT fursuit_unique_code_history_client_app_version_length_check CHECK (
+      client_app_version IS NULL
+      OR length(client_app_version) <= 80
+    );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fursuit_unique_code_history_client_platform_length_check'
+      AND conrelid = 'public.fursuit_unique_code_history'::regclass
+  ) THEN
+    ALTER TABLE public.fursuit_unique_code_history
+    ADD CONSTRAINT fursuit_unique_code_history_client_platform_length_check CHECK (
+      client_platform IS NULL
+      OR length(client_platform) <= 40
+    );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fursuit_code_change_attempts_client_attempt_length_check'
+      AND conrelid = 'public.fursuit_code_change_attempts'::regclass
+  ) THEN
+    ALTER TABLE public.fursuit_code_change_attempts
+    ADD CONSTRAINT fursuit_code_change_attempts_client_attempt_length_check CHECK (
+      client_attempt_id IS NULL
+      OR length(client_attempt_id) <= 128
+    );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fursuit_code_change_attempts_client_app_version_length_check'
+      AND conrelid = 'public.fursuit_code_change_attempts'::regclass
+  ) THEN
+    ALTER TABLE public.fursuit_code_change_attempts
+    ADD CONSTRAINT fursuit_code_change_attempts_client_app_version_length_check CHECK (
+      client_app_version IS NULL
+      OR length(client_app_version) <= 80
+    );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fursuit_code_change_attempts_client_platform_length_check'
+      AND conrelid = 'public.fursuit_code_change_attempts'::regclass
+  ) THEN
+    ALTER TABLE public.fursuit_code_change_attempts
+    ADD CONSTRAINT fursuit_code_change_attempts_client_platform_length_check CHECK (
+      client_platform IS NULL
+      OR length(client_platform) <= 40
+    );
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS fursuit_code_change_attempts_fursuit_created_idx
 ON public.fursuit_code_change_attempts (fursuit_id, created_at DESC);
@@ -184,9 +289,18 @@ DECLARE
   v_changed_by uuid := auth.uid();
   v_old_code text := upper(btrim(coalesce(OLD.unique_code, '')));
   v_new_code text := upper(btrim(coalesce(NEW.unique_code, '')));
-  v_client_attempt_id text := NULLIF(current_setting('tailtag.client_attempt_id', true), '');
-  v_client_app_version text := NULLIF(current_setting('tailtag.client_app_version', true), '');
-  v_client_platform text := NULLIF(current_setting('tailtag.client_platform', true), '');
+  v_client_attempt_id text := NULLIF(
+    left(btrim(coalesce(current_setting('tailtag.client_attempt_id', true), '')), 128),
+    ''
+  );
+  v_client_app_version text := NULLIF(
+    left(btrim(coalesce(current_setting('tailtag.client_app_version', true), '')), 80),
+    ''
+  );
+  v_client_platform text := NULLIF(
+    left(btrim(coalesce(current_setting('tailtag.client_platform', true), '')), 40),
+    ''
+  );
 BEGIN
   IF v_old_code IS NOT DISTINCT FROM v_new_code THEN
     RETURN NEW;
@@ -269,7 +383,7 @@ BEGIN
     upper(btrim(coalesce(p_attempted_code, ''))),
     p_result,
     p_conflicting_fursuit_id,
-    NULLIF(btrim(coalesce(p_client_attempt_id, '')), ''),
+    NULLIF(left(btrim(coalesce(p_client_attempt_id, '')), 128), ''),
     NULLIF(left(btrim(coalesce(p_client_app_version, '')), 80), ''),
     NULLIF(left(btrim(coalesce(p_client_platform, '')), 40), ''),
     coalesce(p_metadata, '{}'::jsonb)
@@ -351,9 +465,11 @@ DECLARE
   v_code_changed boolean := false;
   v_updated_count integer := 0;
   v_conflicting_fursuit_id uuid;
-  v_client_attempt_id text := NULLIF(btrim(coalesce(p_client_attempt_id, '')), '');
+  v_client_attempt_id text := NULLIF(left(btrim(coalesce(p_client_attempt_id, '')), 128), '');
   v_client_app_version text := NULLIF(left(btrim(coalesce(p_client_app_version, '')), 80), '');
   v_client_platform text := NULLIF(left(btrim(coalesce(p_client_platform, '')), 40), '');
+  v_client_app_version_parts text[];
+  v_supports_code_invalid_response boolean := false;
 BEGIN
   IF v_viewer_id IS NULL THEN
     RETURN jsonb_build_object(
@@ -395,6 +511,19 @@ BEGIN
   v_previous_normalized_code := upper(btrim(coalesce(v_previous_code, '')));
   v_code_changed := v_previous_normalized_code IS DISTINCT FROM v_normalized_code;
 
+  v_client_app_version_parts := regexp_match(
+    coalesce(v_client_app_version, ''),
+    '^([0-9]+)\.([0-9]+)\.([0-9]+)(?:[^0-9].*)?$'
+  );
+  IF v_client_app_version_parts IS NOT NULL THEN
+    v_supports_code_invalid_response :=
+      (
+        v_client_app_version_parts[1]::integer,
+        v_client_app_version_parts[2]::integer,
+        v_client_app_version_parts[3]::integer
+      ) >= (0, 1, 15);
+  END IF;
+
   IF v_normalized_code !~ '^[A-Z0-9]{4,8}$' THEN
     PERFORM public.record_fursuit_code_change_attempt(
       p_fursuit_id,
@@ -410,10 +539,18 @@ BEGIN
       jsonb_build_object('source', 'update_fursuit_profile')
     );
 
+    IF v_supports_code_invalid_response THEN
+      RETURN jsonb_build_object(
+        'status', 'code_invalid',
+        'fursuit_id', p_fursuit_id,
+        'unique_code', v_previous_normalized_code
+      );
+    END IF;
+
     RETURN jsonb_build_object(
-      'status', 'code_invalid',
+      'status', 'code_taken',
       'fursuit_id', p_fursuit_id,
-      'unique_code', v_previous_normalized_code
+      'unique_code', v_normalized_code
     );
   END IF;
 

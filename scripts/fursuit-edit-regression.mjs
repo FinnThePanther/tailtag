@@ -224,13 +224,24 @@ describe('fursuit edit profile RPC', () => {
 
   it('keeps update_fursuit_profile unambiguous while accepting client trace defaults', () => {
     const { source } = codeAuditMigration();
+    const legacySignature =
+      /public\.update_fursuit_profile\(\s*uuid,\s*text,\s*uuid,\s*text,\s*text,\s*text,\s*text\[\],\s*text,\s*text,\s*text,\s*boolean\s*\)/;
+    const tracedCreateSignature =
+      /public\.update_fursuit_profile\(\s*p_fursuit_id uuid,\s*p_name text,\s*p_species_id uuid,\s*p_visibility_audience text,\s*p_owner_attribution_visibility text,\s*p_social_signal text,\s*p_interaction_badges text\[\],\s*p_unique_code text,\s*p_avatar_path text,\s*p_avatar_url text,\s*p_avatar_changed boolean,\s*p_client_attempt_id text DEFAULT NULL,\s*p_client_app_version text DEFAULT NULL,\s*p_client_platform text DEFAULT NULL\s*\)/;
+    const tracedGrantSignature =
+      /public\.update_fursuit_profile\(\s*uuid,\s*text,\s*uuid,\s*text,\s*text,\s*text,\s*text\[\],\s*text,\s*text,\s*text,\s*boolean,\s*text,\s*text,\s*text\s*\)/;
 
-    assert.match(source, /DROP FUNCTION IF EXISTS public\.update_fursuit_profile\(/);
-    assert.match(source, /p_client_attempt_id text DEFAULT NULL/);
-    assert.match(source, /p_client_app_version text DEFAULT NULL/);
-    assert.match(source, /p_client_platform text DEFAULT NULL/);
-    assert.match(source, /GRANT EXECUTE ON FUNCTION public\.update_fursuit_profile\(/);
-    assert.match(source, /TO authenticated, service_role;/);
+    assert.match(source, new RegExp(`DROP FUNCTION IF EXISTS ${legacySignature.source};`));
+    assert.match(
+      source,
+      new RegExp(`CREATE OR REPLACE FUNCTION ${tracedCreateSignature.source}\\s*RETURNS jsonb`),
+    );
+    assert.match(
+      source,
+      new RegExp(
+        `GRANT EXECUTE ON FUNCTION ${tracedGrantSignature.source}\\s*TO authenticated, service_role;`,
+      ),
+    );
   });
 
   it('records code history and attempts for support investigations', () => {
@@ -246,6 +257,14 @@ describe('fursuit edit profile RPC', () => {
     assert.match(source, /'code_invalid'/);
     assert.match(source, /'not_found'/);
     assert.match(source, /p_conflicting_fursuit_id/);
+    assert.match(source, /client_app_version,\s+client_platform,\s+metadata\s+\)\s+VALUES/s);
+    assert.match(source, /NULLIF\(left\(btrim\(coalesce\(p_client_attempt_id, ''\)\), 128\), ''\)/);
+    assert.match(source, /NULLIF\(left\(btrim\(coalesce\(p_client_app_version, ''\)\), 80\), ''\)/);
+    assert.match(source, /NULLIF\(left\(btrim\(coalesce\(p_client_platform, ''\)\), 40\), ''\)/);
+    assert.match(source, /current_setting\('tailtag\.client_attempt_id', true\)/);
+    assert.match(source, /current_setting\('tailtag\.client_app_version', true\)/);
+    assert.match(source, /current_setting\('tailtag\.client_platform', true\)/);
+    assert.match(source, /v_supports_code_invalid_response/);
     assert.match(source, /jsonb_build_object\('source', 'update_fursuit_profile'/);
   });
 });
