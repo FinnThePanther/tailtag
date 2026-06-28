@@ -1097,6 +1097,21 @@ export default function EditFursuitScreen() {
         return;
       }
 
+      if (updateResult.status === 'code_invalid') {
+        if (uploadedAvatarPath) {
+          await removeStoragePath(
+            uploadedAvatarPath,
+            'Failed to clean up new fursuit avatar after invalid code',
+          );
+          uploadedAvatarPath = null;
+        }
+        setCodeInput(updateResult.uniqueCode);
+        setInitialCode(updateResult.uniqueCode);
+        setCodeError('Catch code must be 4-8 letters or numbers.');
+        setSubmitError(null);
+        return;
+      }
+
       if (updateResult.status === 'not_found') {
         if (uploadedAvatarPath) {
           await removeStoragePath(
