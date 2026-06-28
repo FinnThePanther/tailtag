@@ -1,3 +1,4 @@
+import { captureHandledException, captureSupabaseError } from '@/lib/sentry';
 import { supabase } from '@/lib/supabase';
 
 export const FURSUIT_CODE_CHANGE_STATUS_QUERY_KEY = 'fursuit-code-change-status';
@@ -89,8 +90,27 @@ export async function fetchFursuitCodeChangeStatus(
   });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'suits.fetchFursuitCodeChangeStatus',
+      action: 'get_fursuit_code_change_status',
+      rpc: 'get_fursuit_code_change_status',
+      fursuitId,
+    });
     throw error;
   }
 
-  return parseFursuitCodeChangeStatus(data);
+  try {
+    return parseFursuitCodeChangeStatus(data);
+  } catch (parseError) {
+    captureHandledException(parseError, {
+      scope: 'suits.fetchFursuitCodeChangeStatus.parse',
+      action: 'parse_get_fursuit_code_change_status',
+      rpc: 'get_fursuit_code_change_status',
+      fursuitId,
+      additionalContext: {
+        responseType: typeof data,
+      },
+    });
+    throw parseError;
+  }
 }

@@ -24,6 +24,7 @@ import {
   FursuitBio,
   fetchFursuitDetail,
   fetchFursuitCodeChangeStatus,
+  FURSUIT_CODE_CHANGE_STATUS_QUERY_KEY,
   fursuitCodeChangeStatusQueryKey,
   fursuitDetailQueryKey,
   insertNextFursuitBioVersion,
@@ -619,7 +620,22 @@ export default function EditFursuitScreen() {
   } = useQuery({
     enabled: Boolean(fursuitId && userId && isOwner),
     queryKey: fursuitCodeChangeStatusQueryKey(fursuitId ?? '', userId),
-    queryFn: () => fetchFursuitCodeChangeStatus(fursuitId ?? ''),
+    queryFn: async () => {
+      try {
+        return await fetchFursuitCodeChangeStatus(fursuitId ?? '');
+      } catch (caught) {
+        captureHandledException(caught, {
+          scope: 'app/fursuits/[id]/edit.codeChangeStatus',
+          action: 'fetch_fursuit_code_change_status',
+          fursuitId,
+          userId,
+          additionalContext: {
+            queryKey: FURSUIT_CODE_CHANGE_STATUS_QUERY_KEY,
+          },
+        });
+        throw caught;
+      }
+    },
     staleTime: 0,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -895,6 +911,11 @@ export default function EditFursuitScreen() {
     const codeChanged = normalizedCode !== initialCode;
 
     if (codeChanged) {
+      if (isCodeChangeStatusLoading) {
+        setCodeError('Could not verify catch code change availability. Please try again.');
+        return;
+      }
+
       if (isCodeChangeLocked) {
         setCodeError('Catch codes can be changed once. This code is now set.');
         return;
@@ -1064,6 +1085,12 @@ export default function EditFursuitScreen() {
         }
         setCodeInput(updateResult.uniqueCode);
         setInitialCode(updateResult.uniqueCode);
+        queryClient.setQueryData(fursuitCodeChangeStatusQueryKey(fursuitId, userId), {
+          status: 'locked',
+          fursuitId,
+          remainingChanges: 0,
+          hasChangedCode: true,
+        });
         setCodeError('Catch codes can be changed once. This code is now set.');
         setSubmitError(null);
         return;
@@ -1339,6 +1366,20 @@ export default function EditFursuitScreen() {
           console.warn('Failed to revert fursuit record after edit error', revertError);
         } else {
           coreRecordReverted = true;
+          if (codeChanged) {
+            const remainingChangesAfterCodeChange = Math.max(
+              (codeChangeStatus?.remainingChanges ?? 1) - 1,
+              0,
+            );
+            setCodeInput(normalizedCode);
+            setInitialCode(normalizedCode);
+            queryClient.setQueryData(fursuitCodeChangeStatusQueryKey(fursuitId, userId), {
+              status: remainingChangesAfterCodeChange > 0 ? 'available' : 'locked',
+              fursuitId,
+              remainingChanges: remainingChangesAfterCodeChange,
+              hasChangedCode: true,
+            });
+          }
         }
       }
 
@@ -1355,7 +1396,12 @@ export default function EditFursuitScreen() {
   };
 
   const disableForm = isLoading || !detail || !isOwner || isSubmitting || isDeleting;
-  const isCodeInputEditable = !disableForm && !isCodeChangeLocked;
+  const isCodeInputEditable =
+    !disableForm &&
+    !isCodeChangeStatusLoading &&
+    !codeChangeStatusError &&
+    codeChangeStatus?.status === 'available' &&
+    !isCodeChangeLocked;
   const codeChangeStatusMessage = isCodeChangeLocked
     ? 'Catch codes can be changed once. This code is now set.'
     : codeChangeStatusError

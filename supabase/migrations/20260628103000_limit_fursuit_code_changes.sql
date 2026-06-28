@@ -42,9 +42,7 @@ CREATE INDEX IF NOT EXISTS fursuit_code_change_allowances_owner_consumed_idx
 ON public.fursuit_code_change_allowances (owner_id, consumed_fursuit_id)
 WHERE consumed_fursuit_id IS NOT NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS fursuit_code_change_allowances_one_use_per_suit_idx
-ON public.fursuit_code_change_allowances (owner_id, consumed_fursuit_id)
-WHERE consumed_fursuit_id IS NOT NULL;
+DROP INDEX IF EXISTS public.fursuit_code_change_allowances_one_use_per_suit_idx;
 
 INSERT INTO public.fursuit_code_change_allowances (
   owner_id,
@@ -206,7 +204,7 @@ BEGIN
   RETURN jsonb_build_object(
     'status',
     CASE
-      WHEN v_has_changed_code OR v_remaining_changes <= 0 THEN 'locked'
+      WHEN v_remaining_changes <= 0 THEN 'locked'
       ELSE 'available'
     END,
     'fursuit_id', p_fursuit_id,
@@ -240,16 +238,6 @@ BEGIN
   IF v_normalized_new_code !~ '^[A-Z0-9]{4,8}$' THEN
     RAISE EXCEPTION 'Unique code must be 4 to 8 letters or numbers'
       USING ERRCODE = '22023';
-  END IF;
-
-  IF EXISTS (
-    SELECT 1
-    FROM public.fursuit_code_change_allowances a
-    WHERE a.owner_id = OLD.owner_id
-      AND a.consumed_fursuit_id = OLD.id
-  ) THEN
-    RAISE EXCEPTION 'fursuit_code_change_locked'
-      USING ERRCODE = 'P0001';
   END IF;
 
   SELECT a.id
@@ -343,19 +331,6 @@ BEGIN
   v_code_changed := v_previous_normalized_code IS DISTINCT FROM v_normalized_code;
 
   IF v_code_changed THEN
-    IF EXISTS (
-      SELECT 1
-      FROM public.fursuit_code_change_allowances a
-      WHERE a.owner_id = v_viewer_id
-        AND a.consumed_fursuit_id = p_fursuit_id
-    ) THEN
-      RETURN jsonb_build_object(
-        'status', 'code_change_locked',
-        'fursuit_id', p_fursuit_id,
-        'unique_code', v_previous_normalized_code
-      );
-    END IF;
-
     IF NOT EXISTS (
       SELECT 1
       FROM public.fursuit_code_change_allowances a

@@ -103,20 +103,27 @@ describe('fursuit edit profile RPC', () => {
     assert.match(source, /INSERT INTO public\.fursuit_code_change_allowances \(/);
     assert.match(source, /CREATE TRIGGER fursuits_grant_code_change_allowance/);
     assert.match(source, /CREATE TRIGGER fursuits_enforce_unique_code_change_limit/);
+    assert.match(
+      source,
+      /DROP INDEX IF EXISTS public\.fursuit_code_change_allowances_one_use_per_suit_idx/,
+    );
+    assert.doesNotMatch(
+      source,
+      /CREATE UNIQUE INDEX IF NOT EXISTS fursuit_code_change_allowances_one_use_per_suit_idx/,
+    );
     assert.match(source, /consumed_fursuit_id = OLD\.id/);
     assert.match(source, /RAISE EXCEPTION 'fursuit_code_change_locked'/);
-    assert.match(source, /GRANT EXECUTE ON FUNCTION public\.grant_fursuit_code_change_allowance/);
-    assert.match(source, /TO service_role;/);
+    assert.match(
+      source,
+      /GRANT EXECUTE ON FUNCTION public\.grant_fursuit_code_change_allowance\(uuid, text\)\s+TO service_role;/,
+    );
   });
 
   it('exposes catch code change status and returns locked code changes', () => {
     const { source } = codeChangeLimitMigration();
 
     assert.match(source, /CREATE OR REPLACE FUNCTION public\.get_fursuit_code_change_status/);
-    assert.match(
-      source,
-      /'status',\s+CASE\s+WHEN v_has_changed_code OR v_remaining_changes <= 0 THEN 'locked'/s,
-    );
+    assert.match(source, /'status',\s+CASE\s+WHEN v_remaining_changes <= 0 THEN 'locked'/s);
     assert.match(
       source,
       /GRANT EXECUTE ON FUNCTION public\.get_fursuit_code_change_status\(uuid\)/,
@@ -128,8 +135,13 @@ describe('fursuit edit profile RPC', () => {
   it('renders locked catch codes as read-only in the edit screen', () => {
     const source = read('app/fursuits/[id]/edit.tsx');
 
-    assert.match(source, /fetchFursuitCodeChangeStatus/);
+    assert.match(
+      source,
+      /useQuery\(\{\s+enabled: Boolean\(fursuitId && userId && isOwner\),\s+queryKey: fursuitCodeChangeStatusQueryKey\(fursuitId \?\? '', userId\),\s+queryFn: async \(\) => \{\s+try \{\s+return await fetchFursuitCodeChangeStatus\(fursuitId \?\? ''\);/s,
+    );
     assert.match(source, /const isCodeChangeLocked = codeChangeStatus\?\.status === 'locked'/);
+    assert.match(source, /!isCodeChangeStatusLoading/);
+    assert.match(source, /codeChangeStatus\?\.status === 'available'/);
     assert.match(source, /editable=\{isCodeInputEditable\}/);
     assert.match(source, /Catch codes can be changed once\. This code is now set\./);
     assert.doesNotMatch(source, /unique_code: previousUniqueCode/);
