@@ -23,6 +23,8 @@ import {
   CAUGHT_SUITS_QUERY_KEY,
   FursuitBio,
   fetchFursuitDetail,
+  fetchFursuitCodeChangeStatus,
+  fursuitCodeChangeStatusQueryKey,
   fursuitDetailQueryKey,
   insertNextFursuitBioVersion,
   isFursuitUniqueCodeAvailable,
@@ -610,6 +612,21 @@ export default function EditFursuitScreen() {
     return detail.owner_id === userId;
   }, [detail, userId]);
 
+  const {
+    data: codeChangeStatus,
+    error: codeChangeStatusError,
+    isLoading: isCodeChangeStatusLoading,
+  } = useQuery({
+    enabled: Boolean(fursuitId && userId && isOwner),
+    queryKey: fursuitCodeChangeStatusQueryKey(fursuitId ?? '', userId),
+    queryFn: () => fetchFursuitCodeChangeStatus(fursuitId ?? ''),
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
+  const isCodeChangeLocked = codeChangeStatus?.status === 'locked';
+
   useEffect(() => {
     if (
       hasLoadedProfile &&
@@ -621,7 +638,12 @@ export default function EditFursuitScreen() {
   }, [canUseAdultsOnlyFursuitVisibility, hasLoadedProfile, selectedVisibilityAudience]);
 
   useEffect(() => {
-    if (!hasHydratedFormRef.current || !fursuitId || codeInput === initialCode) {
+    if (
+      !hasHydratedFormRef.current ||
+      !fursuitId ||
+      codeInput === initialCode ||
+      isCodeChangeLocked
+    ) {
       return;
     }
 
@@ -663,7 +685,7 @@ export default function EditFursuitScreen() {
         codeCheckTimeoutRef.current = null;
       }
     };
-  }, [codeInput, initialCode, fursuitId]);
+  }, [codeInput, initialCode, fursuitId, isCodeChangeLocked]);
 
   const makersCanAddMore = useMemo(() => makers.length < FURSUIT_MAKER_LIMIT, [makers.length]);
 
@@ -873,8 +895,18 @@ export default function EditFursuitScreen() {
     const codeChanged = normalizedCode !== initialCode;
 
     if (codeChanged) {
+      if (isCodeChangeLocked) {
+        setCodeError('Catch codes can be changed once. This code is now set.');
+        return;
+      }
+
+      if (codeChangeStatusError) {
+        setCodeError('Could not verify catch code change availability. Please try again.');
+        return;
+      }
+
       if (!isValidUniqueCodeInput(normalizedCode)) {
-        setCodeError('Catch code must be 4\u20138 letters or numbers.');
+        setCodeError('Catch code must be 4-8 letters or numbers.');
         return;
       }
 
@@ -924,7 +956,6 @@ export default function EditFursuitScreen() {
     const previousAvatarPath = detail.avatar_path ?? null;
     const previousAvatarUrl = detail.avatar_url;
     const previousVisibilityAudience = detail.visibility_audience;
-    const previousUniqueCode = detail.unique_code ?? null;
     const previousSocialSignal = detail.socialSignal;
     const previousInteractionBadges = detail.interactionBadges;
     const initialNormalizedMakers = fursuitMakersToSave(initialMakers);
@@ -1019,6 +1050,21 @@ export default function EditFursuitScreen() {
           uploadedAvatarPath = null;
         }
         setCodeError('That code is already taken. Try another.');
+        setSubmitError(null);
+        return;
+      }
+
+      if (updateResult.status === 'code_change_locked') {
+        if (uploadedAvatarPath) {
+          await removeStoragePath(
+            uploadedAvatarPath,
+            'Failed to clean up new fursuit avatar after locked code change',
+          );
+          uploadedAvatarPath = null;
+        }
+        setCodeInput(updateResult.uniqueCode);
+        setInitialCode(updateResult.uniqueCode);
+        setCodeError('Catch codes can be changed once. This code is now set.');
         setSubmitError(null);
         return;
       }
@@ -1143,6 +1189,9 @@ export default function EditFursuitScreen() {
 
       queryClient.invalidateQueries({
         queryKey: fursuitDetailQueryKey(fursuitId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: fursuitCodeChangeStatusQueryKey(fursuitId, userId),
       });
       queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
       queryClient.invalidateQueries({
@@ -1280,7 +1329,6 @@ export default function EditFursuitScreen() {
             owner_attribution_visibility: detail.ownerAttributionVisibility,
             social_signal: previousSocialSignal,
             interaction_badges: previousInteractionBadges,
-            unique_code: previousUniqueCode,
             avatar_path: previousAvatarPath,
             avatar_url: previousAvatarUrl,
           })
@@ -1307,6 +1355,12 @@ export default function EditFursuitScreen() {
   };
 
   const disableForm = isLoading || !detail || !isOwner || isSubmitting || isDeleting;
+  const isCodeInputEditable = !disableForm && !isCodeChangeLocked;
+  const codeChangeStatusMessage = isCodeChangeLocked
+    ? 'Catch codes can be changed once. This code is now set.'
+    : codeChangeStatusError
+      ? 'Could not verify catch code change availability. Please try again.'
+      : null;
   const hasSuitPhoto = Boolean(selectedPhoto || detail?.avatar_url);
 
   const handleConventionToggle = useCallback(
@@ -1966,13 +2020,17 @@ export default function EditFursuitScreen() {
                     value={codeInput}
                     onChangeText={(v) => setCodeInput(normalizeUniqueCodeInput(v))}
                     placeholder="Your unique catch code"
-                    editable={!disableForm}
+                    editable={isCodeInputEditable}
                     autoCapitalize="characters"
                     returnKeyType="next"
                     style={styles.codeInput}
                   />
                 </View>
-                {isCheckingCode ? (
+                {isCodeChangeStatusLoading ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : codeChangeStatusMessage ? (
+                  <Text style={styles.helperLabel}>{codeChangeStatusMessage}</Text>
+                ) : isCheckingCode ? (
                   <ActivityIndicator color={colors.primary} />
                 ) : codeError ? (
                   <Text style={styles.errorText}>{codeError}</Text>

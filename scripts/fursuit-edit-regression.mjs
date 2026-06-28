@@ -23,6 +23,19 @@ function fursuitProfileMigration() {
   };
 }
 
+function codeChangeLimitMigration() {
+  const file = readdirSync(migrationsDir)
+    .filter((candidate) => candidate.endsWith('_limit_fursuit_code_changes.sql'))
+    .sort();
+
+  assert.ok(file.length > 0, 'expected fursuit code change limit migration');
+
+  return {
+    file: file.at(-1),
+    source: read(join('supabase', 'migrations', file.at(-1))),
+  };
+}
+
 describe('fursuit edit profile RPC', () => {
   it('defines update_fursuit_profile in its migration', () => {
     const { file, source } = fursuitProfileMigration();
@@ -80,5 +93,45 @@ describe('fursuit edit profile RPC', () => {
     assert.doesNotMatch(saveSection, /\.from\('fursuits'\)\s*\.update\(/);
     assert.match(saveSection, /updateResult\.status === 'code_taken'/);
     assert.match(saveSection, /updateResult\.status === 'not_found'/);
+  });
+
+  it('enforces one catch code change through a server-side allowance ledger', () => {
+    const { source } = codeChangeLimitMigration();
+
+    assert.match(source, /CREATE TABLE IF NOT EXISTS public\.fursuit_code_change_allowances/);
+    assert.match(source, /source IN \('existing_fursuit', 'fursuit_created', 'admin_grant'\)/);
+    assert.match(source, /INSERT INTO public\.fursuit_code_change_allowances \(/);
+    assert.match(source, /CREATE TRIGGER fursuits_grant_code_change_allowance/);
+    assert.match(source, /CREATE TRIGGER fursuits_enforce_unique_code_change_limit/);
+    assert.match(source, /consumed_fursuit_id = OLD\.id/);
+    assert.match(source, /RAISE EXCEPTION 'fursuit_code_change_locked'/);
+    assert.match(source, /GRANT EXECUTE ON FUNCTION public\.grant_fursuit_code_change_allowance/);
+    assert.match(source, /TO service_role;/);
+  });
+
+  it('exposes catch code change status and returns locked code changes', () => {
+    const { source } = codeChangeLimitMigration();
+
+    assert.match(source, /CREATE OR REPLACE FUNCTION public\.get_fursuit_code_change_status/);
+    assert.match(
+      source,
+      /'status',\s+CASE\s+WHEN v_has_changed_code OR v_remaining_changes <= 0 THEN 'locked'/s,
+    );
+    assert.match(
+      source,
+      /GRANT EXECUTE ON FUNCTION public\.get_fursuit_code_change_status\(uuid\)/,
+    );
+    assert.match(source, /'status', 'code_change_locked'/);
+    assert.match(source, /WHEN raise_exception THEN\s+IF SQLERRM = 'fursuit_code_change_locked'/s);
+  });
+
+  it('renders locked catch codes as read-only in the edit screen', () => {
+    const source = read('app/fursuits/[id]/edit.tsx');
+
+    assert.match(source, /fetchFursuitCodeChangeStatus/);
+    assert.match(source, /const isCodeChangeLocked = codeChangeStatus\?\.status === 'locked'/);
+    assert.match(source, /editable=\{isCodeInputEditable\}/);
+    assert.match(source, /Catch codes can be changed once\. This code is now set\./);
+    assert.doesNotMatch(source, /unique_code: previousUniqueCode/);
   });
 });

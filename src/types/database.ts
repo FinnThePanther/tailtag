@@ -10,6 +10,11 @@ export type AttendanceState = "active" | "left" | "removed" | "finalized"
 export type RosterState = "active" | "removed" | "finalized"
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
   public: {
     Tables: {
       achievement_rules: {
@@ -1455,6 +1460,63 @@ export type Database = {
             columns: ["fursuit_id"]
             isOneToOne: false
             referencedRelation: "fursuits_moderation"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fursuit_code_change_allowances: {
+        Row: {
+          consumed_at: string | null
+          consumed_from_code: string | null
+          consumed_fursuit_id: string | null
+          consumed_to_code: string | null
+          granted_at: string
+          granted_by: string | null
+          granted_reason: string | null
+          id: string
+          owner_id: string
+          source: string
+          source_fursuit_id: string | null
+        }
+        Insert: {
+          consumed_at?: string | null
+          consumed_from_code?: string | null
+          consumed_fursuit_id?: string | null
+          consumed_to_code?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          granted_reason?: string | null
+          id?: string
+          owner_id: string
+          source: string
+          source_fursuit_id?: string | null
+        }
+        Update: {
+          consumed_at?: string | null
+          consumed_from_code?: string | null
+          consumed_fursuit_id?: string | null
+          consumed_to_code?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          granted_reason?: string | null
+          id?: string
+          owner_id?: string
+          source?: string
+          source_fursuit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fursuit_code_change_allowances_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fursuit_code_change_allowances_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3737,6 +3799,10 @@ export type Database = {
           is_redacted: boolean
         }[]
       }
+      get_fursuit_code_change_status: {
+        Args: { p_fursuit_id: string }
+        Returns: Json
+      }
       get_fursuit_convention_stats: {
         Args: { p_convention_id: string; p_fursuit_id: string }
         Returns: {
@@ -4015,6 +4081,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["user_role"]
       }
       grant_achievements_batch: { Args: { awards: Json }; Returns: Json }
+      grant_fursuit_code_change_allowance: {
+        Args: { p_owner_id: string; p_reason?: string }
+        Returns: string
+      }
       has_new_maker_for_catcher_at_convention: {
         Args: {
           p_catch_id: string
