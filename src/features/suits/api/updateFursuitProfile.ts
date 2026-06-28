@@ -16,6 +16,11 @@ export type UpdateFursuitProfileResult =
       uniqueCode: string;
     }
   | {
+      status: 'code_change_locked';
+      fursuitId: string;
+      uniqueCode: string;
+    }
+  | {
       status: 'not_found';
       fursuitId: string;
       uniqueCode: null;
@@ -67,7 +72,11 @@ const parseUpdateFursuitProfileResult = (value: unknown): UpdateFursuitProfileRe
     throw new Error('Malformed update_fursuit_profile response');
   }
 
-  if (result.status === 'updated' || result.status === 'code_taken') {
+  if (
+    result.status === 'updated' ||
+    result.status === 'code_taken' ||
+    result.status === 'code_change_locked'
+  ) {
     return {
       status: result.status,
       fursuitId,

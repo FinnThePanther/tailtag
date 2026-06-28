@@ -62,6 +62,12 @@ export {
 export { fetchFursuitMakersByFursuitIds } from './api/makers';
 export { insertNextFursuitBioVersion } from './api/bios';
 export { isFursuitUniqueCodeAvailable } from './api/codeAvailability';
+export {
+  fetchFursuitCodeChangeStatus,
+  FURSUIT_CODE_CHANGE_STATUS_QUERY_KEY,
+  fursuitCodeChangeStatusQueryKey,
+} from '@/features/suits/api/codeChangeStatus';
+export type { FursuitCodeChangeStatus } from '@/features/suits/api/codeChangeStatus';
 export { updateFursuitProfile } from '@/features/suits/api/updateFursuitProfile';
 export type {
   UpdateFursuitProfileInput,
