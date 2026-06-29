@@ -226,6 +226,12 @@ export async function fetchMySuits(
     .order('id', { ascending: false });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'suits.fetchMySuits.orderedFursuits',
+      userId,
+      includeUniqueCodes,
+      sortingPath: 'display_order_created_at_id',
+    });
     throw new Error(`We couldn't load your suits: ${error.message}`);
   }
 
