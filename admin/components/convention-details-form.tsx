@@ -38,8 +38,9 @@ export function ConventionDetailsForm({
   const [startDate, setStartDate] = useState(initialStartDate ?? '');
   const [endDate, setEndDate] = useState(initialEndDate ?? '');
   const [location, setLocation] = useState(initialLocation ?? '');
-  const [timezone, setTimezone] = useState(initialTimezone || 'UTC');
-  const timezoneGroups = getConventionTimezoneGroups(initialTimezone);
+  const normalizedInitialTimezone = initialTimezone?.trim() || 'UTC';
+  const [timezone, setTimezone] = useState(normalizedInitialTimezone);
+  const timezoneGroups = getConventionTimezoneGroups(normalizedInitialTimezone);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
