@@ -54,15 +54,23 @@ function codeAuditMigration() {
 }
 
 function fursuitDisplayOrderMigration() {
-  const file = readdirSync(migrationsDir)
-    .filter((candidate) => candidate.endsWith('_add_fursuit_display_order.sql'))
+  const files = readdirSync(migrationsDir)
+    .filter((candidate) => {
+      const source = read(join('supabase', 'migrations', candidate));
+
+      return (
+        candidate.endsWith('_add_fursuit_display_order.sql') ||
+        source.includes('CREATE OR REPLACE FUNCTION public.reorder_own_fursuits') ||
+        source.includes('CREATE OR REPLACE FUNCTION public.get_profile_fursuits')
+      );
+    })
     .sort();
 
-  assert.ok(file.length > 0, 'expected fursuit display order migration');
+  assert.ok(files.length > 0, 'expected fursuit display order migration');
 
   return {
-    file: file.at(-1),
-    source: read(join('supabase', 'migrations', file.at(-1))),
+    file: files.at(-1),
+    source: files.map((file) => read(join('supabase', 'migrations', file))).join('\n'),
   };
 }
 
