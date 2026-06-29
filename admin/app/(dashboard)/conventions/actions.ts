@@ -14,6 +14,7 @@ import {
   fetchConventionReadiness,
 } from '@/lib/convention-lifecycle';
 import { normalizeConventionTimezone } from '@/lib/convention-timezones';
+import { captureHandledException, captureSupabaseError } from '@/lib/sentry';
 
 const CONFIG_ROLES = ['owner', 'organizer'] as const;
 const CONTENT_ROLES = ['owner', 'organizer'] as const;
@@ -40,6 +41,21 @@ function actionErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unknown error';
 }
 
+function normalizeConventionTimezoneForAction(
+  timezone: string,
+  context: { scope: string; additionalContext: Record<string, unknown> },
+) {
+  try {
+    return normalizeConventionTimezone(timezone);
+  } catch (error) {
+    throw captureHandledException(error, {
+      scope: context.scope,
+      action: 'normalize-timezone',
+      additionalContext: context.additionalContext,
+    });
+  }
+}
+
 export async function createConventionAction(input: {
   name: string;
   slug: string;
@@ -54,7 +70,13 @@ export async function createConventionAction(input: {
 
   if (!input.name.trim()) throw new Error('Convention name is required.');
   validateSlug(input.slug);
-  const timezone = normalizeConventionTimezone(input.timezone);
+  const timezone = normalizeConventionTimezoneForAction(input.timezone, {
+    scope: 'conventions.create',
+    additionalContext: {
+      slug: input.slug,
+      timezone: input.timezone,
+    },
+  });
 
   const { data, error } = await supabase
     .from('conventions')
@@ -71,7 +93,14 @@ export async function createConventionAction(input: {
     .select('id')
     .single();
 
-  if (error) throw error;
+  if (error) {
+    throw captureSupabaseError(error, {
+      scope: 'conventions.create',
+      action: 'insert-convention',
+      slug: input.slug,
+      timezone,
+    });
+  }
 
   await logAudit({
     actorId: profile.id,
@@ -535,13 +564,27 @@ export async function updateConventionDetailsAction(input: {
 
   if (!input.name.trim()) throw new Error('Convention name is required.');
   validateSlug(input.slug);
-  const timezone = normalizeConventionTimezone(input.timezone);
+  const timezone = normalizeConventionTimezoneForAction(input.timezone, {
+    scope: 'conventions.update-details',
+    additionalContext: {
+      conventionId: input.conventionId,
+      timezone: input.timezone,
+    },
+  });
 
-  const { data: current } = await supabase
+  const { data: current, error: currentError } = await supabase
     .from('conventions')
     .select('name, slug, start_date, end_date, location, timezone')
     .eq('id', input.conventionId)
     .single();
+
+  if (currentError) {
+    throw captureSupabaseError(currentError, {
+      scope: 'conventions.update-details',
+      action: 'load-current-convention',
+      conventionId: input.conventionId,
+    });
+  }
 
   const payload = {
     name: input.name.trim(),
@@ -553,7 +596,14 @@ export async function updateConventionDetailsAction(input: {
   };
 
   const { error } = await supabase.from('conventions').update(payload).eq('id', input.conventionId);
-  if (error) throw error;
+  if (error) {
+    throw captureSupabaseError(error, {
+      scope: 'conventions.update-details',
+      action: 'update-convention-details',
+      conventionId: input.conventionId,
+      timezone,
+    });
+  }
 
   await logAudit({
     actorId: profile.id,
