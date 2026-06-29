@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -223,6 +224,7 @@ function ReorderRow({
 }
 
 export default function ReorderSuitsScreen() {
+  const navigation = useNavigation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -234,6 +236,7 @@ export default function ReorderSuitsScreen() {
   const dragStartIndexRef = useRef(0);
   const dragCurrentIndexRef = useRef(0);
   const draggingIdRef = useRef<string | null>(null);
+  const confirmedBackRef = useRef(false);
   const [orderedSuits, setOrderedSuits] = useState<FursuitSummary[]>([]);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -279,21 +282,50 @@ export default function ReorderSuitsScreen() {
     }
   }, [draggingId, isDirty, orderedSuits, suits]);
 
+  const confirmDiscardChanges = useCallback((onDiscard: () => void) => {
+    Alert.alert('Discard order changes?', 'Your saved fursuit order will stay the same.', [
+      { text: 'Keep editing', style: 'cancel' },
+      {
+        text: 'Discard',
+        style: 'destructive',
+        onPress: onDiscard,
+      },
+    ]);
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      if (!isDirty || isSaving) {
+        confirmedBackRef.current = false;
+        return;
+      }
+
+      if (confirmedBackRef.current) {
+        confirmedBackRef.current = false;
+        return;
+      }
+
+      event.preventDefault();
+      confirmDiscardChanges(() => {
+        confirmedBackRef.current = true;
+        navigation.dispatch(event.data.action);
+      });
+    });
+
+    return unsubscribe;
+  }, [confirmDiscardChanges, isDirty, isSaving, navigation]);
+
   const handleBack = useCallback(() => {
     if (!isDirty || isSaving) {
       router.back();
       return;
     }
 
-    Alert.alert('Discard order changes?', 'Your saved fursuit order will stay the same.', [
-      { text: 'Keep editing', style: 'cancel' },
-      {
-        text: 'Discard',
-        style: 'destructive',
-        onPress: () => router.back(),
-      },
-    ]);
-  }, [isDirty, isSaving, router]);
+    confirmDiscardChanges(() => {
+      confirmedBackRef.current = true;
+      router.back();
+    });
+  }, [confirmDiscardChanges, isDirty, isSaving, router]);
 
   const handleMove = useCallback((suitId: string, direction: -1 | 1) => {
     setSubmitError(null);
