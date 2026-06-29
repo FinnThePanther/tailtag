@@ -13,6 +13,7 @@ export const PUSH_NOTIFICATION_TYPES = [
   'catch_invite_reported',
   'daily_task_completed',
   'daily_all_complete',
+  'level_up',
   'convention_recap_ready',
 ] as const;
 
