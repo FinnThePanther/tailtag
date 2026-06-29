@@ -368,7 +368,7 @@ export const createMySuitsQueryOptions = (userId: string) => ({
 });
 
 export async function reorderMySuits(fursuitIds: string[]): Promise<void> {
-  const { error } = await (supabase as any).rpc('reorder_own_fursuits', {
+  const { error } = await supabase.rpc('reorder_own_fursuits', {
     p_fursuit_ids: fursuitIds,
   });
 
