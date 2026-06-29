@@ -14,9 +14,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppAvatar } from '../../../src/components/ui/AppAvatar';
-import { TailTagButton } from '../../../src/components/ui/TailTagButton';
-import { useAuth } from '../../../src/features/auth';
+import { styles } from '@/app-styles/(tabs)/suits/reorder.styles';
+import { AppAvatar } from '@/components/ui/AppAvatar';
+import { TailTagButton } from '@/components/ui/TailTagButton';
+import { useAuth } from '@/features/auth';
 import {
   fetchMySuits,
   MY_SUITS_QUERY_KEY,
@@ -24,11 +25,10 @@ import {
   mySuitsQueryKey,
   reorderMySuits,
   type FursuitSummary,
-} from '../../../src/features/suits';
-import { useToast } from '../../../src/hooks/useToast';
-import { getUserVisibleErrorMessage } from '../../../src/lib/userVisibleErrors';
-import { colors, spacing } from '../../../src/theme';
-import { styles } from '../../../src/app-styles/(tabs)/suits/reorder.styles';
+} from '@/features/suits';
+import { useToast } from '@/hooks/useToast';
+import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
+import { colors, spacing } from '@/theme';
 
 const ROW_HEIGHT = 88;
 const ROW_GAP = 12;
