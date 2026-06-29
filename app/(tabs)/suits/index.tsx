@@ -304,10 +304,10 @@ export default function MySuitsScreen() {
   const limitHelperText = expandedFursuitLimitEnabled
     ? isAtFursuitLimit
       ? "You've reached your fursuit limit. Delete one to add another."
-      : 'Add a new suit before you head to the floor.'
+      : `Add a new fursuit to be caught. Max of ${fursuitLimit} fursuits allowed`
     : isAtFursuitLimit
       ? `You have ${MAX_FURSUITS_PER_USER}/${MAX_FURSUITS_PER_USER} suits. Delete one to add another.`
-      : `Add a new suit before you head to the floor. (${suitCount}/${MAX_FURSUITS_PER_USER})`;
+      : `Add a new fursuit to be caught. Max of ${MAX_FURSUITS_PER_USER} fursuits allowed`;
   const combinedError = error
     ? getUserVisibleErrorMessage(error, "We couldn't load your fursuits.")
     : null;

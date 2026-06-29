@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CONTROL_VERSION = 'v1';
 
+// Keep this in src so hidden-suit privacy fixes ship through OTA-only releases.
 const hiddenSuitsVisibleKey = (userId: string) =>
   `tailtag:suits:hidden-visible:${CONTROL_VERSION}:${userId}`;
 

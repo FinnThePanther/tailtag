@@ -4,7 +4,7 @@ module.exports = {
   ignorePatterns: ['.expo/**', 'dist/**', 'build/**', 'node_modules/**', 'admin/**', 'docs/**'],
   overrides: [
     {
-      files: ['app/conventions/**/*.{ts,tsx}'],
+      files: ['app/conventions/**/*.{js,jsx,ts,tsx}'],
       rules: {
         'no-restricted-imports': [
           'error',
