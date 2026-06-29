@@ -13,6 +13,7 @@ import {
   ensureConventionDailies,
   fetchConventionReadiness,
 } from '@/lib/convention-lifecycle';
+import { normalizeConventionTimezone } from '@/lib/convention-timezones';
 
 const CONFIG_ROLES = ['owner', 'organizer'] as const;
 const CONTENT_ROLES = ['owner', 'organizer'] as const;
@@ -53,6 +54,7 @@ export async function createConventionAction(input: {
 
   if (!input.name.trim()) throw new Error('Convention name is required.');
   validateSlug(input.slug);
+  const timezone = normalizeConventionTimezone(input.timezone);
 
   const { data, error } = await supabase
     .from('conventions')
@@ -62,7 +64,7 @@ export async function createConventionAction(input: {
       start_date: input.startDate || null,
       end_date: input.endDate || null,
       location: input.location?.trim() || null,
-      timezone: input.timezone || 'UTC',
+      timezone,
       config: DEFAULT_CONFIG,
       status: 'draft',
     })
@@ -533,6 +535,7 @@ export async function updateConventionDetailsAction(input: {
 
   if (!input.name.trim()) throw new Error('Convention name is required.');
   validateSlug(input.slug);
+  const timezone = normalizeConventionTimezone(input.timezone);
 
   const { data: current } = await supabase
     .from('conventions')
@@ -546,7 +549,7 @@ export async function updateConventionDetailsAction(input: {
     start_date: input.startDate || null,
     end_date: input.endDate || null,
     location: input.location?.trim() || null,
-    timezone: input.timezone || 'UTC',
+    timezone,
   };
 
   const { error } = await supabase.from('conventions').update(payload).eq('id', input.conventionId);

@@ -3,23 +3,7 @@
 import { useState, useTransition } from 'react';
 
 import { createConventionAction } from '@/app/(dashboard)/conventions/actions';
-
-const TIMEZONES = [
-  'UTC',
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Phoenix',
-  'America/Anchorage',
-  'Pacific/Honolulu',
-  'Europe/London',
-  'Europe/Berlin',
-  'Europe/Paris',
-  'Asia/Tokyo',
-  'Asia/Sydney',
-  'Australia/Sydney',
-];
+import { CONVENTION_TIMEZONE_GROUPS } from '@/lib/convention-timezones';
 
 function toSlug(value: string) {
   return value
@@ -141,13 +125,20 @@ export function CreateConventionForm() {
             onChange={(e) => setTimezone(e.target.value)}
             className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary"
           >
-            {TIMEZONES.map((tz) => (
-              <option
-                key={tz}
-                value={tz}
+            {CONVENTION_TIMEZONE_GROUPS.map((group) => (
+              <optgroup
+                key={group.label}
+                label={group.label}
               >
-                {tz}
-              </option>
+                {group.options.map((option) => (
+                  <option
+                    key={option.value}
+                    value={option.value}
+                  >
+                    {option.label} ({option.value})
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
