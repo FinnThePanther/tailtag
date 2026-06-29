@@ -25,6 +25,11 @@ import {
   PAST_CONVENTION_RECAPS_QUERY_KEY,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
 } from '../../conventions';
+import {
+  featureFlagQueryKey,
+  isFeatureEnabledForProfile,
+  PLAYER_LEVELING_UI_FEATURE_KEY,
+} from '@/features/feature-flags';
 import { canOptimisticallyIncrementDailyTask } from '@/features/daily-tasks/optimisticProgress';
 import { invalidatePlayerLevelingQueries } from '@/features/player-leveling';
 import type { AchievementWithStatus } from '../api/achievements';
@@ -142,6 +147,8 @@ export function AchievementToastManager() {
   const surfacedDailyTaskKeysRef = useRef<Set<string>>(new Set());
   const surfacedDailyAllCompleteKeysRef = useRef<Set<string>>(new Set());
   const surfacedConventionRecapReadyKeysRef = useRef<Set<string>>(new Set());
+  const surfacedLevelUpNotificationIdsRef = useRef<Set<string>>(new Set());
+  const surfacedLevelUpDedupeUserRef = useRef<string | null>(null);
   const conventionRecapReadyDedupeUserRef = useRef<string | null>(null);
   const conventionRecapReadyDedupeLoadPromiseRef = useRef<Promise<void> | null>(null);
   const sessionStartedAtRef = useRef<string>(new Date().toISOString());
@@ -211,6 +218,17 @@ export function AchievementToastManager() {
       userId ? achievementsStatusQueryKey(userId) : (['achievements-status', 'guest'] as const),
     [userId],
   );
+  const { data: isPlayerLevelingUiEnabled = false, isLoading: isPlayerLevelingUiLoading } =
+    useQuery({
+      queryKey: userId
+        ? featureFlagQueryKey(PLAYER_LEVELING_UI_FEATURE_KEY, userId)
+        : [PLAYER_LEVELING_UI_FEATURE_KEY, 'guest'],
+      queryFn: () => isFeatureEnabledForProfile(PLAYER_LEVELING_UI_FEATURE_KEY, userId!),
+      enabled: Boolean(userId),
+      staleTime: 30_000,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    });
 
   const ensureConventionRecapReadyDedupeLoaded = useCallback(async (currentUserId: string) => {
     if (conventionRecapReadyDedupeUserRef.current === currentUserId) {
@@ -908,17 +926,21 @@ export function AchievementToastManager() {
       teardown();
       activeUserRef.current = null;
       channelInstanceRef.current = null;
+      surfacedLevelUpNotificationIdsRef.current.clear();
+      surfacedLevelUpDedupeUserRef.current = null;
       hasPrimedChannelRef.current = false;
       sessionStartedAtRef.current = new Date().toISOString();
       notificationCatchupCursorRef.current = sessionStartedAtRef.current;
       return;
     }
 
-    // Removed canSubscribe gate to prevent race condition:
-    // The subscription needs to be active immediately when user logs in
-    // so it can catch notifications that arrive while achievements are still loading.
-    // The snapshot-based detection (lines 123-154) handles achievements
-    // that were unlocked before the subscription became active.
+    if (isPlayerLevelingUiLoading) {
+      teardown();
+      return;
+    }
+
+    // The subscription starts after rollout state is known so level-up catch-up
+    // cannot mark notifications processed before deciding whether to surface them.
     hasPrimedChannelRef.current = true;
 
     if (activeUserRef.current === userId && channelRef.current) {
@@ -927,6 +949,11 @@ export function AchievementToastManager() {
 
     teardown();
     processedNotificationIdsRef.current.clear();
+
+    if (surfacedLevelUpDedupeUserRef.current !== userId) {
+      surfacedLevelUpNotificationIdsRef.current.clear();
+      surfacedLevelUpDedupeUserRef.current = userId;
+    }
 
     const instanceId = Math.random().toString(36).slice(2, 10);
     channelInstanceRef.current = instanceId;
@@ -1171,8 +1198,30 @@ export function AchievementToastManager() {
       })();
     };
 
-    const handleLevelUp = (payload: Record<string, unknown> | null) => {
+    const handleLevelUp = (
+      notificationId: string | null,
+      payload: Record<string, unknown> | null,
+    ) => {
+      if (notificationId && surfacedLevelUpNotificationIdsRef.current.has(notificationId)) {
+        return;
+      }
+
+      if (notificationId) {
+        const surfacedIds = surfacedLevelUpNotificationIdsRef.current;
+        surfacedIds.add(notificationId);
+        if (surfacedIds.size > 200) {
+          const iterator = surfacedIds.values().next();
+          if (!iterator.done && iterator.value) {
+            surfacedIds.delete(iterator.value);
+          }
+        }
+      }
+
       invalidatePlayerLevelingQueries(queryClient, userId);
+
+      if (isPlayerLevelingUiEnabled !== true) {
+        return;
+      }
 
       const levelAfter = readPayloadNumber(payload, 'level_after');
       if (!levelAfter || levelAfter < 2) {
@@ -1200,7 +1249,12 @@ export function AchievementToastManager() {
           .from('notifications')
           .select('id, created_at, type, payload, user_id')
           .eq('user_id', userId)
-          .in('type', ['achievement_awarded', 'level_up'])
+          .in(
+            'type',
+            isPlayerLevelingUiEnabled === true
+              ? ['achievement_awarded', 'level_up']
+              : ['achievement_awarded'],
+          )
           .gte('created_at', since)
           .order('created_at', { ascending: true })
           .limit(20);
@@ -1236,7 +1290,7 @@ export function AchievementToastManager() {
           if (row.type === 'achievement_awarded') {
             handleAchievementAwarded(notificationPayload, row.created_at);
           } else if (row.type === 'level_up') {
-            handleLevelUp(notificationPayload);
+            handleLevelUp(row.id, notificationPayload);
           }
         }
 
@@ -1672,7 +1726,7 @@ export function AchievementToastManager() {
             handleDailyAllComplete(notificationPayload);
             break;
           case 'level_up':
-            handleLevelUp(notificationPayload);
+            handleLevelUp(notificationId, notificationPayload);
             break;
           case 'convention_recap_ready':
             handleConventionRecapReady(notificationPayload);
@@ -1785,6 +1839,8 @@ export function AchievementToastManager() {
     ensureConventionRecapReadyDedupeLoaded,
     recordConventionRecapReadyToast,
     invalidateConventionRecaps,
+    isPlayerLevelingUiEnabled,
+    isPlayerLevelingUiLoading,
   ]);
 
   return null;
