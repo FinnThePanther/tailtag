@@ -112,6 +112,13 @@ export const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  sectionTitleBlock: {
+    flex: 1,
     gap: spacing.xs,
   },
   sectionTitle: {

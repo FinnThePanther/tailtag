@@ -1906,6 +1906,7 @@ export type Database = {
           catch_mode: string
           created_at: string | null
           description: string | null
+          display_order: number | null
           flagged_at: string | null
           flagged_reason: string | null
           id: string
@@ -1928,6 +1929,7 @@ export type Database = {
           catch_mode?: string
           created_at?: string | null
           description?: string | null
+          display_order?: number | null
           flagged_at?: string | null
           flagged_reason?: string | null
           id?: string
@@ -1950,6 +1952,7 @@ export type Database = {
           catch_mode?: string
           created_at?: string | null
           description?: string | null
+          display_order?: number | null
           flagged_at?: string | null
           flagged_reason?: string | null
           id?: string
@@ -4197,6 +4200,7 @@ export type Database = {
           color_assignments: Json
           created_at: string
           description: string
+          display_order: number
           fursuit_bio: Json
           fursuit_conventions: Json
           id: string
@@ -4556,6 +4560,10 @@ export type Database = {
       }
       remove_fursuit_from_convention: {
         Args: { p_convention_id: string; p_fursuit_id: string }
+        Returns: undefined
+      }
+      reorder_own_fursuits: {
+        Args: { p_fursuit_ids: string[] }
         Returns: undefined
       }
       replace_fursuit_makers: {
