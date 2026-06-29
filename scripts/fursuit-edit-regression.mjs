@@ -320,14 +320,30 @@ describe('fursuit edit profile RPC', () => {
 
   it('routes mobile reordering through the saved order RPC', () => {
     const apiSource = read('src/features/suits/api/mySuits.ts');
+    const orderOutboxSource = read('src/features/suits/api/mySuitsOrderOutbox.ts');
+    const orderSyncSource = read('src/features/suits/api/mySuitsOrderSync.ts');
     const reorderSource = read('app/(tabs)/suits/reorder.tsx');
     const indexSource = read('app/(tabs)/suits/index.tsx');
+    const rootLayoutSource = read('app/_layout.tsx');
 
     assert.match(apiSource, /export async function reorderMySuits/);
     assert.match(apiSource, /\.rpc\('reorder_own_fursuits'/);
     assert.match(apiSource, /\.order\('display_order', \{ ascending: true, nullsFirst: false \}\)/);
-    assert.match(reorderSource, /reorderMySuits\(nextOrder\.map\(\(suit\) => suit\.id\)\)/);
+    assert.match(apiSource, /applyPendingMySuitsOrder\(userId,/);
+    assert.match(orderOutboxSource, /tailtag:my-suits-order:v/);
+    assert.match(orderOutboxSource, /export async function queueMySuitsOrderSync/);
+    assert.match(orderSyncSource, /await reorderMySuits\(pending\.fursuitIds\)/);
+    assert.match(
+      orderSyncSource,
+      /nextAttemptAt: new Date\(Date\.now\(\) \+ backoffMs\(retryCount\)\)/,
+    );
+    assert.match(reorderSource, /<ScreenHeader/);
+    assert.match(reorderSource, /queueMySuitsOrderSync\(/);
+    assert.match(reorderSource, /syncMySuitsOrder\(\{ userId, queryClient \}\)/);
+    assert.doesNotMatch(reorderSource, /PanResponder/);
+    assert.doesNotMatch(reorderSource, /reorder-three/);
     assert.match(reorderSource, /ownerAttributionVisibility === 'hidden'/);
     assert.match(indexSource, /router\.push\('\/suits\/reorder'\)/);
+    assert.match(rootLayoutSource, /<MySuitsOrderSyncManager \/>/);
   });
 });

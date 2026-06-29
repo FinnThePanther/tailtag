@@ -3,38 +3,26 @@ import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  Animated,
-  PanResponder,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { styles } from '@/app-styles/(tabs)/suits/reorder.styles';
 import { AppAvatar } from '@/components/ui/AppAvatar';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { TailTagButton } from '@/components/ui/TailTagButton';
 import { useAuth } from '@/features/auth';
 import {
   fetchMySuits,
-  MY_SUITS_QUERY_KEY,
   MY_SUITS_STALE_TIME,
   mySuitsQueryKey,
-  reorderMySuits,
+  queueMySuitsOrderSync,
+  syncMySuitsOrder,
   type FursuitSummary,
 } from '@/features/suits';
 import { useToast } from '@/hooks/useToast';
 import { captureHandledException } from '@/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors, spacing } from '@/theme';
-
-const ROW_HEIGHT = 88;
-const ROW_GAP = 12;
-const ROW_STRIDE = ROW_HEIGHT + ROW_GAP;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -80,146 +68,121 @@ function withDisplayOrder(items: FursuitSummary[]) {
   }));
 }
 
+function formatCatchCount(catchCount: number) {
+  return `${catchCount} ${catchCount === 1 ? 'catch' : 'catches'}`;
+}
+
+function formatMakers(makers: FursuitSummary['makers']) {
+  if (makers.length === 0) {
+    return 'Maker not set';
+  }
+
+  const makerNames = makers.slice(0, 2).map((maker) => maker.name);
+  const extraCount = makers.length - makerNames.length;
+
+  return extraCount > 0 ? `${makerNames.join(', ')} +${extraCount}` : makerNames.join(', ');
+}
+
 type ReorderRowProps = {
   suit: FursuitSummary;
   index: number;
-  top: number;
   disabled: boolean;
-  isActive: boolean;
   isFirst: boolean;
   isLast: boolean;
-  dragY: Animated.Value;
-  onDragStart: (index: number, suitId: string) => void;
-  onDragMove: (dy: number) => void;
-  onDragEnd: () => void;
   onMove: (suitId: string, direction: -1 | 1) => void;
 };
 
-function ReorderRow({
-  suit,
-  index,
-  top,
-  disabled,
-  isActive,
-  isFirst,
-  isLast,
-  dragY,
-  onDragStart,
-  onDragMove,
-  onDragEnd,
-  onMove,
-}: ReorderRowProps) {
+function ReorderRow({ suit, index, disabled, isFirst, isLast, onMove }: ReorderRowProps) {
   const isHiddenSuit = suit.ownerAttributionVisibility === 'hidden';
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => !disabled,
-        onMoveShouldSetPanResponder: (_, gesture) =>
-          !disabled && (Math.abs(gesture.dy) > 2 || Math.abs(gesture.dx) > 2),
-        onPanResponderGrant: () => onDragStart(index, suit.id),
-        onPanResponderMove: (_, gesture) => onDragMove(gesture.dy),
-        onPanResponderRelease: onDragEnd,
-        onPanResponderTerminate: onDragEnd,
-      }),
-    [disabled, index, onDragEnd, onDragMove, onDragStart, suit.id],
-  );
+  const makers = formatMakers(suit.makers);
 
   return (
-    <Animated.View
-      style={[
-        styles.rowPosition,
-        {
-          top,
-          transform: isActive ? [{ translateY: dragY }] : undefined,
-          zIndex: isActive ? 10 : 1,
-          elevation: isActive ? 6 : 0,
-        },
-      ]}
-    >
-      <View style={[styles.row, isActive ? styles.rowActive : null]}>
-        <Text style={styles.rank}>{index + 1}</Text>
-        <AppAvatar
-          url={suit.avatar_url}
-          size="md"
-          fallback="fursuit"
-          accessibilityLabel={`${suit.name} avatar`}
-        />
-        <View style={styles.rowText}>
-          <View style={styles.nameLine}>
-            <Text
-              style={styles.name}
-              numberOfLines={1}
-            >
-              {suit.name}
-            </Text>
-            {isHiddenSuit ? (
-              <View
-                accessibilityLabel="Hidden suit"
-                style={styles.hiddenBadge}
-              >
-                <Text style={styles.hiddenBadgeText}>Hidden</Text>
-              </View>
-            ) : null}
-          </View>
+    <View style={styles.row}>
+      <Text style={styles.rank}>{index + 1}</Text>
+      <AppAvatar
+        url={suit.avatar_url}
+        size="md"
+        fallback="fursuit"
+        accessibilityLabel={`${suit.name} avatar`}
+      />
+      <View style={styles.rowText}>
+        <View style={styles.nameLine}>
           <Text
-            style={styles.species}
+            style={styles.name}
             numberOfLines={1}
           >
-            {suit.species ?? 'Species not set yet'}
+            {suit.name}
+          </Text>
+          {isHiddenSuit ? (
+            <View
+              accessibilityLabel="Hidden suit"
+              style={styles.hiddenBadge}
+            >
+              <Text style={styles.hiddenBadgeText}>Hidden</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text
+          style={styles.species}
+          numberOfLines={1}
+        >
+          {suit.species ?? 'Species not set yet'}
+        </Text>
+        <View style={styles.metaLine}>
+          <Text
+            style={styles.meta}
+            numberOfLines={1}
+          >
+            {makers}
+          </Text>
+          <Text style={styles.metaSeparator}>•</Text>
+          <Text
+            style={styles.meta}
+            numberOfLines={1}
+          >
+            {formatCatchCount(suit.catchCount)}
           </Text>
         </View>
-        <View style={styles.controls}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Move ${suit.name} up`}
-            disabled={disabled || isFirst}
-            hitSlop={8}
-            onPress={() => onMove(suit.id, -1)}
-            style={({ pressed }) => [
-              styles.iconButton,
-              (disabled || isFirst) && styles.iconButtonDisabled,
-              pressed && !disabled && !isFirst ? styles.iconButtonPressed : null,
-            ]}
-          >
-            <Ionicons
-              name="chevron-up"
-              size={18}
-              color={isFirst ? colors.textSubtle : colors.foreground}
-            />
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Move ${suit.name} down`}
-            disabled={disabled || isLast}
-            hitSlop={8}
-            onPress={() => onMove(suit.id, 1)}
-            style={({ pressed }) => [
-              styles.iconButton,
-              (disabled || isLast) && styles.iconButtonDisabled,
-              pressed && !disabled && !isLast ? styles.iconButtonPressed : null,
-            ]}
-          >
-            <Ionicons
-              name="chevron-down"
-              size={18}
-              color={isLast ? colors.textSubtle : colors.foreground}
-            />
-          </Pressable>
-          <View
-            accessibilityRole="adjustable"
-            accessibilityLabel={`Drag ${suit.name}`}
-            style={[styles.dragHandle, disabled ? styles.iconButtonDisabled : null]}
-            {...panResponder.panHandlers}
-          >
-            <Ionicons
-              name="reorder-three"
-              size={24}
-              color={disabled ? colors.textSubtle : colors.primary}
-            />
-          </View>
-        </View>
       </View>
-    </Animated.View>
+      <View style={styles.controls}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Move ${suit.name} up`}
+          disabled={disabled || isFirst}
+          hitSlop={8}
+          onPress={() => onMove(suit.id, -1)}
+          style={({ pressed }) => [
+            styles.iconButton,
+            (disabled || isFirst) && styles.iconButtonDisabled,
+            pressed && !disabled && !isFirst ? styles.iconButtonPressed : null,
+          ]}
+        >
+          <Ionicons
+            name="chevron-up"
+            size={18}
+            color={isFirst ? colors.textSubtle : colors.foreground}
+          />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Move ${suit.name} down`}
+          disabled={disabled || isLast}
+          hitSlop={8}
+          onPress={() => onMove(suit.id, 1)}
+          style={({ pressed }) => [
+            styles.iconButton,
+            (disabled || isLast) && styles.iconButtonDisabled,
+            pressed && !disabled && !isLast ? styles.iconButtonPressed : null,
+          ]}
+        >
+          <Ionicons
+            name="chevron-down"
+            size={18}
+            color={isLast ? colors.textSubtle : colors.foreground}
+          />
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -232,13 +195,8 @@ export default function ReorderSuitsScreen() {
   const { showToast } = useToast();
   const userId = session?.user.id ?? null;
   const suitsQueryKey = useMemo(() => mySuitsQueryKey(userId ?? 'guest'), [userId]);
-  const dragY = useRef(new Animated.Value(0)).current;
-  const dragStartIndexRef = useRef(0);
-  const dragCurrentIndexRef = useRef(0);
-  const draggingIdRef = useRef<string | null>(null);
   const confirmedBackRef = useRef(false);
   const [orderedSuits, setOrderedSuits] = useState<FursuitSummary[]>([]);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -259,10 +217,6 @@ export default function ReorderSuitsScreen() {
   });
 
   useEffect(() => {
-    if (draggingId) {
-      return;
-    }
-
     if (!isDirty) {
       if (orderedSuits !== suits) {
         setOrderedSuits(suits);
@@ -280,7 +234,7 @@ export default function ReorderSuitsScreen() {
     if (latestOrderedSuits.some((suit, index) => suit !== orderedSuits[index])) {
       setOrderedSuits(latestOrderedSuits);
     }
-  }, [draggingId, isDirty, orderedSuits, suits]);
+  }, [isDirty, orderedSuits, suits]);
 
   const confirmDiscardChanges = useCallback((onDiscard: () => void) => {
     Alert.alert('Discard order changes?', 'Your saved fursuit order will stay the same.', [
@@ -316,7 +270,11 @@ export default function ReorderSuitsScreen() {
   }, [confirmDiscardChanges, isDirty, isSaving, navigation]);
 
   const handleBack = useCallback(() => {
-    if (!isDirty || isSaving) {
+    if (isSaving) {
+      return;
+    }
+
+    if (!isDirty) {
       router.back();
       return;
     }
@@ -342,91 +300,44 @@ export default function ReorderSuitsScreen() {
     });
   }, []);
 
-  const handleDragStart = useCallback(
-    (index: number, suitId: string) => {
-      if (isSaving) {
-        return;
-      }
-
-      setSubmitError(null);
-      dragY.stopAnimation();
-      dragY.setValue(0);
-      dragStartIndexRef.current = index;
-      dragCurrentIndexRef.current = index;
-      draggingIdRef.current = suitId;
-      setDraggingId(suitId);
-    },
-    [dragY, isSaving],
-  );
-
-  const handleDragMove = useCallback(
-    (dy: number) => {
-      const suitId = draggingIdRef.current;
-      if (!suitId) {
-        return;
-      }
-
-      dragY.setValue(dy);
-      const targetIndex = clamp(
-        Math.round((dragStartIndexRef.current * ROW_STRIDE + dy) / ROW_STRIDE),
-        0,
-        orderedSuits.length - 1,
-      );
-
-      if (targetIndex === dragCurrentIndexRef.current) {
-        return;
-      }
-
-      setOrderedSuits((current) => {
-        const currentIndex = current.findIndex((item) => item.id === suitId);
-        if (currentIndex < 0) {
-          return current;
-        }
-
-        dragCurrentIndexRef.current = targetIndex;
-        setIsDirty(true);
-        return withDisplayOrder(moveItem(current, currentIndex, targetIndex));
-      });
-    },
-    [dragY, orderedSuits.length],
-  );
-
-  const handleDragEnd = useCallback(() => {
-    draggingIdRef.current = null;
-    setDraggingId(null);
-    dragY.setValue(0);
-  }, [dragY]);
-
   const handleSave = useCallback(async () => {
     if (!userId || orderedSuits.length < 2 || !isDirty || isSaving) {
       return;
     }
 
     const nextOrder = withDisplayOrder(orderedSuits);
-    const previous = queryClient.getQueryData<FursuitSummary[]>(suitsQueryKey);
+    const fursuitIds = nextOrder.map((suit) => suit.id);
 
     setIsSaving(true);
     setSubmitError(null);
-    await queryClient.cancelQueries({ queryKey: suitsQueryKey });
-    queryClient.setQueryData(suitsQueryKey, nextOrder);
 
     try {
-      await reorderMySuits(nextOrder.map((suit) => suit.id));
+      await queryClient.cancelQueries({ queryKey: suitsQueryKey });
+      queryClient.setQueryData(suitsQueryKey, nextOrder);
+      await queueMySuitsOrderSync({
+        userId,
+        fursuitIds,
+      });
       setOrderedSuits(nextOrder);
       setIsDirty(false);
       showToast('Fursuit order saved.');
-      await queryClient.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
+      confirmedBackRef.current = true;
       router.back();
+      void syncMySuitsOrder({ userId, queryClient }).catch((syncError) => {
+        captureHandledException(syncError, {
+          scope: 'suits.reorder.backgroundSyncAfterSave',
+          additionalContext: {
+            userId,
+            fursuitIds,
+          },
+        });
+      });
     } catch (saveError) {
-      if (previous) {
-        queryClient.setQueryData(suitsQueryKey, previous);
-      }
       captureHandledException(saveError, {
         scope: 'suits.reorder.save',
         additionalContext: {
           userId,
-          fursuitIds: nextOrder.map((suit) => suit.id),
-          previousFursuitIds: previous?.map((suit) => suit.id) ?? null,
+          fursuitIds,
         },
       });
       setSubmitError(getUserVisibleErrorMessage(saveError, "We couldn't save your order."));
@@ -441,56 +352,37 @@ export default function ReorderSuitsScreen() {
     : null;
 
   return (
-    <View
-      style={[
-        styles.screen,
-        {
-          paddingTop: insets.top + spacing.lg,
-          paddingBottom: insets.bottom + spacing.lg,
-        },
-      ]}
-    >
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          disabled={isSaving}
-          hitSlop={8}
-          onPress={handleBack}
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && !isSaving ? styles.iconButtonPressed : null,
-          ]}
-        >
-          <Ionicons
-            name="chevron-back"
-            size={22}
-            color={colors.foreground}
-          />
-        </Pressable>
-        <View style={styles.headerText}>
-          <Text style={styles.eyebrow}>Your suits</Text>
-          <Text style={styles.title}>Fursuit order</Text>
-        </View>
-        <TailTagButton
-          size="sm"
-          loading={isSaving}
-          disabled={!hasSuitsToReorder || !isDirty || isSaving}
-          onPress={handleSave}
-        >
-          Save
-        </TailTagButton>
-      </View>
+    <View style={styles.screen}>
+      <ScreenHeader
+        title="Fursuit order"
+        onBack={handleBack}
+        right={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Save fursuit order"
+            disabled={!hasSuitsToReorder || !isDirty || isSaving}
+            onPress={handleSave}
+            hitSlop={8}
+            style={({ pressed }) => [
+              pressed && !isSaving && isDirty ? styles.headerButtonPressed : null,
+              (!hasSuitsToReorder || !isDirty || isSaving) && styles.headerButtonDisabled,
+            ]}
+          >
+            <Text style={styles.headerButton}>{isSaving ? 'Saving' : 'Save'}</Text>
+          </Pressable>
+        }
+      />
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        scrollEnabled={!draggingId}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + spacing.xxl },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={() => void refetch()}
-            enabled={!draggingId}
             tintColor={colors.primary}
           />
         }
@@ -509,34 +401,20 @@ export default function ReorderSuitsScreen() {
             </TailTagButton>
           </View>
         ) : hasSuitsToReorder ? (
-          <>
+          <View style={styles.list}>
             {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
-            <View
-              style={[styles.listStage, { height: orderedSuits.length * ROW_STRIDE - ROW_GAP }]}
-            >
-              {orderedSuits.map((suit, index) => (
-                <ReorderRow
-                  key={suit.id}
-                  suit={suit}
-                  index={index}
-                  top={
-                    draggingId === suit.id
-                      ? dragStartIndexRef.current * ROW_STRIDE
-                      : index * ROW_STRIDE
-                  }
-                  disabled={isSaving}
-                  isActive={draggingId === suit.id}
-                  isFirst={index === 0}
-                  isLast={index === orderedSuits.length - 1}
-                  dragY={dragY}
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onMove={handleMove}
-                />
-              ))}
-            </View>
-          </>
+            {orderedSuits.map((suit, index) => (
+              <ReorderRow
+                key={suit.id}
+                suit={suit}
+                index={index}
+                disabled={isSaving}
+                isFirst={index === 0}
+                isLast={index === orderedSuits.length - 1}
+                onMove={handleMove}
+              />
+            ))}
+          </View>
         ) : (
           <Text style={styles.message}>Add another fursuit before changing the order.</Text>
         )}

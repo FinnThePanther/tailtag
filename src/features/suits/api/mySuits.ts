@@ -19,6 +19,7 @@ import {
   normalizeInteractionBadges,
   normalizeSocialSignal,
 } from '@/features/interaction-preferences';
+import { applyPendingMySuitsOrder } from './mySuitsOrderOutbox';
 
 type ProfileFursuitsRpcRow =
   Database['public']['Functions']['get_profile_fursuits']['Returns'][number];
@@ -140,7 +141,7 @@ export async function fetchMySuits(
       throw new Error(`We couldn't load fursuits: ${error.message}`);
     }
 
-    return mapFursuitRows(data ?? [], false);
+    return applyPendingMySuitsOrder(userId, await mapFursuitRows(data ?? [], false));
   }
 
   const { data, error } = await client
@@ -235,7 +236,7 @@ export async function fetchMySuits(
     throw new Error(`We couldn't load your suits: ${error.message}`);
   }
 
-  return mapFursuitRows(data ?? [], includeUniqueCodes);
+  return applyPendingMySuitsOrder(userId, await mapFursuitRows(data ?? [], includeUniqueCodes));
 }
 
 async function mapFursuitRows(

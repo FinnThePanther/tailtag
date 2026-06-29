@@ -6,58 +6,28 @@ export const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingHorizontal: spacing.lg,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  backButton: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderDefault,
-    backgroundColor: colors.surfaceCard,
-  },
-  headerText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  eyebrow: {
+  headerButton: {
     color: colors.primary,
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '700',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
   },
-  title: {
-    color: colors.foreground,
-    fontSize: 24,
-    fontWeight: '700',
+  headerButtonPressed: {
+    opacity: 0.5,
+  },
+  headerButtonDisabled: {
+    opacity: 0.45,
   },
   scroll: {
     flex: 1,
-    marginTop: spacing.lg,
   },
   scrollContent: {
-    paddingBottom: spacing.xxl,
+    padding: spacing.lg,
+  },
+  list: {
     gap: spacing.md,
   },
-  listStage: {
-    position: 'relative',
-  },
-  rowPosition: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 88,
-  },
   row: {
-    minHeight: 88,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
@@ -66,10 +36,6 @@ export const styles = StyleSheet.create({
     borderColor: colors.borderDefault,
     backgroundColor: colors.surfaceCard,
     padding: spacing.md,
-  },
-  rowActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.surfaceCardStrong,
   },
   rank: {
     width: 24,
@@ -99,6 +65,20 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 13,
   },
+  metaLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  meta: {
+    flexShrink: 1,
+    color: colors.textSubtle,
+    fontSize: 12,
+  },
+  metaSeparator: {
+    color: colors.textSubtle,
+    fontSize: 12,
+  },
   hiddenBadge: {
     borderRadius: radius.sm,
     borderWidth: StyleSheet.hairlineWidth,
@@ -120,14 +100,6 @@ export const styles = StyleSheet.create({
   iconButton: {
     width: 32,
     height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceInset,
-  },
-  dragHandle: {
-    width: 38,
-    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,

@@ -32,6 +32,9 @@ export {
   createMySuitsQueryOptions,
   createMySuitsCountQueryOptions,
 } from '@/features/suits/api/mySuits';
+export { queueMySuitsOrderSync } from '@/features/suits/api/mySuitsOrderOutbox';
+export { syncMySuitsOrder } from '@/features/suits/api/mySuitsOrderSync';
+export { MySuitsOrderSyncManager } from '@/features/suits/components/MySuitsOrderSyncManager';
 export type { FursuitSummary, FursuitBio, FursuitMaker } from './types';
 export {
   fetchCaughtSuits,
