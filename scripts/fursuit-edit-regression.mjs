@@ -53,6 +53,19 @@ function codeAuditMigration() {
   };
 }
 
+function fursuitDisplayOrderMigration() {
+  const file = readdirSync(migrationsDir)
+    .filter((candidate) => candidate.endsWith('_add_fursuit_display_order.sql'))
+    .sort();
+
+  assert.ok(file.length > 0, 'expected fursuit display order migration');
+
+  return {
+    file: file.at(-1),
+    source: read(join('supabase', 'migrations', file.at(-1))),
+  };
+}
+
 describe('fursuit edit profile RPC', () => {
   it('defines update_fursuit_profile in its migration', () => {
     const { file, source } = fursuitProfileMigration();
@@ -266,5 +279,47 @@ describe('fursuit edit profile RPC', () => {
     assert.match(source, /current_setting\('tailtag\.client_platform', true\)/);
     assert.match(source, /v_supports_code_invalid_response/);
     assert.match(source, /jsonb_build_object\('source', 'update_fursuit_profile'/);
+  });
+
+  it('persists owned fursuit display order through guarded database primitives', () => {
+    const { source } = fursuitDisplayOrderMigration();
+
+    assert.match(source, /ALTER TABLE public\.fursuits\s+ADD COLUMN IF NOT EXISTS display_order/s);
+    assert.match(source, /PARTITION BY owner_id\s+ORDER BY created_at DESC NULLS LAST, id DESC/s);
+    assert.match(source, /CREATE TRIGGER set_new_fursuit_display_order/);
+    assert.match(source, /coalesce\(min\(display_order\) - 1, 0\)/);
+    assert.match(source, /CREATE OR REPLACE FUNCTION public\.reorder_own_fursuits/);
+    assert.match(source, /v_viewer_id uuid := auth\.uid\(\)/);
+    assert.match(source, /FOR UPDATE/);
+    assert.match(source, /count\(DISTINCT requested\.fursuit_id\)/);
+    assert.match(source, /Fursuit order must include every owned fursuit exactly once/);
+    assert.match(
+      source,
+      /GRANT EXECUTE ON FUNCTION public\.reorder_own_fursuits\(uuid\[\]\) TO authenticated/,
+    );
+  });
+
+  it('orders profile fursuit reads by saved display order', () => {
+    const { source } = fursuitDisplayOrderMigration();
+
+    assert.match(source, /display_order integer/);
+    assert.match(source, /f\.display_order/);
+    assert.match(
+      source,
+      /ORDER BY f\.display_order ASC NULLS LAST, f\.created_at DESC NULLS LAST, f\.id DESC/,
+    );
+  });
+
+  it('routes mobile reordering through the saved order RPC', () => {
+    const apiSource = read('src/features/suits/api/mySuits.ts');
+    const reorderSource = read('app/(tabs)/suits/reorder.tsx');
+    const indexSource = read('app/(tabs)/suits/index.tsx');
+
+    assert.match(apiSource, /export async function reorderMySuits/);
+    assert.match(apiSource, /\.rpc\('reorder_own_fursuits'/);
+    assert.match(apiSource, /\.order\('display_order', \{ ascending: true, nullsFirst: false \}\)/);
+    assert.match(reorderSource, /reorderMySuits\(nextOrder\.map\(\(suit\) => suit\.id\)\)/);
+    assert.match(reorderSource, /ownerAttributionVisibility === 'hidden'/);
+    assert.match(indexSource, /router\.push\('\/suits\/reorder'\)/);
   });
 });

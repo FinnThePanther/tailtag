@@ -23,6 +23,7 @@ export {
 export {
   fetchMySuits,
   fetchMySuitsCount,
+  reorderMySuits,
   MY_SUITS_QUERY_KEY,
   MY_SUITS_COUNT_QUERY_KEY,
   MY_SUITS_STALE_TIME,

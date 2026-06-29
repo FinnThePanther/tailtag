@@ -34,6 +34,12 @@ export default function SuitsLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="reorder"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }
