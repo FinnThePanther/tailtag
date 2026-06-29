@@ -38,14 +38,6 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function arrayIdsEqual(left: FursuitSummary[], right: FursuitSummary[]) {
-  if (left.length !== right.length) {
-    return false;
-  }
-
-  return left.every((item, index) => item.id === right[index]?.id);
-}
-
 function sameIdSet(left: FursuitSummary[], right: FursuitSummary[]) {
   if (left.length !== right.length) {
     return false;
@@ -53,6 +45,15 @@ function sameIdSet(left: FursuitSummary[], right: FursuitSummary[]) {
 
   const rightIds = new Set(right.map((item) => item.id));
   return left.every((item) => rightIds.has(item.id));
+}
+
+function mergeLatestSuitData(
+  orderedItems: FursuitSummary[],
+  latestItems: FursuitSummary[],
+): FursuitSummary[] {
+  const latestById = new Map(latestItems.map((item) => [item.id, item]));
+
+  return orderedItems.map((item) => latestById.get(item.id) ?? item);
 }
 
 function moveItem<T>(items: T[], fromIndex: number, toIndex: number) {
@@ -258,13 +259,22 @@ export default function ReorderSuitsScreen() {
       return;
     }
 
-    if (!isDirty || !sameIdSet(orderedSuits, suits)) {
-      if (!arrayIdsEqual(orderedSuits, suits)) {
+    if (!isDirty) {
+      if (orderedSuits !== suits) {
         setOrderedSuits(suits);
       }
-      if (isDirty && !sameIdSet(orderedSuits, suits)) {
-        setIsDirty(false);
-      }
+      return;
+    }
+
+    if (!sameIdSet(orderedSuits, suits)) {
+      setOrderedSuits(suits);
+      setIsDirty(false);
+      return;
+    }
+
+    const latestOrderedSuits = mergeLatestSuitData(orderedSuits, suits);
+    if (latestOrderedSuits.some((suit, index) => suit !== orderedSuits[index])) {
+      setOrderedSuits(latestOrderedSuits);
     }
   }, [draggingId, isDirty, orderedSuits, suits]);
 
