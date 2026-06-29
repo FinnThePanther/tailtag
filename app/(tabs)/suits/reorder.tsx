@@ -27,6 +27,7 @@ import {
   type FursuitSummary,
 } from '@/features/suits';
 import { useToast } from '@/hooks/useToast';
+import { captureHandledException } from '@/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors, spacing } from '@/theme';
 
@@ -388,6 +389,14 @@ export default function ReorderSuitsScreen() {
       if (previous) {
         queryClient.setQueryData(suitsQueryKey, previous);
       }
+      captureHandledException(saveError, {
+        scope: 'suits.reorder.save',
+        additionalContext: {
+          userId,
+          fursuitIds: nextOrder.map((suit) => suit.id),
+          previousFursuitIds: previous?.map((suit) => suit.id) ?? null,
+        },
+      });
       setSubmitError(getUserVisibleErrorMessage(saveError, "We couldn't save your order."));
     } finally {
       setIsSaving(false);
