@@ -27,6 +27,11 @@ SET search_path TO public, pg_temp
 AS $function$
 BEGIN
   IF NEW.display_order IS NULL THEN
+    PERFORM 1
+    FROM public.profiles p
+    WHERE p.id = NEW.owner_id
+    FOR UPDATE;
+
     SELECT coalesce(min(display_order) - 1, 0)
     INTO NEW.display_order
     FROM public.fursuits
