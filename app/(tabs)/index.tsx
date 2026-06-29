@@ -73,10 +73,16 @@ import {
 } from '../../src/features/suits';
 import { useAllDataReady } from '../../src/hooks/useAllDataReady';
 import { useToast } from '../../src/hooks/useToast';
+import { getMaxFursuitsForFeatureState } from '@/constants/fursuits';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import { colors, spacing } from '../../src/theme';
 import { getStorageAuthHeaders, getTransformedImageUrl } from '../../src/utils/supabase-image';
 import { styles } from '../../src/app-styles/(tabs)/index.styles';
+import {
+  EXPANDED_FURSUIT_LIMIT_FEATURE_KEY,
+  featureFlagQueryKey,
+  isFeatureEnabledForProfile,
+} from '@/features/feature-flags';
 import {
   REDACTED_FURSUIT_LABEL,
   REDACTED_PLAYER_LABEL,
@@ -335,6 +341,18 @@ export default function HomeScreen() {
     () => mySuitsQuery.data ?? (mySuitsQuery.isError ? undefined : []),
     [mySuitsQuery.data, mySuitsQuery.isError],
   );
+  const { data: expandedFursuitLimitEnabled = false } = useQuery({
+    queryKey: userId
+      ? featureFlagQueryKey(EXPANDED_FURSUIT_LIMIT_FEATURE_KEY, userId)
+      : [EXPANDED_FURSUIT_LIMIT_FEATURE_KEY, 'guest'],
+    queryFn: () => isFeatureEnabledForProfile(EXPANDED_FURSUIT_LIMIT_FEATURE_KEY, userId!),
+    enabled: Boolean(userId),
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const isAtFursuitLimit =
+    (mySuits?.length ?? 0) >= getMaxFursuitsForFeatureState(expandedFursuitLimitEnabled);
 
   const maxContentWidth = useMemo(() => {
     const safeWidth = Number.isFinite(windowWidth) ? windowWidth : 0;
@@ -1033,6 +1051,7 @@ export default function HomeScreen() {
             <TailTagButton
               variant="outline"
               onPress={() => router.push('/suits/add-fursuit')}
+              disabled={isAtFursuitLimit}
               size="lg"
             >
               Add your suit
