@@ -27,6 +27,15 @@ Create `admin/.env.local` from `admin/.env.example` for local admin development.
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes for server actions | Yes | Admin server actions | Required for privileged operational workflows. Never expose client-side. |
 | `MAPBOX_ACCESS_TOKEN` | Required for geocoding features | Yes | Admin geocoding API route | Used by convention geofence workflows. |
 
+## Hosted landing site
+
+The Astro landing site in `web/` reads public Supabase values at build time. These must be present in the Vercel project environment for production and preview deployments.
+
+| Variable | Required locally | Secret | Used by | Notes |
+| --- | --- | --- | --- | --- |
+| `PUBLIC_SUPABASE_URL` | No for static-only local pages | No | Event suggestion and password reset pages | Public Supabase project URL. |
+| `PUBLIC_SUPABASE_ANON_KEY` | No for static-only local pages | No | Event suggestion and password reset pages | Public anon key for browser-safe Supabase access. |
+
 ## Supabase Edge Functions
 
 Set Edge Function secrets through Supabase, not in committed files.

@@ -313,6 +313,18 @@ jobs:
           source "$env_file"
           set +a
 
+          missing=0
+          for name in PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_ANON_KEY; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::${name} is required to deploy the landing page."
+              missing=1
+            fi
+          done
+
+          if [[ "$missing" -ne 0 ]]; then
+            exit "$missing"
+          fi
+
           if [[ "$VERCEL_ENVIRONMENT" == "production" ]]; then
             npx --yes vercel@"$VERCEL_CLI_VERSION" build --prod --token="$VERCEL_TOKEN"
           else
