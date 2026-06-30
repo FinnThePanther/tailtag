@@ -6,8 +6,8 @@
  * - SUPABASE_URL: Supabase project URL
  * - SERVICE_ROLE_KEY: Service role key (or SUPABASE_SERVICE_ROLE_KEY) for privileged inserts
  */
-// eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions use remote esm.sh imports.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+// eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions resolve Supabase JS through Deno npm imports.
+import { createClient } from 'npm:@supabase/supabase-js@2.45.1';
 import {
   ingestGameplayEvent,
   loadGameplayQueueConfig,

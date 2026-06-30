@@ -7,7 +7,7 @@
  */
 
 // eslint-disable-next-line import/no-unresolved -- Deno edge functions import via remote URL
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+import { createClient } from 'npm:@supabase/supabase-js@2.45.1';
 import { loadGameplayQueueConfig, scheduleGameplayQueueDrain } from '../_shared/gameplayQueue.ts';
 
 const corsHeaders: Record<string, string> = {
