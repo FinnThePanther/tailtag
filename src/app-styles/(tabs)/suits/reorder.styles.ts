@@ -65,20 +65,6 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 13,
   },
-  metaLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  meta: {
-    flexShrink: 1,
-    color: colors.textSubtle,
-    fontSize: 12,
-  },
-  metaSeparator: {
-    color: colors.textSubtle,
-    fontSize: 12,
-  },
   hiddenBadge: {
     borderRadius: radius.sm,
     borderWidth: StyleSheet.hairlineWidth,

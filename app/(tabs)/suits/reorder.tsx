@@ -68,21 +68,6 @@ function withDisplayOrder(items: FursuitSummary[]) {
   }));
 }
 
-function formatCatchCount(catchCount: number) {
-  return `${catchCount} ${catchCount === 1 ? 'catch' : 'catches'}`;
-}
-
-function formatMakers(makers: FursuitSummary['makers']) {
-  if (makers.length === 0) {
-    return 'Maker not set';
-  }
-
-  const makerNames = makers.slice(0, 2).map((maker) => maker.name);
-  const extraCount = makers.length - makerNames.length;
-
-  return extraCount > 0 ? `${makerNames.join(', ')} +${extraCount}` : makerNames.join(', ');
-}
-
 type ReorderRowProps = {
   suit: FursuitSummary;
   index: number;
@@ -94,7 +79,6 @@ type ReorderRowProps = {
 
 function ReorderRow({ suit, index, disabled, isFirst, isLast, onMove }: ReorderRowProps) {
   const isHiddenSuit = suit.ownerAttributionVisibility === 'hidden';
-  const makers = formatMakers(suit.makers);
 
   return (
     <View style={styles.row}>
@@ -128,21 +112,6 @@ function ReorderRow({ suit, index, disabled, isFirst, isLast, onMove }: ReorderR
         >
           {suit.species ?? 'Species not set yet'}
         </Text>
-        <View style={styles.metaLine}>
-          <Text
-            style={styles.meta}
-            numberOfLines={1}
-          >
-            {makers}
-          </Text>
-          <Text style={styles.metaSeparator}>•</Text>
-          <Text
-            style={styles.meta}
-            numberOfLines={1}
-          >
-            {formatCatchCount(suit.catchCount)}
-          </Text>
-        </View>
       </View>
       <View style={styles.controls}>
         <Pressable
