@@ -1,7 +1,5 @@
-import type { QueryClient } from '@tanstack/react-query';
-
 import { captureHandledException } from '@/lib/sentry';
-import { MY_SUITS_QUERY_KEY, mySuitsQueryKey, reorderMySuits } from './mySuits';
+import { reorderMySuits } from './mySuits';
 import {
   loadPendingMySuitsOrder,
   type PendingMySuitsOrder,
@@ -32,12 +30,8 @@ function isSamePendingOrder(left: PendingMySuitsOrder, right: PendingMySuitsOrde
   );
 }
 
-export async function syncMySuitsOrder(options: {
-  userId: string | null;
-  queryClient?: QueryClient;
-  force?: boolean;
-}) {
-  const { userId, queryClient, force = false } = options;
+export async function syncMySuitsOrder(options: { userId: string | null; force?: boolean }) {
+  const { userId, force = false } = options;
   if (!userId || isSyncing) {
     return;
   }
@@ -60,8 +54,6 @@ export async function syncMySuitsOrder(options: {
     await updatePendingMySuitsOrder(userId, (item) =>
       isSamePendingOrder(item, pending) ? null : item,
     );
-    void queryClient?.invalidateQueries({ queryKey: mySuitsQueryKey(userId) });
-    void queryClient?.invalidateQueries({ queryKey: [MY_SUITS_QUERY_KEY, userId] });
   } catch (error) {
     const retryCount = pending.retryCount + 1;
     await updatePendingMySuitsOrder(userId, (item) =>

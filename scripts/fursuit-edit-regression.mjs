@@ -333,13 +333,14 @@ describe('fursuit edit profile RPC', () => {
     assert.match(orderOutboxSource, /tailtag:my-suits-order:v/);
     assert.match(orderOutboxSource, /export async function queueMySuitsOrderSync/);
     assert.match(orderSyncSource, /await reorderMySuits\(pending\.fursuitIds\)/);
+    assert.doesNotMatch(orderSyncSource, /invalidateQueries/);
     assert.match(
       orderSyncSource,
       /nextAttemptAt: new Date\(Date\.now\(\) \+ backoffMs\(retryCount\)\)/,
     );
     assert.match(reorderSource, /<ScreenHeader/);
     assert.match(reorderSource, /queueMySuitsOrderSync\(/);
-    assert.match(reorderSource, /syncMySuitsOrder\(\{ userId, queryClient \}\)/);
+    assert.match(reorderSource, /syncMySuitsOrder\(\{ userId \}\)/);
     assert.doesNotMatch(reorderSource, /PanResponder/);
     assert.doesNotMatch(reorderSource, /reorder-three/);
     assert.match(reorderSource, /ownerAttributionVisibility === 'hidden'/);

@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
-import { useQueryClient } from '@tanstack/react-query';
-
 import { useAuth } from '@/features/auth';
 import { syncMySuitsOrder } from '@/features/suits/api/mySuitsOrderSync';
 
@@ -10,7 +8,6 @@ const FOREGROUND_SYNC_THROTTLE_MS = 5 * 1000;
 
 export function MySuitsOrderSyncManager() {
   const { session } = useAuth();
-  const queryClient = useQueryClient();
   const userId = session?.user.id ?? null;
   const lastForegroundSyncAtRef = useRef(0);
 
@@ -18,10 +15,9 @@ export function MySuitsOrderSyncManager() {
     (options?: { force?: boolean }) =>
       syncMySuitsOrder({
         userId,
-        queryClient,
         force: options?.force,
       }),
-    [queryClient, userId],
+    [userId],
   );
 
   useEffect(() => {

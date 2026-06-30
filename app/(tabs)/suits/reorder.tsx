@@ -323,7 +323,7 @@ export default function ReorderSuitsScreen() {
       showToast('Fursuit order saved.');
       confirmedBackRef.current = true;
       router.back();
-      void syncMySuitsOrder({ userId, queryClient }).catch((syncError) => {
+      void syncMySuitsOrder({ userId }).catch((syncError) => {
         captureHandledException(syncError, {
           scope: 'suits.reorder.backgroundSyncAfterSave',
           additionalContext: {
