@@ -40,6 +40,7 @@ export type FursuitSummary = {
   avatar_path?: string | null;
   avatar_url: string | null;
   description: string | null;
+  colorDetails: string | null;
   unique_code: string | null;
   visibility_audience: VisibilityAudience;
   ownerAttributionVisibility: 'public' | 'hidden';

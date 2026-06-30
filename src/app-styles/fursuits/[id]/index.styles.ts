@@ -67,6 +67,12 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 2,
   },
+  leadColorDetails: {
+    color: colors.textSubtle,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: spacing.xs,
+  },
   leadTimeline: {
     color: colors.textSubtle,
     fontSize: 12,
