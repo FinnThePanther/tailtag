@@ -11,18 +11,26 @@ import { AppState, type AppStateStatus } from 'react-native';
 
 import type { Session } from '@supabase/supabase-js';
 
-import { supabase } from '../../../lib/supabase';
+import { registerForceSignOut, unregisterForceSignOut } from '@/lib/authErrorHandler';
 import {
   addMonitoringBreadcrumb,
   captureCriticalError,
   captureNonCriticalError,
   captureSupabaseError,
   setUser,
-} from '../../../lib/sentry';
-import { registerForceSignOut, unregisterForceSignOut } from '../../../lib/authErrorHandler';
+} from '@/lib/sentry';
+import { supabase } from '@/lib/supabase';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
-
-type AuthStatus = 'loading' | 'checking_session' | 'signed_in' | 'signed_out';
+import {
+  applyAuthStateChange,
+  applyResolvedSession,
+  beginForegroundSessionCheck,
+  completeSessionResolution,
+  createAuthResumeState,
+  setIntentionalSignOut,
+  type AuthResumeState,
+  type AuthStatus,
+} from './authResumeState';
 
 type AuthContextValue = {
   session: Session | null;
@@ -39,25 +47,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [error, setError] = useState<string | null>(null);
-  const sessionRef = useRef<Session | null>(null);
-  const statusRef = useRef<AuthStatus>('loading');
-  const isRevalidatingSessionRef = useRef(false);
-  const pendingSignedOutDuringCheckRef = useRef(false);
-  const intentionalSignOutRef = useRef(false);
+  const authStateRef = useRef<AuthResumeState<Session>>(
+    createAuthResumeState<Session>(null, 'loading'),
+  );
   const isMountedRef = useRef(false);
 
-  const setAuthState = useCallback((nextSession: Session | null, nextStatus: AuthStatus) => {
+  const commitAuthState = useCallback((nextAuthState: AuthResumeState<Session>) => {
+    authStateRef.current = nextAuthState;
+
     if (!isMountedRef.current) {
       return;
     }
 
-    sessionRef.current = nextSession;
-    statusRef.current = nextStatus;
+    const nextSession = nextAuthState.session;
 
     supabase.realtime.setAuth(nextSession?.access_token ?? '');
 
     setSession(nextSession);
-    setStatus(nextStatus);
+    setStatus(nextAuthState.status);
     setUser(
       nextSession?.user
         ? {
@@ -70,39 +77,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const applySession = useCallback(
     (nextSession: Session | null) => {
-      pendingSignedOutDuringCheckRef.current = false;
-      setAuthState(nextSession, nextSession ? 'signed_in' : 'signed_out');
+      commitAuthState(applyResolvedSession(authStateRef.current, nextSession));
       setError(null);
     },
-    [setAuthState],
+    [commitAuthState],
   );
 
-  const enterSessionCheck = useCallback((source: string) => {
-    if (!sessionRef.current || statusRef.current === 'checking_session') {
-      return;
-    }
+  const enterSessionCheck = useCallback(
+    (source: string) => {
+      const previousState = authStateRef.current;
+      if (previousState.status === 'checking_session') {
+        return;
+      }
 
-    statusRef.current = 'checking_session';
-    setStatus('checking_session');
+      const nextState = beginForegroundSessionCheck(previousState);
+      commitAuthState(nextState);
 
-    addMonitoringBreadcrumb({
-      category: 'auth',
-      message: 'Checking existing session',
-      data: {
-        source,
-        userId: sessionRef.current.user.id,
-      },
-    });
-  }, []);
+      if (!previousState.session) {
+        return;
+      }
+
+      addMonitoringBreadcrumb({
+        category: 'auth',
+        message: 'Checking existing session',
+        data: {
+          source,
+          userId: previousState.session.user.id,
+        },
+      });
+    },
+    [commitAuthState],
+  );
 
   const resolveSession = useCallback(
     async (source: 'initial' | 'foreground') => {
-      const hadSession = Boolean(sessionRef.current);
-
       if (source === 'foreground') {
         enterSessionCheck(source);
-        isRevalidatingSessionRef.current = true;
-        pendingSignedOutDuringCheckRef.current = false;
       }
 
       addMonitoringBreadcrumb({
@@ -132,8 +142,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             source === 'foreground' ? 'non-critical' : 'critical',
           );
 
-          if (source === 'foreground' && hadSession && !pendingSignedOutDuringCheckRef.current) {
-            setAuthState(sessionRef.current, 'signed_in');
+          if (
+            source === 'foreground' &&
+            authStateRef.current.session &&
+            !authStateRef.current.pendingSignedOutDuringCheck
+          ) {
+            commitAuthState(completeSessionResolution(authStateRef.current, source, null).state);
             setError(getUserVisibleErrorMessage(sessionError, 'Unable to refresh auth session.'));
             return;
           }
@@ -143,7 +157,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        applySession(activeSession ?? null);
+        const { state: resolvedState } = completeSessionResolution(
+          authStateRef.current,
+          source,
+          activeSession ?? null,
+        );
+        commitAuthState(resolvedState);
+        setError(null);
 
         addMonitoringBreadcrumb({
           category: 'auth',
@@ -164,22 +184,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           source,
         });
 
-        if (source === 'foreground' && hadSession && !pendingSignedOutDuringCheckRef.current) {
-          setAuthState(sessionRef.current, 'signed_in');
+        if (
+          source === 'foreground' &&
+          authStateRef.current.session &&
+          !authStateRef.current.pendingSignedOutDuringCheck
+        ) {
+          commitAuthState(completeSessionResolution(authStateRef.current, source, null).state);
           setError(getUserVisibleErrorMessage(caughtError, 'Unable to refresh auth session.'));
           return;
         }
 
         applySession(null);
         setError(getUserVisibleErrorMessage(caughtError, 'Unable to resolve auth session.'));
-      } finally {
-        if (source === 'foreground') {
-          isRevalidatingSessionRef.current = false;
-          pendingSignedOutDuringCheckRef.current = false;
-        }
       }
     },
-    [applySession, enterSessionCheck, setAuthState],
+    [applySession, commitAuthState, enterSessionCheck],
   );
 
   useEffect(() => {
@@ -195,13 +214,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (
-        event === 'SIGNED_OUT' &&
-        isRevalidatingSessionRef.current &&
-        sessionRef.current &&
-        !intentionalSignOutRef.current
-      ) {
-        pendingSignedOutDuringCheckRef.current = true;
+      const transition = applyAuthStateChange(authStateRef.current, event, nextSession);
+      authStateRef.current = transition.state;
+
+      if (transition.deferred) {
         enterSessionCheck('auth-state-change');
 
         addMonitoringBreadcrumb({
@@ -209,13 +225,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           message: 'Deferring signed-out event during session check',
           data: {
             event,
-            userId: sessionRef.current.user.id,
+            userId: transition.state.session?.user.id ?? null,
           },
         });
         return;
       }
 
-      applySession(nextSession);
+      commitAuthState(transition.state);
+      setError(null);
 
       addMonitoringBreadcrumb({
         category: 'auth',
@@ -232,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isMountedRef.current = false;
       subscription.unsubscribe();
     };
-  }, [applySession, enterSessionCheck, resolveSession]);
+  }, [commitAuthState, enterSessionCheck, resolveSession]);
 
   useEffect(() => {
     const captureAutoRefreshError = (caught: unknown, action: 'start' | 'stop') => {
@@ -330,14 +347,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       message: 'User sign-out',
     });
 
-    intentionalSignOutRef.current = true;
-    pendingSignedOutDuringCheckRef.current = false;
+    authStateRef.current = setIntentionalSignOut(authStateRef.current, true);
 
     try {
       const { error: signOutError } = await supabase.auth.signOut();
 
       if (signOutError) {
-        intentionalSignOutRef.current = false;
+        authStateRef.current = setIntentionalSignOut(authStateRef.current, false);
         captureSupabaseError(
           signOutError,
           {
@@ -350,10 +366,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       applySession(null);
-      intentionalSignOutRef.current = false;
+      authStateRef.current = setIntentionalSignOut(authStateRef.current, false);
       return { error: null };
     } catch (caughtError) {
-      intentionalSignOutRef.current = false;
+      authStateRef.current = setIntentionalSignOut(authStateRef.current, false);
       captureCriticalError(caughtError, {
         scope: 'auth.signOut',
         action: 'unexpected',
@@ -368,8 +384,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       message: 'Force sign-out',
     });
 
-    intentionalSignOutRef.current = true;
-    pendingSignedOutDuringCheckRef.current = false;
+    authStateRef.current = setIntentionalSignOut(authStateRef.current, true);
 
     const authWithInternals = supabase.auth as unknown as {
       _removeSession?: () => Promise<unknown>;
@@ -399,7 +414,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     } finally {
       applySession(null);
-      intentionalSignOutRef.current = false;
+      authStateRef.current = setIntentionalSignOut(authStateRef.current, false);
     }
   }, [applySession]);
 

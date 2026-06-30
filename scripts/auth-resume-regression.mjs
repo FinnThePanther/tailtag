@@ -3,76 +3,147 @@ import { describe, it } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import vm from 'node:vm';
+import ts from 'typescript';
 
 const scriptsDir = dirname(fileURLToPath(import.meta.url));
 const root = join(scriptsDir, '..');
+const require = createRequire(import.meta.url);
 
-function read(path) {
-  return readFileSync(join(root, path), 'utf8');
+function loadTypeScriptModule(path) {
+  const source = readFileSync(join(root, path), 'utf8');
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  });
+  const module = { exports: {} };
+  const context = vm.createContext({
+    exports: module.exports,
+    module,
+    require,
+  });
+
+  vm.runInContext(outputText, context, { filename: path });
+  return module.exports;
 }
 
-function typescriptFunctionBody(source, name) {
-  let start = source.indexOf(`function ${name}`);
-  if (start === -1) {
-    start = source.indexOf(`const ${name} =`);
-  }
-  assert.notEqual(start, -1, `expected ${name} to be defined`);
+const {
+  applyAuthStateChange,
+  beginForegroundSessionCheck,
+  completeSessionResolution,
+  createAuthResumeState,
+  setIntentionalSignOut,
+  shouldRedirectToAuth,
+} = loadTypeScriptModule('src/features/auth/providers/authResumeState.ts');
 
-  const bodyStart = source.indexOf('{', start);
-  assert.notEqual(bodyStart, -1, `expected ${name} to have a body`);
+const signedInSession = {
+  access_token: 'access-token-1',
+  user: { id: 'user-1', email: 'user@example.com' },
+};
 
-  let depth = 0;
-  for (let index = bodyStart; index < source.length; index += 1) {
-    const char = source[index];
-    if (char === '{') depth += 1;
-    if (char === '}') {
-      depth -= 1;
-      if (depth === 0) {
-        return source.slice(bodyStart, index + 1);
-      }
-    }
-  }
+const refreshedSession = {
+  access_token: 'access-token-2',
+  user: { id: 'user-1', email: 'user@example.com' },
+};
 
-  throw new Error(`Could not locate body for ${name}`);
-}
+describe('Auth warm resume behavior', () => {
+  it('enters checking_session on foreground resume without clearing the current session', () => {
+    const initialState = createAuthResumeState(signedInSession, 'signed_in');
+    const checkingState = beginForegroundSessionCheck(initialState);
 
-describe('Auth warm resume routing', () => {
-  it('keeps a foreground session-checking state distinct from signed out', () => {
-    const source = read('src/features/auth/providers/AuthProvider.tsx');
-
-    assert.match(
-      source,
-      /type AuthStatus = 'loading' \| 'checking_session' \| 'signed_in' \| 'signed_out'/,
+    assert.equal(checkingState.status, 'checking_session');
+    assert.equal(checkingState.session, signedInSession);
+    assert.equal(checkingState.isRevalidatingSession, true);
+    assert.equal(
+      shouldRedirectToAuth(checkingState.status, Boolean(checkingState.session), false),
+      false,
     );
-    assert.match(source, /isRevalidatingSessionRef/);
-    assert.match(source, /pendingSignedOutDuringCheckRef/);
-    assert.match(source, /event === 'SIGNED_OUT'/);
-    assert.match(source, /Deferring signed-out event during session check/);
   });
 
-  it('manages Supabase auto refresh from React Native AppState', () => {
-    const source = read('src/features/auth/providers/AuthProvider.tsx');
+  it('preserves the last confirmed session when foreground getSession briefly returns null', () => {
+    const checkingState = beginForegroundSessionCheck(
+      createAuthResumeState(signedInSession, 'signed_in'),
+    );
+    const { state, preservedSession } = completeSessionResolution(
+      checkingState,
+      'foreground',
+      null,
+    );
 
-    assert.match(source, /AppState\.addEventListener\('change', handleAppStateChange\)/);
-    assert.match(source, /supabase\.auth\.startAutoRefresh\(\)/);
-    assert.match(source, /supabase\.auth\.stopAutoRefresh\(\)/);
-    assert.match(source, /nextState === 'active'/);
-    assert.match(source, /resolveSession\('foreground'\)/);
+    assert.equal(preservedSession, true);
+    assert.equal(state.status, 'signed_in');
+    assert.equal(state.session, signedInSession);
+    assert.equal(state.isRevalidatingSession, false);
+    assert.equal(shouldRedirectToAuth(state.status, Boolean(state.session), false), false);
   });
 
-  it('only redirects to auth after a stable signed-out state', () => {
-    const source = read('app/_layout.tsx');
+  it('applies a refreshed foreground session when Supabase returns one', () => {
+    const checkingState = beginForegroundSessionCheck(
+      createAuthResumeState(signedInSession, 'signed_in'),
+    );
+    const { state, preservedSession } = completeSessionResolution(
+      checkingState,
+      'foreground',
+      refreshedSession,
+    );
 
-    assert.doesNotMatch(source, /if \(!session && !inPublicAuthFlow\)/);
-    assert.match(source, /status === 'signed_out' && !session && !inPublicAuthFlow/);
+    assert.equal(preservedSession, false);
+    assert.equal(state.status, 'signed_in');
+    assert.equal(state.session, refreshedSession);
+    assert.equal(state.isRevalidatingSession, false);
+    assert.equal(shouldRedirectToAuth(state.status, Boolean(state.session), false), false);
   });
 
-  it('keeps explicit settings sign-out immediate through the auth provider', () => {
-    const source = read('app/(tabs)/settings.tsx');
-    const handleSignOutBody = typescriptFunctionBody(source, 'handleSignOut');
+  it('only moves to signed_out after a deferred sign-out event is confirmed by foreground resolution', () => {
+    const checkingState = beginForegroundSessionCheck(
+      createAuthResumeState(signedInSession, 'signed_in'),
+    );
+    const deferred = applyAuthStateChange(checkingState, 'SIGNED_OUT', null);
 
-    assert.match(source, /const \{ session, signOut, forceSignOut \} = useAuth\(\)/);
-    assert.match(handleSignOutBody, /await signOut\(\)/);
-    assert.doesNotMatch(handleSignOutBody, /supabase\.auth\.signOut\(\)/);
+    assert.equal(deferred.deferred, true);
+    assert.equal(deferred.state.status, 'checking_session');
+    assert.equal(deferred.state.session, signedInSession);
+    assert.equal(deferred.state.pendingSignedOutDuringCheck, true);
+    assert.equal(
+      shouldRedirectToAuth(deferred.state.status, Boolean(deferred.state.session), false),
+      false,
+    );
+
+    const confirmed = completeSessionResolution(deferred.state, 'foreground', null);
+
+    assert.equal(confirmed.preservedSession, false);
+    assert.equal(confirmed.state.status, 'signed_out');
+    assert.equal(confirmed.state.session, null);
+    assert.equal(
+      shouldRedirectToAuth(confirmed.state.status, Boolean(confirmed.state.session), false),
+      true,
+    );
+  });
+
+  it('keeps explicit sign-out immediate instead of deferring during a foreground check', () => {
+    const checkingState = beginForegroundSessionCheck(
+      createAuthResumeState(signedInSession, 'signed_in'),
+    );
+    const intentionalState = setIntentionalSignOut(checkingState, true);
+    const signedOut = applyAuthStateChange(intentionalState, 'SIGNED_OUT', null);
+
+    assert.equal(signedOut.deferred, false);
+    assert.equal(signedOut.state.status, 'signed_out');
+    assert.equal(signedOut.state.session, null);
+    assert.equal(
+      shouldRedirectToAuth(signedOut.state.status, Boolean(signedOut.state.session), false),
+      true,
+    );
+  });
+
+  it('does not redirect auth/public flows or active session checks to auth', () => {
+    assert.equal(shouldRedirectToAuth('signed_out', false, true), false);
+    assert.equal(shouldRedirectToAuth('checking_session', false, false), false);
+    assert.equal(shouldRedirectToAuth('signed_in', true, false), false);
+    assert.equal(shouldRedirectToAuth('signed_out', false, false), true);
   });
 });

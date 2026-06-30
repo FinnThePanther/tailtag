@@ -17,6 +17,7 @@ import {
 } from '@tanstack/react-query';
 
 import { AuthProvider, useAuth, usePrimeUserData } from '../src/features/auth';
+import { shouldRedirectToAuth } from '@/features/auth/providers/authResumeState';
 import { NavigationReadyProvider, useSetNavigationReady } from '../src/hooks/useNavigationReady';
 import { OtaUpdateProvider } from '../src/hooks/useOtaUpdateCheck';
 import { createProfileQueryOptions } from '../src/features/profile';
@@ -242,7 +243,7 @@ function RootLayoutNav() {
 
   let redirectHref: Href | null = null;
 
-  if (status === 'signed_out' && !session && !inPublicAuthFlow) {
+  if (shouldRedirectToAuth(status, Boolean(session), inPublicAuthFlow)) {
     redirectHref = '/auth';
   } else if (
     !inResetPasswordFlow &&
@@ -533,7 +534,7 @@ function RootLayoutNav() {
   }
 
   // Not signed in: ensure we're in the auth stack.
-  if (status === 'signed_out' && !session && !inPublicAuthFlow) {
+  if (shouldRedirectToAuth(status, Boolean(session), inPublicAuthFlow)) {
     return <Redirect href="/auth" />;
   }
 
