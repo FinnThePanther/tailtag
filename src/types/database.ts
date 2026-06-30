@@ -2711,76 +2711,42 @@ export type Database = {
       }
       tags: {
         Row: {
-          catch_count: number
-          disabled_at: string | null
-          disabled_by: string | null
-          expires_at: string | null
           fursuit_id: string | null
           id: string
-          label: string | null
-          last_scanned_at: string | null
           linked_at: string | null
           qr_asset_path: string | null
-          qr_token: string | null
+          qr_token: string
           qr_token_created_at: string | null
-          qr_token_hash: string | null
           registered_at: string
           registered_by_user_id: string | null
-          replaced_by_tag_id: string | null
-          scan_count: number
           status: string
           updated_at: string
         }
         Insert: {
-          catch_count?: number
-          disabled_at?: string | null
-          disabled_by?: string | null
-          expires_at?: string | null
           fursuit_id?: string | null
           id?: string
-          label?: string | null
-          last_scanned_at?: string | null
           linked_at?: string | null
           qr_asset_path?: string | null
-          qr_token?: string | null
+          qr_token: string
           qr_token_created_at?: string | null
-          qr_token_hash?: string | null
           registered_at?: string
           registered_by_user_id?: string | null
-          replaced_by_tag_id?: string | null
-          scan_count?: number
           status?: string
           updated_at?: string
         }
         Update: {
-          catch_count?: number
-          disabled_at?: string | null
-          disabled_by?: string | null
-          expires_at?: string | null
           fursuit_id?: string | null
           id?: string
-          label?: string | null
-          last_scanned_at?: string | null
           linked_at?: string | null
           qr_asset_path?: string | null
-          qr_token?: string | null
+          qr_token?: string
           qr_token_created_at?: string | null
-          qr_token_hash?: string | null
           registered_at?: string
           registered_by_user_id?: string | null
-          replaced_by_tag_id?: string | null
-          scan_count?: number
           status?: string
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "tags_disabled_by_fkey"
-            columns: ["disabled_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "tags_fursuit_id_fkey"
             columns: ["fursuit_id"]
@@ -2800,13 +2766,6 @@ export type Database = {
             columns: ["registered_by_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tags_replaced_by_tag_id_fkey"
-            columns: ["replaced_by_tag_id"]
-            isOneToOne: false
-            referencedRelation: "tags"
             referencedColumns: ["id"]
           },
         ]
@@ -3334,20 +3293,6 @@ export type Database = {
         }
         Returns: Json
       }
-      attach_fursuit_qr_asset: {
-        Args: { p_asset_path: string; p_tag_id: string }
-        Returns: {
-          qr_asset_path: string
-          tag_id: string
-        }[]
-      }
-      attach_fursuit_qr_asset_without_feature_gate: {
-        Args: { p_asset_path: string; p_tag_id: string }
-        Returns: {
-          qr_asset_path: string
-          tag_id: string
-        }[]
-      }
       award_owned_fursuit_catch_xp_once: {
         Args: {
           p_catch_id: string
@@ -3410,10 +3355,6 @@ export type Database = {
         Args: { p_catcher_id: string; p_fursuit_id: string }
         Returns: boolean
       }
-      can_manage_qr_asset_object: {
-        Args: { p_object_name: string; p_viewer_id: string }
-        Returns: boolean
-      }
       can_view_catch_photo_object: {
         Args: { p_object_name: string; p_viewer_id: string }
         Returns: boolean
@@ -3444,10 +3385,6 @@ export type Database = {
       }
       can_view_profile_avatar_object: {
         Args: { p_object_name: string; p_viewer_id: string }
-        Returns: boolean
-      }
-      can_view_public_qr_fursuit_avatar_object: {
-        Args: { p_object_name: string }
         Returns: boolean
       }
       catch_invite_expiration: {
@@ -3652,32 +3589,6 @@ export type Database = {
         }
         Returns: Json
       }
-      create_fursuit_qr_code: {
-        Args: { p_fursuit_id: string; p_label?: string }
-        Returns: {
-          created_at: string
-          fursuit_id: string
-          label: string
-          qr_asset_path: string
-          qr_token: string
-          qr_url: string
-          status: string
-          tag_id: string
-        }[]
-      }
-      create_fursuit_qr_code_without_feature_gate: {
-        Args: { p_fursuit_id: string; p_label?: string }
-        Returns: {
-          created_at: string
-          fursuit_id: string
-          label: string
-          qr_asset_path: string
-          qr_token: string
-          qr_url: string
-          status: string
-          tag_id: string
-        }[]
-      }
       current_user_has_password_credential: { Args: never; Returns: boolean }
       decline_catch_invite: {
         Args: { p_claimant_profile_id: string; p_invite_id: string }
@@ -3702,22 +3613,6 @@ export type Database = {
           catcher_id: string
           last_seen: string
           scan_count: number
-        }[]
-      }
-      disable_fursuit_qr_code: {
-        Args: { p_tag_id: string }
-        Returns: {
-          disabled_at: string
-          status: string
-          tag_id: string
-        }[]
-      }
-      disable_fursuit_qr_code_without_feature_gate: {
-        Args: { p_tag_id: string }
-        Returns: {
-          disabled_at: string
-          status: string
-          tag_id: string
         }[]
       }
       dismiss_nearby_convention_setup_reminder: {
@@ -3763,7 +3658,6 @@ export type Database = {
         Args: { app_meta: Json; user_email: string; user_meta: Json }
         Returns: string
       }
-      generate_qr_token: { Args: never; Returns: string }
       get_active_profile_convention_ids: {
         Args: { p_profile_id: string }
         Returns: {
@@ -4243,11 +4137,6 @@ export type Database = {
         Returns: boolean
       }
       hash_ip_address: { Args: { ip_addr: unknown }; Returns: string }
-      hash_qr_token: { Args: { p_token: string }; Returns: string }
-      increment_qr_tag_counters: {
-        Args: { p_count_catch?: boolean; p_tag_id: string }
-        Returns: undefined
-      }
       ingest_gameplay_event: {
         Args: {
           p_convention_id: string
@@ -4299,10 +4188,6 @@ export type Database = {
         Args: { p_body?: Json; p_function_name: string }
         Returns: undefined
       }
-      is_active_qr_tag_status: {
-        Args: { p_disabled_at: string; p_expires_at: string; p_status: string }
-        Returns: boolean
-      }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_admin_user: { Args: { check_user_id: string }; Returns: boolean }
       is_adult_profile: { Args: { p_profile_id: string }; Returns: boolean }
@@ -4350,10 +4235,6 @@ export type Database = {
         Args: { check_user_id: string }
         Returns: boolean
       }
-      is_printable_fursuit_qr_enabled_for_profile: {
-        Args: { p_profile_id: string }
-        Returns: boolean
-      }
       is_profile_convention_gallery_catch_eligible: {
         Args: { p_convention_id: string; p_profile_id: string }
         Returns: boolean
@@ -4371,42 +4252,6 @@ export type Database = {
       leave_convention: {
         Args: { p_convention_id: string; p_profile_id: string }
         Returns: undefined
-      }
-      list_fursuit_qr_codes: {
-        Args: { p_fursuit_id: string }
-        Returns: {
-          catch_count: number
-          created_at: string
-          disabled_at: string
-          expires_at: string
-          fursuit_id: string
-          label: string
-          last_scanned_at: string
-          linked_at: string
-          qr_asset_path: string
-          replaced_by_tag_id: string
-          scan_count: number
-          status: string
-          tag_id: string
-        }[]
-      }
-      list_fursuit_qr_codes_without_feature_gate: {
-        Args: { p_fursuit_id: string }
-        Returns: {
-          catch_count: number
-          created_at: string
-          disabled_at: string
-          expires_at: string
-          fursuit_id: string
-          label: string
-          last_scanned_at: string
-          linked_at: string
-          qr_asset_path: string
-          replaced_by_tag_id: string
-          scan_count: number
-          status: string
-          tag_id: string
-        }[]
       }
       log_admin_action: {
         Args: {
@@ -4429,7 +4274,6 @@ export type Database = {
         Args: { p_action: string; p_convention_id: string; p_source?: string }
         Returns: undefined
       }
-      normalize_qr_label: { Args: { p_label: string }; Returns: string }
       notify_catch_decision: {
         Args: {
           p_catch_id: string
@@ -4570,34 +4414,6 @@ export type Database = {
         Args: { fursuit_id: string; makers?: Json }
         Returns: undefined
       }
-      replace_fursuit_qr_code: {
-        Args: { p_tag_id: string }
-        Returns: {
-          created_at: string
-          fursuit_id: string
-          label: string
-          old_tag_id: string
-          qr_asset_path: string
-          qr_token: string
-          qr_url: string
-          status: string
-          tag_id: string
-        }[]
-      }
-      replace_fursuit_qr_code_without_feature_gate: {
-        Args: { p_tag_id: string }
-        Returns: {
-          created_at: string
-          fursuit_id: string
-          label: string
-          old_tag_id: string
-          qr_asset_path: string
-          qr_token: string
-          qr_url: string
-          status: string
-          tag_id: string
-        }[]
-      }
       replace_fursuit_species_assignments: {
         Args: { p_fursuit_id: string; p_species_ids: string[] }
         Returns: undefined
@@ -4619,19 +4435,6 @@ export type Database = {
           p_reason?: string
         }
         Returns: Json
-      }
-      require_printable_fursuit_qr_feature: { Args: never; Returns: undefined }
-      resolve_fursuit_qr_preview: {
-        Args: { p_qr_token: string }
-        Returns: {
-          fursuit_avatar_path: string
-          fursuit_avatar_url: string
-          fursuit_id: string
-          fursuit_name: string
-          result: string
-          species_name: string
-          valid: boolean
-        }[]
       }
       run_player_leveling_backfill: {
         Args: never
@@ -4728,10 +4531,6 @@ export type Database = {
           p_visibility_audience: string
         }
         Returns: Json
-      }
-      user_owns_fursuit: {
-        Args: { p_fursuit_id: string; p_profile_id: string }
-        Returns: boolean
       }
       validate_catch_reciprocal_offer: {
         Args: {
