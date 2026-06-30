@@ -158,13 +158,6 @@ export async function createQuickFursuit(options: {
           .filter((value) => value.length > 0),
       ),
     );
-    const { data: selectedColorRecords, error: selectedColorsError } =
-      normalizedColorIds.length > 0
-        ? await client
-            .from('fursuit_colors')
-            .select('id, normalized_name')
-            .in('id', normalizedColorIds)
-        : { data: [], error: null };
 
     if (!normalizedName) {
       throw new Error('Give your fursuit a name before saving.');
@@ -178,8 +171,26 @@ export async function createQuickFursuit(options: {
       throw new Error(`You can choose up to ${MAX_FURSUIT_COLORS} colors.`);
     }
 
+    const { data: selectedColorRecords, error: selectedColorsError } =
+      normalizedColorIds.length > 0
+        ? await client
+            .from('fursuit_colors')
+            .select('id, normalized_name')
+            .in('id', normalizedColorIds)
+        : { data: [], error: null };
+
     if (selectedColorsError) {
+      captureSupabaseError(selectedColorsError, {
+        scope: 'onboarding.createQuickFursuit',
+        action: 'verifySelectedColors',
+        userId,
+        selectedColorCount: normalizedColorIds.length,
+      });
       throw new Error(`We couldn't verify your fursuit colors: ${selectedColorsError.message}`);
+    }
+
+    if ((selectedColorRecords ?? []).length !== normalizedColorIds.length) {
+      throw new Error("We couldn't verify every fursuit color. Please pick your colors again.");
     }
 
     if (
