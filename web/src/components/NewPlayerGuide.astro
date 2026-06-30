@@ -1,0 +1,221 @@
+---
+import { Icon } from 'astro-icon/components';
+import { siteConfig } from '../config/site';
+
+const playSteps = [
+  {
+    number: '1',
+    title: 'Find TailTag players',
+    description:
+      'Look for participating fursuiters around the con. They may share their TailTag profile, wear a badge, or let people know they are catchable.',
+  },
+  {
+    number: '2',
+    title: 'Say hi respectfully',
+    description:
+      'Start with a compliment, a wave, a photo request, or a quick introduction. If they seem busy, resting, eating, performing, or moving through a crowd, give them space and try again later.',
+  },
+  {
+    number: '3',
+    title: 'Catch them in the app',
+    description:
+      'Once you have had a real interaction, add the catch in TailTag. Your catch becomes part of your weekend progress and helps you remember who you met.',
+  },
+  {
+    number: '4',
+    title: 'Keep exploring',
+    description:
+      'Complete daily tasks, earn achievements, revisit familiar faces, and discover fursuiters you might not have met otherwise.',
+  },
+];
+
+const etiquette = [
+  'Ask before taking photos, touching a suit, or joining an interaction.',
+  'Do not block paths, follow people, interrupt handlers, or pressure anyone to participate.',
+  'Let fursuiters rest, perform, talk privately, or get where they need to go.',
+];
+
+const challengeHighlights = [
+  'Meet someone new',
+  'Revisit a previous catch',
+  'Find different kinds of characters',
+  'Celebrate friendly con moments',
+];
+---
+
+<section
+  id="how-it-works"
+  class="border-t border-card-border px-6 py-14 sm:py-20"
+>
+  <div class="mx-auto flex max-w-6xl flex-col gap-14">
+    <div class="mx-auto max-w-3xl text-center">
+      <p class="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+        New player guide
+      </p>
+      <h2 class="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+        A friendly reason to say hello
+      </h2>
+      <p class="mt-5 text-base leading-7 text-foreground/75 sm:text-lg">
+        TailTag is a social discovery game for furry conventions. Players find participating
+        fursuiters, say hi, and add them to their catches in the app. Each catch helps build your
+        con adventure, complete tasks, and unlock achievements.
+      </p>
+      <p class="mt-4 text-base leading-7 text-foreground/75 sm:text-lg">
+        TailTag is built around friendly, respectful interactions: compliments, photos, quick chats,
+        and the little moments that make conventions memorable.
+      </p>
+    </div>
+
+    <div>
+      <div class="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-amber">How to play</p>
+          <h3 class="mt-2 text-2xl font-bold text-foreground">Four simple steps at the con</h3>
+        </div>
+        <p class="max-w-xl text-sm leading-6 text-foreground/65">
+          You can play casually or chase every challenge. Either way, the loop starts with one
+          respectful interaction.
+        </p>
+      </div>
+
+      <ol class="grid gap-4 md:grid-cols-2">
+        {
+          playSteps.map((step) => (
+            <li class="rounded-lg border border-card-border bg-background-elevated p-5">
+              <div class="mb-4 flex items-center gap-3">
+                <span class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-background">
+                  {step.number}
+                </span>
+                <h4 class="text-lg font-semibold text-foreground">{step.title}</h4>
+              </div>
+              <p class="text-sm leading-6 text-foreground/70">{step.description}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+
+    <div class="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+      <section class="rounded-lg border border-card-border bg-card p-6 sm:p-7">
+        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Why it helps</p>
+        <h3 class="mt-2 text-2xl font-bold text-foreground">Less awkward, more memorable</h3>
+        <div class="mt-5 space-y-4 text-sm leading-6 text-foreground/72 sm:text-base sm:leading-7">
+          <p>
+            Conventions can be exciting, but starting conversations can still be hard. TailTag gives
+            you a reason to approach someone without making it awkward.
+          </p>
+          <p>
+            Instead of wondering what to say, you have a shared game, a simple opener, and a
+            low-pressure way to connect. For new attendees, that can turn the con from a place full
+            of strangers into a weekend full of small, friendly moments.
+          </p>
+          <p>
+            TailTag is not designed to be a replacement for real conversation. It helps make more of
+            those conversations happen.
+          </p>
+        </div>
+      </section>
+
+      <section class="rounded-lg border border-card-border bg-card p-6 sm:p-7">
+        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-amber">Con etiquette</p>
+        <h3 class="mt-2 text-2xl font-bold text-foreground">
+          The catch matters less than kindness
+        </h3>
+        <ul class="mt-5 space-y-4">
+          {
+            etiquette.map((item) => (
+              <li class="flex gap-3 text-sm leading-6 text-foreground/72 sm:text-base sm:leading-7">
+                <span class="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-amber" />
+                <span>{item}</span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="mt-5 text-sm leading-6 text-foreground/65">
+          A missed catch is fine. A good interaction matters more than game progress.
+        </p>
+      </section>
+    </div>
+
+    <section class="overflow-hidden rounded-lg border border-card-border bg-background-elevated">
+      <div class="grid lg:grid-cols-[0.9fr_1.1fr]">
+        <div class="bg-accent p-6 sm:p-8">
+          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+            Example first catch
+          </p>
+          <h3 class="mt-2 text-2xl font-bold text-foreground">From quick hello to familiar face</h3>
+        </div>
+        <div
+          class="space-y-4 p-6 text-sm leading-6 text-foreground/72 sm:p-8 sm:text-base sm:leading-7"
+        >
+          <p>
+            You are walking through the hotel lobby and spot a fursuiter whom you'd like to meet.
+            You walk up to them, wave, compliment their character, and ask whether they would be up
+            for a photo for TailTag.
+          </p>
+          <p>
+            They say yes. After the photo, you open TailTag, add the catch, and see it count toward
+            your daily challenge.
+          </p>
+          <p>
+            Later that weekend, you recognize them again at another meetup. Now they aren't just
+            another fursuiter; they're someone you have already met and can catch up with!
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="mb-8 max-w-2xl">
+        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+          Daily challenges and achievements
+        </p>
+        <h3 class="mt-2 text-2xl font-bold text-foreground">Small goals for a bigger weekend</h3>
+        <p class="mt-4 text-sm leading-6 text-foreground/70 sm:text-base sm:leading-7">
+          TailTag gives you reasons to keep exploring without forcing you into one play style. A few
+          meaningful catches can matter just as much as a full collection.
+        </p>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {
+          challengeHighlights.map((highlight) => (
+            <div class="rounded-lg border border-card-border bg-card px-4 py-5 text-sm font-semibold text-foreground/85">
+              {highlight}
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <section
+      class="rounded-lg border border-card-border bg-primary px-6 py-8 text-center text-background sm:px-8"
+    >
+      <h3 class="text-2xl font-bold tracking-tight">Ready to play at your next con?</h3>
+      <p
+        class="mx-auto mt-3 max-w-2xl text-sm leading-6 text-background/80 sm:text-base sm:leading-7"
+      >
+        Join TailTag and make your next convention easier to explore, easier to remember, and easier
+        to share with new friends.
+      </p>
+      <div class="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+        <a
+          href="#download"
+          class="inline-flex min-h-11 items-center justify-center rounded-lg bg-background px-5 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-accent hover:no-underline"
+        >
+          Download TailTag
+        </a>
+        <a
+          href={siteConfig.links.telegramGroup}
+          class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-background/30 px-5 py-2 text-sm font-semibold text-background transition-colors hover:bg-background/10 hover:no-underline"
+        >
+          <Icon
+            name="simple-icons:telegram"
+            class="h-4 w-4"
+          />
+          <span>Join the TailTag Players Telegram group</span>
+        </a>
+      </div>
+    </section>
+  </div>
+</section>

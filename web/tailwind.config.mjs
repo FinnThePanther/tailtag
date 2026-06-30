@@ -9,6 +9,8 @@ export default {
         foreground: '#e2e8f0',
         primary: '#38bdf8',
         'primary-dark': '#0ea5e9',
+        card: 'rgba(15,23,42,0.72)',
+        'card-hover': 'rgba(30,41,59,0.9)',
         'card-border': 'rgba(148,163,184,0.25)',
         accent: '#1e293b',
         amber: '#fbbf24',

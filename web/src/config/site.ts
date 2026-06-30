@@ -14,6 +14,6 @@ export const siteConfig = {
 
   meta: {
     url: 'https://www.playtailtag.com',
-    image: '/icon.png',
+    image: 'https://www.playtailtag.com/icon.png',
   },
 } as const;
