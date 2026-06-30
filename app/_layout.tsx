@@ -242,7 +242,7 @@ function RootLayoutNav() {
 
   let redirectHref: Href | null = null;
 
-  if (!session && !inPublicAuthFlow) {
+  if (status === 'signed_out' && !session && !inPublicAuthFlow) {
     redirectHref = '/auth';
   } else if (
     !inResetPasswordFlow &&
@@ -533,7 +533,7 @@ function RootLayoutNav() {
   }
 
   // Not signed in: ensure we're in the auth stack.
-  if (!session && !inPublicAuthFlow) {
+  if (status === 'signed_out' && !session && !inPublicAuthFlow) {
     return <Redirect href="/auth" />;
   }
 
