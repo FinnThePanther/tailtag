@@ -19,8 +19,16 @@ const mapColorRecord = (input: any): FursuitColorOption => ({
   normalizedName: input.normalized_name,
 });
 
-const compareColorOptions = (a: FursuitColorOption, b: FursuitColorOption) =>
-  a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+const compareColorOptions = (a: FursuitColorOption, b: FursuitColorOption) => {
+  const aIsOther = a.normalizedName === OTHER_FURSUIT_COLOR_NORMALIZED_NAME;
+  const bIsOther = b.normalizedName === OTHER_FURSUIT_COLOR_NORMALIZED_NAME;
+
+  if (aIsOther !== bIsOther) {
+    return aIsOther ? 1 : -1;
+  }
+
+  return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+};
 
 export const sortColorOptions = (options: FursuitColorOption[]) =>
   [...options].sort(compareColorOptions);
