@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/no-unresolved -- Supabase Edge Functions run in Deno.
-import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.45.1';
 import {
   evaluateCatchAchievements,
   evaluateMetaAchievements,
