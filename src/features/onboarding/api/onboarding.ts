@@ -12,7 +12,12 @@ import { buildAuthenticatedStorageObjectUrl } from '../../../utils/supabase-imag
 import { emitGameplayEvent } from '../../events';
 
 import type { FursuitBiosInsert, FursuitsInsert } from '@/types/database';
-import { MAX_FURSUIT_COLORS } from '../../colors';
+import {
+  MAX_FURSUIT_COLORS,
+  MAX_FURSUIT_COLOR_DETAILS_LENGTH,
+  OTHER_FURSUIT_COLOR_NORMALIZED_NAME,
+  normalizeFursuitColorDetails,
+} from '@/features/colors';
 import { getMaxFursuitsForFeatureState, MAX_FURSUITS_PER_USER } from '@/constants/fursuits';
 import { ensureSpeciesEntry } from '@/features/species';
 import { normalizeVisibilityAudience, type VisibilityAudience } from '@/features/adult-boundary';
@@ -90,6 +95,8 @@ export async function createQuickFursuit(options: {
   name: string;
   species: string;
   description: string | null;
+  colorDetails?: string | null;
+  requiresColorDetails?: boolean;
   photo: FursuitPhotoCandidate | null;
   photoCredit?: string | null;
   colorIds: string[];
@@ -139,6 +146,7 @@ export async function createQuickFursuit(options: {
     const normalizedName = name.trim();
     const normalizedSpecies = species.trim();
     const normalizedDescription = description?.trim() ?? null;
+    const normalizedColorDetails = normalizeFursuitColorDetails(options.colorDetails);
     const normalizedPhotoCredit = photo ? (options.photoCredit ?? '').trim() : '';
     const visibilityAudience = normalizeVisibilityAudience(options.visibilityAudience);
     const socialSignal = normalizeSocialSignal(options.socialSignal);
@@ -160,7 +168,45 @@ export async function createQuickFursuit(options: {
     }
 
     if (normalizedColorIds.length > MAX_FURSUIT_COLORS) {
-      throw new Error('You can choose up to three colors.');
+      throw new Error(`You can choose up to ${MAX_FURSUIT_COLORS} colors.`);
+    }
+
+    const { data: selectedColorRecords, error: selectedColorsError } =
+      normalizedColorIds.length > 0
+        ? await client
+            .from('fursuit_colors')
+            .select('id, normalized_name')
+            .in('id', normalizedColorIds)
+        : { data: [], error: null };
+
+    if (selectedColorsError) {
+      captureSupabaseError(selectedColorsError, {
+        scope: 'onboarding.createQuickFursuit',
+        action: 'verifySelectedColors',
+        userId,
+        selectedColorCount: normalizedColorIds.length,
+      });
+      throw new Error(`We couldn't verify your fursuit colors: ${selectedColorsError.message}`);
+    }
+
+    if ((selectedColorRecords ?? []).length !== normalizedColorIds.length) {
+      throw new Error("We couldn't verify every fursuit color. Please pick your colors again.");
+    }
+
+    if (
+      normalizedColorDetails &&
+      normalizedColorDetails.length > MAX_FURSUIT_COLOR_DETAILS_LENGTH
+    ) {
+      throw new Error(`Keep color details under ${MAX_FURSUIT_COLOR_DETAILS_LENGTH} characters.`);
+    }
+
+    const selectedOtherColor = (selectedColorRecords ?? []).some(
+      (color: { normalized_name?: unknown }) =>
+        color.normalized_name === OTHER_FURSUIT_COLOR_NORMALIZED_NAME,
+    );
+
+    if (selectedOtherColor && !normalizedColorDetails) {
+      throw new Error('Add a short color detail so other players know what Other means.');
     }
 
     const interactionPreferencesError = getInteractionPreferencesError(interactionBadges);
@@ -186,6 +232,7 @@ export async function createQuickFursuit(options: {
         avatar_url: avatarUrl,
         unique_code: uniqueCode,
         description: normalizedDescription,
+        color_details: normalizedColorDetails,
         owner_attribution_visibility: options.hideOwnerPublicly ? 'hidden' : 'public',
         visibility_audience: visibilityAudience,
         social_signal: socialSignal,

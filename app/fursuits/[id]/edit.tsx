@@ -76,6 +76,9 @@ import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
+  MAX_FURSUIT_COLOR_DETAILS_LENGTH,
+  normalizeFursuitColorDetails,
+  selectedColorsIncludeOther,
   type FursuitColorOption,
 } from '@/features/colors';
 import { useAuth } from '@/features/auth';
@@ -87,7 +90,7 @@ import { launchFursuitPhotoPickerAsync } from '@/utils/imagePicker';
 import { buildAuthenticatedStorageObjectUrl } from '@/utils/supabase-image';
 import { colors } from '@/theme';
 import { styles } from '@/app-styles/fursuits/[id]/edit.styles';
-import { captureHandledException } from '@/lib/sentry';
+import { captureHandledException, captureSupabaseError } from '@/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import {
   profileNeedsAgeAttestation,
@@ -281,6 +284,7 @@ export default function EditFursuitScreen() {
   const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption[]>([]);
   const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
   const [initialColors, setInitialColors] = useState<FursuitColorOption[]>([]);
+  const [colorDetailsInput, setColorDetailsInput] = useState('');
   const [selectedVisibilityAudience, setSelectedVisibilityAudience] =
     useState<VisibilityAudience>('everyone');
   const [initialVisibilityAudience, setInitialVisibilityAudience] =
@@ -393,6 +397,10 @@ export default function EditFursuitScreen() {
         input: speciesInput,
       }),
     [selectedSpecies, speciesInput, speciesOptions],
+  );
+  const hasSelectedOtherColor = useMemo(
+    () => selectedColorsIncludeOther(selectedColors),
+    [selectedColors],
   );
 
   const handleSpeciesInputChange = useCallback((value: string) => {
@@ -579,6 +587,7 @@ export default function EditFursuitScreen() {
     const resolvedColors = detail.colors ?? [];
     setSelectedColors(resolvedColors);
     setInitialColors(resolvedColors);
+    setColorDetailsInput(detail.colorDetails ?? '');
     setSelectedVisibilityAudience(detail.visibility_audience);
     setInitialVisibilityAudience(detail.visibility_audience);
     setHideOwnerPublicly(detail.ownerAttributionVisibility === 'hidden');
@@ -862,6 +871,7 @@ export default function EditFursuitScreen() {
     const trimmedPhotoCredit = selectedPhoto || detail.avatar_url ? photoCreditInput.trim() : '';
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
+    const normalizedColorDetails = normalizeFursuitColorDetails(colorDetailsInput);
 
     const normalizedMakers = fursuitMakersToSave(makers);
     const selectedColorIds = selectedColors.map((color) => color.id);
@@ -884,7 +894,22 @@ export default function EditFursuitScreen() {
     }
 
     if (selectedColorIds.length > MAX_FURSUIT_COLORS) {
-      setSubmitError('You can choose up to three colors. Remove one to add another.');
+      setSubmitError(
+        `You can choose up to ${MAX_FURSUIT_COLORS} colors. Remove one to add another.`,
+      );
+      return;
+    }
+
+    if (
+      normalizedColorDetails &&
+      normalizedColorDetails.length > MAX_FURSUIT_COLOR_DETAILS_LENGTH
+    ) {
+      setSubmitError(`Keep color details under ${MAX_FURSUIT_COLOR_DETAILS_LENGTH} characters.`);
+      return;
+    }
+
+    if (hasSelectedOtherColor && !normalizedColorDetails) {
+      setSubmitError('Add a short color detail so other players know what Other means.');
       return;
     }
 
@@ -977,6 +1002,7 @@ export default function EditFursuitScreen() {
     const previousSpeciesTags = detail.speciesTags;
     const previousAvatarPath = detail.avatar_path ?? null;
     const previousAvatarUrl = detail.avatar_url;
+    const previousColorDetails = detail.colorDetails ?? null;
     const previousVisibilityAudience = detail.visibility_audience;
     const previousSocialSignal = detail.socialSignal;
     const previousInteractionBadges = detail.interactionBadges;
@@ -1057,6 +1083,7 @@ export default function EditFursuitScreen() {
           : detail.ownerAttributionVisibility,
         socialSignal: selectedSocialSignal,
         interactionBadges: selectedInteractionBadges,
+        colorDetails: normalizedColorDetails,
         uniqueCode: normalizedCode,
         avatarPath: newAvatarPath,
         avatarUrl: newAvatarUrl,
@@ -1272,6 +1299,21 @@ export default function EditFursuitScreen() {
 
       router.back();
     } catch (caught) {
+      captureHandledException(caught, {
+        scope: 'suits.edit.save',
+        additionalContext: {
+          fursuitId,
+          userId,
+          updatedCoreRecord,
+          replacedColors,
+          replacedSpecies,
+          colorDetailsChanged: normalizedColorDetails !== previousColorDetails,
+          writesColorDetails: normalizedColorDetails !== null,
+          colorDetailsLength: normalizedColorDetails?.length ?? 0,
+          avatarUploaded: Boolean(uploadedAvatarPath),
+        },
+      });
+
       if (uploadedAvatarPath && !updatedCoreRecord) {
         await removeStoragePath(
           uploadedAvatarPath,
@@ -1332,6 +1374,12 @@ export default function EditFursuitScreen() {
           .eq('fursuit_id', fursuitId);
 
         if (revertClearError) {
+          captureSupabaseError(revertClearError, {
+            scope: 'suits.edit.rollback',
+            action: 'clearColorAssignments',
+            fursuitId,
+            userId,
+          });
           console.warn('Failed to clear color assignments after error', revertClearError);
         } else if (previousColors.length > 0) {
           const revertAssignments = previousColors.map((color, index) => ({
@@ -1345,6 +1393,13 @@ export default function EditFursuitScreen() {
             .insert(revertAssignments);
 
           if (revertInsertError) {
+            captureSupabaseError(revertInsertError, {
+              scope: 'suits.edit.rollback',
+              action: 'restoreColorAssignments',
+              fursuitId,
+              userId,
+              previousColorCount: previousColors.length,
+            });
             console.warn('Failed to restore color assignments after error', revertInsertError);
           }
         }
@@ -1358,6 +1413,15 @@ export default function EditFursuitScreen() {
           await replaceFursuitSpeciesAssignments(fursuitId, previousSpeciesTags);
           setSelectedSpecies(previousSpeciesTags);
         } catch (revertError) {
+          captureHandledException(revertError, {
+            scope: 'suits.edit.rollback',
+            additionalContext: {
+              action: 'restoreSpeciesAssignments',
+              fursuitId,
+              userId,
+              previousSpeciesCount: previousSpeciesTags.length,
+            },
+          });
           console.warn('Failed to restore species assignments after error', revertError);
         }
       }
@@ -1372,6 +1436,7 @@ export default function EditFursuitScreen() {
             owner_attribution_visibility: detail.ownerAttributionVisibility,
             social_signal: previousSocialSignal,
             interaction_badges: previousInteractionBadges,
+            color_details: previousColorDetails,
             avatar_path: previousAvatarPath,
             avatar_url: previousAvatarUrl,
           })
@@ -1379,6 +1444,13 @@ export default function EditFursuitScreen() {
           .eq('owner_id', userId);
 
         if (revertError) {
+          captureSupabaseError(revertError, {
+            scope: 'suits.edit.rollback',
+            action: 'restoreFursuitRecord',
+            fursuitId,
+            userId,
+            restoresColorDetails: previousColorDetails !== normalizedColorDetails,
+          });
           console.warn('Failed to revert fursuit record after edit error', revertError);
         } else {
           coreRecordReverted = true;
@@ -1751,7 +1823,9 @@ export default function EditFursuitScreen() {
               </View>
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Colors</Text>
-                <Text style={styles.helperLabel}>Optional. Pick up to three colors.</Text>
+                <Text style={styles.helperLabel}>
+                  Optional. Pick up to {MAX_FURSUIT_COLORS}. Main colors count for goals.
+                </Text>
                 {isColorBusy ? (
                   <Text style={styles.helperLabel}>Loading colors…</Text>
                 ) : colorLoadError ? (
@@ -1821,6 +1895,27 @@ export default function EditFursuitScreen() {
                         You picked the maximum number of colors. Tap one to remove it.
                       </Text>
                     ) : null}
+                    <View style={styles.helperColumn}>
+                      <Text style={styles.label}>Color details</Text>
+                      <Text style={styles.helperLabel}>
+                        {hasSelectedOtherColor
+                          ? 'Required for Other. Add precise shade names, accents, gradients, or markings shown on your profile.'
+                          : 'Optional shade names, accents, gradients, or markings shown on your profile.'}
+                      </Text>
+                      <TailTagInput
+                        value={colorDetailsInput}
+                        onChangeText={setColorDetailsInput}
+                        placeholder="Dusty rose paws, cream belly, gold eye markings"
+                        multiline
+                        maxLength={MAX_FURSUIT_COLOR_DETAILS_LENGTH}
+                        style={styles.textArea}
+                        editable={!disableForm}
+                        textAlignVertical="top"
+                      />
+                      <Text style={styles.helperLabel}>
+                        {colorDetailsInput.trim().length}/{MAX_FURSUIT_COLOR_DETAILS_LENGTH}
+                      </Text>
+                    </View>
                   </>
                 )}
               </View>

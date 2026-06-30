@@ -1904,6 +1904,7 @@ export type Database = {
           avatar_url: string | null
           catch_count: number
           catch_mode: string
+          color_details: string | null
           created_at: string | null
           description: string | null
           display_order: number | null
@@ -1927,6 +1928,7 @@ export type Database = {
           avatar_url?: string | null
           catch_count?: number
           catch_mode?: string
+          color_details?: string | null
           created_at?: string | null
           description?: string | null
           display_order?: number | null
@@ -1950,6 +1952,7 @@ export type Database = {
           avatar_url?: string | null
           catch_count?: number
           catch_mode?: string
+          color_details?: string | null
           created_at?: string | null
           description?: string | null
           display_order?: number | null
@@ -3854,6 +3857,7 @@ export type Database = {
           avatar_url: string
           catch_count: number
           color_assignments: Json
+          color_details: string
           created_at: string
           description: string
           fursuit_bio: Json
@@ -4092,6 +4096,7 @@ export type Database = {
           avatar_url: string
           catch_count: number
           color_assignments: Json
+          color_details: string
           created_at: string
           description: string
           display_order: number
@@ -4521,10 +4526,12 @@ export type Database = {
           p_client_app_version?: string
           p_client_attempt_id?: string
           p_client_platform?: string
+          p_color_details?: string
           p_fursuit_id: string
           p_interaction_badges: string[]
           p_name: string
           p_owner_attribution_visibility: string
+          p_preserve_color_details?: boolean
           p_social_signal: string
           p_species_id: string
           p_unique_code: string

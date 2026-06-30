@@ -42,6 +42,7 @@ export interface UpdateFursuitProfileInput {
   ownerAttributionVisibility: 'public' | 'hidden';
   socialSignal: SocialSignalKey | null;
   interactionBadges: InteractionBadgeKey[];
+  colorDetails: string | null;
   uniqueCode: string;
   avatarPath?: string | null;
   avatarUrl?: string | null;
@@ -124,6 +125,7 @@ export async function updateFursuitProfile(
     p_owner_attribution_visibility: input.ownerAttributionVisibility,
     p_social_signal: input.socialSignal,
     p_interaction_badges: input.interactionBadges,
+    p_color_details: input.colorDetails,
     p_unique_code: normalizedCode,
     p_avatar_path: input.avatarPath ?? null,
     p_avatar_url: input.avatarUrl ?? null,
@@ -131,6 +133,7 @@ export async function updateFursuitProfile(
     p_client_attempt_id: clientAttemptId,
     p_client_app_version: getClientAppVersion(),
     p_client_platform: Platform.OS,
+    p_preserve_color_details: false,
   });
 
   if (error) {
