@@ -14,8 +14,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  validate:
-    name: Validate repository
+  workflow_checks:
+    name: Workflow checks
     runs-on: ubuntu-latest
 
     steps:
@@ -23,6 +23,11 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Validate GitHub workflows
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
@@ -33,27 +38,163 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: node scripts/check-native-dependency-changes.cjs "$BASE_SHA"
 
+  format:
+    name: Format check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
       - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+  mobile:
+    name: Mobile validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Expo Doctor
+        run: npm run doctor
+
+      - name: Lint mobile app
+        run: npm run lint
+
+      - name: Typecheck mobile app
+        run: npm run typecheck
+
+      - name: Run mobile regression tests
+        run: |
+          npm run test:notifications
+          npm run test:backend-workers
+          npm run test:auth-resume
+          npm run test:daily-tasks
+          npm run test:achievements
+          npm run test:fursuits
+          npm run test:tutorial-compat
+          npm run test:lifecycle
+
+  admin:
+    name: Admin validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
 
       - name: Install admin dependencies
         run: npm ci
         working-directory: admin
 
+      - name: Validate admin dashboard
+        run: npm run validate:admin
+
+  web:
+    name: Web validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
       - name: Install web dependencies
         run: npm ci
         working-directory: web
+
+      - name: Validate landing page
+        run: npm run validate:web
+
+  packages:
+    name: Package validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate shared packages
+        run: npm run validate:packages
+
+  edge_functions:
+    name: Edge Function validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Set up Deno
         uses: denoland/setup-deno@667a34cdef165d8d2b2e98dde39547c9daac7282 # v2.0.4
         with:
           deno-version: v2.x
+
+      - name: Validate Edge Functions
+        run: npm run validate:edge-functions
+
+  database:
+    name: Database validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Install Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
@@ -80,5 +221,61 @@ jobs:
           image="$(scripts/preload-supabase-typegen-image.sh --print-target-image)"
           docker save "$image" --output /tmp/supabase-typegen-postgres-meta.tar
 
-      - name: Validate repository
-        run: npm run validate:repo
+      - name: Validate migrations
+        run: npm run validate:migrations
+
+      - name: Validate generated database types
+        run: npm run validate:types:local
+
+  validate:
+    name: Validate repository
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    needs:
+      - workflow_checks
+      - format
+      - mobile
+      - admin
+      - web
+      - packages
+      - edge_functions
+      - database
+
+    steps:
+      - name: Confirm validation passed
+        env:
+          WORKFLOW_CHECKS_RESULT: ${{ needs.workflow_checks.result }}
+          FORMAT_RESULT: ${{ needs.format.result }}
+          MOBILE_RESULT: ${{ needs.mobile.result }}
+          ADMIN_RESULT: ${{ needs.admin.result }}
+          WEB_RESULT: ${{ needs.web.result }}
+          PACKAGES_RESULT: ${{ needs.packages.result }}
+          EDGE_FUNCTIONS_RESULT: ${{ needs.edge_functions.result }}
+          DATABASE_RESULT: ${{ needs.database.result }}
+        run: |
+          set -euo pipefail
+
+          failed=0
+          for name in \
+            WORKFLOW_CHECKS_RESULT \
+            FORMAT_RESULT \
+            MOBILE_RESULT \
+            ADMIN_RESULT \
+            WEB_RESULT \
+            PACKAGES_RESULT \
+            EDGE_FUNCTIONS_RESULT \
+            DATABASE_RESULT
+          do
+            result="${!name}"
+            echo "${name}: ${result}"
+            if [[ "$result" != "success" ]]; then
+              failed=1
+            fi
+          done
+
+          if [[ "$failed" -ne 0 ]]; then
+            echo "::error::One or more validation jobs failed, were cancelled, or were skipped."
+            exit 1
+          fi
+
+          echo "All validation jobs passed."
