@@ -73,6 +73,8 @@ import {
 } from '@/features/feature-flags';
 
 const EXPERIMENT_EVENT_TIMEOUT_MS = 5000;
+const FURSUIT_SKIP_LABEL = "I'll be playing\nwithout a fursuit";
+const FURSUIT_SKIP_ACCESSIBILITY_LABEL = "I'll be playing without a fursuit";
 
 type FursuitStepProps = {
   userId: string;
@@ -873,8 +875,8 @@ export function FursuitStep({
         <Text style={styles.eyebrow}>Step 3</Text>
         <Text style={styles.title}>Add a fursuit (optional)</Text>
         <Text style={styles.body}>
-          Fursuits are how other players recognize you. If you&apos;re bringing a suit, list it for
-          the conventions you&apos;re attending so players can catch it.
+          Fursuits are how other players recognize you, but you do not need one to play. If
+          you&apos;re not bringing a suit, you can skip this and focus on catching other players.
         </Text>
 
         {!isExpanded ? (
@@ -887,6 +889,8 @@ export function FursuitStep({
             </TailTagButton>
             <SkipButton
               style={styles.fullWidthCta}
+              label={FURSUIT_SKIP_LABEL}
+              accessibilityLabel={FURSUIT_SKIP_ACCESSIBILITY_LABEL}
               onPress={handleSkip}
               disabled={isProcessingPhoto}
             />
@@ -1308,6 +1312,8 @@ export function FursuitStep({
                 Continue
               </TailTagButton>
               <SkipButton
+                label={FURSUIT_SKIP_LABEL}
+                accessibilityLabel={FURSUIT_SKIP_ACCESSIBILITY_LABEL}
                 onPress={handleSkip}
                 disabled={isSubmitting || isProcessingPhoto}
                 style={styles.fullWidthCta}

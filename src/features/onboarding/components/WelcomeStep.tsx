@@ -15,15 +15,16 @@ export function WelcomeStep({ onContinue }: WelcomeStepProps) {
         <Text style={styles.eyebrow}>Welcome to TailTag</Text>
         <Text style={styles.title}>Ready to start tagging?</Text>
         <Text style={styles.body}>
-          TailTag is a friendly scavenger hunt to find fursuiters. Attend a convention, tag suiters,
-          and complete achievements while learning more about the fursuiters you meet!
+          TailTag is a friendly scavenger hunt to find fursuiters. Attend a convention, catch suits
+          you spot, and complete achievements while learning more about the fursuiters you meet!
         </Text>
 
         <View style={styles.captionBlock}>
           <Text style={styles.captionTitle}>How onboarding works</Text>
           <Text style={styles.captionBody}>
             Pick a convention to attend, list a suit if you have one, enable notifications, then
-            claim your first achievement.
+            claim your first achievement. No suit required: players without fursuits can focus on
+            catching the suits around them.
           </Text>
         </View>
 
