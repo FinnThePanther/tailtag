@@ -53,6 +53,7 @@ export function applyResolvedSession<SessionLike>(
     status: session ? 'signed_in' : 'signed_out',
     isRevalidatingSession: false,
     pendingSignedOutDuringCheck: false,
+    intentionalSignOut: session ? state.intentionalSignOut : false,
   };
 }
 
@@ -91,7 +92,8 @@ export function completeSessionResolution<SessionLike>(
     source === 'foreground' &&
     state.session &&
     !activeSession &&
-    !state.pendingSignedOutDuringCheck
+    !state.pendingSignedOutDuringCheck &&
+    !state.intentionalSignOut
   ) {
     return {
       state: {

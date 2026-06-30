@@ -140,6 +140,24 @@ describe('Auth warm resume behavior', () => {
     );
   });
 
+  it('keeps intentional sign-out signed out when foreground resolution returns null', () => {
+    const checkingState = beginForegroundSessionCheck(
+      createAuthResumeState(signedInSession, 'signed_in'),
+    );
+    const intentionalState = setIntentionalSignOut(checkingState, true);
+    const resolved = completeSessionResolution(intentionalState, 'foreground', null);
+
+    assert.equal(resolved.preservedSession, false);
+    assert.equal(resolved.state.status, 'signed_out');
+    assert.equal(resolved.state.session, null);
+    assert.equal(resolved.state.pendingSignedOutDuringCheck, false);
+    assert.equal(resolved.state.intentionalSignOut, false);
+    assert.equal(
+      shouldRedirectToAuth(resolved.state.status, Boolean(resolved.state.session), false),
+      true,
+    );
+  });
+
   it('does not redirect auth/public flows or active session checks to auth', () => {
     assert.equal(shouldRedirectToAuth('signed_out', false, true), false);
     assert.equal(shouldRedirectToAuth('checking_session', false, false), false);
