@@ -97,7 +97,7 @@ export function AchievementStep({
             </Text>
           </View>
           <View style={styles.summaryItem}>
-            <View style={[styles.dot, hasFursuit ? styles.dotPrimary : styles.dotMuted]} />
+            <View style={[styles.dot, styles.dotPrimary]} />
             <Text style={styles.summaryText}>
               {hasFursuit ? 'Added a fursuit' : 'Playing without a fursuit and focusing on catches'}
             </Text>
