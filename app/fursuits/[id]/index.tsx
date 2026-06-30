@@ -267,6 +267,9 @@ export default function FursuitDetailScreen() {
                         ? `Colors: ${detail.colors.map((c) => c.name).join(', ')}`
                         : 'None specified'}
                     </Text>
+                    {detail.colorDetails?.trim() ? (
+                      <Text style={styles.leadColorDetails}>{detail.colorDetails.trim()}</Text>
+                    ) : null}
                     {addedDate ? (
                       <Text style={styles.leadTimeline}>Added on {addedDate}</Text>
                     ) : null}

@@ -58,6 +58,10 @@ import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
+  MAX_FURSUIT_COLOR_DETAILS_LENGTH,
+  OTHER_FURSUIT_COLOR_NORMALIZED_NAME,
+  normalizeFursuitColorDetails,
+  selectedColorIdsIncludeOther,
   type FursuitColorOption,
 } from '@/features/colors';
 import { styles } from './FursuitStep.styles';
@@ -69,6 +73,8 @@ import {
 } from '@/features/feature-flags';
 
 const EXPERIMENT_EVENT_TIMEOUT_MS = 5000;
+const FURSUIT_SKIP_LABEL = "I'll be playing\nwithout a fursuit";
+const FURSUIT_SKIP_ACCESSIBILITY_LABEL = "I'll be playing without a fursuit";
 
 type FursuitStepProps = {
   userId: string;
@@ -179,6 +185,7 @@ export function FursuitStep({
   const [nameInput, setNameInput] = useState(draft.nameInput);
   const [speciesInput, setSpeciesInput] = useState(draft.speciesInput);
   const [descriptionInput, setDescriptionInput] = useState(draft.descriptionInput);
+  const [colorDetailsInput, setColorDetailsInput] = useState(draft.colorDetailsInput);
   const [photoCreditInput, setPhotoCreditInput] = useState(draft.photoCreditInput);
   const [showPhotoCreditInput, setShowPhotoCreditInput] = useState(draft.showPhotoCreditInput);
   const [selectedPhoto, setSelectedPhoto] = useState<FursuitPhotoCandidate | null>(
@@ -189,6 +196,9 @@ export function FursuitStep({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedColorIds, setSelectedColorIds] = useState<string[]>(draft.selectedColorIds);
+  const [selectedOtherColorIds, setSelectedOtherColorIds] = useState<string[]>(
+    draft.selectedOtherColorIds,
+  );
   const [visibilityAudience, setVisibilityAudience] = useState<VisibilityAudience>(
     draft.visibilityAudience,
   );
@@ -266,6 +276,14 @@ export function FursuitStep({
         .filter((option): option is FursuitColorOption => Boolean(option)),
     [colorOptions, selectedColorIds],
   );
+  const hasSelectedOtherColor = useMemo(
+    () =>
+      selectedOtherColorIds.some((colorId) => selectedColorIds.includes(colorId)) ||
+      selectedColorIdsIncludeOther(selectedColorIds, colorOptions),
+    [colorOptions, selectedColorIds, selectedOtherColorIds],
+  );
+  const hasUnresolvedSelectedColors =
+    selectedColorIds.length > 0 && selectedColors.length !== selectedColorIds.length;
 
   const speciesSuggestions = useMemo(
     () =>
@@ -430,9 +448,11 @@ export function FursuitStep({
       nameInput,
       speciesInput,
       descriptionInput,
+      colorDetailsInput,
       photoCreditInput,
       showPhotoCreditInput,
       selectedColorIds,
+      selectedOtherColorIds,
       selectedConventionIds: [...selectedConventionIds],
       selectedPhoto,
       hideOwnerPublicly,
@@ -441,6 +461,7 @@ export function FursuitStep({
       selectedInteractionBadges,
     });
   }, [
+    colorDetailsInput,
     descriptionInput,
     hideOwnerPublicly,
     isExpanded,
@@ -450,12 +471,41 @@ export function FursuitStep({
     selectedColorIds,
     selectedConventionIds,
     selectedInteractionBadges,
+    selectedOtherColorIds,
     selectedPhoto,
     selectedSocialSignal,
     showPhotoCreditInput,
     speciesInput,
     visibilityAudience,
   ]);
+
+  useEffect(() => {
+    if (colorOptions.length === 0) {
+      return;
+    }
+
+    const otherColorIds = colorOptions
+      .filter((option) => option.normalizedName === OTHER_FURSUIT_COLOR_NORMALIZED_NAME)
+      .map((option) => option.id);
+
+    setSelectedOtherColorIds((current) => {
+      const next = new Set(current.filter((colorId) => selectedColorIds.includes(colorId)));
+
+      for (const colorId of otherColorIds) {
+        if (selectedColorIds.includes(colorId)) {
+          next.add(colorId);
+        } else {
+          next.delete(colorId);
+        }
+      }
+
+      const nextIds = [...next];
+      return nextIds.length === current.length &&
+        nextIds.every((id, index) => id === current[index])
+        ? current
+        : nextIds;
+    });
+  }, [colorOptions, selectedColorIds]);
 
   useEffect(() => {
     if (isProfileConventionsLoading) {
@@ -483,11 +533,20 @@ export function FursuitStep({
       const exists = current.includes(option.id);
 
       if (exists) {
+        setSelectedOtherColorIds((otherColorIds) =>
+          otherColorIds.filter((colorId) => colorId !== option.id),
+        );
         return current.filter((colorId) => colorId !== option.id);
       }
 
       if (current.length >= MAX_FURSUIT_COLORS) {
         return current;
+      }
+
+      if (option.normalizedName === OTHER_FURSUIT_COLOR_NORMALIZED_NAME) {
+        setSelectedOtherColorIds((otherColorIds) =>
+          otherColorIds.includes(option.id) ? otherColorIds : [...otherColorIds, option.id],
+        );
       }
 
       return [...current, option.id];
@@ -655,9 +714,11 @@ export function FursuitStep({
     setNameInput(emptyDraft.nameInput);
     setSpeciesInput(emptyDraft.speciesInput);
     setDescriptionInput(emptyDraft.descriptionInput);
+    setColorDetailsInput(emptyDraft.colorDetailsInput);
     setPhotoCreditInput(emptyDraft.photoCreditInput);
     setShowPhotoCreditInput(emptyDraft.showPhotoCreditInput);
     setSelectedColorIds(emptyDraft.selectedColorIds);
+    setSelectedOtherColorIds(emptyDraft.selectedOtherColorIds);
     setSelectedConventionIds(new Set(profileConventionIdSet));
     setHideOwnerPublicly(false);
     setVisibilityAudience('everyone');
@@ -692,6 +753,7 @@ export function FursuitStep({
     const trimmedName = nameInput.trim();
     const trimmedSpecies = speciesInput.trim();
     const trimmedDescription = descriptionInput.trim();
+    const normalizedColorDetails = normalizeFursuitColorDetails(colorDetailsInput);
     const colorIds = selectedColorIds;
 
     if (!trimmedName) {
@@ -710,7 +772,25 @@ export function FursuitStep({
     }
 
     if (colorIds.length > MAX_FURSUIT_COLORS) {
-      setSubmitError('Choose up to three colors. Remove one to add another.');
+      setSubmitError(`Choose up to ${MAX_FURSUIT_COLORS} colors. Remove one to add another.`);
+      return;
+    }
+
+    if (hasUnresolvedSelectedColors) {
+      setSubmitError('We are still loading your selected colors. Please try again in a moment.');
+      return;
+    }
+
+    if (
+      normalizedColorDetails &&
+      normalizedColorDetails.length > MAX_FURSUIT_COLOR_DETAILS_LENGTH
+    ) {
+      setSubmitError(`Keep color details under ${MAX_FURSUIT_COLOR_DETAILS_LENGTH} characters.`);
+      return;
+    }
+
+    if (hasSelectedOtherColor && !normalizedColorDetails) {
+      setSubmitError('Add a short color detail so other players know what Other means.');
       return;
     }
 
@@ -734,6 +814,8 @@ export function FursuitStep({
         name: trimmedName,
         species: trimmedSpecies,
         description: trimmedDescription.length > 0 ? trimmedDescription : null,
+        colorDetails: normalizedColorDetails,
+        requiresColorDetails: hasSelectedOtherColor,
         photo: selectedPhoto,
         photoCredit: selectedPhoto ? photoCreditInput.trim() : '',
         colorIds,
@@ -793,8 +875,8 @@ export function FursuitStep({
         <Text style={styles.eyebrow}>Step 3</Text>
         <Text style={styles.title}>Add a fursuit (optional)</Text>
         <Text style={styles.body}>
-          Fursuits are how other players recognize you. If you&apos;re bringing a suit, list it for
-          the conventions you&apos;re attending so players can catch it.
+          Fursuits are how other players recognize you, but you do not need one to play. If
+          you&apos;re not bringing a suit, you can skip this and focus on catching other players.
         </Text>
 
         {!isExpanded ? (
@@ -807,6 +889,8 @@ export function FursuitStep({
             </TailTagButton>
             <SkipButton
               style={styles.fullWidthCta}
+              label={FURSUIT_SKIP_LABEL}
+              accessibilityLabel={FURSUIT_SKIP_ACCESSIBILITY_LABEL}
               onPress={handleSkip}
               disabled={isProcessingPhoto}
             />
@@ -960,7 +1044,9 @@ export function FursuitStep({
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Colors</Text>
-              <Text style={styles.helperLabel}>Optional. Pick up to three colors.</Text>
+              <Text style={styles.helperLabel}>
+                Optional. Pick up to {MAX_FURSUIT_COLORS}. Main colors count for goals.
+              </Text>
               {isColorBusy ? (
                 <Text style={styles.helperLabel}>Loading colors…</Text>
               ) : colorLoadError ? (
@@ -1025,9 +1111,30 @@ export function FursuitStep({
                   </View>
                   {selectedColors.length >= MAX_FURSUIT_COLORS ? (
                     <Text style={styles.helperLabel}>
-                      You've selected three colors. Tap one to swap it out.
+                      You've selected the maximum number of colors. Tap one to swap it out.
                     </Text>
                   ) : null}
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.label}>Color details</Text>
+                    <Text style={styles.helperLabel}>
+                      {hasSelectedOtherColor
+                        ? 'Required for Other. Add precise shade names, accents, gradients, or markings shown on your profile.'
+                        : 'Optional shade names, accents, gradients, or markings shown on your profile.'}
+                    </Text>
+                    <TailTagInput
+                      value={colorDetailsInput}
+                      onChangeText={setColorDetailsInput}
+                      placeholder="Dusty rose paws, cream belly, gold eye markings"
+                      multiline
+                      maxLength={MAX_FURSUIT_COLOR_DETAILS_LENGTH}
+                      style={styles.descriptionInput}
+                      editable={!isSubmitting}
+                      textAlignVertical="top"
+                    />
+                    <Text style={styles.helperLabel}>
+                      {colorDetailsInput.trim().length}/{MAX_FURSUIT_COLOR_DETAILS_LENGTH}
+                    </Text>
+                  </View>
                 </>
               )}
             </View>
@@ -1205,6 +1312,8 @@ export function FursuitStep({
                 Continue
               </TailTagButton>
               <SkipButton
+                label={FURSUIT_SKIP_LABEL}
+                accessibilityLabel={FURSUIT_SKIP_ACCESSIBILITY_LABEL}
                 onPress={handleSkip}
                 disabled={isSubmitting || isProcessingPhoto}
                 style={styles.fullWidthCta}

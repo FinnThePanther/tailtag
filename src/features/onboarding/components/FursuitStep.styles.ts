@@ -34,6 +34,7 @@ export const styles = StyleSheet.create({
   },
   fullWidthCta: {
     alignSelf: 'stretch',
+    minHeight: 60,
   },
   form: {
     gap: spacing.md,

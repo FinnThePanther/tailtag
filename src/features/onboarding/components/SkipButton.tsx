@@ -4,6 +4,7 @@ import { styles } from './SkipButton.styles';
 
 type SkipButtonProps = {
   label?: string;
+  accessibilityLabel?: string;
   onPress: () => void;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -11,6 +12,7 @@ type SkipButtonProps = {
 
 export function SkipButton({
   label = 'Skip for now',
+  accessibilityLabel,
   onPress,
   disabled = false,
   style,
@@ -18,6 +20,7 @@ export function SkipButton({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [
