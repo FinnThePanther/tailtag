@@ -19,6 +19,7 @@ import {
   normalizeInteractionBadges,
   normalizeSocialSignal,
 } from '@/features/interaction-preferences';
+import { applyPendingMySuitsOrder } from './mySuitsOrderOutbox';
 
 type ProfileFursuitsRpcRow =
   Database['public']['Functions']['get_profile_fursuits']['Returns'][number];
@@ -76,6 +77,7 @@ type TableFursuitRow = Pick<
   | 'catch_count'
   | 'created_at'
 > & {
+  display_order?: number | null;
   species_entry: FursuitSpeciesRow | null;
   species_assignments:
     | {
@@ -109,6 +111,9 @@ const isSpeciesEntry = (value: unknown): value is Pick<FursuitSpeciesRow, 'id' |
   'name' in value &&
   typeof value.name === 'string';
 
+const getDisplayOrder = (item: ProfileFursuitsRpcRow | TableFursuitRow) =>
+  'display_order' in item && typeof item.display_order === 'number' ? item.display_order : null;
+
 export const MY_SUITS_QUERY_KEY = 'my-suits';
 export const MY_SUITS_COUNT_QUERY_KEY = 'my-suits-count';
 export const MY_SUITS_STALE_TIME = 2 * 60_000;
@@ -136,7 +141,7 @@ export async function fetchMySuits(
       throw new Error(`We couldn't load fursuits: ${error.message}`);
     }
 
-    return mapFursuitRows(data ?? [], false);
+    return applyPendingMySuitsOrder(userId, await mapFursuitRows(data ?? [], false));
   }
 
   const { data, error } = await client
@@ -156,6 +161,7 @@ export async function fetchMySuits(
       interaction_badges,
       catch_count,
       created_at,
+      display_order,
       species_entry:fursuit_species (
         id,
         name,
@@ -216,13 +222,21 @@ export async function fetchMySuits(
     `,
     )
     .eq('owner_id', userId)
-    .order('created_at', { ascending: false });
+    .order('display_order', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false });
 
   if (error) {
+    captureSupabaseError(error, {
+      scope: 'suits.fetchMySuits.orderedFursuits',
+      userId,
+      includeUniqueCodes,
+      sortingPath: 'display_order_created_at_id',
+    });
     throw new Error(`We couldn't load your suits: ${error.message}`);
   }
 
-  return mapFursuitRows(data ?? [], includeUniqueCodes);
+  return applyPendingMySuitsOrder(userId, await mapFursuitRows(data ?? [], includeUniqueCodes));
 }
 
 async function mapFursuitRows(
@@ -286,6 +300,7 @@ async function mapFursuitRows(
       interactionBadges: normalizeInteractionBadges(item.interaction_badges),
       catchCount: typeof item.catch_count === 'number' ? item.catch_count : 0,
       created_at: item.created_at ?? null,
+      display_order: getDisplayOrder(item),
       conventions,
       makers,
       bio,
@@ -352,6 +367,20 @@ export const createMySuitsQueryOptions = (userId: string) => ({
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
 });
+
+export async function reorderMySuits(fursuitIds: string[]): Promise<void> {
+  const { error } = await supabase.rpc('reorder_own_fursuits', {
+    p_fursuit_ids: fursuitIds,
+  });
+
+  if (error) {
+    captureSupabaseError(error, {
+      scope: 'suits.reorderMySuits',
+      fursuitIds,
+    });
+    throw new Error("We couldn't save your fursuit order. Please try again.");
+  }
+}
 
 export async function fetchMySuitsCount(userId: string): Promise<number> {
   const client = supabase as any;

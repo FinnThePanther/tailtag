@@ -581,22 +581,33 @@ export default function MySuitsScreen() {
 
       <TailTagCard style={styles.cardSpacing}>
         <View style={styles.sectionHeader}>
-          <Pressable
-            accessibilityRole={hasHiddenSuits ? 'button' : undefined}
-            accessibilityHint={
-              hasHiddenSuits ? 'Press and hold to hide or show hidden suits' : undefined
-            }
-            disabled={!hasHiddenSuits}
-            hitSlop={8}
-            onLongPress={handleHiddenSuitsTitleLongPress}
-            style={({ pressed }) => [
-              styles.sectionTitlePressable,
-              pressed && hasHiddenSuits ? styles.sectionTitlePressed : null,
-            ]}
-          >
-            <Text style={styles.sectionTitle}>Your fursuits</Text>
-          </Pressable>
-          <Text style={styles.sectionMeta}>{sectionMetaText}</Text>
+          <View style={styles.sectionTitleBlock}>
+            <Pressable
+              accessibilityRole={hasHiddenSuits ? 'button' : undefined}
+              accessibilityHint={
+                hasHiddenSuits ? 'Press and hold to hide or show hidden suits' : undefined
+              }
+              disabled={!hasHiddenSuits}
+              hitSlop={8}
+              onLongPress={handleHiddenSuitsTitleLongPress}
+              style={({ pressed }) => [
+                styles.sectionTitlePressable,
+                pressed && hasHiddenSuits ? styles.sectionTitlePressed : null,
+              ]}
+            >
+              <Text style={styles.sectionTitle}>Your fursuits</Text>
+            </Pressable>
+            <Text style={styles.sectionMeta}>{sectionMetaText}</Text>
+          </View>
+          {suitCount > 1 ? (
+            <TailTagButton
+              variant="outline"
+              size="sm"
+              onPress={() => router.push('/suits/reorder')}
+            >
+              Order
+            </TailTagButton>
+          ) : null}
         </View>
         {isLoading ? (
           <Text style={styles.message}>Loading your suits…</Text>

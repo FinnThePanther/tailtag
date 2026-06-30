@@ -27,6 +27,7 @@ import { ToastProvider } from '../src/hooks/useToast';
 import { DailyTaskToastManager } from '../src/features/daily-tasks/components/DailyTaskToastManager';
 import { AchievementToastManager } from '../src/features/achievements';
 import { CatchConfirmationToastManager } from '../src/features/catch-confirmations';
+import { MySuitsOrderSyncManager } from '../src/features/suits';
 import {
   loadPendingCatchInviteToken,
   savePendingCatchInviteToken,
@@ -892,6 +893,7 @@ function Layout() {
                     <DailyTaskToastManager />
                     <CatchConfirmationToastManager />
                     <CatchOutboxSyncManager />
+                    <MySuitsOrderSyncManager />
                     <RootLayoutNav />
                   </OtaUpdateProvider>
                 </ToastProvider>

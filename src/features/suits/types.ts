@@ -47,6 +47,7 @@ export type FursuitSummary = {
   interactionBadges: InteractionBadgeKey[];
   catchCount: number;
   created_at: string | null;
+  display_order?: number | null;
   conventions: FursuitConvention[];
   makers: FursuitMaker[];
   bio: FursuitBio | null;

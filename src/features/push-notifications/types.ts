@@ -21,6 +21,7 @@ export const NOTIFICATION_DEEP_LINKS: Record<StaticPushNotificationType, string>
   convention_finalizing_started: '/catch',
   daily_task_completed: '/daily-tasks',
   daily_all_complete: '/daily-tasks',
+  level_up: '/settings',
   fursuit_caught: '/suits',
   catch_pending: '/suits',
   catch_confirmed: '/caught',

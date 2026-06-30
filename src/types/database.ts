@@ -10,6 +10,11 @@ export type AttendanceState = "active" | "left" | "removed" | "finalized"
 export type RosterState = "active" | "removed" | "finalized"
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
   public: {
     Tables: {
       achievement_rules: {
@@ -1098,6 +1103,115 @@ export type Database = {
           },
         ]
       }
+      event_suggestions: {
+        Row: {
+          city_region: string
+          contact_method: string
+          contact_value: string
+          converted_convention_id: string | null
+          country: string
+          created_at: string
+          date_notes: string | null
+          date_status: string
+          duplicate_of_convention_id: string | null
+          end_date: string | null
+          event_name: string
+          event_type: string
+          event_visibility: string
+          expected_attendance: number | null
+          id: string
+          notes: string | null
+          official_url: string | null
+          preferred_setup: string | null
+          resolution_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          start_date: string | null
+          status: string
+          submitter_relationship: string
+          updated_at: string
+          venue_name: string | null
+        }
+        Insert: {
+          city_region: string
+          contact_method: string
+          contact_value: string
+          converted_convention_id?: string | null
+          country: string
+          created_at?: string
+          date_notes?: string | null
+          date_status: string
+          duplicate_of_convention_id?: string | null
+          end_date?: string | null
+          event_name: string
+          event_type: string
+          event_visibility: string
+          expected_attendance?: number | null
+          id?: string
+          notes?: string | null
+          official_url?: string | null
+          preferred_setup?: string | null
+          resolution_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_date?: string | null
+          status?: string
+          submitter_relationship: string
+          updated_at?: string
+          venue_name?: string | null
+        }
+        Update: {
+          city_region?: string
+          contact_method?: string
+          contact_value?: string
+          converted_convention_id?: string | null
+          country?: string
+          created_at?: string
+          date_notes?: string | null
+          date_status?: string
+          duplicate_of_convention_id?: string | null
+          end_date?: string | null
+          event_name?: string
+          event_type?: string
+          event_visibility?: string
+          expected_attendance?: number | null
+          id?: string
+          notes?: string | null
+          official_url?: string | null
+          preferred_setup?: string | null
+          resolution_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_date?: string | null
+          status?: string
+          submitter_relationship?: string
+          updated_at?: string
+          venue_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_suggestions_converted_convention_id_fkey"
+            columns: ["converted_convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_suggestions_duplicate_of_convention_id_fkey"
+            columns: ["duplicate_of_convention_id"]
+            isOneToOne: false
+            referencedRelation: "conventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_suggestions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           convention_id: string | null
@@ -1350,6 +1464,126 @@ export type Database = {
           },
         ]
       }
+      fursuit_code_change_allowances: {
+        Row: {
+          consumed_at: string | null
+          consumed_from_code: string | null
+          consumed_fursuit_id: string | null
+          consumed_to_code: string | null
+          granted_at: string
+          granted_by: string | null
+          granted_reason: string | null
+          id: string
+          owner_id: string
+          source: string
+          source_fursuit_id: string | null
+        }
+        Insert: {
+          consumed_at?: string | null
+          consumed_from_code?: string | null
+          consumed_fursuit_id?: string | null
+          consumed_to_code?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          granted_reason?: string | null
+          id?: string
+          owner_id: string
+          source: string
+          source_fursuit_id?: string | null
+        }
+        Update: {
+          consumed_at?: string | null
+          consumed_from_code?: string | null
+          consumed_fursuit_id?: string | null
+          consumed_to_code?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          granted_reason?: string | null
+          id?: string
+          owner_id?: string
+          source?: string
+          source_fursuit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fursuit_code_change_allowances_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fursuit_code_change_allowances_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fursuit_code_change_attempts: {
+        Row: {
+          attempted_by: string | null
+          attempted_code: string
+          client_app_version: string | null
+          client_attempt_id: string | null
+          client_platform: string | null
+          conflicting_fursuit_id: string | null
+          created_at: string
+          fursuit_id: string | null
+          id: string
+          metadata: Json
+          owner_id: string | null
+          previous_code: string | null
+          result: string
+        }
+        Insert: {
+          attempted_by?: string | null
+          attempted_code: string
+          client_app_version?: string | null
+          client_attempt_id?: string | null
+          client_platform?: string | null
+          conflicting_fursuit_id?: string | null
+          created_at?: string
+          fursuit_id?: string | null
+          id?: string
+          metadata?: Json
+          owner_id?: string | null
+          previous_code?: string | null
+          result: string
+        }
+        Update: {
+          attempted_by?: string | null
+          attempted_code?: string
+          client_app_version?: string | null
+          client_attempt_id?: string | null
+          client_platform?: string | null
+          conflicting_fursuit_id?: string | null
+          created_at?: string
+          fursuit_id?: string | null
+          id?: string
+          metadata?: Json
+          owner_id?: string | null
+          previous_code?: string | null
+          result?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fursuit_code_change_attempts_attempted_by_fkey"
+            columns: ["attempted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fursuit_code_change_attempts_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fursuit_color_assignments: {
         Row: {
           color_id: string
@@ -1590,6 +1824,80 @@ export type Database = {
           },
         ]
       }
+      fursuit_unique_code_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          client_app_version: string | null
+          client_attempt_id: string | null
+          client_platform: string | null
+          fursuit_id: string
+          id: string
+          metadata: Json
+          new_code: string
+          old_code: string | null
+          owner_id: string
+          source: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          client_app_version?: string | null
+          client_attempt_id?: string | null
+          client_platform?: string | null
+          fursuit_id: string
+          id?: string
+          metadata?: Json
+          new_code: string
+          old_code?: string | null
+          owner_id: string
+          source: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          client_app_version?: string | null
+          client_attempt_id?: string | null
+          client_platform?: string | null
+          fursuit_id?: string
+          id?: string
+          metadata?: Json
+          new_code?: string
+          old_code?: string | null
+          owner_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fursuit_unique_code_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fursuit_unique_code_history_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fursuit_unique_code_history_fursuit_id_fkey"
+            columns: ["fursuit_id"]
+            isOneToOne: false
+            referencedRelation: "fursuits_moderation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fursuit_unique_code_history_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fursuits: {
         Row: {
           avatar_path: string | null
@@ -1598,6 +1906,7 @@ export type Database = {
           catch_mode: string
           created_at: string | null
           description: string | null
+          display_order: number | null
           flagged_at: string | null
           flagged_reason: string | null
           id: string
@@ -1610,6 +1919,7 @@ export type Database = {
           social_signal: string | null
           species_id: string | null
           unique_code: string
+          updated_at: string
           visibility_audience: string
         }
         Insert: {
@@ -1619,6 +1929,7 @@ export type Database = {
           catch_mode?: string
           created_at?: string | null
           description?: string | null
+          display_order?: number | null
           flagged_at?: string | null
           flagged_reason?: string | null
           id?: string
@@ -1631,6 +1942,7 @@ export type Database = {
           social_signal?: string | null
           species_id?: string | null
           unique_code: string
+          updated_at?: string
           visibility_audience?: string
         }
         Update: {
@@ -1640,6 +1952,7 @@ export type Database = {
           catch_mode?: string
           created_at?: string | null
           description?: string | null
+          display_order?: number | null
           flagged_at?: string | null
           flagged_reason?: string | null
           id?: string
@@ -1652,6 +1965,7 @@ export type Database = {
           social_signal?: string | null
           species_id?: string | null
           unique_code?: string
+          updated_at?: string
           visibility_audience?: string
         }
         Relationships: [
@@ -3522,6 +3836,10 @@ export type Database = {
           is_redacted: boolean
         }[]
       }
+      get_fursuit_code_change_status: {
+        Args: { p_fursuit_id: string }
+        Returns: Json
+      }
       get_fursuit_convention_stats: {
         Args: { p_convention_id: string; p_fursuit_id: string }
         Returns: {
@@ -3776,6 +4094,7 @@ export type Database = {
           color_assignments: Json
           created_at: string
           description: string
+          display_order: number
           fursuit_bio: Json
           fursuit_conventions: Json
           id: string
@@ -3800,6 +4119,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["user_role"]
       }
       grant_achievements_batch: { Args: { awards: Json }; Returns: Json }
+      grant_fursuit_code_change_allowance: {
+        Args: { p_owner_id: string; p_reason?: string }
+        Returns: string
+      }
       has_new_maker_for_catcher_at_convention: {
         Args: {
           p_catch_id: string
@@ -4058,6 +4381,22 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      record_fursuit_code_change_attempt: {
+        Args: {
+          p_attempted_by: string
+          p_attempted_code: string
+          p_client_app_version?: string
+          p_client_attempt_id?: string
+          p_client_platform?: string
+          p_conflicting_fursuit_id?: string
+          p_fursuit_id: string
+          p_metadata?: Json
+          p_owner_id: string
+          p_previous_code: string
+          p_result: string
+        }
+        Returns: undefined
+      }
       refresh_analytics_views: { Args: never; Returns: undefined }
       register_push_token: {
         Args: { p_expo_push_token: string; p_user_id: string }
@@ -4065,6 +4404,10 @@ export type Database = {
       }
       remove_fursuit_from_convention: {
         Args: { p_convention_id: string; p_fursuit_id: string }
+        Returns: undefined
+      }
+      reorder_own_fursuits: {
+        Args: { p_fursuit_ids: string[] }
         Returns: undefined
       }
       replace_fursuit_makers: {
@@ -4175,6 +4518,9 @@ export type Database = {
           p_avatar_changed: boolean
           p_avatar_path: string
           p_avatar_url: string
+          p_client_app_version?: string
+          p_client_attempt_id?: string
+          p_client_platform?: string
           p_fursuit_id: string
           p_interaction_badges: string[]
           p_name: string

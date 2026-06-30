@@ -1,0 +1,554 @@
+---
+import Base from '../layouts/Base.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Base
+  title="Suggest an Event"
+  description="Suggest a convention, furmeet, meetup, or private event where TailTag could be playable."
+>
+  <article class="mx-auto w-full max-w-2xl flex-1 px-6 py-12">
+    <a
+      href="/"
+      class="text-sm font-semibold text-foreground/60 transition hover:text-foreground"
+    >
+      &larr; Back to TailTag
+    </a>
+
+    <header class="mt-8">
+      <h1 class="text-3xl font-bold text-foreground">Suggest an event</h1>
+      <p class="mt-3 max-w-xl text-sm leading-6 text-foreground/70">
+        Tell us about a convention, furmeet, meetup, or private event where TailTag could be
+        playable. For private events, a general area is enough until we follow up.
+      </p>
+    </header>
+
+    <section
+      id="success-state"
+      class="mt-8 hidden rounded-lg border border-primary/40 bg-primary/10 p-4 text-sm text-foreground/80"
+    >
+      <h2 class="font-semibold text-foreground">Suggestion received</h2>
+      <p class="mt-2">
+        Thanks for sending it over. TailTag admins will review the event and may follow up if we
+        need more details.
+      </p>
+      <a
+        href="/"
+        class="mt-4 inline-flex text-sm font-semibold text-primary hover:underline"
+      >
+        Back to TailTag
+      </a>
+    </section>
+
+    <form
+      id="event-suggestion-form"
+      class="mt-8 space-y-8"
+      novalidate
+    >
+      <input
+        type="text"
+        name="company_website"
+        id="company-website"
+        class="hidden"
+        tabindex="-1"
+        autocomplete="off"
+      />
+
+      <section class="space-y-4">
+        <h2 class="text-lg font-semibold text-foreground">Event details</h2>
+        <div>
+          <label
+            for="event-name"
+            class="text-sm font-semibold text-foreground"
+            >Event name</label
+          >
+          <input
+            id="event-name"
+            name="event_name"
+            type="text"
+            required
+            maxlength="160"
+            placeholder="e.g. FurFest 2026"
+            class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+          />
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              for="event-type"
+              class="text-sm font-semibold text-foreground"
+              >Event type</label
+            >
+            <select
+              id="event-type"
+              name="event_type"
+              required
+              class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+            >
+              <option value="">Select one</option>
+              <option value="convention">Convention</option>
+              <option value="furmeet">Furmeet</option>
+              <option value="public_meetup">Public meetup</option>
+              <option value="private_event">Private event</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              for="event-visibility"
+              class="text-sm font-semibold text-foreground"
+              >Event visibility</label
+            >
+            <select
+              id="event-visibility"
+              name="event_visibility"
+              required
+              class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+            >
+              <option value="">Select one</option>
+              <option value="public">Public</option>
+              <option value="invite_only">Invite-only</option>
+              <option value="private">Private</option>
+              <option value="not_sure">Not sure</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              for="city-region"
+              class="text-sm font-semibold text-foreground"
+              >City or region</label
+            >
+            <input
+              id="city-region"
+              name="city_region"
+              type="text"
+              required
+              maxlength="160"
+              placeholder="e.g. Chicago, IL"
+              class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+            />
+          </div>
+
+          <div>
+            <label
+              for="country"
+              class="text-sm font-semibold text-foreground"
+              >Country</label
+            >
+            <input
+              id="country"
+              name="country"
+              type="text"
+              required
+              maxlength="120"
+              placeholder="e.g. United States"
+              class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+            />
+          </div>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              for="venue-name"
+              class="text-sm font-semibold text-foreground"
+              >Venue name</label
+            >
+            <input
+              id="venue-name"
+              name="venue_name"
+              type="text"
+              maxlength="160"
+              placeholder="Optional"
+              class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+            />
+          </div>
+
+          <div>
+            <label
+              for="official-url"
+              class="text-sm font-semibold text-foreground"
+              >Official link</label
+            >
+            <input
+              id="official-url"
+              name="official_url"
+              type="url"
+              maxlength="500"
+              placeholder="https://"
+              class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-lg font-semibold text-foreground">Dates</h2>
+        <div>
+          <label
+            for="date-status"
+            class="text-sm font-semibold text-foreground"
+            >Date status</label
+          >
+          <select
+            id="date-status"
+            name="date_status"
+            required
+            class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+          >
+            <option value="">Select one</option>
+            <option value="known">Dates are known</option>
+            <option value="approximate">Approximate timing</option>
+            <option value="not_announced">Dates not announced yet</option>
+          </select>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              for="start-date"
+              class="text-sm font-semibold text-foreground"
+              >Start date</label
+            >
+            <input
+              id="start-date"
+              name="start_date"
+              type="date"
+              class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+            />
+          </div>
+
+          <div>
+            <label
+              for="end-date"
+              class="text-sm font-semibold text-foreground"
+              >End date</label
+            >
+            <input
+              id="end-date"
+              name="end_date"
+              type="date"
+              class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label
+            for="date-notes"
+            class="text-sm font-semibold text-foreground"
+            >Date notes</label
+          >
+          <input
+            id="date-notes"
+            name="date_notes"
+            type="text"
+            maxlength="240"
+            placeholder="e.g. Usually early July, dates not posted yet"
+            class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+          />
+        </div>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-lg font-semibold text-foreground">Contact</h2>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              for="submitter-relationship"
+              class="text-sm font-semibold text-foreground"
+              >Your relationship to the event</label
+            >
+            <input
+              id="submitter-relationship"
+              name="submitter_relationship"
+              type="text"
+              required
+              maxlength="120"
+              placeholder="Organizer, staff, attendee..."
+              class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+            />
+          </div>
+
+          <div>
+            <label
+              for="contact-method"
+              class="text-sm font-semibold text-foreground"
+              >Contact method</label
+            >
+            <select
+              id="contact-method"
+              name="contact_method"
+              required
+              class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+            >
+              <option value="">Select one</option>
+              <option value="email">Email</option>
+              <option value="telegram">Telegram</option>
+              <option value="discord">Discord</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label
+            for="contact-value"
+            class="text-sm font-semibold text-foreground"
+            >Contact info</label
+          >
+          <input
+            id="contact-value"
+            name="contact_value"
+            type="text"
+            required
+            maxlength="160"
+            placeholder="Email address or handle"
+            class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+          />
+        </div>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-lg font-semibold text-foreground">Extra context</h2>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              for="expected-attendance"
+              class="text-sm font-semibold text-foreground"
+              >Expected attendance</label
+            >
+            <input
+              id="expected-attendance"
+              name="expected_attendance"
+              type="number"
+              min="1"
+              max="1000000"
+              step="1"
+              inputmode="numeric"
+              placeholder="Optional"
+              class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+            />
+          </div>
+
+          <div>
+            <label
+              for="preferred-setup"
+              class="text-sm font-semibold text-foreground"
+              >Preferred setup</label
+            >
+            <input
+              id="preferred-setup"
+              name="preferred_setup"
+              type="text"
+              maxlength="120"
+              placeholder="Casual play, leaderboard, not sure..."
+              class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label
+            for="notes"
+            class="text-sm font-semibold text-foreground"
+            >Anything else TailTag should know?</label
+          >
+          <textarea
+            id="notes"
+            name="notes"
+            maxlength="1000"
+            rows="5"
+            class="mt-2 w-full rounded-lg border border-card-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+          ></textarea>
+        </div>
+      </section>
+
+      <section class="space-y-4 border-t border-card-border pt-6">
+        <p class="text-xs leading-5 text-foreground/60">
+          TailTag admins will review your submission and may use your contact info to follow up
+          about this event. Submitting an event does not guarantee TailTag will be available there.
+          See the
+          <a
+            href="/privacy"
+            class="text-primary hover:underline"
+            >Privacy Policy</a
+          >.
+        </p>
+
+        <p
+          id="form-error"
+          class="hidden rounded-lg border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-100"
+        >
+        </p>
+
+        <button
+          id="submit-button"
+          type="submit"
+          class="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-background transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Submit suggestion
+        </button>
+      </section>
+    </form>
+  </article>
+  <Footer />
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL;
+  const SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+
+  const form = document.getElementById('event-suggestion-form');
+  const successState = document.getElementById('success-state');
+  const formError = document.getElementById('form-error');
+  const submitButton = document.getElementById('submit-button');
+  const dateStatusInput = document.getElementById('date-status');
+  const startDateInput = document.getElementById('start-date');
+
+  const getInput = (id: string) => document.getElementById(id) as HTMLInputElement | null;
+  const getSelect = (id: string) => document.getElementById(id) as HTMLSelectElement | null;
+  const getTextarea = (id: string) => document.getElementById(id) as HTMLTextAreaElement | null;
+
+  const textValue = (id: string) => getInput(id)?.value.trim() ?? '';
+  const optionalText = (id: string) => textValue(id) || null;
+  const selectValue = (id: string) => getSelect(id)?.value.trim() ?? '';
+  const textareaValue = (id: string) => getTextarea(id)?.value.trim() || null;
+
+  const setSubmitting = (isSubmitting: boolean) => {
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = isSubmitting;
+      submitButton.textContent = isSubmitting ? 'Submitting...' : 'Submit suggestion';
+    }
+  };
+
+  const setError = (message: string | null) => {
+    if (!formError) return;
+    formError.textContent = message ?? '';
+    formError.classList.toggle('hidden', !message);
+  };
+
+  const showSuccess = () => {
+    form?.classList.add('hidden');
+    successState?.classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const updateDateRequirement = () => {
+    if (
+      dateStatusInput instanceof HTMLSelectElement &&
+      startDateInput instanceof HTMLInputElement
+    ) {
+      startDateInput.required = dateStatusInput.value === 'known';
+    }
+  };
+
+  dateStatusInput?.addEventListener('change', updateDateRequirement);
+  updateDateRequirement();
+
+  const getExpectedAttendance = () => {
+    const value = textValue('expected-attendance');
+    if (!value) return null;
+    const parsed = Number(value);
+    return Number.isInteger(parsed) ? parsed : null;
+  };
+
+  const isHttpUrl = (value: string | null) => {
+    if (!value) return true;
+    try {
+      const url = new URL(value);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    setError(null);
+
+    if (!(form instanceof HTMLFormElement)) return;
+    if (!form.reportValidity()) return;
+
+    const honeypot = textValue('company-website');
+    if (honeypot) {
+      showSuccess();
+      return;
+    }
+
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      setError('Event suggestions are temporarily unavailable. Please try again later.');
+      return;
+    }
+
+    const dateStatus = selectValue('date-status');
+    const startDate = optionalText('start-date');
+    const endDate = optionalText('end-date');
+    const officialUrl = optionalText('official-url');
+
+    if (dateStatus === 'known' && !startDate) {
+      setError('Start date is required when event dates are known.');
+      return;
+    }
+
+    if (startDate && endDate && endDate < startDate) {
+      setError('End date cannot be before start date.');
+      return;
+    }
+
+    if (!isHttpUrl(officialUrl)) {
+      setError('Official link must start with http:// or https://.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          persistSession: false,
+        },
+      });
+
+      const { error } = await supabase.from('event_suggestions').insert({
+        event_name: textValue('event-name'),
+        event_type: selectValue('event-type'),
+        event_visibility: selectValue('event-visibility'),
+        date_status: dateStatus,
+        start_date: startDate,
+        end_date: endDate,
+        date_notes: optionalText('date-notes'),
+        city_region: textValue('city-region'),
+        country: textValue('country'),
+        venue_name: optionalText('venue-name'),
+        official_url: officialUrl,
+        submitter_relationship: textValue('submitter-relationship'),
+        contact_method: selectValue('contact-method'),
+        contact_value: textValue('contact-value'),
+        expected_attendance: getExpectedAttendance(),
+        preferred_setup: optionalText('preferred-setup'),
+        notes: textareaValue('notes'),
+      });
+
+      if (error) {
+        setError('Could not submit this suggestion. Please check the form and try again.');
+        return;
+      }
+
+      showSuccess();
+    } catch {
+      setError('Could not submit this suggestion. Please check the form and try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  });
+</script>

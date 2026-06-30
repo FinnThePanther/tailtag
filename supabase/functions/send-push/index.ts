@@ -12,6 +12,7 @@ import {
   isInAppOnlyNotificationType,
   isPushNotificationType,
 } from '../../../packages/notification-contract/src/index.ts';
+import { captureSupabaseError } from '../_shared/sentry.ts';
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -40,6 +41,7 @@ const DEFAULT_BATCH_SIZE = 25;
 const MAX_BATCH_SIZE = 100;
 const DEFAULT_MAX_DURATION_MS = 10_000;
 const TARGETED_MAX_DURATION_MS = 2_500;
+const PLAYER_LEVELING_UI_FEATURE_KEY = 'player_leveling_ui';
 
 interface NotificationRecord {
   id?: unknown;
@@ -136,6 +138,17 @@ function extractString(value: unknown): string | null {
   if (typeof value === 'string') {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : null;
+  }
+  return null;
+}
+
+function extractFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
 }
@@ -359,6 +372,16 @@ async function buildMessage(
         title: 'All Tasks Complete!',
         body: "Great job finishing today's tasks!",
       };
+    case 'level_up': {
+      const levelAfter = extractFiniteNumber(payload.level_after);
+      const normalizedLevel = levelAfter ? Math.max(Math.trunc(levelAfter), 1) : null;
+      return {
+        title: 'Level up!',
+        body: normalizedLevel
+          ? `You reached Level ${normalizedLevel}.`
+          : 'You reached a new TailTag level.',
+      };
+    }
     case 'convention_recap_ready': {
       const conventionName = extractString(payload.convention_name) ?? 'your convention';
       return {
@@ -461,6 +484,25 @@ async function ensureNotificationPushJob(notificationId: string): Promise<void> 
   }
 }
 
+async function isPlayerLevelingPushEnabled(userId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.rpc('is_feature_enabled_for_profile', {
+    p_feature_key: PLAYER_LEVELING_UI_FEATURE_KEY,
+    p_profile_id: userId,
+  });
+
+  if (error) {
+    captureSupabaseError(error, {
+      scope: 'send-push',
+      action: 'check-player-leveling-feature-flag',
+      userId,
+      featureKey: PLAYER_LEVELING_UI_FEATURE_KEY,
+    });
+    throw new Error(`Feature flag check failed: ${error.message}`);
+  }
+
+  return data === true;
+}
+
 async function claimNextJob(
   workerId: string,
   notificationId: string | null,
@@ -520,6 +562,23 @@ async function deliverPushJob(job: PushJobRow, fetchDeadlineAt: number): Promise
   }
 
   const payload = toRecord(job.payload);
+  if (notificationType === 'level_up') {
+    let isEnabled = false;
+    try {
+      isEnabled = await isPlayerLevelingPushEnabled(job.user_id);
+    } catch (error) {
+      return {
+        status: 'retry_pending',
+        errorMessage: formatErrorMessage(error),
+        retryAfterSeconds: retryDelaySeconds(job.attempt_number),
+      };
+    }
+
+    if (!isEnabled) {
+      return { status: 'skipped', skipReason: 'Feature disabled' };
+    }
+  }
+
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('expo_push_token, push_notifications_enabled')

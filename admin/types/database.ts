@@ -1089,6 +1089,115 @@ export type Database = {
           },
         ];
       };
+      event_suggestions: {
+        Row: {
+          city_region: string;
+          contact_method: string;
+          contact_value: string;
+          converted_convention_id: string | null;
+          country: string;
+          created_at: string;
+          date_notes: string | null;
+          date_status: string;
+          duplicate_of_convention_id: string | null;
+          end_date: string | null;
+          event_name: string;
+          event_type: string;
+          event_visibility: string;
+          expected_attendance: number | null;
+          id: string;
+          notes: string | null;
+          official_url: string | null;
+          preferred_setup: string | null;
+          resolution_reason: string | null;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          start_date: string | null;
+          status: string;
+          submitter_relationship: string;
+          updated_at: string;
+          venue_name: string | null;
+        };
+        Insert: {
+          city_region: string;
+          contact_method: string;
+          contact_value: string;
+          converted_convention_id?: string | null;
+          country: string;
+          created_at?: string;
+          date_notes?: string | null;
+          date_status: string;
+          duplicate_of_convention_id?: string | null;
+          end_date?: string | null;
+          event_name: string;
+          event_type: string;
+          event_visibility: string;
+          expected_attendance?: number | null;
+          id?: string;
+          notes?: string | null;
+          official_url?: string | null;
+          preferred_setup?: string | null;
+          resolution_reason?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          start_date?: string | null;
+          status?: string;
+          submitter_relationship: string;
+          updated_at?: string;
+          venue_name?: string | null;
+        };
+        Update: {
+          city_region?: string;
+          contact_method?: string;
+          contact_value?: string;
+          converted_convention_id?: string | null;
+          country?: string;
+          created_at?: string;
+          date_notes?: string | null;
+          date_status?: string;
+          duplicate_of_convention_id?: string | null;
+          end_date?: string | null;
+          event_name?: string;
+          event_type?: string;
+          event_visibility?: string;
+          expected_attendance?: number | null;
+          id?: string;
+          notes?: string | null;
+          official_url?: string | null;
+          preferred_setup?: string | null;
+          resolution_reason?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          start_date?: string | null;
+          status?: string;
+          submitter_relationship?: string;
+          updated_at?: string;
+          venue_name?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'event_suggestions_converted_convention_id_fkey';
+            columns: ['converted_convention_id'];
+            isOneToOne: false;
+            referencedRelation: 'conventions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'event_suggestions_duplicate_of_convention_id_fkey';
+            columns: ['duplicate_of_convention_id'];
+            isOneToOne: false;
+            referencedRelation: 'conventions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'event_suggestions_reviewed_by_fkey';
+            columns: ['reviewed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       events: {
         Row: {
           convention_id: string | null;
@@ -3370,20 +3479,6 @@ export type Database = {
           worker_name: string;
         }[];
       };
-      get_gameplay_queue_health: {
-        Args: never;
-        Returns: {
-          dead_lettered_event_count: number;
-          grouped_failures: Json;
-          oldest_unprocessed_event_age_seconds: number | null;
-          oldest_unprocessed_event_received_at: string | null;
-          oldest_visible_message_age_seconds: number | null;
-          oldest_visible_message_enqueued_at: string | null;
-          queue_depth: number;
-          retrying_event_count: number;
-          visible_queue_depth: number;
-        }[];
-      };
       get_blocked_users: {
         Args: { p_user_id: string };
         Returns: {
@@ -3573,6 +3668,20 @@ export type Database = {
         Args: { p_fursuit_id: string; p_profile_id: string };
         Returns: {
           convention_id: string;
+        }[];
+      };
+      get_gameplay_queue_health: {
+        Args: never;
+        Returns: {
+          dead_lettered_event_count: number;
+          grouped_failures: Json;
+          oldest_unprocessed_event_age_seconds: number;
+          oldest_unprocessed_event_received_at: string;
+          oldest_visible_message_age_seconds: number;
+          oldest_visible_message_enqueued_at: string;
+          queue_depth: number;
+          retrying_event_count: number;
+          visible_queue_depth: number;
         }[];
       };
       get_global_dashboard_summary: {

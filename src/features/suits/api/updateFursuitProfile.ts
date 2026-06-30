@@ -1,3 +1,6 @@
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
 import type { VisibilityAudience } from '@/features/adult-boundary';
 import type { InteractionBadgeKey, SocialSignalKey } from '@/features/interaction-preferences';
 import { captureSupabaseError } from '@/lib/sentry';
@@ -12,6 +15,16 @@ export type UpdateFursuitProfileResult =
     }
   | {
       status: 'code_taken';
+      fursuitId: string;
+      uniqueCode: string;
+    }
+  | {
+      status: 'code_change_locked';
+      fursuitId: string;
+      uniqueCode: string;
+    }
+  | {
+      status: 'code_invalid';
       fursuitId: string;
       uniqueCode: string;
     }
@@ -33,6 +46,7 @@ export interface UpdateFursuitProfileInput {
   avatarPath?: string | null;
   avatarUrl?: string | null;
   avatarChanged: boolean;
+  clientAttemptId?: string;
 }
 
 interface RawUpdateFursuitProfileResult {
@@ -67,7 +81,12 @@ const parseUpdateFursuitProfileResult = (value: unknown): UpdateFursuitProfileRe
     throw new Error('Malformed update_fursuit_profile response');
   }
 
-  if (result.status === 'updated' || result.status === 'code_taken') {
+  if (
+    result.status === 'updated' ||
+    result.status === 'code_taken' ||
+    result.status === 'code_change_locked' ||
+    result.status === 'code_invalid'
+  ) {
     return {
       status: result.status,
       fursuitId,
@@ -78,10 +97,25 @@ const parseUpdateFursuitProfileResult = (value: unknown): UpdateFursuitProfileRe
   throw new Error('Malformed update_fursuit_profile response');
 };
 
+const createFursuitEditClientAttemptId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `fursuit-edit-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const getClientAppVersion = () =>
+  Constants.expoConfig?.version ??
+  Constants.expoConfig?.runtimeVersion?.toString() ??
+  Constants.expoConfig?.extra?.appVersion ??
+  null;
+
 export async function updateFursuitProfile(
   input: UpdateFursuitProfileInput,
 ): Promise<UpdateFursuitProfileResult> {
   const normalizedCode = normalizeUniqueCodeInput(input.uniqueCode);
+  const clientAttemptId = input.clientAttemptId ?? createFursuitEditClientAttemptId();
   const { data, error } = await (supabase as any).rpc('update_fursuit_profile', {
     p_fursuit_id: input.fursuitId,
     p_name: input.name,
@@ -94,6 +128,9 @@ export async function updateFursuitProfile(
     p_avatar_path: input.avatarPath ?? null,
     p_avatar_url: input.avatarUrl ?? null,
     p_avatar_changed: input.avatarChanged,
+    p_client_attempt_id: clientAttemptId,
+    p_client_app_version: getClientAppVersion(),
+    p_client_platform: Platform.OS,
   });
 
   if (error) {
@@ -105,6 +142,8 @@ export async function updateFursuitProfile(
       speciesId: input.speciesId,
       avatarChanged: input.avatarChanged,
       uniqueCode: normalizedCode,
+      clientAttemptId,
+      platform: Platform.OS,
     });
     throw error;
   }

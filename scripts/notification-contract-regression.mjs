@@ -118,6 +118,55 @@ describe('Notification contract coverage', () => {
     assert.match(catchToastSource, /catch_invite_id/);
   });
 
+  it('gates level-up push delivery and foreground toasts behind player leveling rollout', () => {
+    const { source } = readLatestMigrationMatching(/level_up[\s\S]*player_leveling_ui/);
+    const sendPushSource = read('supabase/functions/send-push/index.ts');
+    const achievementToastSource = read(
+      'src/features/achievements/components/AchievementToastManager.tsx',
+    );
+
+    assert.match(source, /v_notification\.type = 'level_up'/);
+    assert.match(
+      source,
+      /is_feature_enabled_for_profile\('player_leveling_ui', v_notification\.user_id\)/,
+    );
+    assert.match(source, /IF v_job_id IS NULL THEN[\s\S]*RETURN NEW;/);
+
+    assert.match(sendPushSource, /PLAYER_LEVELING_UI_FEATURE_KEY = 'player_leveling_ui'/);
+    const levelUpFeatureFlagHelper = sendPushSource.match(
+      /async function isPlayerLevelingPushEnabled[\s\S]*?\n}/,
+    )?.[0];
+    const levelUpPushGuard = sendPushSource.match(
+      /if \(notificationType === 'level_up'\) \{[\s\S]*?skipReason: 'Feature disabled'[\s\S]*?\n  \}/,
+    )?.[0];
+
+    assert.ok(levelUpFeatureFlagHelper, 'Expected player leveling feature flag helper to exist');
+    assert.ok(levelUpPushGuard, 'Expected level_up delivery guard to exist');
+    assert.match(levelUpFeatureFlagHelper, /PLAYER_LEVELING_UI_FEATURE_KEY/);
+    assert.match(levelUpPushGuard, /notificationType === 'level_up'/);
+    assert.match(levelUpPushGuard, /skipReason: 'Feature disabled'/);
+
+    const levelUpToastHandler = achievementToastSource.match(
+      /const handleLevelUp = \([\s\S]*?\n    \};\n\n    const catchUpAchievementNotifications/,
+    )?.[0];
+    const achievementCatchUpBlock = achievementToastSource.match(
+      /const catchUpAchievementNotifications = async \(\) => \{[\s\S]*?\n    \};\n\n    const updateDailyTasksSummary/,
+    )?.[0];
+
+    assert.match(achievementToastSource, /PLAYER_LEVELING_UI_FEATURE_KEY/);
+    assert.ok(levelUpToastHandler, 'Expected level_up toast handler to exist');
+    assert.match(levelUpToastHandler, /isPlayerLevelingUiEnabled !== true/);
+    assert.match(levelUpToastHandler, /surfacedLevelUpNotificationIdsRef/);
+    assert.match(
+      levelUpToastHandler,
+      /surfacedLevelUpNotificationIdsRef\.current\.has\(notificationId\)[\s\S]*surfacedIds\.add\(notificationId\)[\s\S]*isPlayerLevelingUiEnabled !== true/,
+    );
+    assert.ok(achievementCatchUpBlock, 'Expected achievement catch-up block to exist');
+    assert.match(achievementCatchUpBlock, /isPlayerLevelingUiEnabled === true/);
+    assert.match(achievementCatchUpBlock, /'level_up'/);
+    assert.match(achievementCatchUpBlock, /handleLevelUp\(row\.id, notificationPayload\)/);
+  });
+
   it('ensures profiles exist before push write calls that need a profile row', () => {
     const pushApiSource = read('src/features/push-notifications/api/pushNotifications.ts');
 

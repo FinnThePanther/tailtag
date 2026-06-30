@@ -23,6 +23,7 @@ export {
 export {
   fetchMySuits,
   fetchMySuitsCount,
+  reorderMySuits,
   MY_SUITS_QUERY_KEY,
   MY_SUITS_COUNT_QUERY_KEY,
   MY_SUITS_STALE_TIME,
@@ -30,7 +31,10 @@ export {
   mySuitsCountQueryKey,
   createMySuitsQueryOptions,
   createMySuitsCountQueryOptions,
-} from './api/mySuits';
+} from '@/features/suits/api/mySuits';
+export { queueMySuitsOrderSync } from '@/features/suits/api/mySuitsOrderOutbox';
+export { syncMySuitsOrder } from '@/features/suits/api/mySuitsOrderSync';
+export { MySuitsOrderSyncManager } from '@/features/suits/components/MySuitsOrderSyncManager';
 export type { FursuitSummary, FursuitBio, FursuitMaker } from './types';
 export {
   fetchCaughtSuits,
@@ -67,6 +71,12 @@ export type {
   UpdateFursuitProfileInput,
   UpdateFursuitProfileResult,
 } from '@/features/suits/api/updateFursuitProfile';
+export {
+  fetchFursuitCodeChangeStatus,
+  FURSUIT_CODE_CHANGE_STATUS_QUERY_KEY,
+  fursuitCodeChangeStatusQueryKey,
+} from '@/features/suits/api/codeChangeStatus';
+export type { FursuitCodeChangeStatus } from '@/features/suits/api/codeChangeStatus';
 export {
   fetchFursuitDetail,
   FURSUIT_DETAIL_QUERY_KEY,
