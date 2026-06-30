@@ -201,7 +201,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ focus?: string }>();
   const appVersionLabel = getAppVersionLabel();
-  const { session, forceSignOut } = useAuth();
+  const { session, signOut, forceSignOut } = useAuth();
   const userId = session?.user.id ?? null;
   const accountEmail = session?.user?.email?.trim() ?? '';
   const hasEmailAddress = accountEmail.length > 0;
@@ -1436,13 +1436,13 @@ export default function SettingsScreen() {
     setIsSigningOut(true);
     setSignOutError(null);
 
-    const { error } = await supabase.auth.signOut();
+    const { error } = await signOut();
 
     if (error) {
       setSignOutError(getUserVisibleErrorMessage(error, 'We could not sign you out right now.'));
       setIsSigningOut(false);
     }
-  }, [isSigningOut]);
+  }, [isSigningOut, signOut]);
 
   const performAccountDeletion = useCallback(async () => {
     if (!userId || isDeletingAccount || isDeletingAccountRef.current) {
