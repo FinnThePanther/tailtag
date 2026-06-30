@@ -4531,6 +4531,7 @@ export type Database = {
           p_interaction_badges: string[]
           p_name: string
           p_owner_attribution_visibility: string
+          p_preserve_color_details?: boolean
           p_social_signal: string
           p_species_id: string
           p_unique_code: string

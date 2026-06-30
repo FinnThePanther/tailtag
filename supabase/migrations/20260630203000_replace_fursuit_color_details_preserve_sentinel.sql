@@ -1,4 +1,4 @@
--- Preserve color_details when older clients call update_fursuit_profile without the new parameter.
+-- Replace the color_details text sentinel with an explicit preserve flag.
 
 DROP FUNCTION IF EXISTS public.update_fursuit_profile(
   uuid,

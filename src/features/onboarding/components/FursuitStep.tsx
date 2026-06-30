@@ -59,6 +59,7 @@ import {
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
   MAX_FURSUIT_COLOR_DETAILS_LENGTH,
+  OTHER_FURSUIT_COLOR_NORMALIZED_NAME,
   normalizeFursuitColorDetails,
   selectedColorIdsIncludeOther,
   type FursuitColorOption,
@@ -193,6 +194,9 @@ export function FursuitStep({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedColorIds, setSelectedColorIds] = useState<string[]>(draft.selectedColorIds);
+  const [selectedOtherColorIds, setSelectedOtherColorIds] = useState<string[]>(
+    draft.selectedOtherColorIds,
+  );
   const [visibilityAudience, setVisibilityAudience] = useState<VisibilityAudience>(
     draft.visibilityAudience,
   );
@@ -271,9 +275,13 @@ export function FursuitStep({
     [colorOptions, selectedColorIds],
   );
   const hasSelectedOtherColor = useMemo(
-    () => selectedColorIdsIncludeOther(selectedColorIds, colorOptions),
-    [colorOptions, selectedColorIds],
+    () =>
+      selectedOtherColorIds.some((colorId) => selectedColorIds.includes(colorId)) ||
+      selectedColorIdsIncludeOther(selectedColorIds, colorOptions),
+    [colorOptions, selectedColorIds, selectedOtherColorIds],
   );
+  const hasUnresolvedSelectedColors =
+    selectedColorIds.length > 0 && selectedColors.length !== selectedColorIds.length;
 
   const speciesSuggestions = useMemo(
     () =>
@@ -442,6 +450,7 @@ export function FursuitStep({
       photoCreditInput,
       showPhotoCreditInput,
       selectedColorIds,
+      selectedOtherColorIds,
       selectedConventionIds: [...selectedConventionIds],
       selectedPhoto,
       hideOwnerPublicly,
@@ -460,12 +469,41 @@ export function FursuitStep({
     selectedColorIds,
     selectedConventionIds,
     selectedInteractionBadges,
+    selectedOtherColorIds,
     selectedPhoto,
     selectedSocialSignal,
     showPhotoCreditInput,
     speciesInput,
     visibilityAudience,
   ]);
+
+  useEffect(() => {
+    if (colorOptions.length === 0) {
+      return;
+    }
+
+    const otherColorIds = colorOptions
+      .filter((option) => option.normalizedName === OTHER_FURSUIT_COLOR_NORMALIZED_NAME)
+      .map((option) => option.id);
+
+    setSelectedOtherColorIds((current) => {
+      const next = new Set(current.filter((colorId) => selectedColorIds.includes(colorId)));
+
+      for (const colorId of otherColorIds) {
+        if (selectedColorIds.includes(colorId)) {
+          next.add(colorId);
+        } else {
+          next.delete(colorId);
+        }
+      }
+
+      const nextIds = [...next];
+      return nextIds.length === current.length &&
+        nextIds.every((id, index) => id === current[index])
+        ? current
+        : nextIds;
+    });
+  }, [colorOptions, selectedColorIds]);
 
   useEffect(() => {
     if (isProfileConventionsLoading) {
@@ -493,11 +531,20 @@ export function FursuitStep({
       const exists = current.includes(option.id);
 
       if (exists) {
+        setSelectedOtherColorIds((otherColorIds) =>
+          otherColorIds.filter((colorId) => colorId !== option.id),
+        );
         return current.filter((colorId) => colorId !== option.id);
       }
 
       if (current.length >= MAX_FURSUIT_COLORS) {
         return current;
+      }
+
+      if (option.normalizedName === OTHER_FURSUIT_COLOR_NORMALIZED_NAME) {
+        setSelectedOtherColorIds((otherColorIds) =>
+          otherColorIds.includes(option.id) ? otherColorIds : [...otherColorIds, option.id],
+        );
       }
 
       return [...current, option.id];
@@ -669,6 +716,7 @@ export function FursuitStep({
     setPhotoCreditInput(emptyDraft.photoCreditInput);
     setShowPhotoCreditInput(emptyDraft.showPhotoCreditInput);
     setSelectedColorIds(emptyDraft.selectedColorIds);
+    setSelectedOtherColorIds(emptyDraft.selectedOtherColorIds);
     setSelectedConventionIds(new Set(profileConventionIdSet));
     setHideOwnerPublicly(false);
     setVisibilityAudience('everyone');
@@ -723,6 +771,11 @@ export function FursuitStep({
 
     if (colorIds.length > MAX_FURSUIT_COLORS) {
       setSubmitError(`Choose up to ${MAX_FURSUIT_COLORS} colors. Remove one to add another.`);
+      return;
+    }
+
+    if (hasUnresolvedSelectedColors) {
+      setSubmitError('We are still loading your selected colors. Please try again in a moment.');
       return;
     }
 

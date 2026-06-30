@@ -90,7 +90,7 @@ import { launchFursuitPhotoPickerAsync } from '@/utils/imagePicker';
 import { buildAuthenticatedStorageObjectUrl } from '@/utils/supabase-image';
 import { colors } from '@/theme';
 import { styles } from '@/app-styles/fursuits/[id]/edit.styles';
-import { captureHandledException } from '@/lib/sentry';
+import { captureHandledException, captureSupabaseError } from '@/lib/sentry';
 import { getUserVisibleErrorMessage } from '@/lib/userVisibleErrors';
 import {
   profileNeedsAgeAttestation,
@@ -1299,6 +1299,21 @@ export default function EditFursuitScreen() {
 
       router.back();
     } catch (caught) {
+      captureHandledException(caught, {
+        scope: 'suits.edit.save',
+        additionalContext: {
+          fursuitId,
+          userId,
+          updatedCoreRecord,
+          replacedColors,
+          replacedSpecies,
+          colorDetailsChanged: normalizedColorDetails !== previousColorDetails,
+          writesColorDetails: normalizedColorDetails !== null,
+          colorDetailsLength: normalizedColorDetails?.length ?? 0,
+          avatarUploaded: Boolean(uploadedAvatarPath),
+        },
+      });
+
       if (uploadedAvatarPath && !updatedCoreRecord) {
         await removeStoragePath(
           uploadedAvatarPath,
@@ -1359,6 +1374,12 @@ export default function EditFursuitScreen() {
           .eq('fursuit_id', fursuitId);
 
         if (revertClearError) {
+          captureSupabaseError(revertClearError, {
+            scope: 'suits.edit.rollback',
+            action: 'clearColorAssignments',
+            fursuitId,
+            userId,
+          });
           console.warn('Failed to clear color assignments after error', revertClearError);
         } else if (previousColors.length > 0) {
           const revertAssignments = previousColors.map((color, index) => ({
@@ -1372,6 +1393,13 @@ export default function EditFursuitScreen() {
             .insert(revertAssignments);
 
           if (revertInsertError) {
+            captureSupabaseError(revertInsertError, {
+              scope: 'suits.edit.rollback',
+              action: 'restoreColorAssignments',
+              fursuitId,
+              userId,
+              previousColorCount: previousColors.length,
+            });
             console.warn('Failed to restore color assignments after error', revertInsertError);
           }
         }
@@ -1385,6 +1413,15 @@ export default function EditFursuitScreen() {
           await replaceFursuitSpeciesAssignments(fursuitId, previousSpeciesTags);
           setSelectedSpecies(previousSpeciesTags);
         } catch (revertError) {
+          captureHandledException(revertError, {
+            scope: 'suits.edit.rollback',
+            additionalContext: {
+              action: 'restoreSpeciesAssignments',
+              fursuitId,
+              userId,
+              previousSpeciesCount: previousSpeciesTags.length,
+            },
+          });
           console.warn('Failed to restore species assignments after error', revertError);
         }
       }
@@ -1407,6 +1444,13 @@ export default function EditFursuitScreen() {
           .eq('owner_id', userId);
 
         if (revertError) {
+          captureSupabaseError(revertError, {
+            scope: 'suits.edit.rollback',
+            action: 'restoreFursuitRecord',
+            fursuitId,
+            userId,
+            restoresColorDetails: previousColorDetails !== normalizedColorDetails,
+          });
           console.warn('Failed to revert fursuit record after edit error', revertError);
         } else {
           coreRecordReverted = true;

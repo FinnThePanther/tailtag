@@ -15,8 +15,9 @@ import type { FursuitBiosInsert, FursuitsInsert } from '@/types/database';
 import {
   MAX_FURSUIT_COLORS,
   MAX_FURSUIT_COLOR_DETAILS_LENGTH,
+  OTHER_FURSUIT_COLOR_NORMALIZED_NAME,
   normalizeFursuitColorDetails,
-} from '../../colors';
+} from '@/features/colors';
 import { getMaxFursuitsForFeatureState, MAX_FURSUITS_PER_USER } from '@/constants/fursuits';
 import { ensureSpeciesEntry } from '@/features/species';
 import { normalizeVisibilityAudience, type VisibilityAudience } from '@/features/adult-boundary';
@@ -157,6 +158,13 @@ export async function createQuickFursuit(options: {
           .filter((value) => value.length > 0),
       ),
     );
+    const { data: selectedColorRecords, error: selectedColorsError } =
+      normalizedColorIds.length > 0
+        ? await client
+            .from('fursuit_colors')
+            .select('id, normalized_name')
+            .in('id', normalizedColorIds)
+        : { data: [], error: null };
 
     if (!normalizedName) {
       throw new Error('Give your fursuit a name before saving.');
@@ -170,6 +178,10 @@ export async function createQuickFursuit(options: {
       throw new Error(`You can choose up to ${MAX_FURSUIT_COLORS} colors.`);
     }
 
+    if (selectedColorsError) {
+      throw new Error(`We couldn't verify your fursuit colors: ${selectedColorsError.message}`);
+    }
+
     if (
       normalizedColorDetails &&
       normalizedColorDetails.length > MAX_FURSUIT_COLOR_DETAILS_LENGTH
@@ -177,7 +189,12 @@ export async function createQuickFursuit(options: {
       throw new Error(`Keep color details under ${MAX_FURSUIT_COLOR_DETAILS_LENGTH} characters.`);
     }
 
-    if (options.requiresColorDetails && !normalizedColorDetails) {
+    const selectedOtherColor = (selectedColorRecords ?? []).some(
+      (color: { normalized_name?: unknown }) =>
+        color.normalized_name === OTHER_FURSUIT_COLOR_NORMALIZED_NAME,
+    );
+
+    if (selectedOtherColor && !normalizedColorDetails) {
       throw new Error('Add a short color detail so other players know what Other means.');
     }
 

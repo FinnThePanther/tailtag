@@ -133,6 +133,7 @@ export async function updateFursuitProfile(
     p_client_attempt_id: clientAttemptId,
     p_client_app_version: getClientAppVersion(),
     p_client_platform: Platform.OS,
+    p_preserve_color_details: false,
   });
 
   if (error) {

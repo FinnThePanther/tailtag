@@ -366,7 +366,8 @@ CREATE OR REPLACE FUNCTION public.update_fursuit_profile(
   p_client_attempt_id text DEFAULT NULL,
   p_client_app_version text DEFAULT NULL,
   p_client_platform text DEFAULT NULL,
-  p_color_details text DEFAULT NULL
+  p_color_details text DEFAULT NULL,
+  p_preserve_color_details boolean DEFAULT true
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -376,6 +377,7 @@ AS $function$
 DECLARE
   v_viewer_id uuid := auth.uid();
   v_normalized_code text := upper(btrim(coalesce(p_unique_code, '')));
+  v_preserve_color_details boolean := p_preserve_color_details IS TRUE AND p_color_details IS NULL;
   v_color_details text := NULLIF(left(btrim(coalesce(p_color_details, '')), 200), '');
   v_previous_code text;
   v_previous_normalized_code text;
@@ -568,7 +570,10 @@ BEGIN
     SET
       name = p_name,
       species_id = p_species_id,
-      color_details = v_color_details,
+      color_details = CASE
+        WHEN v_preserve_color_details THEN color_details
+        ELSE v_color_details
+      END,
       visibility_audience = p_visibility_audience,
       owner_attribution_visibility = p_owner_attribution_visibility,
       social_signal = p_social_signal,
@@ -695,7 +700,8 @@ REVOKE ALL ON FUNCTION public.update_fursuit_profile(
   text,
   text,
   text,
-  text
+  text,
+  boolean
 )
 FROM PUBLIC, anon, authenticated;
 
@@ -714,7 +720,8 @@ GRANT EXECUTE ON FUNCTION public.update_fursuit_profile(
   text,
   text,
   text,
-  text
+  text,
+  boolean
 )
 TO authenticated;
 

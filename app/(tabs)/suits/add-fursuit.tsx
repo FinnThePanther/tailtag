@@ -966,6 +966,7 @@ export default function AddFursuitScreen() {
       setSpeciesInput('');
       setSelectedSpecies([]);
       setSelectedColors([]);
+      setColorDetailsInput('');
       setSelectedPronouns([]);
       setPhotoCreditInput('');
       setShowPhotoCreditInput(false);
@@ -1017,6 +1018,18 @@ export default function AddFursuitScreen() {
         });
       });
     } catch (caught) {
+      captureHandledException(caught, {
+        scope: 'suits.addFursuit.save',
+        additionalContext: {
+          userId,
+          createdFursuitId,
+          selectedColorCount: selectedColorIds.length,
+          writesColorDetails: normalizedColorDetails !== null,
+          colorDetailsLength: normalizedColorDetails?.length ?? 0,
+          hasUploadedPhoto: Boolean(uploadedStoragePath),
+        },
+      });
+
       setSubmitError(
         getUserVisibleErrorMessage(
           caught,
