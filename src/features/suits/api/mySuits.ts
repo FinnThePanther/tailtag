@@ -69,6 +69,7 @@ type TableFursuitRow = Pick<
   | 'avatar_path'
   | 'avatar_url'
   | 'description'
+  | 'color_details'
   | 'unique_code'
   | 'visibility_audience'
   | 'owner_attribution_visibility'
@@ -154,6 +155,7 @@ export async function fetchMySuits(
       avatar_path,
       avatar_url,
       description,
+      color_details,
       ${includeUniqueCodes ? 'unique_code,' : ''}
       visibility_audience,
       owner_attribution_visibility,
@@ -292,6 +294,7 @@ async function mapFursuitRows(
         legacyUrl: item.avatar_url ?? null,
       }),
       description: item.description ?? null,
+      colorDetails: item.color_details ?? null,
       unique_code: includeUniqueCodes ? (uniqueCode ?? null) : null,
       visibility_audience: normalizeVisibilityAudience(item.visibility_audience),
       ownerAttributionVisibility:

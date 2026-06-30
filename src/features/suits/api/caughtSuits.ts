@@ -96,6 +96,7 @@ export function mapCaughtRecordFromRpcRow(record: HistoricalCatchRpcRow): Caught
               legacyUrl: record.fursuit_avatar_url ?? null,
             }),
         description: fursuitRedacted ? null : (record.fursuit_description ?? null),
+        colorDetails: null,
         unique_code: fursuitRedacted ? null : (record.fursuit_unique_code ?? null),
         visibility_audience: normalizeVisibilityAudience(record.fursuit_visibility_audience),
         ownerAttributionVisibility,

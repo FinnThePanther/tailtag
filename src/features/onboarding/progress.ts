@@ -26,6 +26,7 @@ export type OnboardingFursuitDraft = {
   nameInput: string;
   speciesInput: string;
   descriptionInput: string;
+  colorDetailsInput: string;
   photoCreditInput: string;
   showPhotoCreditInput: boolean;
   selectedColorIds: string[];
@@ -50,6 +51,7 @@ export const createEmptyFursuitDraft = (): OnboardingFursuitDraft => ({
   nameInput: '',
   speciesInput: '',
   descriptionInput: '',
+  colorDetailsInput: '',
   photoCreditInput: '',
   showPhotoCreditInput: false,
   selectedColorIds: [],
@@ -175,6 +177,7 @@ const normalizeFursuitDraft = (value: unknown): OnboardingFursuitDraft => {
     nameInput: normalizeString(draft.nameInput),
     speciesInput: normalizeString(draft.speciesInput),
     descriptionInput: normalizeString(draft.descriptionInput),
+    colorDetailsInput: normalizeString(draft.colorDetailsInput),
     photoCreditInput: normalizeString(draft.photoCreditInput),
     showPhotoCreditInput: draft.showPhotoCreditInput === true,
     selectedColorIds,
