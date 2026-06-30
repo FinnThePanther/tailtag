@@ -772,42 +772,6 @@ export default function HomeScreen() {
       ? achievementsQuery.data !== undefined || achievementsQuery.isError
       : rawTier2Ready);
   const tier3Ready = useAllDataReady([leaderboardQuery, suitLeaderboardQuery]);
-  const conventionDetailViewedRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!userId || !selectedConventionId) {
-      return;
-    }
-
-    const key = `${userId}:${selectedConventionId}`;
-    if (conventionDetailViewedRef.current === key) {
-      return;
-    }
-
-    void emitGameplayEvent({
-      type: 'convention_detail_viewed',
-      conventionId: selectedConventionId,
-      payload: {
-        convention_id: selectedConventionId,
-        membership_state: selectedConvention?.membership_state ?? null,
-        source: 'home_convention_section',
-      },
-    })
-      .then((result) => {
-        if (!result) {
-          return;
-        }
-        conventionDetailViewedRef.current = key;
-        void queryClient.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
-      })
-      .catch((error) => {
-        captureHandledException(error, {
-          scope: 'home.conventionDetailViewedEvent',
-          conventionId: selectedConventionId,
-        });
-      });
-  }, [queryClient, selectedConvention?.membership_state, selectedConventionId, userId]);
-
   useEffect(() => {
     if (!suitLeaderboardEntries.length) return;
     const pixelSize = Math.round(40 * Math.min(PixelRatio.get(), 3));
