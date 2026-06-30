@@ -26,8 +26,7 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
   const [isBlockingUpdateCheck, setIsBlockingUpdateCheck] = useState(
     () => !__DEV__ && Updates.isEnabled,
   );
-  const { isStartupProcedureRunning, isUpdatePending, isChecking, isDownloading, isRestarting } =
-    Updates.useUpdates();
+  const { isStartupProcedureRunning, isUpdatePending, isRestarting } = Updates.useUpdates();
 
   const reloadPendingUpdate = useCallback(async (phase: string) => {
     if (__DEV__ || !Updates.isEnabled || hasRequestedReloadRef.current) {
@@ -52,76 +51,82 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const checkForUpdate = useCallback(async () => {
-    if (__DEV__ || !Updates.isEnabled) {
-      setIsBlockingUpdateCheck(false);
-      return;
-    }
-
-    if (isCheckingRef.current || hasRequestedReloadRef.current) {
-      return;
-    }
-
-    isCheckingRef.current = true;
-    setIsBlockingUpdateCheck(true);
-
-    try {
-      let result: Updates.UpdateCheckResult;
-
-      try {
-        result = await Updates.checkForUpdateAsync();
-      } catch (error) {
-        captureHandledException(error, {
-          scope: 'ota.checkForUpdate',
-          additionalContext: { phase: 'check' },
-        });
-        return;
-      }
-
-      if (
-        !isMountedRef.current ||
-        hasRequestedReloadRef.current ||
-        (!result.isAvailable && !result.isRollBackToEmbedded)
-      ) {
-        return;
-      }
-
-      let fetchResult: Updates.UpdateFetchResult;
-
-      try {
-        fetchResult = await Updates.fetchUpdateAsync();
-      } catch (error) {
-        captureHandledException(error, {
-          scope: 'ota.fetchUpdate',
-          additionalContext: { phase: 'fetch' },
-        });
-        return;
-      }
-
-      if (!isMountedRef.current || hasRequestedReloadRef.current) {
-        return;
-      }
-
-      if (fetchResult.isNew || fetchResult.isRollBackToEmbedded) {
-        await reloadPendingUpdate('fetch');
-      }
-    } finally {
-      isCheckingRef.current = false;
-
-      if (isMountedRef.current && !hasRequestedReloadRef.current) {
+  const checkForUpdate = useCallback(
+    async ({ blockUi }: { blockUi: boolean }) => {
+      if (__DEV__ || !Updates.isEnabled) {
         setIsBlockingUpdateCheck(false);
+        return;
       }
-    }
-  }, [reloadPendingUpdate]);
+
+      if (isCheckingRef.current || hasRequestedReloadRef.current) {
+        return;
+      }
+
+      isCheckingRef.current = true;
+
+      if (blockUi) {
+        setIsBlockingUpdateCheck(true);
+      }
+
+      try {
+        let result: Updates.UpdateCheckResult;
+
+        try {
+          result = await Updates.checkForUpdateAsync();
+        } catch (error) {
+          captureHandledException(error, {
+            scope: 'ota.checkForUpdate',
+            additionalContext: { phase: 'check' },
+          });
+          return;
+        }
+
+        if (
+          !isMountedRef.current ||
+          hasRequestedReloadRef.current ||
+          (!result.isAvailable && !result.isRollBackToEmbedded)
+        ) {
+          return;
+        }
+
+        let fetchResult: Updates.UpdateFetchResult;
+
+        try {
+          fetchResult = await Updates.fetchUpdateAsync();
+        } catch (error) {
+          captureHandledException(error, {
+            scope: 'ota.fetchUpdate',
+            additionalContext: { phase: 'fetch' },
+          });
+          return;
+        }
+
+        if (!isMountedRef.current || hasRequestedReloadRef.current) {
+          return;
+        }
+
+        if (fetchResult.isNew || fetchResult.isRollBackToEmbedded) {
+          await reloadPendingUpdate('fetch');
+        }
+      } finally {
+        isCheckingRef.current = false;
+
+        if (blockUi && isMountedRef.current && !hasRequestedReloadRef.current) {
+          setIsBlockingUpdateCheck(false);
+        }
+      }
+    },
+    [reloadPendingUpdate],
+  );
 
   useEffect(() => {
     isMountedRef.current = true;
 
-    void checkForUpdate();
+    void checkForUpdate({ blockUi: true });
 
     const handleChange = (state: AppStateStatus) => {
       if (state === 'active') {
-        void checkForUpdate();
+        void checkForUpdate({ blockUi: false });
       }
     };
     const subscription = AppState.addEventListener('change', handleChange);
@@ -141,8 +146,6 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
   const shouldBlockChildren =
     isBlockingUpdateCheck ||
     isStartupProcedureRunning ||
-    isChecking ||
-    isDownloading ||
     isUpdatePending ||
     isRestarting ||
     hasRequestedReloadRef.current;
