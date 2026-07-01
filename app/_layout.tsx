@@ -33,7 +33,11 @@ import {
   loadPendingOtaRestore,
   saveLatestOtaRestoreRoute,
 } from '@/hooks/otaRestoreStorage';
-import { createOtaRestoreHref, resolvePendingOtaRestoreSnapshot } from '@/hooks/otaRestoreState';
+import {
+  createOtaRestoreHref,
+  getOtaRestoreRoutingDecision,
+  resolvePendingOtaRestoreSnapshot,
+} from '@/hooks/otaRestoreState';
 import { createProfileQueryOptions } from '../src/features/profile';
 import { profileNeedsAgeAttestation } from '../src/features/adult-boundary';
 import { profileNeedsLegalConsent } from '../src/features/legal-consent';
@@ -332,20 +336,23 @@ function RootLayoutNav() {
     status === 'loading' || shouldShowOnboardingRedirectLoading || shouldShowAgeGateRedirectLoading;
   const hasPendingInitialRoutingCheck =
     !hasLoadedPendingInviteToken || !hasCheckedInitialInviteUrl || !hasCheckedInitialRecoveryUrl;
-  const canRestoreOtaRoute =
-    Boolean(session) &&
-    status === 'signed_in' &&
-    !hasPendingInitialRoutingCheck &&
-    !shouldShowLoadingScreen &&
-    !redirectHref &&
-    !shouldResolvePostAuthDestination &&
-    !pendingInviteToken &&
-    !inPublicAuthFlow &&
-    !shouldGateLegalConsent &&
-    !shouldGateAgeAttestation &&
-    !shouldGateOnboarding &&
-    !hasProfileBlockingError &&
-    !isSuspended;
+  const otaRestoreRoutingDecision = getOtaRestoreRoutingDecision({
+    hasSession: Boolean(session),
+    status,
+    hasPendingInitialRoutingCheck,
+    shouldShowLoadingScreen,
+    hasRedirectHref: Boolean(redirectHref),
+    shouldResolvePostAuthDestination,
+    hasPendingInviteToken: Boolean(pendingInviteToken),
+    inPublicAuthFlow,
+    shouldGateLegalConsent,
+    shouldGateAgeAttestation,
+    shouldGateOnboarding,
+    hasProfileBlockingError,
+    isSuspended,
+  });
+  const otaRestoreRoutingAction = otaRestoreRoutingDecision.action;
+  const canRestoreOtaRoute = otaRestoreRoutingAction === 'restore-ready';
 
   useEffect(() => {
     if (hasProfileBlockingError && !inResetPasswordFlow) {
@@ -621,10 +628,14 @@ function RootLayoutNav() {
       return;
     }
 
-    if (!session) {
+    if (otaRestoreRoutingAction === 'skip') {
       hasStartedOtaRestoreRef.current = true;
       void clearPendingOtaRestore();
       setHasResolvedOtaRestore(true);
+      return;
+    }
+
+    if (!session) {
       return;
     }
 
@@ -663,7 +674,7 @@ function RootLayoutNav() {
     return () => {
       isMounted = false;
     };
-  }, [canRestoreOtaRoute, hasResolvedOtaRestore, router, session, status]);
+  }, [canRestoreOtaRoute, hasResolvedOtaRestore, otaRestoreRoutingAction, router, session, status]);
 
   if (status === 'loading') {
     return <LoadingScreen />;

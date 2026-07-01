@@ -21,6 +21,27 @@ export type OtaRestoreResolution =
 
 export type OtaUpdateApplicationDecision = 'reload-now' | 'mark-pending-warm-update';
 
+export type OtaRestoreRoutingDecision =
+  | { action: 'restore-ready' }
+  | { action: 'wait'; reason: 'auth-loading' | 'initial-routing-check' | 'route-loading' }
+  | { action: 'skip'; reason: 'signed-out' | 'higher-priority-route' };
+
+export type OtaRestoreRoutingState = {
+  hasSession: boolean;
+  status: string;
+  hasPendingInitialRoutingCheck: boolean;
+  shouldShowLoadingScreen: boolean;
+  hasRedirectHref: boolean;
+  shouldResolvePostAuthDestination: boolean;
+  hasPendingInviteToken: boolean;
+  inPublicAuthFlow: boolean;
+  shouldGateLegalConsent: boolean;
+  shouldGateAgeAttestation: boolean;
+  shouldGateOnboarding: boolean;
+  hasProfileBlockingError: boolean;
+  isSuspended: boolean;
+};
+
 const DENIED_ROUTE_PREFIXES = [
   '/auth',
   '/forgot-password',
@@ -179,6 +200,54 @@ export function resolvePendingOtaRestoreSnapshot(
   }
 
   return { action: 'restore', href: snapshot.href };
+}
+
+export function getOtaRestoreRoutingDecision({
+  hasSession,
+  status,
+  hasPendingInitialRoutingCheck,
+  shouldShowLoadingScreen,
+  hasRedirectHref,
+  shouldResolvePostAuthDestination,
+  hasPendingInviteToken,
+  inPublicAuthFlow,
+  shouldGateLegalConsent,
+  shouldGateAgeAttestation,
+  shouldGateOnboarding,
+  hasProfileBlockingError,
+  isSuspended,
+}: OtaRestoreRoutingState): OtaRestoreRoutingDecision {
+  if (status === 'loading' || status === 'checking_session') {
+    return { action: 'wait', reason: 'auth-loading' };
+  }
+
+  if (!hasSession) {
+    return { action: 'skip', reason: 'signed-out' };
+  }
+
+  if (hasPendingInitialRoutingCheck) {
+    return { action: 'wait', reason: 'initial-routing-check' };
+  }
+
+  if (shouldShowLoadingScreen || shouldResolvePostAuthDestination) {
+    return { action: 'wait', reason: 'route-loading' };
+  }
+
+  const hasHigherPriorityRoute =
+    hasRedirectHref ||
+    hasPendingInviteToken ||
+    inPublicAuthFlow ||
+    shouldGateLegalConsent ||
+    shouldGateAgeAttestation ||
+    shouldGateOnboarding ||
+    hasProfileBlockingError ||
+    isSuspended;
+
+  if (hasHigherPriorityRoute) {
+    return { action: 'skip', reason: 'higher-priority-route' };
+  }
+
+  return { action: 'restore-ready' };
 }
 
 export function getOtaUpdateApplicationDecision({

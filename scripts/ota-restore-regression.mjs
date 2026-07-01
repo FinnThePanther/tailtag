@@ -38,6 +38,7 @@ const {
   createOtaRestoreHref,
   createOtaRestoreRouteSnapshot,
   createPendingOtaRestoreSnapshot,
+  getOtaRestoreRoutingDecision,
   getOtaUpdateApplicationDecision,
   isSafeOtaRestoreHref,
   resolvePendingOtaRestoreSnapshot,
@@ -53,6 +54,25 @@ function createPendingSnapshot(href = '/profile/user-1') {
 
 function toPlain(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function createReadyRoutingState(overrides = {}) {
+  return {
+    hasSession: true,
+    status: 'signed_in',
+    hasPendingInitialRoutingCheck: false,
+    shouldShowLoadingScreen: false,
+    hasRedirectHref: false,
+    shouldResolvePostAuthDestination: false,
+    hasPendingInviteToken: false,
+    inPublicAuthFlow: false,
+    shouldGateLegalConsent: false,
+    shouldGateAgeAttestation: false,
+    shouldGateOnboarding: false,
+    hasProfileBlockingError: false,
+    isSuspended: false,
+    ...overrides,
+  };
 }
 
 describe('OTA warm restore policy', () => {
@@ -162,6 +182,53 @@ describe('OTA warm restore policy', () => {
       ),
       { action: 'defer', reason: 'routing-not-ready' },
     );
+  });
+
+  it('waits for unresolved startup routing before restoring', () => {
+    assert.deepEqual(
+      toPlain(getOtaRestoreRoutingDecision(createReadyRoutingState({ status: 'loading' }))),
+      { action: 'wait', reason: 'auth-loading' },
+    );
+
+    assert.deepEqual(
+      toPlain(
+        getOtaRestoreRoutingDecision(
+          createReadyRoutingState({ hasPendingInitialRoutingCheck: true }),
+        ),
+      ),
+      { action: 'wait', reason: 'initial-routing-check' },
+    );
+
+    assert.deepEqual(
+      toPlain(
+        getOtaRestoreRoutingDecision(createReadyRoutingState({ shouldShowLoadingScreen: true })),
+      ),
+      { action: 'wait', reason: 'route-loading' },
+    );
+  });
+
+  it('skips restore when normal routing has a higher-priority destination', () => {
+    [
+      { hasSession: false },
+      { hasRedirectHref: true },
+      { hasPendingInviteToken: true },
+      { inPublicAuthFlow: true },
+      { shouldGateLegalConsent: true },
+      { shouldGateAgeAttestation: true },
+      { shouldGateOnboarding: true },
+      { hasProfileBlockingError: true },
+      { isSuspended: true },
+    ].forEach((overrides) => {
+      const decision = getOtaRestoreRoutingDecision(createReadyRoutingState(overrides));
+
+      assert.equal(decision.action, 'skip', JSON.stringify(overrides));
+    });
+  });
+
+  it('allows restore only after auth and higher-priority routing are settled', () => {
+    assert.deepEqual(toPlain(getOtaRestoreRoutingDecision(createReadyRoutingState())), {
+      action: 'restore-ready',
+    });
   });
 
   it('builds stable safe href values from path and search params', () => {
