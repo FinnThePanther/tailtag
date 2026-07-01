@@ -7,7 +7,9 @@ export type FursuitColorOption = {
 };
 
 export const FURSUIT_COLORS_QUERY_KEY = 'fursuit-colors';
-export const MAX_FURSUIT_COLORS = 3;
+export const MAX_FURSUIT_COLORS = 5;
+export const MAX_FURSUIT_COLOR_DETAILS_LENGTH = 200;
+export const OTHER_FURSUIT_COLOR_NORMALIZED_NAME = 'other';
 
 const COLOR_FIELDS = 'id, name, normalized_name, is_active';
 
@@ -17,14 +19,42 @@ const mapColorRecord = (input: any): FursuitColorOption => ({
   normalizedName: input.normalized_name,
 });
 
-const compareColorOptions = (a: FursuitColorOption, b: FursuitColorOption) =>
-  a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+const compareColorOptions = (a: FursuitColorOption, b: FursuitColorOption) => {
+  const aIsOther = a.normalizedName === OTHER_FURSUIT_COLOR_NORMALIZED_NAME;
+  const bIsOther = b.normalizedName === OTHER_FURSUIT_COLOR_NORMALIZED_NAME;
+
+  if (aIsOther !== bIsOther) {
+    return aIsOther ? 1 : -1;
+  }
+
+  return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+};
 
 export const sortColorOptions = (options: FursuitColorOption[]) =>
   [...options].sort(compareColorOptions);
 
 export const normalizeColorName = (value: string) =>
   value.trim().replace(/\s+/g, ' ').toLowerCase();
+
+export const normalizeFursuitColorDetails = (value: string | null | undefined) => {
+  const normalized = (value ?? '').trim().replace(/\s+/g, ' ');
+  return normalized.length > 0 ? normalized : null;
+};
+
+export const selectedColorsIncludeOther = (colors: FursuitColorOption[]) =>
+  colors.some((color) => color.normalizedName === OTHER_FURSUIT_COLOR_NORMALIZED_NAME);
+
+export const selectedColorIdsIncludeOther = (
+  colorIds: string[],
+  colorOptions: FursuitColorOption[],
+) => {
+  const otherColorIds = new Set(
+    colorOptions
+      .filter((color) => color.normalizedName === OTHER_FURSUIT_COLOR_NORMALIZED_NAME)
+      .map((color) => color.id),
+  );
+  return colorIds.some((colorId) => otherColorIds.has(colorId));
+};
 
 export async function fetchFursuitColors(): Promise<FursuitColorOption[]> {
   const client = supabase as any;

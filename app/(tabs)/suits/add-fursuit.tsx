@@ -47,6 +47,9 @@ import {
   fetchFursuitColors,
   FURSUIT_COLORS_QUERY_KEY,
   MAX_FURSUIT_COLORS,
+  MAX_FURSUIT_COLOR_DETAILS_LENGTH,
+  normalizeFursuitColorDetails,
+  selectedColorsIncludeOther,
   type FursuitColorOption,
 } from '../../../src/features/colors';
 import {
@@ -201,6 +204,7 @@ export default function AddFursuitScreen() {
   const [speciesInput, setSpeciesInput] = useState('');
   const [selectedSpecies, setSelectedSpecies] = useState<FursuitSpeciesOption[]>([]);
   const [selectedColors, setSelectedColors] = useState<FursuitColorOption[]>([]);
+  const [colorDetailsInput, setColorDetailsInput] = useState('');
   const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
   const [photoCreditInput, setPhotoCreditInput] = useState('');
   const [showPhotoCreditInput, setShowPhotoCreditInput] = useState(false);
@@ -242,6 +246,10 @@ export default function AddFursuitScreen() {
         input: speciesInput,
       }),
     [selectedSpecies, speciesInput, speciesOptions],
+  );
+  const hasSelectedOtherColor = useMemo(
+    () => selectedColorsIncludeOther(selectedColors),
+    [selectedColors],
   );
 
   useEffect(() => {
@@ -742,6 +750,7 @@ export default function AddFursuitScreen() {
       .join(', ');
     const trimmedLikes = likesInput.trim();
     const trimmedAskMeAbout = askMeAboutInput.trim();
+    const normalizedColorDetails = normalizeFursuitColorDetails(colorDetailsInput);
     const normalizedMakers = fursuitMakersToSave(makers);
     const selectedColorIds = selectedColors.map((color) => color.id);
 
@@ -761,7 +770,22 @@ export default function AddFursuitScreen() {
     }
 
     if (selectedColorIds.length > MAX_FURSUIT_COLORS) {
-      setSubmitError('You can choose up to three colors. Remove one to add another.');
+      setSubmitError(
+        `You can choose up to ${MAX_FURSUIT_COLORS} colors. Remove one to add another.`,
+      );
+      return;
+    }
+
+    if (
+      normalizedColorDetails &&
+      normalizedColorDetails.length > MAX_FURSUIT_COLOR_DETAILS_LENGTH
+    ) {
+      setSubmitError(`Keep color details under ${MAX_FURSUIT_COLOR_DETAILS_LENGTH} characters.`);
+      return;
+    }
+
+    if (hasSelectedOtherColor && !normalizedColorDetails) {
+      setSubmitError('Add a short color detail so other players know what Other means.');
       return;
     }
 
@@ -846,6 +870,7 @@ export default function AddFursuitScreen() {
           avatar_path: avatarPath,
           avatar_url: avatarUrl,
           unique_code: uniqueCode,
+          color_details: normalizedColorDetails,
           owner_attribution_visibility:
             anonymousFursuitsEnabled && hideOwnerPublicly ? 'hidden' : 'public',
           social_signal: selectedSocialSignal,
@@ -941,6 +966,7 @@ export default function AddFursuitScreen() {
       setSpeciesInput('');
       setSelectedSpecies([]);
       setSelectedColors([]);
+      setColorDetailsInput('');
       setSelectedPronouns([]);
       setPhotoCreditInput('');
       setShowPhotoCreditInput(false);
@@ -992,6 +1018,18 @@ export default function AddFursuitScreen() {
         });
       });
     } catch (caught) {
+      captureHandledException(caught, {
+        scope: 'suits.addFursuit.save',
+        additionalContext: {
+          userId,
+          createdFursuitId,
+          selectedColorCount: selectedColorIds.length,
+          writesColorDetails: normalizedColorDetails !== null,
+          colorDetailsLength: normalizedColorDetails?.length ?? 0,
+          hasUploadedPhoto: Boolean(uploadedStoragePath),
+        },
+      });
+
       setSubmitError(
         getUserVisibleErrorMessage(
           caught,
@@ -1234,7 +1272,9 @@ export default function AddFursuitScreen() {
 
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Colors</Text>
-            <Text style={styles.helperLabel}>Optional. Pick up to three colors.</Text>
+            <Text style={styles.helperLabel}>
+              Optional. Pick up to {MAX_FURSUIT_COLORS}. Main colors count for goals.
+            </Text>
             {isColorBusy ? (
               <Text style={styles.helperLabel}>Loading colors…</Text>
             ) : colorLoadError ? (
@@ -1303,6 +1343,27 @@ export default function AddFursuitScreen() {
                     You picked the maximum number of colors. Tap one to remove it.
                   </Text>
                 ) : null}
+                <View style={styles.helperColumn}>
+                  <Text style={styles.label}>Color details</Text>
+                  <Text style={styles.helperLabel}>
+                    {hasSelectedOtherColor
+                      ? 'Required for Other. Add precise shade names, accents, gradients, or markings shown on your profile.'
+                      : 'Optional shade names, accents, gradients, or markings shown on your profile.'}
+                  </Text>
+                  <TailTagInput
+                    value={colorDetailsInput}
+                    onChangeText={setColorDetailsInput}
+                    placeholder="Dusty rose paws, cream belly, gold eye markings"
+                    multiline
+                    maxLength={MAX_FURSUIT_COLOR_DETAILS_LENGTH}
+                    style={styles.textArea}
+                    editable={!isSubmitting}
+                    textAlignVertical="top"
+                  />
+                  <Text style={styles.helperLabel}>
+                    {colorDetailsInput.trim().length}/{MAX_FURSUIT_COLOR_DETAILS_LENGTH}
+                  </Text>
+                </View>
               </>
             )}
           </View>

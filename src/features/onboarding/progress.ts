@@ -26,9 +26,11 @@ export type OnboardingFursuitDraft = {
   nameInput: string;
   speciesInput: string;
   descriptionInput: string;
+  colorDetailsInput: string;
   photoCreditInput: string;
   showPhotoCreditInput: boolean;
   selectedColorIds: string[];
+  selectedOtherColorIds: string[];
   selectedConventionIds: string[];
   selectedPhoto: FursuitPhotoCandidate | null;
   hideOwnerPublicly: boolean;
@@ -50,9 +52,11 @@ export const createEmptyFursuitDraft = (): OnboardingFursuitDraft => ({
   nameInput: '',
   speciesInput: '',
   descriptionInput: '',
+  colorDetailsInput: '',
   photoCreditInput: '',
   showPhotoCreditInput: false,
   selectedColorIds: [],
+  selectedOtherColorIds: [],
   selectedConventionIds: [],
   selectedPhoto: null,
   hideOwnerPublicly: false,
@@ -159,6 +163,15 @@ const normalizeFursuitDraft = (value: unknown): OnboardingFursuitDraft => {
         ),
       )
     : [];
+  const selectedOtherColorIds = Array.isArray(draft.selectedOtherColorIds)
+    ? Array.from(
+        new Set(
+          draft.selectedOtherColorIds.filter(
+            (colorId): colorId is string => typeof colorId === 'string' && colorId.length > 0,
+          ),
+        ),
+      )
+    : [];
   const selectedConventionIds = Array.isArray(draft.selectedConventionIds)
     ? Array.from(
         new Set(
@@ -175,9 +188,13 @@ const normalizeFursuitDraft = (value: unknown): OnboardingFursuitDraft => {
     nameInput: normalizeString(draft.nameInput),
     speciesInput: normalizeString(draft.speciesInput),
     descriptionInput: normalizeString(draft.descriptionInput),
+    colorDetailsInput: normalizeString(draft.colorDetailsInput),
     photoCreditInput: normalizeString(draft.photoCreditInput),
     showPhotoCreditInput: draft.showPhotoCreditInput === true,
     selectedColorIds,
+    selectedOtherColorIds: selectedOtherColorIds.filter((colorId) =>
+      selectedColorIds.includes(colorId),
+    ),
     selectedConventionIds,
     selectedPhoto: isPhotoCandidate(draft.selectedPhoto) ? draft.selectedPhoto : null,
     hideOwnerPublicly: draft.hideOwnerPublicly === true,

@@ -148,6 +148,7 @@ export async function fetchFursuitDetail(
       legacyUrl: row.avatar_url ?? null,
     }),
     description: row.description ?? null,
+    colorDetails: row.color_details ?? null,
     unique_code: row.unique_code ?? null,
     visibility_audience: normalizeVisibilityAudience(row.visibility_audience),
     ownerAttributionVisibility,

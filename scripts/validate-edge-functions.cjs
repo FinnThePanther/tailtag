@@ -26,7 +26,12 @@ if (entrypoints.length === 0) {
 
 for (const entrypoint of entrypoints) {
   console.log(`Checking ${entrypoint}`);
-  execFileSync('deno', ['check', entrypoint], {
+  const configPath = path.join(projectRoot, path.dirname(entrypoint), 'deno.json');
+  const args = fs.existsSync(configPath)
+    ? ['check', '--config', configPath, entrypoint]
+    : ['check', entrypoint];
+
+  execFileSync('deno', args, {
     cwd: projectRoot,
     stdio: 'inherit',
   });
