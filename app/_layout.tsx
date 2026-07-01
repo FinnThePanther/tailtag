@@ -421,12 +421,17 @@ function RootLayoutNav() {
       }
     };
 
-    void loadPendingCatchInviteToken().then((token) => {
-      if (isMounted) {
-        setPendingInviteToken(token);
-        setHasLoadedPendingInviteToken(true);
-      }
-    });
+    void loadPendingCatchInviteToken()
+      .then((token) => {
+        if (isMounted) {
+          setPendingInviteToken(token);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setHasLoadedPendingInviteToken(true);
+        }
+      });
 
     const unsubscribePendingInviteToken = subscribePendingCatchInviteToken((token) => {
       if (isMounted) {

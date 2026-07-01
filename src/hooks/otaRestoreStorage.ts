@@ -8,7 +8,7 @@ import {
   isSafeOtaRestoreHref,
   type OtaRestoreRouteSnapshot,
   type PendingOtaRestoreSnapshot,
-} from './otaRestoreState';
+} from '@/hooks/otaRestoreState';
 
 const LATEST_SAFE_ROUTE_KEY = 'tailtag:ota:lastSafeRoute:v1';
 const PENDING_RESTORE_KEY = 'tailtag:ota:pendingRestore:v1';
@@ -84,7 +84,15 @@ export async function saveLatestOtaRestoreRoute({
 
     await AsyncStorage.setItem(LATEST_SAFE_ROUTE_KEY, JSON.stringify(snapshot));
   } catch (error) {
-    captureHandledException(error, { scope: 'otaRestore.saveLatestRoute' });
+    captureHandledException(error, {
+      scope: 'otaRestore.saveLatestRoute',
+      additionalContext: {
+        operation: 'saveLatestOtaRestoreRoute',
+        href,
+        userId,
+        storageKey: LATEST_SAFE_ROUTE_KEY,
+      },
+    });
   }
 }
 
@@ -99,7 +107,13 @@ export async function loadLatestOtaRestoreRoute(): Promise<OtaRestoreRouteSnapsh
 
     return snapshot;
   } catch (error) {
-    captureHandledException(error, { scope: 'otaRestore.loadLatestRoute' });
+    captureHandledException(error, {
+      scope: 'otaRestore.loadLatestRoute',
+      additionalContext: {
+        operation: 'loadLatestOtaRestoreRoute',
+        storageKey: LATEST_SAFE_ROUTE_KEY,
+      },
+    });
     return null;
   }
 }
@@ -116,7 +130,13 @@ export async function savePendingOtaRestoreFromLatestRoute(now = Date.now()): Pr
     await AsyncStorage.setItem(PENDING_RESTORE_KEY, JSON.stringify(pendingSnapshot));
     return true;
   } catch (error) {
-    captureHandledException(error, { scope: 'otaRestore.savePendingRestore' });
+    captureHandledException(error, {
+      scope: 'otaRestore.savePendingRestore',
+      additionalContext: {
+        operation: 'savePendingOtaRestoreFromLatestRoute',
+        storageKey: PENDING_RESTORE_KEY,
+      },
+    });
     return false;
   }
 }
@@ -132,7 +152,13 @@ export async function loadPendingOtaRestore(): Promise<PendingOtaRestoreSnapshot
 
     return snapshot;
   } catch (error) {
-    captureHandledException(error, { scope: 'otaRestore.loadPendingRestore' });
+    captureHandledException(error, {
+      scope: 'otaRestore.loadPendingRestore',
+      additionalContext: {
+        operation: 'loadPendingOtaRestore',
+        storageKey: PENDING_RESTORE_KEY,
+      },
+    });
     return null;
   }
 }
@@ -141,6 +167,12 @@ export async function clearPendingOtaRestore(): Promise<void> {
   try {
     await AsyncStorage.removeItem(PENDING_RESTORE_KEY);
   } catch (error) {
-    captureHandledException(error, { scope: 'otaRestore.clearPendingRestore' });
+    captureHandledException(error, {
+      scope: 'otaRestore.clearPendingRestore',
+      additionalContext: {
+        operation: 'clearPendingOtaRestore',
+        storageKey: PENDING_RESTORE_KEY,
+      },
+    });
   }
 }

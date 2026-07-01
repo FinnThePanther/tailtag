@@ -5,9 +5,9 @@ import * as Updates from 'expo-updates';
 
 import { captureHandledException } from '@/lib/sentry';
 import { colors } from '@/theme';
+import { savePendingOtaRestoreFromLatestRoute } from '@/hooks/otaRestoreStorage';
+import { getOtaUpdateApplicationDecision } from '@/hooks/otaRestoreState';
 
-import { savePendingOtaRestoreFromLatestRoute } from './otaRestoreStorage';
-import { getOtaUpdateApplicationDecision } from './otaRestoreState';
 import { styles } from './useOtaUpdateCheck.styles';
 
 function OtaUpdateLoadingScreen() {
@@ -54,6 +54,14 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const reloadPendingUpdateWithRestoreSnapshot = useCallback(
+    async (phase: string) => {
+      await savePendingOtaRestoreFromLatestRoute();
+      await reloadPendingUpdate(phase);
+    },
+    [reloadPendingUpdate],
+  );
+
   const reloadPendingWarmUpdate = useCallback(
     async (phase: string) => {
       if (!hasPendingWarmUpdateRef.current || hasRequestedReloadRef.current) {
@@ -61,10 +69,9 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
       }
 
       hasPendingWarmUpdateRef.current = false;
-      await savePendingOtaRestoreFromLatestRoute();
-      await reloadPendingUpdate(phase);
+      await reloadPendingUpdateWithRestoreSnapshot(phase);
     },
-    [reloadPendingUpdate],
+    [reloadPendingUpdateWithRestoreSnapshot],
   );
 
   const checkForUpdate = useCallback(
@@ -128,7 +135,7 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
           });
 
           if (decision === 'reload-now') {
-            await reloadPendingUpdate('fetch');
+            await reloadPendingUpdateWithRestoreSnapshot('fetch');
             return;
           }
 
@@ -142,7 +149,7 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [reloadPendingUpdate],
+    [reloadPendingUpdateWithRestoreSnapshot],
   );
 
   useEffect(() => {
@@ -176,13 +183,13 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
       });
 
       if (decision === 'reload-now') {
-        void reloadPendingUpdate('pending');
+        void reloadPendingUpdateWithRestoreSnapshot('pending');
         return;
       }
 
       hasPendingWarmUpdateRef.current = true;
     }
-  }, [isBlockingUpdateCheck, isUpdatePending, reloadPendingUpdate]);
+  }, [isBlockingUpdateCheck, isUpdatePending, reloadPendingUpdateWithRestoreSnapshot]);
 
   const shouldBlockChildren =
     isBlockingUpdateCheck ||
