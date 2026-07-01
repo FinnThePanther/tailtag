@@ -129,113 +129,16 @@ export async function fetchMySuits(
 ): Promise<FursuitSummary[]> {
   const client = supabase as any;
 
-  if (!includeUniqueCodes) {
-    const { data, error } = await client.rpc('get_profile_fursuits', {
-      p_profile_id: userId,
-    });
-
-    if (error) {
-      captureSupabaseError(error, {
-        scope: 'suits.fetchMySuits.getProfileFursuits',
-        userId,
-      });
-      throw new Error(`We couldn't load fursuits: ${error.message}`);
-    }
-
-    return applyPendingMySuitsOrder(userId, await mapFursuitRows(data ?? [], false));
-  }
-
-  const { data, error } = await client
-    .from('fursuits')
-    .select(
-      `
-      id,
-      name,
-      species_id,
-      avatar_path,
-      avatar_url,
-      description,
-      color_details,
-      ${includeUniqueCodes ? 'unique_code,' : ''}
-      visibility_audience,
-      owner_attribution_visibility,
-      social_signal,
-      interaction_badges,
-      catch_count,
-      created_at,
-      display_order,
-      species_entry:fursuit_species (
-        id,
-        name,
-        normalized_name
-      ),
-      species_assignments:fursuit_species_assignments (
-        position,
-        species:fursuit_species (
-          id,
-          name,
-          normalized_name
-        )
-      ),
-      color_assignments:fursuit_color_assignments (
-        position,
-        color:fursuit_colors (
-          id,
-          name,
-          normalized_name
-        )
-      ),
-      fursuit_conventions:fursuit_conventions (
-        roster_visible,
-        roster_state,
-        active_until,
-        convention:conventions (
-          id,
-          slug,
-          name,
-          location,
-          start_date,
-          end_date,
-          timezone,
-          status,
-          finalizing_started_at,
-          closeout_not_before,
-          latitude,
-          longitude,
-          geofence_radius_meters,
-          geofence_enabled,
-          location_verification_required
-        )
-      ),
-      fursuit_bios (
-        version,
-        owner_name,
-        photo_credit,
-        pronouns,
-        likes_and_interests,
-        ask_me_about,
-        social_links,
-        created_at,
-        updated_at
-      ),
-      owner_profile:profiles!fursuits_owner_id_fkey (
-        social_links
-      )
-    `,
-    )
-    .eq('owner_id', userId)
-    .order('display_order', { ascending: true, nullsFirst: false })
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false });
+  const { data, error } = await client.rpc('get_profile_fursuits', {
+    p_profile_id: userId,
+  });
 
   if (error) {
     captureSupabaseError(error, {
-      scope: 'suits.fetchMySuits.orderedFursuits',
+      scope: 'suits.fetchMySuits.getProfileFursuits',
       userId,
-      includeUniqueCodes,
-      sortingPath: 'display_order_created_at_id',
     });
-    throw new Error(`We couldn't load your suits: ${error.message}`);
+    throw new Error(`We couldn't load fursuits: ${error.message}`);
   }
 
   return applyPendingMySuitsOrder(userId, await mapFursuitRows(data ?? [], includeUniqueCodes));
@@ -387,16 +290,15 @@ export async function reorderMySuits(fursuitIds: string[]): Promise<void> {
 
 export async function fetchMySuitsCount(userId: string): Promise<number> {
   const client = supabase as any;
-  const { count, error } = await client
-    .from('fursuits')
-    .select('id', { count: 'exact', head: true })
-    .eq('owner_id', userId);
+  const { data, error } = await client.rpc('count_user_fursuits', {
+    p_user_id: userId,
+  });
 
   if (error) {
     throw new Error(`We couldn't count your suits: ${error.message}`);
   }
 
-  return count ?? 0;
+  return typeof data === 'number' ? data : 0;
 }
 
 export const createMySuitsCountQueryOptions = (userId: string) => ({

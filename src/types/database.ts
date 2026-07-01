@@ -4112,6 +4112,7 @@ export type Database = {
           social_signal: string
           species_entry: Json
           species_id: string
+          unique_code: string
           visibility_audience: string
         }[]
       }

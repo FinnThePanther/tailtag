@@ -109,16 +109,15 @@ export async function createQuickFursuit(options: {
   const client = supabase as any;
 
   // Check fursuit count limit
-  const { count, error: countError } = await client
-    .from('fursuits')
-    .select('id', { count: 'exact', head: true })
-    .eq('owner_id', userId);
+  const { data: count, error: countError } = await client.rpc('count_user_fursuits', {
+    p_user_id: userId,
+  });
 
   if (countError) {
     throw new Error(`We couldn't verify your fursuit count: ${countError.message}`);
   }
 
-  const fursuitCount = count ?? 0;
+  const fursuitCount = typeof count === 'number' ? count : 0;
   const expandedFursuitLimitEnabled =
     fursuitCount >= MAX_FURSUITS_PER_USER
       ? await isFeatureEnabledForProfile(EXPANDED_FURSUIT_LIMIT_FEATURE_KEY, userId)

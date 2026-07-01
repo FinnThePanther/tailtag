@@ -327,8 +327,8 @@ describe('fursuit edit profile RPC', () => {
     const rootLayoutSource = read('app/_layout.tsx');
 
     assert.match(apiSource, /export async function reorderMySuits/);
+    assert.match(apiSource, /\.rpc\('get_profile_fursuits'/);
     assert.match(apiSource, /\.rpc\('reorder_own_fursuits'/);
-    assert.match(apiSource, /\.order\('display_order', \{ ascending: true, nullsFirst: false \}\)/);
     assert.match(apiSource, /applyPendingMySuitsOrder\(userId,/);
     assert.match(orderOutboxSource, /tailtag:my-suits-order:v/);
     assert.match(orderOutboxSource, /export async function queueMySuitsOrderSync/);
