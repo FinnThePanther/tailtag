@@ -2,7 +2,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
-import { useSegments, Stack, Redirect, useNavigationContainerRef, useRouter } from 'expo-router';
+import {
+  useSegments,
+  Stack,
+  Redirect,
+  useNavigationContainerRef,
+  useRouter,
+  usePathname,
+  useGlobalSearchParams,
+} from 'expo-router';
 import type { Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -20,6 +28,16 @@ import { AuthProvider, useAuth, usePrimeUserData } from '../src/features/auth';
 import { shouldRedirectToAuth } from '@/features/auth/providers/authResumeState';
 import { NavigationReadyProvider, useSetNavigationReady } from '../src/hooks/useNavigationReady';
 import { OtaUpdateProvider } from '../src/hooks/useOtaUpdateCheck';
+import {
+  clearPendingOtaRestore,
+  loadPendingOtaRestore,
+  saveLatestOtaRestoreRoute,
+} from '@/hooks/otaRestoreStorage';
+import {
+  createOtaRestoreHref,
+  getOtaRestoreRoutingDecision,
+  resolvePendingOtaRestoreSnapshot,
+} from '@/hooks/otaRestoreState';
 import { createProfileQueryOptions } from '../src/features/profile';
 import { profileNeedsAgeAttestation } from '../src/features/adult-boundary';
 import { profileNeedsLegalConsent } from '../src/features/legal-consent';
@@ -163,6 +181,11 @@ function RootLayoutNav() {
   const router = useRouter();
   const { status, session } = useAuth();
   const segments = useSegments();
+  const pathname = usePathname();
+  const globalSearchParams = useGlobalSearchParams() as Record<
+    string,
+    string | string[] | undefined
+  >;
   const firstSegment = segments[0];
   const secondSegment = segments.at(1);
   const inAuthGroup = firstSegment === '(auth)';
@@ -178,7 +201,12 @@ function RootLayoutNav() {
   const initialRecoveryUrlCheckKeyRef = useRef<string | null>(null);
   const completedInitialRecoveryUrlRef = useRef<string | null>(null);
   const initialInviteUrlCheckKeyRef = useRef<string | null>(null);
+  const hasStartedOtaRestoreRef = useRef(false);
   const [pendingInviteToken, setPendingInviteToken] = useState<string | null>(null);
+  const [hasLoadedPendingInviteToken, setHasLoadedPendingInviteToken] = useState(false);
+  const [hasCheckedInitialInviteUrl, setHasCheckedInitialInviteUrl] = useState(false);
+  const [hasCheckedInitialRecoveryUrl, setHasCheckedInitialRecoveryUrl] = useState(false);
+  const [hasResolvedOtaRestore, setHasResolvedOtaRestore] = useState(false);
 
   const {
     data: profile,
@@ -214,6 +242,10 @@ function RootLayoutNav() {
     !shouldGateLegalConsent &&
     !shouldGateAgeAttestation &&
     (profile?.is_new === true || !hasCompletedOnboarding);
+  const isSuspended =
+    Boolean(session) &&
+    profile?.is_suspended === true &&
+    (!profile.suspended_until || new Date(profile.suspended_until) > new Date());
 
   const shouldShowOnboardingRedirectLoading =
     !inResetPasswordFlow &&
@@ -302,19 +334,39 @@ function RootLayoutNav() {
 
   const shouldShowLoadingScreen =
     status === 'loading' || shouldShowOnboardingRedirectLoading || shouldShowAgeGateRedirectLoading;
+  const hasPendingInitialRoutingCheck =
+    !hasLoadedPendingInviteToken || !hasCheckedInitialInviteUrl || !hasCheckedInitialRecoveryUrl;
+  const otaRestoreRoutingDecision = getOtaRestoreRoutingDecision({
+    hasSession: Boolean(session),
+    status,
+    hasPendingInitialRoutingCheck,
+    shouldShowLoadingScreen,
+    hasRedirectHref: Boolean(redirectHref),
+    shouldResolvePostAuthDestination,
+    hasPendingInviteToken: Boolean(pendingInviteToken),
+    inPublicAuthFlow,
+    shouldGateLegalConsent,
+    shouldGateAgeAttestation,
+    shouldGateOnboarding,
+    hasProfileBlockingError,
+    isSuspended,
+  });
+  const otaRestoreRoutingAction = otaRestoreRoutingDecision.action;
+  const canRestoreOtaRoute = otaRestoreRoutingAction === 'restore-ready';
 
   useEffect(() => {
     if (hasProfileBlockingError && !inResetPasswordFlow) {
       return;
     }
 
-    if (shouldShowLoadingScreen || redirectHref) {
+    if (shouldShowLoadingScreen || redirectHref || !hasResolvedOtaRestore) {
       return;
     }
 
     setNavigationReady();
   }, [
     hasProfileBlockingError,
+    hasResolvedOtaRestore,
     inResetPasswordFlow,
     redirectHref,
     setNavigationReady,
@@ -355,6 +407,7 @@ function RootLayoutNav() {
 
   useEffect(() => {
     let isMounted = true;
+    setHasLoadedPendingInviteToken(false);
 
     const rememberInviteToken = async (incomingUrl: string | null | undefined) => {
       const token = extractCatchInviteToken(incomingUrl);
@@ -368,11 +421,17 @@ function RootLayoutNav() {
       }
     };
 
-    void loadPendingCatchInviteToken().then((token) => {
-      if (isMounted) {
-        setPendingInviteToken(token);
-      }
-    });
+    void loadPendingCatchInviteToken()
+      .then((token) => {
+        if (isMounted) {
+          setPendingInviteToken(token);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setHasLoadedPendingInviteToken(true);
+        }
+      });
 
     const unsubscribePendingInviteToken = subscribePendingCatchInviteToken((token) => {
       if (isMounted) {
@@ -387,6 +446,7 @@ function RootLayoutNav() {
     const initialUrlCheckKey = session ? 'signed_in' : 'signed_out';
     if (initialInviteUrlCheckKeyRef.current !== initialUrlCheckKey) {
       initialInviteUrlCheckKeyRef.current = initialUrlCheckKey;
+      setHasCheckedInitialInviteUrl(false);
       void Linking.getInitialURL()
         .then((initialUrl) => rememberInviteToken(initialUrl))
         .catch((caught) => {
@@ -394,7 +454,14 @@ function RootLayoutNav() {
             scope: 'catchInvite.initialUrl',
             action: 'getInitialURL',
           });
+        })
+        .finally(() => {
+          if (isMounted) {
+            setHasCheckedInitialInviteUrl(true);
+          }
         });
+    } else {
+      setHasCheckedInitialInviteUrl(true);
     }
 
     return () => {
@@ -512,6 +579,7 @@ function RootLayoutNav() {
 
     if (initialRecoveryUrlCheckKeyRef.current !== initialUrlCheckKey) {
       initialRecoveryUrlCheckKeyRef.current = initialUrlCheckKey;
+      setHasCheckedInitialRecoveryUrl(false);
 
       void Linking.getInitialURL()
         .then((initialUrl) => handleRecoveryUrl(initialUrl))
@@ -520,7 +588,14 @@ function RootLayoutNav() {
             scope: 'auth.passwordRecoveryLink',
             action: 'getInitialURL',
           });
+        })
+        .finally(() => {
+          if (isMounted) {
+            setHasCheckedInitialRecoveryUrl(true);
+          }
         });
+    } else {
+      setHasCheckedInitialRecoveryUrl(true);
     }
 
     return () => {
@@ -528,6 +603,83 @@ function RootLayoutNav() {
       subscription.remove();
     };
   }, [inResetPasswordFlow, router, session, status]);
+
+  const currentOtaRestoreHref = createOtaRestoreHref(pathname, globalSearchParams);
+
+  useEffect(() => {
+    const userIdForRoute = session?.user.id;
+
+    if (
+      !userIdForRoute ||
+      !hasResolvedOtaRestore ||
+      !canRestoreOtaRoute ||
+      !currentOtaRestoreHref
+    ) {
+      return;
+    }
+
+    void saveLatestOtaRestoreRoute({
+      href: currentOtaRestoreHref,
+      userId: userIdForRoute,
+    });
+  }, [canRestoreOtaRoute, currentOtaRestoreHref, hasResolvedOtaRestore, session?.user.id]);
+
+  useEffect(() => {
+    if (hasStartedOtaRestoreRef.current || hasResolvedOtaRestore) {
+      return;
+    }
+
+    if (status === 'loading') {
+      return;
+    }
+
+    if (otaRestoreRoutingAction === 'skip') {
+      hasStartedOtaRestoreRef.current = true;
+      void clearPendingOtaRestore();
+      setHasResolvedOtaRestore(true);
+      return;
+    }
+
+    if (!session) {
+      return;
+    }
+
+    if (!canRestoreOtaRoute) {
+      return;
+    }
+
+    let isMounted = true;
+    hasStartedOtaRestoreRef.current = true;
+
+    void loadPendingOtaRestore()
+      .then(async (snapshot) => {
+        const resolution = resolvePendingOtaRestoreSnapshot(snapshot, {
+          now: Date.now(),
+          userId: session.user.id,
+          canRestore: canRestoreOtaRoute,
+        });
+
+        if (resolution.action === 'defer') {
+          hasStartedOtaRestoreRef.current = false;
+          return;
+        }
+
+        await clearPendingOtaRestore();
+
+        if (resolution.action === 'restore' && isMounted) {
+          router.replace(resolution.href as Href);
+        }
+      })
+      .finally(() => {
+        if (isMounted && hasStartedOtaRestoreRef.current) {
+          setHasResolvedOtaRestore(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [canRestoreOtaRoute, hasResolvedOtaRestore, otaRestoreRoutingAction, router, session, status]);
 
   if (status === 'loading') {
     return <LoadingScreen />;
@@ -648,12 +800,7 @@ function RootLayoutNav() {
   }
 
   // Suspension gate: if user is suspended, show full-screen overlay
-  if (
-    session &&
-    profile?.is_suspended === true &&
-    // Allow temporary suspensions that have already expired
-    (!profile.suspended_until || new Date(profile.suspended_until) > new Date())
-  ) {
+  if (isSuspended) {
     return (
       <SuspensionGate
         reason={profile.suspension_reason ?? null}

@@ -5,6 +5,8 @@ import * as Updates from 'expo-updates';
 
 import { captureHandledException } from '@/lib/sentry';
 import { colors } from '@/theme';
+import { savePendingOtaRestoreFromLatestRoute } from '@/hooks/otaRestoreStorage';
+import { getOtaUpdateApplicationDecision } from '@/hooks/otaRestoreState';
 
 import { styles } from './useOtaUpdateCheck.styles';
 
@@ -23,6 +25,7 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
   const isMountedRef = useRef(false);
   const isCheckingRef = useRef(false);
   const hasRequestedReloadRef = useRef(false);
+  const hasPendingWarmUpdateRef = useRef(false);
   const [isBlockingUpdateCheck, setIsBlockingUpdateCheck] = useState(
     () => !__DEV__ && Updates.isEnabled,
   );
@@ -50,6 +53,26 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
       }
     }
   }, []);
+
+  const reloadPendingUpdateWithRestoreSnapshot = useCallback(
+    async (phase: string) => {
+      await savePendingOtaRestoreFromLatestRoute();
+      await reloadPendingUpdate(phase);
+    },
+    [reloadPendingUpdate],
+  );
+
+  const reloadPendingWarmUpdate = useCallback(
+    async (phase: string) => {
+      if (!hasPendingWarmUpdateRef.current || hasRequestedReloadRef.current) {
+        return;
+      }
+
+      hasPendingWarmUpdateRef.current = false;
+      await reloadPendingUpdateWithRestoreSnapshot(phase);
+    },
+    [reloadPendingUpdateWithRestoreSnapshot],
+  );
 
   const checkForUpdate = useCallback(
     async ({ blockUi }: { blockUi: boolean }) => {
@@ -106,7 +129,17 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
         }
 
         if (fetchResult.isNew || fetchResult.isRollBackToEmbedded) {
-          await reloadPendingUpdate('fetch');
+          const decision = getOtaUpdateApplicationDecision({
+            blockUi,
+            appState: AppState.currentState,
+          });
+
+          if (decision === 'reload-now') {
+            await reloadPendingUpdateWithRestoreSnapshot('fetch');
+            return;
+          }
+
+          hasPendingWarmUpdateRef.current = true;
         }
       } finally {
         isCheckingRef.current = false;
@@ -116,7 +149,7 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [reloadPendingUpdate],
+    [reloadPendingUpdateWithRestoreSnapshot],
   );
 
   useEffect(() => {
@@ -127,6 +160,11 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
     const handleChange = (state: AppStateStatus) => {
       if (state === 'active') {
         void checkForUpdate({ blockUi: false });
+        return;
+      }
+
+      if (state === 'background') {
+        void reloadPendingWarmUpdate('background');
       }
     };
     const subscription = AppState.addEventListener('change', handleChange);
@@ -135,18 +173,27 @@ export function OtaUpdateProvider({ children }: { children: ReactNode }) {
       isMountedRef.current = false;
       subscription.remove();
     };
-  }, [checkForUpdate]);
+  }, [checkForUpdate, reloadPendingWarmUpdate]);
 
   useEffect(() => {
     if (isUpdatePending) {
-      void reloadPendingUpdate('pending');
+      const decision = getOtaUpdateApplicationDecision({
+        blockUi: isBlockingUpdateCheck,
+        appState: AppState.currentState,
+      });
+
+      if (decision === 'reload-now') {
+        void reloadPendingUpdateWithRestoreSnapshot('pending');
+        return;
+      }
+
+      hasPendingWarmUpdateRef.current = true;
     }
-  }, [isUpdatePending, reloadPendingUpdate]);
+  }, [isBlockingUpdateCheck, isUpdatePending, reloadPendingUpdateWithRestoreSnapshot]);
 
   const shouldBlockChildren =
     isBlockingUpdateCheck ||
     isStartupProcedureRunning ||
-    isUpdatePending ||
     isRestarting ||
     hasRequestedReloadRef.current;
 
