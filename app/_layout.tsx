@@ -53,7 +53,10 @@ import {
   subscribePendingCatchInviteToken,
 } from '../src/features/catch-invites';
 import { CatchOutboxSyncManager } from '../src/features/catch-outbox';
-import { PushNotificationManager } from '../src/features/push-notifications';
+import {
+  AnthroconNotificationPromptManager,
+  PushNotificationManager,
+} from '../src/features/push-notifications';
 import {
   Sentry,
   addMonitoringBreadcrumb,
@@ -1037,6 +1040,7 @@ function Layout() {
                 <ToastProvider>
                   <OtaUpdateProvider>
                     <PushNotificationManager />
+                    <AnthroconNotificationPromptManager />
                     <AchievementToastManager />
                     <DailyTaskToastManager />
                     <CatchConfirmationToastManager />
