@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MenuView } from '@react-native-menu/menu';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
+import * as Updates from 'expo-updates';
 import * as WebBrowser from 'expo-web-browser';
 
 import * as Linking from 'expo-linking';
@@ -130,6 +131,27 @@ const DELETE_ACCOUNT_URL = 'https://playtailtag.com/delete-account';
 const SUPPORT_EMAIL_URL = 'mailto:finn@finnthepanther.com';
 const SAVE_PROFILE_FEEDBACK_DURATION_MS = 2200;
 
+const shortUpdateId = (updateId: string) => updateId.slice(0, 8);
+
+function getOtaUpdateLabel() {
+  if (!Updates.isEnabled) {
+    return 'Updates disabled';
+  }
+
+  const updateId = Updates.updateId?.trim();
+  const updatePart = updateId ? shortUpdateId(updateId) : 'unknown';
+
+  if (Updates.isEmergencyLaunch) {
+    return `Update emergency ${updatePart}`;
+  }
+
+  if (Updates.isEmbeddedLaunch) {
+    return `Update embedded ${updatePart}`;
+  }
+
+  return `Update ${updatePart}`;
+}
+
 function getAppVersionLabel() {
   const appVersion = Constants.expoConfig?.version ?? null;
   const iosBuildNumber = Constants.platform?.ios?.buildNumber;
@@ -141,19 +163,17 @@ function getAppVersionLabel() {
         ? String(androidVersionCode)
         : null;
 
-  if (appVersion && buildNumber) {
-    return `Version ${appVersion} (${buildNumber})`;
-  }
+  const nativeVersionPart =
+    appVersion && buildNumber
+      ? `Version ${appVersion} (${buildNumber})`
+      : appVersion
+        ? `Version ${appVersion}`
+        : buildNumber
+          ? `Build ${buildNumber}`
+          : null;
+  const updatePart = getOtaUpdateLabel();
 
-  if (appVersion) {
-    return `Version ${appVersion}`;
-  }
-
-  if (buildNumber) {
-    return `Build ${buildNumber}`;
-  }
-
-  return null;
+  return nativeVersionPart ? `${nativeVersionPart} · ${updatePart}` : updatePart;
 }
 
 function ageAttestationLabel(profile: ProfileSummary | null) {

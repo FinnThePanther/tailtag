@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 
 import { supabase } from '@/lib/supabase';
 import { captureNonCriticalError } from '@/lib/sentry';
+import type { Database } from '@/types/database';
 
 export type LocationPermissionStatus = 'not_determined' | 'granted' | 'denied' | 'restricted';
 
@@ -22,7 +23,7 @@ export function useLocationPermission(profileId?: string): UseLocationPermission
     async (nextStatus: LocationPermissionStatus, source: PermissionSource) => {
       if (!profileId) return;
       const now = new Date().toISOString();
-      const payload: Record<string, unknown> = {
+      const payload: Database['public']['Tables']['profiles']['Update'] = {
         location_permission_status: nextStatus === 'not_determined' ? 'not_requested' : nextStatus,
       };
 

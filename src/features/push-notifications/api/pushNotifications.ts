@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { ensureCurrentUserProfileExists } from '@/features/profile';
+import type { Database } from '@/types/database';
 
 type PushSettings = {
   token: string | null;
@@ -39,7 +40,7 @@ export async function registerPushToken(userId: string, token: string): Promise<
 export async function updatePushPreference(userId: string, enabled: boolean): Promise<void> {
   await ensureCurrentUserProfileExists(userId);
 
-  const payload: Record<string, unknown> = {
+  const payload: Database['public']['Tables']['profiles']['Update'] = {
     push_notifications_enabled: enabled,
     updated_at: new Date().toISOString(),
   };

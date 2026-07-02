@@ -92,6 +92,8 @@ const MAX_LEADERBOARD_ENTRIES = 5;
 const recapBannerStateKey = (userId: string) => `tailtag:recap-banner-state:${userId}`;
 
 const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);
+const formatCaughtTimes = (count: number) =>
+  count === 1 ? 'Caught 1 time' : `Caught ${count} times`;
 
 type HomeLifecycleConvention = {
   membership: ConventionMembership;
@@ -1504,7 +1506,7 @@ export default function HomeScreen() {
                                 accessibilityRole={entry.isRedacted ? undefined : 'button'}
                                 accessibilityLabel={
                                   entry.isRedacted
-                                    ? `Restricted fursuit standing, rank ${rank}, ${formatCatchCount(entry.catchCount)}`
+                                    ? `Restricted fursuit standing, rank ${rank}, ${formatCaughtTimes(entry.catchCount)}`
                                     : `View ${entry.name}'s fursuit profile`
                                 }
                                 accessibilityState={{ disabled: entry.isRedacted }}
@@ -1530,7 +1532,7 @@ export default function HomeScreen() {
                                     style={styles.leaderboardCatchLabel}
                                     numberOfLines={1}
                                   >
-                                    {formatCatchCount(entry.catchCount)}
+                                    {formatCaughtTimes(entry.catchCount)}
                                   </Text>
                                 </View>
                                 {entry.isRedacted ? (
