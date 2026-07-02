@@ -384,7 +384,7 @@ describe('fursuit edit profile RPC', () => {
       source,
       /searchText: `\$\{item\.name\} \$\{item\.species \?\? ''\}`\.toLowerCase\(\)/,
     );
-    assert.match(source, /unselectedItems\.slice\(\s+0,\s+Math\.max\(MAX_VISIBLE_PICKER_RESULTS/s);
+    assert.match(source, /unselectedItems\.slice\(\s*0,\s*Math\.max\(MAX_VISIBLE_PICKER_RESULTS/s);
     assert.match(source, /Showing the first \{visibleItems\.length\} of \{filtered\.length\}/);
   });
 });
