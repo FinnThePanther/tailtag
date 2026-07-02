@@ -347,4 +347,21 @@ describe('fursuit edit profile RPC', () => {
     assert.match(indexSource, /router\.push\('\/suits\/reorder'\)/);
     assert.match(rootLayoutSource, /<MySuitsOrderSyncManager \/>/);
   });
+
+  it('paginates convention fursuit roster RPC reads past the Supabase 1000-row response cap', () => {
+    const source = read('src/features/conventions/api/conventions.ts');
+
+    assert.match(source, /const CONVENTION_ROSTER_PAGE_SIZE = 1000;/);
+    assert.match(source, /for \(let from = 0; ; from \+= CONVENTION_ROSTER_PAGE_SIZE\)/);
+    assert.match(source, /const to = from \+ CONVENTION_ROSTER_PAGE_SIZE - 1;/);
+    assert.match(
+      source,
+      /\.rpc\('get_convention_suit_roster', \{\s+p_convention_id: conventionId,\s+\}\)\s+\.range\(from, to\)/s,
+    );
+    assert.match(
+      source,
+      /\.rpc\('get_convention_suit_roster_caught_ids', \{\s+p_convention_id: conventionId,\s+\}\)\s+\.range\(from, to\)/s,
+    );
+    assert.match(source, /if \(page\.length < CONVENTION_ROSTER_PAGE_SIZE\) \{\s+break;/s);
+  });
 });

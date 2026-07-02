@@ -3783,6 +3783,7 @@ export type Database = {
           color_assignments: Json
           convention_id: string
           first_caught_at: string
+          fursuit_avatar_path: string
           fursuit_avatar_url: string
           fursuit_id: string
           fursuit_name: string

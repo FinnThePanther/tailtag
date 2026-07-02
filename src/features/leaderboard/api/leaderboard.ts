@@ -88,7 +88,7 @@ export async function fetchConventionSuitLeaderboard(
           ? null
           : resolveStorageMediaUrl({
               bucket: FURSUIT_BUCKET,
-              path: null,
+              path: row.fursuit_avatar_path,
               legacyUrl: row.fursuit_avatar_url,
             }),
         ownerProfileId: row.owner_id,

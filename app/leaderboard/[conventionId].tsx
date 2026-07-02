@@ -31,6 +31,8 @@ import {
 } from '../../src/features/leaderboard/constants';
 
 const formatCatchCount = (count: number) => (count === 1 ? '1 catch' : `${count} catches`);
+const formatCaughtTimes = (count: number) =>
+  count === 1 ? 'Caught 1 time' : `Caught ${count} times`;
 
 export default function FullLeaderboardScreen() {
   const router = useRouter();
@@ -282,7 +284,7 @@ export default function FullLeaderboardScreen() {
                       accessibilityRole={entry.isRedacted ? undefined : 'button'}
                       accessibilityLabel={
                         entry.isRedacted
-                          ? `Restricted fursuit standing, rank ${rank}, ${formatCatchCount(entry.catchCount)}`
+                          ? `Restricted fursuit standing, rank ${rank}, ${formatCaughtTimes(entry.catchCount)}`
                           : `View ${entry.name}'s fursuit profile`
                       }
                       accessibilityState={{ disabled: entry.isRedacted }}
@@ -310,7 +312,7 @@ export default function FullLeaderboardScreen() {
                           style={styles.catchLabel}
                           numberOfLines={1}
                         >
-                          {formatCatchCount(entry.catchCount)}
+                          {formatCaughtTimes(entry.catchCount)}
                         </Text>
                       </View>
                       {entry.isRedacted ? (

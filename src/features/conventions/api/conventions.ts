@@ -11,6 +11,7 @@ import { normalizeUuidString } from '@/utils/ids';
 import type { Database, FursuitSocialLink } from '@/types/database';
 
 const GAMEPLAY_EVENT_TIMEOUT_MS = 5000;
+const CONVENTION_ROSTER_PAGE_SIZE = 1000;
 
 const createGameplayEventTimeout = (eventType: string) =>
   new Promise<never>((_, reject) => {
@@ -802,21 +803,35 @@ export async function fetchConventionSuitRoster(
   conventionId: string,
 ): Promise<ConventionSuitRosterEntry[]> {
   const client = supabase as SupabaseClient<Database>;
-  const { data, error } = await client.rpc('get_convention_suit_roster', {
-    p_convention_id: conventionId,
-  });
-
-  if (error) {
-    captureSupabaseError(error, {
-      scope: 'conventions.fetchConventionSuitRoster',
-      conventionId,
-    });
-    throw new Error(`We couldn't load the fursuit roster: ${error.message}`);
-  }
 
   type RosterRow = Database['public']['Functions']['get_convention_suit_roster']['Returns'][number];
+  const rows: RosterRow[] = [];
 
-  return (data ?? [])
+  for (let from = 0; ; from += CONVENTION_ROSTER_PAGE_SIZE) {
+    const to = from + CONVENTION_ROSTER_PAGE_SIZE - 1;
+    const { data, error } = await client
+      .rpc('get_convention_suit_roster', {
+        p_convention_id: conventionId,
+      })
+      .range(from, to);
+
+    if (error) {
+      captureSupabaseError(error, {
+        scope: 'conventions.fetchConventionSuitRoster',
+        conventionId,
+      });
+      throw new Error(`We couldn't load the fursuit roster: ${error.message}`);
+    }
+
+    const page = data ?? [];
+    rows.push(...page);
+
+    if (page.length < CONVENTION_ROSTER_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  return rows
     .filter((row: RosterRow) => row.fursuit_id != null)
     .map((row: RosterRow) => ({
       fursuitId: row.fursuit_id,
@@ -849,19 +864,34 @@ export async function fetchConventionSuitRosterCaughtIds(
   conventionId: string,
 ): Promise<Set<string>> {
   const client = supabase as SupabaseClient<Database>;
-  const { data, error } = await client.rpc('get_convention_suit_roster_caught_ids', {
-    p_convention_id: conventionId,
-  });
+  const rows: Database['public']['Functions']['get_convention_suit_roster_caught_ids']['Returns'] =
+    [];
 
-  if (error) {
-    captureSupabaseError(error, {
-      scope: 'conventions.fetchConventionSuitRosterCaughtIds',
-      conventionId,
-    });
-    return new Set();
+  for (let from = 0; ; from += CONVENTION_ROSTER_PAGE_SIZE) {
+    const to = from + CONVENTION_ROSTER_PAGE_SIZE - 1;
+    const { data, error } = await client
+      .rpc('get_convention_suit_roster_caught_ids', {
+        p_convention_id: conventionId,
+      })
+      .range(from, to);
+
+    if (error) {
+      captureSupabaseError(error, {
+        scope: 'conventions.fetchConventionSuitRosterCaughtIds',
+        conventionId,
+      });
+      return new Set();
+    }
+
+    const page = data ?? [];
+    rows.push(...page);
+
+    if (page.length < CONVENTION_ROSTER_PAGE_SIZE) {
+      break;
+    }
   }
 
-  return new Set((data ?? []).map((row) => row.fursuit_id).filter(Boolean));
+  return new Set(rows.map((row) => row.fursuit_id).filter(Boolean));
 }
 
 export const createConventionSuitRosterCaughtIdsQueryOptions = (
