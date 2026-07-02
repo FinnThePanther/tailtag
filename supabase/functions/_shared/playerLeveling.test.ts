@@ -127,6 +127,49 @@ Deno.test('filters daily achievements out of logical achievement XP', async () =
   assertEquals(isDailyTaskAchievementKey('DAILY_TASK_FIRST_CATCH'), true);
 });
 
+Deno.test('uses achievement XP override from award context when present', async () => {
+  const rpcCalls: Array<{ name: string; params: Record<string, unknown> }> = [];
+  const supabaseAdmin = {
+    rpc: async (name: string, params: Record<string, unknown>) => {
+      rpcCalls.push({ name, params });
+      return {
+        data: [
+          {
+            xp_event_id: '00000000-0000-0000-0000-000000000004',
+            awarded: true,
+            user_id: params.p_user_id,
+            xp_amount: params.p_xp_amount,
+            xp_before: 0,
+            xp_after: params.p_xp_amount,
+            level_before: 1,
+            level_after: 4,
+            leveled_up: true,
+            levels_gained: 3,
+          },
+        ],
+        error: null,
+      };
+    },
+  };
+
+  await awardAchievementXp(
+    supabaseAdmin as never,
+    [
+      {
+        achievement_key: 'TOO_MUCH_TURBULENCE',
+        user_id: event.user_id,
+        awarded: true,
+        context: { achievement_xp_amount: 1000 },
+      },
+    ],
+    event,
+  );
+
+  assertEquals(rpcCalls.length, 1);
+  assertEquals(rpcCalls[0].params.p_xp_amount, 1000);
+  assertEquals(rpcCalls[0].params.p_dedupe_key, 'achievement-unlocked:too_much_turbulence');
+});
+
 Deno.test('awards daily task XP from task leveling metadata when present', async () => {
   const rpcCalls: Array<{ name: string; params: Record<string, unknown> }> = [];
   const supabaseAdmin = {

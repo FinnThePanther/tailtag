@@ -1017,6 +1017,17 @@ async function evaluateConventionAchievements(
             context: { convention_id: conventionId },
           });
         }
+      } else if (kind === 'fursuit_set_caught_at_convention' && typeof row.key === 'string') {
+        const candidate = await evaluateFursuitSetCaughtAtConvention(
+          supabaseAdmin,
+          row.key,
+          conventionId,
+          catchCtx,
+          rule,
+        );
+        if (candidate) {
+          candidates.push(candidate);
+        }
       }
     } else if (triggerEvent === 'convention_joined') {
       if (kind === 'convention_joined') {
@@ -1026,6 +1037,119 @@ async function evaluateConventionAchievements(
   }
 
   return candidates;
+}
+
+function readStringArrayRuleValue(rule: Record<string, unknown>, key: string): string[] {
+  const value = rule[key];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
+}
+
+function readOptionalStringRuleValue(rule: Record<string, unknown>, key: string): string | null {
+  const value = rule[key];
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function readOptionalPositiveIntegerRuleValue(
+  rule: Record<string, unknown>,
+  key: string,
+): number | null {
+  const value = rule[key];
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
+}
+
+async function evaluateFursuitSetCaughtAtConvention(
+  supabaseAdmin: SupabaseClient<any, 'public', any>,
+  achievementKey: string,
+  conventionId: string,
+  context: CatchEventContext,
+  rule: Record<string, unknown>,
+): Promise<AwardCandidate | null> {
+  if (context.conventionId !== conventionId) {
+    return null;
+  }
+
+  const targetFursuitIds = Array.from(new Set(readStringArrayRuleValue(rule, 'fursuit_ids')));
+  if (targetFursuitIds.length === 0 || !targetFursuitIds.includes(context.fursuitId)) {
+    return null;
+  }
+
+  const excludedUserIds = new Set(readStringArrayRuleValue(rule, 'excluded_user_ids'));
+  if (excludedUserIds.has(context.catcherId)) {
+    return null;
+  }
+
+  const startsAt = readOptionalStringRuleValue(rule, 'starts_at');
+  const endsAt = readOptionalStringRuleValue(rule, 'ends_at');
+  const occurredAtMs = Date.parse(context.occurredAt);
+  if (!Number.isFinite(occurredAtMs)) {
+    return null;
+  }
+  if (startsAt && occurredAtMs < Date.parse(startsAt)) {
+    return null;
+  }
+  if (endsAt && occurredAtMs >= Date.parse(endsAt)) {
+    return null;
+  }
+
+  let query = supabaseAdmin
+    .from('catches')
+    .select('fursuit_id')
+    .eq('catcher_id', context.catcherId)
+    .eq('convention_id', conventionId)
+    .eq('status', 'ACCEPTED')
+    .eq('catch_credit_scope', 'full')
+    .in('fursuit_id', targetFursuitIds);
+
+  if (startsAt) {
+    query = query.gte('caught_at', startsAt);
+  }
+  if (endsAt) {
+    query = query.lt('caught_at', endsAt);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('[events-ingress] Failed evaluating fursuit set achievement', {
+      conventionId,
+      achievementKey,
+      error,
+    });
+    return null;
+  }
+
+  const matchedFursuitIds = Array.from(
+    new Set(
+      (data ?? [])
+        .map((row: { fursuit_id?: unknown }) => row.fursuit_id)
+        .filter((value): value is string => typeof value === 'string' && value.length > 0),
+    ),
+  );
+
+  if (!targetFursuitIds.every((fursuitId) => matchedFursuitIds.includes(fursuitId))) {
+    return null;
+  }
+
+  const awardContext: Record<string, unknown> = {
+    catch_id: context.catchId,
+    convention_id: conventionId,
+    fursuit_id: context.fursuitId,
+    target_fursuit_ids: targetFursuitIds,
+    matched_fursuit_ids: matchedFursuitIds,
+  };
+  const xpAmount = readOptionalPositiveIntegerRuleValue(rule, 'xp_amount');
+  if (xpAmount) {
+    awardContext.achievement_xp_amount = xpAmount;
+  }
+
+  return {
+    achievementKey,
+    userId: context.catcherId,
+    context: awardContext,
+  };
 }
 
 async function applyAwards(

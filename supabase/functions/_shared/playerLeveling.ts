@@ -106,6 +106,15 @@ export function isDailyTaskAchievementKey(value: unknown): boolean {
   return typeof value === 'string' && value.startsWith(DAILY_TASK_ACHIEVEMENT_PREFIX);
 }
 
+function readAchievementXpAmount(context: Record<string, unknown> | null | undefined): number {
+  const value = context?.achievement_xp_amount;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0 || value > 10000) {
+    return PLAYER_XP_AMOUNTS.logicalAchievement;
+  }
+
+  return value;
+}
+
 function compactMetadata(metadata: Record<string, unknown>): Json {
   return Object.fromEntries(
     Object.entries(metadata).filter(([, value]) => value !== undefined),
@@ -292,7 +301,7 @@ export async function awardAchievementXp(
     results.push(
       ...(await awardPlayerXpOnce(supabaseAdmin, {
         userId: summary.user_id,
-        xpAmount: PLAYER_XP_AMOUNTS.logicalAchievement,
+        xpAmount: readAchievementXpAmount(summary.context),
         reason: 'logical_achievement_unlocked',
         dedupeKey: `achievement-unlocked:${logicalKey}`,
         sourceEventId: summary.source_event_id ?? event.event_id,
