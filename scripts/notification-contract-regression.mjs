@@ -207,26 +207,26 @@ describe('Notification contract coverage', () => {
     assert.match(source, /GRANT EXECUTE ON FUNCTION public\.register_push_token\(uuid, text\)/);
   });
 
-  it('prompts Anthrocon 2026 members once to enable notifications after login', () => {
+  it('prompts live pre-enrolled convention members to verify location after login', () => {
     const managerSource = read(
-      'src/features/push-notifications/components/AnthroconNotificationPromptManager.tsx',
+      'src/features/conventions/components/ConventionLocationVerificationPromptManager.tsx',
     );
     const layoutSource = read('app/_layout.tsx');
+    const conventionsIndexSource = read('src/features/conventions/index.ts');
     const pushIndexSource = read('src/features/push-notifications/index.ts');
 
-    assert.match(managerSource, /ANTHROCON_2026_SLUG = 'anthrocon-2026'/);
-    assert.match(managerSource, /PROMPT_CAMPAIGN_VERSION = 'v1'/);
+    assert.match(managerSource, /PROMPT_VERSION = 'v1'/);
     assert.match(managerSource, /fetchProfileConventionMemberships/);
-    assert.match(managerSource, /membership\.slug === ANTHROCON_2026_SLUG/);
-    assert.match(managerSource, /membership\.membership_state !== 'past'/);
-    assert.match(managerSource, /promptStorageKey\(userId\)/);
-    assert.match(managerSource, /hasSeenCampaignPrompt !== false/);
-    assert.match(managerSource, /requestPermissionAndRegister\(\)/);
-    assert.match(managerSource, /markPushNotificationPrompted\(userId\)/);
+    assert.match(managerSource, /membership\.membership_state === 'needs_location_verification'/);
+    assert.match(managerSource, /promptStorageKey\(userId, targetMembership\)/);
+    assert.match(managerSource, /verifyConvention\(targetMembership\)/);
+    assert.match(managerSource, /verificationModals/);
     assert.match(managerSource, /firstSegment === 'onboarding'/);
     assert.match(managerSource, /firstSegment === 'legal-consent'/);
     assert.match(managerSource, /firstSegment === 'age-gate'/);
-    assert.match(pushIndexSource, /AnthroconNotificationPromptManager/);
-    assert.match(layoutSource, /<AnthroconNotificationPromptManager \/>/);
+    assert.match(conventionsIndexSource, /ConventionLocationVerificationPromptManager/);
+    assert.match(layoutSource, /<ConventionLocationVerificationPromptManager \/>/);
+    assert.doesNotMatch(pushIndexSource, /AnthroconNotificationPromptManager/);
+    assert.doesNotMatch(layoutSource, /<AnthroconNotificationPromptManager \/>/);
   });
 });

@@ -77,5 +77,6 @@ export { useConventionVerificationAction } from '@/features/conventions/hooks/us
 export { useCatchConventionContext } from '@/features/conventions/hooks/useCatchConventionContext';
 export { useNearbyConventionSetupReminder } from '@/features/conventions/hooks/useNearbyConventionSetupReminder';
 export { NearbyConventionSetupReminderCard } from '@/features/conventions/components/NearbyConventionSetupReminderCard';
+export { ConventionLocationVerificationPromptManager } from '@/features/conventions/components/ConventionLocationVerificationPromptManager';
 export { formatConventionDateRange, isConventionEnded } from './utils';
 export { clearCatchConventionSnapshotsForUser } from './storage/catchConventionSnapshots';

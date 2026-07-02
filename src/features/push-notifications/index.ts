@@ -1,5 +1,4 @@
 export { PushNotificationManager } from './components/PushNotificationManager';
-export { AnthroconNotificationPromptManager } from './components/AnthroconNotificationPromptManager';
 export { usePushNotifications } from './hooks/usePushNotifications';
 export {
   fetchPushSettings,

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,6 +12,22 @@ const closeOutConventionFunctionPath = 'supabase/functions/close-out-convention/
 
 function read(path) {
   return readFileSync(join(root, path), 'utf8');
+}
+
+function readLatestMigrationMatching(pattern) {
+  const migrationsDir = join(root, 'supabase/migrations');
+  const migration = readdirSync(migrationsDir)
+    .filter((file) => file.endsWith('.sql'))
+    .sort()
+    .reverse()
+    .find((file) => pattern.test(readFileSync(join(migrationsDir, file), 'utf8')));
+
+  assert.ok(migration, `Expected to find migration matching ${pattern}`);
+
+  return {
+    file: migration,
+    source: readFileSync(join(migrationsDir, migration), 'utf8'),
+  };
 }
 
 function plpgsqlFunctionBody(source, schema, name) {
@@ -90,5 +106,40 @@ describe('Convention lifecycle automation', () => {
     assert.match(claimCloseoutBody, /'geofence_enabled'/);
     assert.match(claimCloseoutBody, /'location_verification_required'/);
     assert.match(claimCloseoutBody, /buildRecaps|closeout_not_before/);
+  });
+
+  it('notifies pre-enrolled attendees when live location checks are ready', () => {
+    const { source } = readLatestMigrationMatching(
+      /notify_live_convention_location_checks[\s\S]*convention-started-location-check/,
+    );
+    const notifyBody = plpgsqlFunctionBody(
+      source,
+      'app_private',
+      'notify_live_convention_location_checks',
+    );
+    const jobBody = plpgsqlFunctionBody(
+      source,
+      'app_private',
+      'convention_lifecycle_automation_job',
+    );
+
+    assert.match(notifyBody, /public\.is_convention_joinable\(c\.id\)/);
+    assert.match(notifyBody, /COALESCE\(c\.location_verification_required, false\) = true/);
+    assert.match(notifyBody, /pc\.created_at < live_conventions\.effective_started_at/);
+    assert.match(notifyBody, /public\.is_profile_convention_gameplay_eligible/);
+    assert.match(notifyBody, /p\.push_notifications_enabled = true/);
+    assert.match(notifyBody, /NULLIF\(btrim\(p\.expo_push_token\), ''\) IS NOT NULL/);
+    assert.match(notifyBody, /'convention_started'/);
+    assert.match(notifyBody, /'convention-started-location-check:'/);
+    assert.match(notifyBody, /pc\.playable_notified_at IS NULL/);
+    assert.match(notifyBody, /SET playable_notified_at = p_now/);
+    assert.match(
+      notifyBody,
+      /ON CONFLICT \(\s*user_id,\s*type,\s*dedupe_key\s*\)[\s\S]*DO NOTHING/,
+    );
+
+    assert.match(jobBody, /transition_started_conventions_to_live\(\)/);
+    assert.match(jobBody, /notify_live_convention_location_checks\(\)/);
+    assert.match(source, /PERFORM app_private\.notify_live_convention_location_checks\(\);/);
   });
 });
