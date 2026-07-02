@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -7,6 +7,8 @@ import { TailTagInput } from '../../../components/ui/TailTagInput';
 import { colors } from '../../../theme';
 import type { FursuitPickerItem } from '../api';
 import { styles } from './FursuitPicker.styles';
+
+const MAX_VISIBLE_PICKER_RESULTS = 80;
 
 type FursuitPickerProps = {
   items: FursuitPickerItem[];
@@ -30,17 +32,53 @@ export function FursuitPicker({
   disabled = false,
 }: FursuitPickerProps) {
   const [search, setSearch] = useState('');
-  const selectedIdSet = new Set(
-    selectionMode === 'multiple' ? selectedIds : selectedId ? [selectedId] : [],
+  const deferredSearch = useDeferredValue(search);
+  const selectedIdSet = useMemo(
+    () => new Set(selectionMode === 'multiple' ? selectedIds : selectedId ? [selectedId] : []),
+    [selectedId, selectedIds, selectionMode],
   );
   const hasReachedSelectionLimit =
     selectionMode === 'multiple' &&
     typeof selectionLimit === 'number' &&
     selectedIdSet.size >= selectionLimit;
 
-  const filtered = search.trim()
-    ? items.filter((item) => item.name.toLowerCase().includes(search.toLowerCase()))
-    : items;
+  const indexedItems = useMemo(
+    () =>
+      items.map((item) => ({
+        item,
+        searchText: `${item.name} ${item.species ?? ''}`.toLowerCase(),
+      })),
+    [items],
+  );
+  const normalizedSearch = deferredSearch.trim().toLowerCase();
+  const filtered = useMemo(
+    () =>
+      normalizedSearch
+        ? indexedItems
+            .filter(({ searchText }) => searchText.includes(normalizedSearch))
+            .map(({ item }) => item)
+        : items,
+    [indexedItems, items, normalizedSearch],
+  );
+  const visibleItems = useMemo(() => {
+    const selectedItems: FursuitPickerItem[] = [];
+    const unselectedItems: FursuitPickerItem[] = [];
+
+    filtered.forEach((item) => {
+      if (selectedIdSet.has(item.id)) {
+        selectedItems.push(item);
+        return;
+      }
+
+      unselectedItems.push(item);
+    });
+
+    return [
+      ...selectedItems,
+      ...unselectedItems.slice(0, Math.max(MAX_VISIBLE_PICKER_RESULTS - selectedItems.length, 0)),
+    ];
+  }, [filtered, selectedIdSet]);
+  const hiddenResultCount = Math.max(filtered.length - visibleItems.length, 0);
 
   if (isLoading) {
     return (
@@ -84,7 +122,7 @@ export function FursuitPicker({
         </View>
       ) : (
         <FlatList
-          data={filtered}
+          data={visibleItems}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <FursuitPickerRow
@@ -96,6 +134,14 @@ export function FursuitPicker({
             />
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ListFooterComponent={
+            hiddenResultCount > 0 ? (
+              <Text style={styles.resultHint}>
+                Showing the first {visibleItems.length} of {filtered.length}. Keep typing to narrow
+                the list.
+              </Text>
+            ) : null
+          }
           scrollEnabled={false}
         />
       )}

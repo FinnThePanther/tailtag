@@ -350,6 +350,7 @@ describe('fursuit edit profile RPC', () => {
 
   it('paginates convention fursuit roster RPC reads past the Supabase 1000-row response cap', () => {
     const source = read('src/features/conventions/api/conventions.ts');
+    const catchConfirmationSource = read('src/features/catch-confirmations/api/confirmations.ts');
 
     assert.match(source, /const CONVENTION_ROSTER_PAGE_SIZE = 1000;/);
     assert.match(source, /for \(let from = 0; ; from \+= CONVENTION_ROSTER_PAGE_SIZE\)/);
@@ -363,5 +364,27 @@ describe('fursuit edit profile RPC', () => {
       /\.rpc\('get_convention_suit_roster_caught_ids', \{\s+p_convention_id: conventionId,\s+\}\)\s+\.range\(from, to\)/s,
     );
     assert.match(source, /if \(page\.length < CONVENTION_ROSTER_PAGE_SIZE\) \{\s+break;/s);
+    assert.match(catchConfirmationSource, /const CONVENTION_FURSUITS_PAGE_SIZE = 1000;/);
+    assert.match(
+      catchConfirmationSource,
+      /\.rpc\('get_convention_suit_roster', \{\s+p_convention_id: conventionId,\s+\}\)\s+\.range\(from, to\)/s,
+    );
+    assert.match(
+      catchConfirmationSource,
+      /if \(page\.length < CONVENTION_FURSUITS_PAGE_SIZE\) \{\s+break;/s,
+    );
+  });
+
+  it('keeps the catch fursuit picker search bounded for large convention rosters', () => {
+    const source = read('src/features/catch-confirmations/components/FursuitPicker.tsx');
+
+    assert.match(source, /const MAX_VISIBLE_PICKER_RESULTS = 80;/);
+    assert.match(source, /useDeferredValue\(search\)/);
+    assert.match(
+      source,
+      /searchText: `\$\{item\.name\} \$\{item\.species \?\? ''\}`\.toLowerCase\(\)/,
+    );
+    assert.match(source, /unselectedItems\.slice\(\s+0,\s+Math\.max\(MAX_VISIBLE_PICKER_RESULTS/s);
+    assert.match(source, /Showing the first \{visibleItems\.length\} of \{filtered\.length\}/);
   });
 });

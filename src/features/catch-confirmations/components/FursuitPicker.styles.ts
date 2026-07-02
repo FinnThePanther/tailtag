@@ -28,6 +28,13 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
   },
+  resultHint: {
+    color: colors.textPlaceholder,
+    fontSize: 12,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    textAlign: 'center',
+  },
   separator: {
     height: 1,
     backgroundColor: 'rgba(148,163,184,0.1)',

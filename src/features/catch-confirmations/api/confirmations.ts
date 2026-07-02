@@ -776,6 +776,8 @@ export type ReciprocalFursuitPickerItem = FursuitPickerItem & {
   conventionIds: string[];
 };
 
+const CONVENTION_FURSUITS_PAGE_SIZE = 1000;
+
 type ConventionRosterFursuitRow =
   Database['public']['Functions']['get_convention_suit_roster']['Returns'][number];
 
@@ -784,21 +786,35 @@ async function fetchConventionFursuitsForConvention(
   signal?: AbortSignal,
 ): Promise<ConventionRosterFursuitRow[]> {
   const client = supabase as SupabaseClient<Database>;
-  let query = client.rpc('get_convention_suit_roster', {
-    p_convention_id: conventionId,
-  });
+  const rows: ConventionRosterFursuitRow[] = [];
 
-  if (signal) {
-    query = query.abortSignal(signal);
+  for (let from = 0; ; from += CONVENTION_FURSUITS_PAGE_SIZE) {
+    const to = from + CONVENTION_FURSUITS_PAGE_SIZE - 1;
+    let query = client
+      .rpc('get_convention_suit_roster', {
+        p_convention_id: conventionId,
+      })
+      .range(from, to);
+
+    if (signal) {
+      query = query.abortSignal(signal);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    const page = Array.isArray(data) ? data : [];
+    rows.push(...page);
+
+    if (page.length < CONVENTION_FURSUITS_PAGE_SIZE) {
+      break;
+    }
   }
 
-  const { data, error } = await query;
-
-  if (error) {
-    throw error;
-  }
-
-  return Array.isArray(data) ? data : [];
+  return rows;
 }
 
 /**
