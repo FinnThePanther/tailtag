@@ -18,6 +18,7 @@ import {
   resolveStorageMediaUrl,
 } from '../../../utils/supabase-image';
 import { loadUriAsUint8Array } from '../../../utils/files';
+import { fetchConventionFursuitPickerRoster } from '@/features/conventions/api/conventions';
 import {
   createClientAttemptId,
   getCatchPerformanceAppVersion,
@@ -814,15 +815,9 @@ export async function fetchConventionFursuits(
     return [];
   }
 
-  let rows: ConventionRosterFursuitRow[];
+  let rows: Awaited<ReturnType<typeof fetchConventionFursuitPickerRoster>>;
   try {
-    rows = (
-      await Promise.all(
-        conventionIds.map((conventionId) =>
-          fetchConventionFursuitsForConvention(conventionId, signal),
-        ),
-      )
-    ).flat();
+    rows = await fetchConventionFursuitPickerRoster(conventionIds, signal);
   } catch {
     throw new Error("We couldn't load fursuits for your conventions. Please try again.");
   }
@@ -831,19 +826,14 @@ export async function fetchConventionFursuits(
   const results: FursuitPickerItem[] = [];
 
   for (const row of rows) {
-    if (!row.fursuit_id) continue;
-    if (row.owner_id === excludeOwnerId) continue;
-    if (seen.has(row.fursuit_id)) continue;
-    seen.add(row.fursuit_id);
+    if (row.ownerProfileId === excludeOwnerId) continue;
+    if (seen.has(row.fursuitId)) continue;
+    seen.add(row.fursuitId);
     results.push({
-      id: row.fursuit_id,
-      name: row.fursuit_name ?? 'Unknown suit',
-      avatarUrl: resolveStorageMediaUrl({
-        bucket: FURSUIT_BUCKET,
-        path: row.fursuit_avatar_path ?? null,
-        legacyUrl: row.fursuit_avatar_url ?? null,
-      }),
-      species: row.species_name ?? null,
+      id: row.fursuitId,
+      name: row.name,
+      avatarUrl: row.avatarUrl,
+      species: row.species,
     });
   }
 

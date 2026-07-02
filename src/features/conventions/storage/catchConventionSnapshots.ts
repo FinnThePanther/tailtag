@@ -1,7 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { addMonitoringBreadcrumb, captureHandledException } from '@/lib/sentry';
-import type { ConventionSuitRosterEntry } from '../api/conventions';
+import type {
+  ConventionFursuitPickerRosterEntry,
+  ConventionSuitRosterEntry,
+} from '../api/conventions';
 
 const STORAGE_VERSION = 2;
 const SNAPSHOT_TTL_MS = 72 * 60 * 60 * 1000;
@@ -251,7 +254,7 @@ export async function loadCatchConventionRosterSnapshots(params: {
 export async function saveCatchConventionRosterSnapshot(params: {
   userId: string;
   conventionId: string;
-  entries: ConventionSuitRosterEntry[];
+  entries: (ConventionFursuitPickerRosterEntry | ConventionSuitRosterEntry)[];
 }) {
   try {
     const snapshot: CatchConventionRosterSnapshot = {

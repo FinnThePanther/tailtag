@@ -21,6 +21,9 @@ export const styles = StyleSheet.create({
   list: {
     gap: spacing.xs,
   },
+  rowGap: {
+    height: spacing.xs,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
