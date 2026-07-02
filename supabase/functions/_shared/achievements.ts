@@ -1007,8 +1007,9 @@ async function evaluateConventionAchievements(
 
     if (triggerEvent === 'catch_performed') {
       const catchCtx = context as CatchEventContext;
+      const evaluatorKind = readOptionalStringRuleValue(rule, 'kind') ?? kind;
 
-      if (kind === 'fursuit_caught_count_at_convention') {
+      if (evaluatorKind === 'fursuit_caught_count_at_convention') {
         const threshold = typeof rule?.threshold === 'number' ? rule.threshold : 0;
         if (catchCtx.fursuitOwnerId && catchCtx.stats.uniqueCatchersAtConvention >= threshold) {
           candidates.push({
@@ -1017,7 +1018,10 @@ async function evaluateConventionAchievements(
             context: { convention_id: conventionId },
           });
         }
-      } else if (kind === 'fursuit_set_caught_at_convention' && typeof row.key === 'string') {
+      } else if (
+        evaluatorKind === 'fursuit_set_caught_at_convention' &&
+        typeof row.key === 'string'
+      ) {
         const candidate = await evaluateFursuitSetCaughtAtConvention(
           supabaseAdmin,
           row.key,

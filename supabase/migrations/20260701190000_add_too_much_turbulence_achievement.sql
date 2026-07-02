@@ -13,13 +13,14 @@ INSERT INTO public.achievement_rules (
 )
 VALUES (
   '9a12723b-f035-4f66-b47f-17cb9c3b1775',
-  'fursuit_set_caught_at_convention',
+  'permanent',
   'too_much_turbulence',
   'TOO_MUCH_TURBULENCE',
   'Catch all four Turbulence variants during Anthrocon 2026.',
   true,
   1,
   jsonb_build_object(
+    'kind', 'fursuit_set_caught_at_convention',
     'event_type', 'catch_performed',
     'convention_id', '45002703-329b-482b-ac4b-ae525f5c6fdb',
     'starts_at', '2026-07-02T04:00:00Z',
