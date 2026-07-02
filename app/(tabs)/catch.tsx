@@ -334,6 +334,7 @@ export default function CatchScreen() {
     activeConventionIds,
     singleActiveConventionId,
     pickerItems,
+    pickerItemsByConventionId,
     reciprocalPickerItems,
     isMembershipLoading,
     isRosterLoading,
@@ -1266,6 +1267,7 @@ export default function CatchScreen() {
               activeConventionId={singleActiveConventionId}
               conventionOptions={photoCatchConventionOptions}
               preloadedFursuits={pickerItems}
+              preloadedFursuitsByConventionId={pickerItemsByConventionId}
               isRosterRefreshing={isRosterRefreshing || (isUsingRosterSnapshot && isRosterLoading)}
               cameraCatchUnavailableReason={
                 isConventionFinalizing

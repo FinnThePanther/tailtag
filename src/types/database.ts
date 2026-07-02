@@ -3739,6 +3739,20 @@ export type Database = {
           species_name: string
         }[]
       }
+      get_convention_fursuit_picker_roster: {
+        Args: { p_convention_ids: string[] }
+        Returns: {
+          convention_id: string
+          fursuit_avatar_path: string
+          fursuit_avatar_url: string
+          fursuit_id: string
+          fursuit_name: string
+          owner_id: string
+          roster_visible: boolean
+          species_id: string
+          species_name: string
+        }[]
+      }
       get_convention_leaderboard: {
         Args: { p_convention_id?: string }
         Returns: {

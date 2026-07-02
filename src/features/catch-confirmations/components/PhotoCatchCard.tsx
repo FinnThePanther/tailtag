@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -47,6 +47,7 @@ interface PhotoCatchCardProps {
   activeConventionId?: string | null;
   conventionOptions?: ConventionOption[];
   preloadedFursuits?: FursuitPickerItem[];
+  preloadedFursuitsByConventionId?: Record<string, FursuitPickerItem[]>;
   isRosterRefreshing?: boolean;
   cameraCatchUnavailableReason?: string | null;
   galleryCatchUnavailableReason?: string | null;
@@ -65,6 +66,7 @@ export function PhotoCatchCard({
   activeConventionId = null,
   conventionOptions = [],
   preloadedFursuits = [],
+  preloadedFursuitsByConventionId = {},
   isRosterRefreshing = false,
   cameraCatchUnavailableReason = null,
   galleryCatchUnavailableReason = null,
@@ -103,6 +105,43 @@ export function PhotoCatchCard({
   const selectedFursuitIds = useMemo(() => [...selectedFursuits.keys()], [selectedFursuits]);
   const needsConventionSelection =
     step === 'photo_taken' && availableConventionOptions.length > 1 && !selectedConventionId;
+  const getPreloadedFursuitsForConventionIds = useCallback(
+    (targetConventionIds: string[]) => {
+      if (targetConventionIds.length === 0) {
+        return null;
+      }
+
+      const activeConventionIdSet = new Set(activeConventionIds);
+      const canUseCombinedPreload =
+        preloadedFursuits.length > 0 &&
+        targetConventionIds.length === activeConventionIds.length &&
+        targetConventionIds.every((id) => activeConventionIdSet.has(id));
+
+      if (canUseCombinedPreload) {
+        return preloadedFursuits;
+      }
+
+      const hasAllConventionCaches = targetConventionIds.every((id) =>
+        Object.prototype.hasOwnProperty.call(preloadedFursuitsByConventionId, id),
+      );
+      if (!hasAllConventionCaches) {
+        return null;
+      }
+
+      const seen = new Set<string>();
+      const items: FursuitPickerItem[] = [];
+      targetConventionIds.forEach((conventionId) => {
+        preloadedFursuitsByConventionId[conventionId]?.forEach((item) => {
+          if (seen.has(item.id)) return;
+          seen.add(item.id);
+          items.push(item);
+        });
+      });
+
+      return items.sort((a, b) => a.name.localeCompare(b.name));
+    },
+    [activeConventionIds, preloadedFursuits, preloadedFursuitsByConventionId],
+  );
 
   useEffect(() => {
     if (step !== 'photo_taken') return;
@@ -125,13 +164,10 @@ export function PhotoCatchCard({
     }
 
     const fursuitConventionIds = selectedConventionId ? [selectedConventionId] : conventionIds;
-    const canUsePreloadedRoster =
-      photoSource !== 'gallery' &&
-      preloadedFursuits.length > 0 &&
-      fursuitConventionIds.length === activeConventionIds.length;
+    const preloadedRoster = getPreloadedFursuitsForConventionIds(fursuitConventionIds);
 
-    if (canUsePreloadedRoster) {
-      setFursuits(preloadedFursuits);
+    if (preloadedRoster) {
+      setFursuits(preloadedRoster);
       setIsLoadingFursuits(false);
       return;
     }
@@ -160,11 +196,10 @@ export function PhotoCatchCard({
       controller.abort();
     };
   }, [
-    activeConventionIds.length,
     availableConventionOptions,
     conventionIds,
+    getPreloadedFursuitsForConventionIds,
     photoSource,
-    preloadedFursuits,
     selectedConventionId,
     step,
     userId,
@@ -258,7 +293,11 @@ export function PhotoCatchCard({
       setPhotoSource('camera');
       setConventionIds(activeConventionIds);
       setSelectedConventionId(activeConventionIds.length === 1 ? activeConventionIds[0] : null);
-      setFursuits(activeConventionIds.length === 1 ? preloadedFursuits : []);
+      setFursuits(
+        activeConventionIds.length === 1
+          ? (getPreloadedFursuitsForConventionIds([activeConventionIds[0]]) ?? [])
+          : [],
+      );
       setSelectedFursuits(new Map());
       setStep('photo_taken');
     } catch {
@@ -330,30 +369,41 @@ export function PhotoCatchCard({
     resetPickerFeedback();
     setFursuits([]);
 
-    let galleryConventionIds: string[];
-    try {
-      galleryConventionIds = await fetchGalleryProfileConventionIds(userId);
-    } catch (error) {
-      captureHandledException(error, {
-        scope: 'catch-confirmations.PhotoCatchCard.fetchGalleryProfileConventionIds',
-        userId,
-      });
-      setLocalError("We couldn't verify gallery catch eligibility. Please try again.");
-      setIsProcessingPhoto(false);
-      return;
-    }
-
-    if (galleryConventionIds.length === 0) {
-      setLocalError(
-        'Gallery catches open when you are attending a live convention or a convention is finalizing catches.',
-      );
-      setIsProcessingPhoto(false);
-      return;
-    }
-
     try {
       const processingStartedAt = Date.now();
-      const processed = await processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.catchPhoto);
+      const [galleryConventionResult, processedResult] = await Promise.all([
+        fetchGalleryProfileConventionIds(userId)
+          .then((ids) => ({ status: 'success' as const, ids }))
+          .catch((error) => ({ status: 'error' as const, error })),
+        processImageForUpload(asset.uri, IMAGE_UPLOAD_PRESETS.catchPhoto)
+          .then((processed) => ({ status: 'success' as const, processed }))
+          .catch((error) => ({ status: 'error' as const, error })),
+      ]);
+
+      if (galleryConventionResult.status === 'error') {
+        captureHandledException(galleryConventionResult.error, {
+          scope: 'catch-confirmations.PhotoCatchCard.fetchGalleryProfileConventionIds',
+          userId,
+        });
+        setLocalError("We couldn't verify gallery catch eligibility. Please try again.");
+        return;
+      }
+
+      const galleryConventionIds = galleryConventionResult.ids;
+      if (galleryConventionIds.length === 0) {
+        setLocalError(
+          'Gallery catches open when you are attending a live convention or a convention is finalizing catches.',
+        );
+        return;
+      }
+
+      if (processedResult.status === 'error') {
+        setPhotoProcessingMs(null);
+        setLocalError("We couldn't process that gallery photo. Please try another.");
+        return;
+      }
+
+      const processed = processedResult.processed;
       setPhotoProcessingMs(Math.max(0, Date.now() - processingStartedAt));
       setPhoto({
         uri: processed.uri,
@@ -370,7 +420,11 @@ export function PhotoCatchCard({
             ? activeConventionId
             : null,
       );
-      setIsLoadingFursuits(true);
+      setFursuits(
+        galleryConventionIds.length === 1
+          ? (getPreloadedFursuitsForConventionIds([galleryConventionIds[0]]) ?? [])
+          : [],
+      );
       setSelectedFursuits(new Map());
       setStep('photo_taken');
     } catch {
@@ -617,7 +671,7 @@ export function PhotoCatchCard({
                 ? 'Choose a convention before selecting suits'
                 : `Which fursuits did you catch? (${selectedFursuitList.length}/${PHOTO_CATCH_SELECTION_LIMIT})`}
             </Text>
-            {photoSource !== 'gallery' && fursuits.length > 0 && isRosterRefreshing ? (
+            {fursuits.length > 0 && isRosterRefreshing ? (
               <Text style={styles.previewHint}>Refreshing roster...</Text>
             ) : null}
             <ScrollView

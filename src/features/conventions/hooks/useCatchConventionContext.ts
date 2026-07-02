@@ -8,12 +8,12 @@ import type {
 import {
   CONVENTIONS_STALE_TIME,
   PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY,
-  conventionSuitRosterCaughtIdsQueryKey,
+  conventionFursuitPickerRosterQueryKey,
   conventionSuitRosterQueryKey,
-  createConventionSuitRosterCaughtIdsQueryOptions,
-  createConventionSuitRosterQueryOptions,
+  createConventionFursuitPickerRosterQueryOptions,
   fetchProfileConventionMemberships,
   type ConventionMembership,
+  type ConventionSuitRosterEntry,
 } from '@/features/conventions/api/conventions';
 import {
   clearCatchConventionContextSnapshot,
@@ -130,16 +130,9 @@ export function useCatchConventionContext(userId: string | null) {
     });
   }, [activeConventionIds, userId]);
 
-  const rosterQueries = useQueries({
+  const pickerRosterQueries = useQueries({
     queries: activeConventionIds.map((conventionId) => ({
-      ...createConventionSuitRosterQueryOptions(userId ?? '', conventionId),
-      enabled: Boolean(userId),
-    })),
-  });
-
-  const caughtIdQueries = useQueries({
-    queries: activeConventionIds.map((conventionId) => ({
-      ...createConventionSuitRosterCaughtIdsQueryOptions(userId ?? '', conventionId),
+      ...createConventionFursuitPickerRosterQueryOptions(userId ?? '', conventionId),
       enabled: Boolean(userId),
     })),
   });
@@ -149,16 +142,23 @@ export function useCatchConventionContext(userId: string | null) {
       return;
     }
 
-    rosterQueries.forEach((query, index) => {
+    pickerRosterQueries.forEach((query, index) => {
       const conventionId = activeConventionIds[index];
-      if (!conventionId || query.data === undefined || query.isError) {
+      const fullRosterEntries = conventionId
+        ? queryClient.getQueryData<ConventionSuitRosterEntry[]>(
+            conventionSuitRosterQueryKey(userId, conventionId),
+          )
+        : undefined;
+      const entries = query.data ?? fullRosterEntries;
+
+      if (!conventionId || entries === undefined || query.isError) {
         return;
       }
 
       const signature = JSON.stringify({
         conventionId,
-        fursuitIds: query.data.map((entry) => entry.fursuitId),
-        count: query.data.length,
+        fursuitIds: entries.map((entry) => entry.fursuitId),
+        count: entries.length,
       });
       if (savedRosterSnapshotSignaturesRef.current.get(conventionId) === signature) {
         return;
@@ -168,10 +168,10 @@ export function useCatchConventionContext(userId: string | null) {
       void saveCatchConventionRosterSnapshot({
         userId,
         conventionId,
-        entries: query.data,
+        entries,
       });
     });
-  }, [activeConventionIds, rosterQueries, userId]);
+  }, [activeConventionIds, pickerRosterQueries, queryClient, userId]);
 
   const snapshotByConventionId = useMemo(
     () => new Map(rosterSnapshots.map((snapshot) => [snapshot.conventionId, snapshot])),
@@ -184,10 +184,30 @@ export function useCatchConventionContext(userId: string | null) {
     const entries: CatchConventionRosterSnapshotEntry[] = [];
 
     activeConventionIds.forEach((conventionId, index) => {
-      const liveEntries = rosterQueries[index]?.data;
-      if (liveEntries !== undefined) {
+      const pickerEntries = pickerRosterQueries[index]?.data;
+      if (pickerEntries !== undefined) {
         entries.push(
-          ...liveEntries.map((entry) => ({
+          ...pickerEntries.map((entry) => ({
+            fursuitId: entry.fursuitId,
+            conventionId: entry.conventionId,
+            name: entry.name,
+            species: entry.species,
+            avatarUrl: entry.avatarUrl,
+            ownerProfileId: entry.ownerProfileId,
+            rosterVisible: entry.rosterVisible !== false,
+          })),
+        );
+        return;
+      }
+
+      const fullRosterEntries = userId
+        ? queryClient.getQueryData<ConventionSuitRosterEntry[]>(
+            conventionSuitRosterQueryKey(userId, conventionId),
+          )
+        : undefined;
+      if (fullRosterEntries !== undefined) {
+        entries.push(
+          ...fullRosterEntries.map((entry) => ({
             fursuitId: entry.fursuitId,
             conventionId: entry.conventionId,
             name: entry.name,
@@ -214,7 +234,41 @@ export function useCatchConventionContext(userId: string | null) {
     });
 
     return { entries, snapshotCachedAt, usedSnapshot };
-  }, [activeConventionIds, rosterQueries, snapshotByConventionId]);
+  }, [activeConventionIds, pickerRosterQueries, queryClient, snapshotByConventionId, userId]);
+
+  const pickerItemsByConventionId = useMemo<Record<string, FursuitPickerItem[]>>(() => {
+    if (!userId) {
+      return {};
+    }
+
+    const byConventionId: Record<string, FursuitPickerItem[]> = {};
+    const seenByConventionId = new Map<string, Set<string>>();
+
+    rosterPickerSources.entries.forEach((entry) => {
+      if (entry.ownerProfileId === userId) return;
+      if (entry.rosterVisible === false) return;
+
+      const seen = seenByConventionId.get(entry.conventionId) ?? new Set<string>();
+      if (seen.has(entry.fursuitId)) return;
+      seen.add(entry.fursuitId);
+      seenByConventionId.set(entry.conventionId, seen);
+
+      const items = byConventionId[entry.conventionId] ?? [];
+      items.push({
+        id: entry.fursuitId,
+        name: entry.name,
+        avatarUrl: entry.avatarUrl,
+        species: entry.species,
+      });
+      byConventionId[entry.conventionId] = items;
+    });
+
+    Object.values(byConventionId).forEach((items) => {
+      items.sort((a, b) => a.name.localeCompare(b.name));
+    });
+
+    return byConventionId;
+  }, [rosterPickerSources.entries, userId]);
 
   const pickerItems = useMemo<FursuitPickerItem[]>(() => {
     if (!userId) {
@@ -279,10 +333,7 @@ export function useCatchConventionContext(userId: string | null) {
     await Promise.all(
       nextActiveConventionIds.flatMap((conventionId) => [
         queryClient.invalidateQueries({
-          queryKey: conventionSuitRosterQueryKey(userId ?? '', conventionId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: conventionSuitRosterCaughtIdsQueryKey(userId ?? '', conventionId),
+          queryKey: conventionFursuitPickerRosterQueryKey(userId ?? '', conventionId),
         }),
       ]),
     );
@@ -293,19 +344,19 @@ export function useCatchConventionContext(userId: string | null) {
     activeConventionIds,
     singleActiveConventionId,
     pickerItems,
+    pickerItemsByConventionId,
     reciprocalPickerItems,
     isMembershipLoading: membershipQuery.isPending,
-    // isRosterLoading: initial load when activeConventionIds exist, rosterQueries are pending, and no rosterQueries have resolved data.
+    // isRosterLoading: initial load when activeConventionIds exist, picker roster queries are pending, and no live or snapshot data is ready.
     isRosterLoading:
       activeConventionIds.length > 0 &&
-      rosterQueries.some((query) => query.isPending) &&
-      !rosterQueries.some((query) => query.data !== undefined),
-    // isRosterRefreshing: background refresh when rosterQueries or caughtIdQueries are fetching outside their initial pending state.
-    isRosterRefreshing:
-      rosterQueries.some((query) => query.isFetching && !query.isPending) ||
-      caughtIdQueries.some((query) => query.isFetching && !query.isPending),
+      pickerRosterQueries.some((query) => query.isPending) &&
+      rosterPickerSources.entries.length === 0,
+    // isRosterRefreshing: background refresh when picker roster queries are fetching outside their initial pending state.
+    isRosterRefreshing: pickerRosterQueries.some((query) => query.isFetching && !query.isPending),
     hasCachedRoster:
-      rosterQueries.some((query) => query.data !== undefined) || rosterPickerSources.usedSnapshot,
+      pickerRosterQueries.some((query) => query.data !== undefined) ||
+      rosterPickerSources.entries.length > 0,
     isUsingRosterSnapshot: rosterPickerSources.usedSnapshot,
     snapshotCachedAt: rosterPickerSources.snapshotCachedAt,
     refresh,

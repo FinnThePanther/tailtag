@@ -255,6 +255,17 @@ export type ConventionSuitRosterEntry = {
   conventionCatchCount: number;
 };
 
+export type ConventionFursuitPickerRosterEntry = {
+  fursuitId: string;
+  conventionId: string;
+  name: string;
+  species: string | null;
+  speciesId: string | null;
+  avatarUrl: string | null;
+  ownerProfileId: string | null;
+  rosterVisible: boolean;
+};
+
 export type ConventionSuitRosterViewEntry = ConventionSuitRosterEntry & {
   caughtByCurrentUser: boolean;
 };
@@ -265,6 +276,7 @@ export const ACTIVE_PROFILE_CONVENTIONS_QUERY_KEY = 'active-profile-conventions'
 export const PROFILE_CONVENTION_MEMBERSHIPS_QUERY_KEY = 'profile-convention-memberships';
 export const PAST_CONVENTION_RECAPS_QUERY_KEY = 'past-convention-recaps';
 export const CONVENTION_RECAP_DETAIL_QUERY_KEY = 'convention-recap-detail';
+export const CONVENTION_FURSUIT_PICKER_ROSTER_QUERY_KEY = 'convention-fursuit-picker-roster';
 export const CONVENTION_SUIT_ROSTER_QUERY_KEY = 'convention-suit-roster';
 export const CONVENTION_SUIT_ROSTER_CAUGHT_IDS_QUERY_KEY = 'convention-suit-roster-caught-ids';
 
@@ -273,6 +285,9 @@ export const conventionRecapDetailQueryKey = (userId: string, recapId: string) =
 
 export const conventionSuitRosterQueryKey = (userId: string, conventionId: string) =>
   [CONVENTION_SUIT_ROSTER_QUERY_KEY, userId, conventionId] as const;
+
+export const conventionFursuitPickerRosterQueryKey = (userId: string, conventionId: string) =>
+  [CONVENTION_FURSUIT_PICKER_ROSTER_QUERY_KEY, userId, conventionId] as const;
 
 export const conventionSuitRosterCaughtIdsQueryKey = (userId: string, conventionId: string) =>
   [CONVENTION_SUIT_ROSTER_CAUGHT_IDS_QUERY_KEY, userId, conventionId] as const;
@@ -855,6 +870,105 @@ export async function fetchConventionSuitRoster(
 export const createConventionSuitRosterQueryOptions = (userId: string, conventionId: string) => ({
   queryKey: conventionSuitRosterQueryKey(userId, conventionId),
   queryFn: () => fetchConventionSuitRoster(conventionId),
+  staleTime: CONVENTIONS_STALE_TIME,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
+
+type ConventionFursuitPickerRosterRow =
+  Database['public']['Functions']['get_convention_fursuit_picker_roster']['Returns'][number];
+
+const isMissingPickerRosterFunctionError = (error: { code?: string; message?: string }) =>
+  error.code === '42883' ||
+  error.message?.includes('get_convention_fursuit_picker_roster') === true;
+
+async function fetchConventionFursuitPickerRosterFallback(
+  conventionIds: string[],
+): Promise<ConventionFursuitPickerRosterEntry[]> {
+  const entries = (await Promise.all(conventionIds.map(fetchConventionSuitRoster))).flat();
+
+  return entries.map((entry) => ({
+    fursuitId: entry.fursuitId,
+    conventionId: entry.conventionId,
+    name: entry.name,
+    species: entry.species,
+    speciesId: entry.speciesId,
+    avatarUrl: entry.avatarUrl,
+    ownerProfileId: entry.ownerProfileId,
+    rosterVisible: entry.rosterVisible,
+  }));
+}
+
+export async function fetchConventionFursuitPickerRoster(
+  conventionIds: string[],
+  signal?: AbortSignal,
+): Promise<ConventionFursuitPickerRosterEntry[]> {
+  const uniqueConventionIds = [...new Set(conventionIds)].filter(Boolean);
+  if (uniqueConventionIds.length === 0) {
+    return [];
+  }
+
+  const client = supabase as SupabaseClient<Database>;
+  const rows: ConventionFursuitPickerRosterRow[] = [];
+
+  for (let from = 0; ; from += CONVENTION_ROSTER_PAGE_SIZE) {
+    const to = from + CONVENTION_ROSTER_PAGE_SIZE - 1;
+    let query = client
+      .rpc('get_convention_fursuit_picker_roster', {
+        p_convention_ids: uniqueConventionIds,
+      })
+      .range(from, to);
+
+    if (signal) {
+      query = query.abortSignal(signal);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      if (isMissingPickerRosterFunctionError(error)) {
+        return fetchConventionFursuitPickerRosterFallback(uniqueConventionIds);
+      }
+
+      captureSupabaseError(error, {
+        scope: 'conventions.fetchConventionFursuitPickerRoster',
+        conventionIds: uniqueConventionIds,
+      });
+      throw new Error(`We couldn't load the fursuit picker roster: ${error.message}`);
+    }
+
+    const page = Array.isArray(data) ? data : [];
+    rows.push(...page);
+
+    if (page.length < CONVENTION_ROSTER_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  return rows
+    .filter((row) => row.fursuit_id != null && row.convention_id != null)
+    .map((row) => ({
+      fursuitId: row.fursuit_id!,
+      conventionId: row.convention_id!,
+      name: row.fursuit_name ?? 'Unknown suit',
+      species: row.species_name ?? null,
+      speciesId: row.species_id ?? null,
+      avatarUrl: resolveStorageMediaUrl({
+        bucket: FURSUIT_BUCKET,
+        path: row.fursuit_avatar_path ?? null,
+        legacyUrl: row.fursuit_avatar_url ?? null,
+      }),
+      ownerProfileId: row.owner_id ?? null,
+      rosterVisible: row.roster_visible !== false,
+    }));
+}
+
+export const createConventionFursuitPickerRosterQueryOptions = (
+  userId: string,
+  conventionId: string,
+) => ({
+  queryKey: conventionFursuitPickerRosterQueryKey(userId, conventionId),
+  queryFn: () => fetchConventionFursuitPickerRoster([conventionId]),
   staleTime: CONVENTIONS_STALE_TIME,
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
