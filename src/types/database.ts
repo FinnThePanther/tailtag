@@ -3699,6 +3699,7 @@ export type Database = {
       get_blocked_users: {
         Args: { p_user_id: string }
         Returns: {
+          blocked_avatar_path: string
           blocked_avatar_url: string
           blocked_id: string
           blocked_username: string
@@ -4063,8 +4064,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: {
           catch_id: string
+          catch_photo_path: string
           catch_photo_source: string
           catch_photo_url: string
+          catcher_avatar_path: string
           catcher_avatar_url: string
           catcher_id: string
           catcher_username: string
@@ -4072,10 +4075,12 @@ export type Database = {
           convention_id: string
           convention_name: string
           expires_at: string
+          fursuit_avatar_path: string
           fursuit_avatar_url: string
           fursuit_id: string
           fursuit_name: string
           photo_upload_state: string
+          reciprocal_fursuit_avatar_path: string
           reciprocal_fursuit_avatar_url: string
           reciprocal_fursuit_id: string
           reciprocal_fursuit_name: string

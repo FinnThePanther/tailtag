@@ -3,6 +3,7 @@ export type UserBlock = {
   blockerId: string;
   blockedId: string;
   blockedUsername: string | null;
+  blockedAvatarPath?: string | null;
   blockedAvatarUrl: string | null;
   createdAt: string;
 };

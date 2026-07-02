@@ -387,4 +387,51 @@ describe('fursuit edit profile RPC', () => {
     assert.match(source, /unselectedItems\.slice\(\s*0,\s*Math\.max\(MAX_VISIBLE_PICKER_RESULTS/s);
     assert.match(source, /Showing the first \{visibleItems\.length\} of \{filtered\.length\}/);
   });
+
+  it('resolves pending catch review media from storage paths before legacy URLs', () => {
+    const migration = read('supabase/migrations/20260702133000_add_pending_catch_media_paths.sql');
+    const source = read('src/features/catch-confirmations/api/confirmations.ts');
+
+    assert.match(migration, /catcher_avatar_path text/);
+    assert.match(migration, /fursuit_avatar_path text/);
+    assert.match(migration, /catch_photo_path text/);
+    assert.match(migration, /reciprocal_fursuit_avatar_path text/);
+    assert.match(migration, /p\.avatar_path AS catcher_avatar_path/);
+    assert.match(migration, /f\.avatar_path AS fursuit_avatar_path/);
+    assert.match(migration, /c\.catch_photo_path/);
+    assert.match(migration, /rf\.avatar_path AS reciprocal_fursuit_avatar_path/);
+
+    assert.match(
+      source,
+      /catcherAvatarUrl: resolveStorageMediaUrl\(\{\s+bucket: PROFILE_AVATAR_BUCKET,\s+path: row\.catcher_avatar_path \?\? null,/s,
+    );
+    assert.match(
+      source,
+      /fursuitAvatarUrl: resolveStorageMediaUrl\(\{\s+bucket: FURSUIT_BUCKET,\s+path: row\.fursuit_avatar_path \?\? null,/s,
+    );
+    assert.match(
+      source,
+      /catchPhotoUrl: resolveStorageMediaUrl\(\{\s+bucket: CATCH_PHOTO_BUCKET,\s+path: row\.catch_photo_path \?\? null,/s,
+    );
+    assert.match(
+      source,
+      /reciprocalFursuitAvatarUrl: resolveStorageMediaUrl\(\{\s+bucket: FURSUIT_BUCKET,\s+path: row\.reciprocal_fursuit_avatar_path \?\? null,/s,
+    );
+  });
+
+  it('resolves blocked profile avatars from storage paths before legacy URLs', () => {
+    const migration = read('supabase/migrations/20260702133000_add_pending_catch_media_paths.sql');
+    const source = read('src/features/moderation/api/blocks.ts');
+
+    assert.match(migration, /blocked_avatar_path text/);
+    assert.match(migration, /p\.avatar_path::text/);
+    assert.match(
+      source,
+      /blockedAvatarUrl: resolveStorageMediaUrl\(\{\s+bucket: PROFILE_AVATAR_BUCKET,\s+path: row\.blocked_avatar_path \?\? null,/s,
+    );
+    assert.doesNotMatch(
+      source,
+      /blockedAvatarUrl: resolveStorageMediaUrl\(\{\s+bucket: PROFILE_AVATAR_BUCKET,\s+path: null,/s,
+    );
+  });
 });

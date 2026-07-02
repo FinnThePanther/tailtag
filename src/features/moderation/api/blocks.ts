@@ -24,9 +24,10 @@ export async function fetchBlockedUsers(userId: string): Promise<UserBlock[]> {
     blockerId: row.blocker_id,
     blockedId: row.blocked_id,
     blockedUsername: row.blocked_username ?? null,
+    blockedAvatarPath: row.blocked_avatar_path ?? null,
     blockedAvatarUrl: resolveStorageMediaUrl({
       bucket: PROFILE_AVATAR_BUCKET,
-      path: null,
+      path: row.blocked_avatar_path ?? null,
       legacyUrl: row.blocked_avatar_url ?? null,
     }),
     createdAt: row.created_at,
